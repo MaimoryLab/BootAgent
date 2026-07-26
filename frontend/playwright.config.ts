@@ -20,6 +20,10 @@ export default defineConfig({
     url: "http://127.0.0.1:8765/",
     reuseExistingServer: true,
     timeout: 30_000,
+    // Surface the Python GUI's own output. Without this a webServer startup
+    // failure reports only "Timed out waiting 30000ms" with no cause.
+    stdout: "pipe",
+    stderr: "pipe",
     env: {
       ONEAGENT_DISABLE_BROWSER: "1",
     },
