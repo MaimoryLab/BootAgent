@@ -50,6 +50,30 @@ describe("api client", () => {
     });
   });
 
+  it("sends the selected agents so each protocol is probed", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      jsonResponse({ ok: true, reachable: true, status: 200, message: "ok", error_code: null, retryable: false }),
+    );
+    await api.probe({
+      provider: "custom",
+      apiBaseUrl: "http://127.0.0.1:9000",
+      apiKey: "sentinel",
+      model: "model-a",
+      agents: ["codex", "opencode"],
+    });
+    const init = fetchMock.mock.calls[0][1] as RequestInit;
+    expect(JSON.parse(String(init.body)).agents).toEqual(["codex", "opencode"]);
+  });
+
+  it("omits agents entirely when none are selected", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      jsonResponse({ ok: true, reachable: true, status: 200, message: "ok", error_code: null, retryable: false }),
+    );
+    await api.probe({ provider: "ppio", apiBaseUrl: "", apiKey: "sentinel", model: "m", agents: [] });
+    const body = JSON.parse(String((fetchMock.mock.calls[0][1] as RequestInit).body));
+    expect(body).not.toHaveProperty("agents");
+  });
+
   it("supports models, install and register endpoints", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(jsonResponse({ ok: true, models: ["a"] }))

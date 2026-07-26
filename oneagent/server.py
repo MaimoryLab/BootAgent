@@ -17,7 +17,13 @@ from urllib.parse import quote, unquote, urlsplit
 from .catalog import agent_catalog, resource_root
 from .errors import OneAgentError
 from .installer import InstallOptions, Runtime, install_many, status_payload
-from .providers import chat_probe, list_models, provider_home
+from .providers import (
+    PROTOCOL_OPENAI,
+    agent_protocol,
+    list_models,
+    protocol_probe,
+    provider_home,
+)
 
 
 MAX_BODY_BYTES = 65536
@@ -228,13 +234,39 @@ def _timeout_field(payload: dict[str, object]) -> int:
 
 
 def probe_payload(payload: dict[str, object]) -> dict[str, object]:
-    return chat_probe(
-        provider=_string_field(payload, "provider", "ppio"),
-        custom_base=_string_field(payload, "api_base_url"),
-        api_key=_string_field(payload, "api_key"),
-        model=_string_field(payload, "model", "gpt-4.1") or "gpt-4.1",
-        timeout=_timeout(),
-    )
+    provider = _string_field(payload, "provider", "ppio")
+    custom_base = _string_field(payload, "api_base_url")
+    api_key = _string_field(payload, "api_key")
+    model = _string_field(payload, "model", "gpt-4.1") or "gpt-4.1"
+    timeout = _timeout()
+
+    # Test the protocols the selected Agents will really speak. Without an Agent
+    # list this stays an OpenAI-compatible check, which is all the older clients
+    # ever asked for.
+    catalog = agent_catalog()
+    agents = _optional_agents_field(payload, "agents") or []
+    protocols = sorted(
+        {
+            agent_protocol(str(catalog[agent].get("config_adapter") or ""))
+            for agent in agents
+            if catalog[agent]["config_mode"] == "auto"
+        }
+    ) or [PROTOCOL_OPENAI]
+
+    results = {
+        protocol: protocol_probe(
+            protocol=protocol,
+            provider=provider,
+            custom_base=custom_base,
+            api_key=api_key,
+            model=model,
+            timeout=timeout,
+        )
+        for protocol in protocols
+    }
+    # Report the actionable protocol: the one that refused, if any.
+    primary = next((r for r in results.values() if not r["ok"]), results[protocols[0]])
+    return {**primary, "ok": all(r["ok"] for r in results.values()), "protocols": results}
 
 
 def models_payload(payload: dict[str, object]) -> dict[str, object]:

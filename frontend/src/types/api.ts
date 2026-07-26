@@ -9,6 +9,8 @@ export interface AgentCatalogItem {
   configMode: "auto" | "guide";
   guideOnly: boolean;
   lockedVersion: string | null;
+  /** Inference protocol this Agent speaks; null for guide-only Agents. */
+  protocol: ProtocolId | null;
   platforms: PlatformId[];
   platformNote: string;
 }
@@ -59,6 +61,14 @@ export interface ApiErrorShape {
   retryable: boolean;
 }
 
+export type ProtocolId = "openai" | "anthropic" | "responses";
+
+export const PROTOCOL_LABELS: Record<ProtocolId, string> = {
+  openai: "OpenAI Chat Completions",
+  anthropic: "Anthropic Messages",
+  responses: "OpenAI Responses",
+};
+
 export interface ProbeResponse {
   ok: boolean;
   reachable: boolean;
@@ -66,6 +76,10 @@ export interface ProbeResponse {
   message: string;
   error_code: string | null;
   retryable: boolean;
+  /** Which protocol this result describes. Absent on pre-protocol responses. */
+  protocol?: ProtocolId;
+  /** One entry per protocol the selected Agents speak. */
+  protocols?: Partial<Record<ProtocolId, ProbeResponse>>;
 }
 
 export interface ModelsResponse extends ProbeResponse {

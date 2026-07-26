@@ -15,8 +15,14 @@ from pathlib import Path
 from typing import Any, Callable, Iterable
 
 from .catalog import AGENT_GROUPS, PROVIDERS, agent_catalog, current_platform, public_catalog, resolve_home
-from .errors import OneAgentError
-from .providers import chat_probe, openai_base_url, provider_base, provider_config_base
+from .errors import EXIT_CODES, OneAgentError
+from .providers import (
+    agent_protocol,
+    openai_base_url,
+    protocol_probe,
+    provider_base,
+    provider_config_base,
+)
 
 
 Runner = Callable[..., subprocess.CompletedProcess[str]]
@@ -604,6 +610,22 @@ def install_many(options: InstallOptions, runtime: Runtime | None = None) -> dic
         if any(agent in {"codex", "opencode", "kilo-cli"} for agent in auto_agents):
             write_shared_env(runtime, options.api_key, base_url)
 
+    # Verify the model over each protocol the selected Agents actually speak,
+    # before any config is written. A model that answers Chat Completions may
+    # still reject Responses or Anthropic Messages, and writing a config for a
+    # pair the endpoint refuses only moves the failure into the Agent itself.
+    probes: dict[str, dict[str, Any]] = {}
+    if options.configure and auto_agents and not options.skip_test and not options.check_agent_only:
+        for protocol in sorted({agent_protocol(str(catalog[agent]["config_adapter"])) for agent in auto_agents}):
+            probes[protocol] = protocol_probe(
+                protocol=protocol,
+                provider=options.provider,
+                custom_base=options.api_base_url,
+                api_key=options.api_key,
+                model=options.model,
+                timeout=options.timeout,
+            )
+
     results: list[dict[str, Any]] = []
     logs: list[str] = []
     next_steps: list[str] = []
@@ -657,10 +679,18 @@ def install_many(options: InstallOptions, runtime: Runtime | None = None) -> dic
                 continue
             config_path = None
             if options.configure:
+                adapter = str(meta.get("config_adapter") or "")
+                verdict = probes.get(agent_protocol(adapter))
+                if verdict is not None and not verdict["ok"]:
+                    raise OneAgentError(
+                        str(verdict["error_code"] or "PROVIDER_UNREACHABLE"),
+                        f"{meta['name']}: {verdict['message']}",
+                        retryable=bool(verdict["retryable"]),
+                    )
                 config_base_url = provider_config_base(
                     options.provider,
                     options.api_base_url,
-                    str(meta.get("config_adapter") or ""),
+                    adapter,
                 )
                 config_path = _write_agent_config(
                     runtime,
@@ -699,17 +729,16 @@ def install_many(options: InstallOptions, runtime: Runtime | None = None) -> dic
             )
             logs.append(f"## {agent_id}\n{exc.message}")
 
+    # Surface the failing protocol first: with several Agents selected the GUI
+    # shows one probe, and the actionable one is the protocol that refused.
     probe_result = None
-    if options.configure and auto_agents and not options.skip_test and not options.check_agent_only:
-        probe_result = chat_probe(
-            provider=options.provider,
-            custom_base=options.api_base_url,
-            api_key=options.api_key,
-            model=options.model,
-        )
-        if not probe_result["ok"]:
-            first_exit_code = first_exit_code or 6
-            logs.append(f"## provider\n{probe_result['message']}")
+    for verdict in probes.values():
+        if probe_result is None or (not verdict["ok"] and probe_result["ok"]):
+            probe_result = verdict
+    for protocol, verdict in sorted(probes.items()):
+        if not verdict["ok"]:
+            first_exit_code = first_exit_code or EXIT_CODES.get(str(verdict["error_code"]), 6)
+            logs.append(f"## provider ({protocol})\n{verdict['message']}")
 
     failed = [result for result in results if result["status"] == "failed"]
     if not failed and (probe_result is None or probe_result["ok"]) and not options.check_agent_only:
@@ -729,6 +758,7 @@ def install_many(options: InstallOptions, runtime: Runtime | None = None) -> dic
         "log": text,
         "next": "\n".join(next_steps),
         "probe": probe_result,
+        "probes": probes,
     }
 
 

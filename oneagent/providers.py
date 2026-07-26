@@ -7,8 +7,31 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
-from .catalog import PROVIDERS
+from .catalog import (
+    PROTOCOL_ANTHROPIC,
+    PROTOCOL_OPENAI,
+    PROTOCOL_RESPONSES,
+    PROVIDERS,
+    agent_protocol,
+)
 from .errors import OneAgentError
+
+__all__ = [
+    "PROTOCOL_ANTHROPIC",
+    "PROTOCOL_OPENAI",
+    "PROTOCOL_RESPONSES",
+    "agent_protocol",
+    "anthropic_messages_url",
+    "chat_probe",
+    "list_models",
+    "openai_base_url",
+    "protocol_label",
+    "protocol_probe",
+    "provider_base",
+    "provider_config_base",
+    "provider_home",
+    "validate_base_url",
+]
 
 
 def validate_base_url(value: str) -> str:
@@ -41,6 +64,28 @@ def provider_config_base(provider: str, custom_base: str, adapter: str) -> str:
     return base_url
 
 
+PROTOCOL_LABELS = {
+    PROTOCOL_OPENAI: "OpenAI Chat Completions",
+    PROTOCOL_ANTHROPIC: "Anthropic Messages",
+    PROTOCOL_RESPONSES: "OpenAI Responses",
+}
+
+# Endpoints answer "this model cannot serve this protocol" with several shapes:
+# 400 INVALID_REQUEST_BODY "does not support endpoint", 500 "not implemented",
+# and plain 404/405 when the route is absent. All are permanent for the pair, so
+# they must not be reported as retryable.
+_UNSUPPORTED_MARKERS = (
+    "does not support endpoint",
+    "not implemented",
+    "unsupported endpoint",
+    "unknown endpoint",
+)
+
+
+def protocol_label(protocol: str) -> str:
+    return PROTOCOL_LABELS.get(protocol, protocol)
+
+
 def provider_home(provider: str) -> str:
     if provider not in PROVIDERS:
         raise OneAgentError("INVALID_REQUEST", "Registration is only available for ppio or novita")
@@ -53,6 +98,20 @@ def openai_base_url(base_url: str) -> str:
         if base.endswith(suffix):
             base = base[: -len(suffix)].rstrip("/")
     return base if base.endswith("/v1") else base + "/v1"
+
+
+def anthropic_messages_url(base_url: str) -> str:
+    """Anthropic bases arrive in both shapes: PPIO/Novita expose
+    `.../anthropic` with no version segment, while a custom base is commonly
+    pasted already ending in `/v1`. Normalise both to exactly one `/v1/messages`."""
+    base = base_url.rstrip("/")
+    for suffix in ("/v1/messages", "/messages"):
+        if base.endswith(suffix):
+            base = base[: -len(suffix)].rstrip("/")
+            break
+    if base.endswith("/v1"):
+        return base + "/messages"
+    return base + "/v1/messages"
 
 
 def _request_error(exc: Exception, *, models: bool = False) -> dict[str, Any]:
@@ -102,6 +161,110 @@ def _request_error(exc: Exception, *, models: bool = False) -> dict[str, Any]:
     }
 
 
+def _protocol_request(
+    protocol: str,
+    *,
+    provider: str,
+    custom_base: str,
+    api_key: str,
+    model: str,
+) -> Request:
+    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+    if protocol == PROTOCOL_ANTHROPIC:
+        url = anthropic_messages_url(provider_config_base(provider, custom_base, "claude-code"))
+        headers["X-Api-Key"] = api_key
+        headers["Anthropic-Version"] = "2023-06-01"
+        body: dict[str, Any] = {
+            "model": model,
+            "messages": [{"role": "user", "content": "ping"}],
+            "max_tokens": 1,
+        }
+    else:
+        v1 = openai_base_url(provider_base(provider, custom_base))
+        if protocol == PROTOCOL_RESPONSES:
+            url = v1 + "/responses"
+            # Reasoning models spend the budget before emitting text, so an
+            # over-tight cap fails for a reason unrelated to protocol support.
+            body = {"model": model, "input": "ping", "max_output_tokens": 16}
+        else:
+            url = v1 + "/chat/completions"
+            body = {
+                "model": model,
+                "messages": [{"role": "user", "content": "ping"}],
+                "max_tokens": 1,
+            }
+    return Request(url, data=json.dumps(body).encode(), method="POST", headers=headers)
+
+
+def _unsupported_protocol(code: int, body: str) -> bool:
+    if code in {404, 405, 501}:
+        return True
+    if code in {400, 422, 500}:
+        lowered = body.lower()
+        return any(marker in lowered for marker in _UNSUPPORTED_MARKERS)
+    return False
+
+
+def protocol_probe(
+    *,
+    protocol: str,
+    provider: str,
+    api_key: str,
+    model: str,
+    custom_base: str = "",
+    timeout: float = 10,
+) -> dict[str, Any]:
+    """Send one minimal request over `protocol` and report whether the model
+    actually serves it. Passing Chat Completions does not prove a model answers
+    Responses or Anthropic Messages, so each Agent must be checked separately."""
+    if not api_key:
+        raise OneAgentError("INVALID_REQUEST", "API key is required")
+    if protocol not in PROTOCOL_LABELS:
+        raise OneAgentError("INVALID_REQUEST", f"Unknown inference protocol: {protocol}")
+    request = _protocol_request(
+        protocol, provider=provider, custom_base=custom_base, api_key=api_key, model=model or "gpt-4.1"
+    )
+    label = protocol_label(protocol)
+    try:
+        with urlopen(request, timeout=timeout) as response:
+            return {
+                "ok": response.status in {200, 204},
+                "reachable": True,
+                "protocol": protocol,
+                "status": response.status,
+                "message": f"{label} connection test passed.",
+                "error_code": None,
+                "retryable": False,
+            }
+    except (HTTPError, URLError, TimeoutError, socket.timeout) as exc:
+        try:
+            if isinstance(exc, HTTPError):
+                try:
+                    body = exc.read().decode(errors="replace")
+                except OSError:
+                    body = ""
+                if _unsupported_protocol(exc.code, body):
+                    return {
+                        "ok": False,
+                        "reachable": True,
+                        "protocol": protocol,
+                        "status": exc.code,
+                        "message": (
+                            f"Model {model!r} does not support {label}. "
+                            "Choose a model that serves this protocol."
+                        ),
+                        "error_code": "PROTOCOL_UNSUPPORTED",
+                        "retryable": False,
+                    }
+            result = _request_error(exc)
+            result.pop("models", None)
+            result["protocol"] = protocol
+            return result
+        finally:
+            if isinstance(exc, HTTPError):
+                exc.close()
+
+
 def chat_probe(
     *,
     provider: str,
@@ -110,41 +273,14 @@ def chat_probe(
     custom_base: str = "",
     timeout: float = 10,
 ) -> dict[str, Any]:
-    if not api_key:
-        raise OneAgentError("INVALID_REQUEST", "API key is required")
-    base_url = provider_base(provider, custom_base)
-    url = openai_base_url(base_url) + "/chat/completions"
-    body = json.dumps(
-        {
-            "model": model or "gpt-4.1",
-            "messages": [{"role": "user", "content": "ping"}],
-            "max_tokens": 1,
-        }
-    ).encode()
-    request = Request(
-        url,
-        data=body,
-        method="POST",
-        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+    return protocol_probe(
+        protocol=PROTOCOL_OPENAI,
+        provider=provider,
+        api_key=api_key,
+        model=model,
+        custom_base=custom_base,
+        timeout=timeout,
     )
-    try:
-        with urlopen(request, timeout=timeout) as response:
-            return {
-                "ok": response.status in {200, 204},
-                "reachable": True,
-                "status": response.status,
-                "message": "Connection test passed.",
-                "error_code": None,
-                "retryable": False,
-            }
-    except (HTTPError, URLError, TimeoutError, socket.timeout) as exc:
-        try:
-            result = _request_error(exc)
-            result.pop("models", None)
-            return result
-        finally:
-            if isinstance(exc, HTTPError):
-                exc.close()
 
 
 def list_models(

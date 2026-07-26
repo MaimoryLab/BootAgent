@@ -53,12 +53,21 @@ function post<T>(path: string, body: object): Promise<T> {
 
 export const api = {
   status: () => request<StatusResponse>("/api/status"),
-  probe: (input: { provider: ProviderId; apiBaseUrl: string; apiKey: string; model: string }) =>
+  probe: (input: {
+    provider: ProviderId;
+    apiBaseUrl: string;
+    apiKey: string;
+    model: string;
+    /** Selected Agents, so each one's protocol is exercised rather than
+     *  assuming OpenAI Chat Completions for everything. */
+    agents?: string[];
+  }) =>
     post<ProbeResponse>("/api/probe", {
       provider: input.provider,
       api_base_url: input.apiBaseUrl,
       api_key: input.apiKey,
       model: input.model,
+      ...(input.agents?.length ? { agents: input.agents } : {}),
     }),
   models: (input: { provider: ProviderId; apiBaseUrl: string; apiKey: string }) =>
     post<ModelsResponse>("/api/models", {

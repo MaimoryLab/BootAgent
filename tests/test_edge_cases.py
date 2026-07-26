@@ -35,7 +35,20 @@ from oneagent.installer import (
     write_codex_config,
     write_openai_compatible_config,
 )
-from oneagent.providers import chat_probe, list_models, openai_base_url, provider_base, provider_config_base, provider_home, validate_base_url
+from oneagent.providers import (
+    _protocol_request,
+    _unsupported_protocol,
+    agent_protocol,
+    anthropic_messages_url,
+    chat_probe,
+    list_models,
+    openai_base_url,
+    protocol_probe,
+    provider_base,
+    provider_config_base,
+    provider_home,
+    validate_base_url,
+)
 
 
 class FakeResponse:
@@ -88,6 +101,129 @@ class CatalogEdgeTests(unittest.TestCase):
         with patch("oneagent.catalog.current_platform", return_value={"os": "windows", "arch": "x64", "shell": "powershell"}):
             by_id = {item["id"]: item for item in catalog.public_catalog()}
         self.assertTrue(by_id["opencode"]["platformNote"])
+
+
+class ProtocolEdgeTests(unittest.TestCase):
+    def test_agent_protocol_mapping_covers_every_auto_adapter(self):
+        adapters = {
+            meta["config_adapter"]: agent_id
+            for agent_id, meta in catalog.agent_catalog().items()
+            if meta["config_mode"] == "auto"
+        }
+        self.assertEqual(
+            {adapter: agent_protocol(adapter) for adapter in adapters},
+            {
+                "codex": "responses",
+                "claude-code": "anthropic",
+                "opencode": "openai",
+                "kilo-cli": "openai",
+                "aider": "openai",
+            },
+        )
+        # An adapter added without a protocol entry must not silently probe a
+        # protocol it does not speak; OpenAI-compatible is the documented default.
+        self.assertEqual(agent_protocol("brand-new-adapter"), "openai")
+
+    def test_anthropic_messages_url_normalises_both_base_shapes(self):
+        cases = {
+            "https://api.ppio.com/anthropic": "https://api.ppio.com/anthropic/v1/messages",
+            "https://api.novita.ai/anthropic/": "https://api.novita.ai/anthropic/v1/messages",
+            "https://proxy.test/v1": "https://proxy.test/v1/messages",
+            "https://proxy.test/v1/messages": "https://proxy.test/v1/messages",
+            "https://proxy.test/messages": "https://proxy.test/v1/messages",
+        }
+        for base, expected in cases.items():
+            with self.subTest(base=base):
+                self.assertEqual(anthropic_messages_url(base), expected)
+
+    def test_unsupported_protocol_classification(self):
+        # Permanent: the endpoint says the pair cannot work.
+        self.assertTrue(_unsupported_protocol(404, ""))
+        self.assertTrue(_unsupported_protocol(405, ""))
+        self.assertTrue(_unsupported_protocol(501, ""))
+        self.assertTrue(_unsupported_protocol(400, '{"message":"model: x does not support endpoint: responses"}'))
+        self.assertTrue(_unsupported_protocol(500, '{"error":{"message":"not implemented"}}'))
+        self.assertTrue(_unsupported_protocol(422, "Unsupported endpoint"))
+        # Transient: a bare 500 or an overloaded upstream must stay retryable.
+        self.assertFalse(_unsupported_protocol(500, '{"error":{"message":"internal server error"}}'))
+        self.assertFalse(_unsupported_protocol(503, "the upstream load is saturated"))
+        self.assertFalse(_unsupported_protocol(429, "quota exceeded"))
+        self.assertFalse(_unsupported_protocol(400, '{"message":"invalid api key"}'))
+
+    def test_each_protocol_builds_its_own_endpoint_and_payload(self):
+        built = {
+            protocol: _protocol_request(
+                protocol, provider="custom", custom_base="https://proxy.test/v1", api_key="k", model="m"
+            )
+            for protocol in ("openai", "responses", "anthropic")
+        }
+        self.assertEqual(built["openai"].full_url, "https://proxy.test/v1/chat/completions")
+        self.assertEqual(built["responses"].full_url, "https://proxy.test/v1/responses")
+        self.assertEqual(built["anthropic"].full_url, "https://proxy.test/v1/messages")
+
+        # Responses takes `input`, not `messages`; Anthropic needs its own headers.
+        self.assertIn("input", json.loads(built["responses"].data))
+        self.assertIn("messages", json.loads(built["openai"].data))
+        self.assertEqual(built["anthropic"].get_header("X-api-key"), "k")
+        self.assertEqual(built["anthropic"].get_header("Anthropic-version"), "2023-06-01")
+        self.assertIsNone(built["openai"].get_header("X-api-key"))
+
+    def test_protocol_probe_rejects_unknown_protocol_and_missing_key(self):
+        with self.assertRaises(OneAgentError):
+            protocol_probe(protocol="openai", provider="custom", api_key="", model="m", custom_base="https://x.test/v1")
+        with self.assertRaises(OneAgentError):
+            protocol_probe(protocol="grpc", provider="custom", api_key="k", model="m", custom_base="https://x.test/v1")
+
+    def test_protocol_probe_reports_unsupported_pairs_as_permanent(self):
+        error = HTTPError(
+            "https://proxy.test/v1/responses", 400, "Bad Request", {},
+            io.BytesIO(b'{"code":400,"reason":"INVALID_REQUEST_BODY","message":"model: glm does not support endpoint: responses"}'),
+        )
+        with patch("oneagent.providers.urlopen", side_effect=error):
+            result = protocol_probe(
+                protocol="responses", provider="custom", api_key="k", model="glm", custom_base="https://proxy.test/v1"
+            )
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["error_code"], "PROTOCOL_UNSUPPORTED")
+        self.assertFalse(result["retryable"])
+        self.assertEqual(result["protocol"], "responses")
+        self.assertIn("OpenAI Responses", result["message"])
+
+    def test_protocol_probe_keeps_transient_failures_retryable(self):
+        error = HTTPError(
+            "https://proxy.test/v1/responses", 503, "Service Unavailable", {},
+            io.BytesIO(b'{"error":{"message":"the upstream load is saturated"}}'),
+        )
+        with patch("oneagent.providers.urlopen", side_effect=error):
+            result = protocol_probe(
+                protocol="responses", provider="custom", api_key="k", model="m", custom_base="https://proxy.test/v1"
+            )
+        self.assertFalse(result["ok"])
+        self.assertNotEqual(result["error_code"], "PROTOCOL_UNSUPPORTED")
+        self.assertTrue(result["retryable"])
+        self.assertEqual(result["protocol"], "responses")
+
+    def test_protocol_probe_success_reports_the_protocol_label(self):
+        with patch("oneagent.providers.urlopen", return_value=FakeResponse(b"{}", 200)):
+            result = protocol_probe(
+                protocol="anthropic", provider="custom", api_key="k", model="m", custom_base="https://proxy.test/v1"
+            )
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["protocol"], "anthropic")
+        self.assertIn("Anthropic Messages", result["message"])
+
+    def test_unreadable_error_body_falls_back_to_generic_handling(self):
+        class Unreadable(io.BytesIO):
+            def read(self, *_args):
+                raise OSError("stream closed")
+
+        error = HTTPError("https://proxy.test/v1/responses", 400, "Bad Request", {}, Unreadable(b""))
+        with patch("oneagent.providers.urlopen", side_effect=error):
+            result = protocol_probe(
+                protocol="responses", provider="custom", api_key="k", model="m", custom_base="https://proxy.test/v1"
+            )
+        self.assertFalse(result["ok"])
+        self.assertNotEqual(result["error_code"], "PROTOCOL_UNSUPPORTED")
 
 
 class ProviderEdgeTests(unittest.TestCase):
@@ -560,6 +696,55 @@ class InstallerEdgeTests(unittest.TestCase):
             checked = install_many(InstallOptions(agents=["codex"], configure=False, check_agent_only=True), missing_runtime)
             self.assertEqual(checked["results"][0]["status"], "skipped")
 
+    def test_protocol_mismatch_refuses_to_write_agent_config(self):
+        # A model that answers Chat Completions can still reject Responses. If
+        # OneAgent wrote the Codex config anyway, the failure would surface as an
+        # opaque error inside Codex on the user's first real request.
+        unsupported = {
+            "ok": False,
+            "reachable": True,
+            "protocol": "responses",
+            "status": 400,
+            "message": "Model 'glm-5.2' does not support OpenAI Responses.",
+            "error_code": "PROTOCOL_UNSUPPORTED",
+            "retryable": False,
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            runtime = Runtime.create(home=home, os_id="linux", which=lambda _name: None)
+            with patch("oneagent.installer.protocol_probe", return_value=unsupported):
+                result = install_many(
+                    InstallOptions(agents=["codex"], api_key="key", model="glm-5.2"), runtime
+                )
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["results"][0]["error_code"], "PROTOCOL_UNSUPPORTED")
+        self.assertFalse(result["results"][0]["retryable"])
+        self.assertEqual(result["code"], 7)
+        self.assertFalse((home / ".codex" / "config.toml").exists())
+        self.assertFalse((home / ".oneagent" / "profile.json").exists())
+
+    def test_each_agent_is_probed_over_its_own_protocol(self):
+        seen: list[str] = []
+
+        def fake_probe(*, protocol, **_kwargs):
+            seen.append(protocol)
+            return {"ok": True, "message": "ok", "error_code": None, "retryable": False, "protocol": protocol}
+
+        with tempfile.TemporaryDirectory() as tmp:
+            runtime = Runtime.create(home=Path(tmp), os_id="linux", which=lambda _name: None)
+            with patch("oneagent.installer.protocol_probe", side_effect=fake_probe):
+                result = install_many(
+                    InstallOptions(
+                        agents=["codex", "claude-code", "opencode"], api_key="key", model="m"
+                    ),
+                    runtime,
+                )
+        # Codex speaks Responses, Claude Code speaks Anthropic Messages, OpenCode
+        # speaks Chat Completions; shared protocols are probed once.
+        self.assertEqual(sorted(seen), ["anthropic", "openai", "responses"])
+        self.assertEqual(sorted(result["probes"]), ["anthropic", "openai", "responses"])
+        self.assertTrue(result["ok"])
+
     def test_install_validation_platform_probe_and_windows_next_steps(self):
         runtime = Runtime.create(home=Path("/tmp"), os_id="linux", which=lambda _name: None)
         with self.assertRaises(OneAgentError):
@@ -579,16 +764,16 @@ class InstallerEdgeTests(unittest.TestCase):
         self.assertEqual(result["results"][0]["error_code"], "PREREQUISITE_MISSING")
 
         with tempfile.TemporaryDirectory() as tmp, patch(
-            "oneagent.installer.chat_probe",
-            return_value={"ok": False, "message": "provider failed", "error_code": "PROVIDER_UNREACHABLE"},
+            "oneagent.installer.protocol_probe",
+            return_value={"ok": False, "message": "provider failed", "error_code": "PROVIDER_UNREACHABLE", "retryable": True},
         ):
             result = install_many(InstallOptions(agents=["codex"], api_key="key", model="m"), Runtime.create(home=Path(tmp), os_id="linux", which=lambda _name: None))
         self.assertFalse(result["ok"])
         self.assertIn("provider failed", result["log"])
 
         with tempfile.TemporaryDirectory() as tmp, patch(
-            "oneagent.installer.chat_probe",
-            return_value={"ok": True, "message": "ok", "error_code": None},
+            "oneagent.installer.protocol_probe",
+            return_value={"ok": True, "message": "ok", "error_code": None, "retryable": False},
         ):
             successful_probe = install_many(
                 InstallOptions(agents=["codex"], api_key="key", model="m"),
@@ -600,7 +785,7 @@ class InstallerEdgeTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             failing_runtime = Runtime.create(home=Path(tmp), os_id="linux", which=lambda name: "/fake/npm" if name == "npm" else None)
             failing_runtime.runner = lambda args, **_kwargs: subprocess.CompletedProcess(args, 9, "", "failed")
-            with patch("oneagent.installer.chat_probe", return_value={"ok": False, "message": "provider failed"}):
+            with patch("oneagent.installer.protocol_probe", return_value={"ok": False, "message": "provider failed", "error_code": "PROVIDER_UNREACHABLE", "retryable": True}):
                 result = install_many(
                     InstallOptions(agents=["codex"], api_key="key", install_agent=True, skip_test=False),
                     failing_runtime,

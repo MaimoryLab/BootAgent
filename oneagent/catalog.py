@@ -32,6 +32,25 @@ AGENT_GROUPS = [
     {"id": "ide", "name": "IDE extensions"},
 ]
 
+PROTOCOL_OPENAI = "openai"
+PROTOCOL_ANTHROPIC = "anthropic"
+PROTOCOL_RESPONSES = "responses"
+
+# Which inference protocol each Agent speaks once configured. A model ID that
+# answers one protocol is not guaranteed to answer the others, so this drives
+# both the connection test and the config write.
+ADAPTER_PROTOCOLS = {
+    "codex": PROTOCOL_RESPONSES,
+    "claude-code": PROTOCOL_ANTHROPIC,
+    "opencode": PROTOCOL_OPENAI,
+    "kilo-cli": PROTOCOL_OPENAI,
+    "aider": PROTOCOL_OPENAI,
+}
+
+
+def agent_protocol(adapter: str) -> str:
+    return ADAPTER_PROTOCOLS.get(adapter, PROTOCOL_OPENAI)
+
 
 def resource_root() -> Path:
     bundle_root = getattr(sys, "_MEIPASS", None)
@@ -66,6 +85,11 @@ def public_catalog() -> list[dict[str, object]]:
                 "configMode": meta["config_mode"],
                 "guideOnly": meta["config_mode"] == "guide",
                 "lockedVersion": (meta.get("package") or {}).get("version"),
+                "protocol": (
+                    agent_protocol(str(meta.get("config_adapter") or ""))
+                    if meta["config_mode"] == "auto"
+                    else None
+                ),
                 "platforms": meta.get("platforms", []),
                 "platformNote": meta.get("windows_note", "") if current_platform()["os"] == "windows" else "",
             }

@@ -163,11 +163,31 @@ GET  <openai-base>/v1/models
 
 Custom 支持 HTTP/HTTPS，包括用户主动配置的本机地址；拒绝 URL 凭据、非法 scheme 和控制字符。推荐显式使用 `--provider custom --api-base-url ...`。为兼容旧 CLI，合法 Provider 也可以用 `--api-base-url` 做显式覆盖。
 
-协议注意事项：
+### 按 Agent 协议验证
 
+每个 Agent 配置后实际使用的推理协议不同，OneAgent 按此逐一验证，而不是统一探测 Chat Completions：
+
+| Agent | 协议 | 验证请求 |
+| --- | --- | --- |
+| Codex | Responses | `POST <base>/v1/responses` |
+| Claude Code | Anthropic Messages | `POST <anthropic-base>/v1/messages` |
+| OpenCode、Kilo CLI、Aider | OpenAI-compatible | `POST <base>/v1/chat/completions` |
+
+**同一个模型 ID 不一定同时兼容三种协议**，这不是理论风险。对一个 OpenAI-compatible 中转端点的 36 个文本模型实测：
+
+| 协议 | 通过 |
+| --- | --- |
+| Chat Completions | 31 / 36 |
+| Anthropic Messages | 23 / 36 |
+| **Responses** | **10 / 36** |
+
+在 30 个能明确判定的模型里只有 10 个支持 Responses，判定依据是端点显式回复 `400 "does not support endpoint: responses"` 或 `500 "not implemented"`。因此：
+
+- 连接测试会带上所选 Agent，逐个协议验证；只验证 Chat Completions 不能证明 Codex 可用。
+- 探测到协议不兼容时返回 `PROTOCOL_UNSUPPORTED` 并**拒绝写入配置**，不会把失败推迟到 Agent 首次请求。
+- 该错误不可重试；配额超限、上游过载等瞬时故障仍按可重试处理。
 - Claude Code 使用 Provider 的 Anthropic-compatible base，并写入 `ANTHROPIC_BASE_URL`、`ANTHROPIC_AUTH_TOKEN`、`ANTHROPIC_MODEL` 和 `ANTHROPIC_SMALL_FAST_MODEL`。
-- Codex 当前配置使用 Responses 协议。PPIO/Novita 的 `/v1/responses` 必须在 Release Candidate 中使用专用低权限 Key 做真实验收；仅验证 Chat Completions 不能证明 Codex 可用。
-- 同一个模型 ID 不一定同时兼容 OpenAI、Anthropic 和 Responses 协议。真实 Agent 首次请求是发布门禁，不以 `/v1/models` 成功代替。
+- 真实 Agent 首次请求仍是发布门禁，不以 `/v1/models` 成功代替。
 
 ## Agent 范围
 
@@ -216,6 +236,7 @@ CLI `--json` 和本地 API 使用稳定错误码：
 - `API_KEY_REJECTED`
 - `PROVIDER_UNREACHABLE`
 - `MODELS_UNSUPPORTED`
+- `PROTOCOL_UNSUPPORTED`
 - `AGENT_INSTALL_FAILED`
 - `CONFIG_WRITE_FAILED`
 - `TIMEOUT`

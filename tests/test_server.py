@@ -246,6 +246,66 @@ class ServerContractTests(unittest.TestCase):
             self.assertEqual(status, 200)
             self.assertEqual(payload["models"], ["model-list"])
 
+    def test_probe_tests_the_protocol_of_each_selected_agent(self):
+        calls: list[tuple[str, str]] = []
+
+        def fake_probe(*, protocol, model, **_kwargs):
+            calls.append((protocol, model))
+            # Mirror the real endpoint: the model serves chat but refuses Responses.
+            if protocol == "responses":
+                return {
+                    "ok": False, "reachable": True, "protocol": protocol, "status": 400,
+                    "message": "does not support OpenAI Responses",
+                    "error_code": "PROTOCOL_UNSUPPORTED", "retryable": False,
+                }
+            return {
+                "ok": True, "reachable": True, "protocol": protocol, "status": 200,
+                "message": "passed", "error_code": None, "retryable": False,
+            }
+
+        self.bootstrap()
+        with patch("oneagent.server.protocol_probe", side_effect=fake_probe):
+            # Codex alone -> Responses only, and the refusal must surface.
+            _, _, payload = self.post(
+                "/api/probe",
+                {"provider": "custom", "api_base_url": "https://x.test/v1", "api_key": "k",
+                 "model": "glm", "agents": ["codex"]},
+            )
+            self.assertFalse(payload["ok"])
+            self.assertEqual(payload["error_code"], "PROTOCOL_UNSUPPORTED")
+            self.assertEqual(sorted(payload["protocols"]), ["responses"])
+
+            calls.clear()
+            # OpenCode alone speaks Chat Completions, so the same model passes.
+            _, _, payload = self.post(
+                "/api/probe",
+                {"provider": "custom", "api_base_url": "https://x.test/v1", "api_key": "k",
+                 "model": "glm", "agents": ["opencode"]},
+            )
+            self.assertTrue(payload["ok"])
+            self.assertEqual(sorted(payload["protocols"]), ["openai"])
+
+            calls.clear()
+            # Mixed selection: every distinct protocol probed once, and the
+            # failing one is reported even though another succeeded.
+            _, _, payload = self.post(
+                "/api/probe",
+                {"provider": "custom", "api_base_url": "https://x.test/v1", "api_key": "k",
+                 "model": "glm", "agents": ["codex", "opencode", "kilo-cli", "openclaw"]},
+            )
+            self.assertEqual(sorted(p for p, _ in calls), ["openai", "responses"])
+            self.assertFalse(payload["ok"])
+            self.assertEqual(payload["error_code"], "PROTOCOL_UNSUPPORTED")
+
+            calls.clear()
+            # No agents -> unchanged OpenAI-compatible behaviour for older clients.
+            _, _, payload = self.post(
+                "/api/probe",
+                {"provider": "custom", "api_base_url": "https://x.test/v1", "api_key": "k", "model": "glm"},
+            )
+            self.assertEqual([p for p, _ in calls], ["openai"])
+            self.assertTrue(payload["ok"])
+
     def test_provider_timeout_is_retryable(self):
         provider = HTTPServer(("127.0.0.1", 0), ProviderHandler)
         with LocalServer(provider), patch.dict(os.environ, {"ONEAGENT_HTTP_TIMEOUT": "0.05"}):

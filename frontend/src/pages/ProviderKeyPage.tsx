@@ -8,7 +8,8 @@ import { PageScaffold } from "../components/PageScaffold";
 import { ProviderSegment } from "../components/ProviderSegment";
 import { SecureKeyField } from "../components/SecureKeyField";
 import { useWizard } from "../state/WizardContext";
-import type { ProviderId } from "../types/api";
+import { PROTOCOL_LABELS } from "../types/api";
+import type { ProtocolId, ProviderId } from "../types/api";
 
 export function ProviderKeyPage() {
   const navigate = useNavigate();
@@ -16,7 +17,22 @@ export function ProviderKeyPage() {
   const providerMeta = state.provider === "custom" ? null : state.status?.providers[state.provider];
   const apiBaseUrl = state.provider === "custom" ? state.customBaseUrl : providerMeta?.base_url || "";
   const canContinue = state.hasApiKey && (state.provider !== "custom" || Boolean(state.customBaseUrl.trim()));
-  const endpoint = useMemo(() => (apiBaseUrl ? `${apiBaseUrl.replace(/\/$/, "")}/v1/chat/completions` : ""), [apiBaseUrl]);
+  // The selected Agents decide which protocols get tested; a model that serves
+  // Chat Completions may still refuse Responses, so do not imply a single one.
+  const protocols = useMemo(() => {
+    const byId = new Map(state.status?.catalog.map((item) => [item.id, item]) ?? []);
+    const selected = state.selectedAgentIds
+      .map((id) => byId.get(id)?.protocol)
+      .filter((value): value is ProtocolId => Boolean(value));
+    return [...new Set(selected)].sort();
+  }, [state.status, state.selectedAgentIds]);
+
+  const endpoint = useMemo(() => {
+    if (!apiBaseUrl) return "";
+    const base = apiBaseUrl.replace(/\/$/, "");
+    if (!protocols.length) return `${base}/v1/chat/completions`;
+    return `${base} · ${protocols.map((p) => PROTOCOL_LABELS[p]).join(" + ")}`;
+  }, [apiBaseUrl, protocols]);
 
   const changeProvider = (provider: ProviderId) => {
     dispatch({ type: "SET_PROVIDER", value: provider });
@@ -30,6 +46,7 @@ export function ProviderKeyPage() {
         apiBaseUrl: state.provider === "custom" ? state.customBaseUrl : "",
         apiKey: secret.keyRef.current,
         model: state.model || "gpt-4.1",
+        agents: state.selectedAgentIds,
       });
       dispatch({ type: "CONNECTION_RESULT", result });
     } catch (error) {
