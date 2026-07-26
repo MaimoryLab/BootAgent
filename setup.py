@@ -21,11 +21,13 @@ _spec = importlib.util.spec_from_file_location(
 _module = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_module)
 stage_resources = _module.stage_resources
+prune_stale_build_output = _module.prune_stale_build_output
 
 
 class BuildPyWithResources(build_py):
     def run(self) -> None:
         stage_resources(ROOT)
+        prune_stale_build_output(self.build_lib)
         super().run()
 
 

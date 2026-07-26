@@ -16,7 +16,7 @@ from oneagent import catalog, entrypoint
 from oneagent.catalog import load_manifest
 from scripts import build_release
 from scripts.check_release import validate_manifest
-from scripts.stage_resources import stage_resources
+from scripts.stage_resources import prune_stale_build_output, stage_resources
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -158,6 +158,30 @@ class ReleasePolicyTests(unittest.TestCase):
         pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
         self.assertIn("_resources/agents.lock.json", pyproject)
         self.assertIn("_resources/frontend/dist", pyproject)
+
+    def test_stale_build_output_cannot_ship_an_outdated_manifest(self):
+        # setuptools copies package data into build/lib and never prunes it,
+        # and build/ survives between builds. A wheel was therefore packaging
+        # whatever _resources happened to be there -- verified by breaking the
+        # staging step and still getting a complete wheel. For a project whose
+        # premise is version locking, shipping a stale agents.lock.json is the
+        # worst version of that bug.
+        with tempfile.TemporaryDirectory() as tmp:
+            build_lib = Path(tmp).resolve() / "lib"
+            stale = build_lib / "oneagent" / "_resources"
+            (stale / "frontend" / "dist").mkdir(parents=True)
+            (stale / "agents.lock.json").write_text('{"stale": true}', encoding="utf-8")
+
+            self.assertEqual(prune_stale_build_output(build_lib), stale)
+            self.assertFalse(stale.exists())
+            # Sibling modules in build/lib must survive; only the staged tree goes.
+            self.assertTrue((build_lib / "oneagent").is_dir())
+
+            # Nothing staged yet is not an error.
+            self.assertIsNone(prune_stale_build_output(build_lib))
+
+        setup_source = (ROOT / "setup.py").read_text(encoding="utf-8")
+        self.assertIn("prune_stale_build_output(self.build_lib)", setup_source)
 
     def test_source_checkout_wins_over_a_stale_staging_directory(self):
         # Building a wheel locally leaves oneagent/_resources/ in the working

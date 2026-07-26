@@ -20,6 +20,22 @@ ROOT = Path(__file__).resolve().parents[1]
 RESOURCES = ROOT / "oneagent" / "_resources"
 
 
+def prune_stale_build_output(build_lib: Path | str) -> Path | None:
+    """Drop a previously copied _resources tree from setuptools' build dir.
+
+    build_py copies package data into build/lib but never prunes entries that
+    changed or disappeared, and build/ survives between builds. Left alone, a
+    stale copy is packaged in preference to whatever staging just produced --
+    including an outdated agents.lock.json, which would silently undo the
+    version locking the release policy depends on.
+    """
+    stale = Path(build_lib) / "oneagent" / "_resources"
+    if stale.exists():
+        shutil.rmtree(stale)
+        return stale
+    return None
+
+
 def stage_resources(root: Path | None = None) -> Path:
     """Refresh <package>/_resources and return it."""
     base = root or ROOT

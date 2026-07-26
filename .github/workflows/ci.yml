@@ -96,6 +96,9 @@ jobs:
           $homeDir = Join-Path $env:RUNNER_TEMP "oneagent-contract-home"
           ./scripts/install.ps1 --agent openclaw --check-agent-only --json --home $homeDir
 
+      - name: Wheel builds and runs from a clean install
+        run: python scripts/verify_wheel.py
+
       - name: React unit coverage
         working-directory: frontend
         run: npm run test:coverage
