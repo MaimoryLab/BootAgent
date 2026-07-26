@@ -1,0 +1,44 @@
+import { Bot, Boxes, FolderCog, Gauge, Layers3, Sparkles } from "lucide-react";
+import { NavLink } from "react-router-dom";
+
+const navItems = [
+  { to: "/overview", label: "环境总览", icon: Gauge },
+  { to: "/setup/agents", label: "Agent", icon: Bot },
+  { to: "/setup/provider", label: "Provider", icon: Layers3 },
+  { to: "/setup/review", label: "配置档案", icon: FolderCog },
+];
+
+export function NavigationSidebar() {
+  return (
+    <aside className="navigation-sidebar">
+      <div className="brand-lockup">
+        <span className="brand-mark" aria-hidden="true">
+          <Boxes size={21} strokeWidth={1.8} />
+        </span>
+        <div>
+          <strong>OneAgent</strong>
+          <span>AI 开发环境</span>
+        </div>
+      </div>
+
+      <nav className="sidebar-nav" aria-label="主导航">
+        <NavLink to="/setup/agents" className="sidebar-primary-action">
+          <Sparkles size={17} />
+          激活环境
+        </NavLink>
+        <div className="sidebar-section-label">工作区</div>
+        {navItems.map(({ to, label, icon: Icon }) => (
+          <NavLink key={to} to={to} className={({ isActive }) => `sidebar-link${isActive ? " is-active" : ""}`}>
+            <Icon size={18} strokeWidth={1.8} />
+            <span>{label}</span>
+          </NavLink>
+        ))}
+      </nav>
+
+      <div className="sidebar-footnote">
+        <span className="privacy-dot" />
+        配置只保存在本机
+      </div>
+    </aside>
+  );
+}

@@ -1,0 +1,126 @@
+name: Release Candidate Verification
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native-build-and-agent-install:
+    name: ${{ matrix.label }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            label: Linux x64
+            source: "--source"
+          - os: windows-2022
+            label: Windows x64
+            source: ""
+          - os: macos-15
+            label: macOS arm64
+            source: ""
+          - os: macos-15-intel
+            label: macOS x64
+            source: ""
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.11.20"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install build dependencies
+        run: python -m pip install pyinstaller==6.21.0
+
+      - name: Build frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run test:coverage
+          npm run build
+
+      - name: Run Python contracts
+        run: python -m unittest tests.test_core tests.test_cli tests.test_server tests.test_release_policy tests.test_edge_cases tests.test_rc_scripts
+
+      - name: Build unsigned native package
+        shell: bash
+        run: python scripts/build_release.py --channel technical-preview-unsigned --skip-frontend ${{ matrix.source }}
+
+      - name: Smoke packaged executable on Unix
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          home_dir="$(mktemp -d)"
+          build/pyinstaller-dist/OneAgent/OneAgent --agent openclaw --check-agent-only --json --home "$home_dir"
+
+      - name: Real macOS cleanroom
+        if: runner.os == 'macOS'
+        env:
+          ONEAGENT_PACKAGED_BINARY: ${{ github.workspace }}/build/pyinstaller-dist/OneAgent/OneAgent
+        run: bash tests/macos_cleanroom_test.sh
+
+      - name: Smoke packaged executable on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $home = Join-Path $env:RUNNER_TEMP "oneagent-package-home"
+          ./build/pyinstaller-dist/OneAgent/OneAgent.exe --agent openclaw --check-agent-only --json --home $home
+
+      - name: Install and verify all locked Agents
+        run: python scripts/verify_locked_agents.py
+
+      - name: Validate release contents
+        run: python scripts/check_release.py release
+
+      - name: Upload macOS cleanroom failures
+        if: failure() && runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-cleanroom-failures-${{ matrix.os }}
+          path: build/macos-cleanroom
+          if-no-files-found: ignore
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: OneAgent-${{ matrix.os }}-release-candidate-unsigned
+          path: release/*
+          if-no-files-found: error
+
+  provider-protocol-smoke:
+    name: PPIO and Novita protocol smoke
+    needs: native-build-and-agent-install
+    runs-on: ubuntu-22.04
+    env:
+      ONEAGENT_PPIO_API_KEY: ${{ secrets.ONEAGENT_PPIO_API_KEY }}
+      ONEAGENT_PPIO_OPENAI_MODEL: ${{ vars.ONEAGENT_PPIO_OPENAI_MODEL }}
+      ONEAGENT_PPIO_ANTHROPIC_MODEL: ${{ vars.ONEAGENT_PPIO_ANTHROPIC_MODEL }}
+      ONEAGENT_PPIO_RESPONSES_MODEL: ${{ vars.ONEAGENT_PPIO_RESPONSES_MODEL }}
+      ONEAGENT_NOVITA_API_KEY: ${{ secrets.ONEAGENT_NOVITA_API_KEY }}
+      ONEAGENT_NOVITA_OPENAI_MODEL: ${{ vars.ONEAGENT_NOVITA_OPENAI_MODEL }}
+      ONEAGENT_NOVITA_ANTHROPIC_MODEL: ${{ vars.ONEAGENT_NOVITA_ANTHROPIC_MODEL }}
+      ONEAGENT_NOVITA_RESPONSES_MODEL: ${{ vars.ONEAGENT_NOVITA_RESPONSES_MODEL }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run low-token protocol checks
+        run: python scripts/provider_rc_smoke.py --provider all --timeout 30

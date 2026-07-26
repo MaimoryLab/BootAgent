@@ -1,0 +1,18 @@
+.DS_Store
+__pycache__/
+*.py[cod]
+.coverage
+.venv/
+htmlcov/
+build/
+dist/
+release/
+frontend/node_modules/
+frontend/dist/
+frontend/coverage/
+frontend/test-results/
+frontend/playwright-report/
+
+# 可再生的产物：imagegen 设计稿与工具自动生成的 repowiki
+output/
+.qoder/

@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "oneagent-launcher"
+version = "0.2.0.dev0"
+description = "Cross-platform local AI development environment activator"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = []
+
+[project.scripts]
+oneagent = "oneagent.cli:main"
+oneagent-gui = "oneagent.server:main"
+
+[tool.setuptools]
+packages = ["oneagent"]
+
+[tool.coverage.run]
+branch = true
+source = ["oneagent"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+fail_under = 85
+
+[tool.coverage.json]
+output = "build/coverage/coverage.json"

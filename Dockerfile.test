@@ -1,0 +1,39 @@
+FROM mcr.microsoft.com/playwright:v1.61.1-noble@sha256:5b8f294aff9041b7191c34a4bab3ac270157a28774d4b0660e9743297b697e48
+
+USER root
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PLAYWRIGHT_BROWSERS_PATH=/ms-playwright \
+    PATH=/opt/oneagent-venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+RUN set -eux; \
+    sed -i 's|http://|https://|g' /etc/apt/sources.list.d/ubuntu.sources; \
+    for attempt in 1 2 3 4 5; do \
+        if apt-get -o Acquire::Retries=3 update; then break; fi; \
+        if [ "$attempt" = "5" ]; then exit 1; fi; \
+        rm -rf /var/lib/apt/lists/*; \
+        sleep "$((attempt * 5))"; \
+    done; \
+    apt-get install -y --no-install-recommends \
+        python3.12 \
+        python3.12-venv \
+        ripgrep; \
+    rm -rf /var/lib/apt/lists/*; \
+    python3.12 -m venv /opt/oneagent-venv; \
+    /opt/oneagent-venv/bin/python -m pip install --no-cache-dir coverage==7.15.2
+
+WORKDIR /opt/oneagent
+
+COPY --chown=pwuser:pwuser frontend/package.json frontend/package-lock.json ./frontend/
+
+USER pwuser
+RUN cd frontend && npm ci
+
+USER root
+COPY --chown=pwuser:pwuser . .
+RUN chown pwuser:pwuser /opt/oneagent \
+    && chmod +x scripts/install.sh scripts/test_docker_cleanroom.sh scripts/run_container_cleanroom.sh tests/install_test.sh
+
+USER pwuser
+
+ENTRYPOINT ["bash", "scripts/run_container_cleanroom.sh"]

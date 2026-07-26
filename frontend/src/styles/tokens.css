@@ -1,0 +1,32 @@
+:root {
+  color-scheme: light;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  --page-bg: #ececef;
+  --window-bg: #ffffff;
+  --sidebar-bg: rgba(246, 246, 248, 0.94);
+  --surface-subtle: #f7f7f9;
+  --surface-pressed: #ededf0;
+  --text-primary: #1d1d1f;
+  --text-secondary: #6e6e73;
+  --text-tertiary: #8e8e93;
+  --border: rgba(60, 60, 67, 0.18);
+  --border-strong: rgba(60, 60, 67, 0.28);
+  --blue: #007aff;
+  --blue-hover: #006ee6;
+  --blue-soft: rgba(0, 122, 255, 0.08);
+  --green: #248a3d;
+  --green-soft: #e9f7ec;
+  --orange: #b25000;
+  --orange-soft: #fff3e7;
+  --red: #d70015;
+  --red-soft: #fff0f1;
+  --shadow-window: 0 22px 55px rgba(42, 42, 46, 0.16), 0 2px 8px rgba(42, 42, 46, 0.08);
+  --radius-control: 6px;
+  --radius-panel: 8px;
+  --radius-window: 12px;
+  --sidebar-width: 232px;
+  --titlebar-height: 52px;
+  --footer-height: 68px;
+}
