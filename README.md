@@ -18,12 +18,21 @@ OneAgent 不重新分发 Agent 二进制，不捆绑 Node.js、Python、Git Bash
 | Linux x64 (`ubuntu-22.04`) | 通过 | Python 契约与覆盖率、Bash 契约、GUI 冒烟、React、Chromium E2E |
 | Docker Linux cleanroom | 通过 | `scripts/test_docker_cleanroom.sh` 断网 cleanroom |
 
+`technical-preview.yml` 也已在四平台通过（run `30194621946`），四份未签名 onedir 产物均已生成，打包后的可执行文件在各自系统上真实运行并返回结构化 JSON，`check_release.py` 校验通过：
+
+| 产物 | 大小 |
+| --- | --- |
+| `OneAgent-ubuntu-22.04-technical-preview-unsigned` | 20.2 MB |
+| `OneAgent-macos-15-intel-technical-preview-unsigned` | 13.1 MB |
+| `OneAgent-macos-15-technical-preview-unsigned` | 12.2 MB |
+| `OneAgent-windows-2022-technical-preview-unsigned` | 8.6 MB |
+
 仍未取得证据的部分：
 
-- **Windows 与 Linux 的 onedir 打包**：`ci.yml` 只在 macOS 构建 onedir，Windows/Linux 打包仅存在于 `technical-preview.yml` 与 `release-candidate.yml`，这两个工作流尚未运行过。
-- **真实 Agent 安装与真实 Provider 冒烟**：只在手动 `release-candidate.yml` 执行，尚未运行。
+- **真实 Agent 安装与真实 Provider 冒烟**：只在手动 `release-candidate.yml` 执行，需要受保护的 `ONEAGENT_PPIO_API_KEY`、`ONEAGENT_NOVITA_API_KEY` 与六个协议模型变量，尚未配置，因此尚未运行。
+- **Codex 的 Responses 协议**：PPIO/Novita 的 `/v1/responses` 仍未用真实 Key 验收；仅验证 Chat Completions 不能证明 Codex 可用。
 
-在上述两项全部通过前，不应标记 Stable。
+在上述两项通过并完成 macOS 签名公证与 Windows Authenticode 之前，不应标记 Stable。
 
 首发平台目标：
 
