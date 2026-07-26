@@ -374,6 +374,7 @@ Stable 额外要求 macOS 签名/公证和 Windows Authenticode。未满足签�
 
 - [产品边界基线](docs/product-boundary-baseline.md)
 - [三平台 Python 内核与版本锁定 ADR](docs/decisions/ADR-003-three-platform-python-core-and-release-policy.md)
+- [按 Agent 协议验证 ADR](docs/decisions/ADR-004-per-agent-protocol-verification.md)
 - [React 前端实现与发布门禁](docs/frontend-component-redesign-plan.md)
 - [Provider RC 测试说明](docs/provider-rc-testing.md)
 - [用户使用文档](docs/ai-agent-kit/00-start-here.md)
