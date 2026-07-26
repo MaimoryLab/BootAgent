@@ -4,6 +4,10 @@ OneAgent：本地 AI 开发环境激活器。Python 3.12 标准库内核 + React
 
 当前 `0.2.0-dev`，发行渠道只能标记 `technical-preview-unsigned`。功能说明与发行流程见 [README.md](README.md)。
 
+## 沟通语言
+
+**回复一律使用简体中文。** 代码、标识符、提交信息和代码注释保持英文（与现有代码库一致）；README、`docs/` 和 ADR 保持中文。
+
 ## 常用命令
 
 本机 `python3` 是 3.14，测试与打包必须显式用 `python3.12`；`scripts/gui.py` 用任意 ≥3.12 均可。

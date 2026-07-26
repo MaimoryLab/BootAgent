@@ -16,7 +16,13 @@ from urllib.request import HTTPCookieProcessor, Request, build_opener
 
 from oneagent.errors import OneAgentError
 from oneagent.installer import Runtime
-from oneagent.server import MAX_BODY_BYTES, create_server, read_json
+from oneagent.server import (
+    MAX_BODY_BYTES,
+    OneAgentHTTPServer,
+    create_server,
+    main as server_main,
+    read_json,
+)
 from tests.support import LocalHTTPServer
 
 
@@ -163,6 +169,50 @@ class ServerContractTests(unittest.TestCase):
             finally:
                 server.server_close()
         getfqdn.assert_not_called()
+
+    def test_server_refuses_to_bind_outside_localhost(self):
+        # The whole security model assumes a loopback-only listener: the Origin
+        # allowlist and the session cookie are meaningless if the socket is
+        # reachable from the network. Nothing covered this guard, so dropping
+        # it in a refactor would have kept the suite green.
+        for host in ("0.0.0.0", "::", "192.168.1.10", "localhost", ""):
+            with self.subTest(host=host):
+                with self.assertRaises(OneAgentError) as refused:
+                    create_server(host, 0)
+                self.assertEqual(refused.exception.code, "INVALID_REQUEST")
+                self.assertIn("127.0.0.1", refused.exception.message)
+
+    def test_main_reports_a_rejected_host_without_a_traceback(self):
+        # serve_forever is stubbed so that a missing guard fails this test
+        # immediately. Left unstubbed, main() would bind 0.0.0.0 and block, and
+        # the regression would surface as a CI job timeout rather than a
+        # failure naming the cause.
+        with patch("oneagent.server.webbrowser.open") as browser, patch.object(
+            OneAgentHTTPServer,
+            "serve_forever",
+            side_effect=AssertionError("main() must reject a non-loopback host before serving"),
+        ):
+            with self.assertRaises(SystemExit) as exited:
+                server_main(["--host", "0.0.0.0"])
+        self.assertIn("127.0.0.1", str(exited.exception))
+        browser.assert_not_called()
+
+    def test_missing_frontend_build_serves_a_readable_page(self):
+        # Running the GUI from a source checkout before `npm run build` must
+        # explain itself rather than surface a 404 or a traceback.
+        with tempfile.TemporaryDirectory() as empty:
+            with patch("oneagent.server.static_root", return_value=Path(empty)):
+                try:
+                    self.opener.open(self.base + "/", timeout=2)
+                    self.fail("expected HTTP 503")
+                except HTTPError as exc:
+                    body = exc.read().decode()
+                    self.assertEqual(exc.code, 503)
+                    self.assertIn("frontend build is missing", body)
+                    self.assertEqual(exc.headers["Cache-Control"], "no-store")
+                    self.assertIn("oneagent_session=", exc.headers["Set-Cookie"])
+                    self.assertIn("HttpOnly", exc.headers["Set-Cookie"])
+                    exc.close()
 
     def test_post_requires_origin_and_session_cookie(self):
         status, _, payload = self.post("/api/models", {"provider": "ppio", "api_key": "x"}, origin=self.origin)
