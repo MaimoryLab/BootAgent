@@ -46,4 +46,11 @@ describe("WizardProvider", () => {
     await waitFor(() => expect(result.current.state.statusState).toBe("error"));
     expect(result.current.state.statusError).toBe("offline");
   });
+
+  it("fails loudly when used outside the provider", () => {
+    // Without the guard the hook returns undefined and the first consumer
+    // fails much later with an unrelated "cannot read property of undefined".
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(() => renderHook(() => useWizard())).toThrow(/inside WizardProvider/);
+  });
 });

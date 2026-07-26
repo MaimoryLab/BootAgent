@@ -142,4 +142,11 @@ describe("wizardReducer", () => {
     expect(state.selectedAgentIds).toEqual([]);
     expect(state.status).toBe(status);
   });
+
+  it("returns the same state for an unknown action", () => {
+    // Guards against a dispatch typo silently resetting the wizard.
+    const before: WizardState = { ...initialWizardState, selectedAgentIds: ["codex"], model: "m" };
+    const after = wizardReducer(before, { type: "NOT_A_REAL_ACTION" } as never);
+    expect(after).toBe(before);
+  });
 });

@@ -35,6 +35,27 @@ describe("api client", () => {
     });
   });
 
+  it("falls back through error, then a generic message", async () => {
+    // A proxy or a crash can return a body without the structured fields; the
+    // wizard must still surface something actionable rather than "undefined".
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(jsonResponse({ error: "boom" }, 500));
+    await expect(api.status()).rejects.toMatchObject({
+      message: "boom",
+      code: "INTERNAL_ERROR",
+      retryable: false,
+      status: 500,
+    });
+  });
+
+  it("survives an error body with no recognisable fields", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(jsonResponse({}, 502));
+    await expect(api.status()).rejects.toMatchObject({
+      message: "OneAgent request failed",
+      code: "INTERNAL_ERROR",
+      status: 502,
+    });
+  });
+
   it("posts provider requests using API field names", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       jsonResponse({ ok: true, reachable: true, status: 200, message: "ok", error_code: null, retryable: false }),
