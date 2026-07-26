@@ -17,6 +17,11 @@ oneagent-gui = "oneagent.server:main"
 [tool.setuptools]
 packages = ["oneagent"]
 
+# Staged by setup.py's build_py hook; see that module for why they are copied
+# instead of read from the repository root.
+[tool.setuptools.package-data]
+oneagent = ["_resources/agents.lock.json", "_resources/frontend/dist/**/*"]
+
 [tool.coverage.run]
 branch = true
 source = ["oneagent"]

@@ -101,6 +101,30 @@ Windows：
 
 未签名预览版不是 Stable。OneAgent 不提供绕过操作系统安全策略的指令。
 
+### Python 包安装
+
+OneAgent 内核只依赖标准库，可以直接作为 Python 包安装。已有 Python 3.12+ 的用户走这条路**不涉及 onedir 压缩包**，因此不触发 macOS Gatekeeper 或 Windows SmartScreen 对下载可执行文件的拦截：
+
+```bash
+uv tool install ./OneAgent-0.2.0.dev0-py3-none-any.whl
+# 或 pipx install ./OneAgent-0.2.0.dev0-py3-none-any.whl
+```
+
+安装后提供两个入口：
+
+```bash
+oneagent --agent codex --check-agent-only   # CLI
+oneagent-gui --port 8765 --no-open          # 本地 GUI
+```
+
+wheel 会把 `agents.lock.json` 与构建后的 `frontend/dist` 一并打进包内（见 `setup.py`），因此安装后无需仓库即可运行。本地构建 wheel：
+
+```bash
+python3.12 -m pip wheel . --no-deps -w dist
+```
+
+尚未发布到 PyPI，目前只能从本地或 Release 附件安装。
+
 ### CLI
 
 macOS/Linux：

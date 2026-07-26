@@ -108,12 +108,68 @@ def build_source_zip(current_version: str) -> Path:
 
 
 def ensure_unsigned_channel(channel: str, os_id: str) -> None:
+    """Fail fast before a long build when the Stable prerequisites are absent.
+
+    This is only a pre-flight check. Whether the produced binary carries a real
+    signature is decided by verify_stable_signature() against the artifact
+    itself, because an environment variable proves nothing.
+    """
     if channel != "stable":
         return
     if os_id == "macos" and os.environ.get("ONEAGENT_MACOS_SIGNED") != "1":
         raise SystemExit("Stable macOS builds require signing and notarization evidence")
     if os_id == "windows" and os.environ.get("ONEAGENT_WINDOWS_SIGNED") != "1":
         raise SystemExit("Stable Windows builds require Authenticode signing evidence")
+
+
+def _signature_check(args: list[str], failure: str) -> None:
+    try:
+        result = subprocess.run(args, cwd=ROOT, capture_output=True, text=True)
+    except OSError as exc:
+        raise SystemExit(f"{failure}: cannot run {args[0]}: {exc}") from exc
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout or "").strip().splitlines()
+        raise SystemExit(f"{failure}: {detail[-1] if detail else f'{args[0]} exit {result.returncode}'}")
+
+
+def verify_stable_signature(channel: str, os_id: str, bundle: Path) -> None:
+    """Prove the Stable artifact is really signed.
+
+    The previous gate only read ONEAGENT_MACOS_SIGNED / ONEAGENT_WINDOWS_SIGNED,
+    so exporting either variable was enough to publish an unsigned build as
+    Stable -- the exact "degrade into a fake pass" failure the release policy
+    forbids. Interrogate the binary instead.
+    """
+    if channel != "stable":
+        return
+    if os_id == "macos":
+        _signature_check(
+            ["codesign", "--verify", "--deep", "--strict", "--verbose=2", str(bundle)],
+            "Stable macOS builds require a valid Developer ID signature",
+        )
+        _signature_check(
+            ["spctl", "--assess", "--type", "execute", str(bundle)],
+            "Stable macOS builds must pass Gatekeeper assessment",
+        )
+        _signature_check(
+            ["xcrun", "stapler", "validate", str(bundle)],
+            "Stable macOS builds require a stapled notarization ticket",
+        )
+    elif os_id == "windows":
+        executable = bundle / "OneAgent.exe"
+        _signature_check(
+            [
+                "powershell",
+                "-NoProfile",
+                "-NonInteractive",
+                "-Command",
+                "$ErrorActionPreference='Stop';"
+                f" $signature = Get-AuthenticodeSignature -LiteralPath '{executable}';"
+                " if ($signature.Status -ne 'Valid') { Write-Error \"Authenticode status:"
+                " $($signature.Status)\"; exit 1 }",
+            ],
+            "Stable Windows builds require a valid Authenticode signature",
+        )
 
 
 def main() -> None:
@@ -162,6 +218,9 @@ def main() -> None:
     bundle = dist_path / "OneAgent"
     if not bundle.is_dir():
         raise SystemExit(f"PyInstaller output not found: {bundle}")
+    # Verify the real artifact before it is archived, so an unsigned build can
+    # never reach a Stable ZIP.
+    verify_stable_signature(args.channel, os_id, bundle)
     artifact_name = f"OneAgent-{current_version}-{args.channel}-{os_id}-{arch}.zip"
     artifact = RELEASE / artifact_name
     zip_tree(bundle, artifact, "OneAgent")

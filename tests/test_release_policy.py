@@ -1,16 +1,21 @@
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import json
+import os
 import re
+import shutil
+import subprocess
 import tempfile
 import unittest
 import zipfile
 from pathlib import Path
 from unittest.mock import patch
 
-from oneagent import entrypoint
+from oneagent import catalog, entrypoint
 from oneagent.catalog import load_manifest
+from scripts import build_release
 from scripts.check_release import validate_manifest
 
 
@@ -44,6 +49,93 @@ class ReleasePolicyTests(unittest.TestCase):
         self.assertIn('default="technical-preview-unsigned"', source)
         self.assertIn("Stable macOS builds require signing", source)
         self.assertIn("Stable Windows builds require Authenticode", source)
+
+    def test_stable_signature_gate_inspects_the_artifact_not_an_env_var(self):
+        # Setting ONEAGENT_MACOS_SIGNED=1 used to be enough to publish an
+        # unsigned build as Stable. The gate must interrogate the binary.
+        calls: list[list[str]] = []
+
+        def refuse(args, **_kwargs):
+            calls.append([str(item) for item in args])
+            return subprocess.CompletedProcess(args, 1, "", "code object is not signed at all")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            bundle = Path(tmp) / "OneAgent"
+            bundle.mkdir()
+            with patch.dict(os.environ, {"ONEAGENT_MACOS_SIGNED": "1", "ONEAGENT_WINDOWS_SIGNED": "1"}):
+                # The pre-flight check is satisfied by the env var alone...
+                build_release.ensure_unsigned_channel("stable", "macos")
+                # ...but the artifact check still refuses an unsigned bundle.
+                with patch.object(build_release.subprocess, "run", side_effect=refuse):
+                    with self.assertRaises(SystemExit) as macos:
+                        build_release.verify_stable_signature("stable", "macos", bundle)
+                    self.assertIn("Developer ID signature", str(macos.exception))
+                    self.assertEqual(calls[0][0], "codesign")
+
+                    calls.clear()
+                    with self.assertRaises(SystemExit) as windows:
+                        build_release.verify_stable_signature("stable", "windows", bundle)
+                    self.assertIn("Authenticode", str(windows.exception))
+                    self.assertEqual(calls[0][0], "powershell")
+
+            # A missing toolchain must fail closed rather than skip the check.
+            with patch.object(build_release.subprocess, "run", side_effect=OSError("codesign missing")):
+                with self.assertRaises(SystemExit):
+                    build_release.verify_stable_signature("stable", "macos", bundle)
+
+            # The unsigned preview channel never invokes the signing tools.
+            with patch.object(build_release.subprocess, "run", side_effect=AssertionError("must not run")):
+                build_release.verify_stable_signature("technical-preview-unsigned", "macos", bundle)
+                build_release.verify_stable_signature("technical-preview-unsigned", "windows", bundle)
+
+    def test_wheel_build_stages_the_runtime_resources(self):
+        # A wheel only carries files inside the package directory. Without this
+        # staging step an installed OneAgent starts and immediately fails with
+        # "Cannot load Agent lock manifest".
+        spec = importlib.util.spec_from_file_location("oneagent_setup", ROOT / "setup.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+
+        staged = module.RESOURCES
+        existed = staged.exists()
+        try:
+            module.stage_resources()
+            self.assertTrue((staged / "agents.lock.json").is_file())
+            self.assertEqual(
+                json.loads((staged / "agents.lock.json").read_text(encoding="utf-8")),
+                json.loads((ROOT / "agents.lock.json").read_text(encoding="utf-8")),
+            )
+            if (ROOT / "frontend" / "dist" / "index.html").is_file():
+                self.assertTrue((staged / "frontend" / "dist" / "index.html").is_file())
+        finally:
+            if not existed and staged.exists():
+                shutil.rmtree(staged)
+
+        # The declared package data must actually cover what gets staged.
+        pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+        self.assertIn("_resources/agents.lock.json", pyproject)
+        self.assertIn("_resources/frontend/dist", pyproject)
+
+    def test_source_checkout_wins_over_a_stale_staging_directory(self):
+        # Building a wheel locally leaves oneagent/_resources/ in the working
+        # tree; it must never shadow the repository's real manifest.
+        with tempfile.TemporaryDirectory() as tmp:
+            # resource_root() resolves symlinks, and macOS hands out /var paths
+            # that are really /private/var.
+            root = Path(tmp).resolve()
+            package = root / "oneagent"
+            package.mkdir()
+            (root / "agents.lock.json").write_text("{}", encoding="utf-8")
+            stale = package / "_resources"
+            stale.mkdir()
+            (stale / "agents.lock.json").write_text("{}", encoding="utf-8")
+
+            with patch.object(catalog, "__file__", str(package / "catalog.py")):
+                self.assertEqual(catalog.resource_root(), root)
+                # With no manifest beside the package this is an installed
+                # distribution, so the staged copy is the only source.
+                (root / "agents.lock.json").unlink()
+                self.assertEqual(catalog.resource_root(), stale)
 
     def test_source_launchers_require_python_312(self):
         for relative in ["scripts/install.sh", "scripts/install.ps1", "scripts/gui.py"]:

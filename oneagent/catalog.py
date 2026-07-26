@@ -53,10 +53,22 @@ def agent_protocol(adapter: str) -> str:
 
 
 def resource_root() -> Path:
+    """Locate agents.lock.json and the built frontend across all three layouts.
+
+    A source checkout keeps them beside the package, PyInstaller unpacks them
+    into _MEIPASS, and a wheel carries them inside the package because only
+    files under the package directory survive installation. The checkout is
+    checked first so a stale staging directory left behind by a local wheel
+    build can never shadow the real manifest.
+    """
     bundle_root = getattr(sys, "_MEIPASS", None)
     if bundle_root:
         return Path(bundle_root)
-    return Path(__file__).resolve().parents[1]
+    module_dir = Path(__file__).resolve().parent
+    checkout = module_dir.parent
+    if (checkout / "agents.lock.json").is_file():
+        return checkout
+    return module_dir / "_resources"
 
 
 def load_manifest(path: Path | None = None) -> dict[str, Any]:

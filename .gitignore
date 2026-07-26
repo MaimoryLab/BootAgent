@@ -16,3 +16,7 @@ frontend/playwright-report/
 # 可再生的产物：imagegen 设计稿与工具自动生成的 repowiki
 output/
 .qoder/
+
+# 构建 wheel 时由 setup.py 暂存的运行时资源
+oneagent/_resources/
+*.egg-info/
