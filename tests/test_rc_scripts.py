@@ -20,6 +20,7 @@ from scripts.provider_rc_smoke import (
     smoke_provider,
 )
 from scripts.verify_locked_agents import create_isolated_runtime, verify_locked_agents
+from tests.support import LocalHTTPServer
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -67,7 +68,7 @@ class ReleaseCandidateScriptTests(unittest.TestCase):
 
     def test_provider_smoke_covers_all_protocols_without_key_in_urls(self):
         ProtocolHandler.requests = []
-        server = HTTPServer(("127.0.0.1", 0), ProtocolHandler)
+        server = LocalHTTPServer(("127.0.0.1", 0), ProtocolHandler)
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
         try:

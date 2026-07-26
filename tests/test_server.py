@@ -17,6 +17,7 @@ from urllib.request import HTTPCookieProcessor, Request, build_opener
 from oneagent.errors import OneAgentError
 from oneagent.installer import Runtime
 from oneagent.server import MAX_BODY_BYTES, create_server, read_json
+from tests.support import LocalHTTPServer
 
 
 class ProviderHandler(BaseHTTPRequestHandler):
@@ -213,7 +214,7 @@ class ServerContractTests(unittest.TestCase):
         self.assertEqual(payload["error_code"], "INVALID_REQUEST")
 
     def test_probe_and_models_map_provider_failures(self):
-        provider = HTTPServer(("127.0.0.1", 0), ProviderHandler)
+        provider = LocalHTTPServer(("127.0.0.1", 0), ProviderHandler)
         with LocalServer(provider):
             custom_base = f"http://127.0.0.1:{provider.server_port}"
             self.bootstrap()
@@ -307,7 +308,7 @@ class ServerContractTests(unittest.TestCase):
             self.assertTrue(payload["ok"])
 
     def test_provider_timeout_is_retryable(self):
-        provider = HTTPServer(("127.0.0.1", 0), ProviderHandler)
+        provider = LocalHTTPServer(("127.0.0.1", 0), ProviderHandler)
         with LocalServer(provider), patch.dict(os.environ, {"ONEAGENT_HTTP_TIMEOUT": "0.05"}):
             self.bootstrap()
             status, _, payload = self.post(

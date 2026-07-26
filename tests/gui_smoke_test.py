@@ -15,6 +15,11 @@ from urllib.request import HTTPCookieProcessor, Request, build_opener
 
 
 ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from tests.support import LocalHTTPServer  # noqa: E402
+
 GUI = ROOT / "scripts" / "gui.py"
 CLIENT = build_opener(HTTPCookieProcessor(http.cookiejar.CookieJar()))
 ORIGIN = ""
@@ -100,7 +105,7 @@ class MockModelHandler(BaseHTTPRequestHandler):
 
 
 def start_model_server(status_code, models_status_code=200):
-    server = HTTPServer(("127.0.0.1", 0), MockModelHandler)
+    server = LocalHTTPServer(("127.0.0.1", 0), MockModelHandler)
     server.RequestHandlerClass.status_code = status_code
     server.RequestHandlerClass.models_status_code = models_status_code
     thread = threading.Thread(target=server.serve_forever, daemon=True)

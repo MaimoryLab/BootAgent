@@ -44,6 +44,24 @@ class ReleasePolicyTests(unittest.TestCase):
         self.assertNotRegex(runtime_sources, r"shell\s*=\s*True")
         self.assertNotRegex(runtime_sources, r"curl\s+[^\n|]+\|\s*(?:ba)?sh")
 
+    def test_no_bare_http_server_reintroduces_the_reverse_dns_stall(self):
+        # http.server's server_bind() calls socket.getfqdn(). On a host with no
+        # reverse resolver that blocks ~35s per process, which is why the macOS
+        # CI jobs used to spend 44s on a 9s test step. Every server must come
+        # from a subclass that overrides the bind.
+        offenders: list[str] = []
+        for directory in ("oneagent", "scripts", "tests"):
+            for path in sorted((ROOT / directory).glob("*.py")):
+                text = path.read_text(encoding="utf-8")
+                for line_number, line in enumerate(text.splitlines(), start=1):
+                    if re.search(r"(?<![A-Za-z0-9_])HTTPServer\(\(", line):
+                        offenders.append(f"{directory}/{path.name}:{line_number}")
+        self.assertEqual(
+            offenders,
+            [],
+            "use LocalHTTPServer (tests) or OneAgentHTTPServer (product) instead of a bare HTTPServer",
+        )
+
     def test_release_scripts_default_to_unsigned_preview(self):
         source = (ROOT / "scripts" / "build_release.py").read_text(encoding="utf-8")
         self.assertIn('default="technical-preview-unsigned"', source)
