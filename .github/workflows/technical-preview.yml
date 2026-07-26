@@ -67,8 +67,8 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $home = Join-Path $env:RUNNER_TEMP "oneagent-package-home"
-          ./build/pyinstaller-dist/OneAgent/OneAgent.exe --agent openclaw --check-agent-only --json --home $home
+          $homeDir = Join-Path $env:RUNNER_TEMP "oneagent-package-home"
+          ./build/pyinstaller-dist/OneAgent/OneAgent.exe --agent openclaw --check-agent-only --json --home $homeDir
 
       - name: Validate release contents
         run: python scripts/check_release.py release

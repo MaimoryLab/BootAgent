@@ -8,7 +8,15 @@ OneAgent 不重新分发 Agent 二进制，不捆绑 Node.js、Python、Git Bash
 
 当前版本为 `0.2.0-dev`，发行渠道只能标记为 `technical-preview-unsigned`。
 
-截至 2026 年 7 月 24 日，本地已完成 macOS arm64 的源码、React、浏览器、PyInstaller onedir 和真实 macOS cleanroom 验证，并完成 Docker Linux arm64 的断网 cleanroom。macOS x64、Windows x64、Linux x64 由 GitHub Actions 在目标系统分别构建和验证；在四平台产物、真实 Agent 安装和真实 Provider 冒烟全部通过前，不应标记 Stable。
+截至 2026 年 7 月 26 日，已取得的验证证据仅覆盖 **macOS arm64** 与 **Docker Linux arm64**：
+
+| 目标 | 状态 | 证据 |
+| --- | --- | --- |
+| macOS arm64 | 已验证 | 源码、React、浏览器、PyInstaller onedir、真实 macOS cleanroom；`release/` 下有对应产物与 SHA256 |
+| Docker Linux arm64 | 已验证 | `scripts/test_docker_cleanroom.sh` 断网 cleanroom |
+| macOS x64 / Windows x64 / Linux x64 | **尚无证据** | `.github/workflows/ci.yml` 已就位并覆盖四平台，但仓库此前无 remote，CI 从未执行过 |
+
+因此四平台声明目前是**工作流设计意图，而非已验证结果**。首次推送后需以实际 CI 结果为准更新本节。在四平台产物、真实 Agent 安装和真实 Provider 冒烟全部通过前，不应标记 Stable。
 
 首发平台目标：
 

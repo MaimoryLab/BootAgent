@@ -79,7 +79,7 @@ jobs:
           coverage run --branch -m unittest tests.test_core tests.test_cli tests.test_server tests.test_release_policy tests.test_edge_cases tests.test_rc_scripts
           coverage report --fail-under=85
           coverage json
-          python -c "import json; summary = json.load(open('build/coverage/coverage.json', encoding='utf-8'))['files']['oneagent/installer.py']['summary']; assert summary['percent_branches_covered'] == 100 and summary['num_partial_branches'] == 0, summary"
+          python -c "import json, os; files = json.load(open('build/coverage/coverage.json', encoding='utf-8'))['files']; normalized = {key.replace(os.sep, '/'): value for key, value in files.items()}; summary = normalized['oneagent/installer.py']['summary']; assert summary['percent_branches_covered'] == 100 and summary['num_partial_branches'] == 0, summary"
 
       - name: Bash compatibility contracts
         if: runner.os != 'Windows'
@@ -93,8 +93,8 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $home = Join-Path $env:RUNNER_TEMP "oneagent-contract-home"
-          ./scripts/install.ps1 --agent openclaw --check-agent-only --json --home $home
+          $homeDir = Join-Path $env:RUNNER_TEMP "oneagent-contract-home"
+          ./scripts/install.ps1 --agent openclaw --check-agent-only --json --home $homeDir
 
       - name: React unit coverage
         working-directory: frontend

@@ -78,8 +78,8 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $home = Join-Path $env:RUNNER_TEMP "oneagent-package-home"
-          ./build/pyinstaller-dist/OneAgent/OneAgent.exe --agent openclaw --check-agent-only --json --home $home
+          $homeDir = Join-Path $env:RUNNER_TEMP "oneagent-package-home"
+          ./build/pyinstaller-dist/OneAgent/OneAgent.exe --agent openclaw --check-agent-only --json --home $homeDir
 
       - name: Install and verify all locked Agents
         run: python scripts/verify_locked_agents.py
