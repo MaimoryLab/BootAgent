@@ -8,15 +8,22 @@ OneAgent 不重新分发 Agent 二进制，不捆绑 Node.js、Python、Git Bash
 
 当前版本为 `0.2.0-dev`，发行渠道只能标记为 `technical-preview-unsigned`。
 
-截至 2026 年 7 月 26 日，已取得的验证证据仅覆盖 **macOS arm64** 与 **Docker Linux arm64**：
+截至 2026 年 7 月 26 日，`ci.yml` 已在四平台真实 Runner 上全部通过（run `30194246511`）：
 
-| 目标 | 状态 | 证据 |
+| 目标 | `ci.yml` 状态 | 已覆盖 |
 | --- | --- | --- |
-| macOS arm64 | 已验证 | 源码、React、浏览器、PyInstaller onedir、真实 macOS cleanroom；`release/` 下有对应产物与 SHA256 |
-| Docker Linux arm64 | 已验证 | `scripts/test_docker_cleanroom.sh` 断网 cleanroom |
-| macOS x64 / Windows x64 / Linux x64 | **尚无证据** | `.github/workflows/ci.yml` 已就位并覆盖四平台，但仓库此前无 remote，CI 从未执行过 |
+| macOS arm64 (`macos-15`) | 通过 | Python 契约与覆盖率、Bash 契约、GUI 冒烟、React、Chromium E2E、PyInstaller onedir、真实 macOS cleanroom |
+| macOS x64 (`macos-15-intel`) | 通过 | 同上 |
+| Windows x64 (`windows-2022`) | 通过 | Python 契约与覆盖率、PowerShell 包装器契约、React、Chromium E2E |
+| Linux x64 (`ubuntu-22.04`) | 通过 | Python 契约与覆盖率、Bash 契约、GUI 冒烟、React、Chromium E2E |
+| Docker Linux cleanroom | 通过 | `scripts/test_docker_cleanroom.sh` 断网 cleanroom |
 
-因此四平台声明目前是**工作流设计意图，而非已验证结果**。首次推送后需以实际 CI 结果为准更新本节。在四平台产物、真实 Agent 安装和真实 Provider 冒烟全部通过前，不应标记 Stable。
+仍未取得证据的部分：
+
+- **Windows 与 Linux 的 onedir 打包**：`ci.yml` 只在 macOS 构建 onedir，Windows/Linux 打包仅存在于 `technical-preview.yml` 与 `release-candidate.yml`，这两个工作流尚未运行过。
+- **真实 Agent 安装与真实 Provider 冒烟**：只在手动 `release-candidate.yml` 执行，尚未运行。
+
+在上述两项全部通过前，不应标记 Stable。
 
 首发平台目标：
 
