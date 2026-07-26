@@ -351,15 +351,38 @@ class InstallerContractTests(unittest.TestCase):
                 leaked,
                 {".oneagent/env", ".claude/settings.json", ".oneagent/aider.env"},
             )
-            for relative in leaked:
-                path = home / relative
-                with self.subTest(path=relative):
-                    self.assertEqual(path.stat().st_mode & 0o777, 0o600)
-                    self.assertEqual(path.parent.stat().st_mode & 0o777, 0o700)
 
         # Nothing the caller receives may carry it either.
         self.assertNotIn(secret, json.dumps(result))
         self.assertNotIn(secret, result["log"])
+
+    @unittest.skipIf(os.name == "nt", "Unix mode assertion")
+    def test_every_secret_file_is_written_with_owner_only_mode(self):
+        # Split from the leak test so that one keeps running on Windows: the
+        # set of files carrying the key is platform-independent, but chmod is
+        # a no-op on NTFS, where the same guarantee comes from the ACL path.
+        secret = "sentinel-permission-key"
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            runtime = Runtime.create(home=home, os_id="linux", which=fake_which({}))
+            install_many(
+                InstallOptions(
+                    agents=["codex", "claude-code", "aider"],
+                    provider="ppio",
+                    api_key=secret,
+                    model="model-x",
+                    configure=True,
+                    skip_test=True,
+                    home=home,
+                ),
+                runtime,
+            )
+            for relative in (".oneagent/env", ".claude/settings.json", ".oneagent/aider.env"):
+                path = home / relative
+                with self.subTest(path=relative):
+                    self.assertTrue(path.is_file())
+                    self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+                    self.assertEqual(path.parent.stat().st_mode & 0o777, 0o700)
 
     def test_profile_is_backed_up_and_status_recovers_it(self):
         with tempfile.TemporaryDirectory() as tmp:
