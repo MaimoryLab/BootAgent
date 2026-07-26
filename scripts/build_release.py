@@ -24,6 +24,20 @@ def run(args: list[str], *, cwd: Path = ROOT) -> None:
     subprocess.run(args, cwd=cwd, check=True)
 
 
+def resolve_tool(command: str, hint: str) -> str:
+    """Locate an external tool by absolute path.
+
+    On Windows npm is npm.cmd, and CreateProcess only appends .exe when
+    resolving a bare name, so subprocess would raise FileNotFoundError for
+    "npm". shutil.which honours PATHEXT and finds the real launcher. Never
+    fall back to shell=True, which the release policy forbids.
+    """
+    resolved = shutil.which(command)
+    if not resolved:
+        raise SystemExit(f"{command} was not found on PATH; {hint}")
+    return resolved
+
+
 def version() -> str:
     namespace: dict[str, object] = {}
     exec((ROOT / "oneagent" / "__init__.py").read_text(encoding="utf-8"), namespace)
@@ -186,7 +200,8 @@ def main() -> None:
     (BUILD / "metadata").mkdir(parents=True, exist_ok=True)
 
     if not args.skip_frontend:
-        run(["npm", "run", "build"], cwd=ROOT / "frontend")
+        npm = resolve_tool("npm", "install Node.js or pass --skip-frontend with a prebuilt frontend/dist")
+        run([npm, "run", "build"], cwd=ROOT / "frontend")
     if not (ROOT / "frontend" / "dist" / "index.html").exists():
         raise SystemExit("frontend/dist is missing; build the React frontend first")
     if list((ROOT / "frontend" / "dist").rglob("*.map")):

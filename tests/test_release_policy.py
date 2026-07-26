@@ -62,6 +62,24 @@ class ReleasePolicyTests(unittest.TestCase):
             "use LocalHTTPServer (tests) or OneAgentHTTPServer (product) instead of a bare HTTPServer",
         )
 
+    def test_external_tools_are_resolved_to_an_absolute_path(self):
+        # Windows ships npm as npm.cmd and CreateProcess only appends .exe to a
+        # bare name, so subprocess.run(["npm", ...]) raises FileNotFoundError
+        # there. shutil.which honours PATHEXT; shell=True is not an option.
+        with patch.object(build_release.shutil, "which", return_value=r"C:\Program Files\nodejs\npm.cmd"):
+            self.assertEqual(
+                build_release.resolve_tool("npm", "install Node.js"),
+                r"C:\Program Files\nodejs\npm.cmd",
+            )
+        with patch.object(build_release.shutil, "which", return_value=None):
+            with self.assertRaises(SystemExit) as missing:
+                build_release.resolve_tool("npm", "install Node.js")
+        self.assertIn("install Node.js", str(missing.exception))
+
+        source = (ROOT / "scripts" / "build_release.py").read_text(encoding="utf-8")
+        self.assertNotIn('run(["npm"', source)
+        self.assertIn('resolve_tool("npm"', source)
+
     def test_release_scripts_default_to_unsigned_preview(self):
         source = (ROOT / "scripts" / "build_release.py").read_text(encoding="utf-8")
         self.assertIn('default="technical-preview-unsigned"', source)
