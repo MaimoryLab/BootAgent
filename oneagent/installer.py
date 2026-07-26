@@ -280,11 +280,24 @@ def _merge_codex_toml(existing: str, managed: str, path: Path) -> str:
 
 
 def _load_json(path: Path) -> dict[str, Any]:
-    if not path.exists() or not path.read_text(encoding="utf-8").strip():
+    if not path.exists():
+        return {}
+    text = path.read_text(encoding="utf-8")
+    if not text.strip():
         return {}
     try:
-        value = json.loads(path.read_text(encoding="utf-8"))
+        value = json.loads(text)
     except json.JSONDecodeError as exc:
+        # OpenCode and Kilo use .jsonc, where comments are valid. OneAgent
+        # rewrites these files with json.dumps, which would drop the comments,
+        # so refusing is right -- but reporting a valid JSONC file as invalid
+        # JSON leaves the user with no idea what to change.
+        if path.suffix == ".jsonc" and re.search(r"(?:^|\s)(?://|/\*)", text):
+            raise OneAgentError(
+                "CONFIG_WRITE_FAILED",
+                f"{path} contains JSONC comments, which OneAgent cannot preserve when it rewrites the file. "
+                "Remove the comments, or configure this Agent manually and leave the file untouched.",
+            ) from exc
         raise OneAgentError("CONFIG_WRITE_FAILED", f"Existing JSON configuration is invalid: {path}: {exc}") from exc
     if not isinstance(value, dict):
         raise OneAgentError("CONFIG_WRITE_FAILED", f"Existing JSON configuration must contain an object: {path}")

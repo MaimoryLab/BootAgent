@@ -696,6 +696,47 @@ class InstallerEdgeTests(unittest.TestCase):
             checked = install_many(InstallOptions(agents=["codex"], configure=False, check_agent_only=True), missing_runtime)
             self.assertEqual(checked["results"][0]["status"], "skipped")
 
+    def test_jsonc_comments_are_reported_as_comments_not_invalid_json(self):
+        # OpenCode and Kilo ship .jsonc, where comments are legal. OneAgent
+        # rewrites with json.dumps and cannot keep them, so it must refuse --
+        # but calling a valid JSONC file "invalid JSON" tells the user nothing
+        # actionable.
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            config = home / ".config" / "opencode" / "opencode.jsonc"
+            config.parent.mkdir(parents=True)
+            original = '{\n  // keep my own settings\n  "theme": "dark"\n}\n'
+            config.write_text(original, encoding="utf-8")
+            runtime = Runtime.create(home=home, os_id="linux", which=lambda _name: None)
+            probe = {"ok": True, "message": "ok", "error_code": None, "retryable": False, "protocol": "openai"}
+            with patch("oneagent.installer.protocol_probe", return_value=probe):
+                result = install_many(
+                    InstallOptions(agents=["opencode"], api_key="k", model="m"), runtime
+                )
+            failure = result["results"][0]
+            self.assertEqual(failure["error_code"], "CONFIG_WRITE_FAILED")
+            self.assertIn("JSONC comments", failure["message"])
+            # The user's file must survive untouched.
+            self.assertEqual(config.read_text(encoding="utf-8"), original)
+
+            # A .jsonc that is broken for some other reason keeps the generic message.
+            config.write_text('{"theme": "dark",,}', encoding="utf-8")
+            with patch("oneagent.installer.protocol_probe", return_value=probe):
+                result = install_many(
+                    InstallOptions(agents=["opencode"], api_key="k", model="m"), runtime
+                )
+            self.assertIn("invalid", result["results"][0]["message"])
+            self.assertNotIn("JSONC comments", result["results"][0]["message"])
+
+            # An existing but empty config is a fresh start, not a parse error.
+            config.write_text("   \n", encoding="utf-8")
+            with patch("oneagent.installer.protocol_probe", return_value=probe):
+                result = install_many(
+                    InstallOptions(agents=["opencode"], api_key="k", model="m"), runtime
+                )
+            self.assertEqual(result["results"][0]["status"], "configured")
+            self.assertEqual(json.loads(config.read_text(encoding="utf-8"))["model"], "oneagent/m")
+
     def test_protocol_mismatch_refuses_to_write_agent_config(self):
         # A model that answers Chat Completions can still reject Responses. If
         # OneAgent wrote the Codex config anyway, the failure would surface as an
