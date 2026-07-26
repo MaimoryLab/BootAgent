@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import hashlib
-import importlib.util
 import json
 import os
 import re
@@ -17,6 +16,7 @@ from oneagent import catalog, entrypoint
 from oneagent.catalog import load_manifest
 from scripts import build_release
 from scripts.check_release import validate_manifest
+from scripts.stage_resources import stage_resources
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -91,27 +91,34 @@ class ReleasePolicyTests(unittest.TestCase):
     def test_wheel_build_stages_the_runtime_resources(self):
         # A wheel only carries files inside the package directory. Without this
         # staging step an installed OneAgent starts and immediately fails with
-        # "Cannot load Agent lock manifest".
-        spec = importlib.util.spec_from_file_location("oneagent_setup", ROOT / "setup.py")
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
+        # "Cannot load Agent lock manifest". Staged into a throwaway tree so the
+        # real working copy is untouched.
+        with tempfile.TemporaryDirectory() as tmp:
+            fake = Path(tmp).resolve()
+            (fake / "oneagent").mkdir()
+            (fake / "frontend" / "dist" / "assets").mkdir(parents=True)
+            shutil.copy2(ROOT / "agents.lock.json", fake / "agents.lock.json")
+            (fake / "frontend" / "dist" / "index.html").write_text("<!doctype html>", encoding="utf-8")
+            (fake / "frontend" / "dist" / "assets" / "app.js").write_text("//", encoding="utf-8")
 
-        staged = module.RESOURCES
-        existed = staged.exists()
-        try:
-            module.stage_resources()
-            self.assertTrue((staged / "agents.lock.json").is_file())
+            staged = stage_resources(fake)
             self.assertEqual(
                 json.loads((staged / "agents.lock.json").read_text(encoding="utf-8")),
                 json.loads((ROOT / "agents.lock.json").read_text(encoding="utf-8")),
             )
-            if (ROOT / "frontend" / "dist" / "index.html").is_file():
-                self.assertTrue((staged / "frontend" / "dist" / "index.html").is_file())
-        finally:
-            if not existed and staged.exists():
-                shutil.rmtree(staged)
+            self.assertTrue((staged / "frontend" / "dist" / "index.html").is_file())
+            self.assertTrue((staged / "frontend" / "dist" / "assets" / "app.js").is_file())
 
-        # The declared package data must actually cover what gets staged.
+            # Re-staging must not accumulate files removed from the source.
+            (fake / "frontend" / "dist" / "assets" / "app.js").unlink()
+            staged = stage_resources(fake)
+            self.assertFalse((staged / "frontend" / "dist" / "assets" / "app.js").exists())
+
+        # The build must actually invoke the staging, and the declared package
+        # data must cover what it produces.
+        setup_source = (ROOT / "setup.py").read_text(encoding="utf-8")
+        self.assertIn("stage_resources", setup_source)
+        self.assertIn("build_py", setup_source)
         pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
         self.assertIn("_resources/agents.lock.json", pyproject)
         self.assertIn("_resources/frontend/dist", pyproject)
