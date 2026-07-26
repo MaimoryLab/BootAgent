@@ -6,6 +6,7 @@ import mimetypes
 import os
 import re
 import secrets
+import socketserver
 import sys
 import webbrowser
 from http.cookies import SimpleCookie
@@ -317,6 +318,18 @@ class Handler(BaseHTTPRequestHandler):
 
 class OneAgentHTTPServer(HTTPServer):
     session_token: str
+
+    def server_bind(self) -> None:
+        # http.server's server_bind() resolves the bind address through
+        # socket.getfqdn(), a reverse DNS lookup that blocks until it times out
+        # on hosts with no reverse resolver -- offline machines, locked-down
+        # networks and CI runners, which is exactly where OneAgent runs. It only
+        # populates self.server_name, which OneAgent never reads, so bind
+        # directly and keep GUI startup instant.
+        socketserver.TCPServer.server_bind(self)
+        host, port = self.server_address[:2]
+        self.server_name = host
+        self.server_port = port
 
 
 def create_server(host: str, port: int) -> OneAgentHTTPServer:

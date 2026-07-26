@@ -150,6 +150,19 @@ class ServerContractTests(unittest.TestCase):
         self.assertEqual(payload["agents"]["codex"]["lockedVersion"], "0.145.0")
         self.assertIn("capabilities", payload)
 
+    def test_bind_does_not_perform_reverse_dns_lookup(self):
+        # http.server's default server_bind() calls socket.getfqdn(), which blocks
+        # until it times out on hosts with no reverse resolver. That stalled GUI
+        # startup by ~70s on CI runners and would do the same on offline machines.
+        with patch("socket.getfqdn", side_effect=AssertionError("reverse DNS lookup during bind")) as getfqdn:
+            server = create_server("127.0.0.1", 0)
+            try:
+                self.assertEqual(server.server_name, "127.0.0.1")
+                self.assertEqual(server.server_port, server.socket.getsockname()[1])
+            finally:
+                server.server_close()
+        getfqdn.assert_not_called()
+
     def test_post_requires_origin_and_session_cookie(self):
         status, _, payload = self.post("/api/models", {"provider": "ppio", "api_key": "x"}, origin=self.origin)
         self.assertEqual(status, 403)
