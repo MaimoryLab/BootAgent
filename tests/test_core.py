@@ -307,6 +307,60 @@ class InstallerContractTests(unittest.TestCase):
             profile, _ = load_profile(runtime)
             self.assertEqual(profile["agent_ids"], ["codex", "opencode"])
 
+    def test_api_key_reaches_only_the_designated_secret_files(self):
+        # The README promises the key never lands anywhere but the local secret
+        # configs. The existing check covered two Agents and two files; this
+        # configures every auto Agent and then walks the whole home directory,
+        # so a new config writer that embeds the key cannot slip through.
+        secret = "sentinel-whole-home-key"
+        auto_agents = [
+            agent_id
+            for agent_id, meta in load_manifest()["agents"].items()
+            if meta["config_mode"] == "auto"
+        ]
+        self.assertEqual(len(auto_agents), 5)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            runtime = Runtime.create(home=home, os_id="linux", which=fake_which({}))
+            result = install_many(
+                InstallOptions(
+                    agents=auto_agents,
+                    provider="ppio",
+                    api_key=secret,
+                    model="model-x",
+                    configure=True,
+                    install_agent=False,
+                    skip_test=True,
+                    home=home,
+                ),
+                runtime,
+            )
+            self.assertTrue(result["ok"], result)
+
+            leaked = {
+                path.relative_to(home).as_posix()
+                for path in home.rglob("*")
+                if path.is_file() and secret in path.read_text(encoding="utf-8", errors="ignore")
+            }
+
+            # Only the files that exist to hold credentials may contain it.
+            # Codex, OpenCode and Kilo reference the key indirectly (env_key
+            # and {env:...}), so their own configs must stay clean.
+            self.assertEqual(
+                leaked,
+                {".oneagent/env", ".claude/settings.json", ".oneagent/aider.env"},
+            )
+            for relative in leaked:
+                path = home / relative
+                with self.subTest(path=relative):
+                    self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+                    self.assertEqual(path.parent.stat().st_mode & 0o777, 0o700)
+
+        # Nothing the caller receives may carry it either.
+        self.assertNotIn(secret, json.dumps(result))
+        self.assertNotIn(secret, result["log"])
+
     def test_profile_is_backed_up_and_status_recovers_it(self):
         with tempfile.TemporaryDirectory() as tmp:
             runtime = Runtime.create(home=Path(tmp), os_id="linux", which=fake_which({}))
