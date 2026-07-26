@@ -40,9 +40,20 @@ class ReleasePolicyTests(unittest.TestCase):
                 self.assertTrue(package["license_url"].startswith("https://"))
 
     def test_runtime_code_does_not_use_shell_true_or_curl_pipe(self):
-        runtime_sources = "\n".join(path.read_text(encoding="utf-8") for path in (ROOT / "oneagent").glob("*.py"))
-        self.assertNotRegex(runtime_sources, r"shell\s*=\s*True")
-        self.assertNotRegex(runtime_sources, r"curl\s+[^\n|]+\|\s*(?:ba)?sh")
+        # Scans oneagent/ and scripts/ to match the Docker cleanroom's
+        # policy-scan exactly. When this test covered only oneagent/, a
+        # violation under scripts/ passed every local check and surfaced only
+        # after a full container run in CI.
+        for directory in ("oneagent", "scripts"):
+            sources = "\n".join(
+                path.read_text(encoding="utf-8") for path in sorted((ROOT / directory).glob("*.py"))
+            )
+            with self.subTest(directory=directory):
+                # The cleanroom greps raw text, so a comment containing the
+                # literal token trips it too. Describe the rule without
+                # spelling it out rather than softening the scan.
+                self.assertNotRegex(sources, r"shell\s*=\s*True")
+                self.assertNotRegex(sources, r"curl\s+[^\n|]+\|\s*(?:ba)?sh")
 
     def test_no_bare_http_server_reintroduces_the_reverse_dns_stall(self):
         # http.server's server_bind() calls socket.getfqdn(). On a host with no

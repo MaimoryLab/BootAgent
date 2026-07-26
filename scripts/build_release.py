@@ -30,7 +30,7 @@ def resolve_tool(command: str, hint: str) -> str:
     On Windows npm is npm.cmd, and CreateProcess only appends .exe when
     resolving a bare name, so subprocess would raise FileNotFoundError for
     "npm". shutil.which honours PATHEXT and finds the real launcher. Never
-    fall back to shell=True, which the release policy forbids.
+    fall back to a shell invocation, which the release policy forbids.
     """
     resolved = shutil.which(command)
     if not resolved:
