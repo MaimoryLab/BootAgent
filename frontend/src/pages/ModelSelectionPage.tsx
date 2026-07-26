@@ -2,7 +2,7 @@ import { RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { api } from "../api/client";
+import { api, describeError } from "../api/client";
 import { ModelPicker } from "../components/ModelPicker";
 import { PageScaffold } from "../components/PageScaffold";
 import { useWizard } from "../state/WizardContext";
@@ -22,26 +22,23 @@ export function ModelSelectionPage() {
       });
       dispatch({ type: "MODELS_RESULT", result });
     } catch (error) {
-      dispatch({ type: "MODELS_FAILED", message: error instanceof Error ? error.message : "无法获取模型列表" });
+      dispatch({ type: "MODELS_FAILED", message: describeError(error, "无法获取模型列表").message });
     }
   }, [dispatch, secret.keyRef, state.customBaseUrl, state.provider]);
 
   useEffect(() => {
-    if (!state.hasApiKey) {
-      navigate("/setup/provider", { replace: true });
-      return;
-    }
+    // SetupGuard has already verified the key; only the fetch lives here.
     if (!requested.current) {
       requested.current = true;
       void fetchModels();
     }
-  }, [fetchModels, navigate, state.hasApiKey]);
+  }, [fetchModels]);
 
   return (
     <PageScaffold
       title="选择模型"
       description="从当前 Key 可访问的模型中选择，接口不支持时可直接输入模型 ID。"
-      step={4}
+      stepper
       onBack={() => navigate("/setup/provider")}
       primaryLabel="继续"
       onPrimary={() => navigate("/setup/review")}

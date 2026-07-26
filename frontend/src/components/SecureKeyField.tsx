@@ -3,6 +3,9 @@ import { useState } from "react";
 
 export function SecureKeyField({ value, onChange }: { value: string; onChange: (value: string) => void }) {
   const [visible, setVisible] = useState(false);
+  // The wizard keeps the key in a ref, not in state, so the parent gives no
+  // re-render guarantee per keystroke; echo must come from local state.
+  const [draft, setDraft] = useState(value);
   return (
     <div className="field-stack">
       <label htmlFor="api-key">API Key</label>
@@ -11,8 +14,11 @@ export function SecureKeyField({ value, onChange }: { value: string; onChange: (
         <input
           id="api-key"
           type={visible ? "text" : "password"}
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
+          value={draft}
+          onChange={(event) => {
+            setDraft(event.target.value);
+            onChange(event.target.value);
+          }}
           autoComplete="off"
           spellCheck={false}
           placeholder="粘贴你的 API Key"

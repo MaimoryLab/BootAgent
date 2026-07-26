@@ -86,8 +86,13 @@ describe("wizardReducer", () => {
       result: { ...successProbe, ok: false, message: "rejected", error_code: "API_KEY_REJECTED" },
     });
     expect(state.connectionState).toBe("error");
-    state = wizardReducer(state, { type: "CONNECTION_FAILED", message: "network" });
-    expect(state.connection?.error_code).toBe("INTERNAL_ERROR");
+    // A transport failure must carry the thrown error's contract through,
+    // not overwrite it with hard-coded placeholders.
+    state = wizardReducer(state, {
+      type: "CONNECTION_FAILED",
+      failure: { message: "key rejected", code: "API_KEY_REJECTED", retryable: false },
+    });
+    expect(state.connection).toMatchObject({ message: "key rejected", error_code: "API_KEY_REJECTED", retryable: false });
   });
 
   it("uses the first discovered model and falls back to manual input", () => {
@@ -102,8 +107,26 @@ describe("wizardReducer", () => {
     state = wizardReducer(state, { type: "SET_MODEL", value: "manual-model" });
     state = wizardReducer(state, { type: "MODELS_RESULT", result: models });
     expect(state.model).toBe("manual-model");
+    // Discovery failure must NOT inject a phantom default: the field stays
+    // empty so the page forces an explicit, user-confirmed model ID.
     state = wizardReducer({ ...initialWizardState, model: "" }, { type: "MODELS_FAILED", message: "unsupported" });
-    expect(state.model).toBe("gpt-4.1");
+    expect(state.model).toBe("");
+    expect(state.modelsMessage).toBe("unsupported");
+    state = wizardReducer(
+      { ...initialWizardState, model: "" },
+      { type: "MODELS_RESULT", result: { ...models, ok: false, models: [] } },
+    );
+    expect(state.model).toBe("");
+  });
+
+  it("arms activation only through an explicit request and disarms it on start", () => {
+    // Remounting the activation page (browser back) must find the flag down,
+    // otherwise the install side effect would replay with a cleared key.
+    let state = wizardReducer(initialWizardState, { type: "REQUEST_ACTIVATION" });
+    expect(state.activationRequested).toBe(true);
+    state = wizardReducer(state, { type: "ACTIVATION_LOADING", agentIds: ["codex"] });
+    expect(state.activationRequested).toBe(false);
+    expect(state.activationState).toBe("loading");
   });
 
   it("merges retry results and preserves non-secret activation summary", () => {
@@ -136,8 +159,13 @@ describe("wizardReducer", () => {
   });
 
   it("handles activation transport failure and setup reset", () => {
-    let state = wizardReducer({ ...initialWizardState, selectedAgentIds: ["codex"], status }, { type: "ACTIVATION_FAILED", message: "failed" });
+    // The failure message appends to the log instead of erasing what already ran.
+    let state = wizardReducer(
+      { ...initialWizardState, selectedAgentIds: ["codex"], status, activationLog: "install log" },
+      { type: "ACTIVATION_FAILED", message: "failed" },
+    );
     expect(state.activationState).toBe("error");
+    expect(state.activationLog).toBe("install log\n\nfailed");
     state = wizardReducer(state, { type: "RESET_SETUP" });
     expect(state.selectedAgentIds).toEqual([]);
     expect(state.status).toBe(status);

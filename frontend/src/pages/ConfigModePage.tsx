@@ -12,7 +12,7 @@ export function ConfigModePage() {
     <PageScaffold
       title="配置方式"
       description="选择由 OneAgent 初始化模型服务，或保留已有官方账号与本机配置。"
-      step={2}
+      stepper
       onBack={() => navigate("/setup/agents")}
       primaryLabel="继续"
       onPrimary={() => navigate(state.configMode === "existing-account" ? "/setup/review" : "/setup/provider")}

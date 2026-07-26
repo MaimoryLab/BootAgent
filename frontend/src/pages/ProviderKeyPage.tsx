@@ -2,7 +2,7 @@ import { ExternalLink, FlaskConical, Link2 } from "lucide-react";
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { api } from "../api/client";
+import { api, describeError } from "../api/client";
 import { ConnectionStatus } from "../components/ConnectionStatus";
 import { PageScaffold } from "../components/PageScaffold";
 import { ProviderSegment } from "../components/ProviderSegment";
@@ -45,12 +45,13 @@ export function ProviderKeyPage() {
         provider: state.provider,
         apiBaseUrl: state.provider === "custom" ? state.customBaseUrl : "",
         apiKey: secret.keyRef.current,
-        model: state.model || "gpt-4.1",
+        // Empty before the model step; the backend picks its probe default.
+        model: state.model,
         agents: state.selectedAgentIds,
       });
       dispatch({ type: "CONNECTION_RESULT", result });
     } catch (error) {
-      dispatch({ type: "CONNECTION_FAILED", message: error instanceof Error ? error.message : "连接测试失败" });
+      dispatch({ type: "CONNECTION_FAILED", failure: describeError(error, "连接测试失败") });
     }
   };
 
@@ -59,7 +60,7 @@ export function ProviderKeyPage() {
     try {
       await api.openRegister(state.provider, state.selectedAgentIds);
     } catch (error) {
-      dispatch({ type: "CONNECTION_FAILED", message: error instanceof Error ? error.message : "无法打开注册页面" });
+      dispatch({ type: "CONNECTION_FAILED", failure: describeError(error, "无法打开注册页面") });
     }
   };
 
@@ -67,7 +68,7 @@ export function ProviderKeyPage() {
     <PageScaffold
       title="连接模型服务"
       description="Key 不会进入日志、URL 或前端持久化状态。"
-      step={3}
+      stepper
       onBack={() => navigate("/setup/mode")}
       primaryLabel="继续选择模型"
       onPrimary={() => navigate("/setup/model")}

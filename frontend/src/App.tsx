@@ -18,8 +18,16 @@ function SetupGuard({ stage, children }: { stage: "mode" | "provider" | "model" 
   if ((stage === "provider" || stage === "model") && state.configMode === "existing-account") {
     return <Navigate to="/setup/review" replace />;
   }
+  if (stage === "model" && !state.hasApiKey) {
+    return <Navigate to="/setup/provider" replace />;
+  }
   if ((stage === "review" || stage === "activation") && state.configMode === "provider" && !state.model) {
     return <Navigate to="/setup/model" replace />;
+  }
+  // The activation page only renders a run in progress or its outcome; a deep
+  // link that has neither goes back to the review page instead of a dead end.
+  if (stage === "activation" && state.activationState === "idle" && !state.activationRequested) {
+    return <Navigate to="/setup/review" replace />;
   }
   return children;
 }

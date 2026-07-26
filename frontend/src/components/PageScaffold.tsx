@@ -6,7 +6,8 @@ import { SetupStepper } from "./SetupStepper";
 interface PageScaffoldProps extends PropsWithChildren {
   title: string;
   description?: string;
-  step?: number;
+  /** Show the setup stepper; it derives the current step from the route. */
+  stepper?: boolean;
   footerNote?: ReactNode;
   backLabel?: string;
   onBack?: () => void;
@@ -21,7 +22,7 @@ interface PageScaffoldProps extends PropsWithChildren {
 export function PageScaffold({
   title,
   description,
-  step,
+  stepper,
   footerNote,
   backLabel = "返回",
   onBack,
@@ -40,7 +41,7 @@ export function PageScaffold({
           <h1>{title}</h1>
           {description ? <p>{description}</p> : null}
         </div>
-        {step ? <SetupStepper current={step} /> : null}
+        {stepper ? <SetupStepper /> : null}
       </header>
       <div className={`page-body ${bodyClassName}`}>{children}</div>
       <footer className="page-footer">

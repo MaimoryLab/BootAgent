@@ -40,7 +40,7 @@ export function AgentSelectionPage() {
     <PageScaffold
       title="选择 Agent"
       description="选择要检测、安装或配置的开发工具，可以同时处理多个。"
-      step={1}
+      stepper
       primaryLabel="继续"
       onPrimary={() => navigate("/setup/mode")}
       primaryDisabled={!state.selectedAgentIds.length || state.statusState === "loading"}

@@ -21,21 +21,48 @@ export class OneAgentApiError extends Error {
   }
 }
 
+export interface FailureDetail {
+  message: string;
+  code: string;
+  retryable: boolean;
+}
+
+/** Normalise any thrown value into the API error contract, so callers keep
+ *  the backend's error_code/retryable instead of hard-coding replacements. */
+export function describeError(error: unknown, fallback: string): FailureDetail {
+  if (error instanceof OneAgentApiError) {
+    return { message: error.message, code: error.code, retryable: error.retryable };
+  }
+  return { message: error instanceof Error ? error.message : fallback, code: "INTERNAL_ERROR", retryable: true };
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(path, {
-    ...init,
-    credentials: "same-origin",
-    headers: {
-      "Content-Type": "application/json",
-      ...init?.headers,
-    },
-  });
-  const payload = (await response.json()) as T & {
+  let response: Response;
+  try {
+    response = await fetch(path, {
+      ...init,
+      credentials: "same-origin",
+      headers: {
+        "Content-Type": "application/json",
+        ...init?.headers,
+      },
+    });
+  } catch {
+    // fetch rejects with an opaque English TypeError on network failure; the
+    // usual cause for this loopback-only app is the GUI process having exited.
+    throw new OneAgentApiError("无法连接本机 OneAgent 服务，请确认它仍在运行", "INTERNAL_ERROR", true, 0);
+  }
+  let payload: T & {
     message?: string;
     error?: string;
     error_code?: string;
     retryable?: boolean;
   };
+  try {
+    payload = (await response.json()) as typeof payload;
+  } catch {
+    throw new OneAgentApiError(`服务响应异常（HTTP ${response.status}）`, "INTERNAL_ERROR", false, response.status);
+  }
   if (!response.ok) {
     throw new OneAgentApiError(
       payload.message || payload.error || "OneAgent request failed",

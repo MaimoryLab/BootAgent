@@ -11,7 +11,7 @@ import {
   useRef,
 } from "react";
 
-import { api } from "../api/client";
+import { api, describeError } from "../api/client";
 import { initialWizardState, wizardReducer, type WizardAction, type WizardState } from "./wizardReducer";
 
 interface SecretStore {
@@ -48,7 +48,7 @@ export function WizardProvider({ children }: PropsWithChildren) {
     try {
       dispatch({ type: "STATUS_LOADED", status: await api.status() });
     } catch (error) {
-      dispatch({ type: "STATUS_FAILED", message: error instanceof Error ? error.message : "无法读取本机状态" });
+      dispatch({ type: "STATUS_FAILED", message: describeError(error, "无法读取本机状态").message });
     }
   }, []);
 

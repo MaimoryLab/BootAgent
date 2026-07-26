@@ -1,3 +1,4 @@
+import type { FailureDetail } from "../api/client";
 import type {
   AgentInstallResult,
   ModelsResponse,
@@ -25,6 +26,9 @@ export interface WizardState {
   modelsState: AsyncState;
   modelsMessage: string;
   model: string;
+  /** Set by the review page's explicit "start" action; consumed by the
+   *  activation page so remounting it (browser back) never replays installs. */
+  activationRequested: boolean;
   activationState: AsyncState;
   activationResults: AgentInstallResult[];
   activationLog: string;
@@ -48,6 +52,7 @@ export const initialWizardState: WizardState = {
   modelsState: "idle",
   modelsMessage: "",
   model: "",
+  activationRequested: false,
   activationState: "idle",
   activationResults: [],
   activationLog: "",
@@ -67,11 +72,12 @@ export type WizardAction =
   | { type: "SET_HAS_API_KEY"; value: boolean }
   | { type: "CONNECTION_LOADING" }
   | { type: "CONNECTION_RESULT"; result: ProbeResponse }
-  | { type: "CONNECTION_FAILED"; message: string }
+  | { type: "CONNECTION_FAILED"; failure: FailureDetail }
   | { type: "MODELS_LOADING" }
   | { type: "MODELS_RESULT"; result: ModelsResponse }
   | { type: "MODELS_FAILED"; message: string }
   | { type: "SET_MODEL"; value: string }
+  | { type: "REQUEST_ACTIVATION" }
   | { type: "ACTIVATION_LOADING"; agentIds: string[] }
   | {
       type: "ACTIVATION_RESULT";
@@ -167,9 +173,9 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
           ok: false,
           reachable: false,
           status: 0,
-          message: action.message,
-          error_code: "INTERNAL_ERROR",
-          retryable: true,
+          message: action.failure.message,
+          error_code: action.failure.code,
+          retryable: action.failure.retryable,
         },
         connectionState: "error",
       };
@@ -181,7 +187,9 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
         models: action.result.models,
         modelsState: action.result.ok ? "success" : "error",
         modelsMessage: action.result.message,
-        model: state.model || action.result.models[0] || "gpt-4.1",
+        // No placeholder fallback: when discovery finds nothing the field stays
+        // empty and the page requires a manual, user-confirmed model ID.
+        model: state.model || action.result.models[0] || "",
       };
     case "MODELS_FAILED":
       return {
@@ -189,13 +197,15 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
         models: [],
         modelsState: "error",
         modelsMessage: action.message,
-        model: state.model || "gpt-4.1",
       };
     case "SET_MODEL":
       return { ...state, model: action.value };
+    case "REQUEST_ACTIVATION":
+      return { ...state, activationRequested: true };
     case "ACTIVATION_LOADING":
       return {
         ...state,
+        activationRequested: false,
         activationState: "loading",
         activationResults: state.activationResults.length
           ? state.activationResults
@@ -213,7 +223,13 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
       };
     }
     case "ACTIVATION_FAILED":
-      return { ...state, activationState: "error", activationLog: action.message };
+      return {
+        ...state,
+        activationState: "error",
+        // Append like ACTIVATION_RESULT does: a transport failure on retry must
+        // not erase the logs of the installs that already ran.
+        activationLog: [state.activationLog, action.message].filter(Boolean).join("\n\n"),
+      };
     case "RESET_SETUP":
       return {
         ...initialWizardState,

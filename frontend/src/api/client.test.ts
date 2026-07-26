@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { api, OneAgentApiError } from "./client";
+import { api, describeError, OneAgentApiError } from "./client";
 
 function jsonResponse(payload: object, status = 200) {
   return new Response(JSON.stringify(payload), {
@@ -53,6 +53,47 @@ describe("api client", () => {
       message: "OneAgent request failed",
       code: "INTERNAL_ERROR",
       status: 502,
+    });
+  });
+
+  it("wraps a network failure instead of leaking the raw TypeError", async () => {
+    // The common cause is the local GUI process having exited; the user must
+    // see an actionable Chinese message, not "Failed to fetch".
+    vi.spyOn(globalThis, "fetch").mockRejectedValue(new TypeError("Failed to fetch"));
+    await expect(api.status()).rejects.toMatchObject({
+      name: "OneAgentApiError",
+      message: expect.stringContaining("无法连接本机 OneAgent 服务"),
+      retryable: true,
+    });
+  });
+
+  it("wraps a non-JSON response body", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response("<html>proxy error</html>", { status: 502, headers: { "Content-Type": "text/html" } }),
+    );
+    await expect(api.status()).rejects.toMatchObject({
+      name: "OneAgentApiError",
+      message: expect.stringContaining("HTTP 502"),
+      status: 502,
+    });
+  });
+
+  it("describes errors preserving the API contract, with a fallback otherwise", () => {
+    const apiError = new OneAgentApiError("key rejected", "API_KEY_REJECTED", false, 401);
+    expect(describeError(apiError, "fallback")).toEqual({
+      message: "key rejected",
+      code: "API_KEY_REJECTED",
+      retryable: false,
+    });
+    expect(describeError(new Error("boom"), "fallback")).toEqual({
+      message: "boom",
+      code: "INTERNAL_ERROR",
+      retryable: true,
+    });
+    expect(describeError("not-an-error", "fallback")).toEqual({
+      message: "fallback",
+      code: "INTERNAL_ERROR",
+      retryable: true,
     });
   });
 

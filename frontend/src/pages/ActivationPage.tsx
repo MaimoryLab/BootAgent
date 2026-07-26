@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { api } from "../api/client";
+import { api, describeError } from "../api/client";
 import { AgentProgressRow } from "../components/AgentProgressRow";
 import { LogDisclosure } from "../components/LogDisclosure";
 import { PageScaffold } from "../components/PageScaffold";
@@ -25,7 +25,9 @@ export function ActivationPage() {
       provider: state.provider,
       api_base_url: state.provider === "custom" ? state.customBaseUrl : "",
       api_key: state.configMode === "provider" ? secret.keyRef.current : "",
-      model: state.model || "gpt-4.1",
+      // SetupGuard guarantees a model in provider mode; existing-account mode
+      // sends none and the backend does not write model config for it.
+      model: state.model,
       configure: state.configMode === "provider",
       install_agent: state.installMissingAgents,
       skip_test: state.configMode !== "provider",
@@ -51,16 +53,19 @@ export function ActivationPage() {
         await refreshStatus();
       }
     } catch (error) {
-      dispatch({ type: "ACTIVATION_FAILED", message: error instanceof Error ? error.message : "激活失败" });
+      dispatch({ type: "ACTIVATION_FAILED", message: describeError(error, "激活失败").message });
     }
   }, [dispatch, refreshStatus, requestFor, secret, state.selectedAgentIds]);
 
   useEffect(() => {
-    if (!started.current) {
+    // Runs only for an explicit request from the review page. Returning here
+    // via browser back keeps activationRequested false, so a mount alone never
+    // replays the install; the ref guards StrictMode's doubled effect.
+    if (state.activationRequested && !started.current) {
       started.current = true;
       void activate();
     }
-  }, [activate]);
+  }, [activate, state.activationRequested]);
 
   const retry = async (agentId: string) => {
     setRetrying(agentId);
@@ -80,7 +85,7 @@ export function ActivationPage() {
         await refreshStatus();
       }
     } catch (error) {
-      dispatch({ type: "ACTIVATION_FAILED", message: error instanceof Error ? error.message : "重试失败" });
+      dispatch({ type: "ACTIVATION_FAILED", message: describeError(error, "重试失败").message });
     } finally {
       setRetrying(null);
     }
@@ -105,7 +110,9 @@ export function ActivationPage() {
               name={selectedNames[agentId] || agentId}
               result={result}
               loading={state.activationState === "loading" || retrying === agentId}
-              onRetry={result?.status === "failed" && result.retryable ? () => void retry(agentId) : undefined}
+              // One retry at a time: concurrent retries each observe a stale
+              // snapshot of the other rows and would skip the final cleanup.
+              onRetry={result?.status === "failed" && result.retryable && !retrying ? () => void retry(agentId) : undefined}
             />
           );
         })}
