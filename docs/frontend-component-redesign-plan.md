@@ -3,9 +3,9 @@
 ## 文档状态
 
 - 状态：React 七页 GUI、Python API、安全边界和本机浏览器验收已实现。
-- 更新日期：2026-07-22。
+- 更新日期：2026-07-27。
 - 本机验证：macOS arm64。
-- 未完成门禁：macOS x64、Windows x64、Linux x64 的目标系统 CI，五个真实 Agent 安装，PPIO/Novita 真实协议请求，macOS/Windows 签名。
+- 门禁状态（按 [ADR-005](decisions/ADR-005-channel-neutral-distribution-and-compliance.md) 更新）：四平台目标系统 CI 已实现，但不再要求同时齐备；每个实际发布平台仍须原生构建并有 cleanroom 验收证据。仍未完成：五个真实 Agent 安装、PPIO/Novita 真实协议请求（`release-candidate.yml` 已定义但尚未运行）。macOS/Windows 签名属于仍然有效的 Stable 门槛，当前阶段不走 Stable。
 - 架构依据：[ADR-003](decisions/ADR-003-three-platform-python-core-and-release-policy.md)。
 
 本文不再描述尚未开始的 React 迁移，而是固定当前实现、组件边界、测试口径和后续发布条件。
@@ -210,15 +210,15 @@ Vitest 只收集 `src/**/*.test.{ts,tsx}`；`frontend/e2e` 只由 Playwright 执
 
 ## 剩余 Release Candidate 门禁
 
-以下项目不能在当前 macOS arm64 本机模拟为完成：
+以下项目不能在当前 macOS arm64 本机模拟为完成。按 [ADR-005](decisions/ADR-005-channel-neutral-distribution-and-compliance.md)，四平台不再要求同时齐备——每个实际发布的平台须满足适用于它的条目：
 
-1. 四个平台分别生成并启动 onedir 产物。
-2. 五个 Agent 在四个平台从官方源安装锁定版本，并执行真实 `--version`。
-3. Windows 使用空格路径、Unicode 用户名和真实 ACL 完成配置写入。
-4. PPIO、Novita 使用受保护低权限 Key 调用 `/v1/models`、最小 Chat Completions、Anthropic Messages 和 Codex Responses。
+1. 每个实际发布的平台在对应操作系统原生生成并启动 onedir 产物。
+2. 五个 Agent 在已发布平台从官方源安装锁定版本，并执行真实 `--version`（`release-candidate.yml` 已定义，CI Secret 未配置，尚未运行）。
+3. Windows 使用空格路径、Unicode 用户名和真实 ACL 完成配置写入（仅在发布 Windows 产物时要求）。
+4. PPIO、Novita 使用受保护低权限 Key 调用 `/v1/models`、最小 Chat Completions、Anthropic Messages 和 Codex Responses（尚未运行，见 README“仍未取得证据的部分”）。
 5. 用生成配置启动五个真实 Agent，验证所选模型完成首次最小请求。
 6. 发行 ZIP、manifest、SHA-256、许可证和 secret scan 全部通过。
-7. Stable 额外完成 macOS 公证和 Windows Authenticode。
+7. 提升到 Stable 时额外完成 macOS 公证和 Windows Authenticode（`scripts/build_release.py` 产物级强制；当前阶段不走 Stable）。
 
 如果 PPIO 或 Novita 不支持 Codex 当前要求的 Responses 协议，必须在发布前把该 Agent/Provider 组合降级为明确的不支持或 guide-only；不得通过未批准的本地协议网关掩盖问题。
 
@@ -252,4 +252,4 @@ python3.12 scripts/check_release.py release
 
 React 实现本身已经达到功能完成条件：七页、路由守卫、跳过配置、模型回退、部分失败、单 Agent 重试、环境摘要、三 viewport 和 secret ref 均已落地。
 
-产品发行仍受 RC 门禁约束。只有四平台构建、真实 Agent、真实 Provider 协议和签名条件分别满足后，才可以从 `technical-preview-unsigned` 提升发行等级。
+产品发行仍受门禁约束：每个实际发布平台须原生构建并有 cleanroom 验收证据，真实 Agent 与真实 Provider 协议验收须按上文 RC 门禁执行。从 `technical-preview-unsigned` 提升到 Stable 还须满足平台签名条件（macOS 公证、Windows Authenticode）。四平台不要求同时齐备（[ADR-005](decisions/ADR-005-channel-neutral-distribution-and-compliance.md)）。

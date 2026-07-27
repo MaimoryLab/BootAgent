@@ -8,6 +8,10 @@ Accepted
 
 2026-07-22
 
+## Scope Update
+
+Python 共用内核、版本锁定、配置适配和结构化错误决策继续有效。当前渠道分发范围和发行门禁已由 [ADR-005](ADR-005-channel-neutral-distribution-and-compliance.md) 更新，不再以四平台同时发布作为当前产品阶段门槛。
+
 ## Context
 
 OneAgent 的产品基线要求 macOS、Windows 和 Linux 在发布前分别验证，但早期实现以 Bash 安装脚本和浏览器 GUI 为中心，无法为 Windows 原生路径、ACL、PowerShell 环境文件和跨平台打包提供同一套行为契约。
@@ -18,9 +22,11 @@ React 前端需要稳定的状态、错误和安装结果 API。如果前端迁�
 
 ## Decision
 
-### 平台与架构
+### 平台与架构（内核兼容设计，不是当前分发门槛）
 
-- 首发平台固定为 macOS 13+ arm64/x64、Windows 10 22H2/11 x64、Ubuntu 22.04+ x64 或兼容 glibc 环境。
+- Python 核心保留 macOS、Windows 和 Linux 的路径、权限和前置条件适配设计；当前发行包只声明实际构建和验证过的目标环境。
+- 不以 macOS、Windows 和 Linux 同时构建或验收作为当前产品阶段门槛；每个实际发布的平台仍须在对应操作系统原生构建，并有 `ci.yml` cleanroom 作业或 Release Candidate 流程的验收证据。
+- 各平台最低目标：macOS 13+（arm64/x64）、Windows 10 22H2 / Windows 11（x64）、Ubuntu 22.04+ 或兼容 glibc 环境（x64）。产物声明的目标环境不得低于上述最低版本。
 - 检测、版本校验、前置条件、安装编排、备份、配置合并、权限和环境摘要统一由 Python 核心实现。
 - `scripts/install.sh` 和 `scripts/install.ps1` 只负责定位 Python 并转发参数；本地 GUI 直接调用同一个 Python 核心。
 - Windows 使用 `%USERPROFILE%` 对应的原生用户目录，不写 WSL HOME，不自动调用 `wsl.exe`。
@@ -69,11 +75,12 @@ React 前端需要稳定的状态、错误和安装结果 API。如果前端迁�
 ### 发行
 
 - 默认发布源码 ZIP 与 PyInstaller onedir 压缩包，不发布单文件自解压版本。
-- macOS arm64、macOS x64、Windows x64、Linux x64 必须在对应目标操作系统构建。
+- 每个产物必须明确记录实际构建环境、架构和验证范围；未验证的平台不得出现在兼容性承诺中。
+- GitHub、官网、网盘和企业云盘只作为同一官方构建的镜像渠道，不维护渠道专属包体。
 - 未签名产物只能标记为 `technical-preview-unsigned`。
-- Stable 额外要求 macOS 公证和 Windows Authenticode。
+- Stable 额外要求 macOS 签名/公证和 Windows Authenticode，由 `scripts/build_release.py` 对产物本身做签名验证强制（环境变量不构成证据）。该门槛未被任何决策取代；当前阶段只是不发布 Stable。
 - 每个产物必须附 SHA-256、锁定版本清单和第三方许可证清单。
-- Release Candidate 必须用真实 Agent 验证生成配置，而不只验证包管理器安装和 Provider 通用端点。
+- `release-candidate.yml` 的定义门禁是真实验收：四平台真实安装五个锁定 Agent，并用受保护 Provider Key 执行真实协议冒烟。在 CI Secret 配置完成前它尚未运行；常规 CI 以包体完整性、临时 HOME 启动、许可证、secret 扫描和本地 Mock 流程为门禁。
 
 ## Alternatives Considered
 

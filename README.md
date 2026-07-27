@@ -6,41 +6,16 @@ OneAgent 不重新分发 Agent 二进制，不捆绑 Node.js、Python、Git Bash
 
 ## 当前状态
 
-当前版本为 `0.2.0-dev`，发行渠道只能标记为 `technical-preview-unsigned`。
+当前版本为 `0.2.0-dev`，当前发行目标是可直接下载运行的 `technical-preview-unsigned` 二进制包。不以四平台同时分发作为产品阶段门槛；每个实际发布的平台仍须在对应操作系统原生构建，并以 CI cleanroom 作业作为验收证据。各平台最低目标见 [ADR-003](docs/decisions/ADR-003-three-platform-python-core-and-release-policy.md)。
 
-截至 2026 年 7 月 26 日，`ci.yml` 已在四平台真实 Runner 上全部通过（run `30194246511`）：
-
-| 目标 | `ci.yml` 状态 | 已覆盖 |
-| --- | --- | --- |
-| macOS arm64 (`macos-15`) | 通过 | Python 契约与覆盖率、Bash 契约、GUI 冒烟、React、Chromium E2E、PyInstaller onedir、真实 macOS cleanroom |
-| macOS x64 (`macos-15-intel`) | 通过 | 同上 |
-| Windows x64 (`windows-2022`) | 通过 | Python 契约与覆盖率、PowerShell 包装器契约、React、Chromium E2E |
-| Linux x64 (`ubuntu-22.04`) | 通过 | Python 契约与覆盖率、Bash 契约、GUI 冒烟、React、Chromium E2E |
-| Docker Linux cleanroom | 通过 | `scripts/test_docker_cleanroom.sh` 断网 cleanroom |
-
-`technical-preview.yml` 也已在四平台通过（run `30194621946`），四份未签名 onedir 产物均已生成，打包后的可执行文件在各自系统上真实运行并返回结构化 JSON，`check_release.py` 校验通过：
-
-| 产物 | 大小 |
-| --- | --- |
-| `OneAgent-ubuntu-22.04-technical-preview-unsigned` | 20.2 MB |
-| `OneAgent-macos-15-intel-technical-preview-unsigned` | 13.1 MB |
-| `OneAgent-macos-15-technical-preview-unsigned` | 12.2 MB |
-| `OneAgent-windows-2022-technical-preview-unsigned` | 8.6 MB |
+发行渠道不限定为 GitHub。官网、GitHub Release、网盘和企业云盘可以作为同一官方构建的镜像，但同一版本必须保持文件内容和 SHA-256 一致，渠道方不得重新打包或加入渠道专属内容。每个产物只声明实际构建和验证过的目标环境。
 
 仍未取得证据的部分：
 
 - **真实 Agent 安装与真实 Provider 冒烟**：只在手动 `release-candidate.yml` 执行，需要受保护的 `ONEAGENT_PPIO_API_KEY`、`ONEAGENT_NOVITA_API_KEY` 与六个协议模型变量，尚未配置，因此尚未运行。
 - **Codex 的 Responses 协议**：PPIO/Novita 的 `/v1/responses` 仍未用真实 Key 验收；仅验证 Chat Completions 不能证明 Codex 可用。
 
-在上述两项通过并完成 macOS 签名公证与 Windows Authenticode 之前，不应标记 Stable。
-
-首发平台目标：
-
-| 平台 | 架构 | 最低目标 |
-| --- | --- | --- |
-| macOS | arm64、x64 | macOS 13+ |
-| Windows | x64 | Windows 10 22H2 / Windows 11 |
-| Linux | x64 | Ubuntu 22.04+ 或兼容 glibc 环境 |
+当前阶段不处理平台商店、自动更新、macOS 公证或 Windows Authenticode，因此不使用 Stable 标签。Stable 门槛（macOS 签名/公证、Windows Authenticode）仍然有效并由 `scripts/build_release.py` 做产物级强制，当前只是不发布 Stable。完整包体、品牌、许可证、Key、渠道台账（[台账载体](docs/distribution-channels.md)）和跨渠道撤回规则见 [多渠道分发与合规政策](docs/distribution-compliance-policy.md)。
 
 ## 架构
 
@@ -307,6 +282,8 @@ npm run e2e
 
 ### Docker Linux Cleanroom
 
+这是开发和 CI 的可选测试资产，不是 OneAgent 的发行环境，也不代表 macOS 或其他平台验收：
+
 本地 Docker cleanroom 会构建测试专用镜像，再以非 root 用户、全新 HOME 和 `--network none` 执行 Python、Bash、GUI、React、Chromium E2E 与发行策略扫描：
 
 ```bash
@@ -319,7 +296,7 @@ Docker Desktop 在 macOS 上仍运行 Linux VM。该报告固定标记为 `linux
 
 ### 真实 macOS Cleanroom
 
-当前架构的前端和 unsigned onedir 构建完成后，可以在真实 macOS 上运行：
+真实 macOS cleanroom 是**已发布 macOS 产物**的验收依据，不是“必须先发布 macOS”的要求。当前架构的前端和 unsigned onedir 构建完成后，可以在真实 macOS 上运行：
 
 ```bash
 ONEAGENT_PACKAGED_BINARY="$PWD/build/pyinstaller-dist/OneAgent/OneAgent" \
@@ -328,7 +305,7 @@ bash tests/macos_cleanroom_test.sh
 
 脚本要求真实 `uname -s == Darwin`，使用 `env -i`、临时 HOME/TMPDIR 和受控 PATH，验证源码 GUI、打包 GUI、随机本地端口、Cookie/Origin、五个配置适配器、备份以及目录 `0700`/文件 `0600`。执行前后会比对真实用户配置目标，发现污染立即失败。
 
-GitHub Actions 的 `macos-15` arm64 和 `macos-15-intel` x64 Runner 是 macOS cleanroom 的正式依据。普通 PR 与常规 CI 只使用 fake npm/uv，不下载真实 Agent，也不访问 PPIO/Novita；只有手动 Release Candidate 才在隔离 prefix/tool 目录中安装五个锁定版本并执行真实 Provider 冒烟。
+GitHub Actions 的 `ci.yml` macOS 作业（`macos-15` arm64 与 `macos-15-intel` x64）和手动 Release Candidate 运行该脚本，`tests/test_release_policy.py` 断言其契约不被弱化。普通 PR 与常规 CI 只使用 fake npm/uv，不下载真实 Agent，也不访问 PPIO/Novita；只有手动 Release Candidate 才在隔离 prefix/tool 目录中安装五个锁定版本并执行真实 Provider 冒烟。
 
 覆盖门槛：安全、备份、配置写入、权限、脱敏和 manifest 校验逻辑要求 100% 分支覆盖；Python 核心与 React 状态/API 层整体分支覆盖不低于 85%。
 
@@ -352,9 +329,9 @@ python3.12 scripts/check_release.py release
 - `SHA256SUMS-<platform>-<arch>.txt`。
 - 第三方许可证和五个 Agent 的锁定版本清单。
 
-PyInstaller 必须在目标操作系统构建，不能从一个平台交叉生成四个平台。GitHub Actions 使用 `macos-15`、`macos-15-intel`、`windows-2022` 和 `ubuntu-22.04`。
+PyInstaller 产物只声明其实际构建和验证过的目标环境。生成后的同一压缩包可以上传到 GitHub、官网、网盘或企业云盘；所有镜像必须保持相同 SHA-256，并在 [渠道台账](docs/distribution-channels.md) 中记录渠道、链接、上传人、上传时间和撤回状态。
 
-`.github/workflows/release-candidate.yml` 为手动 RC 门禁：四平台真实安装五个锁定 Agent，并使用受保护的 `ONEAGENT_PPIO_API_KEY`、`ONEAGENT_NOVITA_API_KEY` 与对应三类协议模型变量执行低 token 请求。缺少任一 Key 或协议模型 ID 时流程会失败，不会退化成假通过。
+`.github/workflows/release-candidate.yml` 是定义中的真实验收门禁：四平台真实安装五个锁定 Agent，并使用受保护的 `ONEAGENT_PPIO_API_KEY`、`ONEAGENT_NOVITA_API_KEY` 与对应协议模型变量执行低 token 请求；缺少任一 Key 或协议模型 ID 时流程会失败，不会退化成假通过。在 CI Secret 配置完成前它尚未运行（见上文“仍未取得证据的部分”）；在此之前，常规 CI 门禁以包体、许可证、secret、SHA-256、临时 HOME 启动和本地 Mock 流程为主。
 
 在真实 PPIO/Novita 低权限 Key 尚未配置到受保护 CI Secret 前，可以使用 `apiproxy` 档案做本地三协议预检。该档案分别保留 OpenAI、Anthropic、Responses 三个模型槽位，当前统一使用 `openai/gpt-5.6-terra`；`openai/gpt-5.6-luna` 只支持两类协议，不作为三协议预检默认模型。
 
@@ -368,11 +345,14 @@ python3 scripts/provider_rc_smoke.py \
 
 此命令只读取本机 JSON 中的 Key，不会把 Key 放入命令行值或输出。`--provider all` 仍严格只运行 PPIO 和 Novita；代理预检成功不能替代正式 RC 验收。详细边界见 [Provider RC 测试说明](docs/provider-rc-testing.md)。
 
-Stable 额外要求 macOS 签名/公证和 Windows Authenticode。未满足签名条件时只能发布明确标记的 `technical-preview-unsigned`。
+当前只发布明确标记的 `technical-preview-unsigned`。当前阶段不做平台签名、公证和商店分发；Stable 门禁（macOS 签名/公证、Windows Authenticode）仍然有效并由 `scripts/build_release.py` 产物级强制，只是当前不走 Stable 渠道。
 
 ## 文档
 
 - [产品边界基线](docs/product-boundary-baseline.md)
+- [多渠道分发与合规政策](docs/distribution-compliance-policy.md)
+- [渠道台账](docs/distribution-channels.md)
+- [渠道无关的二进制分发 ADR](docs/decisions/ADR-005-channel-neutral-distribution-and-compliance.md)
 - [三平台 Python 内核与版本锁定 ADR](docs/decisions/ADR-003-three-platform-python-core-and-release-policy.md)
 - [按 Agent 协议验证 ADR](docs/decisions/ADR-004-per-agent-protocol-verification.md)
 - [React 前端实现与发布门禁](docs/frontend-component-redesign-plan.md)
