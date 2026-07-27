@@ -214,12 +214,14 @@ Aider 使用隔离的 `uv tool install --python python3.12 --no-python-downloads
 
 | Agent/状态 | 写入路径 |
 | --- | --- |
-| Codex | `~/.codex/config.toml`、`~/.oneagent/env` 或 Windows `env.ps1` |
+| Codex | `~/.codex/config.toml`、`~/.oneagent/agents/codex.env` |
 | Claude Code | `~/.claude/settings.json` |
-| OpenCode | `~/.config/opencode/opencode.jsonc`、共享 env |
-| Kilo CLI | `~/.config/kilo/kilo.jsonc`、共享 env |
+| OpenCode | `~/.config/opencode/opencode.jsonc`、`~/.oneagent/agents/opencode.env` |
+| Kilo CLI | `~/.config/kilo/kilo.jsonc`、`~/.oneagent/agents/kilo-cli.env` |
 | Aider | `~/.oneagent/aider.env` 或 Windows `aider.ps1` |
 | 环境摘要 | `~/.oneagent/profile.json` |
+
+Codex、OpenCode 和 Kilo CLI 各读自己的环境变量（`ONEAGENT_API_KEY_CODEX` 等），因此三者可以同时指向不同 Provider；启动命令 source 各自的 env 文件。`~/.oneagent/env` 仍写入共享的 `ONEAGENT_API_KEY`，供旧版本写下的配置继续使用。
 
 Codex TOML、Claude/OpenCode/Kilo JSON 会保留非 OneAgent 管理字段。写入前创建 `*.backup-<timestamp>`；损坏配置返回 `CONFIG_WRITE_FAILED`，不会静默覆盖。
 

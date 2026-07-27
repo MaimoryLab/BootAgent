@@ -125,7 +125,7 @@ async function mockApi(page: Page, options: { failFirstInstall?: boolean } = {})
       code: 0,
       results: agents.map((agent) => ({ agent, status: body.configure ? ("configured" as const) : ("skipped" as const), retryable: false })),
       log: "redacted install log",
-      next: "source ~/.oneagent/env && codex",
+      next: "source ~/.oneagent/agents/codex.env && codex",
       probe: body.configure
         ? { ok: true, reachable: true, status: 200, message: "Connection test passed.", error_code: null, retryable: false }
         : null,

@@ -187,6 +187,21 @@ def _powershell_quote(value: str) -> str:
     return "'" + value.replace("'", "''") + "'"
 
 
+_ID_PATTERN = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
+
+
+def validate_agent_id(agent_id: str) -> str:
+    """Reject an Agent ID that could not be a single path segment.
+
+    Validated here, where the path is built, so every caller inherits the
+    check: the ID names a file that holds a plaintext credential, and a
+    traversal would place that key outside the private directory.
+    """
+    if not isinstance(agent_id, str) or not _ID_PATTERN.fullmatch(agent_id):
+        raise OneAgentError("INVALID_REQUEST", f"Invalid Agent ID: {agent_id!r}")
+    return agent_id
+
+
 def _config_path(runtime: Runtime, meta: dict[str, Any]) -> Path | None:
     raw = meta.get("windows_config_path") if runtime.os_id == "windows" else meta.get("config_path")
     if not raw:
@@ -198,21 +213,62 @@ def _env_path(runtime: Runtime) -> Path:
     return runtime.home / ".oneagent" / ("env.ps1" if runtime.os_id == "windows" else "env")
 
 
-def _shared_env_content(runtime: Runtime, api_key: str, base_url: str) -> str:
+def agent_env_var(agent_id: str, suffix: str = "API_KEY") -> str:
+    """Environment variable an Agent reads its credential from.
+
+    Each Agent gets its own name so three Agents that all speak
+    OpenAI-compatible can point at different providers in the same shell. A
+    single shared ONEAGENT_API_KEY made that impossible: whichever env file
+    was sourced last won.
+    """
+    stem = re.sub(r"[^A-Za-z0-9]+", "_", agent_id).strip("_").upper()
+    return f"ONEAGENT_{suffix}_{stem}"
+
+
+def agent_env_path(runtime: Runtime, agent_id: str) -> Path:
+    name = validate_agent_id(agent_id)
+    suffix = "env.ps1" if runtime.os_id == "windows" else "env"
+    return runtime.home / ".oneagent" / "agents" / f"{name}.{suffix}"
+
+
+def _env_assignments(runtime: Runtime, values: dict[str, str]) -> str:
     if runtime.os_id == "windows":
-        return (
-            f"$env:ONEAGENT_API_KEY = {_powershell_quote(api_key)}\n"
-            f"$env:ONEAGENT_API_BASE_URL = {_powershell_quote(base_url)}\n"
-        )
-    return (
-        f"export ONEAGENT_API_KEY={shlex.quote(api_key)}\n"
-        f"export ONEAGENT_API_BASE_URL={shlex.quote(base_url)}\n"
+        return "".join(f"$env:{name} = {_powershell_quote(value)}\n" for name, value in values.items())
+    return "".join(f"export {name}={shlex.quote(value)}\n" for name, value in values.items())
+
+
+def _shared_env_content(runtime: Runtime, api_key: str, base_url: str) -> str:
+    return _env_assignments(
+        runtime, {"ONEAGENT_API_KEY": api_key, "ONEAGENT_API_BASE_URL": base_url}
     )
 
 
 def write_shared_env(runtime: Runtime, api_key: str, base_url: str) -> Path:
+    """Legacy shared credential file.
+
+    Kept because configs written by earlier versions still reference
+    ONEAGENT_API_KEY; dropping it would break those Agents on upgrade. New
+    configs read their own variable via write_agent_env.
+    """
     path = _env_path(runtime)
     atomic_write(runtime, path, _shared_env_content(runtime, api_key, base_url), secret=True)
+    return path
+
+
+def write_agent_env(runtime: Runtime, agent_id: str, api_key: str, base_url: str) -> Path:
+    path = agent_env_path(runtime, agent_id)
+    content = _env_assignments(
+        runtime,
+        {
+            agent_env_var(agent_id): api_key,
+            agent_env_var(agent_id, "API_BASE_URL"): base_url,
+            # Also define the shared names so a shell that sources only this
+            # file still satisfies a config written before per-Agent variables.
+            "ONEAGENT_API_KEY": api_key,
+            "ONEAGENT_API_BASE_URL": base_url,
+        },
+    )
+    atomic_write(runtime, path, content, secret=True)
     return path
 
 
@@ -225,7 +281,7 @@ def write_codex_config(runtime: Runtime, meta: dict[str, Any], provider_name: st
         "[model_providers.oneagent]\n"
         f"name = {json.dumps(provider_name)}\n"
         f"base_url = {json.dumps(base_url)}\n"
-        'env_key = "ONEAGENT_API_KEY"\n'
+        f'env_key = {json.dumps(agent_env_var("codex"))}\n'
         'wire_api = "responses"\n'
     )
     existing = ""
@@ -337,6 +393,7 @@ def write_openai_compatible_config(
     base_url: str,
     model: str,
     schema: str,
+    agent_id: str = "opencode",
 ) -> Path:
     path = _config_path(runtime, meta)
     assert path is not None
@@ -348,7 +405,10 @@ def write_openai_compatible_config(
     providers["oneagent"] = {
         "npm": "@ai-sdk/openai-compatible",
         "name": provider_name,
-        "options": {"baseURL": openai_base_url(base_url), "apiKey": "{env:ONEAGENT_API_KEY}"},
+        "options": {
+            "baseURL": openai_base_url(base_url),
+            "apiKey": "{env:" + agent_env_var(agent_id) + "}",
+        },
         "models": {model: {"name": model}},
     }
     data["model"] = f"oneagent/{model}"
@@ -525,11 +585,13 @@ def install_locked_agent(
 
 
 def _next_step(runtime: Runtime, agent_id: str, model: str) -> str:
+    # Each Agent sources its own file, so two Agents pointing at different
+    # providers do not overwrite each other's credential in one shell.
     if runtime.os_id == "windows":
-        env = '. "$HOME\\.oneagent\\env.ps1"'
+        env = f'. "$HOME\\.oneagent\\agents\\{agent_id}.env.ps1"'
         aider_env = '. "$HOME\\.oneagent\\aider.ps1"'
     else:
-        env = "source ~/.oneagent/env"
+        env = f"source ~/.oneagent/agents/{agent_id}.env"
         aider_env = "source ~/.oneagent/aider.env"
     return {
         "codex": f"{env}; codex" if runtime.os_id == "windows" else f"{env} && codex",
@@ -555,9 +617,13 @@ def _write_agent_config(
     if adapter == "claude-code":
         return write_claude_config(runtime, meta, base_url, api_key, model)
     if adapter == "opencode":
-        return write_openai_compatible_config(runtime, meta, provider_name, base_url, model, "https://opencode.ai/config.json")
+        return write_openai_compatible_config(
+            runtime, meta, provider_name, base_url, model, "https://opencode.ai/config.json", agent_id
+        )
     if adapter == "kilo-cli":
-        return write_openai_compatible_config(runtime, meta, provider_name, base_url, model, "https://app.kilo.ai/config.json")
+        return write_openai_compatible_config(
+            runtime, meta, provider_name, base_url, model, "https://app.kilo.ai/config.json", agent_id
+        )
     if adapter == "aider":
         return write_aider_config(runtime, meta, base_url, api_key)
     raise OneAgentError("INVALID_REQUEST", f"Unsupported auto-config Agent: {agent_id}")
@@ -868,7 +934,12 @@ def install_many(options: InstallOptions, runtime: Runtime | None = None) -> dic
             raise OneAgentError("INVALID_REQUEST", "API key is required")
         base_url = provider_base(options.provider, options.api_base_url)
         provider_name = PROVIDERS.get(options.provider, {"name": "Custom"})["name"]
-        if any(agent in {"codex", "opencode", "kilo-cli"} for agent in auto_agents):
+        env_agents = [agent for agent in auto_agents if agent in {"codex", "opencode", "kilo-cli"}]
+        for agent in env_agents:
+            write_agent_env(runtime, agent, options.api_key, base_url)
+        if env_agents:
+            # Configs written by earlier versions still name ONEAGENT_API_KEY.
+            # Keep the shared file until those have been rewritten.
             write_shared_env(runtime, options.api_key, base_url)
 
     # Verify the model over each protocol the selected Agents actually speak,

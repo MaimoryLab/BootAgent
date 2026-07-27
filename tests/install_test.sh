@@ -32,7 +32,9 @@ test_codex_writes_config_and_env() {
   assert_file_contains "$tmp/.codex/config.toml" 'model_provider = "oneagent"'
   assert_file_contains "$tmp/.codex/config.toml" 'model = "gpt-test"'
   assert_file_contains "$tmp/.codex/config.toml" 'base_url = "https://models.example.com/v1"'
-  assert_file_contains "$tmp/.codex/config.toml" 'env_key = "ONEAGENT_API_KEY"'
+  assert_file_contains "$tmp/.codex/config.toml" 'env_key = "ONEAGENT_API_KEY_CODEX"'
+  assert_file_contains "$tmp/.oneagent/agents/codex.env" "export ONEAGENT_API_KEY_CODEX=sk-test"
+  # The shared file stays for configs written before the per-Agent split.
   assert_file_contains "$tmp/.oneagent/env" "export ONEAGENT_API_KEY=sk-test"
 }
 
@@ -197,7 +199,7 @@ provider = data["provider"]["oneagent"]
 assert data["model"] == "oneagent/gpt-test"
 assert provider["npm"] == "@ai-sdk/openai-compatible"
 assert provider["options"]["baseURL"] == "https://api.ppio.com/openai/v1"
-assert provider["options"]["apiKey"] == "{env:ONEAGENT_API_KEY}"
+assert provider["options"]["apiKey"] == "{env:ONEAGENT_API_KEY_OPENCODE}"
 assert provider["models"]["gpt-test"]["name"] == "gpt-test"
 PY
 }

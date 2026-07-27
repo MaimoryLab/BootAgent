@@ -34,7 +34,7 @@ OneAgent 目前是一次性向导：激活完成即结束，`~/.oneagent/profile
 
 - Profile 记录：`id`、`label`、`provider`、`api_base_url`、`model`、`agent_ids`、`created_at`、`last_activated_at`。**Key 不进 profile 文件**（产品边界与 CLAUDE.md 硬约束）。
 - `id` 是受限 slug（`[a-z0-9][a-z0-9_-]*`），非法输入返回 `INVALID_REQUEST`。
-- `secrets/<id>.env` 保存该 profile 的 Key 与 Base URL；`~/.oneagent/env`（Windows 为 `env.ps1`）保持**固定路径**，内容是当前激活 profile 的投影。Agent 侧契约（Codex 的 `env_key = "ONEAGENT_API_KEY"`、`source ~/.oneagent/env`）因此完全不变，切换对 Agent 立即生效。
+- `secrets/<id>.env` 保存该 profile 模板的 Key 与 Base URL。Agent 实际读取的凭据位于 `~/.oneagent/agents/<agent-id>.env`，变量名按 Agent 区分（见下方修订小节）；`~/.oneagent/env` 保留共享的 `ONEAGENT_API_KEY`，仅作为旧配置的兼容层。
 
 ### v1 → v2 迁移
 
@@ -60,9 +60,16 @@ OneAgent 目前是一次性向导：激活完成即结束，`~/.oneagent/profile
 
 ### 明确不做
 
-- **per-agent 独立 profile**：`~/.oneagent/env` 天然全局共享，全局 profile 与之契合；per-agent 会使密钥文件翻倍并打破共享 env 契约，列为后续扩展。
-- **自动改写 shell rc**：固定路径投影已经让新终端自动拿到当前激活 profile；`--wire-shell` 仍作为独立显式开关，在第 2 层之后单独评估。
+- **自动改写 shell rc**：`--wire-shell` 仍作为独立显式开关，在第 2 层之后单独评估。
 - **Agent 进程自动重载**：不同 Agent 的生效方式不同，不做进程操作，只给重启指引。
+
+## 修订：从全局 profile 改为 per-agent 独立配置
+
+本 ADR 初稿把「per-agent 独立 profile」列为不做，理由是 `~/.oneagent/env` 天然全局共享。该理由已被推翻：共享 env 不是外部约束，而是我们自己写进三个 Agent 配置的同名变量 `ONEAGENT_API_KEY` 造成的人为耦合。五个 Agent 的配置本来就落在各自的文件里，Claude Code 与 Aider 的凭据早已独立，只有 Codex、OpenCode、Kilo CLI 因为共用一个变量名才无法在同一 shell 里指向不同 Provider。
+
+因此改为：每个 Agent 读自己的环境变量（`ONEAGENT_API_KEY_<AGENT>`），凭据落在 `~/.oneagent/agents/<agent-id>.env`。密钥文件确实变多了，但换来的是配置真正解耦，且激活失败的影响范围收窄到单个 Agent，不需要跨文件回滚。
+
+`profiles/` 存储保留，语义从「唯一激活态」改为**可复用模板**：三个 Agent 共用同一 Provider 与 Key 是常见场景，模板避免重复输入。`~/.oneagent/env` 降级为兼容层，只服务旧版本写下的配置。
 
 ## Alternatives Considered
 

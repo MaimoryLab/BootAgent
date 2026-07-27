@@ -232,8 +232,13 @@ def main():
             kilo_config = json.loads((home / ".config" / "kilo" / "kilo.jsonc").read_text())
             assert opencode_config["provider"]["oneagent"]["npm"] == "@ai-sdk/openai-compatible"
             assert opencode_config["provider"]["oneagent"]["options"]["baseURL"] == "https://api.ppio.com/openai/v1"
-            assert opencode_config["provider"]["oneagent"]["options"]["apiKey"] == "{env:ONEAGENT_API_KEY}"
+            # Each Agent reads its own variable so two of them can point at
+            # different providers in one shell.
+            assert opencode_config["provider"]["oneagent"]["options"]["apiKey"] == "{env:ONEAGENT_API_KEY_OPENCODE}"
+            assert kilo_config["provider"]["oneagent"]["options"]["apiKey"] == "{env:ONEAGENT_API_KEY_KILO_CLI}"
             assert kilo_config["provider"]["oneagent"]["options"]["baseURL"] == "https://api.ppio.com/openai/v1"
+            for agent in ("codex", "opencode", "kilo-cli"):
+                assert (home / ".oneagent" / "agents" / f"{agent}.env").exists()
             assert (home / ".oneagent" / "aider.env").read_text().count("sk-test") == 1
             assert not (home / ".openclaw").exists()
             assert not (home / ".cursor").exists()

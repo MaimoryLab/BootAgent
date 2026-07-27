@@ -4,6 +4,7 @@ import json
 import os
 import subprocess
 import tempfile
+import tomllib
 import unittest
 from pathlib import Path
 
@@ -12,6 +13,8 @@ from oneagent.errors import OneAgentError
 from oneagent.installer import (
     InstallOptions,
     Runtime,
+    agent_env_path,
+    agent_env_var,
     atomic_write,
     install_many,
     load_profile,
@@ -189,6 +192,76 @@ $identities = @($acl.Access | ForEach-Object {
                 self.assertEqual(set(identities), {acl["current"], "S-1-5-18"})
 
 
+class PerAgentCredentialTests(unittest.TestCase):
+    def _install(self, tmp: str, agents: list[str], *, provider: str, key: str, model: str):
+        runtime = Runtime.create(
+            home=Path(tmp),
+            os_id="linux",
+            runner=FakeProcessRunner(),
+            which=fake_which({"npm": "/fake/npm", "uv": "/fake/uv"}),
+        )
+        return install_many(
+            InstallOptions(
+                agents=agents,
+                provider=provider,
+                api_key=key,
+                model=model,
+                configure=True,
+                skip_test=True,
+                home=Path(tmp),
+            ),
+            runtime,
+        )
+
+    def test_env_var_name_is_derived_per_agent(self):
+        self.assertEqual(agent_env_var("codex"), "ONEAGENT_API_KEY_CODEX")
+        # A hyphen is not legal in a shell variable name.
+        self.assertEqual(agent_env_var("kilo-cli"), "ONEAGENT_API_KEY_KILO_CLI")
+        self.assertEqual(agent_env_var("codex", "API_BASE_URL"), "ONEAGENT_API_BASE_URL_CODEX")
+
+    def test_agent_env_path_rejects_a_traversing_id(self):
+        # The ID names a file holding a plaintext key, so it must stay one path
+        # segment: the same defect that let a tampered profile pointer escape.
+        with tempfile.TemporaryDirectory() as tmp:
+            runtime = Runtime.create(home=Path(tmp), os_id="linux", which=lambda _n: None)
+            for bad in ("../../evil", "a/b", "..", "/abs", "Codex", ""):
+                with self.subTest(bad=bad):
+                    with self.assertRaises(OneAgentError):
+                        agent_env_path(runtime, bad)
+
+    def test_two_agents_can_target_different_providers_at_once(self):
+        # The point of the split: a single ONEAGENT_API_KEY meant whichever env
+        # file was sourced last decided the credential for every Agent.
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            self._install(tmp, ["codex"], provider="ppio", key="key-for-codex", model="model-a")
+            self._install(tmp, ["opencode"], provider="novita", key="key-for-opencode", model="model-b")
+
+            codex_env = (home / ".oneagent" / "agents" / "codex.env").read_text(encoding="utf-8")
+            opencode_env = (home / ".oneagent" / "agents" / "opencode.env").read_text(encoding="utf-8")
+
+            # Each file carries its own Agent's key under its own variable, and
+            # neither leaks the other's.
+            self.assertIn("ONEAGENT_API_KEY_CODEX=key-for-codex", codex_env)
+            self.assertNotIn("key-for-opencode", codex_env)
+            self.assertIn("ONEAGENT_API_KEY_OPENCODE=key-for-opencode", opencode_env)
+            self.assertNotIn("key-for-codex", opencode_env)
+
+            # And each config reads the variable its own file defines.
+            config = tomllib.loads((home / ".codex" / "config.toml").read_text(encoding="utf-8"))
+            self.assertEqual(config["model_providers"]["oneagent"]["env_key"], "ONEAGENT_API_KEY_CODEX")
+            opencode = json.loads((home / ".config" / "opencode" / "opencode.jsonc").read_text(encoding="utf-8"))
+            self.assertEqual(
+                opencode["provider"]["oneagent"]["options"]["apiKey"],
+                "{env:ONEAGENT_API_KEY_OPENCODE}",
+            )
+
+    def test_next_step_points_at_the_agents_own_env_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result = self._install(tmp, ["codex"], provider="ppio", key="k", model="m")
+        self.assertIn("source ~/.oneagent/agents/codex.env && codex", result["next"])
+
+
 class InstallerContractTests(unittest.TestCase):
     def test_locked_npm_install_uses_manifest_version_without_shell(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -346,12 +419,23 @@ class InstallerContractTests(unittest.TestCase):
 
             # Only the files that exist to hold credentials may contain it.
             # Codex, OpenCode and Kilo reference the key indirectly (env_key
-            # and {env:...}), so their own configs must stay clean. The
+            # and {env:...}), so their own configs must stay clean. Each of
+            # those three now has its own env file so they can point at
+            # different providers at once; .oneagent/env stays as the
+            # compatibility copy for configs written before that split. The
             # per-profile secret store (ADR-006) holds a copy so profiles can
             # be re-activated without re-pasting the key.
             self.assertEqual(
                 leaked,
-                {".oneagent/env", ".claude/settings.json", ".oneagent/aider.env", ".oneagent/secrets/default.env"},
+                {
+                    ".oneagent/env",
+                    ".oneagent/agents/codex.env",
+                    ".oneagent/agents/opencode.env",
+                    ".oneagent/agents/kilo-cli.env",
+                    ".claude/settings.json",
+                    ".oneagent/aider.env",
+                    ".oneagent/secrets/default.env",
+                },
             )
 
         # Nothing the caller receives may carry it either.
