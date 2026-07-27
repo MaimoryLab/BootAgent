@@ -94,7 +94,7 @@ export function EnvironmentOverviewPage() {
                 catalog={catalogById.get(item.id)}
                 status={agent}
                 providers={status.providers}
-                onActivated={() => void refreshStatus()}
+                onOpen={() => navigate(`/agents/${item.id}`)}
               />
             );
           })}

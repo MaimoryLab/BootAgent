@@ -137,40 +137,41 @@ test("总览按 Agent 分别显示各自的 Provider 与模型", async ({ page }
   await page.screenshot({ path: testInfo.outputPath("overview-per-agent.png"), fullPage: true });
 });
 
-test("就地改配置需要先测通连接，成功后给出重启指引", async ({ page }, testInfo) => {
+test("配置在 Agent 独立页面完成，成功后给出重启指引", async ({ page }, testInfo) => {
   const { activateBodies, activatePaths } = await mockOverview(page);
   await page.goto("/#/overview");
 
+  // Configuring moved off the list: a form inside a row grew the list by its
+  // own height and allowed several rows to sit half-configured at once.
   const codexRow = page.locator(".agent-manage-row").first();
-  await codexRow.getByRole("button", { name: /改配置/ }).click();
-  await page.screenshot({ path: testInfo.outputPath("overview-panel-open.png"), fullPage: true });
+  await expect(codexRow.getByLabel("API Key")).toHaveCount(0);
+  await codexRow.click();
 
-  const apply = codexRow.getByRole("button", { name: "应用" });
+  await expect(page).toHaveURL(/#\/agents\/codex$/);
+  await expect(page.getByRole("heading", { name: "Codex" })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("detail-open.png"), fullPage: true });
+
+  const apply = page.getByRole("button", { name: /^应用/ });
   await expect(apply).toBeDisabled();
 
-  await codexRow.getByLabel("API Key").fill("sentinel-overview-secret");
-  await codexRow.getByRole("button", { name: "测试连接" }).click();
+  await page.getByLabel("API Key").fill("sentinel-detail-secret");
+  await page.getByRole("button", { name: "测试连接" }).click();
   await expect(apply).toBeEnabled();
 
   await apply.click();
   // An Agent reads its config at startup, so the switch is invisible until the
   // process restarts; reporting success without that reads as a failure.
   await expect(page.getByText(/Quit any running codex/)).toBeVisible();
-  await page.screenshot({ path: testInfo.outputPath("overview-applied.png"), fullPage: true });
+  await page.screenshot({ path: testInfo.outputPath("detail-applied.png"), fullPage: true });
 
   expect(activatePaths).toEqual(["/api/agents/codex/activate"]);
   expect(activateBodies).toHaveLength(1);
 
-  // The key reaches the local API and nothing the browser keeps. It does live
-  // in the masked input while typing, which is where the user needs to see it.
+  await expect(page.getByLabel("API Key")).toHaveValue("");
   expect(await page.evaluate(() => ({ local: localStorage.length, session: sessionStorage.length }))).toEqual({
     local: 0,
     session: 0,
   });
-  expect(await page.evaluate(() => document.cookie)).not.toContain("sentinel-overview-secret");
-  // The panel clears the field after applying, so a later screenshot or a
-  // shared session cannot expose it.
-  await expect(codexRow.getByLabel("API Key")).toHaveValue("");
 });
 
 test("首屏用于 Agent 列表，而不是横幅与提醒", async ({ page }, testInfo) => {

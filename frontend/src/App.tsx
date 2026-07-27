@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 
 import { AppWindow } from "./components/AppWindow";
 import { ActivationPage } from "./pages/ActivationPage";
+import { AgentDetailPage } from "./pages/AgentDetailPage";
 import { AgentSelectionPage } from "./pages/AgentSelectionPage";
 import { ConfigModePage } from "./pages/ConfigModePage";
 import { EnvironmentOverviewPage } from "./pages/EnvironmentOverviewPage";
@@ -68,6 +69,7 @@ export default function App() {
         <Route path="/setup/review" element={<SetupGuard stage="review"><ReviewPage /></SetupGuard>} />
         <Route path="/setup/activation" element={<SetupGuard stage="activation"><ActivationPage /></SetupGuard>} />
         <Route path="/overview" element={<EnvironmentOverviewPage />} />
+        <Route path="/agents/:agentId" element={<AgentDetailPage />} />
         <Route path="/providers" element={<ProvidersPage />} />
         <Route path="/profiles" element={<ProfilesPage />} />
         <Route path="*" element={<Navigate to="/setup/agents" replace />} />
