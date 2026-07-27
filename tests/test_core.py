@@ -346,10 +346,12 @@ class InstallerContractTests(unittest.TestCase):
 
             # Only the files that exist to hold credentials may contain it.
             # Codex, OpenCode and Kilo reference the key indirectly (env_key
-            # and {env:...}), so their own configs must stay clean.
+            # and {env:...}), so their own configs must stay clean. The
+            # per-profile secret store (ADR-006) holds a copy so profiles can
+            # be re-activated without re-pasting the key.
             self.assertEqual(
                 leaked,
-                {".oneagent/env", ".claude/settings.json", ".oneagent/aider.env"},
+                {".oneagent/env", ".claude/settings.json", ".oneagent/aider.env", ".oneagent/secrets/default.env"},
             )
 
         # Nothing the caller receives may carry it either.

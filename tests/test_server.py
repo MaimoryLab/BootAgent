@@ -392,7 +392,7 @@ class ServerContractTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertTrue(payload["ok"])
         self.assertNotIn(secret, json.dumps(payload))
-        profile = json.loads((self.home / ".oneagent" / "profile.json").read_text(encoding="utf-8"))
+        profile = json.loads((self.home / ".oneagent" / "profiles" / "default.json").read_text(encoding="utf-8"))
         self.assertEqual(profile["agent_ids"], ["codex", "openclaw"])
         self.assertNotIn(secret, json.dumps(profile))
 
@@ -410,7 +410,7 @@ class ServerContractTests(unittest.TestCase):
         self.assertTrue(payload["ok"])
         self.assertEqual(payload["results"][0]["status"], "skipped")
         self.assertIn("Model configuration skipped", payload["log"])
-        profile = json.loads((self.home / ".oneagent" / "profile.json").read_text(encoding="utf-8"))
+        profile = json.loads((self.home / ".oneagent" / "profiles" / "default.json").read_text(encoding="utf-8"))
         self.assertEqual(profile["config_mode"], "existing-account")
         self.assertEqual(profile["provider"], "existing-account")
         self.assertEqual(profile["agent_ids"], ["codex"])
@@ -447,6 +447,71 @@ class ServerContractTests(unittest.TestCase):
         status, _, payload = self.post("/api/open-register", {"provider": "ppio", "agents": ["unknown"]})
         self.assertEqual(status, 400)
         self.assertEqual(payload["error_code"], "INVALID_REQUEST")
+
+    def test_profiles_endpoint_lists_saved_profiles_without_key_material(self):
+        self.bootstrap()
+        status, _, body = request_json(self.opener, self.base + "/api/profiles")
+        self.assertEqual(status, 200)
+        self.assertEqual(body, {"ok": True, "profiles": [], "activeProfile": None})
+
+        secret = "sentinel-profile-key"
+        status, _, payload = self.post(
+            "/api/profiles",
+            {
+                "provider": "ppio",
+                "model": "deepseek-v3",
+                "agents": ["codex", "opencode"],
+                "api_key": secret,
+                "label": "PPIO DeepSeek",
+            },
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["profile"]["id"], "ppio-deepseek-v3")
+        self.assertTrue(payload["profile"]["hasKey"])
+        self.assertNotIn(secret, json.dumps(payload))
+
+        # Saving stores a profile but does not activate it.
+        status, _, body = request_json(self.opener, self.base + "/api/profiles")
+        self.assertEqual(status, 200)
+        self.assertEqual([item["id"] for item in body["profiles"]], ["ppio-deepseek-v3"])
+        self.assertEqual(body["profiles"][0]["agentIds"], ["codex", "opencode"])
+        self.assertIsNone(body["activeProfile"])
+        self.assertNotIn(secret, json.dumps(body))
+
+    def test_profiles_endpoint_validates_input(self):
+        self.bootstrap()
+        for payload in (
+            {"provider": "ppio", "agents": ["codex"]},                # no model
+            {"provider": "ppio", "model": "m"},                       # no agents
+            {"provider": "nope", "model": "m", "agents": ["codex"]},  # unknown provider
+            {"profile_id": "../x", "provider": "ppio", "model": "m", "agents": ["codex"]},
+        ):
+            with self.subTest(payload=payload):
+                status, _, response = self.post("/api/profiles", payload)
+                self.assertEqual(status, 400)
+                self.assertEqual(response["error_code"], "INVALID_REQUEST")
+
+    def test_install_activates_the_default_profile(self):
+        self.bootstrap()
+        status, _, payload = self.post(
+            "/api/install",
+            {
+                "agents": ["codex"],
+                "provider": "ppio",
+                "api_key": "sentinel-install-key",
+                "model": "m",
+                "install_agent": False,
+                "skip_test": True,
+            },
+        )
+        self.assertEqual(status, 200)
+        self.assertTrue(payload["ok"])
+        status, _, body = request_json(self.opener, self.base + "/api/profiles")
+        self.assertEqual(status, 200)
+        self.assertEqual(body["activeProfile"], "default")
+        self.assertEqual([item["id"] for item in body["profiles"]], ["default"])
+        self.assertTrue(body["profiles"][0]["hasKey"])
+        self.assertNotIn("sentinel-install-key", json.dumps(body))
 
 
 if __name__ == "__main__":

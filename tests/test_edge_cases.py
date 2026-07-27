@@ -23,17 +23,24 @@ from oneagent.installer import (
     _run_acl,
     _write_agent_config,
     _version_from_output,
+    active_profile_id,
     atomic_write,
     backup_file,
     install_locked_agent,
     install_many,
     installed_version,
+    list_profiles,
     load_profile,
+    save_profile,
+    profile_store_path,
+    secrets_path,
     status_payload,
+    validate_profile_id,
     write_aider_config,
     write_claude_config,
     write_codex_config,
     write_openai_compatible_config,
+    write_profile,
 )
 from oneagent.providers import (
     _protocol_request,
@@ -43,10 +50,12 @@ from oneagent.providers import (
     chat_probe,
     list_models,
     openai_base_url,
+    pick_chat_model,
     protocol_probe,
     provider_base,
     provider_config_base,
     provider_home,
+    resolve_probe_model,
     validate_base_url,
 )
 
@@ -64,6 +73,286 @@ class FakeResponse:
 
     def read(self):
         return self.data
+
+
+class ProfileStoreTests(unittest.TestCase):
+    def _runtime(self, tmp: str) -> Runtime:
+        return Runtime.create(home=Path(tmp), os_id="linux", which=lambda _name: None)
+
+    def test_validate_profile_id_rules(self):
+        self.assertEqual(validate_profile_id("ppio-deepseek_v3"), "ppio-deepseek_v3")
+        for bad in ("", "Upper", "-lead", "a" * 65, "sp ace", "../escape", None, 42):
+            with self.subTest(bad=bad):
+                with self.assertRaises(OneAgentError):
+                    validate_profile_id(bad)
+
+    def test_profile_state_starts_empty(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            runtime = self._runtime(tmp)
+            self.assertEqual(load_profile(runtime), (None, None))
+            self.assertEqual(list_profiles(runtime), [])
+            self.assertIsNone(active_profile_id(runtime))
+
+    def test_legacy_v1_profile_migrates_to_the_default_profile(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            runtime = self._runtime(tmp)
+            legacy = {
+                "schema_version": 1,
+                "provider": "ppio",
+                "base_url": "https://api.ppio.com/openai",
+                "model": "deepseek-v3",
+                "config_mode": "provider",
+                "agent_ids": ["codex"],
+                "activated_at": "2026-07-22T00:00:00Z",
+            }
+            oneagent_dir = runtime.home / ".oneagent"
+            oneagent_dir.mkdir(parents=True)
+            (oneagent_dir / "profile.json").write_text(json.dumps(legacy), encoding="utf-8")
+
+            profile, error = load_profile(runtime)
+            self.assertIsNone(error)
+            self.assertEqual(profile["id"], "default")
+            self.assertEqual(profile["provider"], "ppio")
+            self.assertEqual(profile["created_at"], "2026-07-22T00:00:00Z")
+            # The pointer replaced the legacy file, which survives as a backup.
+            pointer = json.loads((oneagent_dir / "profile.json").read_text(encoding="utf-8"))
+            self.assertEqual(pointer, {"schema_version": 2, "active": "default"})
+            self.assertTrue(list(oneagent_dir.glob("profile.json.backup-*")))
+            # Reading again takes the v2 path, not the migration.
+            again, _ = load_profile(runtime)
+            self.assertEqual(again["model"], "deepseek-v3")
+            self.assertEqual(active_profile_id(runtime), "default")
+
+    def test_migration_failure_is_reported_and_the_original_survives(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            runtime = self._runtime(tmp)
+            legacy = {
+                "schema_version": 1,
+                "provider": "ppio",
+                "base_url": None,
+                "model": "m",
+                "config_mode": "provider",
+                "agent_ids": [],
+                "activated_at": "x",
+            }
+            oneagent_dir = runtime.home / ".oneagent"
+            oneagent_dir.mkdir(parents=True)
+            original = oneagent_dir / "profile.json"
+            original.write_text(json.dumps(legacy), encoding="utf-8")
+            with patch(
+                "oneagent.installer._write_profile_store",
+                side_effect=OneAgentError("CONFIG_WRITE_FAILED", "read-only"),
+            ):
+                profile, error = load_profile(runtime)
+            self.assertIsNone(profile)
+            self.assertIn("Cannot migrate", error)
+            # The pointer was never written: the v1 file stays untouched.
+            self.assertEqual(json.loads(original.read_text(encoding="utf-8"))["schema_version"], 1)
+
+    def test_profile_schema_failures_are_reported_not_raised(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            runtime = self._runtime(tmp)
+            path = runtime.home / ".oneagent" / "profile.json"
+            path.parent.mkdir(parents=True)
+            for content, expected in (
+                ("{", "invalid-json"),
+                ("[]", "Unsupported environment profile schema"),
+                ('{"schema_version":9}', "Unsupported environment profile schema"),
+            ):
+                with self.subTest(content=content):
+                    path.write_text(content, encoding="utf-8")
+                    _, error = load_profile(runtime)
+                    if expected == "invalid-json":
+                        self.assertTrue(error)
+                    else:
+                        self.assertEqual(error, expected)
+            # v1 without a timestamp still migrates.
+            path.write_text('{"schema_version":1,"provider":"x"}', encoding="utf-8")
+            profile, error = load_profile(runtime)
+            self.assertIsNone(error)
+            self.assertEqual(profile["id"], "default")
+            # A v2 pointer to a missing store entry names the profile.
+            path.write_text('{"schema_version":2,"active":"ghost"}', encoding="utf-8")
+            _, error = load_profile(runtime)
+            self.assertIn("ghost", error)
+            self.assertEqual(active_profile_id(runtime), "ghost")
+            # Corrupt and non-dict store files are reported, not raised.
+            store = runtime.home / ".oneagent" / "profiles"
+            store.mkdir(parents=True, exist_ok=True)
+            (store / "ghost.json").write_text("{", encoding="utf-8")
+            _, error = load_profile(runtime)
+            self.assertTrue(error)
+            (store / "ghost.json").write_text("[]", encoding="utf-8")
+            _, error = load_profile(runtime)
+            self.assertIn("corrupt", error)
+
+    def test_active_profile_id_survives_unreadable_pointers(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            runtime = self._runtime(tmp)
+            path = runtime.home / ".oneagent" / "profile.json"
+            path.parent.mkdir(parents=True)
+            path.write_text("{", encoding="utf-8")
+            self.assertIsNone(active_profile_id(runtime))
+            path.write_text("[]", encoding="utf-8")
+            self.assertIsNone(active_profile_id(runtime))
+            path.write_text('{"schema_version":1}', encoding="utf-8")
+            self.assertIsNone(active_profile_id(runtime))
+
+    def test_a_tampered_pointer_cannot_escape_the_profile_store(self):
+        # profile.json is a file on disk, so its "active" value is untrusted
+        # even though OneAgent writes it. Without validation the pointer names
+        # any path: load_profile would read an arbitrary .json as a profile and
+        # secrets_path would place a plaintext key outside secrets/.
+        with tempfile.TemporaryDirectory() as tmp:
+            runtime = self._runtime(tmp)
+            store = runtime.home / ".oneagent" / "profiles"
+            store.mkdir(parents=True)
+            outside = runtime.home / "elsewhere"
+            outside.mkdir()
+            (outside / "stolen.json").write_text(
+                json.dumps({"schema_version": 2, "id": "stolen", "model": "LEAKED"}),
+                encoding="utf-8",
+            )
+            pointer = runtime.home / ".oneagent" / "profile.json"
+            pointer.write_text(
+                json.dumps({"schema_version": 2, "active": "../../elsewhere/stolen"}),
+                encoding="utf-8",
+            )
+
+            profile, error = load_profile(runtime)
+            self.assertIsNone(profile)
+            self.assertIn("Profile ID must", error)
+            self.assertIsNone(active_profile_id(runtime))
+
+            for bad in ("../../evil", "a/b", "..", "/abs"):
+                with self.subTest(bad=bad):
+                    with self.assertRaises(OneAgentError):
+                        secrets_path(runtime, bad)
+                    with self.assertRaises(OneAgentError):
+                        profile_store_path(runtime, bad)
+
+    def test_list_profiles_skips_unreadable_and_id_less_files(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            runtime = self._runtime(tmp)
+            store = runtime.home / ".oneagent" / "profiles"
+            store.mkdir(parents=True)
+            (store / "junk.json").write_text("not-json", encoding="utf-8")
+            (store / "noid.json").write_text('{"provider":"ppio"}', encoding="utf-8")
+            save_profile(runtime, profile_id="real", provider="ppio", model="m", agent_ids=["codex"])
+            listing = list_profiles(runtime)
+            self.assertEqual([item["id"] for item in listing], ["real"])
+
+    def test_save_profile_isolates_key_material_and_keeps_history(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            runtime = self._runtime(tmp)
+            stored = save_profile(
+                runtime,
+                profile_id="ppio-deepseek",
+                label="PPIO DeepSeek",
+                provider="ppio",
+                model="deepseek-v3",
+                agent_ids=["opencode", "codex"],
+                api_key="sk-secret",
+            )
+            self.assertEqual(stored["agent_ids"], ["codex", "opencode"])
+            entry = list_profiles(runtime)[0]
+            self.assertTrue(entry["has_key"])
+            # The profile file itself must not carry the key.
+            profile_text = (runtime.home / ".oneagent" / "profiles" / "ppio-deepseek.json").read_text(encoding="utf-8")
+            self.assertNotIn("sk-secret", profile_text)
+            secret = secrets_path(runtime, "ppio-deepseek").read_text(encoding="utf-8")
+            self.assertIn("sk-secret", secret)
+            # Saving again keeps the label and creation time, replaces the model,
+            # and leaves the stored key in place when none is supplied.
+            first_created = entry["created_at"]
+            save_profile(runtime, profile_id="ppio-deepseek", provider="ppio", model="model-b", agent_ids=["codex"])
+            again = list_profiles(runtime)[0]
+            self.assertEqual(again["label"], "PPIO DeepSeek")
+            self.assertEqual(again["created_at"], first_created)
+            self.assertEqual(again["model"], "model-b")
+            self.assertTrue(again["has_key"])
+
+    def test_save_profile_validates_provider_and_id(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            runtime = self._runtime(tmp)
+            with self.assertRaises(OneAgentError):
+                save_profile(runtime, profile_id="ok-id", provider="nope", model="m", agent_ids=["codex"])
+            with self.assertRaises(OneAgentError):
+                save_profile(runtime, profile_id="../bad", provider="ppio", model="m", agent_ids=["codex"])
+            with self.assertRaises(OneAgentError):
+                save_profile(runtime, profile_id="custom-naked", provider="custom", model="m", agent_ids=["codex"])
+            # A custom provider with a valid base is fine.
+            stored = save_profile(
+                runtime,
+                profile_id="custom-local",
+                provider="custom",
+                api_base_url="http://127.0.0.1:9000",
+                model="m",
+                agent_ids=["codex"],
+            )
+            self.assertEqual(stored["base_url"], "http://127.0.0.1:9000")
+
+    def test_write_profile_upserts_the_active_profile_and_merges_agents(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            runtime = self._runtime(tmp)
+            path = write_profile(
+                runtime,
+                agents=["codex"],
+                configure=True,
+                provider="ppio",
+                base_url="https://api.ppio.com/openai",
+                model="deepseek-v3",
+                api_key="sk-a",
+            )
+            self.assertEqual(json.loads(path.read_text(encoding="utf-8")), {"schema_version": 2, "active": "default"})
+            # Same provider+model merges agents instead of replacing them.
+            write_profile(
+                runtime,
+                agents=["opencode"],
+                configure=True,
+                provider="ppio",
+                base_url="https://api.ppio.com/openai",
+                model="deepseek-v3",
+            )
+            profile, error = load_profile(runtime)
+            self.assertIsNone(error)
+            self.assertEqual(profile["agent_ids"], ["codex", "opencode"])
+            self.assertEqual(profile["schema_version"], 2)
+            # A different provider replaces the environment without merging.
+            write_profile(runtime, agents=["aider"], configure=True, provider="novita", base_url="", model="model-x")
+            profile, _ = load_profile(runtime)
+            self.assertEqual(profile["provider"], "novita")
+            self.assertEqual(profile["agent_ids"], ["aider"])
+            # The existing-account path writes neither a model nor secrets.
+            write_profile(runtime, agents=["codex"], configure=False, provider="ppio", base_url="", model="")
+            profile, _ = load_profile(runtime)
+            self.assertEqual(profile["config_mode"], "existing-account")
+            self.assertIsNone(profile["model"])
+            # Key material lives only in the secret store, never the profile.
+            stored_text = (runtime.home / ".oneagent" / "profiles" / "default.json").read_text(encoding="utf-8")
+            self.assertNotIn("sk-a", stored_text)
+            self.assertIn("sk-a", secrets_path(runtime, "default").read_text(encoding="utf-8"))
+
+    def test_status_payload_exposes_profiles_without_key_material(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            runtime = self._runtime(tmp)
+            write_profile(
+                runtime,
+                agents=["codex"],
+                configure=True,
+                provider="ppio",
+                base_url="https://api.ppio.com/openai",
+                model="deepseek-v3",
+                api_key="sk-a",
+            )
+            payload = status_payload(runtime)
+            self.assertEqual(payload["activeProfile"], "default")
+            summary = payload["profiles"]
+            self.assertEqual(len(summary), 1)
+            self.assertEqual(summary[0]["id"], "default")
+            self.assertEqual(summary[0]["agentIds"], ["codex"])
+            self.assertTrue(summary[0]["hasKey"])
+            self.assertNotIn("sk-a", json.dumps(payload))
 
 
 class CatalogEdgeTests(unittest.TestCase):
@@ -246,22 +535,23 @@ class ProviderEdgeTests(unittest.TestCase):
         self.assertEqual(openai_base_url("https://example.com/v1/responses"), "https://example.com/v1")
         self.assertEqual(openai_base_url("https://example.com/v1/models"), "https://example.com/v1")
 
-    def test_probe_model_is_provider_specific_and_never_a_foreign_id(self):
+    def test_fallback_probe_model_is_provider_specific_and_never_a_foreign_id(self):
         # The probe gates the wizard, so the fallback model must be one the
         # provider actually serves. It used to be a hardcoded "gpt-4.1", which
         # exists on neither built-in provider: every connection test failed with
         # an auth error and no correct key could get past the provider step.
         # The IDs also differ per provider, so one shared constant cannot work.
-        self.assertNotEqual(catalog.probe_model("ppio"), catalog.probe_model("novita"))
+        # The fallback is now only the narrow path behind resolve_probe_model.
+        self.assertNotEqual(catalog.fallback_probe_model("ppio"), catalog.fallback_probe_model("novita"))
         for provider in ("ppio", "novita"):
             with self.subTest(provider=provider):
-                model = catalog.probe_model(provider)
+                model = catalog.fallback_probe_model(provider)
                 self.assertTrue(model)
                 self.assertNotIn("gpt-", model)
-                self.assertEqual(model, catalog.PROVIDERS[provider]["probe_model"])
+                self.assertEqual(model, catalog.PROVIDERS[provider]["fallback_probe_model"])
         # An unknown provider still yields a usable ID rather than an empty
         # model, which would send a request no endpoint can answer.
-        self.assertTrue(catalog.probe_model("custom"))
+        self.assertTrue(catalog.fallback_probe_model("custom"))
 
     def test_install_resolves_an_empty_model_before_writing_configs(self):
         # InstallOptions defaults to no model; writing "" into an Agent config
@@ -281,14 +571,14 @@ class ProviderEdgeTests(unittest.TestCase):
             )
             self.assertTrue(result["ok"], result)
             written = tomllib.loads((home / ".codex" / "config.toml").read_text(encoding="utf-8"))
-        self.assertEqual(written["model"], catalog.probe_model("ppio"))
+        self.assertEqual(written["model"], catalog.fallback_probe_model("ppio"))
 
     def test_probe_success_default_model_and_network_error(self):
         with patch("oneagent.providers.urlopen", return_value=FakeResponse(status=204)) as request:
             result = chat_probe(provider="ppio", api_key="key", model="")
         self.assertTrue(result["ok"])
         sent = json.loads(request.call_args.args[0].data.decode())
-        self.assertEqual(sent["model"], catalog.probe_model("ppio"))
+        self.assertEqual(sent["model"], catalog.fallback_probe_model("ppio"))
         with patch("oneagent.providers.urlopen", side_effect=URLError("connection refused")):
             result = chat_probe(provider="ppio", api_key="key", model="m")
         self.assertEqual(result["error_code"], "PROVIDER_UNREACHABLE")
@@ -296,6 +586,101 @@ class ProviderEdgeTests(unittest.TestCase):
             self.assertEqual(chat_probe(provider="ppio", api_key="key", model="m")["error_code"], "TIMEOUT")
         with self.assertRaises(OneAgentError):
             chat_probe(provider="ppio", api_key="", model="m")
+
+    def test_pick_chat_model_prefers_chat_capable_ids(self):
+        mixed = [
+            "whisper-large-v3",
+            "bge-reranker-v2",
+            "text-embeddings-large",
+            "qwen-vl-max",
+            "deepseek-v3",
+            "gpt-5.6-terra",
+        ]
+        self.assertEqual(pick_chat_model(mixed), "deepseek-v3")
+        # Markers match on separators only, so IDs that merely contain a
+        # marker substring stay eligible.
+        self.assertEqual(pick_chat_model(["resolver-1", "evolve-chat"]), "resolver-1")
+        # When every listed model looks non-chat, the first entry is the least
+        # surprising choice; the probe failure will explain itself.
+        self.assertEqual(pick_chat_model(["text-embedding-3-small", "whisper-1"]), "text-embedding-3-small")
+
+    def test_resolve_probe_model_prefers_live_ids_without_extra_round_trips(self):
+        # A user-chosen model short-circuits discovery: once the user has
+        # decided, probing must not cost an extra request.
+        with patch("oneagent.providers.list_models", side_effect=AssertionError("must not run")):
+            self.assertEqual(resolve_probe_model(provider="ppio", api_key="k", model="chosen"), "chosen")
+        # Without a key, discovery is skipped outright (list_models refuses it).
+        with patch("oneagent.providers.list_models", side_effect=AssertionError("must not run")):
+            self.assertEqual(resolve_probe_model(provider="ppio", api_key=""), catalog.fallback_probe_model("ppio"))
+        # Discovery success: the first chat-capable model, not the list head.
+        listing = {"ok": True, "models": ["text-embedding-3-small", "deepseek-v3"]}
+        with patch("oneagent.providers.list_models", return_value=listing) as discovery:
+            self.assertEqual(resolve_probe_model(provider="ppio", api_key="k"), "deepseek-v3")
+        discovery.assert_called_once()
+        # Discovery failing or empty falls back to the catalog ID, never raises.
+        for stale in ({"ok": False, "models": []}, {"ok": True, "models": []}):
+            with self.subTest(stale=stale), patch("oneagent.providers.list_models", return_value=stale):
+                self.assertEqual(
+                    resolve_probe_model(provider="novita", api_key="k"), catalog.fallback_probe_model("novita")
+                )
+
+    def test_install_resolves_an_empty_model_from_live_discovery(self):
+        ok_probe = {"ok": True, "message": "ok", "error_code": None, "retryable": False, "protocol": "responses"}
+        listing = {"ok": True, "models": ["text-embedding-3-small", "moonshot-v1"]}
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            runtime = Runtime(
+                home=home,
+                os_id="macos",
+                runner=lambda *a, **k: subprocess.CompletedProcess(a[0] if a else [], 0, "1.0.0", ""),
+                which=lambda name: f"/usr/bin/{name}",
+                env={},
+            )
+            with (
+                patch("oneagent.installer.protocol_probe", return_value=ok_probe),
+                patch("oneagent.providers.list_models", return_value=listing) as discovery,
+            ):
+                result = install_many(
+                    InstallOptions(agents=["codex"], provider="ppio", api_key="sk-test", home=home), runtime
+                )
+            self.assertTrue(result["ok"], result)
+            written = tomllib.loads((home / ".codex" / "config.toml").read_text(encoding="utf-8"))
+        discovery.assert_called_once()
+        self.assertEqual(written["model"], "moonshot-v1")
+
+    def test_install_falls_back_when_discovery_fails_and_never_under_skip_test(self):
+        # Discovery failure keeps the install possible: the catalog fallback
+        # goes into the config, and the probe (patched) decides the outcome.
+        # Under skip_test no discovery attempt may happen at all.
+        ok_probe = {"ok": True, "message": "ok", "error_code": None, "retryable": False, "protocol": "responses"}
+        for skip_test in (False, True):
+            with self.subTest(skip_test=skip_test):
+                with tempfile.TemporaryDirectory() as tmp:
+                    home = Path(tmp)
+                    runtime = Runtime(
+                        home=home,
+                        os_id="macos",
+                        runner=lambda *a, **k: subprocess.CompletedProcess(a[0] if a else [], 0, "1.0.0", ""),
+                        which=lambda name: f"/usr/bin/{name}",
+                        env={},
+                    )
+                    with (
+                        patch("oneagent.installer.protocol_probe", return_value=ok_probe),
+                        patch(
+                            "oneagent.providers.list_models",
+                            side_effect=AssertionError("discovery must not run") if skip_test else None,
+                            return_value={"ok": False, "models": []},
+                        ),
+                    ):
+                        result = install_many(
+                            InstallOptions(
+                                agents=["codex"], provider="ppio", api_key="sk-test", home=home, skip_test=skip_test
+                            ),
+                            runtime,
+                        )
+                    self.assertTrue(result["ok"], result)
+                    written = tomllib.loads((home / ".codex" / "config.toml").read_text(encoding="utf-8"))
+                self.assertEqual(written["model"], catalog.fallback_probe_model("ppio"))
 
     def test_model_response_shapes_and_errors(self):
         with patch("oneagent.providers.urlopen", return_value=FakeResponse(b'["a",{"id":"b"},{"ignored":true}]')):

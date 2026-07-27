@@ -72,6 +72,8 @@ function statusPayload(activated: boolean): StatusResponse {
         }
       : null,
     environmentError: null,
+    profiles: [],
+    activeProfile: null,
   };
 }
 

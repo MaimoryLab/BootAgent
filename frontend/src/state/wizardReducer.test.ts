@@ -15,6 +15,8 @@ const status = {
   backups: {},
   environment: null,
   environmentError: null,
+  profiles: [],
+  activeProfile: null,
 } satisfies StatusResponse;
 
 const successProbe = {

@@ -14,12 +14,23 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from urllib.parse import quote, unquote, urlsplit
 
-from .catalog import agent_catalog, probe_model, resource_root
+from .catalog import agent_catalog, resource_root
 from .errors import OneAgentError
-from .installer import InstallOptions, Runtime, install_many, status_payload
+from .installer import (
+    InstallOptions,
+    Runtime,
+    active_profile_id,
+    install_many,
+    list_profiles,
+    public_profile_summary,
+    save_profile,
+    secrets_path,
+    status_payload,
+)
 from .providers import (
     PROTOCOL_OPENAI,
     agent_protocol,
+    resolve_probe_model,
     list_models,
     protocol_probe,
     provider_home,
@@ -237,10 +248,16 @@ def probe_payload(payload: dict[str, object]) -> dict[str, object]:
     provider = _string_field(payload, "provider", "ppio")
     custom_base = _string_field(payload, "api_base_url")
     api_key = _string_field(payload, "api_key")
-    # The wizard probes before the model step, so an empty model is the norm
-    # here and the fallback has to be a model the provider actually serves.
-    model = _string_field(payload, "model") or probe_model(provider)
     timeout = _timeout()
+    # The wizard probes before the model step, so an empty model is the norm
+    # here; resolve a model the endpoint actually serves right now.
+    model = resolve_probe_model(
+        provider=provider,
+        custom_base=custom_base,
+        api_key=api_key,
+        model=_string_field(payload, "model"),
+        timeout=timeout,
+    )
 
     # Test the protocols the selected Agents will really speak. Without an Agent
     # list this stays an OpenAI-compatible check, which is all the older clients
@@ -280,6 +297,44 @@ def models_payload(payload: dict[str, object]) -> dict[str, object]:
     )
 
 
+def profiles_payload(runtime: Runtime) -> dict[str, object]:
+    return {
+        "ok": True,
+        "profiles": [public_profile_summary(item) for item in list_profiles(runtime)],
+        "activeProfile": active_profile_id(runtime),
+    }
+
+
+def _slugify_profile_id(raw: str) -> str:
+    # Turn "<provider>-<model>" into a filesystem- and URL-safe profile ID.
+    slug = re.sub(r"[^a-z0-9]+", "-", raw.lower()).strip("-")[:64].strip("-")
+    return slug or "profile"
+
+
+def save_profile_payload(payload: dict[str, object]) -> dict[str, object]:
+    runtime = _runtime()
+    provider = _string_field(payload, "provider", "ppio")
+    model = _string_field(payload, "model")
+    if not model:
+        raise OneAgentError("INVALID_REQUEST", "model is required")
+    profile_id = _string_field(payload, "profile_id") or _slugify_profile_id(f"{provider}-{model}")
+    agents = _optional_agents_field(payload, "agents")
+    if agents is None:
+        raise OneAgentError("INVALID_REQUEST", "agents must be a non-empty array of Agent IDs")
+    stored = save_profile(
+        runtime,
+        profile_id=profile_id,
+        label=_string_field(payload, "label"),
+        provider=provider,
+        api_base_url=_string_field(payload, "api_base_url"),
+        model=model,
+        agent_ids=agents,
+        api_key=_string_field(payload, "api_key"),
+    )
+    summary = public_profile_summary({**stored, "has_key": secrets_path(runtime, str(stored["id"])).exists()})
+    return {"ok": True, "profile": summary}
+
+
 def install_payload(payload: dict[str, object]) -> dict[str, object]:
     agents = _agents_field(payload)
     configure = _bool_field(payload, "configure", True)
@@ -290,7 +345,7 @@ def install_payload(payload: dict[str, object]) -> dict[str, object]:
             provider=_string_field(payload, "provider", "ppio"),
             api_base_url=_string_field(payload, "api_base_url"),
             api_key=_string_field(payload, "api_key"),
-            model=_string_field(payload, "model") or probe_model(_string_field(payload, "provider", "ppio")),
+            model=_string_field(payload, "model"),
             configure=configure,
             install_agent=_bool_field(payload, "install_agent"),
             # The GUI's existing-account path still completes the selected
@@ -317,6 +372,9 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/status":
                 json_response(self, 200, status_payload(_runtime()))
                 return
+            if path == "/api/profiles":
+                json_response(self, 200, profiles_payload(_runtime()))
+                return
             if path == "/favicon.ico" and not (static_root() / "favicon.ico").exists():
                 self.send_response(204)
                 self.end_headers()
@@ -335,6 +393,8 @@ class Handler(BaseHTTPRequestHandler):
                 json_response(self, 200, models_payload(payload))
             elif self.path == "/api/install":
                 json_response(self, 200, install_payload(payload))
+            elif self.path == "/api/profiles":
+                json_response(self, 200, save_profile_payload(payload))
             elif self.path == "/api/open-register":
                 provider = _string_field(payload, "provider", "ppio")
                 url = provider_home(provider)

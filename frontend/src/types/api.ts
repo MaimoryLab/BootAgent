@@ -27,12 +27,26 @@ export interface AgentStatus {
 
 export interface EnvironmentProfile {
   schema_version: number;
+  id?: string;
+  label?: string;
   provider: string;
   base_url: string | null;
   model: string | null;
   config_mode: "provider" | "existing-account";
   agent_ids: string[];
   activated_at: string;
+  created_at?: string;
+}
+
+export interface ProfileSummary {
+  id: string;
+  label: string;
+  provider: string;
+  baseUrl: string | null;
+  model: string | null;
+  agentIds: string[];
+  activatedAt: string | null;
+  hasKey: boolean;
 }
 
 export interface StatusResponse {
@@ -50,6 +64,8 @@ export interface StatusResponse {
   backups: Record<string, boolean>;
   environment: EnvironmentProfile | null;
   environmentError: string | null;
+  profiles: ProfileSummary[];
+  activeProfile: string | null;
 }
 
 export interface ApiErrorShape {

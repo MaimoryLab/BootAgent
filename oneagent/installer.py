@@ -19,7 +19,7 @@ from .catalog import (
     PROVIDERS,
     agent_catalog,
     current_platform,
-    probe_model,
+    fallback_probe_model,
     public_catalog,
     resolve_home,
 )
@@ -32,6 +32,7 @@ from .providers import (
     protocol_probe,
     provider_base,
     provider_config_base,
+    resolve_probe_model,
 )
 
 
@@ -566,7 +567,94 @@ def profile_path(runtime: Runtime) -> Path:
     return runtime.home / ".oneagent" / "profile.json"
 
 
+_PROFILE_ID_PATTERN = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
+
+
+def profiles_dir(runtime: Runtime) -> Path:
+    return runtime.home / ".oneagent" / "profiles"
+
+
+def profile_store_path(runtime: Runtime, profile_id: str) -> Path:
+    return profiles_dir(runtime) / f"{validate_profile_id(profile_id)}.json"
+
+
+def secrets_path(runtime: Runtime, profile_id: str) -> Path:
+    # Validate at the point the path is built, not only at the callers: this
+    # decides where a plaintext key is written, so every future caller has to
+    # inherit the check rather than remember it.
+    suffix = "env.ps1" if runtime.os_id == "windows" else "env"
+    return runtime.home / ".oneagent" / "secrets" / f"{validate_profile_id(profile_id)}.{suffix}"
+
+
+def validate_profile_id(profile_id: str) -> str:
+    if not isinstance(profile_id, str) or not _PROFILE_ID_PATTERN.fullmatch(profile_id):
+        raise OneAgentError(
+            "INVALID_REQUEST",
+            "Profile ID must start with a lowercase letter or digit and use only lowercase letters, digits, '-' or '_'",
+        )
+    return profile_id
+
+
+def active_profile_id(runtime: Runtime) -> str | None:
+    path = profile_path(runtime)
+    if not path.exists():
+        return None
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if isinstance(value, dict) and value.get("schema_version") == 2 and isinstance(value.get("active"), str):
+        # Reject a pointer that is not a legal ID rather than returning it: the
+        # value reaches secrets_path, so a traversal here would build a key path
+        # outside the secrets directory.
+        try:
+            return validate_profile_id(str(value["active"]))
+        except OneAgentError:
+            return None
+    return None
+
+
+def _read_stored_profile(runtime: Runtime, profile_id: str) -> tuple[dict[str, Any] | None, str | None]:
+    path = profile_store_path(runtime, profile_id)
+    if not path.exists():
+        return None, f"Profile {profile_id} is missing"
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return None, str(exc)
+    if not isinstance(value, dict):
+        return None, f"Profile {profile_id} is corrupt"
+    return value, None
+
+
+def _write_profile_store(runtime: Runtime, profile_id: str, stored: dict[str, Any]) -> Path:
+    ensure_private_dir(runtime, profiles_dir(runtime))
+    path = profile_store_path(runtime, profile_id)
+    atomic_write(runtime, path, json.dumps(stored, ensure_ascii=False, indent=2) + "\n")
+    return path
+
+
+def _write_profile_pointer(runtime: Runtime, profile_id: str) -> Path:
+    pointer = {"schema_version": 2, "active": profile_id}
+    path = profile_path(runtime)
+    atomic_write(runtime, path, json.dumps(pointer, ensure_ascii=False, indent=2) + "\n")
+    return path
+
+
+def _write_profile_secret(runtime: Runtime, profile_id: str, api_key: str, base_url: str) -> None:
+    if not api_key:
+        return
+    atomic_write(runtime, secrets_path(runtime, profile_id), _shared_env_content(runtime, api_key, base_url), secret=True)
+
+
 def load_profile(runtime: Runtime) -> tuple[dict[str, Any] | None, str | None]:
+    """The active environment profile.
+
+    profile.json schema_version 2 is a pointer into the profiles/ store.
+    Legacy schema_version 1 files are migrated in place on first read --
+    atomic_write backs the original up first -- so an existing installation
+    upgrades instead of failing.
+    """
     path = profile_path(runtime)
     if not path.exists():
         return None, None
@@ -574,9 +662,97 @@ def load_profile(runtime: Runtime) -> tuple[dict[str, Any] | None, str | None]:
         value = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         return None, str(exc)
-    if not isinstance(value, dict) or value.get("schema_version") != 1:
+    if not isinstance(value, dict):
         return None, "Unsupported environment profile schema"
-    return value, None
+    schema = value.get("schema_version")
+    if schema == 1:
+        return _migrate_profile_v1(runtime, value)
+    if schema != 2 or not isinstance(value.get("active"), str):
+        return None, "Unsupported environment profile schema"
+    # The pointer is a file on disk, so its value is untrusted input even though
+    # we wrote it: anything that can edit profile.json could otherwise name a
+    # path outside the store and have it read back as a profile.
+    try:
+        active = validate_profile_id(str(value["active"]))
+    except OneAgentError as exc:
+        return None, exc.message
+    return _read_stored_profile(runtime, active)
+
+
+def _migrate_profile_v1(runtime: Runtime, legacy: dict[str, Any]) -> tuple[dict[str, Any] | None, str | None]:
+    profile_id = "default"
+    now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    stored = {
+        "schema_version": 2,
+        "id": profile_id,
+        "label": profile_id,
+        "provider": legacy.get("provider"),
+        "base_url": legacy.get("base_url"),
+        "model": legacy.get("model"),
+        "config_mode": legacy.get("config_mode") or "provider",
+        "agent_ids": legacy.get("agent_ids") or [],
+        "created_at": legacy.get("activated_at") or now,
+        "activated_at": legacy.get("activated_at") or now,
+    }
+    try:
+        _write_profile_store(runtime, profile_id, stored)
+        _write_profile_pointer(runtime, profile_id)
+    except OneAgentError as exc:
+        return None, f"Cannot migrate legacy profile: {exc.message}"
+    return stored, None
+
+
+def list_profiles(runtime: Runtime) -> list[dict[str, Any]]:
+    """Stored profiles in stable order, annotated with key presence.
+
+    Profiles never carry key material; whether a matching secret file exists
+    decides if the profile can be activated without re-pasting the key.
+    """
+    directory = profiles_dir(runtime)
+    if not directory.is_dir():
+        return []
+    profiles: list[dict[str, Any]] = []
+    for path in sorted(directory.glob("*.json")):
+        try:
+            value = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if isinstance(value, dict) and isinstance(value.get("id"), str):
+            profiles.append({**value, "has_key": secrets_path(runtime, str(value["id"])).exists()})
+    return profiles
+
+
+def save_profile(
+    runtime: Runtime,
+    *,
+    profile_id: str,
+    label: str = "",
+    provider: str,
+    api_base_url: str = "",
+    model: str,
+    agent_ids: list[str],
+    api_key: str = "",
+) -> dict[str, Any]:
+    profile_id = validate_profile_id(profile_id)
+    base_url = provider_base(provider, api_base_url)
+    existing, _ = _read_stored_profile(runtime, profile_id)
+    now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    stored = {
+        "schema_version": 2,
+        "id": profile_id,
+        "label": label or (existing or {}).get("label") or profile_id,
+        "provider": provider,
+        "base_url": api_base_url or None,
+        "model": model,
+        "config_mode": "provider",
+        "agent_ids": sorted(set(agent_ids)),
+        "created_at": (existing or {}).get("created_at") or now,
+        "activated_at": (existing or {}).get("activated_at"),
+    }
+    _write_profile_store(runtime, profile_id, stored)
+    if api_key:
+        _write_profile_secret(runtime, profile_id, api_key, base_url)
+    return stored
 
 
 def write_profile(
@@ -587,23 +763,32 @@ def write_profile(
     provider: str,
     base_url: str,
     model: str,
+    api_key: str = "",
 ) -> Path:
     current, _ = load_profile(runtime)
     merged_agents = set(agents)
+    profile_id = "default"
+    if current and isinstance(current.get("id"), str):
+        profile_id = str(current["id"])
     if current and current.get("provider") == (provider if configure else "existing-account") and current.get("model") == (model if configure else None):
         merged_agents.update(current.get("agent_ids") or [])
-    profile = {
-        "schema_version": 1,
+    now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    stored = {
+        "schema_version": 2,
+        "id": profile_id,
+        "label": (current or {}).get("label") or profile_id,
         "provider": provider if configure else "existing-account",
         "base_url": base_url if configure else None,
         "model": model if configure else None,
         "config_mode": "provider" if configure else "existing-account",
         "agent_ids": sorted(merged_agents),
-        "activated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "created_at": (current or {}).get("created_at") or now,
+        "activated_at": now,
     }
-    path = profile_path(runtime)
-    atomic_write(runtime, path, json.dumps(profile, ensure_ascii=False, indent=2) + "\n")
-    return path
+    _write_profile_store(runtime, profile_id, stored)
+    if configure:
+        _write_profile_secret(runtime, profile_id, api_key, base_url)
+    return _write_profile_pointer(runtime, profile_id)
 
 
 def _sharpen_model_diagnosis(probes: dict[str, dict[str, Any]], options: InstallOptions) -> None:
@@ -648,8 +833,20 @@ def install_many(options: InstallOptions, runtime: Runtime | None = None) -> dic
     # it into a config or a next-step hint. An empty model reaches this far when
     # a caller omits it entirely, and writing "" into an Agent config would
     # produce a file that looks configured but cannot answer a request.
+    # Resolution prefers a model the endpoint lists right now; the catalog
+    # fallback only covers discovery failure. skip_test opts out of every
+    # network round trip, discovery included.
     if not options.model:
-        options = replace(options, model=probe_model(options.provider))
+        if options.skip_test:
+            resolved_model = fallback_probe_model(options.provider)
+        else:
+            resolved_model = resolve_probe_model(
+                provider=options.provider,
+                api_key=options.api_key,
+                custom_base=options.api_base_url,
+                timeout=options.timeout,
+            )
+        options = replace(options, model=resolved_model)
     if options.locked_version and options.latest:
         raise OneAgentError("INVALID_REQUEST", "locked_version and latest cannot be enabled together")
     if options.timeout <= 0:
@@ -814,6 +1011,7 @@ def install_many(options: InstallOptions, runtime: Runtime | None = None) -> dic
             provider=options.provider,
             base_url=base_url,
             model=options.model,
+            api_key=options.api_key,
         )
     text = redact("\n\n".join(logs), [options.api_key])
     return {
@@ -824,6 +1022,20 @@ def install_many(options: InstallOptions, runtime: Runtime | None = None) -> dic
         "next": "\n".join(next_steps),
         "probe": probe_result,
         "probes": probes,
+    }
+
+
+def public_profile_summary(item: dict[str, Any]) -> dict[str, Any]:
+    """The client-facing shape of a stored profile (camelCase, no secrets)."""
+    return {
+        "id": str(item.get("id")),
+        "label": str(item.get("label") or item.get("id")),
+        "provider": item.get("provider"),
+        "baseUrl": item.get("base_url"),
+        "model": item.get("model"),
+        "agentIds": list(item.get("agent_ids") or []),
+        "activatedAt": item.get("activated_at"),
+        "hasKey": bool(item.get("has_key")),
     }
 
 
@@ -865,6 +1077,7 @@ def status_payload(runtime: Runtime | None = None) -> dict[str, Any]:
             "canInstall": can_install,
         }
     profile, profile_error = load_profile(runtime)
+    profiles = [public_profile_summary(item) for item in list_profiles(runtime)]
     return {
         "apiVersion": 1,
         "platform": {**current_platform(), "os": runtime.os_id},
@@ -880,6 +1093,8 @@ def status_payload(runtime: Runtime | None = None) -> dict[str, Any]:
             "env": bool(list((runtime.home / ".oneagent").glob(f"{_env_path(runtime).name}.backup-*"))),
             "profile": bool(list((runtime.home / ".oneagent").glob("profile.json.backup-*"))),
         },
+        "profiles": profiles,
+        "activeProfile": active_profile_id(runtime),
         "environment": profile,
         "environmentError": profile_error,
     }
