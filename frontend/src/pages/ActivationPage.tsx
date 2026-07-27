@@ -118,6 +118,14 @@ export function ActivationPage() {
         })}
       </div>
       {state.activationProbe && !state.activationProbe.ok ? <div className="notice notice-warning">{state.activationProbe.message}</div> : null}
+      {/* The launch commands belong to the moment installation finishes, not to
+          the overview a user opens every day. */}
+      {allDone && state.activationNext ? (
+        <section className="next-command-section">
+          <h2>下一步命令</h2>
+          <pre>{state.activationNext}</pre>
+        </section>
+      ) : null}
       <LogDisclosure log={state.activationLog} />
     </PageScaffold>
   );

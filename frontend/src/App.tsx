@@ -10,6 +10,25 @@ import { ProviderKeyPage } from "./pages/ProviderKeyPage";
 import { ReviewPage } from "./pages/ReviewPage";
 import { useWizard } from "./state/WizardContext";
 
+function LandingRoute() {
+  const { state } = useWizard();
+  // Wait for the first status read before choosing. The fetch starts in an
+  // effect, so the initial render has no status and a state of "idle" rather
+  // than "loading" — treating that as "nothing configured" would redirect a
+  // returning user into the wizard before their Agents ever loaded, and the
+  // redirect is not revisited once status arrives.
+  if (!state.status && state.statusState !== "error") {
+    return <div className="loading-block"><span className="spinner" />正在读取环境状态</div>;
+  }
+  // An Agent already pointed somewhere, or a previously activated profile,
+  // means this is a returning user; the wizard is for first run only. This is
+  // what makes it a tool you come back to rather than one you run once.
+  const configured =
+    Boolean(state.status?.environment) ||
+    Object.values(state.status?.agents ?? {}).some((agent) => agent.provider);
+  return <Navigate to={configured ? "/overview" : "/setup/agents"} replace />;
+}
+
 function SetupGuard({ stage, children }: { stage: "mode" | "provider" | "model" | "review" | "activation"; children: React.ReactNode }) {
   const { state } = useWizard();
   if (!state.selectedAgentIds.length) return <Navigate to="/setup/agents" replace />;
@@ -39,7 +58,7 @@ export default function App() {
   return (
     <AppWindow>
       <Routes>
-        <Route path="/" element={<Navigate to="/setup/agents" replace />} />
+        <Route path="/" element={<LandingRoute />} />
         <Route path="/setup/agents" element={<AgentSelectionPage />} />
         <Route path="/setup/mode" element={<SetupGuard stage="mode"><ConfigModePage /></SetupGuard>} />
         <Route path="/setup/provider" element={<SetupGuard stage="provider"><ProviderKeyPage /></SetupGuard>} />

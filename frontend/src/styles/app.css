@@ -803,35 +803,6 @@
   overflow-wrap: anywhere;
 }
 
-.environment-summary {
-  max-width: 900px;
-  display: grid;
-  gap: 18px;
-}
-
-.environment-ready {
-  min-height: 74px;
-  padding: 14px 16px;
-  border: 1px solid rgba(36, 138, 61, 0.25);
-  border-radius: var(--radius-panel);
-  display: flex;
-  align-items: center;
-  gap: 13px;
-  color: var(--green);
-  background: var(--green-soft);
-}
-
-.environment-ready > div { display: grid; gap: 3px; }
-.environment-ready strong { font-size: 16px; }
-.environment-ready span { color: #387a49; font-size: 12px; }
-
-.summary-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
-}
-
 .summary-item {
   min-width: 0;
   min-height: 86px;
@@ -918,7 +889,6 @@
   .page-header { padding: 22px 30px 16px; }
   .page-body { padding: 20px 30px 28px; }
   .page-footer { padding: 0 30px; }
-  .summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .summary-item:nth-child(3) { border-left: 0; border-top: 1px solid var(--border); }
   .summary-item:nth-child(4) { border-top: 1px solid var(--border); }
 }
@@ -944,4 +914,112 @@
   .page-header h1 { font-size: 23px; }
   .setup-stepper { margin-top: 14px; }
   .page-body { padding-top: 16px; padding-bottom: 20px; }
+}
+
+/* Deferrable news sits beside the title rather than in a banner of its own:
+   the overview is opened daily and its first screen belongs to the Agents. */
+.title-badge {
+  margin-left: 9px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--orange-soft);
+  color: var(--orange);
+  font-size: 11px;
+  font-weight: 500;
+  vertical-align: middle;
+}
+
+.agent-manage-list {
+  display: grid;
+  gap: 8px;
+}
+
+.agent-manage-row {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  background: #fff;
+}
+
+.agent-manage-row.is-open {
+  border-color: var(--border-strong);
+  box-shadow: 0 1px 3px rgba(42, 42, 46, 0.06);
+}
+
+.agent-manage-head {
+  padding: 11px 13px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.agent-manage-identity {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.agent-manage-identity strong { font-size: 13px; }
+
+.agent-manage-target {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.agent-manage-identity small {
+  color: var(--text-tertiary);
+  font-size: 11px;
+}
+
+.agent-manage-identity small.is-behind { color: var(--orange); }
+
+.agent-manage-actions {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.agent-manage-panel {
+  padding: 13px;
+  display: grid;
+  gap: 11px;
+  border-top: 1px solid var(--border);
+  background: var(--surface-subtle);
+}
+
+.agent-manage-protocol {
+  color: var(--text-tertiary);
+  font-size: 11px;
+}
+
+.agent-manage-error {
+  margin: 0;
+  padding: 8px 11px;
+  border-radius: var(--radius-control);
+  background: var(--red-soft);
+  color: var(--red);
+  font-size: 12px;
+}
+
+.agent-manage-applied {
+  padding: 10px 12px;
+  display: grid;
+  gap: 5px;
+  border-radius: var(--radius-control);
+  background: var(--green-soft);
+  color: var(--green);
+  font-size: 12px;
+}
+
+.agent-manage-applied strong { font-size: 12px; }
+
+.agent-manage-applied pre {
+  margin: 0;
+  padding: 7px 9px;
+  overflow-x: auto;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.7);
+  color: var(--text-primary);
+  font-size: 11px;
 }

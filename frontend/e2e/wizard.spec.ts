@@ -195,7 +195,11 @@ for (const viewport of [
     expect(await page.content()).not.toContain("sentinel-browser-secret");
 
     await page.getByRole("button", { name: "进入总览" }).click();
-    await expect(page.getByText("开发环境已就绪")).toBeVisible();
+    // Arriving at the overview is what matters here. The old assertion looked
+    // for a "ready" banner, which was a one-off wizard confirmation occupying
+    // the top of a page the user opens every day; the Agent list is the page.
+    await expect(page.getByRole("heading", { name: "环境总览" })).toBeVisible();
+    await expect(page.locator(".agent-manage-row").first()).toBeVisible();
     await page.screenshot({ path: testInfo.outputPath(`07-overview-${viewport.label}.png`) });
     await expectNoHorizontalOverflow(page);
   });
@@ -217,7 +221,7 @@ test("浏览器后退到激活页不重放安装", async ({ page }) => {
   await page.getByRole("button", { name: "开始激活" }).click();
   await expect(page.getByRole("heading", { name: "激活完成" })).toBeVisible();
   await page.getByRole("button", { name: "进入总览" }).click();
-  await expect(page.getByText("开发环境已就绪")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "环境总览" })).toBeVisible();
 
   await page.goBack();
   // The outcome page must come back as a static summary: same heading, no

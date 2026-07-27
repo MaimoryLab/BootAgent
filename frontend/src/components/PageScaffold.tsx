@@ -5,6 +5,9 @@ import { SetupStepper } from "./SetupStepper";
 
 interface PageScaffoldProps extends PropsWithChildren {
   title: string;
+  /** Short count beside the title, for deferrable news that has not earned a
+   *  banner of its own. Empty string renders nothing. */
+  titleBadge?: string;
   description?: string;
   /** Show the setup stepper; it derives the current step from the route. */
   stepper?: boolean;
@@ -21,6 +24,7 @@ interface PageScaffoldProps extends PropsWithChildren {
 
 export function PageScaffold({
   title,
+  titleBadge,
   description,
   stepper,
   footerNote,
@@ -38,7 +42,10 @@ export function PageScaffold({
     <section className="page-scaffold">
       <header className="page-header">
         <div>
-          <h1>{title}</h1>
+          <h1>
+            {title}
+            {titleBadge ? <span className="title-badge">{titleBadge}</span> : null}
+          </h1>
           {description ? <p>{description}</p> : null}
         </div>
         {stepper ? <SetupStepper /> : null}

@@ -1,4 +1,5 @@
 import type {
+  ActivateAgentResponse,
   InstallRequest,
   InstallResponse,
   ModelsResponse,
@@ -105,4 +106,16 @@ export const api = {
   install: (input: InstallRequest) => post<InstallResponse>("/api/install", input),
   openRegister: (provider: Exclude<ProviderId, "custom">, agents: string[]) =>
     post<{ ok: true; url: string; message: string }>("/api/open-register", { provider, agents }),
+  /** Repoint one Agent. Only that Agent's config and credential file change. */
+  activateAgent: (
+    agentId: string,
+    input: { provider: ProviderId; apiBaseUrl: string; apiKey: string; model: string; profileId?: string },
+  ) =>
+    post<ActivateAgentResponse>(`/api/agents/${encodeURIComponent(agentId)}/activate`, {
+      provider: input.provider,
+      api_base_url: input.apiBaseUrl,
+      api_key: input.apiKey,
+      model: input.model,
+      ...(input.profileId ? { profile_id: input.profileId } : {}),
+    }),
 };
