@@ -10,7 +10,15 @@ from pathlib import Path
 
 from .catalog import PROVIDERS
 from .errors import OneAgentError
-from .installer import InstallOptions, Runtime, install_many, redact
+from .installer import (
+    InstallOptions,
+    Runtime,
+    activate_agent,
+    install_many,
+    list_agent_bindings,
+    read_profile_secret,
+    redact,
+)
 from .providers import provider_home
 
 
@@ -31,6 +39,26 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--locked-version", action="store_true")
     parser.add_argument("--latest", action="store_true")
     parser.add_argument("--home", type=Path, default=None, help=argparse.SUPPRESS)
+    return parser
+
+
+def build_agent_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(prog="oneagent agent", description="Inspect and repoint individual Agents")
+    sub = parser.add_subparsers(dest="action", required=True)
+
+    listing = sub.add_parser("list", help="Show each Agent's provider and model")
+
+    point = sub.add_parser("set", help="Point one Agent at a provider and model")
+    point.add_argument("agent_id")
+    point.add_argument("--provider", default="ppio")
+    point.add_argument("--api-base-url", default="")
+    point.add_argument("--api-key", default="")
+    point.add_argument("--model", default="", help="Defaults to a model the provider lists")
+    point.add_argument("--profile", default="", help="Reuse the key saved for this profile template")
+
+    for target in (listing, point):
+        target.add_argument("--json", action="store_true", dest="json_output")
+        target.add_argument("--home", type=Path, default=None, help=argparse.SUPPRESS)
     return parser
 
 
@@ -62,7 +90,53 @@ def _resolve_api_key(args: argparse.Namespace) -> str:
     return getpass.getpass("Paste API key: ")
 
 
+def _run_agent_command(argv: list[str]) -> int:
+    args = build_agent_parser().parse_args(argv)
+    runtime = Runtime.create(home=args.home)
+    try:
+        if args.action == "list":
+            bindings = list_agent_bindings(runtime)
+            if args.json_output:
+                print(json.dumps({"ok": True, "agents": bindings}, ensure_ascii=False))
+            elif not bindings:
+                print("[oneagent] no Agent has been configured yet")
+            else:
+                for agent_id, binding in bindings.items():
+                    print(f"{agent_id:14} {binding['provider']:10} {binding['model']}")
+            return 0
+
+        api_key = args.api_key or os.environ.get("ONEAGENT_API_KEY", "")
+        if not api_key and args.profile:
+            api_key = read_profile_secret(runtime, args.profile)
+        result = activate_agent(
+            runtime,
+            args.agent_id,
+            provider=args.provider,
+            api_base_url=args.api_base_url,
+            api_key=api_key,
+            model=args.model,
+        )
+        if args.json_output:
+            print(json.dumps(result, ensure_ascii=False))
+        else:
+            print(f"[oneagent] {result['agent']} -> {result['provider']} / {result['model']}")
+            print(f"[oneagent] {result['restart']}")
+            print(f"[oneagent] next: {result['next']}")
+        return 0
+    except OneAgentError as exc:
+        if args.json_output:
+            print(json.dumps(exc.to_dict(), ensure_ascii=False))
+        else:
+            print(f"[oneagent] error: {exc.message}", file=sys.stderr)
+        return exc.exit_code
+
+
 def run(argv: list[str] | None = None) -> int:
+    raw = list(sys.argv[1:] if argv is None else argv)
+    # "agent" is a subcommand; every other invocation keeps the original flat
+    # flag form so existing scripts and the installers do not have to change.
+    if raw and raw[0] == "agent":
+        return _run_agent_command(raw[1:])
     parser = build_parser()
     args = parser.parse_args(argv)
     api_key = ""

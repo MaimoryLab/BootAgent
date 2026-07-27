@@ -23,6 +23,22 @@ export interface AgentStatus {
   version: string | null;
   lockedVersion: string | null;
   canInstall: boolean;
+  /** What this Agent is pointed at. Null until it has been configured once. */
+  provider: string | null;
+  model: string | null;
+  baseUrl: string | null;
+  updatedAt: string | null;
+}
+
+export interface ActivateAgentResponse {
+  ok: boolean;
+  agent: string;
+  config: string;
+  provider: string;
+  model: string;
+  /** How to make the rewritten config take effect; Agents read it at startup. */
+  restart: string;
+  next: string;
 }
 
 export interface EnvironmentProfile {

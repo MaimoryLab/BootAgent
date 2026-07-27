@@ -478,6 +478,45 @@ class ServerContractTests(unittest.TestCase):
         self.assertIsNone(body["activeProfile"])
         self.assertNotIn(secret, json.dumps(body))
 
+    def test_activate_endpoint_repoints_one_agent_at_a_time(self):
+        self.bootstrap()
+        secret = "sentinel-activate-key"
+        status, _, first = self.post(
+            "/api/agents/codex/activate",
+            {"provider": "ppio", "model": "deepseek-v3", "api_key": secret},
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(first["agent"], "codex")
+        self.assertEqual(first["provider"], "ppio")
+        self.assertTrue(first["restart"])
+        self.assertNotIn(secret, json.dumps(first))
+
+        status, _, second = self.post(
+            "/api/agents/opencode/activate",
+            {"provider": "novita", "model": "qwen-max", "api_key": "other-key"},
+        )
+        self.assertEqual(status, 200)
+
+        # Status reports the two Agents independently.
+        status, _, body = request_json(self.opener, self.base + "/api/status")
+        self.assertEqual(body["agents"]["codex"]["provider"], "ppio")
+        self.assertEqual(body["agents"]["opencode"]["provider"], "novita")
+        self.assertNotIn(secret, json.dumps(body))
+
+    def test_activate_endpoint_rejects_bad_agents_and_enforces_origin(self):
+        self.bootstrap()
+        for agent_id, expected in (("cursor", 400), ("nope", 400), ("..%2Fescape", 400)):
+            with self.subTest(agent=agent_id):
+                status, _, body = self.post(
+                    f"/api/agents/{agent_id}/activate",
+                    {"provider": "ppio", "model": "m", "api_key": "k"},
+                )
+                self.assertEqual(status, expected)
+                self.assertFalse(body["ok"])
+        # A route that does not match the shape stays a 404, not a activation.
+        status, _, _ = self.post("/api/agents//activate", {"provider": "ppio"})
+        self.assertEqual(status, 404)
+
     def test_profiles_endpoint_validates_input(self):
         self.bootstrap()
         for payload in (

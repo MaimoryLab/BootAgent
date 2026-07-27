@@ -32,6 +32,10 @@ const agentStatuses = Object.fromEntries(
       version: index === 0 || index === 2 ? agent.lockedVersion : null,
       lockedVersion: agent.lockedVersion,
       canInstall: !agent.guideOnly,
+      provider: null,
+      model: null,
+      baseUrl: null,
+      updatedAt: null,
     },
   ]),
 );

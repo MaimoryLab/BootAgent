@@ -19,10 +19,12 @@ from .errors import OneAgentError
 from .installer import (
     InstallOptions,
     Runtime,
+    activate_agent,
     active_profile_id,
     install_many,
     list_profiles,
     public_profile_summary,
+    read_profile_secret,
     save_profile,
     secrets_path,
     status_payload,
@@ -335,6 +337,42 @@ def save_profile_payload(payload: dict[str, object]) -> dict[str, object]:
     return {"ok": True, "profile": summary}
 
 
+_AGENT_ACTIVATE_ROUTE = re.compile(r"^/api/agents/([^/]+)/activate$")
+
+
+def _agent_activate_match(path: str) -> str | None:
+    """The Agent ID in /api/agents/<id>/activate, or None for another route.
+
+    Only shape is checked here; activate_agent validates the ID itself, so an
+    unknown or malformed ID becomes a structured error rather than a 404 that
+    looks like the endpoint is missing.
+    """
+    match = _AGENT_ACTIVATE_ROUTE.match(path)
+    return unquote(match.group(1)) if match else None
+
+
+def activate_agent_payload(agent_id: str, payload: dict[str, object]) -> dict[str, object]:
+    runtime = _runtime()
+    provider = _string_field(payload, "provider", "ppio")
+    api_base_url = _string_field(payload, "api_base_url")
+    api_key = _string_field(payload, "api_key")
+    if not api_key:
+        # Reuse the key already stored for a profile so switching an Agent back
+        # to a saved provider does not require pasting it again.
+        profile_ref = _string_field(payload, "profile_id")
+        if profile_ref:
+            api_key = read_profile_secret(runtime, profile_ref)
+    return activate_agent(
+        runtime,
+        agent_id,
+        provider=provider,
+        api_base_url=api_base_url,
+        api_key=api_key,
+        model=_string_field(payload, "model"),
+        timeout=_timeout(),
+    )
+
+
 def install_payload(payload: dict[str, object]) -> dict[str, object]:
     agents = _agents_field(payload)
     configure = _bool_field(payload, "configure", True)
@@ -395,6 +433,8 @@ class Handler(BaseHTTPRequestHandler):
                 json_response(self, 200, install_payload(payload))
             elif self.path == "/api/profiles":
                 json_response(self, 200, save_profile_payload(payload))
+            elif (agent_id := _agent_activate_match(self.path)) is not None:
+                json_response(self, 200, activate_agent_payload(agent_id, payload))
             elif self.path == "/api/open-register":
                 provider = _string_field(payload, "provider", "ppio")
                 url = provider_home(provider)

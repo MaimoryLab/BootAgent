@@ -43,7 +43,8 @@ oneagent/          Python 内核，零第三方依赖
   catalog.py       读 agents.lock.json、平台/HOME 解析、PROVIDERS 常量
   providers.py     base URL 校验与推导、chat_probe、list_models
   installer.py     主体：原子写、备份、权限、5 个配置适配器、install_many、status_payload
-  server.py        stdlib http.server：/api/{status,probe,models,install,open-register} + 静态托管
+  server.py        stdlib http.server：/api/{status,probe,models,install,profiles,open-register}、
+                   POST /api/agents/<id>/activate（单 Agent 重新指向）+ 静态托管
   cli.py           argparse CLI          errors.py  OneAgentError + 错误码→退出码
   entrypoint.py    打包版入口：无参→GUI，有参→CLI
 frontend/src/

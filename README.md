@@ -225,7 +225,21 @@ Codex、OpenCode 和 Kilo CLI 各读自己的环境变量（`ONEAGENT_API_KEY_CO
 
 Codex TOML、Claude/OpenCode/Kilo JSON 会保留非 OneAgent 管理字段。写入前创建 `*.backup-<timestamp>`；损坏配置返回 `CONFIG_WRITE_FAILED`，不会静默覆盖。
 
-API Key 只进入本地密钥配置，不进入 `profile.json`、命令行、URL、日志、React reducer、浏览器存储或遥测。Unix 私有目录使用 `0700`、密钥文件和备份使用 `0600`；Windows 关闭 ACL 继承，仅允许当前用户和 SYSTEM。权限设置失败会终止发布写入。
+API Key 只进入本地密钥配置，不进入 `profile.json`、`agents/<id>.json`、命令行、URL、日志、React reducer、浏览器存储或遥测。Unix 私有目录使用 `0700`、密钥文件和备份使用 `0600`；Windows 关闭 ACL 继承，仅允许当前用户和 SYSTEM。权限设置失败会终止发布写入。
+
+## 按 Agent 管理
+
+每个 Agent 独立记录自己指向的 Provider 与模型，互不影响：绑定写入 `~/.oneagent/agents/<agent-id>.json`（不含 Key），凭据写入同名 `.env`。因此 Codex 可以用 PPIO，同时 OpenCode 用 Novita。
+
+```bash
+oneagent agent list                     # 每个 Agent 当前的 Provider 与模型
+oneagent agent set codex --provider ppio --model deepseek/deepseek-v3 --api-key <KEY>
+oneagent agent set opencode --provider novita --model <MODEL> --profile team
+```
+
+`--profile` 复用 `profiles/` 里已保存模板的 Key，无需重新粘贴。GUI 对应 `POST /api/agents/<id>/activate`。
+
+Agent 在启动时读取配置，因此重新指向后必须重启该 Agent 进程才会生效；响应与 CLI 输出都会给出对应的重启指引。切换只影响单个 Agent，失败不会波及其他 Agent。
 
 ## 错误契约
 

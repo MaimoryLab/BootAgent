@@ -48,6 +48,127 @@ class CliContractTests(unittest.TestCase):
             self.assertTrue(payload["ok"])
             self.assertEqual(payload["results"][0]["status"], "guide-only")
 
+    def call(self, *args: str) -> tuple[int, str, str]:
+        """Invoke cli.run in-process.
+
+        run_cli uses a subprocess, which is the honest end-to-end check but is
+        invisible to coverage. These call the entry point directly so the
+        branches are measured.
+        """
+        out, err = io.StringIO(), io.StringIO()
+        with redirect_stdout(out), redirect_stderr(err):
+            code = cli.run(list(args))
+        return code, out.getvalue(), err.getvalue()
+
+    def test_agent_subcommand_in_process_covers_both_output_paths(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            code, out, _ = self.call("agent", "list", "--home", tmp)
+            self.assertEqual(code, 0)
+            self.assertIn("no Agent", out)
+
+            code, out, _ = self.call(
+                "agent", "set", "codex", "--provider", "ppio", "--model", "m",
+                "--api-key", "K", "--home", tmp,
+            )
+            self.assertEqual(code, 0)
+            self.assertIn("codex -> ppio / m", out)
+            self.assertIn("next:", out)
+            self.assertNotIn("K", out.replace("Key", "").replace("okay", ""))
+
+            code, out, _ = self.call("agent", "list", "--home", tmp)
+            self.assertEqual(code, 0)
+            self.assertIn("ppio", out)
+
+            code, out, _ = self.call("agent", "list", "--json", "--home", tmp)
+            self.assertEqual(json.loads(out)["agents"]["codex"]["model"], "m")
+
+            # Error paths on both the JSON and the plain branch.
+            code, out, _ = self.call(
+                "agent", "set", "cursor", "--api-key", "k", "--model", "m", "--json", "--home", tmp
+            )
+            self.assertEqual(code, 2)
+            self.assertEqual(json.loads(out)["error_code"], "INVALID_REQUEST")
+
+            code, _, err = self.call("agent", "set", "cursor", "--api-key", "k", "--model", "m", "--home", tmp)
+            self.assertEqual(code, 2)
+            self.assertIn("guide-only", err)
+
+    def test_agent_set_reads_the_key_from_the_environment(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.dict(os.environ, {"ONEAGENT_API_KEY": "FROM-ENV"}):
+                code, _, _ = self.call(
+                    "agent", "set", "codex", "--provider", "ppio", "--model", "m", "--home", tmp
+                )
+            self.assertEqual(code, 0)
+            env = (Path(tmp) / ".oneagent" / "agents" / "codex.env").read_text(encoding="utf-8")
+            self.assertIn("FROM-ENV", env)
+
+    def test_agent_subcommand_lists_and_repoints_each_agent(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            empty = self.run_cli("agent", "list", "--json", "--home", tmp)
+            self.assertEqual(empty.returncode, 0, empty.stderr)
+            self.assertEqual(json.loads(empty.stdout)["agents"], {})
+
+            first = self.run_cli(
+                "agent", "set", "codex", "--provider", "ppio", "--model", "m-a",
+                "--api-key", "K-CODEX", "--json", "--home", tmp,
+            )
+            self.assertEqual(first.returncode, 0, first.stderr)
+            payload = json.loads(first.stdout)
+            self.assertEqual(payload["provider"], "ppio")
+            self.assertTrue(payload["restart"])
+            self.assertNotIn("K-CODEX", first.stdout)
+
+            self.run_cli(
+                "agent", "set", "opencode", "--provider", "novita", "--model", "m-b",
+                "--api-key", "K-OPENCODE", "--json", "--home", tmp,
+            )
+            listed = json.loads(self.run_cli("agent", "list", "--json", "--home", tmp).stdout)["agents"]
+            self.assertEqual(listed["codex"]["provider"], "ppio")
+            self.assertEqual(listed["opencode"]["provider"], "novita")
+
+            # Human-readable output names both Agents and their providers.
+            plain = self.run_cli("agent", "list", "--home", tmp)
+            self.assertIn("codex", plain.stdout)
+            self.assertIn("novita", plain.stdout)
+
+    def test_agent_subcommand_reports_errors_with_stable_exit_codes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            guide_only = self.run_cli(
+                "agent", "set", "cursor", "--api-key", "k", "--model", "m", "--json", "--home", tmp
+            )
+            self.assertEqual(guide_only.returncode, 2)
+            self.assertEqual(json.loads(guide_only.stdout)["error_code"], "INVALID_REQUEST")
+
+            no_key = self.run_cli("agent", "set", "codex", "--model", "m", "--home", tmp)
+            self.assertEqual(no_key.returncode, 2)
+            self.assertIn("API key", no_key.stderr)
+
+            # The empty listing still prints something on the plain path.
+            plain = self.run_cli("agent", "list", "--home", tmp)
+            self.assertIn("no Agent", plain.stdout)
+
+    def test_agent_subcommand_can_reuse_a_saved_profile_key(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            from oneagent.installer import Runtime, save_profile
+
+            save_profile(
+                Runtime.create(home=Path(tmp), os_id="linux", which=lambda _n: None),
+                profile_id="team",
+                provider="ppio",
+                model="m",
+                agent_ids=["codex"],
+                api_key="STORED",
+            )
+            result = self.run_cli(
+                "agent", "set", "codex", "--provider", "ppio", "--model", "m",
+                "--profile", "team", "--json", "--home", tmp,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertNotIn("STORED", result.stdout)
+            env = (Path(tmp) / ".oneagent" / "agents" / "codex.env").read_text(encoding="utf-8")
+            self.assertIn("STORED", env)
+
     def test_json_invalid_agent_has_stable_exit_code(self):
         result = self.run_cli("--agent", "unknown", "--check-agent-only", "--json")
         self.assertEqual(result.returncode, 2)

@@ -7,18 +7,26 @@ import tempfile
 import tomllib
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from oneagent.catalog import load_manifest, resolve_home
 from oneagent.errors import OneAgentError
 from oneagent.installer import (
     InstallOptions,
     Runtime,
+    _restart_hint,
+    activate_agent,
     agent_env_path,
     agent_env_var,
     atomic_write,
     install_many,
+    list_agent_bindings,
     load_profile,
+    read_agent_binding,
+    read_profile_secret,
     redact,
+    save_profile,
+    secrets_path,
     status_payload,
 )
 from oneagent.providers import openai_base_url, validate_base_url
@@ -260,6 +268,157 @@ class PerAgentCredentialTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             result = self._install(tmp, ["codex"], provider="ppio", key="k", model="m")
         self.assertIn("source ~/.oneagent/agents/codex.env && codex", result["next"])
+
+
+class AgentActivationTests(unittest.TestCase):
+    def _runtime(self, tmp: str) -> Runtime:
+        return Runtime(
+            home=Path(tmp),
+            os_id="linux",
+            runner=FakeProcessRunner(),
+            which=lambda name: f"/usr/bin/{name}",
+            env={},
+        )
+
+    def test_activating_one_agent_leaves_the_others_untouched(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            runtime = self._runtime(tmp)
+            activate_agent(runtime, "codex", provider="ppio", api_key="K-CODEX", model="m-a")
+            activate_agent(runtime, "opencode", provider="novita", api_key="K-OPENCODE", model="m-b")
+
+            bindings = list_agent_bindings(runtime)
+            self.assertEqual(bindings["codex"]["provider"], "ppio")
+            self.assertEqual(bindings["opencode"]["provider"], "novita")
+
+            # Repointing codex must not disturb opencode's binding or key.
+            activate_agent(runtime, "codex", provider="novita", api_key="K-CODEX-2", model="m-c")
+            bindings = list_agent_bindings(runtime)
+            self.assertEqual(bindings["codex"]["model"], "m-c")
+            self.assertEqual(bindings["opencode"]["model"], "m-b")
+            opencode_env = (Path(tmp) / ".oneagent" / "agents" / "opencode.env").read_text(encoding="utf-8")
+            self.assertIn("K-OPENCODE", opencode_env)
+            self.assertNotIn("K-CODEX", opencode_env)
+
+    def test_activation_never_returns_the_key_and_always_says_how_to_reload(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result = activate_agent(
+                self._runtime(tmp), "codex", provider="ppio", api_key="SECRET-KEY", model="m"
+            )
+        self.assertNotIn("SECRET-KEY", json.dumps(result))
+        # An Agent reads its config at startup, so "activated" without a reload
+        # instruction reads as a silent failure.
+        self.assertTrue(result["restart"])
+
+    def test_activation_rejects_guide_only_and_unknown_agents(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            runtime = self._runtime(tmp)
+            for agent_id in ("cursor", "no-such-agent", "../escape"):
+                with self.subTest(agent=agent_id):
+                    with self.assertRaises(OneAgentError):
+                        activate_agent(runtime, agent_id, provider="ppio", api_key="k", model="m")
+            # A missing key is refused before anything is written.
+            with self.assertRaises(OneAgentError):
+                activate_agent(runtime, "codex", provider="ppio", api_key="", model="m")
+            self.assertEqual(list_agent_bindings(runtime), {})
+
+    def test_a_saved_profile_key_can_be_reused_without_repasting(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            runtime = self._runtime(tmp)
+            save_profile(
+                runtime,
+                profile_id="team-ppio",
+                provider="ppio",
+                model="m",
+                agent_ids=["codex"],
+                api_key="STORED-KEY",
+            )
+            self.assertEqual(read_profile_secret(runtime, "team-ppio"), "STORED-KEY")
+            # Absent profile yields no key rather than an error.
+            self.assertEqual(read_profile_secret(runtime, "missing"), "")
+
+    def test_unreadable_bindings_are_reported_and_skipped_not_raised(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            runtime = self._runtime(tmp)
+            directory = Path(tmp) / ".oneagent" / "agents"
+            directory.mkdir(parents=True)
+
+            for content, expected in (
+                ("{", "Expecting"),
+                ("[]", "corrupt"),
+                ('{"schema_version":9}', "Unsupported"),
+            ):
+                with self.subTest(content=content):
+                    (directory / "codex.json").write_text(content, encoding="utf-8")
+                    value, error = read_agent_binding(runtime, "codex")
+                    self.assertIsNone(value)
+                    self.assertIn(expected, error or "")
+
+            # A bad file is skipped by the listing rather than failing the whole
+            # status payload, and a filename that is not a legal ID is ignored.
+            (directory / "Bad-Name.json").write_text('{"schema_version":1}', encoding="utf-8")
+            activate_agent(runtime, "opencode", provider="ppio", api_key="k", model="m")
+            self.assertEqual(list(list_agent_bindings(runtime)), ["opencode"])
+
+        with tempfile.TemporaryDirectory() as tmp:
+            # No directory at all is not an error either.
+            self.assertEqual(list_agent_bindings(self._runtime(tmp)), {})
+
+    def test_restart_hint_covers_every_managed_agent(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            runtime = self._runtime(tmp)
+            for agent_id in ("codex", "claude-code", "opencode", "kilo-cli", "aider"):
+                with self.subTest(agent=agent_id):
+                    result = activate_agent(
+                        runtime, agent_id, provider="ppio", api_key="k", model="m"
+                    )
+                    self.assertTrue(result["restart"])
+        self.assertIn("aider.env", _restart_hint("aider"))
+        # An Agent with no known launch command still gets an instruction.
+        self.assertEqual(_restart_hint("future-agent"), "Restart future-agent")
+
+    def test_reading_a_profile_key_handles_both_shells_and_bad_files(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            runtime = self._runtime(tmp)
+            save_profile(
+                runtime, profile_id="p1", provider="ppio", model="m",
+                agent_ids=["codex"], api_key="quoted key",
+            )
+            # shlex round-trips a key that needed quoting.
+            self.assertEqual(read_profile_secret(runtime, "p1"), "quoted key")
+
+            # A secret file with no recognisable assignment yields no key.
+            secrets_path(runtime, "p1").write_text("# nothing here\n", encoding="utf-8")
+            self.assertEqual(read_profile_secret(runtime, "p1"), "")
+
+            # An unreadable secret file is a reported failure, not a silent "".
+            # Returning "" there would make activation fail later with a
+            # confusing "API key is required" instead of the real cause.
+            with patch.object(Path, "read_text", side_effect=OSError("denied")):
+                with self.assertRaises(OneAgentError):
+                    read_profile_secret(runtime, "p1")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            windows = Runtime(
+                home=Path(tmp), os_id="windows", runner=FakeProcessRunner(),
+                which=lambda name: f"C:\\{name}.exe", env={"USERNAME": "tester"},
+            )
+            with patch("oneagent.installer._run_acl"):
+                save_profile(
+                    windows, profile_id="p2", provider="ppio", model="m",
+                    agent_ids=["codex"], api_key="it's",
+                )
+                self.assertEqual(read_profile_secret(windows, "p2"), "it's")
+
+    def test_status_reports_each_agent_binding_separately(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            runtime = self._runtime(tmp)
+            activate_agent(runtime, "codex", provider="ppio", api_key="k1", model="m-a")
+            payload = status_payload(runtime)
+        self.assertEqual(payload["agents"]["codex"]["provider"], "ppio")
+        self.assertEqual(payload["agents"]["codex"]["model"], "m-a")
+        # An Agent never pointed anywhere reports no binding instead of a stale
+        # or borrowed one.
+        self.assertIsNone(payload["agents"]["opencode"]["provider"])
 
 
 class InstallerContractTests(unittest.TestCase):
