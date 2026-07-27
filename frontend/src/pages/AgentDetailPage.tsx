@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import { api, describeError } from "../api/client";
+import { AdvancedSection } from "../components/AdvancedSection";
 import { ConnectionStatus } from "../components/ConnectionStatus";
 import { AgentIcon, agentTagline } from "../components/icons/agents";
 import { PageScaffold } from "../components/PageScaffold";
@@ -166,19 +167,6 @@ export function AgentDetailPage() {
             />
           </div>
         ) : null}
-        <div className="field-stack">
-          <label htmlFor="detail-model">模型</label>
-          <input
-            id="detail-model"
-            className="text-field"
-            value={model}
-            onChange={(event) => {
-              setModel(event.target.value);
-              resetVerdict();
-            }}
-            placeholder="留空则由端点的模型列表自动选择"
-          />
-        </div>
         <SecureKeyField
           key={keyFieldId}
           value={apiKey}
@@ -203,6 +191,22 @@ export function AgentDetailPage() {
         {catalog.protocol ? (
           <small className="detail-protocol">将测试 {PROTOCOL_LABELS[catalog.protocol]} 协议</small>
         ) : null}
+
+        <AdvancedSection hint="可以指定具体模型。留空时由端点的模型列表自动选择，多数情况保持默认即可。">
+          <div className="field-stack">
+            <label htmlFor="detail-model">模型</label>
+            <input
+              id="detail-model"
+              className="text-field"
+              value={model}
+              onChange={(event) => {
+                setModel(event.target.value);
+                resetVerdict();
+              }}
+              placeholder="留空则由端点的模型列表自动选择"
+            />
+          </div>
+        </AdvancedSection>
 
         {failure ? <p className="agent-manage-error">{failure}</p> : null}
         {applied ? (

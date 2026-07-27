@@ -372,6 +372,8 @@ python3 scripts/provider_rc_smoke.py \
 - [按 Agent 协议验证 ADR](docs/decisions/ADR-004-per-agent-protocol-verification.md)
 - [React 前端实现与发布门禁](docs/frontend-component-redesign-plan.md)
 - [Provider RC 测试说明](docs/provider-rc-testing.md)
+- [前端管理控制台改造计划](docs/frontend-management-console-plan.md)
+- [CC Switch 参考笔记](docs/cc-switch-reference-notes.md)
 - [用户使用文档](docs/ai-agent-kit/00-start-here.md)
 - [配置工具选择](docs/ai-agent-kit/03-config-tools.md)
 - [CC Switch 可选配置说明](docs/ai-agent-kit/tools/cc-switch.md)

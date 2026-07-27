@@ -141,6 +141,15 @@ describe("AgentDetailPage", () => {
     expect(document.cookie).not.toContain("sk-secret-value");
   });
 
+  it("keeps the optional model field out of the common path", () => {
+    // Leaving the model blank lets the endpoint's own list decide, so it is a
+    // choice rather than a step. The main form is Provider, key, test.
+    renderPage();
+    expect(screen.queryByLabelText("模型")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /高级选项/ }));
+    expect(screen.getByLabelText("模型")).toBeTruthy();
+  });
+
   it("refuses an Agent that has no managed configuration", () => {
     renderPage("no-such-agent");
     expect(screen.getByText(/找不到/)).toBeTruthy();

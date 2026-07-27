@@ -1228,3 +1228,40 @@
     animation-duration: 0ms !important;
   }
 }
+
+/* Advanced options: present but not in the way. */
+.advanced-section {
+  padding-top: 11px;
+  border-top: 1px solid var(--border);
+}
+
+.advanced-section > button {
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 0;
+  background: none;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.advanced-section > button:hover { color: var(--blue); }
+
+.advanced-section > button svg { transition: transform 140ms ease; }
+.advanced-section.is-open > button svg { transform: rotate(180deg); }
+
+.advanced-hint {
+  margin: 5px 0 0;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.advanced-body {
+  margin-top: 11px;
+  display: grid;
+  gap: 11px;
+}

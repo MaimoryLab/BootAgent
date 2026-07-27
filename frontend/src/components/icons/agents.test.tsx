@@ -43,6 +43,13 @@ describe("AgentIcon", () => {
     expect(svg?.outerHTML).not.toMatch(/#[0-9a-f]{3,6}/i);
   });
 
+  it("keeps the interior cutouts of a filled mark", () => {
+    // The OpenAI mark is a single path whose knot relies on even-odd winding.
+    // Without it the glyph fills into a solid blob and stops being recognisable.
+    const { container } = render(<AgentIcon agentId="codex" />);
+    expect(container.querySelector("svg")?.getAttribute("fill-rule")).toBe("evenodd");
+  });
+
   it("offers a tagline for hover, distinct from the name", () => {
     for (const id of AUTO_AGENTS) {
       const tagline = agentTagline(id);
