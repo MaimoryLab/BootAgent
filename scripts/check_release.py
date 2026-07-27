@@ -130,9 +130,76 @@ def validate_manifest(path: Path) -> list[str]:
     return problems
 
 
+LEDGER_STATUSES = {"active", "deprecated", "withdrawn"}
+LEDGER_COLUMNS = 10
+
+
+def _ledger_rows(text: str) -> list[list[str]]:
+    rows: list[list[str]] = []
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not stripped.startswith("|"):
+            continue
+        cells = [cell.strip() for cell in stripped.strip("|").split("|")]
+        if len(cells) != LEDGER_COLUMNS:
+            continue
+        if cells[0] in {"release_version", ""} or set(cells[0]) <= {"-", ":"}:
+            continue
+        rows.append(cells)
+    return rows
+
+
+def validate_ledger(path: Path, release_dir: Path) -> list[str]:
+    """Check the distribution ledger against itself and against local artifacts.
+
+    The ledger records what has been uploaded to a channel, while release_dir
+    only holds the current machine's build output. An active entry for a
+    platform built elsewhere is therefore expected to have no local artifact,
+    so a missing file is not an error. A file that is present but whose digest
+    disagrees with the ledger is.
+    """
+    if not path.is_file():
+        return [f"distribution ledger is missing: {path.name}"]
+    problems: list[str] = []
+    digests: dict[tuple[str, str], str] = {}
+    for row in _ledger_rows(path.read_text(encoding="utf-8")):
+        version, artifact, digest, channel = row[0], row[1], row[2], row[3]
+        uploaded_at, uploaded_by, status = row[5], row[6], row[7]
+        withdrawn_at, reason = row[8], row[9]
+        where = f"{path.name}: {artifact} @ {channel}"
+        if status not in LEDGER_STATUSES:
+            problems.append(f"invalid ledger status ({where}): {status}")
+        if not re.fullmatch(r"[0-9a-f]{64}", digest):
+            problems.append(f"invalid ledger sha256 ({where})")
+        if Path(artifact).name != artifact:
+            problems.append(f"ledger artifact must not contain a path ({where})")
+        for label, value in (("uploaded_at", uploaded_at), ("uploaded_by", uploaded_by)):
+            if not value:
+                problems.append(f"ledger {label} is empty ({where})")
+        if status == "withdrawn" and not (withdrawn_at and reason):
+            problems.append(f"withdrawn ledger entry needs a time and a reason ({where})")
+        if status == "active" and (withdrawn_at or reason):
+            problems.append(f"active ledger entry must not carry withdrawal fields ({where})")
+
+        previous = digests.setdefault((version, artifact), digest)
+        if previous != digest:
+            problems.append(f"ledger digests disagree across channels ({where})")
+
+        local = release_dir / artifact
+        if local.is_file() and sha256(local) != digest:
+            problems.append(f"ledger sha256 does not match local artifact ({where})")
+    return problems
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Validate OneAgent release archives")
     parser.add_argument("path", type=Path, nargs="?", default=Path("release"))
+    parser.add_argument(
+        "--ledger",
+        type=Path,
+        default=Path(__file__).resolve().parent.parent / "docs" / "distribution-channels.md",
+        help="Distribution ledger to validate",
+    )
     args = parser.parse_args()
     manifests = list(args.path.glob("release-manifest-*.json"))
     archives = list(args.path.glob("OneAgent-*.zip"))
@@ -145,6 +212,7 @@ def main() -> None:
         problems.extend(validate_manifest(manifest))
     for archive in archives:
         problems.extend(inspect_zip(archive))
+    problems.extend(validate_ledger(args.ledger, args.path))
     if problems:
         raise SystemExit("\n".join(problems))
     print(f"release policy checks passed ({len(archives)} archives)")
