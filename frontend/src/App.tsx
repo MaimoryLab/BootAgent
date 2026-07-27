@@ -6,7 +6,9 @@ import { AgentSelectionPage } from "./pages/AgentSelectionPage";
 import { ConfigModePage } from "./pages/ConfigModePage";
 import { EnvironmentOverviewPage } from "./pages/EnvironmentOverviewPage";
 import { ModelSelectionPage } from "./pages/ModelSelectionPage";
+import { ProfilesPage } from "./pages/ProfilesPage";
 import { ProviderKeyPage } from "./pages/ProviderKeyPage";
+import { ProvidersPage } from "./pages/ProvidersPage";
 import { ReviewPage } from "./pages/ReviewPage";
 import { useWizard } from "./state/WizardContext";
 
@@ -66,6 +68,8 @@ export default function App() {
         <Route path="/setup/review" element={<SetupGuard stage="review"><ReviewPage /></SetupGuard>} />
         <Route path="/setup/activation" element={<SetupGuard stage="activation"><ActivationPage /></SetupGuard>} />
         <Route path="/overview" element={<EnvironmentOverviewPage />} />
+        <Route path="/providers" element={<ProvidersPage />} />
+        <Route path="/profiles" element={<ProfilesPage />} />
         <Route path="*" element={<Navigate to="/setup/agents" replace />} />
       </Routes>
     </AppWindow>

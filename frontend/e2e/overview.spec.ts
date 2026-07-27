@@ -199,6 +199,34 @@ test("首屏用于 Agent 列表，而不是横幅与提醒", async ({ page }, te
   await page.screenshot({ path: testInfo.outputPath("overview-first-screen.png") });
 });
 
+test("侧边栏每一项都能真的打开对应页面", async ({ page }, testInfo) => {
+  await mockOverview(page);
+  await page.goto("/#/overview");
+  await page.waitForSelector(".agent-manage-row");
+
+  // Provider and 配置模板 used to point at wizard steps behind SetupGuard, so
+  // clicking them bounced back to step one and looked like a dead link.
+  for (const [label, hash, heading] of [
+    ["Provider", "#/providers", "Provider"],
+    ["配置模板", "#/profiles", "配置模板"],
+    ["环境总览", "#/overview", "环境总览"],
+  ] as const) {
+    await page.getByRole("link", { name: label }).click();
+    await expect(page).toHaveURL(new RegExp(hash.replace("/", "\\/")));
+    await expect(page.getByRole("heading", { name: heading })).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath(`nav-${heading}.png`), fullPage: true });
+  }
+});
+
+test("Provider 页反查出每个服务正在被哪些 Agent 使用", async ({ page }) => {
+  await mockOverview(page);
+  await page.goto("/#/providers");
+  const ppio = page.getByTestId("provider-ppio");
+  await expect(ppio).toContainText("Codex");
+  const novita = page.getByTestId("provider-novita");
+  await expect(novita).toContainText("Claude Code");
+});
+
 test("已配置的环境直接进入总览而不是向导", async ({ page }) => {
   await mockOverview(page);
   await page.goto("/");

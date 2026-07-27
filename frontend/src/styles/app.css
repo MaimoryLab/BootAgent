@@ -1035,3 +1035,117 @@
   color: var(--text-primary);
   font-size: 11px;
 }
+
+/* Provider and template cards share one grid so the two pages read as siblings. */
+.provider-list,
+.profile-list {
+  display: grid;
+  gap: 8px;
+}
+
+.provider-card,
+.profile-card {
+  padding: 13px;
+  display: grid;
+  gap: 9px;
+  border-radius: var(--radius-panel);
+  background: var(--surface-subtle);
+}
+
+.provider-card header,
+.profile-card header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.provider-card strong,
+.profile-card strong { font-size: 13px; }
+
+.provider-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-secondary);
+  font-size: 11px;
+  text-decoration: none;
+}
+
+.provider-link:hover { color: var(--blue); }
+
+.provider-endpoints {
+  margin: 0;
+  display: grid;
+  gap: 5px;
+}
+
+.provider-endpoints div {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+}
+
+.provider-endpoints dt {
+  flex-shrink: 0;
+  width: 92px;
+  color: var(--text-tertiary);
+  font-size: 11px;
+}
+
+.provider-endpoints dd {
+  margin: 0;
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.provider-users {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.provider-users.is-empty {
+  color: var(--text-tertiary);
+  font-size: 11px;
+}
+
+.provider-user-chip {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.provider-note {
+  margin: 14px 0 0;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.profile-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-tertiary);
+  font-size: 11px;
+}
+
+.profile-key.has-key { color: var(--green); }
+
+.profile-target {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.profile-agents {
+  margin: 0;
+  color: var(--text-tertiary);
+  font-size: 11px;
+}

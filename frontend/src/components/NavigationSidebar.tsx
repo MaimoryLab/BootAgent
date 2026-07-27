@@ -1,11 +1,13 @@
-import { Bot, Boxes, FolderCog, Gauge, Layers3, Sparkles } from "lucide-react";
+import { Boxes, FolderCog, Gauge, Layers3, Sparkles } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
+// Only real destinations belong here. /setup/* are wizard steps behind
+// SetupGuard: listing them made the sidebar look broken, because clicking one
+// without a selected Agent bounced straight back to the first step.
 const navItems = [
   { to: "/overview", label: "环境总览", icon: Gauge },
-  { to: "/setup/agents", label: "Agent", icon: Bot },
-  { to: "/setup/provider", label: "Provider", icon: Layers3 },
-  { to: "/setup/review", label: "配置档案", icon: FolderCog },
+  { to: "/providers", label: "Provider", icon: Layers3 },
+  { to: "/profiles", label: "配置模板", icon: FolderCog },
 ];
 
 export function NavigationSidebar() {
