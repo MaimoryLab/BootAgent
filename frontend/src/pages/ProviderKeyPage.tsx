@@ -16,7 +16,11 @@ export function ProviderKeyPage() {
   const { state, dispatch, secret } = useWizard();
   const providerMeta = state.provider === "custom" ? null : state.status?.providers[state.provider];
   const apiBaseUrl = state.provider === "custom" ? state.customBaseUrl : providerMeta?.base_url || "";
-  const canContinue = state.hasApiKey && (state.provider !== "custom" || Boolean(state.customBaseUrl.trim()));
+  const canProbe = state.hasApiKey && (state.provider !== "custom" || Boolean(state.customBaseUrl.trim()));
+  // Continuing requires a successful probe, not just a non-empty key: a wrong
+  // key must not reach the model step. canProbe stays separate so the test
+  // button remains clickable while the verdict is still outstanding.
+  const canContinue = canProbe && state.connectionState === "success";
   // The selected Agents decide which protocols get tested; a model that serves
   // Chat Completions may still refuse Responses, so do not imply a single one.
   const protocols = useMemo(() => {
@@ -107,12 +111,15 @@ export function ProviderKeyPage() {
         <SecureKeyField value={secret.keyRef.current} onChange={secret.setApiKey} />
 
         <div className="connection-row">
-          <button className="button button-secondary" type="button" onClick={() => void testConnection()} disabled={!canContinue || state.connectionState === "loading"}>
+          <button className="button button-secondary" type="button" onClick={() => void testConnection()} disabled={!canProbe || state.connectionState === "loading"}>
             <FlaskConical size={16} />
             测试连接
           </button>
           <ConnectionStatus state={state.connectionState} result={state.connection} />
         </div>
+        {canProbe && state.connectionState === "idle" && (
+          <small>连接测试通过后才能继续选择模型。</small>
+        )}
       </div>
     </PageScaffold>
   );

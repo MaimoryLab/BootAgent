@@ -67,6 +67,26 @@ describe("wizardReducer", () => {
     expect(state.connectionState).toBe("idle");
   });
 
+  it("invalidates a stale probe verdict whenever the key changes", () => {
+    // The reducer only sees the non-empty boolean (the secret stays in a ref),
+    // so editing "valid key" into "wrong key" dispatches the very same
+    // SET_HAS_API_KEY(true). It must reset the verdict: keeping the stale
+    // success would let a wrong key through the provider gate.
+    const probed: WizardState = {
+      ...initialWizardState,
+      hasApiKey: true,
+      connection: successProbe,
+      connectionState: "success" as const,
+    };
+    const edited = wizardReducer(probed, { type: "SET_HAS_API_KEY", value: true });
+    expect(edited.hasApiKey).toBe(true);
+    expect(edited.connectionState).toBe("idle");
+    expect(edited.connection).toBeNull();
+    const cleared = wizardReducer(probed, { type: "SET_HAS_API_KEY", value: false });
+    expect(cleared.connectionState).toBe("idle");
+    expect(cleared.connection).toBeNull();
+  });
+
   it("marks skipped configuration steps and clears model selection", () => {
     const providerState = wizardReducer(initialWizardState, { type: "SET_CONFIG_MODE", value: "provider" });
     expect(providerState.configMode).toBe("provider");

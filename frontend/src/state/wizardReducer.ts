@@ -152,11 +152,15 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
         modelsState: "idle",
       };
     case "SET_HAS_API_KEY":
+      // Any edit of the key invalidates the previous probe verdict. The reducer
+      // only sees the non-empty boolean (the secret itself stays in a ref), so
+      // it cannot tell "same key" from "different key" and must assume a change:
+      // keeping a stale success would let a wrong key through the provider gate.
       return {
         ...state,
         hasApiKey: action.value,
-        connection: action.value ? state.connection : null,
-        connectionState: action.value ? state.connectionState : "idle",
+        connection: null,
+        connectionState: "idle",
       };
     case "CONNECTION_LOADING":
       return { ...state, connectionState: "loading", connection: null };

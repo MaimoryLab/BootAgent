@@ -18,7 +18,9 @@ from .catalog import AGENT_GROUPS, PROVIDERS, agent_catalog, current_platform, p
 from .errors import EXIT_CODES, OneAgentError
 from .providers import (
     agent_protocol,
+    list_models,
     openai_base_url,
+    protocol_label,
     protocol_probe,
     provider_base,
     provider_config_base,
@@ -596,6 +598,41 @@ def write_profile(
     return path
 
 
+def _sharpen_model_diagnosis(probes: dict[str, dict[str, Any]], options: InstallOptions) -> None:
+    """Relabel probe failures that really mean "unknown model".
+
+    Endpoints refuse an unknown model with the same 404/400 shapes they use
+    for an unsupported protocol, so a bare probe verdict reads "model does
+    not support <protocol>" and sends the user hunting a protocol mismatch.
+    When model discovery succeeds and the model is absent from the list,
+    rewrite the failing verdicts to name the real problem plus a few valid
+    IDs. Discovery failing (or listing the model) leaves verdicts untouched:
+    then "wrong model" and "unreachable endpoint" are indistinguishable, and
+    blocking on a guess would lock offline users out.
+    """
+    failing = [verdict for verdict in probes.values() if not verdict["ok"]]
+    if not failing:
+        return
+    listing = list_models(
+        provider=options.provider,
+        custom_base=options.api_base_url,
+        api_key=options.api_key,
+        timeout=options.timeout,
+    )
+    models = listing.get("models") or []
+    if not listing.get("ok") or not models or options.model in models:
+        return
+    sample = ", ".join(models[:5])
+    for verdict in failing:
+        verdict["error_code"] = "MODELS_UNSUPPORTED"
+        verdict["retryable"] = False
+        verdict["message"] = (
+            f"Model {options.model!r} was not found in the endpoint's model list; "
+            f"the {protocol_label(str(verdict.get('protocol', '')))} probe refused it. "
+            f"Available models include: {sample}."
+        )
+
+
 def install_many(options: InstallOptions, runtime: Runtime | None = None) -> dict[str, Any]:
     runtime = runtime or Runtime.create(home=options.home, os_id=options.os_id)
     catalog = agent_catalog()
@@ -638,6 +675,7 @@ def install_many(options: InstallOptions, runtime: Runtime | None = None) -> dic
                 model=options.model,
                 timeout=options.timeout,
             )
+        _sharpen_model_diagnosis(probes, options)
 
     results: list[dict[str, Any]] = []
     logs: list[str] = []

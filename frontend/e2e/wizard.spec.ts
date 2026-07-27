@@ -203,6 +203,8 @@ test("浏览器后退到激活页不重放安装", async ({ page }) => {
   await page.getByRole("button", { name: /配置模型服务/ }).click();
   await page.getByRole("button", { name: "继续" }).click();
   await page.getByLabel("API Key").fill("backtrack-secret");
+  await page.getByRole("button", { name: "测试连接" }).click();
+  await expect(page.getByText("连接测试通过")).toBeVisible();
   await page.getByRole("button", { name: "继续选择模型" }).click();
   await expect(page.getByRole("heading", { name: "选择模型" })).toBeVisible();
   await page.getByRole("button", { name: "继续" }).click();
@@ -266,6 +268,8 @@ test("失败 Agent 可以单独重试且不重复成功项", async ({ page }) =>
   await page.getByRole("button", { name: /配置模型服务/ }).click();
   await page.getByRole("button", { name: "继续" }).click();
   await page.getByLabel("API Key").fill("retry-secret");
+  await page.getByRole("button", { name: "测试连接" }).click();
+  await expect(page.getByText("连接测试通过")).toBeVisible();
   await page.getByRole("button", { name: "继续选择模型" }).click();
   await expect(page.getByRole("heading", { name: "选择模型" })).toBeVisible();
   await page.getByRole("button", { name: "继续" }).click();

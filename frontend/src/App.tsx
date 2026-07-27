@@ -18,7 +18,10 @@ function SetupGuard({ stage, children }: { stage: "mode" | "provider" | "model" 
   if ((stage === "provider" || stage === "model") && state.configMode === "existing-account") {
     return <Navigate to="/setup/review" replace />;
   }
-  if (stage === "model" && !state.hasApiKey) {
+  if (stage === "model" && (!state.hasApiKey || state.connectionState !== "success")) {
+    // A non-empty key alone proves nothing: only a successful probe unlocks the
+    // model step. Editing the key resets connectionState, so a stale verdict
+    // cannot reach this guard.
     return <Navigate to="/setup/provider" replace />;
   }
   if ((stage === "review" || stage === "activation") && state.configMode === "provider" && !state.model) {

@@ -753,7 +753,9 @@ class InstallerEdgeTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             home = Path(tmp)
             runtime = Runtime.create(home=home, os_id="linux", which=lambda _name: None)
-            with patch("oneagent.installer.protocol_probe", return_value=unsupported):
+            with patch("oneagent.installer.protocol_probe", return_value=unsupported), patch(
+                "oneagent.installer.list_models", return_value={"ok": False, "models": []}
+            ):
                 result = install_many(
                     InstallOptions(agents=["codex"], api_key="key", model="glm-5.2"), runtime
                 )
@@ -786,6 +788,101 @@ class InstallerEdgeTests(unittest.TestCase):
         self.assertEqual(sorted(result["probes"]), ["anthropic", "openai", "responses"])
         self.assertTrue(result["ok"])
 
+    def test_status_payload_can_install_edges(self):
+        # On Windows, claude-code additionally requires git; both sides of that
+        # `and` need exercising or the branch report stays partial.
+        tools = {"npm": r"C:\node\npm.cmd", "git": r"C:\git\git.exe"}
+        with_tools = Runtime.create(
+            home=Path("/tmp"), os_id="windows", which=lambda name: tools.get(name)
+        )
+        self.assertTrue(status_payload(with_tools)["capabilities"]["canInstall"]["claude-code"])
+        without_tools = Runtime.create(home=Path("/tmp"), os_id="windows", which=lambda _name: None)
+        self.assertFalse(status_payload(without_tools)["capabilities"]["canInstall"]["claude-code"])
+
+        # An OS no Agent declares support for must not claim any compatibility.
+        unknown_os = Runtime.create(home=Path("/tmp"), os_id="freebsd", which=lambda _name: None)
+        self.assertEqual(status_payload(unknown_os)["capabilities"]["supportedAgentIds"], [])
+
+    def test_unknown_model_is_relabeled_from_model_discovery(self):
+        # Endpoints refuse an unknown model with the same shapes they use for
+        # an unsupported protocol, so a bare probe verdict reads "model does
+        # not support <protocol>". When discovery works, the verdict must name
+        # the real problem and show valid IDs instead.
+        refused = {
+            "ok": False,
+            "reachable": True,
+            "protocol": "responses",
+            "status": 404,
+            "message": "Model 'no-such' does not support OpenAI Responses.",
+            "error_code": "PROTOCOL_UNSUPPORTED",
+            "retryable": False,
+        }
+        listing = {"ok": True, "models": ["gpt-5.6-terra", "qwen3-coder", "model-a", "model-b", "model-c", "model-d"]}
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            runtime = Runtime.create(home=home, os_id="linux", which=lambda _name: None)
+            with (
+                patch("oneagent.installer.protocol_probe", return_value=refused),
+                patch("oneagent.installer.list_models", return_value=listing) as discovery,
+            ):
+                result = install_many(
+                    InstallOptions(agents=["codex"], api_key="key", model="no-such"), runtime
+                )
+        discovery.assert_called_once()
+        failure = result["results"][0]
+        self.assertEqual(failure["error_code"], "MODELS_UNSUPPORTED")
+        self.assertEqual(result["code"], 6)
+        self.assertIn("'no-such'", failure["message"])
+        self.assertIn("gpt-5.6-terra", failure["message"])
+        # The sample is capped so a huge model list cannot flood the message.
+        self.assertNotIn("model-d", failure["message"])
+        self.assertFalse((home / ".codex" / "config.toml").exists())
+
+    def test_model_discovery_doubt_keeps_the_probe_verdict(self):
+        # Discovery needs the network too. When it fails, finds nothing, or
+        # lists the model, "wrong model" cannot be told from "unreachable
+        # endpoint" or a genuine protocol gap -- so the original verdict stands.
+        refused = {
+            "ok": False,
+            "reachable": False,
+            "protocol": "openai",
+            "status": 0,
+            "message": "Cannot reach endpoint: connection refused",
+            "error_code": "PROVIDER_UNREACHABLE",
+            "retryable": True,
+        }
+        cases = [
+            {"ok": False, "models": []},          # discovery itself failed
+            {"ok": True, "models": []},           # endpoint lists no models
+            {"ok": True, "models": ["model-a"]},  # model IS listed: not a typo
+        ]
+        for listing in cases:
+            with self.subTest(listing=listing):
+                with tempfile.TemporaryDirectory() as tmp:
+                    runtime = Runtime.create(home=Path(tmp), os_id="linux", which=lambda _name: None)
+                    with (
+                        patch("oneagent.installer.protocol_probe", return_value=dict(refused)),
+                        patch("oneagent.installer.list_models", return_value=listing),
+                    ):
+                        result = install_many(
+                            InstallOptions(agents=["opencode"], api_key="key", model="model-a"), runtime
+                        )
+                self.assertEqual(result["results"][0]["error_code"], "PROVIDER_UNREACHABLE")
+                self.assertTrue(result["results"][0]["retryable"])
+
+    def test_model_discovery_is_skipped_when_every_probe_passed(self):
+        probe = {"ok": True, "message": "ok", "error_code": None, "retryable": False, "protocol": "openai"}
+        with tempfile.TemporaryDirectory() as tmp:
+            runtime = Runtime.create(home=Path(tmp), os_id="linux", which=lambda _name: None)
+            with (
+                patch("oneagent.installer.protocol_probe", return_value=probe),
+                patch("oneagent.installer.list_models", side_effect=AssertionError("discovery must not run")),
+            ):
+                result = install_many(
+                    InstallOptions(agents=["opencode"], api_key="key", model="model-a"), runtime
+                )
+        self.assertTrue(result["ok"])
+
     def test_install_validation_platform_probe_and_windows_next_steps(self):
         runtime = Runtime.create(home=Path("/tmp"), os_id="linux", which=lambda _name: None)
         with self.assertRaises(OneAgentError):
@@ -807,7 +904,7 @@ class InstallerEdgeTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp, patch(
             "oneagent.installer.protocol_probe",
             return_value={"ok": False, "message": "provider failed", "error_code": "PROVIDER_UNREACHABLE", "retryable": True},
-        ):
+        ), patch("oneagent.installer.list_models", return_value={"ok": False, "models": []}):
             result = install_many(InstallOptions(agents=["codex"], api_key="key", model="m"), Runtime.create(home=Path(tmp), os_id="linux", which=lambda _name: None))
         self.assertFalse(result["ok"])
         self.assertIn("provider failed", result["log"])

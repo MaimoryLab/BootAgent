@@ -104,6 +104,32 @@ class CliUnitTests(unittest.TestCase):
         browser.assert_called_once_with("https://ppio.com/")
         self.assertIn("Create or copy", stderr.getvalue())
 
+    def test_resolve_api_key_refuses_without_a_tty(self):
+        parser = cli.build_parser()
+        args = parser.parse_args(["--provider", "ppio"])
+        with patch.dict(os.environ, {}, clear=True), patch.object(sys.stdin, "isatty", return_value=False):
+            with self.assertRaises(OneAgentError) as missing:
+                cli._resolve_api_key(args)
+        self.assertEqual(missing.exception.code, "INVALID_REQUEST")
+        self.assertIn("ONEAGENT_API_KEY", missing.exception.message)
+
+    def test_run_splits_comma_separated_agents(self):
+        result = {"ok": True, "code": 0, "log": "", "next": "", "results": [], "probe": None}
+        with (
+            patch("oneagent.cli.install_many", return_value=result) as many,
+            patch("oneagent.cli.Runtime.create", return_value=MagicMock()),
+        ):
+            stdout = io.StringIO()
+            with redirect_stdout(stdout):
+                self.assertEqual(cli.run(["--agent", "codex, claude-code ", "--api-key", "k", "--json"]), 0)
+        self.assertEqual(many.call_args.args[0].agents, ["codex", "claude-code"])
+
+    def test_run_rejects_an_empty_agent_list(self):
+        stderr = io.StringIO()
+        with patch("oneagent.cli.Runtime.create", return_value=MagicMock()), redirect_stderr(stderr):
+            self.assertEqual(cli.run(["--agent", ",", "--check-agent-only"]), 2)
+        self.assertIn("At least one Agent", stderr.getvalue())
+
     def test_run_outputs_human_and_json_results(self):
         result = {"ok": True, "code": 0, "log": "configured", "next": "codex", "results": [], "probe": None}
         with patch("oneagent.cli.install_many", return_value=result), patch("oneagent.cli.Runtime.create", return_value=MagicMock()):

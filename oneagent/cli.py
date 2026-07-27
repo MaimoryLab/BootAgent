@@ -16,7 +16,7 @@ from .providers import provider_home
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Install or configure one Agent with OneAgent")
-    parser.add_argument("--agent", default="codex")
+    parser.add_argument("--agent", default="codex", help="Agent ID; comma-separated for several")
     parser.add_argument("--provider", default="ppio")
     parser.add_argument("--api-base-url", default="")
     parser.add_argument("--api-key", default="")
@@ -50,8 +50,11 @@ def _resolve_api_key(args: argparse.Namespace) -> str:
     key = os.environ.get("ONEAGENT_API_KEY") or args.api_key
     if key:
         return key
-    if args.json_output and not sys.stdin.isatty():
-        raise OneAgentError("INVALID_REQUEST", "API key is required")
+    if not sys.stdin.isatty():
+        raise OneAgentError(
+            "INVALID_REQUEST",
+            "API key is required; set ONEAGENT_API_KEY or pass --api-key (pasting interactively needs a TTY)",
+        )
     register_url = _registration_url(args)
     if not args.no_open:
         webbrowser.open(register_url)
@@ -66,10 +69,11 @@ def run(argv: list[str] | None = None) -> int:
     try:
         if args.locked_version and args.latest:
             raise OneAgentError("INVALID_REQUEST", "--locked-version and --latest cannot be used together")
+        agent_ids = [part.strip() for part in args.agent.split(",") if part.strip()]
         api_key = _resolve_api_key(args)
         result = install_many(
             InstallOptions(
-                agents=[args.agent],
+                agents=agent_ids,
                 provider=args.provider,
                 api_base_url=args.api_base_url,
                 api_key=api_key,
