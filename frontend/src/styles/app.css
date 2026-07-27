@@ -36,7 +36,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
 }
 
@@ -85,7 +85,7 @@
 }
 
 .brand-lockup strong {
-  font-size: 15px;
+  font-size: 16px;
 }
 
 .brand-lockup span:last-child,
@@ -109,7 +109,7 @@
   gap: 10px;
   color: var(--text-primary);
   text-decoration: none;
-  font-size: 14px;
+  font-size: 13px;
   transition: background-color 140ms ease, color 140ms ease, transform 100ms ease;
 }
 
@@ -195,7 +195,7 @@
 
 .page-header h1 {
   margin: 0;
-  font-size: 26px;
+  font-size: 23px;
   line-height: 1.2;
   font-weight: 650;
 }
@@ -238,7 +238,7 @@
   min-width: 0;
   overflow: hidden;
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: 13px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -289,7 +289,7 @@
   border: 1px solid var(--border-strong);
   border-radius: 50%;
   background: #ffffff;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
 }
 
@@ -328,14 +328,14 @@
 .overview-section h2,
 .next-command-section h2 {
   margin: 0;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 650;
 }
 
 .section-heading p {
   margin: 3px 0 0;
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .agent-list,
@@ -412,7 +412,7 @@
 .choice-copy > span,
 .progress-copy > span {
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.35;
 }
 
@@ -432,7 +432,7 @@
 .agent-name-line strong,
 .choice-copy strong,
 .progress-copy strong {
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .agent-version {
@@ -485,7 +485,7 @@
 
 .disclosure-trigger svg,
 .log-disclosure > button svg:last-child {
-  transition: transform 180ms ease;
+  transition: transform 140ms ease;
 }
 
 .disclosure-section.is-open > .disclosure-trigger svg:first-child,
@@ -496,7 +496,7 @@
 .disclosure-trigger span {
   margin-left: auto;
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .additional-agent-groups {
@@ -513,7 +513,7 @@
 .additional-agent-groups h3 {
   margin: 0 10px;
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
 }
 
@@ -620,8 +620,8 @@
   gap: 4px;
 }
 
-.provider-identity-row strong { font-size: 15px; }
-.provider-identity-row span { overflow: hidden; color: var(--text-secondary); font-size: 12px; text-overflow: ellipsis; }
+.provider-identity-row strong { font-size: 16px; }
+.provider-identity-row span { overflow: hidden; color: var(--text-secondary); font-size: 13px; text-overflow: ellipsis; }
 
 .secure-field {
   min-height: 44px;
@@ -676,7 +676,7 @@
   align-items: center;
   gap: 7px;
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .inline-status.status-success { color: var(--green); background: transparent; }
@@ -758,7 +758,7 @@
   grid-template-columns: 20px minmax(110px, 0.5fr) minmax(0, 1fr);
   align-items: center;
   gap: 9px;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .review-row + .review-row { border-top: 1px solid rgba(60, 60, 67, 0.1); }
@@ -1051,7 +1051,7 @@
 
 .agent-manage-target {
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .agent-manage-identity small {
@@ -1074,7 +1074,7 @@
   border-radius: var(--radius-control);
   background: var(--red-soft);
   color: var(--red);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .agent-manage-applied {
@@ -1084,10 +1084,10 @@
   border-radius: var(--radius-control);
   background: var(--green-soft);
   color: var(--green);
-  font-size: 12px;
+  font-size: 13px;
 }
 
-.agent-manage-applied strong { font-size: 12px; }
+.agent-manage-applied strong { font-size: 13px; }
 
 .agent-manage-applied pre {
   margin: 0;
@@ -1204,11 +1204,27 @@
 .profile-target {
   margin: 0;
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .profile-agents {
   margin: 0;
   color: var(--text-tertiary);
   font-size: 11px;
+}
+
+/* Every interactive target clears the same minimum height, so a row, a button
+   and a disclosure all feel like the same control family. */
+.button,
+.disclosure-trigger,
+.provider-link,
+.agent-manage-row {
+  min-height: 28px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition-duration: 0ms !important;
+    animation-duration: 0ms !important;
+  }
 }
