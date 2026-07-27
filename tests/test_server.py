@@ -157,6 +157,19 @@ class ServerContractTests(unittest.TestCase):
         self.assertEqual(payload["agents"]["codex"]["lockedVersion"], "0.145.0")
         self.assertIn("capabilities", payload)
 
+    def test_status_exposes_only_public_provider_fields(self):
+        # The payload used to send the PROVIDERS constant wholesale, so adding
+        # an internal key leaked it to every client: fallback_probe_model
+        # appeared in /api/status while the frontend type never declared it.
+        _, _, payload = request_json(self.opener, self.base + "/api/status")
+        for provider_id, meta in payload["providers"].items():
+            with self.subTest(provider=provider_id):
+                self.assertEqual(
+                    set(meta) - {"anthropic_base_url"},
+                    {"name", "home", "base_url"},
+                )
+        self.assertNotIn("fallback_probe_model", json.dumps(payload))
+
     def test_bind_does_not_perform_reverse_dns_lookup(self):
         # http.server's default server_bind() calls socket.getfqdn(), which blocks
         # until it times out on hosts with no reverse resolver. That stalled GUI

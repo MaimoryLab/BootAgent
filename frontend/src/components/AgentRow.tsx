@@ -1,14 +1,6 @@
-import { Bot, Box, Code2, MonitorCog, Network, TerminalSquare } from "lucide-react";
-
 import type { AgentCatalogItem, AgentStatus } from "../types/api";
+import { AgentIcon, agentTagline } from "./icons/agents";
 import { StatusBadge } from "./StatusBadge";
-
-const groupIcons = {
-  auto: Code2,
-  gateway: Network,
-  platform: MonitorCog,
-  ide: Box,
-} as const;
 
 interface AgentRowProps {
   agent: AgentCatalogItem;
@@ -18,7 +10,6 @@ interface AgentRowProps {
 }
 
 export function AgentRow({ agent, status, selected, onToggle }: AgentRowProps) {
-  const Icon = groupIcons[agent.group] || Bot;
   const supported = agent.platforms.length > 0;
   const statusLabel = status?.installed ? "已安装" : agent.guideOnly ? "仅引导" : "待安装";
   const statusTone = status?.installed ? "success" : agent.guideOnly ? "neutral" : "warning";
@@ -32,8 +23,8 @@ export function AgentRow({ agent, status, selected, onToggle }: AgentRowProps) {
         disabled={!supported}
         aria-label={`选择 ${agent.name}`}
       />
-      <span className="agent-icon" aria-hidden="true">
-        {agent.id === "claude-code" ? <TerminalSquare size={20} /> : <Icon size={20} />}
+      <span className="agent-icon" title={agentTagline(agent.id) || undefined}>
+        <AgentIcon agentId={agent.id} size={20} />
       </span>
       <span className="agent-copy">
         <span className="agent-name-line">

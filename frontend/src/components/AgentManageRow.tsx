@@ -1,10 +1,11 @@
-import { ChevronDown, FlaskConical, Settings2 } from "lucide-react";
+import { FlaskConical, Settings2 } from "lucide-react";
 import { useState } from "react";
 
 import { api, describeError } from "../api/client";
 import { PROTOCOL_LABELS } from "../types/api";
 import type { AgentCatalogItem, AgentStatus, ProbeResponse, ProviderId, StatusResponse } from "../types/api";
 import { ConnectionStatus } from "./ConnectionStatus";
+import { AgentIcon, agentTagline } from "./icons/agents";
 import { ProviderSegment } from "./ProviderSegment";
 import { SecureKeyField } from "./SecureKeyField";
 import { StatusBadge } from "./StatusBadge";
@@ -135,6 +136,9 @@ export function AgentManageRow({
   return (
     <div className={`agent-manage-row${open ? " is-open" : ""}`}>
       <div className="agent-manage-head">
+        <span className="agent-icon" title={agentTagline(agentId) || undefined}>
+          <AgentIcon agentId={agentId} size={18} />
+        </span>
         <div className="agent-manage-identity">
           <strong>{catalog?.name || agentId}</strong>
           <span className="agent-manage-target">

@@ -949,8 +949,20 @@
   padding: 11px 13px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 12px;
+}
+
+/* The icon is a fixed-width slot so names align down the column regardless of
+   which glyph sits in it. */
+.agent-manage-head > .agent-icon {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+}
+
+.agent-manage-head > .agent-manage-identity {
+  flex: 1;
 }
 
 .agent-manage-identity {

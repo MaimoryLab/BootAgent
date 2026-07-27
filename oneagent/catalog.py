@@ -108,6 +108,23 @@ def agent_catalog() -> dict[str, dict[str, Any]]:
     return load_manifest()["agents"]
 
 
+def public_providers() -> dict[str, dict[str, str]]:
+    """Provider fields the API exposes.
+
+    PROVIDERS also carries internals such as the fallback probe model. Sending
+    the constant wholesale leaked those into /api/status the moment one was
+    added, so project the public fields explicitly instead.
+    """
+    public: dict[str, dict[str, str]] = {}
+    for provider_id, meta in PROVIDERS.items():
+        entry = {"name": str(meta["name"]), "home": str(meta["home"]), "base_url": str(meta["base_url"])}
+        anthropic = meta.get("anthropic_base_url")
+        if anthropic:
+            entry["anthropic_base_url"] = str(anthropic)
+        public[provider_id] = entry
+    return public
+
+
 def public_catalog() -> list[dict[str, object]]:
     items = []
     for agent_id, meta in agent_catalog().items():

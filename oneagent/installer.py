@@ -21,6 +21,7 @@ from .catalog import (
     current_platform,
     fallback_probe_model,
     public_catalog,
+    public_providers,
     resolve_home,
 )
 from .errors import EXIT_CODES, OneAgentError
@@ -1345,7 +1346,7 @@ def status_payload(runtime: Runtime | None = None) -> dict[str, Any]:
         "agents": agents,
         "catalog": public_catalog(),
         "groups": AGENT_GROUPS,
-        "providers": PROVIDERS,
+        "providers": public_providers(),
         "paths": paths,
         "backups": {
             "codex": bool(list((runtime.home / ".codex").glob("config.toml.backup-*"))),
