@@ -13,6 +13,8 @@ export interface AgentCatalogItem {
   protocol: ProtocolId | null;
   platforms: PlatformId[];
   platformNote: string;
+  /** Display prominence; lower sorts first. Independent of configMode. */
+  rank: number;
 }
 
 export interface AgentStatus {

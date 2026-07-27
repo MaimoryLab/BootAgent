@@ -14,6 +14,7 @@ const catalogAgent: AgentCatalogItem = {
   protocol: "responses",
   platforms: ["macos", "linux", "windows"],
   platformNote: "",
+  rank: 1,
 };
 
 function agentStatus(over: Partial<AgentStatus> = {}): AgentStatus {

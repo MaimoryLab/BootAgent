@@ -208,6 +208,12 @@ Custom 支持 HTTP/HTTPS，包括用户主动配置的本机地址；拒绝 URL 
 
 guide-only Agent 不执行包管理器安装，不写私有配置，不启动 daemon、gateway、WSL 或后台服务。
 
+这与许可证无关：OpenClaw 与 Hermes 都是 MIT，分发上没有障碍。真正的原因是形态——两者以常驻网关方式运行，而统一网关被 [ADR-002](docs/decisions/ADR-002-product-boundary-and-network-access.md) 与 [ADR-003](docs/decisions/ADR-003-three-platform-python-core-and-release-policy.md) 明确划在当前范围之外；Cursor 与 Kiro 以应用形式安装并通过自有账号体系登录。
+
+### 界面顺序与可配置性无关
+
+总览按 `agents.lock.json` 的 `rank` 字段排序，依据是该 Agent 的实际使用广度，而不是 OneAgent 能否配置它。因此 Cursor、OpenClaw、Hermes 与 Codex、Claude Code、OpenCode 并列在首屏，Kilo CLI 与 Aider 收进折叠区。guide-only 条目使用同样的行式呈现，只是操作为「官方文档」而非配置表单——把常用工具藏进脚注会让总览无法反映这台机器的真实情况。
+
 Aider 使用隔离的 `uv tool install --python python3.12 --no-python-downloads`，不再调用系统级 pip。缺少 `uv` 或本机 Python 3.12 时返回 `PREREQUISITE_MISSING`，不会绕过 externally-managed Python，也不会自动安装语言运行时。
 
 ## 配置与备份

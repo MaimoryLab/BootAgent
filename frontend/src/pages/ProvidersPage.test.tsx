@@ -44,6 +44,7 @@ function statusWith(agents: Record<string, string | null>): StatusResponse {
       protocol: "openai" as const,
       platforms: ["macos" as const],
       platformNote: "",
+      rank: 1,
     })),
     groups: [],
     providers: {

@@ -42,6 +42,7 @@ function status(): StatusResponse {
         protocol: "responses",
         platforms: ["macos"],
         platformNote: "",
+        rank: 1,
       },
     ],
     groups: [],

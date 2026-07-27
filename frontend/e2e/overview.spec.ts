@@ -53,6 +53,7 @@ function divergentStatus(): StatusResponse {
         protocol: id === "codex" ? ("responses" as const) : ("openai" as const),
         platforms: ["macos" as const, "linux" as const, "windows" as const],
         platformNote: "",
+        rank: { codex: 1, "claude-code": 2, opencode: 4, "kilo-cli": 8, aider: 9 }[id] ?? 99,
       })),
       {
         id: "cursor",
@@ -64,6 +65,7 @@ function divergentStatus(): StatusResponse {
         protocol: null,
         platforms: ["macos" as const],
         platformNote: "按官方文档配置",
+        rank: 3,
       },
     ],
     groups: [
@@ -187,9 +189,11 @@ test("首屏用于 Agent 列表，而不是横幅与提醒", async ({ page }, te
   expect(list).not.toBeNull();
   expect(list!.y).toBeLessThan(220);
 
-  // All five managed Agents fit without scrolling.
+  // The prominent Agents fit without scrolling. Kilo and Aider now sit behind
+  // the disclosure, so the count is the rank<=6 set rather than all five
+  // installable ones.
   const rows = page.locator(".agent-manage-row");
-  await expect(rows).toHaveCount(5);
+  await expect(rows).toHaveCount(4);
   const last = await rows.last().boundingBox();
   expect(last!.y + last!.height).toBeLessThan(860);
 
@@ -226,6 +230,34 @@ test("Provider 页反查出每个服务正在被哪些 Agent 使用", async ({ p
   await expect(ppio).toContainText("Codex");
   const novita = page.getByTestId("provider-novita");
   await expect(novita).toContainText("Claude Code");
+});
+
+test("首屏按流行度排序，Cursor 在 Kilo 与 Aider 之前", async ({ page }, testInfo) => {
+  await mockOverview(page);
+  await page.goto("/#/overview");
+  await page.waitForSelector(".agent-manage-row");
+
+  // The list is ranked by how widely an Agent is used, not by whether OneAgent
+  // can configure it. Cursor used to be hidden in a footnote while Kilo and
+  // Aider held the top of the page, which misrepresented what people run.
+  const names = await page.locator(".agent-manage-row strong").allTextContents();
+  const order = names.map((n) => n.trim());
+  expect(order.slice(0, 3)).toEqual(["Codex", "Claude Code", "Cursor"]);
+  // Kilo and Aider are not on the first screen at all now; they are behind the
+  // disclosure, which is the whole point of the ranking.
+  expect(order).not.toContain("Kilo CLI");
+  expect(order).not.toContain("Aider");
+  await page.getByRole("button", { name: /其他 Agent/ }).click();
+  const all = (await page.locator(".agent-manage-row strong").allTextContents()).map((n) => n.trim());
+  expect(all.indexOf("Cursor")).toBeLessThan(all.indexOf("Kilo CLI"));
+  expect(all.indexOf("Cursor")).toBeLessThan(all.indexOf("Aider"));
+
+  // A guide-only Agent states how it is obtained rather than offering a form.
+  const cursorRow = page.locator(".agent-manage-row.is-guide").first();
+  await expect(cursorRow).toContainText("按官方文档配置");
+  await expect(cursorRow.getByLabel("API Key")).toHaveCount(0);
+
+  await page.screenshot({ path: testInfo.outputPath("overview-ranked.png"), fullPage: true });
 });
 
 test("已配置的环境直接进入总览而不是向导", async ({ page }) => {

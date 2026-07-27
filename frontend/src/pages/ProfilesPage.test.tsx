@@ -42,6 +42,7 @@ function statusWith(profiles: ProfileSummary[]): StatusResponse {
         protocol: "responses",
         platforms: ["macos"],
         platformNote: "",
+        rank: 1,
       },
     ],
     groups: [],

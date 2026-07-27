@@ -391,6 +391,32 @@ class CatalogEdgeTests(unittest.TestCase):
             by_id = {item["id"]: item for item in catalog.public_catalog()}
         self.assertTrue(by_id["opencode"]["platformNote"])
 
+    def test_public_providers_omits_anthropic_base_when_absent(self):
+        # Both built-in providers publish one, so this branch is only reachable
+        # with a provider that does not — and it must omit the key rather than
+        # emit null, which the frontend declares as optional.
+        with patch.dict(
+            catalog.PROVIDERS,
+            {"openai-only": {"name": "X", "home": "https://x.invalid/", "base_url": "https://x.invalid/v1"}},
+            clear=False,
+        ):
+            public = catalog.public_providers()
+        self.assertNotIn("anthropic_base_url", public["openai-only"])
+        self.assertIn("anthropic_base_url", public["ppio"])
+
+    def test_catalog_ranks_widely_used_agents_ahead_of_niche_ones(self):
+        # The overview leads with this order, so it is a product decision rather
+        # than an accident of dict insertion order in agents.lock.json.
+        order = [item["id"] for item in catalog.public_catalog()]
+        self.assertEqual(order[:4], ["codex", "claude-code", "cursor", "opencode"])
+        for niche in ("kilo-cli", "aider"):
+            with self.subTest(agent=niche):
+                self.assertLess(order.index("cursor"), order.index(niche))
+                self.assertLess(order.index("openclaw"), order.index(niche))
+        # Every Agent carries an explicit rank; a missing one would silently
+        # collapse to the tail.
+        self.assertTrue(all(item["rank"] < 99 for item in catalog.public_catalog()))
+
 
 class ProtocolEdgeTests(unittest.TestCase):
     def test_agent_protocol_mapping_covers_every_auto_adapter(self):

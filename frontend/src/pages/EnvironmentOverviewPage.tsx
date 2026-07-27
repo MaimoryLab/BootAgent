@@ -3,9 +3,12 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { AgentManageRow, isBehind } from "../components/AgentManageRow";
+import { GuideOnlyRow } from "../components/GuideOnlyRow";
 import { PageScaffold } from "../components/PageScaffold";
-import { StatusBadge } from "../components/StatusBadge";
 import { useWizard } from "../state/WizardContext";
+
+/** Agents above this rank lead the page; the rest go behind a disclosure. */
+const PRIMARY_RANK_LIMIT = 6;
 
 export function EnvironmentOverviewPage() {
   const navigate = useNavigate();
@@ -23,7 +26,15 @@ export function EnvironmentOverviewPage() {
 
   const catalogById = new Map(status?.catalog.map((item) => [item.id, item]) ?? []);
   const managed = (status?.catalog ?? []).filter((item) => item.configMode === "auto");
-  const guideOnly = (status?.catalog ?? []).filter((item) => item.configMode !== "auto");
+  // The list is ranked by how widely an Agent is used, not by whether OneAgent
+  // can configure it. Hiding Cursor and OpenClaw in a footnote while Kilo and
+  // Aider held the top of the page misrepresented what this machine runs. The
+  // catalog arrives pre-sorted by rank.
+  // Sorted here as well as server-side: relying on the response order would
+  // make the layout depend on an ordering the type does not promise.
+  const byRank = [...(status?.catalog ?? [])].sort((a, b) => a.rank - b.rank || a.id.localeCompare(b.id));
+  const primary = byRank.filter((item) => item.rank <= PRIMARY_RANK_LIMIT);
+  const secondary = byRank.filter((item) => item.rank > PRIMARY_RANK_LIMIT);
 
   // Either kind of evidence counts as "configured". A per-Agent binding covers
   // an Agent set up through "oneagent agent set", which has no environment
@@ -84,8 +95,11 @@ export function EnvironmentOverviewPage() {
     >
       <section className="overview-section">
         <div className="agent-manage-list">
-          {managed.map((item) => {
+          {primary.map((item) => {
             const agent = status.agents[item.id];
+            if (item.configMode !== "auto") {
+              return <GuideOnlyRow key={item.id} agentId={item.id} catalog={item} status={agent} />;
+            }
             if (!agent) return null;
             return (
               <AgentManageRow
@@ -108,19 +122,27 @@ export function EnvironmentOverviewPage() {
           aria-expanded={showGuideOnly}
           onClick={() => setShowGuideOnly((value) => !value)}
         >
-          仅引导的 Agent（{guideOnly.length}）
+          其他 Agent（{secondary.length}）
         </button>
         {showGuideOnly ? (
           <div className="overview-agent-list">
-            {guideOnly.map((item) => (
-              <div className="overview-agent-row" key={item.id}>
-                <span>
-                  <strong>{item.name}</strong>
-                  <small>{item.platformNote || "按官方文档手动配置"}</small>
-                </span>
-                <StatusBadge tone="neutral">仅引导</StatusBadge>
-              </div>
-            ))}
+            {secondary.map((item) => {
+              const agent = status.agents[item.id];
+              if (item.configMode !== "auto") {
+                return <GuideOnlyRow key={item.id} agentId={item.id} catalog={item} status={agent} />;
+              }
+              if (!agent) return null;
+              return (
+                <AgentManageRow
+                  key={item.id}
+                  agentId={item.id}
+                  catalog={item}
+                  status={agent}
+                  providers={status.providers}
+                  onOpen={() => navigate(`/agents/${item.id}`)}
+                />
+              );
+            })}
           </div>
         ) : null}
       </section>

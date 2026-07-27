@@ -1265,3 +1265,17 @@
   display: grid;
   gap: 11px;
 }
+
+/* A guide-only row sits in the same list but offers no form, so it reads a shade
+   quieter without being demoted to a footnote. */
+.agent-manage-row.is-guide {
+  width: 100%;
+  padding: 11px 13px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: default;
+}
+
+.agent-manage-row.is-guide .agent-icon { opacity: 0.75; }
+.agent-manage-cta.is-static { color: var(--text-tertiary); }

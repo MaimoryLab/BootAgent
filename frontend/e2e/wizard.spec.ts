@@ -11,14 +11,14 @@ import type {
 // Typed so tsc flags drift between these mocks and the real API contract; the
 // protocol values mirror ADAPTER_PROTOCOLS in oneagent/catalog.py.
 const catalog: AgentCatalogItem[] = [
-  { id: "codex", name: "Codex", group: "auto", configMode: "auto", guideOnly: false, lockedVersion: "0.145.0", protocol: "responses", platforms: ["macos", "linux", "windows"], platformNote: "" },
-  { id: "claude-code", name: "Claude Code", group: "auto", configMode: "auto", guideOnly: false, lockedVersion: "2.1.217", protocol: "anthropic", platforms: ["macos", "linux", "windows"], platformNote: "" },
-  { id: "opencode", name: "OpenCode", group: "auto", configMode: "auto", guideOnly: false, lockedVersion: "1.18.4", protocol: "openai", platforms: ["macos", "linux", "windows"], platformNote: "" },
-  { id: "kilo-cli", name: "Kilo CLI", group: "auto", configMode: "auto", guideOnly: false, lockedVersion: "7.4.11", protocol: "openai", platforms: ["macos", "linux", "windows"], platformNote: "" },
-  { id: "aider", name: "Aider", group: "auto", configMode: "auto", guideOnly: false, lockedVersion: "0.86.2", protocol: "openai", platforms: ["macos", "linux", "windows"], platformNote: "" },
-  { id: "openclaw", name: "OpenClaw", group: "gateway", configMode: "guide", guideOnly: true, lockedVersion: null, protocol: null, platforms: ["macos", "linux", "windows"], platformNote: "" },
-  { id: "cursor", name: "Cursor", group: "platform", configMode: "guide", guideOnly: true, lockedVersion: null, protocol: null, platforms: ["macos", "linux", "windows"], platformNote: "" },
-  { id: "cline", name: "Cline", group: "ide", configMode: "guide", guideOnly: true, lockedVersion: null, protocol: null, platforms: ["macos", "linux", "windows"], platformNote: "" },
+  { rank: 1, id: "codex", name: "Codex", group: "auto", configMode: "auto", guideOnly: false, lockedVersion: "0.145.0", protocol: "responses", platforms: ["macos", "linux", "windows"], platformNote: "" },
+  { rank: 2, id: "claude-code", name: "Claude Code", group: "auto", configMode: "auto", guideOnly: false, lockedVersion: "2.1.217", protocol: "anthropic", platforms: ["macos", "linux", "windows"], platformNote: "" },
+  { rank: 4, id: "opencode", name: "OpenCode", group: "auto", configMode: "auto", guideOnly: false, lockedVersion: "1.18.4", protocol: "openai", platforms: ["macos", "linux", "windows"], platformNote: "" },
+  { rank: 8, id: "kilo-cli", name: "Kilo CLI", group: "auto", configMode: "auto", guideOnly: false, lockedVersion: "7.4.11", protocol: "openai", platforms: ["macos", "linux", "windows"], platformNote: "" },
+  { rank: 9, id: "aider", name: "Aider", group: "auto", configMode: "auto", guideOnly: false, lockedVersion: "0.86.2", protocol: "openai", platforms: ["macos", "linux", "windows"], platformNote: "" },
+  { rank: 5, id: "openclaw", name: "OpenClaw", group: "gateway", configMode: "guide", guideOnly: true, lockedVersion: null, protocol: null, platforms: ["macos", "linux", "windows"], platformNote: "" },
+  { rank: 3, id: "cursor", name: "Cursor", group: "platform", configMode: "guide", guideOnly: true, lockedVersion: null, protocol: null, platforms: ["macos", "linux", "windows"], platformNote: "" },
+  { rank: 11, id: "cline", name: "Cline", group: "ide", configMode: "guide", guideOnly: true, lockedVersion: null, protocol: null, platforms: ["macos", "linux", "windows"], platformNote: "" },
 ];
 
 const agentStatuses = Object.fromEntries(

@@ -143,9 +143,14 @@ def public_catalog() -> list[dict[str, object]]:
                 ),
                 "platforms": meta.get("platforms", []),
                 "platformNote": meta.get("windows_note", "") if current_platform()["os"] == "windows" else "",
+                # How prominently to show it, independent of whether OneAgent can
+                # install it: an overview is judged by whether the tools people
+                # actually use are on it.
+                "rank": meta.get("rank", 99),
             }
         )
-    return items
+    # Sorted here so every client shows the same order without re-deriving it.
+    return sorted(items, key=lambda item: (item["rank"], str(item["id"])))
 
 
 def current_platform() -> dict[str, str]:
