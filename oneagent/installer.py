@@ -633,7 +633,6 @@ def profile_path(runtime: Runtime) -> Path:
     return runtime.home / ".oneagent" / "profile.json"
 
 
-_PROFILE_ID_PATTERN = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
 
 
 def profiles_dir(runtime: Runtime) -> Path:
@@ -653,7 +652,7 @@ def secrets_path(runtime: Runtime, profile_id: str) -> Path:
 
 
 def validate_profile_id(profile_id: str) -> str:
-    if not isinstance(profile_id, str) or not _PROFILE_ID_PATTERN.fullmatch(profile_id):
+    if not isinstance(profile_id, str) or not _ID_PATTERN.fullmatch(profile_id):
         raise OneAgentError(
             "INVALID_REQUEST",
             "Profile ID must start with a lowercase letter or digit and use only lowercase letters, digits, '-' or '_'",
@@ -678,6 +677,82 @@ def active_profile_id(runtime: Runtime) -> str | None:
         except OneAgentError:
             return None
     return None
+
+
+def agents_dir(runtime: Runtime) -> Path:
+    return runtime.home / ".oneagent" / "agents"
+
+
+def agent_binding_path(runtime: Runtime, agent_id: str) -> Path:
+    return agents_dir(runtime) / f"{validate_agent_id(agent_id)}.json"
+
+
+def read_agent_binding(runtime: Runtime, agent_id: str) -> tuple[dict[str, Any] | None, str | None]:
+    """What this Agent is currently pointed at, or why that cannot be read."""
+    path = agent_binding_path(runtime, agent_id)
+    if not path.exists():
+        return None, None
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return None, str(exc)
+    if not isinstance(value, dict):
+        return None, f"Agent binding for {agent_id} is corrupt"
+    if value.get("schema_version") != 1:
+        return None, f"Unsupported Agent binding schema for {agent_id}"
+    return value, None
+
+
+def write_agent_binding(
+    runtime: Runtime,
+    agent_id: str,
+    *,
+    provider: str,
+    base_url: str,
+    model: str,
+    profile_ref: str = "",
+) -> dict[str, Any]:
+    """Record an Agent's own provider and model. Never its key.
+
+    Bindings answer "what is this Agent pointed at" without reading the
+    Agent's own config file, whose shape differs per adapter. The credential
+    stays in the sibling .env file so this stays safe to read and report.
+    """
+    existing, _ = read_agent_binding(runtime, agent_id)
+    now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    binding = {
+        "schema_version": 1,
+        "agent_id": validate_agent_id(agent_id),
+        "provider": provider,
+        "base_url": base_url,
+        "model": model,
+        "profile_ref": profile_ref or (existing or {}).get("profile_ref") or "",
+        "created_at": (existing or {}).get("created_at") or now,
+        "updated_at": now,
+    }
+    ensure_private_dir(runtime, agents_dir(runtime))
+    atomic_write(
+        runtime,
+        agent_binding_path(runtime, agent_id),
+        json.dumps(binding, ensure_ascii=False, indent=2) + "\n",
+    )
+    return binding
+
+
+def list_agent_bindings(runtime: Runtime) -> dict[str, dict[str, Any]]:
+    directory = agents_dir(runtime)
+    if not directory.is_dir():
+        return {}
+    bindings: dict[str, dict[str, Any]] = {}
+    for path in sorted(directory.glob("*.json")):
+        try:
+            agent_id = validate_agent_id(path.stem)
+        except OneAgentError:
+            continue
+        value, error = read_agent_binding(runtime, agent_id)
+        if value and not error:
+            bindings[agent_id] = value
+    return bindings
 
 
 def _read_stored_profile(runtime: Runtime, profile_id: str) -> tuple[dict[str, Any] | None, str | None]:
@@ -711,6 +786,34 @@ def _write_profile_secret(runtime: Runtime, profile_id: str, api_key: str, base_
     if not api_key:
         return
     atomic_write(runtime, secrets_path(runtime, profile_id), _shared_env_content(runtime, api_key, base_url), secret=True)
+
+
+def read_profile_secret(runtime: Runtime, profile_id: str) -> str:
+    """The key stored for a profile template, or "" when none is held.
+
+    Lets an Agent be pointed back at a saved provider without the user
+    re-pasting the key. Returns the value only to the caller that is about to
+    write a config with it; it is never put into a response.
+    """
+    path = secrets_path(runtime, profile_id)
+    if not path.exists():
+        return ""
+    try:
+        content = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise OneAgentError("CONFIG_WRITE_FAILED", f"Cannot read stored key for profile {profile_id}: {exc}") from exc
+    pattern = (
+        r"^\$env:ONEAGENT_API_KEY\s*=\s*'(.*)'$"
+        if runtime.os_id == "windows"
+        else r"^export ONEAGENT_API_KEY=(.*)$"
+    )
+    match = re.search(pattern, content, re.MULTILINE)
+    if not match:
+        return ""
+    raw = match.group(1)
+    if runtime.os_id == "windows":
+        return raw.replace("''", "'")
+    return next(iter(shlex.split(raw)), "")
 
 
 def load_profile(runtime: Runtime) -> tuple[dict[str, Any] | None, str | None]:
@@ -1034,6 +1137,16 @@ def install_many(options: InstallOptions, runtime: Runtime | None = None) -> dic
                     options.api_key,
                     options.model,
                 )
+                # Record the binding only after the config write succeeded, so a
+                # failed write never leaves a binding claiming a state the
+                # Agent's own config does not have.
+                write_agent_binding(
+                    runtime,
+                    agent_id,
+                    provider=options.provider,
+                    base_url=config_base_url,
+                    model=options.model,
+                )
             results.append(
                 {
                     "agent": agent_id,
@@ -1110,12 +1223,82 @@ def public_profile_summary(item: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _restart_hint(agent_id: str) -> str:
+    """How the user makes a rewritten config take effect.
+
+    Agents read their config at startup, so a rewrite is invisible to an
+    already-running process. Saying "activated" without this is how a user
+    concludes the switch silently failed.
+    """
+    command = {"codex": "codex", "claude-code": "claude", "opencode": "opencode", "kilo-cli": "kilo"}.get(agent_id)
+    if agent_id == "aider":
+        return "Restart aider in a shell that sources ~/.oneagent/aider.env"
+    if not command:
+        return f"Restart {agent_id}"
+    return f"Quit any running {command} process, then start it again"
+
+
+def activate_agent(
+    runtime: Runtime,
+    agent_id: str,
+    *,
+    provider: str,
+    api_base_url: str = "",
+    api_key: str,
+    model: str,
+    timeout: int = 180,
+) -> dict[str, Any]:
+    """Point one Agent at a provider and model, leaving every other Agent alone.
+
+    Per-Agent credentials make this genuinely local: only this Agent's config
+    and env file change, so a failure cannot leave two Agents disagreeing and
+    there is no cross-file rollback to get right.
+    """
+    catalog = agent_catalog()
+    agent_id = validate_agent_id(agent_id)
+    meta = catalog.get(agent_id)
+    if meta is None:
+        raise OneAgentError("INVALID_REQUEST", f"Unknown Agent: {agent_id}")
+    if meta["config_mode"] != "auto":
+        raise OneAgentError("INVALID_REQUEST", f"{agent_id} is guide-only and has no managed configuration")
+    if not api_key:
+        raise OneAgentError("INVALID_REQUEST", "API key is required")
+
+    resolved_model = model or resolve_probe_model(
+        provider=provider, api_key=api_key, custom_base=api_base_url, timeout=timeout
+    )
+    provider_name = PROVIDERS.get(provider, {"name": "Custom"})["name"]
+    config_base_url = provider_config_base(provider, api_base_url, str(meta["config_adapter"]))
+
+    if agent_id in {"codex", "opencode", "kilo-cli"}:
+        write_agent_env(runtime, agent_id, api_key, provider_base(provider, api_base_url))
+    config_path = _write_agent_config(
+        runtime, agent_id, meta, provider_name, config_base_url, api_key, resolved_model
+    )
+    binding = write_agent_binding(
+        runtime, agent_id, provider=provider, base_url=config_base_url, model=resolved_model
+    )
+    return {
+        "ok": True,
+        "agent": agent_id,
+        "config": str(config_path),
+        "provider": provider,
+        "model": resolved_model,
+        "binding": binding,
+        "restart": _restart_hint(agent_id),
+        "next": _next_step(runtime, agent_id, resolved_model),
+    }
+
+
 def status_payload(runtime: Runtime | None = None) -> dict[str, Any]:
     runtime = runtime or Runtime.create()
     catalog = agent_catalog()
     agents: dict[str, Any] = {}
     paths: dict[str, str] = {"env_file": str(_env_path(runtime)), "profile": str(profile_path(runtime))}
     capabilities: dict[str, Any] = {"canInstall": {}, "supportedAgentIds": []}
+    # Read once: the per-Agent bindings are one small directory, and reading
+    # inside the loop would re-scan it for every Agent in the catalog.
+    bindings = list_agent_bindings(runtime)
     for agent_id, meta in catalog.items():
         path = _config_path(runtime, meta)
         if path:
@@ -1138,6 +1321,7 @@ def status_payload(runtime: Runtime | None = None) -> dict[str, Any]:
         capabilities["canInstall"][agent_id] = can_install
         if runtime.os_id in meta.get("platforms", []):
             capabilities["supportedAgentIds"].append(agent_id)
+        binding = bindings.get(agent_id)
         agents[agent_id] = {
             "installed": installed,
             "config": str(path) if path else "",
@@ -1146,6 +1330,11 @@ def status_payload(runtime: Runtime | None = None) -> dict[str, Any]:
             "version": installed_version(runtime, meta) if installed and meta["config_mode"] == "auto" else None,
             "lockedVersion": package.get("version"),
             "canInstall": can_install,
+            # What this Agent is pointed at, independent of every other Agent.
+            "provider": binding.get("provider") if binding else None,
+            "model": binding.get("model") if binding else None,
+            "baseUrl": binding.get("base_url") if binding else None,
+            "updatedAt": binding.get("updated_at") if binding else None,
         }
     profile, profile_error = load_profile(runtime)
     profiles = [public_profile_summary(item) for item in list_profiles(runtime)]
