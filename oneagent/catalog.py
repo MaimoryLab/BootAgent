@@ -16,32 +16,35 @@ PROVIDERS = {
         "home": "https://ppio.com/",
         "base_url": "https://api.ppio.com/openai",
         "anthropic_base_url": "https://api.ppio.com/anthropic",
-        # Model used to probe before the user has picked one. It must exist on
-        # this provider: the probe is a gate, so a name the endpoint rejects
-        # fails every connection test with a misleading auth error. The IDs
-        # differ per provider (PPIO publishes deepseek-v3, Novita deepseek_v3),
-        # so this cannot be one shared constant.
-        "probe_model": "deepseek/deepseek-v3",
+        # Last-resort probe model, used only when the endpoint's model list
+        # cannot be fetched (resolve_probe_model normally picks a live ID).
+        # It must still exist on this provider; staleness degrades only this
+        # narrow fallback path. The IDs differ per provider (PPIO publishes
+        # deepseek-v3, Novita deepseek_v3), so this cannot be one shared
+        # constant.
+        "fallback_probe_model": "deepseek/deepseek-v3",
     },
     "novita": {
         "name": "Novita",
         "home": "https://novita.ai/",
         "base_url": "https://api.novita.ai/openai",
         "anthropic_base_url": "https://api.novita.ai/anthropic",
-        "probe_model": "deepseek/deepseek_v3",
+        "fallback_probe_model": "deepseek/deepseek_v3",
     },
 }
 
 
-def probe_model(provider: str) -> str:
-    """Default model for a connection probe when the user has not chosen one.
+def fallback_probe_model(provider: str) -> str:
+    """Last-resort probe model when the endpoint's model list is unavailable.
 
-    Custom endpoints get the most widely published ID as a best guess; the user
-    can always run the probe again after selecting a real model.
+    Normal probes resolve a live model through resolve_probe_model(); this
+    covers only the narrow path where discovery fails. Custom endpoints get
+    the most widely published ID as a best guess; the user can always run the
+    probe again after selecting a real model.
     """
     meta = PROVIDERS.get(provider)
     if meta:
-        return str(meta["probe_model"])
+        return str(meta["fallback_probe_model"])
     return "deepseek/deepseek-v3"
 
 AGENT_GROUPS = [

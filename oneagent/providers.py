@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import socket
 from typing import Any
 from urllib.error import HTTPError, URLError
@@ -13,7 +14,7 @@ from .catalog import (
     PROTOCOL_RESPONSES,
     PROVIDERS,
     agent_protocol,
-    probe_model,
+    fallback_probe_model,
 )
 from .errors import OneAgentError
 
@@ -26,11 +27,13 @@ __all__ = [
     "chat_probe",
     "list_models",
     "openai_base_url",
+    "pick_chat_model",
     "protocol_label",
     "protocol_probe",
     "provider_base",
     "provider_config_base",
     "provider_home",
+    "resolve_probe_model",
     "validate_base_url",
 ]
 
@@ -227,7 +230,7 @@ def protocol_probe(
         provider=provider,
         custom_base=custom_base,
         api_key=api_key,
-        model=model or probe_model(provider),
+        model=model or fallback_probe_model(provider),
     )
     label = protocol_label(protocol)
     try:
@@ -341,3 +344,54 @@ def list_models(
         "error_code": None if models else "MODELS_UNSUPPORTED",
         "retryable": False,
     }
+
+
+# Model lists are provider-ordered and frequently lead with embedding, rerank
+# or vision models. Probing a protocol endpoint with one of those fails for a
+# reason unrelated to connectivity or the key, so pick the first ID that does
+# not carry an obvious non-chat marker. Markers match on separators only, so
+# an ID that merely contains a marker substring stays eligible.
+_NON_CHAT_MODEL = re.compile(
+    r"(?:^|[-_/.])(?:embed(?:ding)?s?|rerank(?:er)?|ocr|whisper|asr|tts|speech|vl|vision|image|sdx?|flux|guard(?:rail)?s?|moderation|sql)(?:[-_/.]|$)",
+    re.IGNORECASE,
+)
+
+
+def pick_chat_model(models: list[str]) -> str:
+    """Pick the first model that plausibly serves chat.
+
+    `models` must be non-empty; callers only invoke this on a successful
+    discovery. When every listed model looks non-chat the first entry is
+    returned and the probe failure explains itself.
+    """
+    for model in models:
+        if not _NON_CHAT_MODEL.search(model):
+            return model
+    return models[0]
+
+
+def resolve_probe_model(
+    *,
+    provider: str,
+    api_key: str,
+    model: str = "",
+    custom_base: str = "",
+    timeout: float = 10,
+) -> str:
+    """The model to probe with when the user has not chosen one.
+
+    Prefer a model the endpoint lists right now: hardcoded IDs go stale when
+    a provider retires a model. A user-supplied model short-circuits
+    discovery so a probe never costs an extra round trip, and an absent key
+    skips it because list_models would refuse. Discovery failing is not
+    fatal -- the catalog fallback is the narrow last resort.
+    """
+    if model:
+        return model
+    if not api_key:
+        return fallback_probe_model(provider)
+    listing = list_models(provider=provider, api_key=api_key, custom_base=custom_base, timeout=timeout)
+    models = listing.get("models") or []
+    if listing.get("ok") and models:
+        return pick_chat_model(models)
+    return fallback_probe_model(provider)
