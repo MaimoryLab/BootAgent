@@ -15,7 +15,7 @@ from unittest.mock import patch
 from oneagent import catalog, entrypoint
 from oneagent.catalog import load_manifest
 from scripts import build_release
-from scripts.check_release import validate_ledger, validate_manifest
+from scripts.check_release import validate_manifest
 from scripts.stage_resources import prune_stale_build_output, stage_resources
 
 
@@ -298,81 +298,6 @@ class ReleasePolicyTests(unittest.TestCase):
         self.assertIn("tests/macos_cleanroom_test.sh", ci)
         self.assertIn("ONEAGENT_PACKAGED_BINARY", ci)
         self.assertIn("tests/macos_cleanroom_test.sh", rc)
-
-    def test_shipped_distribution_ledger_is_valid(self):
-        problems = validate_ledger(ROOT / "docs" / "distribution-channels.md", ROOT / "release")
-        self.assertEqual(problems, [])
-
-    def test_ledger_gate_catches_rot_without_failing_local_builds(self):
-        header = (
-            "| release_version | artifact_name | sha256 | channel | download_url "
-            "| uploaded_at | uploaded_by | status | withdrawn_at | withdrawal_reason |\n"
-            "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |\n"
-        )
-
-        def row(**over: str) -> str:
-            cells = {
-                "release_version": "0.2.0",
-                "artifact_name": "OneAgent-0.2.0-technical-preview-unsigned-linux-x64.zip",
-                "sha256": "a" * 64,
-                "channel": "github-release",
-                "download_url": "https://example.invalid/a.zip",
-                "uploaded_at": "2026-07-27T00:00:00Z",
-                "uploaded_by": "ops",
-                "status": "active",
-                "withdrawn_at": "",
-                "withdrawal_reason": "",
-            }
-            cells.update(over)
-            return "| " + " | ".join(cells.values()) + " |\n"
-
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            release = root / "release"
-            release.mkdir()
-            ledger = root / "distribution-channels.md"
-
-            # An active entry whose artifact was built on another machine is
-            # normal: the ledger tracks uploads, release/ only holds this
-            # build's output. It must not fail the local release check.
-            ledger.write_text(header + row(), encoding="utf-8")
-            self.assertEqual(validate_ledger(ledger, release), [])
-
-            # Same version and filename mirrored to two channels must carry one
-            # digest, otherwise the mirrors are not byte-identical.
-            ledger.write_text(
-                header + row() + row(channel="netdisk", sha256="b" * 64),
-                encoding="utf-8",
-            )
-            self.assertTrue(
-                any("digests disagree" in problem for problem in validate_ledger(ledger, release))
-            )
-
-            # When the artifact is present, its digest is authoritative.
-            artifact = release / "OneAgent-0.2.0-technical-preview-unsigned-linux-x64.zip"
-            artifact.write_bytes(b"payload")
-            ledger.write_text(header + row(), encoding="utf-8")
-            self.assertTrue(
-                any("does not match local artifact" in p for p in validate_ledger(ledger, release))
-            )
-            ledger.write_text(header + row(sha256=hashlib.sha256(b"payload").hexdigest()), encoding="utf-8")
-            self.assertEqual(validate_ledger(ledger, release), [])
-
-            for bad, expected in (
-                ({"status": "published"}, "invalid ledger status"),
-                ({"uploaded_by": ""}, "uploaded_by is empty"),
-                ({"status": "withdrawn"}, "needs a time and a reason"),
-                ({"withdrawal_reason": "oops"}, "must not carry withdrawal fields"),
-                ({"artifact_name": "../escape.zip"}, "must not contain a path"),
-                ({"sha256": "nothex"}, "invalid ledger sha256"),
-            ):
-                with self.subTest(bad=bad):
-                    ledger.write_text(header + row(**bad), encoding="utf-8")
-                    problems = validate_ledger(ledger, release)
-                    self.assertTrue(any(expected in problem for problem in problems), problems)
-
-            ledger.unlink()
-            self.assertTrue(any("ledger is missing" in p for p in validate_ledger(ledger, release)))
 
     def test_release_manifest_checks_artifact_and_checksum_integrity(self):
         with tempfile.TemporaryDirectory() as tmp:

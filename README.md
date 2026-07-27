@@ -15,7 +15,7 @@ OneAgent 不重新分发 Agent 二进制，不捆绑 Node.js、Python、Git Bash
 - **真实 Agent 安装与真实 Provider 冒烟**：只在手动 `release-candidate.yml` 执行，需要受保护的 `ONEAGENT_PPIO_API_KEY`、`ONEAGENT_NOVITA_API_KEY` 与六个协议模型变量，尚未配置，因此尚未运行。
 - **Codex 的 Responses 协议**：PPIO/Novita 的 `/v1/responses` 仍未用真实 Key 验收；仅验证 Chat Completions 不能证明 Codex 可用。
 
-当前阶段不处理平台商店、自动更新、macOS 公证或 Windows Authenticode，因此不使用 Stable 标签。Stable 门槛（macOS 签名/公证、Windows Authenticode）仍然有效并由 `scripts/build_release.py` 做产物级强制，当前只是不发布 Stable。完整包体、品牌、许可证、Key、渠道台账（[台账载体](docs/distribution-channels.md)）和跨渠道撤回规则见 [多渠道分发与合规政策](docs/distribution-compliance-policy.md)。
+当前阶段不处理平台商店、自动更新、macOS 公证或 Windows Authenticode，因此不使用 Stable 标签。Stable 门槛（macOS 签名/公证、Windows Authenticode）仍然有效并由 `scripts/build_release.py` 做产物级强制，当前只是不发布 Stable。完整包体、品牌、许可证、Key、渠道台账和跨渠道撤回规则见 [多渠道分发与合规政策](docs/distribution-compliance-policy.md)。
 
 ## 架构
 
@@ -329,7 +329,7 @@ python3.12 scripts/check_release.py release
 - `SHA256SUMS-<platform>-<arch>.txt`。
 - 第三方许可证和五个 Agent 的锁定版本清单。
 
-PyInstaller 产物只声明其实际构建和验证过的目标环境。生成后的同一压缩包可以上传到 GitHub、官网、网盘或企业云盘；所有镜像必须保持相同 SHA-256，并在 [渠道台账](docs/distribution-channels.md) 中记录渠道、链接、上传人、上传时间和撤回状态。
+PyInstaller 产物只声明其实际构建和验证过的目标环境。生成后的同一压缩包可以上传到 GitHub、官网、网盘或企业云盘；所有镜像必须保持相同 SHA-256，并记录渠道、链接、上传人、上传时间和撤回状态。
 
 `.github/workflows/release-candidate.yml` 是定义中的真实验收门禁：四平台真实安装五个锁定 Agent，并使用受保护的 `ONEAGENT_PPIO_API_KEY`、`ONEAGENT_NOVITA_API_KEY` 与对应协议模型变量执行低 token 请求；缺少任一 Key 或协议模型 ID 时流程会失败，不会退化成假通过。在 CI Secret 配置完成前它尚未运行（见上文“仍未取得证据的部分”）；在此之前，常规 CI 门禁以包体、许可证、secret、SHA-256、临时 HOME 启动和本地 Mock 流程为主。
 
@@ -351,7 +351,6 @@ python3 scripts/provider_rc_smoke.py \
 
 - [产品边界基线](docs/product-boundary-baseline.md)
 - [多渠道分发与合规政策](docs/distribution-compliance-policy.md)
-- [渠道台账](docs/distribution-channels.md)
 - [渠道无关的二进制分发 ADR](docs/decisions/ADR-005-channel-neutral-distribution-and-compliance.md)
 - [三平台 Python 内核与版本锁定 ADR](docs/decisions/ADR-003-three-platform-python-core-and-release-policy.md)
 - [按 Agent 协议验证 ADR](docs/decisions/ADR-004-per-agent-protocol-verification.md)
