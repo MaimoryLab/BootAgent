@@ -16,14 +16,33 @@ PROVIDERS = {
         "home": "https://ppio.com/",
         "base_url": "https://api.ppio.com/openai",
         "anthropic_base_url": "https://api.ppio.com/anthropic",
+        # Model used to probe before the user has picked one. It must exist on
+        # this provider: the probe is a gate, so a name the endpoint rejects
+        # fails every connection test with a misleading auth error. The IDs
+        # differ per provider (PPIO publishes deepseek-v3, Novita deepseek_v3),
+        # so this cannot be one shared constant.
+        "probe_model": "deepseek/deepseek-v3",
     },
     "novita": {
         "name": "Novita",
         "home": "https://novita.ai/",
         "base_url": "https://api.novita.ai/openai",
         "anthropic_base_url": "https://api.novita.ai/anthropic",
+        "probe_model": "deepseek/deepseek_v3",
     },
 }
+
+
+def probe_model(provider: str) -> str:
+    """Default model for a connection probe when the user has not chosen one.
+
+    Custom endpoints get the most widely published ID as a best guess; the user
+    can always run the probe again after selecting a real model.
+    """
+    meta = PROVIDERS.get(provider)
+    if meta:
+        return str(meta["probe_model"])
+    return "deepseek/deepseek-v3"
 
 AGENT_GROUPS = [
     {"id": "auto", "name": "One-click configurable"},

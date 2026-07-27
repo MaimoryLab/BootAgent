@@ -9,12 +9,20 @@ import shutil
 import subprocess
 import tempfile
 import tomllib
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Iterable
 
-from .catalog import AGENT_GROUPS, PROVIDERS, agent_catalog, current_platform, public_catalog, resolve_home
+from .catalog import (
+    AGENT_GROUPS,
+    PROVIDERS,
+    agent_catalog,
+    current_platform,
+    probe_model,
+    public_catalog,
+    resolve_home,
+)
 from .errors import EXIT_CODES, OneAgentError
 from .providers import (
     agent_protocol,
@@ -37,7 +45,7 @@ class InstallOptions:
     provider: str = "ppio"
     api_base_url: str = ""
     api_key: str = ""
-    model: str = "gpt-4.1"
+    model: str = ""
     configure: bool = True
     install_agent: bool = False
     check_agent_only: bool = False
@@ -636,6 +644,12 @@ def _sharpen_model_diagnosis(probes: dict[str, dict[str, Any]], options: Install
 def install_many(options: InstallOptions, runtime: Runtime | None = None) -> dict[str, Any]:
     runtime = runtime or Runtime.create(home=options.home, os_id=options.os_id)
     catalog = agent_catalog()
+    # Resolve the model once, here, rather than at each of the places that write
+    # it into a config or a next-step hint. An empty model reaches this far when
+    # a caller omits it entirely, and writing "" into an Agent config would
+    # produce a file that looks configured but cannot answer a request.
+    if not options.model:
+        options = replace(options, model=probe_model(options.provider))
     if options.locked_version and options.latest:
         raise OneAgentError("INVALID_REQUEST", "locked_version and latest cannot be enabled together")
     if options.timeout <= 0:

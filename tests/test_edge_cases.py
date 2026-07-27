@@ -246,12 +246,49 @@ class ProviderEdgeTests(unittest.TestCase):
         self.assertEqual(openai_base_url("https://example.com/v1/responses"), "https://example.com/v1")
         self.assertEqual(openai_base_url("https://example.com/v1/models"), "https://example.com/v1")
 
+    def test_probe_model_is_provider_specific_and_never_a_foreign_id(self):
+        # The probe gates the wizard, so the fallback model must be one the
+        # provider actually serves. It used to be a hardcoded "gpt-4.1", which
+        # exists on neither built-in provider: every connection test failed with
+        # an auth error and no correct key could get past the provider step.
+        # The IDs also differ per provider, so one shared constant cannot work.
+        self.assertNotEqual(catalog.probe_model("ppio"), catalog.probe_model("novita"))
+        for provider in ("ppio", "novita"):
+            with self.subTest(provider=provider):
+                model = catalog.probe_model(provider)
+                self.assertTrue(model)
+                self.assertNotIn("gpt-", model)
+                self.assertEqual(model, catalog.PROVIDERS[provider]["probe_model"])
+        # An unknown provider still yields a usable ID rather than an empty
+        # model, which would send a request no endpoint can answer.
+        self.assertTrue(catalog.probe_model("custom"))
+
+    def test_install_resolves_an_empty_model_before_writing_configs(self):
+        # InstallOptions defaults to no model; writing "" into an Agent config
+        # would leave a file that looks configured but cannot serve a request.
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            runtime = Runtime(
+                home=home,
+                os_id="macos",
+                runner=lambda *a, **k: subprocess.CompletedProcess(a[0] if a else [], 0, "1.0.0", ""),
+                which=lambda name: f"/usr/bin/{name}",
+                env={},
+            )
+            result = install_many(
+                InstallOptions(agents=["codex"], provider="ppio", api_key="sk-test", skip_test=True, home=home),
+                runtime,
+            )
+            self.assertTrue(result["ok"], result)
+            written = tomllib.loads((home / ".codex" / "config.toml").read_text(encoding="utf-8"))
+        self.assertEqual(written["model"], catalog.probe_model("ppio"))
+
     def test_probe_success_default_model_and_network_error(self):
         with patch("oneagent.providers.urlopen", return_value=FakeResponse(status=204)) as request:
             result = chat_probe(provider="ppio", api_key="key", model="")
         self.assertTrue(result["ok"])
         sent = json.loads(request.call_args.args[0].data.decode())
-        self.assertEqual(sent["model"], "gpt-4.1")
+        self.assertEqual(sent["model"], catalog.probe_model("ppio"))
         with patch("oneagent.providers.urlopen", side_effect=URLError("connection refused")):
             result = chat_probe(provider="ppio", api_key="key", model="m")
         self.assertEqual(result["error_code"], "PROVIDER_UNREACHABLE")

@@ -20,7 +20,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--provider", default="ppio")
     parser.add_argument("--api-base-url", default="")
     parser.add_argument("--api-key", default="")
-    parser.add_argument("--model", default="gpt-4.1")
+    parser.add_argument("--model", default="", help="Defaults to the provider's probe model")
     parser.add_argument("--register-url", metavar="URL", default="")
     parser.add_argument("--channel", default="direct")
     parser.add_argument("--install-agent", action="store_true")

@@ -13,6 +13,7 @@ from .catalog import (
     PROTOCOL_RESPONSES,
     PROVIDERS,
     agent_protocol,
+    probe_model,
 )
 from .errors import OneAgentError
 
@@ -222,7 +223,11 @@ def protocol_probe(
     if protocol not in PROTOCOL_LABELS:
         raise OneAgentError("INVALID_REQUEST", f"Unknown inference protocol: {protocol}")
     request = _protocol_request(
-        protocol, provider=provider, custom_base=custom_base, api_key=api_key, model=model or "gpt-4.1"
+        protocol,
+        provider=provider,
+        custom_base=custom_base,
+        api_key=api_key,
+        model=model or probe_model(provider),
     )
     label = protocol_label(protocol)
     try:

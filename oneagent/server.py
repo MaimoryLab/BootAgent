@@ -14,7 +14,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from urllib.parse import quote, unquote, urlsplit
 
-from .catalog import agent_catalog, resource_root
+from .catalog import agent_catalog, probe_model, resource_root
 from .errors import OneAgentError
 from .installer import InstallOptions, Runtime, install_many, status_payload
 from .providers import (
@@ -237,7 +237,9 @@ def probe_payload(payload: dict[str, object]) -> dict[str, object]:
     provider = _string_field(payload, "provider", "ppio")
     custom_base = _string_field(payload, "api_base_url")
     api_key = _string_field(payload, "api_key")
-    model = _string_field(payload, "model", "gpt-4.1") or "gpt-4.1"
+    # The wizard probes before the model step, so an empty model is the norm
+    # here and the fallback has to be a model the provider actually serves.
+    model = _string_field(payload, "model") or probe_model(provider)
     timeout = _timeout()
 
     # Test the protocols the selected Agents will really speak. Without an Agent
@@ -288,7 +290,7 @@ def install_payload(payload: dict[str, object]) -> dict[str, object]:
             provider=_string_field(payload, "provider", "ppio"),
             api_base_url=_string_field(payload, "api_base_url"),
             api_key=_string_field(payload, "api_key"),
-            model=_string_field(payload, "model", "gpt-4.1") or "gpt-4.1",
+            model=_string_field(payload, "model") or probe_model(_string_field(payload, "provider", "ppio")),
             configure=configure,
             install_agent=_bool_field(payload, "install_agent"),
             # The GUI's existing-account path still completes the selected
