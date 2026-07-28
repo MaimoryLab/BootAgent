@@ -4,25 +4,21 @@ import { useNavigate } from "react-router-dom";
 
 import { AgentRow } from "../components/AgentRow";
 import { PageScaffold } from "../components/PageScaffold";
+import { splitByRank } from "../state/ranking";
+import type { AgentCatalogItem } from "../types/api";
 import { useWizard } from "../state/WizardContext";
 
 export function AgentSelectionPage() {
   const navigate = useNavigate();
   const { state, dispatch } = useWizard();
   const [showMore, setShowMore] = useState(false);
-  const automatic = useMemo(() => state.status?.catalog.filter((agent) => agent.group === "auto") || [], [state.status]);
-  const additionalGroups = useMemo(
-    () =>
-      (state.status?.groups || [])
-        .filter((group) => group.id !== "auto")
-        .map((group) => ({
-          ...group,
-          agents: state.status?.catalog.filter((agent) => agent.group === group.id) || [],
-        })),
-    [state.status],
-  );
+  // Ranked, not grouped by catalog group. Leading with the "auto" group put Kilo
+  // and Aider on the first screen and folded Cursor, OpenClaw and Hermes away.
+  // Guide-only Agents stay selectable: install_many answers them with a
+  // guide-only result and writes nothing, which is the flow Review relies on.
+  const { primary, secondary } = useMemo(() => splitByRank(state.status?.catalog), [state.status]);
 
-  const renderRows = (agents: typeof automatic) => (
+  const renderRows = (agents: readonly AgentCatalogItem[]) => (
     <div className="agent-list">
       {agents.map((agent) => (
         <AgentRow
@@ -54,30 +50,21 @@ export function AgentSelectionPage() {
           <section className="content-section">
             <div className="section-heading">
               <div>
-                <h2>可一键配置</h2>
-                <p>使用锁定版本和公开配置合约完成初始化。</p>
+                <h2>常用 Agent</h2>
+                <p>可一键配置的使用锁定版本完成初始化，仅引导的只显示官方步骤。</p>
               </div>
               <PackageCheck size={19} aria-hidden="true" />
             </div>
-            {renderRows(automatic)}
+            {renderRows(primary)}
           </section>
 
           <section className={`disclosure-section${showMore ? " is-open" : ""}`}>
             <button type="button" className="disclosure-trigger" onClick={() => setShowMore((value) => !value)} aria-expanded={showMore}>
               <ChevronDown size={18} />
-              更多分类
+              更多 Agent（{secondary.length}）
               <span>网关、平台账号与 IDE 扩展</span>
             </button>
-            {showMore ? (
-              <div className="additional-agent-groups">
-                {additionalGroups.map((group) => (
-                  <section key={group.id}>
-                    <h3>{group.name}</h3>
-                    {renderRows(group.agents)}
-                  </section>
-                ))}
-              </div>
-            ) : null}
+            {showMore ? <div className="additional-agent-groups">{renderRows(secondary)}</div> : null}
           </section>
 
           <label className="toggle-row">

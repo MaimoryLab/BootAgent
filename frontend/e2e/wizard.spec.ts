@@ -154,6 +154,17 @@ for (const viewport of [
     await mockApi(page);
     await page.goto("/");
     await expect(page.getByRole("heading", { name: "选择 Agent" })).toBeVisible();
+    // Ranked, not grouped: leading with the "auto" group used to put Kilo and
+    // Aider here and fold Cursor and OpenClaw out of sight.
+    await expect(page.locator(".agent-row input[type=checkbox]").first()).toHaveAttribute(
+      "aria-label",
+      "选择 Codex",
+    );
+    const firstScreen = await page.locator(".content-section .agent-row").allTextContents();
+    expect(firstScreen.join(" ")).toContain("Cursor");
+    expect(firstScreen.join(" ")).not.toContain("Aider");
+    // Guide-only rows stay selectable; install_many answers them with a guide.
+    await expect(page.getByRole("checkbox", { name: "选择 Cursor" })).toBeEnabled();
     await page.screenshot({ path: testInfo.outputPath(`01-agents-${viewport.label}.png`) });
     await expectNoHorizontalOverflow(page);
 
