@@ -12,11 +12,11 @@
 | 职责 | Provider 配置的**存取与切换** | Agent 的**检测、安装、配置** |
 | 配置模型 | 整块存原始配置对象 | 结构化字段，由适配器翻译 |
 | 外围能力 | 本地代理、熔断器、故障转移、用量统计、MCP、skills、prompts、sessions | 无 |
-| 单表单规模 | `ClaudeFormFields.tsx` 1126 行；`ProviderForm.tsx` 2693 行 | `AgentDetailPage.tsx` 218 行 |
+| 表单规模 | 共享编排器 `ProviderForm.tsx` 2693 行 + 共享 hooks/字段约 6000 行 + 各应用专属区块 | `AgentDetailPage.tsx` 223 行 |
 
 它的 `src/components/` 下有 19 个子目录（mcp、skills、prompts、sessions、proxy、usage…）。这些不在 OneAgent 的产品边界内（见 [产品边界基线](product-boundary-baseline.md)），尤其**本地代理与故障转移属于明确禁止范围**，不予借鉴。
 
-## 2. 配置模型：它不解析语义，我们解析
+## 2. 配置模型：它存原始对象，我们存结构化字段
 
 CC Switch 的 `Provider`（`src/types.ts:11`）核心只有一个配置字段：
 
@@ -26,7 +26,9 @@ settingsConfig: Record<string, any>  // Claude 为 settings.json；Codex 为 { a
 
 其余全是元数据：`icon` / `iconColor` / `category` / `sortIndex` / `notes` / `isPartner` / `inFailoverQueue`。
 
-**含义**：它整块存 Agent 的原始配置，不理解字段语义，因此用户需要自己懂 `settings.json` 的结构。
+**含义**：存储层整块存 Agent 的原始配置对象。
+
+**更正**：先前记录的「它不理解字段语义，用户需要自己懂 `settings.json` 的结构」过头了。存储层不解析语义，但 UI 与 Service 层仍会理解、校验和编辑字段——`ClaudeFormFields` 认得 API 格式、认证字段名与模型映射，`useCodexTomlValidation` 会校验 TOML。差异在存储模型，不在「是否理解语义」。
 
 **更正**：先前记录的「CC Switch 从不安装 Agent」不准确。`src-tauri/src/commands/misc.rs:452` 起有一键安装，OpenClaw 走 `npm i -g openclaw@latest`，Hermes 走 `NousResearch/hermes-agent` 的官方 install.sh。这不改变 OneAgent 仍将两者列为 guide-only 的结论——理由是常驻网关形态被 ADR-002/ADR-003 划在范围外，与能否安装无关。
 
