@@ -4,6 +4,9 @@ import { describe, expect, it } from "vitest";
 import { AGENT_ICON_IDS, AgentIcon, agentTagline } from "./agents";
 
 const AUTO_AGENTS = ["codex", "claude-code", "opencode", "kilo-cli", "aider"];
+// Shown on the first screen alongside them, so they need glyphs of their own
+// even though OneAgent does not configure them.
+const PROMINENT_GUIDE_AGENTS = ["cursor", "openclaw", "hermes"];
 
 describe("AgentIcon", () => {
   it("has a distinct icon for every one-click Agent", () => {
@@ -17,6 +20,31 @@ describe("AgentIcon", () => {
       return container.querySelector("svg")?.innerHTML ?? "";
     });
     expect(new Set(rendered).size).toBe(AUTO_AGENTS.length);
+  });
+
+  it("gives the prominent guide-only Agents their own glyphs too", () => {
+    // They lead the overview next to the configurable ones; falling back to a
+    // generic bot for half the first screen would undo the ranking.
+    for (const id of PROMINENT_GUIDE_AGENTS) {
+      expect(AGENT_ICON_IDS).toContain(id);
+    }
+    const rendered = [...AUTO_AGENTS, ...PROMINENT_GUIDE_AGENTS].map((id) => {
+      const { container } = render(<AgentIcon agentId={id} />);
+      return container.querySelector("svg")?.innerHTML ?? "";
+    });
+    expect(new Set(rendered).size).toBe(rendered.length);
+  });
+
+  it("keeps drawn glyphs monochrome so the set reads as one", () => {
+    // CC Switch draws OpenClaw with a red gradient and ships Hermes as a PNG;
+    // neither can inherit currentColor, which is what makes glyphs from
+    // different sources sit together.
+    for (const id of ["openclaw", "hermes"]) {
+      const { container } = render(<AgentIcon agentId={id} />);
+      const svg = container.querySelector("svg")?.outerHTML ?? "";
+      expect(svg).not.toMatch(/#[0-9a-f]{3,6}|linearGradient|<image/i);
+      expect(svg).toContain("currentColor");
+    }
   });
 
   it("falls back rather than rendering nothing for an unknown Agent", () => {
@@ -51,7 +79,7 @@ describe("AgentIcon", () => {
   });
 
   it("offers a tagline for hover, distinct from the name", () => {
-    for (const id of AUTO_AGENTS) {
+    for (const id of [...AUTO_AGENTS, ...PROMINENT_GUIDE_AGENTS]) {
       const tagline = agentTagline(id);
       expect(tagline.length).toBeGreaterThan(0);
       expect(tagline).not.toBe(id);

@@ -49,6 +49,20 @@ const GLYPHS: Record<string, Glyph> = {
     d: "M12 2.5 21.5 7.5 12 12.5 2.5 7.5 12 2.5ZM2.5 12.2 12 17.2l9.5-5M2.5 16.6 12 21.6l9.5-5",
     filled: false,
   },
+  // Drawn: a claw of three talons. CC Switch draws its own coloured gradient
+  // mark for OpenClaw rather than shipping an official one, and a gradient
+  // cannot render monochrome, so this keeps the set consistent instead.
+  openclaw: {
+    d: "M6 3.2v7.6a6 6 0 0 0 12 0V3.2M12 2.6v8.4M9 16.6l-1.2 4.6M15 16.6l1.2 4.6",
+    filled: false,
+  },
+  // Drawn: a winged staff, for the messenger the project is named after. The
+  // only asset CC Switch has is a 256px raster, which cannot sit beside vector
+  // glyphs at 18px without differing in weight.
+  hermes: {
+    d: "M12 2.8v18.4M12 7.4c-2.6-2.4-5.4-2.6-8-1 2 2.4 4.6 3.6 8 3.6M12 7.4c2.6-2.4 5.4-2.6 8-1-2 2.4-4.6 3.6-8 3.6M9.4 18.4h5.2",
+    filled: false,
+  },
 };
 
 /** One-line positioning shown on hover; never a restatement of the name. */
@@ -59,6 +73,8 @@ const TAGLINES: Record<string, string> = {
   "kilo-cli": "多模型编排的命令行代理",
   aider: "结对编程式的仓库编辑代理",
   cursor: "AI 编辑器，按官方文档配置",
+  openclaw: "多渠道 AI 网关，常驻运行",
+  hermes: "消息驱动的 Agent 框架",
 };
 
 export const AGENT_ICON_IDS = Object.keys(GLYPHS);

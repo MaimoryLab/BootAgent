@@ -53,6 +53,15 @@ CC Switch 依赖 **`@lobehub/icons-static-svg`**（MIT，723 个 AI 品牌 SVG�
 
 这把官方图标覆盖从 2/5 提到 3/5，Codex 不必再自绘。OpenCode 沿用 simple-icons（CC0）已有的官方图标，只有 Aider 与 Kilo 仍需自绘。
 
+### OpenClaw 与 Hermes 的图标不可取用
+
+核对 `src/icons/extracted/`（98 个文件）的结果：
+
+- **OpenClaw** 是 CC Switch **自绘**的彩色 SVG，`viewBox="0 0 120 120"`，用 `linearGradient` 从 `#ff4d4d` 渐变到 `#991b1b`，配青色眼睛。不是官方 logo。
+- **Hermes** 是一张 256×256 PNG（39 KB），不是矢量。
+
+两者都无法满足 24×24 单色 `currentColor` 的规范：渐变填充无法继承 `currentColor`，位图在 18px 渲染位与矢量字形并排时轻重不一。因此这两个按同一几何规范自绘，而不是取用 CC Switch 的资产。这不是许可问题（MIT 允许取用），是形态不兼容。
+
 **注意**：CC Switch 自己并未真的使用这个包——源码零引用，实际只在 `src/assets/icons/` 放了手工的 `chatgpt.svg` 与 `claude.svg`。这个依赖是装了没用，所以「它用了什么」不能作为可用性证据，必须自己核对。
 
 **许可与商标**：MIT 覆盖 SVG 文件本身，不覆盖商标权。在自己 UI 内标示「这一行是哪个 Agent」属指示性使用；不得用作 OneAgent 的产品视觉资产。统一 `currentColor` 单色渲染，既统一风格也避免为第三方商标着色。
