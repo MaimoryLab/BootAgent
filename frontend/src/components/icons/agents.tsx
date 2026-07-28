@@ -1,68 +1,41 @@
 /**
- * Agent glyphs.
+ * Agent marks, taken from each project's own published artwork.
  *
- * Two sources, one visual system. Claude, OpenCode and Cursor ship official
- * marks (simple-icons, CC0-1.0); Codex, Aider and Kilo have none published, so
- * they are drawn here to the same geometry. Every glyph uses a 24x24 box and
- * currentColor: a uniform container with per-brand shapes is how macOS makes a
- * folder of unrelated app icons look like one set, and rendering third-party
- * marks monochrome avoids recolouring a trademark.
+ * Earlier revisions drew these by hand to keep one monochrome style. That
+ * inverted the priority: a glyph has to be recognised before it is tidy, and a
+ * hand-drawn "claw" read as a cup. Every Agent here has an official mark, so
+ * every mark is the official one, in the brand's own colours.
  *
- * CC0 covers the SVG paths, not trademark rights. These identify which Agent a
- * row refers to — nominative use — and are not OneAgent product artwork.
+ * Uniformity now comes from the container rather than from redrawing: one square
+ * box, one size per context, consistent padding. That is how a folder of
+ * unrelated app icons still reads as a set.
+ *
+ * Trademark note: these identify which Agent a row refers to — nominative use.
+ * They are not OneAgent product artwork and are not recoloured or restyled.
+ * Sources are recorded per entry; assets live beside this file and are inlined
+ * at build time, since the release policy forbids external references.
  */
 import { Bot } from "lucide-react";
 
-/** Filled marks come from simple-icons; drawn ones are stroked outlines. */
-type Glyph = { d: string; filled: boolean; evenOdd?: boolean };
+import aiderMark from "./assets/aider.png";
+import claudeMark from "./assets/claude-code.svg";
+import codexMark from "./assets/codex.svg";
+import cursorMark from "./assets/cursor.svg";
+import hermesMark from "./assets/hermes.png";
+import kiloMark from "./assets/kilo-cli.svg";
+import openclawMark from "./assets/openclaw.svg";
+import opencodeMark from "./assets/opencode.svg";
 
-const GLYPHS: Record<string, Glyph> = {
-  // simple-icons "claude" (CC0-1.0)
-  "claude-code": {
-    d: "m4.7144 15.9555 4.7174-2.6471.079-.2307-.079-.1275h-.2307l-.7893-.0486-2.6956-.0729-2.3375-.0971-2.2646-.1214-.5707-.1215-.5343-.7042.0546-.3522.4797-.3218.686.0608 1.5179.1032 2.2767.1578 1.6514.0972 2.4468.255h.3886l.0546-.1579-.1336-.0971-.1032-.0972L6.973 9.8356l-2.55-1.6879-1.3356-.9714-.7225-.4918-.3643-.4614-.1578-1.0078.6557-.7225.8803.0607.2246.0607.8925.686 1.9064 1.4754 2.4893 1.8336.3643.3035.1457-.1032.0182-.0728-.164-.2733-1.3539-2.4467-1.445-2.4893-.6435-1.032-.17-.6194c-.0607-.255-.1032-.4674-.1032-.7285L6.287.1335 6.6997 0l.9957.1336.419.3642.6192 1.4147 1.0018 2.2282 1.5543 3.0296.4553.8985.2429.8318.091.255h.1579v-.1457l.1275-1.706.2368-2.0947.2307-2.6957.0789-.7589.3764-.9107.7468-.4918.5828.2793.4797.686-.0668.4433-.2853 1.8517-.5586 2.9021-.3643 1.9429h.2125l.2429-.2429.9835-1.3053 1.6514-2.0643.7286-.8196.85-.9046.5464-.4311h1.0321l.759 1.1293-.34 1.1657-1.0625 1.3478-.8804 1.1414-1.2628 1.7-.7893 1.36.0729.1093.1882-.0183 2.8535-.607 1.5421-.2794 1.8396-.3157.8318.3886.091.3946-.3278.8075-1.967.4857-2.3072.4614-3.4364.8136-.0425.0304.0486.0607 1.5482.1457.6618.0364h1.621l3.0175.2247.7892.522.4736.6376-.079.4857-1.2142.6193-1.6393-.3886-3.825-.9107-1.3113-.3279h-.1822v.1093l1.0929 1.0686 2.0035 1.8092 2.5075 2.3314.1275.5768-.3218.4554-.34-.0486-2.2039-1.6575-.85-.7468-1.9246-1.621h-.1275v.17l.4432.6496 2.3436 3.5214.1214 1.0807-.17.3521-.6071.2125-.6679-.1214-1.3721-1.9246L14.38 17.959l-1.1414-1.9428-.1397.079-.674 7.2552-.3156.3703-.7286.2793-.6071-.4614-.3218-.7468.3218-1.4753.3886-1.9246.3157-1.53.2853-1.9004.17-.6314-.0121-.0425-.1397.0182-1.4328 1.9672-2.1796 2.9446-1.7243 1.8456-.4128.164-.7164-.3704.0667-.6618.4008-.5889 2.386-3.0357 1.4389-1.882.929-1.0868-.0062-.1579h-.0546l-6.3385 4.1164-1.1293.1457-.4857-.4554.0608-.7467.2307-.2429 1.9064-1.3114Z",
-    filled: true,
-  },
-  // simple-icons "opencode" (CC0-1.0)
-  opencode: {
-    d: "M22 24H2V0h20zM17 4.8H7v14.4h10z",
-    filled: true,
-  },
-  // simple-icons "cursor" (CC0-1.0)
-  cursor: {
-    d: "M11.503.131 1.891 5.678a.84.84 0 0 0-.42.726v11.188c0 .3.162.575.42.724l9.609 5.55a1 1 0 0 0 .998 0l9.61-5.55a.84.84 0 0 0 .42-.724V6.404a.84.84 0 0 0-.42-.726L12.497.131a1.01 1.01 0 0 0-.996 0M2.657 6.338h18.55c.263 0 .43.287.297.515L12.23 22.918c-.062.107-.229.064-.229-.06V12.335a.59.59 0 0 0-.295-.51l-9.11-5.257c-.109-.063-.064-.23.061-.23",
-    filled: true,
-  },
-  // lobehub/icons-static-svg "openai" (MIT). Replaced a drawn placeholder once
-  // the official mark was found to exist; see docs/cc-switch-reference-notes.md.
-  codex: {
-    d: "M21.55 10.004a5.416 5.416 0 00-.478-4.501c-1.217-2.09-3.662-3.166-6.05-2.66A5.59 5.59 0 0010.831 1C8.39.995 6.224 2.546 5.473 4.838A5.553 5.553 0 001.76 7.496a5.487 5.487 0 00.691 6.5 5.416 5.416 0 00.477 4.502c1.217 2.09 3.662 3.165 6.05 2.66A5.586 5.586 0 0013.168 23c2.443.006 4.61-1.546 5.361-3.84a5.553 5.553 0 003.715-2.66 5.488 5.488 0 00-.693-6.497v.001zm-8.381 11.558a4.199 4.199 0 01-2.675-.954c.034-.018.093-.05.132-.074l4.44-2.53a.71.71 0 00.364-.623v-6.176l1.877 1.069c.02.01.033.029.036.05v5.115c-.003 2.274-1.87 4.118-4.174 4.123zM4.192 17.78a4.059 4.059 0 01-.498-2.763c.032.02.09.055.131.078l4.44 2.53c.225.13.504.13.73 0l5.42-3.088v2.138a.068.068 0 01-.027.057L9.9 19.288c-1.999 1.136-4.552.46-5.707-1.51h-.001zM3.023 8.216A4.15 4.15 0 015.198 6.41l-.002.151v5.06a.711.711 0 00.364.624l5.42 3.087-1.876 1.07a.067.067 0 01-.063.005l-4.489-2.559c-1.995-1.14-2.679-3.658-1.53-5.63h.001zm15.417 3.54l-5.42-3.088L14.896 7.6a.067.067 0 01.063-.006l4.489 2.557c1.998 1.14 2.683 3.662 1.529 5.633a4.163 4.163 0 01-2.174 1.807V12.38a.71.71 0 00-.363-.623zm1.867-2.773a6.04 6.04 0 00-.132-.078l-4.44-2.53a.731.731 0 00-.729 0l-5.42 3.088V7.325a.068.068 0 01.027-.057L14.1 4.713c2-1.137 4.555-.46 5.707 1.513.487.833.664 1.809.499 2.757h.001zm-11.741 3.81l-1.877-1.068a.065.065 0 01-.036-.051V6.559c.001-2.277 1.873-4.122 4.181-4.12.976 0 1.92.338 2.671.954-.034.018-.092.05-.131.073l-4.44 2.53a.71.71 0 00-.365.623l-.003 6.173v.002zm1.02-2.168L12 9.25l2.414 1.375v2.75L12 14.75l-2.415-1.375v-2.75z",
-    filled: true,
-    evenOdd: true,
-  },
-  // Drawn: paired carets, for a tool that edits alongside you.
-  aider: {
-    d: "M9 6 3.5 12 9 18M15 6l5.5 6L15 18M12.8 4.5l-1.6 15",
-    filled: false,
-  },
-  // Drawn: stacked layers, matching Kilo's CLI-orchestration role.
-  "kilo-cli": {
-    d: "M12 2.5 21.5 7.5 12 12.5 2.5 7.5 12 2.5ZM2.5 12.2 12 17.2l9.5-5M2.5 16.6 12 21.6l9.5-5",
-    filled: false,
-  },
-  // Drawn: a claw of three talons. CC Switch draws its own coloured gradient
-  // mark for OpenClaw rather than shipping an official one, and a gradient
-  // cannot render monochrome, so this keeps the set consistent instead.
-  openclaw: {
-    d: "M6 3.2v7.6a6 6 0 0 0 12 0V3.2M12 2.6v8.4M9 16.6l-1.2 4.6M15 16.6l1.2 4.6",
-    filled: false,
-  },
-  // Drawn: a winged staff, for the messenger the project is named after. The
-  // only asset CC Switch has is a 256px raster, which cannot sit beside vector
-  // glyphs at 18px without differing in weight.
-  hermes: {
-    d: "M12 2.8v18.4M12 7.4c-2.6-2.4-5.4-2.6-8-1 2 2.4 4.6 3.6 8 3.6M12 7.4c2.6-2.4 5.4-2.6 8-1-2 2.4-4.6 3.6-8 3.6M9.4 18.4h5.2",
-    filled: false,
-  },
+/** Where each mark came from, so the next person can re-check it. */
+const MARKS: Record<string, { src: string; source: string }> = {
+  codex: { src: codexMark, source: "lobehub/icons-static-svg openai (MIT)" },
+  "claude-code": { src: claudeMark, source: "claude.ai/favicon.svg" },
+  cursor: { src: cursorMark, source: "cursor.com/favicon.svg" },
+  opencode: { src: opencodeMark, source: "lobehub/icons-static-svg opencode (MIT)" },
+  openclaw: { src: openclawMark, source: "openclaw/openclaw docs/assets/pixel-lobster.svg (MIT)" },
+  hermes: { src: hermesMark, source: "hermes-agent.nousresearch.com/icon.png" },
+  "kilo-cli": { src: kiloMark, source: "kilocode.ai/favicon/favicon.svg" },
+  aider: { src: aiderMark, source: "aider.chat/assets/icons/favicon-32x32.png" },
 };
 
 /** One-line positioning shown on hover; never a restatement of the name. */
@@ -72,41 +45,41 @@ const TAGLINES: Record<string, string> = {
   opencode: "开源终端编码代理",
   "kilo-cli": "多模型编排的命令行代理",
   aider: "结对编程式的仓库编辑代理",
-  cursor: "AI 编辑器，按官方文档配置",
+  cursor: "AI 编辑器，按官方方式安装",
   openclaw: "多渠道 AI 网关，常驻运行",
-  hermes: "消息驱动的 Agent 框架",
+  hermes: "自我成长型 Agent 框架",
 };
 
-export const AGENT_ICON_IDS = Object.keys(GLYPHS);
+export const AGENT_ICON_IDS = Object.keys(MARKS);
 
 export function agentTagline(agentId: string): string {
   return TAGLINES[agentId] ?? "";
 }
 
+/** The provenance of an Agent's mark, for the reference notes and tests. */
+export function agentMarkSource(agentId: string): string {
+  return MARKS[agentId]?.source ?? "";
+}
+
 export function AgentIcon({ agentId, size = 18 }: { agentId: string; size?: number }) {
-  const glyph = GLYPHS[agentId];
-  if (!glyph) {
-    // An Agent added to agents.lock.json before its glyph exists still renders.
+  const mark = MARKS[agentId];
+  if (!mark) {
+    // An Agent added to agents.lock.json before its mark is fetched still
+    // renders rather than leaving a blank square.
     return <Bot size={size} strokeWidth={1.8} aria-hidden="true" />;
   }
   return (
-    <svg
-      viewBox="0 0 24 24"
+    <img
+      className="agent-mark"
+      src={mark.src}
       width={size}
       height={size}
+      alt=""
       aria-hidden="true"
-      // Official marks are solid, drawn ones are strokes; the opacity keeps the
-      // two from differing in visual weight inside the same list.
-      fill={glyph.filled ? "currentColor" : "none"}
-      fillOpacity={glyph.filled ? 0.85 : undefined}
-      fillRule={glyph.evenOdd ? "evenodd" : undefined}
-      clipRule={glyph.evenOdd ? "evenodd" : undefined}
-      stroke={glyph.filled ? "none" : "currentColor"}
-      strokeWidth={glyph.filled ? undefined : 1.8}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d={glyph.d} />
-    </svg>
+      // Marks are square but not identically padded; contain keeps the tallest
+      // and widest ones from overflowing the box they share.
+      style={{ objectFit: "contain" }}
+      draggable={false}
+    />
   );
 }

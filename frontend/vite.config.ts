@@ -8,6 +8,10 @@ export default defineConfig({
     outDir: "dist",
     emptyOutDir: true,
     sourcemap: false,
+    // Inline every asset. The release policy forbids CDN or external
+    // references in the frontend output, and a separately emitted icon file
+    // would be one more request the packaged app has to resolve locally.
+    assetsInlineLimit: Number.MAX_SAFE_INTEGER,
     target: "es2022",
   },
   test: {

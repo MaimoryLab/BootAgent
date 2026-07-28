@@ -28,6 +28,8 @@ settingsConfig: Record<string, any>  // Claude 为 settings.json；Codex 为 { a
 
 **含义**：它整块存 Agent 的原始配置，不理解字段语义，因此用户需要自己懂 `settings.json` 的结构。
 
+**更正**：先前记录的「CC Switch 从不安装 Agent」不准确。`src-tauri/src/commands/misc.rs:452` 起有一键安装，OpenClaw 走 `npm i -g openclaw@latest`，Hermes 走 `NousResearch/hermes-agent` 的官方 install.sh。这不改变 OneAgent 仍将两者列为 guide-only 的结论——理由是常驻网关形态被 ADR-002/ADR-003 划在范围外，与能否安装无关。
+
 **OneAgent 的做法相反且更适合当前定位**：`agents/<id>.json` 存 `provider` / `model` / `base_url` 等结构化字段，由 5 个适配器翻译成各 Agent 的格式。用户不需要知道目标文件长什么样。这个差异是设计选择，不是我们缺功能，**不要向它靠拢**。
 
 字段量级对比：它的 Claude 表单认 12 个 `ANTHROPIC_*` 环境变量（含 Opus / Sonnet / Haiku / Fable 分模型指定），我们只写 4 个。
@@ -52,6 +54,27 @@ CC Switch 依赖 **`@lobehub/icons-static-svg`**（MIT，723 个 AI 品牌 SVG�
 ```
 
 这把官方图标覆盖从 2/5 提到 3/5，Codex 不必再自绘。OpenCode 沿用 simple-icons（CC0）已有的官方图标，只有 Aider 与 Kilo 仍需自绘。
+
+### 更正：八个 Agent 全部有官方图标
+
+先前判断「Codex / Aider / Kilo 无官方图标」是错的，那只说明 simple-icons 里没有。逐个核对各项目自己的站点与仓库后，八个全都有：
+
+| Agent | 官方来源 |
+| --- | --- |
+| Codex | lobehub `openai.svg`（MIT） |
+| Claude Code | `claude.ai/favicon.svg`（品牌橙 `#D97757`） |
+| Cursor | `cursor.com/favicon.svg` |
+| OpenCode | lobehub `opencode.svg`（MIT） |
+| OpenClaw | 官方仓库 `docs/assets/pixel-lobster.svg`（MIT） |
+| Hermes | `hermes-agent.nousresearch.com/icon.png`（48px，无矢量版） |
+| Kilo CLI | `kilocode.ai/favicon/favicon.svg` |
+| Aider | `aider.chat/assets/icons/favicon-32x32.png` |
+
+因此不再有任何自绘图标。**结论：判断某个品牌「没有官方图标」之前，要查该项目自己的站点，而不是只查一个图标集。**
+
+两个资产不能直接用，需换等价版本：`openai.com/favicon.svg` 与 `opencode.ai/favicon.svg` 都带 `:root` CSS 变量和 `prefers-color-scheme` 媒体查询，内联进宿主文档会污染全局样式；`aider.chat/assets/logo.svg` 是 200×60 的文字标加高斯模糊滤镜，不是方形图标。
+
+**OpenClaw 的标志是龙虾，不是螃蟹。** CC Switch 的手绘稿容易让人误解形象——这也是不该以它为准的另一个理由。
 
 ### OpenClaw 与 Hermes 的图标不可取用
 

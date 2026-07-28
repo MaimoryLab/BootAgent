@@ -1,85 +1,70 @@
 import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { AGENT_ICON_IDS, AgentIcon, agentTagline } from "./agents";
+import { AGENT_ICON_IDS, AgentIcon, agentMarkSource, agentTagline } from "./agents";
 
 const AUTO_AGENTS = ["codex", "claude-code", "opencode", "kilo-cli", "aider"];
-// Shown on the first screen alongside them, so they need glyphs of their own
-// even though OneAgent does not configure them.
+// Shown on the first screen alongside them, so they need marks of their own even
+// though OneAgent does not configure them.
 const PROMINENT_GUIDE_AGENTS = ["cursor", "openclaw", "hermes"];
+const ALL = [...AUTO_AGENTS, ...PROMINENT_GUIDE_AGENTS];
 
 describe("AgentIcon", () => {
-  it("has a distinct icon for every one-click Agent", () => {
-    // The old UI keyed icons off the catalog group, so all five auto Agents
-    // rendered the same glyph and none was recognisable at a glance.
-    for (const id of AUTO_AGENTS) {
+  it("has a distinct mark for every Agent on the first screen", () => {
+    // The catalog group used to decide the icon, so all five one-click Agents
+    // rendered the same glyph and none was identifiable without its label.
+    for (const id of ALL) {
       expect(AGENT_ICON_IDS).toContain(id);
     }
-    const rendered = AUTO_AGENTS.map((id) => {
+    const sources = ALL.map((id) => {
       const { container } = render(<AgentIcon agentId={id} />);
-      return container.querySelector("svg")?.innerHTML ?? "";
+      return container.querySelector("img")?.getAttribute("src") ?? "";
     });
-    expect(new Set(rendered).size).toBe(AUTO_AGENTS.length);
+    expect(new Set(sources).size).toBe(ALL.length);
+    expect(sources.every(Boolean)).toBe(true);
   });
 
-  it("gives the prominent guide-only Agents their own glyphs too", () => {
-    // They lead the overview next to the configurable ones; falling back to a
-    // generic bot for half the first screen would undo the ranking.
-    for (const id of PROMINENT_GUIDE_AGENTS) {
-      expect(AGENT_ICON_IDS).toContain(id);
+  it("records where every mark came from", () => {
+    // Provenance is the thing that makes these safe to ship: each is the
+    // project's own published artwork, not something drawn to look like it.
+    for (const id of ALL) {
+      expect(agentMarkSource(id)).toMatch(/\.(svg|png)|MIT/);
     }
-    const rendered = [...AUTO_AGENTS, ...PROMINENT_GUIDE_AGENTS].map((id) => {
-      const { container } = render(<AgentIcon agentId={id} />);
-      return container.querySelector("svg")?.innerHTML ?? "";
-    });
-    expect(new Set(rendered).size).toBe(rendered.length);
-  });
-
-  it("keeps drawn glyphs monochrome so the set reads as one", () => {
-    // CC Switch draws OpenClaw with a red gradient and ships Hermes as a PNG;
-    // neither can inherit currentColor, which is what makes glyphs from
-    // different sources sit together.
-    for (const id of ["openclaw", "hermes"]) {
-      const { container } = render(<AgentIcon agentId={id} />);
-      const svg = container.querySelector("svg")?.outerHTML ?? "";
-      expect(svg).not.toMatch(/#[0-9a-f]{3,6}|linearGradient|<image/i);
-      expect(svg).toContain("currentColor");
-    }
+    expect(agentMarkSource("brand-new-agent")).toBe("");
   });
 
   it("falls back rather than rendering nothing for an unknown Agent", () => {
-    // A new Agent in agents.lock.json must not leave a blank square.
     const { container } = render(<AgentIcon agentId="brand-new-agent" />);
     const svg = container.querySelector("svg");
     expect(svg).not.toBeNull();
-    expect(svg?.innerHTML.length).toBeGreaterThan(0);
+    expect(container.querySelector("img")).toBeNull();
   });
 
-  it("keeps the glyph out of the accessibility tree", () => {
-    // The Agent name sits next to it, so announcing the icon would duplicate.
+  it("keeps the mark out of the accessibility tree", () => {
+    // The Agent name sits right next to it, so announcing the mark duplicates.
     const { container } = render(<AgentIcon agentId="codex" />);
-    expect(container.querySelector("svg")?.getAttribute("aria-hidden")).toBe("true");
+    const img = container.querySelector("img");
+    expect(img?.getAttribute("aria-hidden")).toBe("true");
+    expect(img?.getAttribute("alt")).toBe("");
   });
 
-  it("renders at one size and inherits colour", () => {
-    // Uniform box and currentColor are what make icons from different sources
-    // read as one set — and avoid recolouring third-party marks.
-    const { container } = render(<AgentIcon agentId="claude-code" size={20} />);
-    const svg = container.querySelector("svg");
-    expect(svg?.getAttribute("viewBox")).toBe("0 0 24 24");
-    expect(svg?.getAttribute("width")).toBe("20");
-    expect(svg?.outerHTML).not.toMatch(/#[0-9a-f]{3,6}/i);
-  });
-
-  it("keeps the interior cutouts of a filled mark", () => {
-    // The OpenAI mark is a single path whose knot relies on even-odd winding.
-    // Without it the glyph fills into a solid blob and stops being recognisable.
-    const { container } = render(<AgentIcon agentId="codex" />);
-    expect(container.querySelector("svg")?.getAttribute("fill-rule")).toBe("evenodd");
+  it("renders every mark in the same square box", () => {
+    // Uniformity comes from the container, not from restyling the artwork:
+    // that is what lets marks from eight different brands read as one set.
+    for (const size of [18, 20]) {
+      for (const id of ALL) {
+        const { container } = render(<AgentIcon agentId={id} size={size} />);
+        const img = container.querySelector("img");
+        expect(img?.getAttribute("width")).toBe(String(size));
+        expect(img?.getAttribute("height")).toBe(String(size));
+        // contain, so a mark with tighter padding cannot overflow the box.
+        expect(img?.style.objectFit).toBe("contain");
+      }
+    }
   });
 
   it("offers a tagline for hover, distinct from the name", () => {
-    for (const id of [...AUTO_AGENTS, ...PROMINENT_GUIDE_AGENTS]) {
+    for (const id of ALL) {
       const tagline = agentTagline(id);
       expect(tagline.length).toBeGreaterThan(0);
       expect(tagline).not.toBe(id);

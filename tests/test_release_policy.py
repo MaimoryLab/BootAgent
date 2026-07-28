@@ -15,7 +15,7 @@ from unittest.mock import patch
 from oneagent import catalog, entrypoint
 from oneagent.catalog import load_manifest
 from scripts import build_release
-from scripts.check_release import validate_manifest
+from scripts.check_release import inspect_zip, validate_manifest
 from scripts.stage_resources import prune_stale_build_output, stage_resources
 
 
@@ -298,6 +298,46 @@ class ReleasePolicyTests(unittest.TestCase):
         self.assertIn("tests/macos_cleanroom_test.sh", ci)
         self.assertIn("ONEAGENT_PACKAGED_BINARY", ci)
         self.assertIn("tests/macos_cleanroom_test.sh", rc)
+
+    def test_frontend_output_may_not_reference_a_cdn(self):
+        # The policy forbids CDN and remote-font references in frontend output,
+        # but only source maps were ever checked. Agent marks are inlined for
+        # this reason, and nothing should quietly start fetching one instead.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+
+            def archive_with(name: str, body: bytes) -> Path:
+                path = root / f"OneAgent-{abs(hash(body)) % 10**6}.zip"
+                with zipfile.ZipFile(path, "w") as archive:
+                    archive.writestr("OneAgent/agents.lock.json", "{}")
+                    archive.writestr("OneAgent/THIRD_PARTY_NOTICES.md", "notices")
+                    archive.writestr(name, body)
+                return path
+
+            remote = archive_with(
+                "OneAgent/frontend/dist/assets/app.js",
+                b'var a="<img src=\'https://cdn.example/mark.svg\'>"',
+            )
+            self.assertTrue(
+                any("remote asset reference" in problem for problem in inspect_zip(remote))
+            )
+
+            font = archive_with(
+                "OneAgent/frontend/dist/assets/app.css",
+                b'@import url("https://fonts.googleapis.com/css?family=Inter");',
+            )
+            self.assertTrue(any("remote asset reference" in problem for problem in inspect_zip(font)))
+
+            # An inlined mark and an XML namespace are not resource loads, and a
+            # link in copy is only a link — none may trip the scan.
+            clean = archive_with(
+                "OneAgent/frontend/dist/assets/app.js",
+                b'var a="data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\'%3E"',
+            )
+            self.assertEqual(
+                [p for p in inspect_zip(clean) if "remote asset" in p],
+                [],
+            )
 
     def test_release_manifest_checks_artifact_and_checksum_integrity(self):
         with tempfile.TemporaryDirectory() as tmp:

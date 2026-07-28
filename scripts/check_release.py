@@ -11,6 +11,14 @@ from pathlib import Path
 
 FORBIDDEN_PARTS = {"node_modules", "output", ".git", "coverage", "test-results", "playwright-report"}
 FORBIDDEN_AGENT_BINARIES = {"codex", "codex.exe", "claude", "claude.exe", "opencode", "opencode.exe", "kilo", "kilo.exe", "aider", "aider.exe"}
+# The release policy forbids CDN and remote-font references in frontend output.
+# Only fetches count: XML namespaces and links in copy are not resource loads.
+REMOTE_ASSET_PATTERNS = [
+    re.compile(rb"""(?:src|href)\s*=\s*["']https?://""", re.IGNORECASE),
+    re.compile(rb"""@import\s+(?:url\()?["']?https?://""", re.IGNORECASE),
+    re.compile(rb"""url\(\s*["']?https?://""", re.IGNORECASE),
+]
+
 SECRET_PATTERNS = [
     re.compile(rb"sk-[A-Za-z0-9_-]{20,}"),
     re.compile(rb"Bearer\s+[A-Za-z0-9._-]{24,}", re.IGNORECASE),
@@ -36,6 +44,12 @@ def inspect_zip(path: Path) -> list[str]:
                 problems.append(f"forbidden path in {path.name}: {name}")
             if name.endswith(".map"):
                 problems.append(f"source map in {path.name}: {name}")
+            if name.endswith((".html", ".css", ".js")) and "/dist/" in f"/{name}":
+                data = archive.read(name)
+                for pattern in REMOTE_ASSET_PATTERNS:
+                    if pattern.search(data):
+                        problems.append(f"remote asset reference in {path.name}: {name}")
+                        break
             if basename in FORBIDDEN_AGENT_BINARIES:
                 problems.append(f"Agent binary in {path.name}: {name}")
             if name.endswith((".js", ".css", ".html", ".json", ".md", ".txt", ".toml", ".ps1", ".sh", ".py")):
