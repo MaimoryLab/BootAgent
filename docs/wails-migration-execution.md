@@ -11,6 +11,7 @@
 | Go | 1.26.4，已由 mise 全局配置安装 |
 | Node | 22.23.1（前端），mise 配置声明 24.16.0 |
 | Wails CLI | 未安装。第 0–4 阶段不需要，第 5 阶段前装 |
+| Wails 版本 | 仍是 Alpha，只能进 technical preview（见阶段 5） |
 | 当前测试基线 | 245 用例，16.9s，1 skip |
 | 前端 HTTP 面积 | `fetch(` 仅 `src/api/client.ts:43` 一处 |
 
@@ -164,6 +165,15 @@ Windows 权限走 `icacls` 两步（`/reset` 后 `/inheritance:r /grant:r`，授
 42 用例移植；`real_install_test.sh` 改驱动 Go 二进制后官方源与镜像双路径仍通过。
 
 ### 阶段 5：Wails 外壳与托盘
+
+已核对官方文档（2026-07-29）的四条，直接影响本阶段的决策：
+
+- **仍是 Alpha**（[status](https://v3.wails.io/status/) 明确「Current Status: Alpha」，下一目标 Beta）。因此 OneAgent 只能发 `technical-preview-unsigned`，不因应用功能完成而自动提升 Stable。每次升级 Wails 都要重跑 binding diff、四平台 native smoke 与产物扫描。
+- **需要 Go 1.25+**（安装文档）。本机 1.26.4 满足。
+- **托盘 API 是 `app.SystemTray.New()`**——application 上的一个 manager，不是 `application.SystemTray` 或 `app.NewSystemTray()`。方法含 `SetIcon`、`SetLabel`（macOS 是 label、Windows 是 tooltip）、`SetDarkModeIcon`、`SetTemplateIcon`、`SetMenu`。三平台都支持，但图标规格各不同：Windows 16×16/32×32 PNG 或 ICO，macOS 18×18–22×22 PNG（推荐 template），Linux 22×22–48×48 且「随桌面环境而异」。
+- **关窗不退出在 macOS 上要显式声明**：`application.MacOptions{ApplicationShouldTerminateAfterLastWindowClosed: false}`。存在 autostart 功能页，具体 API 名未确认。
+
+**Linux 是需要单独决策的一处。** GTK4 + WebKitGTK 6.0 已在 alpha.93 提升为**默认**栈，只提供 WebKit2GTK 4.1 的发行版（含 Ubuntu 22.04）要走 legacy GTK3 路径。ADR-003 承诺 Ubuntu 22.04+，所以迁移期 Linux 正式产物应固定 GTK3 build tag 并在 22.04 cleanroom 验证；改用 GTK4/要求 24.04+ 是**产品承诺变更，必须另立 ADR**，不能在迁移里顺手做掉。
 
 `client.ts` 的 `api` 对象换成 IPC 绑定实现，页面不改。
 
