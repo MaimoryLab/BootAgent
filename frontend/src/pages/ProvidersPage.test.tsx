@@ -31,6 +31,7 @@ function statusWith(agents: Record<string, string | null>): StatusResponse {
           model: provider ? "some-model" : null,
           baseUrl: null,
           updatedAt: null,
+          detected: null,
         },
       ]),
     ),

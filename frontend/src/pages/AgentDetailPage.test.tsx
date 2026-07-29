@@ -29,6 +29,7 @@ function status(): StatusResponse {
         model: "deepseek/deepseek-v3",
         baseUrl: "https://api.ppio.com/openai",
         updatedAt: "2026-07-27T00:00:00Z",
+        detected: null,
       },
     },
     catalog: [
@@ -75,6 +76,7 @@ function claudeStatus(): StatusResponse {
         model: "model-a",
         baseUrl: "https://api.ppio.com/anthropic",
         updatedAt: "2026-07-27T00:00:00Z",
+        detected: null,
       },
     },
     catalog: [
@@ -232,5 +234,37 @@ describe("AgentDetailPage", () => {
     fireEvent.click(screen.getByRole("button", { name: /高级选项/ }));
     expect(screen.getByLabelText("模型")).toBeTruthy();
     expect(screen.queryByLabelText("快速小模型")).toBeNull();
+  });
+  it("warns before replacing a configuration OneAgent did not write", () => {
+    // A backup is taken either way, but a user who configured this Agent by hand
+    // has no way to know Apply will replace it unless the page says so.
+    const external = status();
+    external.agents.codex.provider = null;
+    external.agents.codex.model = null;
+    external.agents.codex.detected = {
+      baseUrl: "https://api.other-vendor.com/v1",
+      model: "gpt-5-mini",
+      managedByOneAgent: false,
+      unreadable: null,
+    };
+    renderPage("codex", external);
+    const warning = screen.getByText(/不是 OneAgent 写入/).closest(".notice-warning");
+    expect(warning).not.toBeNull();
+    // The endpoint appears in the facts row too; what matters is that the
+    // warning itself names what is about to be replaced, and the backup.
+    expect(warning?.textContent).toContain("api.other-vendor.com");
+    expect(warning?.textContent).toContain("备份");
+  });
+
+  it("does not warn about a configuration it wrote itself", () => {
+    const ours = status();
+    ours.agents.codex.detected = {
+      baseUrl: "https://api.ppio.com/openai",
+      model: "deepseek/deepseek-v3",
+      managedByOneAgent: true,
+      unreadable: null,
+    };
+    renderPage("codex", ours);
+    expect(screen.queryByText(/不是 OneAgent 写入/)).toBeNull();
   });
 });

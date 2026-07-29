@@ -36,6 +36,7 @@ const agentStatuses = Object.fromEntries(
       model: null,
       baseUrl: null,
       updatedAt: null,
+      detected: null,
     },
   ]),
 );

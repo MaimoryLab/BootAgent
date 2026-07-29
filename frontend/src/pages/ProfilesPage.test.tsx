@@ -29,6 +29,7 @@ function statusWith(profiles: ProfileSummary[]): StatusResponse {
         model: "deepseek/deepseek-v3",
         baseUrl: null,
         updatedAt: null,
+        detected: null,
       },
     },
     catalog: [

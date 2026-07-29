@@ -30,6 +30,25 @@ export interface AgentStatus {
   model: string | null;
   baseUrl: string | null;
   updatedAt: string | null;
+  /**
+   * What the Agent's own config file says, read from disk.
+   *
+   * Alongside the fields above rather than instead of them: those come from
+   * OneAgent's own record and only exist for configurations it wrote, so a
+   * disagreement between the two means the config changed outside OneAgent —
+   * which is itself worth showing. Null for a guide-only Agent, or when there is
+   * no config file yet. Carries no credential, by design.
+   */
+  detected: DetectedConfig | null;
+}
+
+export interface DetectedConfig {
+  baseUrl: string;
+  model: string;
+  /** Whether the file carries the markers OneAgent's own writes leave behind. */
+  managedByOneAgent: boolean;
+  /** Why the file could not be read, when it could not be. */
+  unreadable: string | null;
 }
 
 export interface ActivateAgentResponse {

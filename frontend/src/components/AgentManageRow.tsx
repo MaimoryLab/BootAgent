@@ -42,6 +42,43 @@ export function versionNote(status: AgentStatus): { text: string; behind: boolea
 }
 
 /**
+ * What to say this Agent currently points at.
+ *
+ * Two sources: OneAgent's own record of what it wrote, and the Agent's config
+ * file as found on disk. Reporting only the first is what made a hand-written
+ * configuration render as "未配置" — the file was seen but never read. Where they
+ * disagree the file wins, because that is what the Agent will actually use.
+ */
+export function targetSummary(
+  status: AgentStatus,
+  providers: Providers,
+): { text: string; note: string } {
+  const detected = status.detected;
+  if (detected?.unreadable) {
+    return { text: "配置无法解析", note: detected.unreadable };
+  }
+  const providerName = status.provider ? providers[status.provider]?.name || status.provider : "";
+  // Ours, and the file agrees (or has nothing to add).
+  if (status.provider && status.model) {
+    const drifted =
+      detected && detected.baseUrl && status.baseUrl && detected.baseUrl !== status.baseUrl;
+    return {
+      text: `${providerName} · ${status.model}`,
+      note: drifted ? `配置文件当前指向 ${detected!.baseUrl}` : "",
+    };
+  }
+  // No record of our own, but the file says something.
+  if (detected && (detected.baseUrl || detected.model)) {
+    const parts = [detected.baseUrl, detected.model].filter(Boolean);
+    return {
+      text: parts.join(" · "),
+      note: detected.managedByOneAgent ? "" : "检测到的配置，非 OneAgent 写入",
+    };
+  }
+  return { text: "未配置", note: "" };
+}
+
+/**
  * One row in the overview: what this Agent points at, nothing editable.
  *
  * Configuration lives on /agents/:agentId. Editing inline used to grow the list
@@ -62,7 +99,10 @@ export function AgentManageRow({
   onOpen: () => void;
 }) {
   const version = versionNote(status);
-  const action = !status.installed ? "安装并配置" : status.configured && status.provider ? "改配置" : "配置";
+  const target = targetSummary(status, providers);
+  const configuredSomehow =
+    Boolean(status.provider) || Boolean(status.detected?.baseUrl) || Boolean(status.detected?.model);
+  const action = !status.installed ? "安装并配置" : configuredSomehow ? "改配置" : "配置";
 
   return (
     <button className="agent-manage-row" type="button" onClick={onOpen}>
@@ -71,17 +111,8 @@ export function AgentManageRow({
       </span>
       <span className="agent-manage-identity">
         <strong>{catalog?.name || agentId}</strong>
-        <span className="agent-manage-target">
-          {status.provider && status.model ? (
-            <>
-              {providers[status.provider]?.name || status.provider}
-              <span aria-hidden="true"> · </span>
-              {status.model}
-            </>
-          ) : (
-            "未配置"
-          )}
-        </span>
+        <span className="agent-manage-target">{target.text}</span>
+        {target.note ? <small className="agent-manage-note">{target.note}</small> : null}
       </span>
       {version ? <span className={`agent-manage-version${version.behind ? " is-behind" : ""}`}>{version.text}</span> : null}
       <StatusBadge tone={status.installed ? "success" : "warning"}>

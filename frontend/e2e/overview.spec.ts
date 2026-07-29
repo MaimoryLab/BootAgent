@@ -18,6 +18,7 @@ function agentStatus(over: Partial<AgentStatus> = {}): AgentStatus {
     model: null,
     baseUrl: null,
     updatedAt: null,
+    detected: null,
     ...over,
   };
 }

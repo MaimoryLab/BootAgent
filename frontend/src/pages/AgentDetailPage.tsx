@@ -9,7 +9,7 @@ import { AgentIcon, agentTagline } from "../components/icons/agents";
 import { PageScaffold } from "../components/PageScaffold";
 import { ProviderSegment } from "../components/ProviderSegment";
 import { SecureKeyField } from "../components/SecureKeyField";
-import { versionNote } from "../components/AgentManageRow";
+import { targetSummary, versionNote } from "../components/AgentManageRow";
 import { useWizard } from "../state/WizardContext";
 import { PROTOCOL_LABELS } from "../types/api";
 import type { ProbeResponse, ProviderId } from "../types/api";
@@ -53,6 +53,14 @@ export function AgentDetailPage() {
   }
 
   const version = versionNote(agent);
+  const target = targetSummary(agent, status.providers);
+  // A configuration OneAgent did not write is the case worth warning about:
+  // applying replaces it, and the user may not know it is there. A backup is
+  // taken either way, but saying so beforehand is the point.
+  const willOverwrite =
+    agent.detected && !agent.detected.managedByOneAgent && !agent.detected.unreadable
+      ? agent.detected
+      : null;
   const canProbe = Boolean(apiKey) && (provider !== "custom" || Boolean(customBaseUrl.trim()));
   const canApply = canProbe && probeState === "success" && !applying;
 
@@ -125,9 +133,8 @@ export function AgentDetailPage() {
           <div>
             <dt>当前指向</dt>
             <dd>
-              {agent.provider && agent.model
-                ? `${status.providers[agent.provider]?.name || agent.provider} · ${agent.model}`
-                : "未配置"}
+              {target.text}
+              {target.note ? <small className="detail-drift">{target.note}</small> : null}
             </dd>
           </div>
           <div>
@@ -146,6 +153,17 @@ export function AgentDetailPage() {
       </div>
 
       <section className="detail-form">
+        {willOverwrite ? (
+          <div className="notice notice-warning">
+            <strong>这个 Agent 已有配置，不是 OneAgent 写入的</strong>
+            <span>
+              当前指向 {willOverwrite.baseUrl || "未知端点"}
+              {willOverwrite.model ? ` · ${willOverwrite.model}` : ""}。应用后会被替换，原文件会先备份到同目录的
+              {" "}
+              <code>*.backup-&lt;时间戳&gt;</code>。
+            </span>
+          </div>
+        ) : null}
         <ProviderSegment
           value={provider}
           onChange={(next) => {
