@@ -23,6 +23,10 @@ var expected = map[string]int{
 	filepath.Join("runtime", "home_parity_test.go"):  2,
 	filepath.Join("catalog", "embed_parity_test.go"): 5,
 	filepath.Join("provider", "urls_parity_test.go"): 9,
+	// The byte comparison the migration's stop-loss checkpoint depends on.
+	filepath.Join("securefs", "bytes_parity_test.go"):     4,
+	filepath.Join("jsonorder", "encoding_parity_test.go"): 2,
+	filepath.Join("jsonorder", "number_parity_test.go"):   2,
 }
 
 var testFunc = regexp.MustCompile(`func (Test\w+)`)
