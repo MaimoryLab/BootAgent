@@ -42,6 +42,17 @@ type Settings struct {
 // JSONC file apart from broken JSON.
 var jsoncComment = regexp.MustCompile(`(?:^|\s)(?://|/\*)`)
 
+// readExisting reads a config that is about to be merged into.
+//
+// A variable rather than a direct os.ReadFile call so a test can widen the window
+// between this read and the write that follows it. Every adapter here is
+// read-merge-write, and that gap is what the app layer's write lock closes: two
+// operations interleaving in it means the second reads before the first writes, and
+// the first result is discarded. The gap is small on a real machine, which is
+// exactly why a test needs to be able to make it large -- otherwise the lock's
+// test passes whether or not the lock is there.
+var readExisting = os.ReadFile
+
 // loadJSON reads an existing config, preserving key order.
 //
 // A .jsonc file with comments is refused by name rather than reported as invalid
@@ -49,7 +60,7 @@ var jsoncComment = regexp.MustCompile(`(?:^|\s)(?://|/\*)`)
 // is right -- but telling the user their valid JSONC is invalid JSON leaves them
 // with no idea what to change.
 func loadJSON(path string) (*jsonorder.Object, error) {
-	raw, err := os.ReadFile(path)
+	raw, err := readExisting(path)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return jsonorder.NewObject(), nil
@@ -88,7 +99,7 @@ func (w *Writer) WriteCodex(agent catalog.Agent, settings Settings) (string, err
 	)
 
 	existing := ""
-	if raw, err := os.ReadFile(path); err == nil {
+	if raw, err := readExisting(path); err == nil {
 		existing = string(raw)
 	} else if !os.IsNotExist(err) {
 		return "", oerr.Newf("CONFIG_WRITE_FAILED", "Cannot read existing TOML configuration %s: %v", path, err)

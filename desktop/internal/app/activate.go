@@ -45,6 +45,8 @@ type ActivateResult struct {
 // config and env file change, so a failure cannot leave two Agents disagreeing and
 // there is no cross-file rollback to get right.
 func (s *Service) Activate(options ActivateOptions) (ActivateResult, error) {
+	defer s.lockWrites()()
+
 	manifest, err := catalog.Load()
 	if err != nil {
 		return ActivateResult{}, err

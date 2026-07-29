@@ -7,6 +7,7 @@
 package app
 
 import (
+	"sync"
 	"time"
 
 	"github.com/MaimoryLab/OneAgent/desktop/internal/config"
@@ -97,6 +98,9 @@ type Service struct {
 	Writer  *config.Writer
 	Store   *profile.Store
 	Probes  *provider.Client
+	// writes serialises the read-merge-write operations. See lock.go for why this
+	// exists and why reads are left out of it.
+	writes sync.Mutex
 }
 
 // NewService assembles the layer over one runtime.

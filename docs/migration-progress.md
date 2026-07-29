@@ -6,7 +6,7 @@ covering 13 commits，从 `6899cf1`（关闭自动 CI）到 `0794918`。
 
 ## 1. 现状
 
-阶段 0 到 4 的核心已完成，**止损点已通过**。生产实现仍是 Python，Go 未接线。
+**阶段 0 到 4 全部完成，止损点已通过。** 生产实现仍是 Python，Go 未接线——阶段 5 才做接线。
 
 | 阶段 | 内容 | 状态 |
 | --- | --- | --- |
@@ -14,19 +14,20 @@ covering 13 commits，从 `6899cf1`（关闭自动 CI）到 `0794918`。
 | 1 | catalog、provider 纯逻辑 | 完成 |
 | 2 | securefs、jsonorder、shellquote、五个写入适配器 | 完成（止损点通过） |
 | 3 | 五个读取器与配置发现 | 完成 |
-| 4 | 安装编排、integrity、镜像、前置条件 | 核心完成；`install_many`/`activate_agent`/`status_payload` 未移植 |
+| 4 | 安装编排、integrity、镜像、前置条件、profile 存储、`install_many`、`activate_agent`、`status_payload`、共享写锁 | 完成 |
 | 5 | Wails 外壳与托盘 | 未开始 |
 | 6 | 分发 | 未开始（按要求暂缓） |
 
-全部数字用 `go test -json` 逐条计数得出，不再手工累加——**上一版写的「807 用例」是错的**，实测顶层 325、含子测试 574。审查指出它时我的第一反应是去核对而不是解释，因为「106 不是 111」用的就是同一把尺子。
+全部数字用 `go test -json` 逐条计数得出，不再手工累加——**曾经写的「807 用例」是错的**。审查指出它时我的第一反应是去核对而不是解释，因为「106 不是 111」用的就是同一把尺子。
 
 ```
-Go 源码 3867 行，测试 7929 行
-测试 325 个顶层用例 / 574 个含子测试
-跨语言门禁 11 个文件、47 个顶层用例、199 个逐输入子测试
-  其中 87 个是配置文件与 env 文件的逐字节比对，13 个是原子写次序
-整体覆盖 90.4%（逐包见下表），go test -race 干净
-Python 246 用例不受影响（新增 1 个回归测试）
+Go 源码 6606 行，测试 11482 行
+测试 387 个顶层用例 / 740 个含子测试
+跨语言门禁 14 个文件、58 个顶层用例、240 个逐输入子测试
+  config 151 项（配置与 env 文件逐字节）、app 27 项（整个响应 + 全部落盘文件）
+  catalog 14、install 14、profile 14（逐字节）、securefs 13（原子写次序）、runtime 7
+整体覆盖 88.3%（逐包见下表），go test -race 干净
+Python 248 用例（新增 3 个回归测试），installer.py 100% 分支 0 partial
 前端 78 单测 + 20 e2e（新增 5 个对比度测试）
 ```
 
@@ -36,14 +37,16 @@ Python 246 用例不受影响（新增 1 个回归测试）
 | --- | --- | --- |
 | `oerr` | 100% | 错误码与响应形，跨语言门禁锁定 |
 | `runtime` | 100% | 全部副作用的注入接缝 |
-| `catalog` | 98.0% | 内嵌 manifest、Provider 与镜像投影 |
-| `provider` | 97.2% | URL 校验推导、协议映射 |
-| `config` | 93.0% | 五写五读适配器、TOML 合并、env 文件 |
+| `provider` | 95.5% | URL 校验推导、协议映射、探测与模型发现 |
+| `catalog` | 92.6% | 内嵌 manifest、声明序与 rank 序、Provider 与镜像投影 |
 | `testutil` | 92.1% | 测试替身（自身的保证也被测试） |
+| `config` | 91.2% | 五写五读适配器、TOML 合并、env 文件 |
 | `install` | 87.9% | 锁定安装、integrity、镜像、前置条件 |
+| `shellquote` | 87.5% | `shlex.quote`/`split` 与 PowerShell 引用 |
 | `securefs` | 86.5% | 七步原子写、备份、权限、Windows ACL |
-| `jsonorder` | 83.7% | 保序 JSON，复刻 `json.dumps` |
-| `shellquote` | 76.9% | `shlex.quote` 与 PowerShell 引用 |
+| `app` | 86.2% | 编排：install/activate/status，共享写锁 |
+| `jsonorder` | 83.3% | 保序 JSON，复刻 `json.dumps` |
+| `profile` | 82.9% | profile 存储、密钥文件、Agent binding |
 
 ## 2. 字节比对找到了什么
 
@@ -196,7 +199,49 @@ api_key = 1.2.3.4.5.6       → Invalid float value: "1.2.3.4.5.6"   ← 完整�
 
 `https://@host/` 不携带任何凭据,但 Go 为空 userinfo 段也构造 `Userinfo`,所以 `parsed.User != nil` 拒了 Python 接受的 URL。抽出共享的 `provider.HasCredentials`,两处语料各补三条。这一条两个调用点(`ValidateBaseURL` 与 `ResolveRegistry`)同源,所以一起收。
 
-## 7. 我在过程中出错的地方
+## 7. 编排层（阶段 4 收尾）找到的七处
+
+这一层把下面所有东西组合起来，所以比对的是**整个请求产出什么**：前端 switch 的那个响应，加上运行后落盘的每一个文件。
+
+### 7.1 比对范围曾漏掉本层的主要产出
+
+`collectTree` 最初只走 `.oneagent`。而五个适配器里有四个写进 Agent 自己的位置（`~/.codex`、`~/.claude`、`~/.config`），于是 **Codex、Claude、OpenCode、Kilo 的配置文件被写出来、被忽略、被报告为一致**。第一版就是这样通过的。
+
+改成走整个 home，并加一个测试断言那五个路径确实在比对范围内。验证方式：把 `SmallFastModel` 改掉，`.claude/settings.json` 立刻报差异；去掉探测门禁，被拒的 Key 会报「configured」。
+
+### 7.2 `supportedAgentIds` 用的是声明序，不是 rank 序
+
+Python 迭代解析后的 dict，得到的是文件里的声明顺序；Go 的 map 不保留它。两个顺序**确实不同**——cursor 按 rank 排第 3、按声明排第 8。`Parse` 现在记录声明序（复用 `jsonorder`，它本来就为适配器做保序解码）。
+
+我第一版是手写 token 遍历，写了 90 行「跳过嵌套值」的逻辑来回答一个现有解码器已经能回答的问题。
+
+### 7.3 `platformNote` 与 `platform.shell` 取自宿主，`platform.os` 取自 runtime
+
+这个不对称是 Python 的：它展开 `current_platform()` 只覆盖 `os`。只有在 runtime 模拟另一个平台时才可观测（也就是测试里，不是生产）。**照抄而不顺手修正**——迁移期不改可观测输出，注释记下了原因和「等 Python 删掉后再议」。
+
+### 7.4 `jsonorder.Object` 有 `UnmarshalJSON` 而没有 `MarshalJSON`
+
+字段是非导出的，所以 `encoding/json` 找不到任何可序列化的东西，**输出 `{}` 而不是报错**。嵌在 status 结构体里的每个 profile 都变成空对象——看起来像迁移 bug，其实是编码 bug。禁用该方法可重现。
+
+### 7.5 profile 与 binding 读取器把解码器措辞带进 UI
+
+与 6.1 同一形状。OSError 分支拆开保留：errno 说明原因且不含文件内容，解析器措辞两者都不满足。Python 那边有一个测试正断言着这段措辞。
+
+### 7.6 一处我预期错了：重复的 Agent id
+
+我本以为应该拒绝，理由是文件坏了。`json.loads` 保留后出现的那个并报告 1 个 Agent，所以拒绝会让「Python 能加载的 manifest」在这里加载不了——而两边读的是同一个文件。测试改为锁住实际行为，我加的那个检查删掉了。
+
+### 7.7 写锁：危险不是文件写坏，是工作被丢弃
+
+ADR-008 承诺的并发面。**先证明危险真实存在再写锁**：把读与写之间的窗口人为拉大，4 个并发合并只剩 1 个。
+
+真正会发生的是 profile 的 `agent_ids`——每个操作各自读 profile、加上自己那一个 Agent 再写回。并发装 4 个，**实测丢 3 个**：总览只列出一个已配置 Agent，另外三个显示未配置而配置文件另有说法。
+
+**这里我的第一个测试是空转的。** 它断言「用户字段存活」与「只有一个 model 胜出」——这两件事无论有没有锁都成立，因为每个写入者的基线里本来就有那个用户字段。把锁去掉测试照样绿。换成 `agent_ids` 后，去掉锁会红并点名丢了哪三个 Agent。
+
+延迟注入点也踩了一次：先用 securefs 的 clock（本来就是注入点），但 clock 是在**给备份命名时**读的，那发生在合并读之后——延迟落在了危险窗口之外。
+
+## 8. 我在过程中出错的地方
 
 值得记录,因为它们说明哪种测试真正有效:
 
@@ -207,9 +252,7 @@ api_key = 1.2.3.4.5.6       → Invalid float value: "1.2.3.4.5.6"   ← 完整�
 - **报了一个手工累加的用例数**。上一版写「807 用例」,`go test -json` 实测顶层 325、含子测试 574。同一份文档里我为「111 改 106」专门留了一行,却对更大的那个数字没用同一把尺子。现在计数命令写进[执行计划 §4.6](wails-migration-execution.md),报数前跑一遍。
 - **两处注释断言了没被测的契约**(见 6.1、6.2)。注释里写「双方必须一致」而语料不覆盖它,比不写更糟:它让下一个人以为这里已经被守住了。
 
-## 8. 还差什么
-
-**阶段 4 剩余**:`install_many`(228 行)、`activate_agent`、`status_payload`、profile 存储。这些是编排层,依赖已完成的全部下层。
+## 9. 还差什么
 
 **阶段 5**:Wails 外壳。已核对官方文档的四条约束——仍是 Alpha(只能发 technical preview)、需 Go 1.25+、托盘 API 是 `app.SystemTray.New()`、Linux 因 GTK4 成为默认栈需固定 `gtk3` tag 以维持 Ubuntu 22.04 承诺。
 
@@ -224,4 +267,6 @@ api_key = 1.2.3.4.5.6       → Invalid float value: "1.2.3.4.5.6"   ← 完整�
 
 **两种许可都要求随二进制分发许可文本**,而 NOTICE 文件目前还不存在——现在只是文档里写着「需进」。这必须在下一次发布构建之前落地,不能等到阶段 6:一旦有人跑出一个带 Go 内核的产物,它就已经缺了该带的东西。
 
-**移植编排层时要一并搬过去的一件事**:Python 侧的 registry 前置校验已提到 `install_many`（见 5.1），而 Go 的 `LockedAgent` 内部仍是惰性校验。不搬,浏览器审查抓到的那个 200 就会在 Go 版复活。
+**registry 前置校验已搬过去了**（见 5.1）:Go 的 `validateInstall` 与 Agent ID 校验并列做这件事，`LockedAgent` 内部的惰性校验保留但不再是唯一一道。有一个 Go 侧的回归测试断言 `http://` registry 与内嵌凭据的 URL 都被拒且不回显凭据。
+
+**阶段 5 之前要做的一件事**:`internal/app` 已经是 CLI 与外壳共用的 use case 层，但 `cmd/oneagent` 还不存在。CLI 必须不链接 Wails 运行时——否则「去 Python」之后又引入一个不必要的 GUI 依赖，headless 与自动化环境会退化。

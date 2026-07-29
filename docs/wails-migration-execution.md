@@ -55,8 +55,9 @@ desktop/
     jsonorder/     ✓ 阶段 2  保序 JSON 编解码（复刻 json.dumps）
     shellquote/    ✓ 阶段 2  shlex.quote 与 PowerShell 引用
     config/        ✓ 阶段 2–3  五写五读适配器、TOML 合并、env 文件
-    install/       ~ 阶段 4  锁定安装、integrity、镜像、前置条件（编排未完）
-    app/           阶段 4  use case，桌面与 CLI 共用（未开始）
+    install/       ✓ 阶段 4  锁定安装、integrity、镜像、前置条件
+    profile/       ✓ 阶段 4  profile 存储、密钥文件、Agent binding
+    app/           ✓ 阶段 4  use case，桌面与 CLI 共用；共享写锁
   cmd/
     oneagent/          纯 Go CLI，不链接 Wails/GTK
     oneagent-desktop/   阶段 5  Wails 外壳
@@ -146,7 +147,7 @@ type Runtime struct {
 
 第一版把计数自检写在 `codes_parity_test.go` 内部——能拦改名，但**删掉该文件后自检本身也不在了**。所以计数移到独立的 `internal/parity` 包，从外部断言每个 parity 文件仍存在、仍带着它的测试，并反向检查没有未声明的 parity 文件游离在门禁之外。
 
-**报数不要手工累加。** 这份文档与进展记录里的所有测试数都由下面两条命令得出——上一版手工报的「807 用例」实测是顶层 325、含子测试 574：
+**报数不要手工累加。** 这份文档与进展记录里的所有测试数都由下面两条命令得出——曾经手工报的「807 用例」实测是顶层 387、含子测试 740（当时是 325 / 574）：
 
 ```bash
 cd desktop
@@ -162,7 +163,7 @@ for line in sys.stdin:
 print("top-level",len(top),"with subtests",len(allt))'
 ```
 
-把 `./...` 换成 `-run TestParity ./...` 得到跨语言门禁的计数（47 顶层 / 199 子测试）。
+把 `./...` 换成 `-run TestParity ./...` 得到跨语言门禁的计数（58 顶层 / 240 子测试）。
 
 **当前局限**：`ci.yml` 是 `workflow_dispatch` 专属（自动触发已按仓库所有者要求关闭），所以这些门禁只在手动触发时生效，推送时不看着任何人。阶段 1 落地前需记住这一点。
 
@@ -201,7 +202,7 @@ Go 的 RE2 原样接受 Python 那条 non-chat 模型正则，29 个模型 ID �
 
 ### 阶段 2：写入链路（已完成，止损点已通过）
 
-**止损结论：等价性成立，继续推进。** 跨语言比对全过。按上面那条计数命令，阶段 2–4 完成后跨语言门禁是 47 个顶层用例、199 个逐输入子测试，其中 `config` 的 87 项是配置文件与 env 文件的**逐字节**比对、`securefs` 的 13 项是原子写次序。
+**止损结论：等价性成立，继续推进。** 跨语言比对全过。按上面那条计数命令，阶段 2–4 完成后跨语言门禁是 58 个顶层用例、240 个逐输入子测试，其中 `config` 的 151 项是配置与 env 文件的**逐字节**比对、`app` 的 27 项是整个响应加全部落盘文件、`profile` 的 14 项逐字节、`securefs` 的 13 项是原子写次序。
 
 | 包 | 覆盖 | 内容 |
 | --- | --- | --- |
@@ -242,13 +243,27 @@ Go 的 RE2 原样接受 Python 那条 non-chat 模型正则，29 个模型 ID �
 
 写读往返测试覆盖五个适配器：写出去的文件必须读回相同的端点与模型，这同时约束两个方向。
 
-### 阶段 4：安装链路（核心完成）
+### 阶段 4：安装链路与编排（已完成）
 
-已完成：`resolve_registry`、`verify_npm_integrity`、前置条件检查（含 Aider 的 Python 3.12 与 Windows `windows_prerequisites`）、`install_locked_agent`、脱敏失败摘要、版本解析。
+安装底层：`resolve_registry`、`verify_npm_integrity`、前置条件检查（含 Aider 的 Python 3.12 与 Windows `windows_prerequisites`）、`install_locked_agent`、脱敏失败摘要、版本解析。
 
-**未完成**：`install_many`（228 行编排）、`activate_agent`、`status_payload`、profile 存储。这些依赖已完成的全部下层，是接线层而非新逻辑。
+编排层落在新的 `internal/app`——CLI 与桌面外壳共用的 use case 层，自身不含任何传输。`internal/profile` 承载 profile 存储与 Agent binding；阶段 1 推迟的网络探测（`protocol_probe`/`list_models`/`resolve_probe_model`）也在此补齐，出站请求走可注入的 `Doer`，常规 CI 不触网。
 
-版本解析的正则是 RE2 与 Python 引擎唯一可能分歧处：Python 的 `(?<!\d)` 在 Go 中无对应,改为匹配后检查前一字节。**我手写这条的预期错了两次**,是跨语言比对纠正的——27 种版本形态、22 种 registry 值、11 种失败摘要现在直接对比。
+| 包 | 覆盖 | 内容 |
+| --- | --- | --- |
+| `app` | 86.2% | `install_many`、`activate_agent`、`status_payload`、共享写锁 |
+| `provider` | 95.5% | 补齐探测与模型发现，含超时与不可达的区分 |
+| `profile` | 82.9% | profile 存储、密钥文件、Agent binding |
+
+版本解析的正则是 RE2 与 Python 引擎唯一可能分歧处：Python 的 `(?<!\d)` 在 Go 中无对应,改为匹配后检查前一字节。**我手写这条的预期错了两次**,是跨语言比对纠正的——27 种版本形态、22 种 registry 值、14 种失败摘要现在直接对比。
+
+**这一层的比对对象是「整个请求产出什么」**：前端 switch 的那个响应，加上运行后落盘的每一个文件。15 个安装请求、12 种 status 机器状态、14 项 profile/binding 逐字节。发现七处分歧，详见[进展记录 §7](migration-progress.md)，其中三处值得在这里点出：
+
+- **比对范围本身曾漏掉本层的主要产出**：只走 `.oneagent` 时，四个写进 Agent 自己位置的适配器产物被写出、被忽略、被报告为一致。
+- **`supportedAgentIds` 用声明序而非 rank 序**，两者确实不同。`Parse` 现在记录声明序，复用 `jsonorder` 而非手写 token 遍历。
+- **`jsonorder.Object` 缺 `MarshalJSON`**，非导出字段让 `encoding/json` 输出 `{}` 而不报错——每个嵌套的 profile 都成了空对象。
+
+**写锁**（ADR-008 承诺的并发面）：危险不是文件写坏——原子 rename 保证读者看到完整版本——而是**工作被丢弃**。profile 的 `agent_ids` 是真正会发生的那个：并发装 4 个 Agent 实测丢 3 个。锁挂在 `Service` 上，读操作刻意不加锁。**我为它写的第一个测试是空转的**（断言的两件事无论有没有锁都成立），换成 `agent_ids` 后去掉锁会红。
 
 ### 阶段 5：Wails 外壳与托盘
 

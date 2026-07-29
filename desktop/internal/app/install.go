@@ -21,6 +21,11 @@ import (
 // exit code carries the first failure so a script sees a reason rather than a
 // generic one.
 func (s *Service) Install(options InstallOptions) (InstallResult, error) {
+	// Held for the whole operation, not per file: this reads several configs,
+	// merges into them and writes them back, and a concurrent call must not read
+	// one of them between our read and our write.
+	defer s.lockWrites()()
+
 	manifest, err := catalog.Load()
 	if err != nil {
 		return InstallResult{}, err
