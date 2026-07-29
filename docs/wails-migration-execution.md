@@ -54,9 +54,9 @@ desktop/
     securefs/      ✓ 阶段 2  原子写、备份、权限、Windows ACL
     jsonorder/     ✓ 阶段 2  保序 JSON 编解码（复刻 json.dumps）
     shellquote/    ✓ 阶段 2  shlex.quote 与 PowerShell 引用
-    config/        ✓ 阶段 2  五个写入适配器与 env 文件（读取器在阶段 3）
-    install/       阶段 4  编排、integrity、前置条件
-    app/           阶段 4  use case，桌面与 CLI 共用
+    config/        ✓ 阶段 2–3  五写五读适配器、TOML 合并、env 文件
+    install/       ~ 阶段 4  锁定安装、integrity、镜像、前置条件（编排未完）
+    app/           阶段 4  use case，桌面与 CLI 共用（未开始）
   cmd/
     oneagent/          纯 Go CLI，不链接 Wails/GTK
     oneagent-desktop/   阶段 5  Wails 外壳
@@ -131,9 +131,9 @@ type Runtime struct {
 - 平台判定直读 `goruntime.GOOS` 会让覆盖率依赖 CI 矩阵而非测试，抽成取参数的纯函数后同一进程可覆盖三个映射。
 - **home 解析的兜底行为原本悄悄改了外部契约**。Python 的 `Path.home()` 在 `HOME` 缺失时回落到 passwd，Go 的 `os.UserHomeDir` 只读 `$HOME` 并报错。最初的 Go 实现在这里返回 `""`，意图是让上层报 `PREREQUISITE_MISSING`（exit 3）——但 Python 在同样输入下能解析出 home，上层不会走到那条路径。这不是「兜底返回什么」的选择，是两侧解析能力不同，而差异会表现为不同的退出码。Go 侧补了 `user.Current()` 一跳恢复等价，并由 `home_parity_test.go` 的 7 个用例锁死。真正「无处可写」的分支仍返回 `""`，通过可注入的查询函数测试到。
 
-### 4.6 parity 门禁本身的三个静默失效路径
+### 4.6 parity 门禁本身的四个静默失效路径
 
-`go test -run` **匹配零个测试时退出码为 0**。这让「跑 parity 测试」这个 CI 步骤有三种变绿而不报错的方式，全部已堵住并实测验证：
+`go test -run` **匹配零个测试时退出码为 0**。这让「跑 parity 测试」这个 CI 步骤有四种变绿而不报错的方式，全部已堵住并实测验证：
 
 | 失效方式 | 旧行为 | 现在 |
 | --- | --- | --- |
@@ -142,7 +142,7 @@ type Runtime struct {
 | Python 不在 PATH（跨语言比较无法进行） | `t.Skip`，报 ok | CI 设 `ONEAGENT_REQUIRE_PARITY`，改为硬失败 |
 | 新增 parity 文件但没进门禁清单 | 看着被覆盖，实际不在计数内 | `TestNoParityFileEscapesTheDeclaredList` 反向检查 |
 
-`internal/parity/gate_test.go` 的 `expected` 表逐文件声明最低测试数（目前 `oerr` 3、`runtime` 2、`catalog` 5、`provider` 9）。新增 parity 文件必须加一行——这是有意的，替代方案是一个悄悄停止覆盖它的门禁。
+`internal/parity/gate_test.go` 的 `expected` 表逐文件声明最低测试数，目前覆盖 11 个文件（`oerr` 3、`runtime` 2、`catalog` 6、`provider` 9、`shellquote` 4、`securefs` 4、`jsonorder` 2+2、`config` 4+7、`install` 4）。新增 parity 文件必须加一行——这是有意的，替代方案是一个悄悄停止覆盖它的门禁。
 
 第一版把计数自检写在 `codes_parity_test.go` 内部——能拦改名，但**删掉该文件后自检本身也不在了**。所以计数移到独立的 `internal/parity` 包，从外部断言每个 parity 文件仍存在、仍带着它的测试，并反向检查没有未声明的 parity 文件游离在门禁之外。
 
@@ -183,7 +183,7 @@ Go 的 RE2 原样接受 Python 那条 non-chat 模型正则，29 个模型 ID �
 
 ### 阶段 2：写入链路（已完成，止损点已通过）
 
-**止损结论：等价性成立，继续推进。** 157 项跨语言比对全过，其中 111 项是配置文件与 env 文件的**逐字节**比对。
+**止损结论：等价性成立，继续推进。** 157 项跨语言比对全过（阶段 3、4 完成后累计 243 项），其中 102 项是配置文件与 env 文件的**逐字节**比对。
 
 | 包 | 覆盖 | 内容 |
 | --- | --- | --- |
@@ -208,15 +208,23 @@ Go 的 RE2 原样接受 Python 那条 non-chat 模型正则，29 个模型 ID �
 
 **新增两个依赖**:`BurntSushi/toml`(仅用于校验)与 `golang.org/x/sys`(Windows rename),均已精确锁版本。本机到 `proxy.golang.org` 不通,经 `goproxy.cn` 获取——与 npm 路径同样的授权镜像原则,且 `go.sum` 锁住字节。
 
-### 阶段 3：读取链路
+### 阶段 3：读取链路（已完成）
 
-五个 `read_*_config` 与 `detect_agent_config`（21 用例）。返回形恰好四键 `{baseUrl, model, managedByOneAgent, unreadable}`，刻意不含密钥**及其存在性**——连 `hasKey` 布尔都会泄漏「这台机器配了 Key」。
+五个 `read_*_config` 与 `detect_agent_config`。返回形恰好四键 `{baseUrl, model, managedByOneAgent, unreadable}`，刻意不含密钥**及其存在性**——连 `hasKey` 布尔都会泄漏「这台机器配了 Key」。有一个测试写入五种真实格式的文件并断言密钥不回来、而端点回来了，后半句是为了防止「什么都没读」也能通过。
 
-三条不能丢：坏配置不得崩进程（Go 用 `recover` 对应 Python 的兜底 `except Exception`，失败本地化为 `unreadable`）；`unreadable` 的中文文案是用户可见契约，逐字复刻；Aider 读取绝不执行脚本，且 `managedByOneAgent` 恒 `false`——手写脚本与 OneAgent 产物字节同形，声称能区分是猜测。
+三条不能丢，均已实现并测试：坏配置不得崩进程（Go 用 `recover` 对应 Python 的兜底 `except Exception`）；`unreadable` 的中文文案是用户可见契约，逐字复刻；Aider 读取绝不执行脚本，且 `managedByOneAgent` 恒 `false`——手写脚本与 OneAgent 产物字节同形，声称能区分是猜测。
 
-### 阶段 4：安装链路
+**一处无法逐字比对**：`unreadable` 消息内嵌解析器自身的错误文本，而 `tomllib` 与 `BurntSushi/toml` 措辞不同。中文前缀是前端展示的分类，因此前缀精确比对，解析器细节只检查存在。66 项跨语言比对。
 
-42 用例移植；`real_install_test.sh` 改驱动 Go 二进制后官方源与镜像双路径仍通过。
+写读往返测试覆盖五个适配器：写出去的文件必须读回相同的端点与模型，这同时约束两个方向。
+
+### 阶段 4：安装链路（核心完成）
+
+已完成：`resolve_registry`、`verify_npm_integrity`、前置条件检查（含 Aider 的 Python 3.12 与 Windows `windows_prerequisites`）、`install_locked_agent`、脱敏失败摘要、版本解析。
+
+**未完成**：`install_many`（228 行编排）、`activate_agent`、`status_payload`、profile 存储。这些依赖已完成的全部下层，是接线层而非新逻辑。
+
+版本解析的正则是 RE2 与 Python 引擎唯一可能分歧处：Python 的 `(?<!\d)` 在 Go 中无对应,改为匹配后检查前一字节。**我手写这条的预期错了两次**,是跨语言比对纠正的——27 种版本形态、22 种 registry 值、11 种失败摘要现在直接对比。
 
 ### 阶段 5：Wails 外壳与托盘
 
