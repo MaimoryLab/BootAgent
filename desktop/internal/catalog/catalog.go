@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"sync"
 
 	"github.com/MaimoryLab/OneAgent/desktop/internal/oerr"
 )
@@ -76,9 +77,12 @@ type Package struct {
 	LicenseURL string `json:"license_url"`
 }
 
-// Agent is one manifest entry. Fields the core reads to decide behaviour are
-// named here; anything not yet needed stays in Extra so a manifest key cannot
-// be silently dropped on a round trip.
+// Agent is one manifest entry. Every key the manifest declares has a field here,
+// which is not a convention but a gate: TestParityEveryManifestKeyIsReadByTheGoStruct
+// reflects over these tags and fails when the manifest declares something nothing
+// reads. Byte-identical embedding gives no protection against that -- the same
+// bytes can still be read differently -- and two keys were in fact silently
+// dropped before the test existed.
 type Agent struct {
 	Name    string   `json:"name"`
 	Group   string   `json:"group"`
@@ -148,21 +152,20 @@ func Parse(raw []byte) (*Manifest, error) {
 	return &manifest, nil
 }
 
-var embedded *Manifest
-
 // Load returns the embedded manifest. Parsed once: it cannot change at runtime,
 // and a parse failure here is a build defect rather than a user error.
-func Load() (*Manifest, error) {
-	if embedded != nil {
-		return embedded, nil
-	}
-	manifest, err := Parse(manifestJSON)
-	if err != nil {
-		return nil, err
-	}
-	embedded = manifest
-	return embedded, nil
-}
+//
+// sync.OnceValues rather than a nil check, because every Wails binding call runs
+// on its own goroutine and several of them read the catalog. A plain check-then-
+// assign is a data race that -race reports, and it would first be seen at the
+// moment the orchestration layer is wired into the shell.
+func Load() (*Manifest, error) { return loadEmbedded() }
+
+// loadEmbedded is a variable so the parse happens once; Load stays a function so
+// no caller can replace it.
+var loadEmbedded = sync.OnceValues(func() (*Manifest, error) {
+	return Parse(manifestJSON)
+})
 
 // MustLoad returns the embedded manifest and panics if it cannot be parsed.
 // Reserved for start-up paths where a broken embed means a broken build.

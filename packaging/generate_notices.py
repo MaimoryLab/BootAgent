@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import re
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -75,6 +76,56 @@ def npm_packages(license_dir: Path) -> list[dict[str, str]]:
     return packages
 
 
+GO_MODULE_LICENSES = {
+    "github.com/BurntSushi/toml": "MIT",
+    "golang.org/x/sys": "BSD-3-Clause",
+}
+
+
+def go_modules(license_dir: Path) -> list[dict[str, str]]:
+    """List the Go modules linked into the desktop binary, read from go.mod.
+
+    Read from go.mod rather than listed here so a dependency added later cannot
+    be omitted by forgetting this file. Both current licenses require the license
+    text to accompany the binary, so the text is copied out of the module cache
+    -- naming the license without shipping it does not satisfy either.
+
+    Returns nothing when the Go module is absent, which is the case for a
+    Python-only build.
+    """
+    go_mod = ROOT / "desktop" / "go.mod"
+    if not go_mod.exists():
+        return []
+    modules: list[dict[str, str]] = []
+    cache = Path(
+        subprocess.run(
+            ["go", "env", "GOMODCACHE"], capture_output=True, text=True, check=False
+        ).stdout.strip()
+        or "~/go/pkg/mod"
+    ).expanduser()
+    for match in re.finditer(
+        r"^\s*(\S+)\s+(v\S+)$", go_mod.read_text(encoding="utf-8"), re.MULTILINE
+    ):
+        path, version = match.group(1), match.group(2)
+        if path in {"go", "toolchain"}:
+            continue
+        # The cache escapes upper-case letters as !lower, so BurntSushi becomes
+        # !burnt!sushi.
+        escaped = re.sub(r"([A-Z])", lambda m: "!" + m.group(1).lower(), path)
+        modules.append(
+            {
+                "name": path,
+                "version": version,
+                "license": GO_MODULE_LICENSES.get(path, "see bundled license file"),
+                "source": f"https://{path}",
+                "license_file": _copy_license(
+                    cache / f"{escaped}@{version}", license_dir, f"go-{path}-{version}"
+                ),
+            }
+        )
+    return modules
+
+
 def agent_targets() -> list[dict[str, str]]:
     manifest = json.loads((ROOT / "agents.lock.json").read_text(encoding="utf-8"))
     targets = []
@@ -99,7 +150,10 @@ def generate(output_dir: Path) -> Path:
     output_dir.mkdir(parents=True, exist_ok=True)
     license_dir = output_dir / "licenses" / "npm"
     license_dir.mkdir(parents=True, exist_ok=True)
+    go_license_dir = output_dir / "licenses" / "go"
+    go_license_dir.mkdir(parents=True, exist_ok=True)
     npm = npm_packages(license_dir)
+    go = go_modules(go_license_dir)
     agents = agent_targets()
 
     lines = [
@@ -122,6 +176,22 @@ def generate(output_dir: Path) -> Path:
         lines.append(
             f"| `{package['name']}` | `{package['version']}` | {package['license']} | {package['source'] or 'package metadata'} | {package['license_file'] or 'not provided by package'} |"
         )
+    if go:
+        lines.extend(
+            [
+                "",
+                "## Go Modules Linked Into the Desktop Binary",
+                "",
+                "Statically linked, so the license text accompanies the binary rather than being referenced.",
+                "",
+                "| Module | Version | License | Source | Bundled license file |",
+                "| --- | --- | --- | --- | --- |",
+            ]
+        )
+        for module in go:
+            lines.append(
+                f"| `{module['name']}` | `{module['version']}` | {module['license']} | {module['source']} | {module['license_file'] or 'MISSING'} |"
+            )
     lines.extend(
         [
             "",

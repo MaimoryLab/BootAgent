@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -143,6 +144,12 @@ var registryValues = []string{
 	"https:///nohost",
 	"https://user:pass@mirror.example.com/",
 	"https://token@mirror.example.com/",
+	// An empty userinfo section carries no credential, but Go builds a Userinfo
+	// for it while Python tests username and password for truthiness. Checking
+	// `parsed.User != nil` therefore refused a URL Python accepts.
+	"https://@mirror.example.com/",
+	"https://:@mirror.example.com/",
+	"https://:pass@mirror.example.com/",
 	"https://mirror.example.com/\nHost: evil",
 	"https://mirror.example.com/\r",
 	"https://mirror.example.com/\x00",
@@ -189,6 +196,16 @@ func TestParityTheFailureSummaryMatchesPython(t *testing.T) {
 		{"whitespace only", map[string]string{}, "   ", "  \n\t"},
 		{"non-ascii", map[string]string{}, "", "安装失败：找不到包"},
 		{"indented", map[string]string{}, "", "  leading spaces\n\ttab"},
+		// Every case above stays under the 600 limit, so until these three the
+		// truncation this comment claims both sides agree on was never compared.
+		// It did not: Python slices code points and the Go version sliced bytes,
+		// so a Chinese error -- which is what npmmirror returns -- was cut to a
+		// third of the text, mid-character, leaving a tail encoding/json rewrites
+		// to U+FFFD.
+		{"long ascii past the limit", map[string]string{}, "", strings.Repeat("e", 900)},
+		{"long chinese past the limit", map[string]string{}, "", strings.Repeat("安装失败", 300)},
+		{"multibyte astride the cut", map[string]string{}, "",
+			strings.Repeat("x", 598) + strings.Repeat("装", 5)},
 	}
 
 	script := `

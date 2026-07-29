@@ -18,20 +18,26 @@ covering 13 commits，从 `6899cf1`（关闭自动 CI）到 `0794918`。
 | 5 | Wails 外壳与托盘 | 未开始 |
 | 6 | 分发 | 未开始（按要求暂缓） |
 
+全部数字用 `go test -json` 逐条计数得出，不再手工累加——**上一版写的「807 用例」是错的**，实测顶层 325、含子测试 574。审查指出它时我的第一反应是去核对而不是解释，因为「106 不是 111」用的就是同一把尺子。
+
 ```
-Go 源码 3819 行，测试 7825 行，807 个用例
-跨语言比对 243 项，其中 102 项是配置文件与 env 文件的逐字节比对
-整体覆盖 90.3%，go test -race 干净
+Go 源码 3867 行，测试 7929 行
+测试 325 个顶层用例 / 574 个含子测试
+跨语言门禁 11 个文件、47 个顶层用例、199 个逐输入子测试
+  其中 87 个是配置文件与 env 文件的逐字节比对，13 个是原子写次序
+整体覆盖 90.4%（逐包见下表），go test -race 干净
 Python 246 用例不受影响（新增 1 个回归测试）
 前端 78 单测 + 20 e2e（新增 5 个对比度测试）
 ```
+
+`go test -json` 的计数命令记在 [执行计划 §4.6](wails-migration-execution.md)，下次报数直接跑，不再凭记忆。
 
 | 包 | 覆盖 | 职责 |
 | --- | --- | --- |
 | `oerr` | 100% | 错误码与响应形，跨语言门禁锁定 |
 | `runtime` | 100% | 全部副作用的注入接缝 |
-| `catalog` | 96.4% | 内嵌 manifest、Provider 与镜像投影 |
-| `provider` | 96.9% | URL 校验推导、协议映射 |
+| `catalog` | 98.0% | 内嵌 manifest、Provider 与镜像投影 |
+| `provider` | 97.2% | URL 校验推导、协议映射 |
 | `config` | 93.0% | 五写五读适配器、TOML 合并、env 文件 |
 | `testutil` | 92.1% | 测试替身（自身的保证也被测试） |
 | `install` | 87.9% | 锁定安装、integrity、镜像、前置条件 |
@@ -151,7 +157,46 @@ Python 的 `Path.home()` 在 `HOME` 缺失时回落到 passwd 数据库;Go 的 `
 - 配置检测在真实机器上工作:发现一个手写的第三方 Codex 配置,并正确标记 `managedByOneAgent: false`
 - `/api/status` 中唯一的 key 相关字段是 `profiles[].hasKey` 布尔(契约允许),无任何凭据形状的值
 
-## 6. 我在过程中出错的地方
+## 6. 第二轮审查修掉的四处
+
+前三处的共同点是**注释断言了一个契约,而语料没有测它**——正是这套方法论声称要消灭的那类分歧。
+
+### 6.1 TOML 解析错误会把密钥材料带进 status 响应（已修）
+
+`readers.go` 把 `err.Error()` 拼进 `unreadable`,而 `BurntSushi/toml` 会回显出问题的 token:
+
+```
+api_key = sk-probe-abc      → expected value but found "sk" instead
+api_key = 1.2.3.4.5.6       → Invalid float value: "1.2.3.4.5.6"   ← 完整回显
+```
+
+`unreadable` 经 status 进 React state 并显示在界面上,这直接撞上「API Key 不进 React state、日志」的明文承诺。触发条件(用户手工把配置编辑成非法 TOML 且密钥未加引号)罕见,但**处理坏掉的用户文件是这个读取器存在的全部理由**。
+
+它同时是与 Python 的分歧,而正确答案不是「无法一致所以放行」:`tomllib` 与 `json` 只报位置、从不回显内容,所以**砍掉 `err.Error()` 既是安全修复,也是更严格的等价位置**。连报行列号都不行——`[a\n` 在 `tomllib` 是第 1 行、`BurntSushi/toml` 是第 2 行,那会引入一处新分歧。中文前缀原样保留,它是前端展示的契约。
+
+新增 4 个用例,断言消息**恰好**等于前缀。恢复 `err.Error()` 会让 4 个全红。
+
+### 6.2 失败摘要的截断与 Python 不一致（已修）
+
+注释写「按字节截断以匹配 Python 的切片」——这是错的。Python 的 `[:600]` 切 `str`,数的是码位;Go 的 `len()` 数字节。npmmirror 的错误就是中文:
+
+```
+600 个中文字符  Python 保留 600 字  |  Go 保留 200 字,且从字符中间切断
+```
+
+从多字节字符中间切断留下非法 UTF-8 尾巴,`encoding/json` 把它变成 U+FFFD。原有 11 个用例**没有一个超过 600**,所以那句注释声称双方一致的截断从未被比对过。改为 `[]rune` 切片,并补三条:超长 ASCII、超长中文、边界正好压在多字节字符上。**只有后两条会因字节切片打红**——超长 ASCII 两种实现都对,这也说明为什么原语料通不过。
+
+### 6.3 `Load()` 的数据竞争（已修，被指两次）
+
+`Load()` 用 nil 检查缓存解析结果,8 协程并发下 `-race` 报 `WARNING: DATA RACE`。它今天不炸只因为 Go 还没接线,而 ADR-008 自己写明 Wails binding 并发——**编排层一接进外壳它就是门禁下的第一个失败,且外壳会成为表面原因**。改用 `sync.OnceValues`;`Load` 保持函数形态,`loadEmbedded` 才是变量,否则调用方可以替换它。
+
+新增 `TestLoadIsSafeForConcurrentReaders`。改回 nil 检查会让它红——已实测,这是它不是装饰的依据。
+
+### 6.4 空 userinfo 的分歧（已修）
+
+`https://@host/` 不携带任何凭据,但 Go 为空 userinfo 段也构造 `Userinfo`,所以 `parsed.User != nil` 拒了 Python 接受的 URL。抽出共享的 `provider.HasCredentials`,两处语料各补三条。这一条两个调用点(`ValidateBaseURL` 与 `ResolveRegistry`)同源,所以一起收。
+
+## 7. 我在过程中出错的地方
 
 值得记录,因为它们说明哪种测试真正有效:
 
@@ -159,8 +204,10 @@ Python 的 `Path.home()` 在 `HOME` 缺失时回落到 passwd 数据库;Go 的 `
 - **CI 过滤器第一版永远绿**。写成 `-run Parity` 时匹配零个测试,而 `go test` 对此返回成功。
 - **对比度测量第一版报假阳性**。未合成半透明层。
 - **两次误判浏览器审查结果**。`localhost` 不可达(错,curl 会回落)、装饰性图标缺 alt(错,`alt=""` + `aria-hidden` 是正确写法)。
+- **报了一个手工累加的用例数**。上一版写「807 用例」,`go test -json` 实测顶层 325、含子测试 574。同一份文档里我为「111 改 106」专门留了一行,却对更大的那个数字没用同一把尺子。现在计数命令写进[执行计划 §4.6](wails-migration-execution.md),报数前跑一遍。
+- **两处注释断言了没被测的契约**(见 6.1、6.2)。注释里写「双方必须一致」而语料不覆盖它,比不写更糟:它让下一个人以为这里已经被守住了。
 
-## 7. 还差什么
+## 8. 还差什么
 
 **阶段 4 剩余**:`install_many`(228 行)、`activate_agent`、`status_payload`、profile 存储。这些是编排层,依赖已完成的全部下层。
 
@@ -173,4 +220,8 @@ Python 的 `Path.home()` 在 `HOME` 缺失时回落到 passwd 数据库;Go 的 `
 - `ci.yml` 是 `workflow_dispatch` 专属(按仓库所有者要求关闭自动触发),所以所有门禁只在手动触发时生效。
 - Windows 的 `MoveFileEx` 路径只有交叉编译验证,真机测试要等 CI 的 Windows runner。
 
-**两个新依赖**需进第三方 notice:`BurntSushi/toml`(仅校验)与 `golang.org/x/sys`(Windows rename),均精确锁版本。本机到 `proxy.golang.org` 不通,经 `goproxy.cn` 获取——与 npm 路径同样的授权镜像原则,`go.sum` 锁住字节。
+**两个新依赖**需进第三方 notice:`BurntSushi/toml` v1.6.0（MIT，仅校验）与 `golang.org/x/sys` v0.47.0（BSD-3-Clause，Windows rename），均精确锁版本。本机到 `proxy.golang.org` 不通,经 `goproxy.cn` 获取——与 npm 路径同样的授权镜像原则,`go.sum` 锁住字节。
+
+**两种许可都要求随二进制分发许可文本**,而 NOTICE 文件目前还不存在——现在只是文档里写着「需进」。这必须在下一次发布构建之前落地,不能等到阶段 6:一旦有人跑出一个带 Go 内核的产物,它就已经缺了该带的东西。
+
+**移植编排层时要一并搬过去的一件事**:Python 侧的 registry 前置校验已提到 `install_many`（见 5.1），而 Go 的 `LockedAgent` 内部仍是惰性校验。不搬,浏览器审查抓到的那个 200 就会在 Go 版复活。

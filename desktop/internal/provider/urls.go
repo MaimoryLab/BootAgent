@@ -40,10 +40,31 @@ func ValidateBaseURL(value string) (string, error) {
 	if (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" {
 		return "", oerr.New("INVALID_REQUEST", "Custom base URL must start with http:// or https://")
 	}
-	if parsed.User != nil {
+	if HasCredentials(parsed) {
 		return "", oerr.New("INVALID_REQUEST", "Custom base URL must not contain credentials")
 	}
 	return strings.TrimRight(value, "/"), nil
+}
+
+// HasCredentials reports whether a URL carries a username or password.
+//
+// Not `parsed.User != nil`: Go builds a Userinfo for an empty userinfo section,
+// so "https://@host/" and "https://:@host/" would be refused, while Python tests
+// the truthiness of username and password and accepts both. Neither URL carries a
+// credential, so Python is right and the difference is only in how the two
+// parsers represent "present but empty".
+//
+// Shared with the registry check rather than duplicated, so one corpus covers
+// both call sites.
+func HasCredentials(parsed *url.URL) bool {
+	if parsed.User == nil {
+		return false
+	}
+	if parsed.User.Username() != "" {
+		return true
+	}
+	password, _ := parsed.User.Password()
+	return password != ""
 }
 
 // Base resolves the OpenAI-compatible endpoint for a provider. A custom base

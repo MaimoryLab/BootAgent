@@ -354,6 +354,53 @@ func TestAnUnreadableFileReportsTheReasonNotTheContents(t *testing.T) {
 	}
 }
 
+func TestAParseFailureNeverEchoesWhatTheParserRead(t *testing.T) {
+	// This message travels through the status payload into React state and onto
+	// the screen, so anything the parser quotes back is published. BurntSushi/toml
+	// quotes the offending token: an unquoted `api_key = sk-...` produced
+	// `expected value but found "sk" instead`, and a dotted value came back whole
+	// inside `Invalid float value: "..."`. A hand-edited file with an unquoted key
+	// is uncommon, but broken user files are the only reason this reader exists.
+	//
+	// Python's tomllib and json report a position and never the content, so
+	// dropping the detail is also the closer parity position -- and the positions
+	// themselves disagree, so reporting line and column would introduce a new one.
+	const secret = "sk-probe-abcdefghijklmnop"
+	cases := []struct {
+		name   string
+		read   func(string) Detected
+		text   string
+		prefix string
+	}{
+		{"unquoted TOML value", ReadCodexConfig, "api_key = " + secret + "\n", "TOML 无法解析"},
+		{"dotted TOML value", ReadCodexConfig, "api_key = 1.2." + secret + "\n", "TOML 无法解析"},
+		{"unquoted JSON value", ReadClaudeConfig, `{"env": {"KEY": ` + secret + `}}`, "JSON 无法解析"},
+		{"unquoted JSON key", ReadOpenAICompatibleConfig, `{` + secret + `: 1}`, "JSON 无法解析"},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			got := testCase.read(testCase.text)
+			if got.Unreadable == nil {
+				t.Fatalf("the file is invalid but read as %+v", got)
+			}
+			if *got.Unreadable != testCase.prefix {
+				t.Errorf("unreadable = %q, want exactly %q with no parser detail",
+					*got.Unreadable, testCase.prefix)
+			}
+			// Checked separately from the equality above so a future change that
+			// appends anything at all still names the leak as the reason.
+			if strings.Contains(*got.Unreadable, secret) {
+				t.Errorf("the message carries credential material: %q", *got.Unreadable)
+			}
+			for _, fragment := range []string{"sk-", "sk", "1.2."} {
+				if strings.Contains(strings.TrimPrefix(*got.Unreadable, testCase.prefix), fragment) {
+					t.Errorf("the message echoes what the parser read: %q", *got.Unreadable)
+				}
+			}
+		})
+	}
+}
+
 func TestAReaderThatPanicsCannotBreakTheStatusRequest(t *testing.T) {
 	// The guarantee matters more than any single reader being correct: one
 	// unexpected shape must not blank the whole UI.

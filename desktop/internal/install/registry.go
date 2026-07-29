@@ -8,6 +8,7 @@ import (
 
 	"github.com/MaimoryLab/OneAgent/desktop/internal/catalog"
 	"github.com/MaimoryLab/OneAgent/desktop/internal/oerr"
+	"github.com/MaimoryLab/OneAgent/desktop/internal/provider"
 	"github.com/MaimoryLab/OneAgent/desktop/internal/runtime"
 )
 
@@ -34,7 +35,7 @@ func ResolveRegistry(value string) (string, error) {
 	if err != nil || parsed.Scheme != "https" || parsed.Host == "" {
 		return "", oerr.New("INVALID_REQUEST", "Registry URL must start with https://")
 	}
-	if parsed.User != nil {
+	if provider.HasCredentials(parsed) {
 		return "", oerr.New("INVALID_REQUEST", "Registry URL must not contain credentials")
 	}
 	if !strings.HasSuffix(value, "/") {

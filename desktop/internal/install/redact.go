@@ -77,9 +77,13 @@ func FailureDetail(env map[string]string, stdout, stderr string) string {
 		lines = lines[len(lines)-3:]
 	}
 	joined := strings.Join(lines, " | ")
-	if len(joined) > failureDetailLimit {
-		// Truncated by bytes to match Python's slice, which also cuts by index.
-		joined = joined[:failureDetailLimit]
+	// Truncated by code point, not by byte. Python's [:600] slices a str, so the
+	// limit counts characters; len() on a Go string counts bytes. A Chinese npm
+	// error -- which is what npmmirror returns -- would otherwise be cut to a
+	// third of the text Python keeps, and cutting mid-character would leave an
+	// invalid UTF-8 tail that encoding/json rewrites to U+FFFD.
+	if runes := []rune(joined); len(runes) > failureDetailLimit {
+		joined = string(runes[:failureDetailLimit])
 	}
 	return joined
 }

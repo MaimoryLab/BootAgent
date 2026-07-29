@@ -49,7 +49,7 @@ func LockedAgent(rt *runtime.Runtime, agentID string, agent catalog.Agent, optio
 		return Result{}, oerr.Newf("PREREQUISITE_MISSING", "No allowlisted package manager for %s", agent.Name)
 	}
 	locked := agent.Package.Version
-	executable, present := rt.Which(agent.Command)
+	_, present := rt.Which(agent.Command)
 
 	current := ""
 	if present {
@@ -63,7 +63,6 @@ func LockedAgent(rt *runtime.Runtime, agentID string, agent catalog.Agent, optio
 	if present && options.EnforceLocked && current == locked {
 		return Result{Installed: false, Version: current, LockedVersion: locked}, nil
 	}
-	_ = executable
 
 	if err := RequirePrerequisites(rt, agent); err != nil {
 		return Result{}, err

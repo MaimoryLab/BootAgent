@@ -103,6 +103,8 @@ Wails v3 官方状态页明确当前为 Alpha。因此 OneAgent 只发布 `techn
 
 Wails binding 默认并发，而当前 `HTTPServer` 是串行的。这是形态切换带来的**新**并发面：`Install`/`Activate`/`SaveProfile` 需共享写锁，避免两个调用同时备份或覆盖同一配置。Go 测试因此从一开始就跑 `-race`。
 
+这一条在编排层落地前就已经付过一次代价：`catalog.Load()` 曾用 nil 检查缓存解析结果，`-race` 在 8 个并发读者下报 `WARNING: DATA RACE`。它在当时不炸，只因为 Go 还没接线——**而一旦接进外壳，外壳就会成为表面原因**。已改用 `sync.OnceValues`，并有一个并发读取测试锁住它：改回 nil 检查会让该测试打红。凡是「现在不炸只因为还没接线」的并发问题，都按此处理，不留到接线那一刻。
+
 生成的 binding 成为后端 DTO 的唯一 TypeScript 真源，`frontend/src/types/api.ts` 中手写的后端类型最终删除或改为薄别名，避免两份真源。
 
 Python 实现不删除，直到 Go 版通过全部移植测试并完成一轮真实 cleanroom。

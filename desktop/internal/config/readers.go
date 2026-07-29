@@ -42,11 +42,31 @@ func unreadable(reason string) Detected {
 	return Detected{Unreadable: &reason}
 }
 
+// parseFailure is what a broken config file is allowed to say about itself: the
+// category, and nothing the parser read.
+//
+// The parser's own error text is deliberately dropped. BurntSushi/toml echoes the
+// offending token -- an unquoted `api_key = sk-...` produces `expected value but
+// found "sk" instead`, and a dotted value echoes it whole -- and this string
+// travels through the status payload into React state and onto the screen, which
+// is exactly where a credential must never appear. The trigger is a hand-edited
+// file with an unquoted key, but handling broken user files is this reader's only
+// reason to exist.
+//
+// It is also the stricter parity answer. Python's tomllib and json report a
+// position and never the content, so no suffix Go could append would match; and
+// the positions themselves disagree (for "[a\n" tomllib says line 1, toml says
+// line 2), so even reporting line and column would be a new divergence. The
+// prefix is the contract the frontend shows, and it is reproduced exactly.
+func parseFailure(prefix string) Detected {
+	return unreadable(prefix)
+}
+
 // ReadCodexConfig reads a Codex config.toml.
 func ReadCodexConfig(text string) Detected {
 	var parsed map[string]any
 	if _, err := toml.Decode(text, &parsed); err != nil {
-		return unreadable("TOML 无法解析：" + err.Error())
+		return parseFailure("TOML 无法解析")
 	}
 	providers, _ := parsed["model_providers"].(map[string]any)
 
@@ -70,7 +90,7 @@ func ReadCodexConfig(text string) Detected {
 func ReadClaudeConfig(text string) Detected {
 	var parsed any
 	if err := json.Unmarshal([]byte(text), &parsed); err != nil {
-		return unreadable("JSON 无法解析：" + err.Error())
+		return parseFailure("JSON 无法解析")
 	}
 	object, ok := parsed.(map[string]any)
 	if !ok {
@@ -121,7 +141,7 @@ func ReadOpenAICompatibleConfig(text string) Detected {
 		if jsoncCommentInText.MatchString(text) {
 			return unreadable("包含 JSONC 注释，OneAgent 不解析")
 		}
-		return unreadable("JSON 无法解析：" + err.Error())
+		return parseFailure("JSON 无法解析")
 	}
 	object, ok := parsed.(map[string]any)
 	if !ok {

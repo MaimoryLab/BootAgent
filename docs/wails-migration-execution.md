@@ -146,6 +146,24 @@ type Runtime struct {
 
 第一版把计数自检写在 `codes_parity_test.go` 内部——能拦改名，但**删掉该文件后自检本身也不在了**。所以计数移到独立的 `internal/parity` 包，从外部断言每个 parity 文件仍存在、仍带着它的测试，并反向检查没有未声明的 parity 文件游离在门禁之外。
 
+**报数不要手工累加。** 这份文档与进展记录里的所有测试数都由下面两条命令得出——上一版手工报的「807 用例」实测是顶层 325、含子测试 574：
+
+```bash
+cd desktop
+ONEAGENT_REQUIRE_PARITY=1 go test -count=1 -json ./... | python3 -c '
+import json,sys
+top=set(); allt=set()
+for line in sys.stdin:
+    try: e=json.loads(line)
+    except: continue
+    if e.get("Action")=="run" and e.get("Test"):
+        allt.add((e["Package"],e["Test"]))
+        if "/" not in e["Test"]: top.add((e["Package"],e["Test"]))
+print("top-level",len(top),"with subtests",len(allt))'
+```
+
+把 `./...` 换成 `-run TestParity ./...` 得到跨语言门禁的计数（47 顶层 / 199 子测试）。
+
 **当前局限**：`ci.yml` 是 `workflow_dispatch` 专属（自动触发已按仓库所有者要求关闭），所以这些门禁只在手动触发时生效，推送时不看着任何人。阶段 1 落地前需记住这一点。
 
 **阶段 0 验收**：`go vet` 干净、`go test -race ./...` 全过（含 parity 门禁）、四平台 CI 绿、Python 245 用例与 `installer.py` 100% 分支门禁不受影响。
@@ -170,8 +188,8 @@ type Runtime struct {
 
 | 包 | 覆盖 | 跨语言门禁 |
 | --- | --- | --- |
-| `catalog` | 96.4% | 5 个：embed 字节一致、Provider 投影、镜像、目录顺序、14 个 Agent 逐字段 |
-| `provider` | 96.9% | 9 个：两种 URL 推导、校验拒绝边界、模型分类逐 ID、ConfigBase 路由、fallback、协议分类与文案 |
+| `catalog` | 98.0% | 6 个：embed 字节一致、结构体读齐 manifest 每个键、Provider 投影、镜像、目录顺序、14 个 Agent 逐字段 |
+| `provider` | 97.2% | 9 个：两种 URL 推导、校验拒绝边界（含空 userinfo）、模型分类逐 ID、ConfigBase 路由、fallback、协议分类与文案 |
 
 整体 94.0%，`-race` 干净。
 
@@ -183,7 +201,7 @@ Go 的 RE2 原样接受 Python 那条 non-chat 模型正则，29 个模型 ID �
 
 ### 阶段 2：写入链路（已完成，止损点已通过）
 
-**止损结论：等价性成立，继续推进。** 157 项跨语言比对全过（阶段 3、4 完成后累计 243 项），其中 102 项是配置文件与 env 文件的**逐字节**比对。
+**止损结论：等价性成立，继续推进。** 跨语言比对全过。按上面那条计数命令，阶段 2–4 完成后跨语言门禁是 47 个顶层用例、199 个逐输入子测试，其中 `config` 的 87 项是配置文件与 env 文件的**逐字节**比对、`securefs` 的 13 项是原子写次序。
 
 | 包 | 覆盖 | 内容 |
 | --- | --- | --- |
@@ -214,7 +232,13 @@ Go 的 RE2 原样接受 Python 那条 non-chat 模型正则，29 个模型 ID �
 
 三条不能丢，均已实现并测试：坏配置不得崩进程（Go 用 `recover` 对应 Python 的兜底 `except Exception`）；`unreadable` 的中文文案是用户可见契约，逐字复刻；Aider 读取绝不执行脚本，且 `managedByOneAgent` 恒 `false`——手写脚本与 OneAgent 产物字节同形，声称能区分是猜测。
 
-**一处无法逐字比对**：`unreadable` 消息内嵌解析器自身的错误文本，而 `tomllib` 与 `BurntSushi/toml` 措辞不同。中文前缀是前端展示的分类，因此前缀精确比对，解析器细节只检查存在。66 项跨语言比对。
+**`unreadable` 消息原本内嵌解析器自身的错误文本**，理由写成「措辞不同、无法逐字比对，所以前缀精确比对、细节只检查存在」。第二轮审查证明这个位置是错的，两个方面：
+
+`BurntSushi/toml` 会**回显出问题的 token**，而这条消息经 status 进 React state 并显示在界面上。未加引号的 `api_key = sk-...` 产出 `expected value but found "sk" instead`，点分数值形态完整回显整个值。「API Key 不进 React state」是明文承诺，这里破了它。
+
+而正确的等价答案不是「无法一致所以放行」:`tomllib` 与 `json` 只报位置、从不回显内容,所以**砍掉解析器细节既是安全修复,也是更严格的等价位置**——连报行列号都不行,`[a\n` 在 `tomllib` 是第 1 行、在 `BurntSushi/toml` 是第 2 行。中文前缀原样保留,消息现在**恰好**等于前缀,并有 4 个用例断言这一点。
+
+66 项跨语言比对。
 
 写读往返测试覆盖五个适配器：写出去的文件必须读回相同的端点与模型，这同时约束两个方向。
 

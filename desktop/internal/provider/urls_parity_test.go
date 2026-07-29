@@ -165,6 +165,12 @@ var validationShapes = []string{
 	"https:///missing-host",
 	"https://user:pass@example.com",
 	"https://user@example.com",
+	// An empty userinfo section carries no credential, but Go builds a Userinfo
+	// for it while Python tests username and password for truthiness. This is the
+	// same divergence as in ResolveRegistry, which is why HasCredentials is shared.
+	"https://@example.com",
+	"https://:@example.com",
+	"https://:pass@example.com",
 	"https://example.com/\nHost: evil",
 	"https://example.com/\r",
 	"https://example.com/\x00",

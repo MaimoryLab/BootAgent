@@ -6,6 +6,7 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 import zipfile
@@ -542,6 +543,50 @@ class LockIsTheSourceOfTruthTests(unittest.TestCase):
         source = (ROOT / "oneagent" / "providers.py").read_text(encoding="utf-8")
         self.assertNotIn('"claude-code"', source)
         self.assertNotIn("'claude-code'", source)
+
+
+class GoModuleNoticeTests(unittest.TestCase):
+    """Every Go dependency is named in the notices with its license text.
+
+    The Go core added two statically linked modules, and both MIT and
+    BSD-3-Clause require the license text to accompany the binary. Recording
+    "needs a notice entry" in a document is not that: the moment someone builds
+    an artifact with the Go core in it, the artifact is already missing what it
+    has to carry. So the notice is generated from go.mod, and this asserts the
+    generator does not quietly skip a module.
+    """
+
+    def test_every_module_in_go_mod_reaches_the_notices_with_its_license_text(self):
+        go_mod = ROOT / "desktop" / "go.mod"
+        if not go_mod.exists():
+            self.skipTest("no Go module in this checkout")
+        declared = {
+            match.group(1)
+            for match in re.finditer(r"^\s*(\S+)\s+v\S+$", go_mod.read_text(encoding="utf-8"), re.MULTILINE)
+            if match.group(1) not in {"go", "toolchain"}
+        }
+        self.assertTrue(declared, "go.mod declares no dependencies, so this test proves nothing")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            output = Path(tmp)
+            # Invoked as a script, the way build_release.py does: the directory is
+            # named `packaging`, which shadows the PyPI package of that name when
+            # imported.
+            subprocess.run(
+                [sys.executable, str(ROOT / "packaging" / "generate_notices.py"), str(output)],
+                check=True,
+                capture_output=True,
+            )
+            notices = (output / "THIRD_PARTY_NOTICES.md").read_text(encoding="utf-8")
+            for module in sorted(declared):
+                with self.subTest(module=module):
+                    self.assertIn(module, notices)
+            # A named module whose text was not copied is the failure this is for.
+            self.assertNotIn("MISSING", notices)
+            copied = list((output / "licenses" / "go").iterdir())
+            self.assertEqual(len(copied), len(declared))
+            for path in copied:
+                self.assertGreater(len(path.read_text(encoding="utf-8").strip()), 200, path.name)
 
 
 if __name__ == "__main__":

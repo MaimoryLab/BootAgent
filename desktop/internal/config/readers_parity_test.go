@@ -76,17 +76,25 @@ func compare(t *testing.T, label string, got Detected, want map[string]any) {
 	case hasReason && got.Unreadable == nil:
 		t.Errorf("%s: Python reports unreadable %q, Go reports none", label, wantUnreadable)
 	case hasReason && got.Unreadable != nil:
-		// The category is the contract; the parser detail after it is not.
+		// The category is the contract. Python appends the parser's own wording
+		// after it, which Go deliberately does not reproduce: BurntSushi/toml
+		// echoes the offending token, and this string reaches the screen. So the
+		// categories must agree and the Go side must stop at the category --
+		// asserted here rather than only in readers_test.go, because this is the
+		// comparison that would otherwise be read as licensing a suffix.
 		goCategory := categoryOf(*got.Unreadable)
 		pythonCategory := categoryOf(wantUnreadable)
 		if goCategory != pythonCategory {
 			t.Errorf("%s: unreadable category Go=%q Python=%q", label, goCategory, pythonCategory)
 		}
+		if *got.Unreadable != goCategory {
+			t.Errorf("%s: Go appends parser detail to %q: %q", label, goCategory, *got.Unreadable)
+		}
 	}
 }
 
-// categoryOf returns the message up to the colon, which is the part both
-// implementations must agree on.
+// categoryOf returns the message up to the colon. Python puts the parser's
+// wording after it; the category is the part both sides must agree on.
 func categoryOf(message string) string {
 	if index := strings.Index(message, "："); index >= 0 {
 		return message[:index]
