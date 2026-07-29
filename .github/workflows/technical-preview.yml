@@ -2,12 +2,34 @@ name: Technical Preview Packages
 
 on:
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Draft release tag
+        required: true
+        default: v0.2.0-dev-preview.1
+        type: string
+      create_draft_release:
+        description: Create an immutable draft GitHub prerelease
+        required: true
+        default: true
+        type: boolean
+      deploy_pages:
+        description: Deploy after the draft release has been reviewed and published
+        required: true
+        default: false
+        type: boolean
   push:
     tags:
       - "v*-preview*"
 
 permissions:
-  contents: read
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: technical-preview-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -70,11 +92,172 @@ jobs:
           $homeDir = Join-Path $env:RUNNER_TEMP "oneagent-package-home"
           ./build/pyinstaller-dist/OneAgent/OneAgent.exe --agent openclaw --check-agent-only --json --home $homeDir
 
+      - name: Real macOS arm64 cleanroom
+        if: matrix.os == 'macos-15'
+        env:
+          ONEAGENT_PACKAGED_BINARY: ${{ github.workspace }}/build/pyinstaller-dist/OneAgent/OneAgent
+        run: bash tests/macos_cleanroom_test.sh
+
       - name: Validate release contents
         run: python scripts/check_release.py release
 
-      - uses: actions/upload-artifact@v4
+      - name: Upload native release files
+        uses: actions/upload-artifact@v4
         with:
           name: OneAgent-${{ matrix.os }}-technical-preview-unsigned
           path: release/*
           if-no-files-found: error
+
+      - name: Upload cleanroom evidence
+        if: always() && matrix.os == 'macos-15'
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-arm64-cleanroom-evidence
+          path: build/macos-cleanroom
+          if-no-files-found: ignore
+
+  assemble:
+    name: Assemble release and public site
+    needs: build
+    runs-on: ubuntu-22.04
+    outputs:
+      page_artifact_uploaded: ${{ steps.page_condition.outputs.uploaded }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all native release files
+        uses: actions/download-artifact@v4
+        with:
+          pattern: OneAgent-*-technical-preview-unsigned
+          path: build/native-release
+          merge-multiple: true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+
+      - name: Configure GitHub Pages metadata
+        if: github.event_name == 'workflow_dispatch' && inputs.deploy_pages
+        id: pages
+        uses: actions/configure-pages@v5
+
+      - name: Select immutable release bytes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event_name == 'push' && github.ref_name || inputs.release_tag }}
+          DEPLOY_PAGES: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy_pages || false }}
+        shell: bash
+        run: |
+          rm -rf release
+          mkdir -p release
+          if [[ "$DEPLOY_PAGES" == "true" ]]; then
+            release_state="$(gh release view "$RELEASE_TAG" --json isDraft,isPrerelease --jq '[.isDraft, .isPrerelease] | @tsv')"
+            if [[ "$release_state" != $'false\ttrue' ]]; then
+              echo "Release $RELEASE_TAG must be a published prerelease before the website is deployed." >&2
+              exit 1
+            fi
+            gh release download "$RELEASE_TAG" --dir release
+            rm -f release/release-index.json
+          else
+            cp build/native-release/* release/
+          fi
+
+      - name: Install and test public site
+        working-directory: site
+        run: |
+          npm ci
+          npm test
+
+      - name: Install Chromium for public site checks
+        working-directory: site
+        run: npx playwright install --with-deps chromium
+
+      - name: Run public site browser and accessibility checks
+        working-directory: site
+        run: npm run test:e2e
+
+      - name: Build verified public site
+        working-directory: site
+        env:
+          SITE_URL: ${{ steps.pages.outputs.origin || 'http://localhost:4321' }}
+          BASE_PATH: ${{ steps.pages.outputs.base_path || '/' }}
+          PUBLIC_SUPPORT_URL: ${{ vars.ONEAGENT_PUBLIC_SUPPORT_URL }}
+          PUBLIC_BUSINESS_EMAIL: ${{ vars.ONEAGENT_PUBLIC_BUSINESS_EMAIL }}
+        run: npm run build
+
+      - name: Prepare public release assets
+        run: |
+          python scripts/build_release_index.py \
+            --release-dir release \
+            --channels distribution/channels.json \
+            --output build/release-index.json \
+            --copy-release-assets build/public-release
+
+      - name: Create immutable draft prerelease
+        if: github.event_name == 'push' || inputs.create_draft_release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event_name == 'push' && github.ref_name || inputs.release_tag }}
+        run: |
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            mkdir -p build/existing-release
+            gh release download "$RELEASE_TAG" --dir build/existing-release
+            python - <<'PY'
+          import hashlib
+          import os
+          from pathlib import Path
+
+          expected = Path("build/public-release")
+          existing = Path("build/existing-release")
+          expected_files = {path.name: hashlib.sha256(path.read_bytes()).hexdigest() for path in expected.iterdir() if path.is_file()}
+          existing_files = {path.name: hashlib.sha256(path.read_bytes()).hexdigest() for path in existing.iterdir() if path.is_file()}
+          if expected_files != existing_files:
+              raise SystemExit(
+                  f"Release {os.environ['RELEASE_TAG']} already exists with different assets; bump the version/tag instead of replacing bytes."
+              )
+          print(f"Release {os.environ['RELEASE_TAG']} already contains the exact verified assets; nothing was replaced.")
+          PY
+          else
+            gh release create "$RELEASE_TAG" build/public-release/* \
+              --draft \
+              --prerelease \
+              --target "$GITHUB_SHA" \
+              --title "OneAgent $RELEASE_TAG" \
+              --notes "Unsigned technical preview. Verify platform, architecture and SHA-256 before use."
+          fi
+
+      - name: Mark Pages artifact condition
+        id: page_condition
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ inputs.deploy_pages }}" == "true" ]]; then
+            echo "uploaded=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "uploaded=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload GitHub Pages artifact
+        if: steps.page_condition.outputs.uploaded == 'true'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site/dist
+
+  deploy-pages:
+    name: Deploy verified public site
+    needs: assemble
+    if: needs.assemble.outputs.page_artifact_uploaded == 'true'
+    runs-on: ubuntu-22.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

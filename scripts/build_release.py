@@ -78,21 +78,35 @@ def source_files() -> list[Path]:
         "scripts",
         "packaging",
         "docs",
+        "distribution",
         "tests",
         ".github",
         "frontend/src",
         "frontend/e2e",
         "frontend/dist",
+        "site/src",
+        "site/e2e",
+        "site/scripts",
+        "site/public/images",
         "build/metadata/THIRD_PARTY_NOTICES.md",
         "build/metadata/licenses",
     ]
+    # Directories whose contents a build regenerates. site/src/generated holds
+    # the public release index, which carries the checksums of one machine's
+    # artifacts; shipping it inside the source archive would contradict the
+    # reason ADR-006 generates that file instead of tracking it.
+    excluded = {"__pycache__", "generated"}
     files: list[Path] = []
     for item in roots:
         path = ROOT / item
         if path.is_file():
             files.append(path)
         elif path.exists():
-            files.extend(candidate for candidate in path.rglob("*") if candidate.is_file() and "__pycache__" not in candidate.parts)
+            files.extend(
+                candidate
+                for candidate in path.rglob("*")
+                if candidate.is_file() and not excluded & set(candidate.parts)
+            )
     for item in [
         ".dockerignore",
         "Dockerfile.test",
@@ -105,6 +119,14 @@ def source_files() -> list[Path]:
         "frontend/vite.config.ts",
         "frontend/playwright.config.ts",
         "frontend/index.html",
+        "site/package.json",
+        "site/package-lock.json",
+        "site/tsconfig.json",
+        "site/astro.config.mjs",
+        "site/vitest.config.ts",
+        "site/playwright.config.ts",
+        "site/public/favicon.svg",
+        "site/public/_headers",
     ]:
         path = ROOT / item
         if path.exists():

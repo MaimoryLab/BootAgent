@@ -253,6 +253,32 @@ class ReleasePolicyTests(unittest.TestCase):
         self.assertIn('"Dockerfile.test"', allowlist)
         self.assertIn('".dockerignore"', allowlist)
 
+    def test_source_archive_carries_no_generated_or_installed_files(self):
+        # The allowlist names whole directories and walks them, so adding a root
+        # silently picks up whatever a build left inside it. site/src/generated
+        # holds the public release index, whose checksums describe one machine's
+        # artifacts -- exactly what ADR-006 keeps out of the tree. Asserting on
+        # the resolved file list rather than the source text is what catches it.
+        selected = build_release.source_files()
+        self.assertTrue(selected, "source archive must not be empty")
+        offenders = [
+            str(path.relative_to(ROOT))
+            for path in selected
+            if {"generated", "node_modules", "__pycache__"} & set(path.parts)
+            # public/downloads holds copied release artifacts; the page that
+            # renders them is ordinary source and shares only the word.
+            or path.is_relative_to(ROOT / "site" / "public" / "downloads")
+        ]
+        self.assertEqual(offenders, [])
+        # Nothing in a source archive should be release-sized; a stray artifact
+        # or bundled dependency tree shows up here first.
+        oversized = [
+            f"{path.relative_to(ROOT)} ({path.stat().st_size // 1024} KiB)"
+            for path in selected
+            if path.stat().st_size > 1_000_000
+        ]
+        self.assertEqual(oversized, [])
+
     def test_docker_cleanroom_contract_is_isolated_and_linux_only(self):
         dockerfile = (ROOT / "Dockerfile.test").read_text(encoding="utf-8")
         wrapper = (ROOT / "scripts" / "test_docker_cleanroom.sh").read_text(encoding="utf-8")
