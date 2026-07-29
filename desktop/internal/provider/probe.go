@@ -87,7 +87,7 @@ func (c *Client) Probe(request ProbeRequest) (Verdict, error) {
 			Reachable: true, Protocol: request.Protocol, Status: status,
 			Message: fmt.Sprintf(
 				"Model %s does not support %s. Choose a model that serves this protocol.",
-				pythonRepr(request.Model), label,
+				PythonRepr(request.Model), label,
 			),
 			ErrorCode: "PROTOCOL_UNSUPPORTED",
 		}, nil
@@ -301,7 +301,7 @@ func transportVerdict(err error, models bool) Verdict {
 	return verdict
 }
 
-// pythonRepr renders a string the way Python's %r does, because this text is
+// PythonRepr renders a string the way Python's %r does, because this text is
 // shown to the user and the Python core produced it with an f-string's !r.
 //
 // Four rules, all of them observable in the corpus this is compared against:
@@ -310,7 +310,7 @@ func transportVerdict(err error, models bool) Verdict {
 // and control characters escaped either way. The last two are why this is not a
 // two-line function -- a model id with a backslash in it is unlikely, but so was
 // every other divergence this migration found.
-func pythonRepr(value string) string {
+func PythonRepr(value string) string {
 	quote := byte('\'')
 	if strings.Contains(value, "'") && !strings.Contains(value, `"`) {
 		quote = '"'

@@ -389,8 +389,8 @@ func TestParityTheModelReprInTheMessageMatchesPython(t *testing.T) {
 	}
 	want := runPython(t, "repr(value)", models)
 	for index, model := range models {
-		if got := pythonRepr(model); got != want[index] {
-			t.Errorf("pythonRepr(%q):\n  Go:     %s\n  Python: %s", model, got, want[index])
+		if got := PythonRepr(model); got != want[index] {
+			t.Errorf("PythonRepr(%q):\n  Go:     %s\n  Python: %s", model, got, want[index])
 		}
 	}
 }

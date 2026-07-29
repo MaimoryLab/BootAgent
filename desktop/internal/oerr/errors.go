@@ -47,7 +47,7 @@ func New(code, message string, opts ...Option) *Error {
 		Code:     code,
 		Message:  message,
 		Status:   400,
-		ExitCode: exitCodeFor(code),
+		ExitCode: ExitCodeFor(code),
 	}
 	for _, opt := range opts {
 		opt(err)
@@ -115,7 +115,9 @@ func (e *Error) Payload() map[string]any {
 	}
 }
 
-func exitCodeFor(code string) int {
+// ExitCodeFor is the exit code an error code maps to, for a caller that has a code
+// string rather than an Error -- a probe verdict carries one.
+func ExitCodeFor(code string) int {
 	if value, ok := ExitCodes[code]; ok {
 		return value
 	}

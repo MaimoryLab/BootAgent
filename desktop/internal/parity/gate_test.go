@@ -40,6 +40,10 @@ var expected = map[string]int{
 	// parsed shape -- both implementations have to keep reading each other's
 	// output for as long as the migration lasts.
 	filepath.Join("profile", "store_parity_test.go"): 3,
+	// The orchestration composes everything below it, so this compares the whole
+	// response and every file the run wrote -- including the Agent configs
+	// outside .oneagent, which an earlier scope silently ignored.
+	filepath.Join("app", "install_parity_test.go"): 1,
 }
 
 var testFunc = regexp.MustCompile(`func (Test\w+)`)
