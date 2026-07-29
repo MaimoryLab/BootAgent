@@ -777,6 +777,170 @@ def _next_step(runtime: Runtime, agent_id: str, model: str) -> str:
     return command
 
 
+def _detected(
+    base_url: str = "", model: str = "", managed: bool = False, unreadable: str = ""
+) -> dict[str, Any]:
+    """One Agent's configuration as found on disk.
+
+    Deliberately carries no credential and no hint that one exists. Three of the
+    five config formats hold the key in plain text, so a reader that returned
+    anything about it would put it in /api/status -- and even a boolean would
+    leak whether this machine has a key configured.
+    """
+    return {
+        "baseUrl": base_url,
+        "model": model,
+        "managedByOneAgent": managed,
+        "unreadable": unreadable or None,
+    }
+
+
+def read_codex_config(text: str) -> dict[str, Any]:
+    try:
+        parsed = tomllib.loads(text)
+    except tomllib.TOMLDecodeError as exc:
+        return _detected(unreadable=f"TOML 无法解析：{exc}")
+    providers = parsed.get("model_providers")
+    providers = providers if isinstance(providers, dict) else {}
+    selected = parsed.get("model_provider")
+    # Follow the provider the file actually selects, which is not necessarily
+    # ours: reading [model_providers.oneagent] unconditionally would report a
+    # configuration the Agent is not using.
+    table = providers.get(selected) if isinstance(selected, str) else None
+    base_url = ""
+    if isinstance(table, dict) and isinstance(table.get("base_url"), str):
+        base_url = str(table["base_url"])
+    model = parsed.get("model")
+    return _detected(
+        base_url=base_url,
+        model=str(model) if isinstance(model, str) else "",
+        managed="oneagent" in providers,
+    )
+
+
+def read_claude_config(text: str) -> dict[str, Any]:
+    try:
+        parsed = json.loads(text)
+    except json.JSONDecodeError as exc:
+        return _detected(unreadable=f"JSON 无法解析：{exc}")
+    if not isinstance(parsed, dict):
+        return _detected(unreadable="配置的顶层不是对象")
+    env = parsed.get("env")
+    env = env if isinstance(env, dict) else {}
+    declared = (agent_catalog().get("claude-code") or {}).get("env_vars") or {}
+    base_url = env.get(str(declared.get("base_url", "ANTHROPIC_BASE_URL")))
+    model = env.get(str(declared.get("model", "ANTHROPIC_MODEL")))
+    # Managed means every variable the adapter writes is present; a file holding
+    # only a base URL was configured by someone else.
+    managed = bool(declared) and all(env.get(str(name)) for name in declared.values())
+    return _detected(
+        base_url=str(base_url) if isinstance(base_url, str) else "",
+        model=str(model) if isinstance(model, str) else "",
+        managed=managed,
+    )
+
+
+def read_openai_compatible_config(text: str) -> dict[str, Any]:
+    try:
+        parsed = json.loads(text)
+    except json.JSONDecodeError as exc:
+        # A .jsonc file with comments is valid to its Agent and invalid here.
+        # Say which it is rather than reporting broken JSON.
+        if re.search(r"(?:^|\s)(?://|/\*)", text):
+            return _detected(unreadable="包含 JSONC 注释，OneAgent 不解析")
+        return _detected(unreadable=f"JSON 无法解析：{exc}")
+    if not isinstance(parsed, dict):
+        return _detected(unreadable="配置的顶层不是对象")
+    providers = parsed.get("provider")
+    providers = providers if isinstance(providers, dict) else {}
+    model = parsed.get("model")
+    model = str(model) if isinstance(model, str) else ""
+    # model is "<provider>/<model>"; the provider half names which table below
+    # holds the endpoint, so it selects rather than decorates.
+    selected, _, bare_model = model.partition("/")
+    table = providers.get(selected) if selected else None
+    base_url = ""
+    if isinstance(table, dict):
+        options = table.get("options")
+        if isinstance(options, dict) and isinstance(options.get("baseURL"), str):
+            base_url = str(options["baseURL"])
+    return _detected(
+        base_url=base_url,
+        model=bare_model or model,
+        managed="oneagent" in providers,
+    )
+
+
+def read_aider_config(text: str) -> dict[str, Any]:
+    """Parse the shell/PowerShell script the Aider adapter writes.
+
+    Parsed line by line and never executed: this file is written with the key in
+    it, and running it would both leak the credential into the environment and
+    hand arbitrary shell from a user-editable file to the interpreter.
+
+    managedByOneAgent is always False here, and that is deliberate. The other
+    four Agents keep their config where they look for it, so a OneAgent-shaped
+    marker inside it distinguishes our write from someone else's. Aider's config
+    is a script under ~/.oneagent that only exists because we created it, and its
+    whole content is the two exports -- there is no marker that a hand-written
+    equivalent would not also have. Claiming to tell them apart would be a guess.
+    """
+    base_url = ""
+    for line in text.splitlines():
+        match = re.match(
+            r"^(?:export\s+OPENAI_API_BASE=|\$env:OPENAI_API_BASE\s*=\s*)(.+)$", line.strip()
+        )
+        if match:
+            raw = match.group(1).strip()
+            if len(raw) >= 2 and raw[0] == raw[-1] and raw[0] in "'\"":
+                raw = raw[1:-1].replace("''", "'")
+            base_url = raw
+    return _detected(base_url=base_url)
+
+
+_CONFIG_READERS: dict[str, Callable[[str], dict[str, Any]]] = {
+    "codex": read_codex_config,
+    "claude-code": read_claude_config,
+    "opencode": read_openai_compatible_config,
+    "kilo-cli": read_openai_compatible_config,
+    "aider": read_aider_config,
+}
+
+
+def detect_agent_config(runtime: Runtime, meta: dict[str, Any]) -> dict[str, Any] | None:
+    """What this Agent is configured to use, read from its own config file.
+
+    Separate from the per-Agent binding OneAgent keeps: the binding is our own
+    bookkeeping and only exists for configurations we wrote. A user who
+    configured Codex by hand, or with another tool, had status report
+    configured=True with provider, model and baseUrl all null -- the file was
+    seen but never read.
+
+    Returns None when there is nothing to report, and never raises: a config
+    edited into invalid TOML used to make the whole status request fail, which
+    blanked the entire UI over one broken file.
+    """
+    if meta.get("config_mode") != "auto":
+        return None
+    reader = _CONFIG_READERS.get(str(meta.get("config_adapter")))
+    if reader is None:
+        return _detected(unreadable="没有可用的配置解析器")
+    path = _config_path(runtime, meta)
+    if path is None or not path.is_file():
+        return None
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except OSError as exc:
+        # Report the reason, not the contents.
+        return _detected(unreadable=f"无法读取：{exc.strerror or exc}")
+    if not text.strip():
+        return _detected(unreadable="配置文件为空")
+    try:
+        return reader(text)
+    except Exception:  # noqa: BLE001 - a reader must not be able to break status
+        return _detected(unreadable="配置解析失败")
+
+
 def _write_agent_config(
     runtime: Runtime,
     agent_id: str,
@@ -1543,6 +1707,11 @@ def status_payload(runtime: Runtime | None = None) -> dict[str, Any]:
             "model": binding.get("model") if binding else None,
             "baseUrl": binding.get("base_url") if binding else None,
             "updatedAt": binding.get("updated_at") if binding else None,
+            # What the Agent's own config file says, alongside the binding rather
+            # than instead of it: a disagreement between the two is itself the
+            # thing worth showing, since it means the config changed outside
+            # OneAgent.
+            "detected": detect_agent_config(runtime, meta),
         }
     profile, profile_error = load_profile(runtime)
     profiles = [public_profile_summary(item) for item in list_profiles(runtime)]

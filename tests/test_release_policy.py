@@ -365,6 +365,30 @@ class ReleasePolicyTests(unittest.TestCase):
         self.assertIn("tests/real_install_test.sh", rc)
         self.assertIn("scripts/verify_locked_agents.py", rc)
 
+    def test_existing_configuration_is_exercised_in_both_cleanrooms(self):
+        # Every cleanroom stage starts from an empty HOME, so a machine that
+        # already has Agent configuration -- the normal case for a tool meant to
+        # manage them over time -- had no coverage anywhere. That is the state
+        # status_payload used to report as configured with a null provider.
+        container = (ROOT / "scripts" / "run_container_cleanroom.sh").read_text(encoding="utf-8")
+        macos = (ROOT / "tests" / "macos_cleanroom_test.sh").read_text(encoding="utf-8")
+        ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+        self.assertIn("tests/existing_config_test.sh", container)
+        self.assertIn("tests/existing_config_test.sh", macos)
+        self.assertIn("tests.test_config_discovery", ci)
+
+    def test_config_readers_never_extract_a_credential(self):
+        # Three of the five formats hold the key in plain text next to the
+        # endpoint, so a reader that reached for one field too many would put it
+        # straight into /api/status.
+        source = (ROOT / "oneagent" / "installer.py").read_text(encoding="utf-8")
+        readers = source.split("def _detected(", 1)[1].split("def _write_agent_config", 1)[0]
+        for forbidden in ["AUTH_TOKEN", "API_KEY", "apiKey", "api_key", "hasKey"]:
+            with self.subTest(field=forbidden):
+                # env_key is the variable *name* Codex reads from, not a value.
+                cleaned = readers.replace('"env_key"', "").replace("env_key", "")
+                self.assertNotIn(forbidden, cleaned)
+
     def test_mirrors_are_public_read_only_registries_not_our_own_storage(self):
         # An authorised mirror is permitted; redistributing a proprietary Agent
         # from storage we run is not. Enforced here as well as in the install

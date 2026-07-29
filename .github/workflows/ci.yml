@@ -76,7 +76,7 @@ jobs:
         run: |
           mkdir -p build/coverage
           coverage erase
-          coverage run --branch -m unittest tests.test_core tests.test_cli tests.test_server tests.test_release_policy tests.test_distribution_data tests.test_edge_cases tests.test_rc_scripts tests.test_install_contract
+          coverage run --branch -m unittest tests.test_core tests.test_cli tests.test_server tests.test_release_policy tests.test_distribution_data tests.test_edge_cases tests.test_rc_scripts tests.test_install_contract tests.test_config_discovery
           coverage report --fail-under=85
           coverage json
           python -c "import json, os; files = json.load(open('build/coverage/coverage.json', encoding='utf-8'))['files']; normalized = {key.replace(os.sep, '/'): value for key, value in files.items()}; summary = normalized['oneagent/installer.py']['summary']; assert summary['percent_branches_covered'] == 100 and summary['num_partial_branches'] == 0, summary"

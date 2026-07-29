@@ -229,6 +229,10 @@ clean_env "$PYTHON_BIN" -m unittest \
   tests.test_core tests.test_cli tests.test_server tests.test_edge_cases \
   > "$ARTIFACT_DIR/python-contracts.log" 2>&1
 clean_env /bin/bash tests/install_test.sh > "$ARTIFACT_DIR/bash-contracts.log" 2>&1
+# Every stage above starts from an empty HOME, so a machine that already has
+# Agent configuration on it -- the normal case for a tool meant to manage them
+# over time -- was never exercised here.
+clean_env /bin/bash tests/existing_config_test.sh > "$ARTIFACT_DIR/existing-config.log" 2>&1
 clean_env "$PYTHON_BIN" tests/gui_smoke_test.py > "$ARTIFACT_DIR/gui-smoke.log" 2>&1
 
 for agent in codex claude-code opencode kilo-cli aider; do

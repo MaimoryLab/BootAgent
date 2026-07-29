@@ -158,6 +158,7 @@ run_stage python-contracts bash -c '
 '
 
 run_stage bash-compatibility bash tests/install_test.sh
+run_stage existing-config bash tests/existing_config_test.sh
 run_stage gui-smoke python3.12 tests/gui_smoke_test.py
 
 run_stage react-coverage bash -c 'cd frontend && npm run test:coverage'
