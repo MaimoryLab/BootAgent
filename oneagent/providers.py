@@ -323,13 +323,18 @@ def list_models(
         finally:
             if isinstance(exc, HTTPError):
                 exc.close()
-    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        # The parser's own wording is left out. json reports a position rather
+        # than the content, so nothing leaked -- but Go's decoder words it
+        # differently and quotes the offending byte, so keeping the detail would
+        # either be a permanent difference between the two implementations or a
+        # message that republishes part of a body from an endpoint the user named.
         return {
             "ok": False,
             "reachable": True,
             "models": [],
             "status": 200,
-            "message": f"Model list response is not valid JSON: {exc}",
+            "message": "Model list response is not valid JSON.",
             "error_code": "MODELS_UNSUPPORTED",
             "retryable": False,
         }

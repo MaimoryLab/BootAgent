@@ -19,10 +19,14 @@ import (
 // number each must hold. Adding a parity file means adding a line here; that is
 // the point, because the alternative is a gate that silently stops covering it.
 var expected = map[string]int{
-	filepath.Join("oerr", "codes_parity_test.go"):       3,
-	filepath.Join("runtime", "home_parity_test.go"):     2,
-	filepath.Join("catalog", "embed_parity_test.go"):    6,
-	filepath.Join("provider", "urls_parity_test.go"):    9,
+	filepath.Join("oerr", "codes_parity_test.go"):    3,
+	filepath.Join("runtime", "home_parity_test.go"):  2,
+	filepath.Join("catalog", "embed_parity_test.go"): 6,
+	filepath.Join("provider", "urls_parity_test.go"): 9,
+	// The probe classification decides what advice the wizard gives, so these
+	// drive both implementations over the same canned responses rather than
+	// reaching a provider -- the regular CI run touches no network.
+	filepath.Join("provider", "probe_parity_test.go"):   4,
 	filepath.Join("shellquote", "quote_parity_test.go"): 5,
 	// The byte comparison the migration's stop-loss checkpoint depends on.
 	filepath.Join("securefs", "bytes_parity_test.go"):     4,

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -82,6 +83,26 @@ GO_MODULE_LICENSES = {
 }
 
 
+def _module_cache() -> Path:
+    """Where Go keeps downloaded modules, asked of the toolchain when present.
+
+    `go` is not necessarily on PATH -- it is installed through mise here, and a
+    release build may run without it -- so a missing toolchain falls back to the
+    documented default rather than failing. The license files still have to be
+    found for the notice to be complete, which is what the release test asserts;
+    this only decides where to look.
+    """
+    tool = shutil.which("go")
+    if tool:
+        result = subprocess.run([tool, "env", "GOMODCACHE"], capture_output=True, text=True, check=False)
+        if result.returncode == 0 and result.stdout.strip():
+            return Path(result.stdout.strip())
+    gopath = os.environ.get("GOPATH")
+    if gopath:
+        return Path(gopath) / "pkg" / "mod"
+    return Path.home() / "go" / "pkg" / "mod"
+
+
 def go_modules(license_dir: Path) -> list[dict[str, str]]:
     """List the Go modules linked into the desktop binary, read from go.mod.
 
@@ -97,12 +118,7 @@ def go_modules(license_dir: Path) -> list[dict[str, str]]:
     if not go_mod.exists():
         return []
     modules: list[dict[str, str]] = []
-    cache = Path(
-        subprocess.run(
-            ["go", "env", "GOMODCACHE"], capture_output=True, text=True, check=False
-        ).stdout.strip()
-        or "~/go/pkg/mod"
-    ).expanduser()
+    cache = _module_cache()
     for match in re.finditer(
         r"^\s*(\S+)\s+(v\S+)$", go_mod.read_text(encoding="utf-8"), re.MULTILINE
     ):
