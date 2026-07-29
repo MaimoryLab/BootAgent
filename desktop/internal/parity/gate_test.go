@@ -44,6 +44,10 @@ var expected = map[string]int{
 	// response and every file the run wrote -- including the Agent configs
 	// outside .oneagent, which an earlier scope silently ignored.
 	filepath.Join("app", "install_parity_test.go"): 1,
+	// The status payload is what the entire frontend reads, and the one response
+	// that must be provably free of credential material -- three of the five config
+	// formats hold the key in plain text and this payload reports on all of them.
+	filepath.Join("app", "status_parity_test.go"): 2,
 }
 
 var testFunc = regexp.MustCompile(`func (Test\w+)`)

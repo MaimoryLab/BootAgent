@@ -14,6 +14,8 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/MaimoryLab/OneAgent/desktop/internal/jsonorder"
+
 	"github.com/MaimoryLab/OneAgent/desktop/internal/oerr"
 )
 
@@ -137,6 +139,16 @@ type Manifest struct {
 	OneAgentVersion string           `json:"oneagent_version"`
 	GeneratedAt     string           `json:"generated_at"`
 	Agents          map[string]Agent `json:"agents"`
+	// declared is the order the manifest lists the Agents in, which a Go map does
+	// not keep. Python iterates the parsed dict, so this is the order that reaches
+	// the status payload's supportedAgentIds -- and it is not the rank order the
+	// catalog is sorted by, so the two cannot share one accessor.
+	declared []string
+}
+
+// DeclaredIDs lists the Agents in the order the manifest declares them.
+func (m *Manifest) DeclaredIDs() []string {
+	return append([]string{}, m.declared...)
 }
 
 // Parse reads a manifest from bytes and refuses anything it cannot fully
@@ -149,7 +161,30 @@ func Parse(raw []byte) (*Manifest, error) {
 	if manifest.SchemaVersion != SchemaVersion || len(manifest.Agents) == 0 {
 		return nil, oerr.New("INVALID_REQUEST", "Unsupported Agent lock manifest schema")
 	}
+	declared, err := declaredAgentOrder(raw)
+	if err != nil {
+		return nil, err
+	}
+	manifest.declared = declared
 	return &manifest, nil
+}
+
+// declaredAgentOrder reads the agent keys in the order the file lists them.
+//
+// jsonorder already decodes order-preserving JSON for the config adapters, so this
+// reuses it rather than hand-walking tokens: the first version of this function did
+// walk them, and it was 90 lines of skip-the-nested-value logic to answer one
+// question the existing decoder already answers.
+func declaredAgentOrder(raw []byte) ([]string, error) {
+	document, err := jsonorder.Parse(raw)
+	if err != nil {
+		return nil, oerr.Newf("INVALID_REQUEST", "Cannot read the Agent lock manifest: %v", err)
+	}
+	agents, present := document.GetObject("agents")
+	if !present {
+		return nil, oerr.New("INVALID_REQUEST", "Agent lock manifest declares no agents object")
+	}
+	return agents.Keys(), nil
 }
 
 // Load returns the embedded manifest. Parsed once: it cannot change at runtime,

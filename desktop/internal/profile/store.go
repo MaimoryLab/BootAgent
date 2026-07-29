@@ -11,6 +11,26 @@ import (
 	"github.com/MaimoryLab/OneAgent/desktop/internal/oerr"
 )
 
+// invalidJSONReason is what a corrupt file reports.
+//
+// The decoder's own wording is left out: it reaches the UI through the status
+// payload, and Go and Python word it differently -- `invalid character 'n'` against
+// `Expecting property name enclosed in double quotes`. The same decision as in the
+// config readers, and for one of the same reasons. The text is Chinese because it is
+// user-visible, matching the readers' messages.
+const invalidJSONReason = "文件不是有效的 JSON"
+
+// osReason renders a filesystem failure the way Python reports strerror: the
+// reason without the path, which the caller already knows. Unlike a parser message
+// this carries no file content, so it is kept.
+func osReason(err error) string {
+	var pathErr *os.PathError
+	if errors.As(err, &pathErr) {
+		return pathErr.Err.Error()
+	}
+	return err.Error()
+}
+
 // storeSchema is the current stored-profile version. Version 1 was a single
 // profile.json holding the profile itself; version 2 made that file a pointer
 // into profiles/ so more than one profile can exist.
@@ -29,11 +49,11 @@ func (s *Store) ReadStored(profileID string) (*jsonorder.Object, string, error) 
 		if os.IsNotExist(readErr) {
 			return nil, "Profile " + profileID + " is missing", nil
 		}
-		return nil, readErr.Error(), nil
+		return nil, osReason(readErr), nil
 	}
 	value, parseErr := jsonorder.Parse(raw)
 	if parseErr != nil {
-		return nil, parseErr.Error(), nil
+		return nil, invalidJSONReason, nil
 	}
 	return value, "", nil
 }
@@ -116,11 +136,11 @@ func (s *Store) Load() (*jsonorder.Object, string, error) {
 		if os.IsNotExist(readErr) {
 			return nil, "", nil
 		}
-		return nil, readErr.Error(), nil
+		return nil, osReason(readErr), nil
 	}
 	value, parseErr := jsonorder.Parse(raw)
 	if parseErr != nil {
-		return nil, parseErr.Error(), nil
+		return nil, invalidJSONReason, nil
 	}
 	schema, _ := value.Get("schema_version")
 	if isSchema(schema, 1) {

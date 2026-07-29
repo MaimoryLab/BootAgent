@@ -23,6 +23,8 @@ from oneagent.installer import (
     list_agent_bindings,
     load_profile,
     read_agent_binding,
+    _read_stored_profile,
+    profile_path,
     read_profile_secret,
     redact,
     save_profile,
@@ -356,7 +358,11 @@ class AgentActivationTests(unittest.TestCase):
             directory.mkdir(parents=True)
 
             for content, expected in (
-                ("{", "Expecting"),
+                # The category, not the decoder's wording: this reason reaches the
+                # UI through the status payload, and json and Go's decoder word it
+                # differently. Asserting "Expecting" here was asserting a message
+                # that could not be reproduced across the two implementations.
+                ("{", "文件不是有效的 JSON"),
                 ("[]", "corrupt"),
                 ('{"schema_version":9}', "Unsupported"),
             ):
@@ -375,6 +381,32 @@ class AgentActivationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             # No directory at all is not an error either.
             self.assertEqual(list_agent_bindings(self._runtime(tmp)), {})
+
+    def test_a_file_that_cannot_be_read_reports_the_os_reason_not_a_parse_error(self):
+        # A permission failure and a corrupt file are different problems with
+        # different fixes, and they used to share one except clause. The OS reason
+        # is kept because it names the cause and carries no file content -- unlike a
+        # parser message, which is why only that one is dropped.
+        with tempfile.TemporaryDirectory() as tmp:
+            runtime = self._runtime(tmp)
+            agents = Path(tmp) / ".oneagent" / "agents"
+            agents.mkdir(parents=True)
+            (agents / "codex.json").write_text('{"schema_version":1}', encoding="utf-8")
+            profiles = Path(tmp) / ".oneagent" / "profiles"
+            profiles.mkdir(parents=True)
+            (profiles / "default.json").write_text('{"id":"default"}', encoding="utf-8")
+            profile_path(runtime).write_text('{"schema_version":2,"active":"default"}', encoding="utf-8")
+
+            with patch.object(Path, "read_text", side_effect=OSError(13, "Permission denied")):
+                for label, call in (
+                    ("binding", lambda: read_agent_binding(runtime, "codex")),
+                    ("stored profile", lambda: _read_stored_profile(runtime, "default")),
+                    ("active profile", lambda: load_profile(runtime)),
+                ):
+                    with self.subTest(target=label):
+                        value, error = call()
+                        self.assertIsNone(value)
+                        self.assertEqual(error, "Permission denied")
 
     def test_restart_hint_covers_every_managed_agent(self):
         with tempfile.TemporaryDirectory() as tmp:

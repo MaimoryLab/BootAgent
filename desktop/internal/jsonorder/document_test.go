@@ -297,3 +297,38 @@ func TestSortedKeysIsAvailableForDiagnosticsWithoutAffectingOutput(t *testing.T)
 		t.Errorf("SortedKeys mutated the object: %s", got)
 	}
 }
+
+func TestAnObjectNestedInAStructEncodesItsContents(t *testing.T) {
+	// The failure this exists for: the fields are unexported, so without a
+	// MarshalJSON encoding/json finds nothing to serialise and emits {} rather than
+	// failing. An Object reached the status payload through a struct field and every
+	// stored profile came out empty, which read as a migration bug.
+	object := NewObject()
+	object.Set("second", "b")
+	object.Set("first", "a")
+
+	var wrapper struct {
+		Profile *Object `json:"profile"`
+		Absent  *Object `json:"absent"`
+	}
+	wrapper.Profile = object
+
+	encoded, err := json.Marshal(wrapper)
+	if err != nil {
+		t.Fatalf("cannot encode: %v", err)
+	}
+	text := string(encoded)
+	for _, fragment := range []string{`"second"`, `"b"`, `"first"`, `"a"`} {
+		if !strings.Contains(text, fragment) {
+			t.Errorf("the nested object lost %s: %s", fragment, text)
+		}
+	}
+	// Insertion order survives the nesting, which is the whole point of the type.
+	if strings.Index(text, "second") > strings.Index(text, `"first"`) {
+		t.Errorf("keys were reordered: %s", text)
+	}
+	// A nil object encodes as null rather than panicking.
+	if !strings.Contains(text, `"absent":null`) {
+		t.Errorf("a nil object did not encode as null: %s", text)
+	}
+}

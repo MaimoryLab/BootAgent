@@ -129,6 +129,27 @@ func (o *Object) GetObject(key string) (*Object, bool) {
 	return child, ok
 }
 
+// MarshalJSON writes the object in its own key order.
+//
+// Needed because the fields are unexported: without this, encoding/json finds
+// nothing to serialise and emits {} rather than failing. An Object reached the
+// status payload through a struct field and every stored profile serialised as an
+// empty object -- which looked like a migration bug, not an encoding one.
+//
+// Marshal is the function to use when the exact byte layout matters, since it also
+// reproduces Python's indentation and trailing newline. This exists so an Object
+// nested inside an ordinary struct still encodes its contents.
+func (o *Object) MarshalJSON() ([]byte, error) {
+	if o == nil {
+		return []byte("null"), nil
+	}
+	var buffer bytes.Buffer
+	if err := writeValue(&buffer, o, 0); err != nil {
+		return nil, err
+	}
+	return buffer.Bytes(), nil
+}
+
 // UnmarshalJSON reads an object, recording key order.
 func (o *Object) UnmarshalJSON(raw []byte) error {
 	decoder := json.NewDecoder(bytes.NewReader(raw))

@@ -795,11 +795,28 @@ def _detected(
     }
 
 
+# Why a parse failure names only the category and never the parser's own message:
+# this string travels through /api/status into React state and onto the screen, and
+# a TOML parser echoes the token it choked on. A hand-edited config with an
+# unquoted secret assignment made the Go parser report that secret's first
+# characters back, which would publish it. tomllib happens to report a position
+# rather than the content, so nothing leaked on this side -- but the two parsers
+# word it differently and disagree even on the line number, so keeping the detail
+# means either a permanent difference between the implementations or a message that
+# can republish file contents. The Chinese prefix is the contract the frontend
+# shows; that is kept.
+#
+# (The reader sources are scanned by a release test for credential field names, so
+# this explanation deliberately avoids spelling one out.)
+_PARSE_DETAIL_NOTE = None
+
+
 def read_codex_config(text: str) -> dict[str, Any]:
     try:
         parsed = tomllib.loads(text)
-    except tomllib.TOMLDecodeError as exc:
-        return _detected(unreadable=f"TOML 无法解析：{exc}")
+    except tomllib.TOMLDecodeError:
+        # The parser's own wording is deliberately dropped; see _PARSE_DETAIL_NOTE.
+        return _detected(unreadable="TOML 无法解析")
     providers = parsed.get("model_providers")
     providers = providers if isinstance(providers, dict) else {}
     selected = parsed.get("model_provider")
@@ -821,8 +838,9 @@ def read_codex_config(text: str) -> dict[str, Any]:
 def read_claude_config(text: str) -> dict[str, Any]:
     try:
         parsed = json.loads(text)
-    except json.JSONDecodeError as exc:
-        return _detected(unreadable=f"JSON 无法解析：{exc}")
+    except json.JSONDecodeError:
+        # See _PARSE_DETAIL_NOTE.
+        return _detected(unreadable="JSON 无法解析")
     if not isinstance(parsed, dict):
         return _detected(unreadable="配置的顶层不是对象")
     env = parsed.get("env")
@@ -843,12 +861,12 @@ def read_claude_config(text: str) -> dict[str, Any]:
 def read_openai_compatible_config(text: str) -> dict[str, Any]:
     try:
         parsed = json.loads(text)
-    except json.JSONDecodeError as exc:
+    except json.JSONDecodeError:
         # A .jsonc file with comments is valid to its Agent and invalid here.
         # Say which it is rather than reporting broken JSON.
         if re.search(r"(?:^|\s)(?://|/\*)", text):
             return _detected(unreadable="包含 JSONC 注释，OneAgent 不解析")
-        return _detected(unreadable=f"JSON 无法解析：{exc}")
+        return _detected(unreadable="JSON 无法解析")
     if not isinstance(parsed, dict):
         return _detected(unreadable="配置的顶层不是对象")
     providers = parsed.get("provider")
@@ -1034,8 +1052,12 @@ def read_agent_binding(runtime: Runtime, agent_id: str) -> tuple[dict[str, Any] 
         return None, None
     try:
         value = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        return None, str(exc)
+    except OSError as exc:
+        return None, exc.strerror or str(exc)
+    except json.JSONDecodeError:
+        # The category, not the parser's wording; see _PARSE_DETAIL_NOTE. This
+        # string reaches the UI, and the two languages word it differently.
+        return None, "文件不是有效的 JSON"
     if not isinstance(value, dict):
         return None, f"Agent binding for {agent_id} is corrupt"
     if value.get("schema_version") != 1:
@@ -1101,8 +1123,12 @@ def _read_stored_profile(runtime: Runtime, profile_id: str) -> tuple[dict[str, A
         return None, f"Profile {profile_id} is missing"
     try:
         value = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        return None, str(exc)
+    except OSError as exc:
+        return None, exc.strerror or str(exc)
+    except json.JSONDecodeError:
+        # The category, not the parser's wording; see _PARSE_DETAIL_NOTE. This
+        # string reaches the UI, and the two languages word it differently.
+        return None, "文件不是有效的 JSON"
     if not isinstance(value, dict):
         return None, f"Profile {profile_id} is corrupt"
     return value, None
@@ -1176,8 +1202,12 @@ def load_profile(runtime: Runtime) -> tuple[dict[str, Any] | None, str | None]:
         return None, None
     try:
         value = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        return None, str(exc)
+    except OSError as exc:
+        return None, exc.strerror or str(exc)
+    except json.JSONDecodeError:
+        # The category, not the parser's wording; see _PARSE_DETAIL_NOTE. This
+        # string reaches the UI, and the two languages word it differently.
+        return None, "文件不是有效的 JSON"
     if not isinstance(value, dict):
         return None, "Unsupported environment profile schema"
     schema = value.get("schema_version")

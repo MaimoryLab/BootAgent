@@ -73,11 +73,11 @@ func (s *Store) ReadBinding(agentID string) (*jsonorder.Object, string, error) {
 		if os.IsNotExist(readErr) {
 			return nil, "", nil
 		}
-		return nil, readErr.Error(), nil
+		return nil, osReason(readErr), nil
 	}
 	value, parseErr := jsonorder.Parse(raw)
 	if parseErr != nil {
-		return nil, parseErr.Error(), nil
+		return nil, invalidJSONReason, nil
 	}
 	if schema, _ := value.Get("schema_version"); !isSchema(schema, bindingSchema) {
 		return nil, "Unsupported Agent binding schema for " + agentID, nil
