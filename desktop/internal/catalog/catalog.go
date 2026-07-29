@@ -93,6 +93,15 @@ type Agent struct {
 	ConfigMode    string `json:"config_mode"`
 	ConfigPath    string `json:"config_path"`
 	ConfigAdapter string `json:"config_adapter"`
+	// WindowsConfigPath overrides ConfigPath on Windows. Only Aider declares one
+	// today, but reading it from the manifest is what keeps the exception out of
+	// the code.
+	WindowsConfigPath string `json:"windows_config_path"`
+	// VersionArgs asks the Agent for its version. Declared per Agent because not
+	// every CLI answers --version.
+	VersionArgs []string `json:"version_args"`
+	// Guide is the instruction text shown for a guide-only Agent.
+	Guide any `json:"guide"`
 	// CredentialDelivery decides how the key reaches the Agent, and with it the
 	// start command, the restart hint and whether an env file is written. It is
 	// declared per Agent precisely so none of that is inferred from an id.

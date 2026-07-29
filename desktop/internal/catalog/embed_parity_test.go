@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -183,6 +184,86 @@ print(json.dumps(catalog.public_mirrors()))
 		if mirror.Name != want["name"] || mirror.Note != want["note"] {
 			t.Errorf("mirror %d: user-visible text differs:\n  Go:     %q / %q\n  Python: %q / %q",
 				index, mirror.Name, mirror.Note, want["name"], want["note"])
+		}
+	}
+}
+
+func TestParityEveryManifestKeyIsReadByTheGoStruct(t *testing.T) {
+	// The gap this closes was found by hand: windows_config_path and
+	// version_args were in the manifest and absent from the Go struct, so they
+	// silently read as empty. Identical bytes do not mean identical reads, and
+	// the next omission should fail here rather than surface as an Agent
+	// configured at the wrong path.
+	root := repoRoot(t)
+	script := `
+import json, sys
+sys.path.insert(0, sys.argv[1])
+from oneagent import catalog
+keys = set()
+for meta in catalog.agent_catalog().values():
+    keys |= set(meta)
+print(json.dumps(sorted(keys)))
+`
+	cmd := exec.Command(pythonBin(t), "-c", script, root)
+	cmd.Dir = root
+	output, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("python failed: %v", err)
+	}
+	var manifestKeys []string
+	if err := json.Unmarshal(output, &manifestKeys); err != nil {
+		t.Fatalf("cannot read python output: %v", err)
+	}
+
+	// The JSON tags the Go struct declares.
+	declared := map[string]bool{}
+	agentType := reflect.TypeOf(Agent{})
+	for index := 0; index < agentType.NumField(); index++ {
+		tag := agentType.Field(index).Tag.Get("json")
+		if tag == "" || tag == "-" {
+			continue
+		}
+		declared[strings.Split(tag, ",")[0]] = true
+	}
+	// Package is a nested struct; its keys live under "package".
+	packageType := reflect.TypeOf(Package{})
+	packageKeys := map[string]bool{}
+	for index := 0; index < packageType.NumField(); index++ {
+		tag := packageType.Field(index).Tag.Get("json")
+		if tag != "" && tag != "-" {
+			packageKeys[strings.Split(tag, ",")[0]] = true
+		}
+	}
+
+	for _, key := range manifestKeys {
+		if !declared[key] {
+			t.Errorf("the manifest declares %q but no Go field reads it", key)
+		}
+	}
+
+	// And the package sub-object, checked the same way.
+	packageScript := `
+import json, sys
+sys.path.insert(0, sys.argv[1])
+from oneagent import catalog
+keys = set()
+for meta in catalog.agent_catalog().values():
+    keys |= set(meta.get("package") or {})
+print(json.dumps(sorted(keys)))
+`
+	cmd = exec.Command(pythonBin(t), "-c", packageScript, root)
+	cmd.Dir = root
+	output, err = cmd.Output()
+	if err != nil {
+		t.Fatalf("python failed: %v", err)
+	}
+	var manifestPackageKeys []string
+	if err := json.Unmarshal(output, &manifestPackageKeys); err != nil {
+		t.Fatalf("cannot read python output: %v", err)
+	}
+	for _, key := range manifestPackageKeys {
+		if !packageKeys[key] {
+			t.Errorf("the manifest's package declares %q but no Go field reads it", key)
 		}
 	}
 }
