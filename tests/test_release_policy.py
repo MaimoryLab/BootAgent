@@ -23,6 +23,31 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class ReleasePolicyTests(unittest.TestCase):
+    def test_every_auto_agent_declares_what_the_installer_relies_on(self):
+        # The installer derives the start command, the restart hint and the
+        # credential route from these fields instead of restating them per Agent,
+        # so a missing one is a broken Agent rather than a missing default. The
+        # credential route in particular: Claude Code shipped reported as
+        # configured while starting unauthenticated, because nothing declared
+        # that it only reads its own variable names.
+        manifest = load_manifest()
+        for agent_id, meta in manifest["agents"].items():
+            if meta.get("config_mode") != "auto":
+                continue
+            with self.subTest(agent=agent_id):
+                self.assertTrue(meta.get("command"), f"{agent_id} has no command")
+                self.assertTrue(meta.get("config_path"), f"{agent_id} has no config_path")
+                self.assertTrue(meta.get("config_adapter"), f"{agent_id} has no config_adapter")
+                delivery = meta.get("credential_delivery")
+                self.assertIn(delivery, {"oneagent_env", "native_env", "config_file"})
+                if delivery == "native_env":
+                    # Otherwise the declaration promises native variables and the
+                    # env file would define none of them.
+                    declared = meta.get("env_vars") or {}
+                    self.assertTrue(declared.get("api_key"), f"{agent_id} names no credential variable")
+                    for field, name in declared.items():
+                        self.assertRegex(str(name), r"^[A-Z][A-Z0-9_]*$", f"{agent_id}.{field}")
+
     def test_lock_manifest_never_uses_latest_or_unapproved_manager(self):
         manifest = load_manifest()
         for agent_id, meta in manifest["agents"].items():

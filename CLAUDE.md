@@ -83,7 +83,9 @@ scripts/           gui.py、install.sh/.ps1、build_release.py、check_release.p
 
 ## 常见任务
 
-**新增自动配置 Agent**：`agents.lock.json` 补条目（version/integrity/source/license/platforms/config_adapter）→ 在 `installer.py` 写 `write_*_config` 并注册到 `_write_agent_config` 分派 → 需要环境变量则补 `_next_step` → 更新 `tests/test_core.py` 的适配器断言。
+**新增自动配置 Agent**：`agents.lock.json` 补条目（`command` / `config_path` / `config_adapter` / `credential_delivery` 必填，version/integrity/source/license/platforms 同旧）→ 在 `installer.py` 写 `write_*_config` 并注册到 `_write_agent_config` 分派 → 更新 `tests/test_core.py` 的适配器断言。
+
+`credential_delivery` 决定密钥怎么到达 Agent，取值 `oneagent_env`（配置文件引用 `ONEAGENT_*` 变量）、`native_env`（Agent 只读自己的变量名，需同时给 `env_vars`）、`config_file`（密钥在适配器写的配置里）。**启动命令、重启提示和 env 文件都由此推导，不要在 Python 里按 agent id 特判**——Claude Code 曾因为不在硬编码集合里而报「配置完成」却无法认证。
 
 **新增 Provider**：`catalog.py` 的 `PROVIDERS` 加 `base_url` 与 `anthropic_base_url` → 同步 `frontend/src/types/api.ts` 的 `ProviderId`。
 

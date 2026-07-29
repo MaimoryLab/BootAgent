@@ -9,6 +9,7 @@
       "command": "codex",
       "config_mode": "auto",
       "config_adapter": "codex",
+      "credential_delivery": "oneagent_env",
       "config_path": ".codex/config.toml",
       "package": {
         "manager": "npm",
@@ -35,6 +36,13 @@
       "command": "claude",
       "config_mode": "auto",
       "config_adapter": "claude-code",
+      "credential_delivery": "native_env",
+      "env_vars": {
+        "api_key": "ANTHROPIC_AUTH_TOKEN",
+        "base_url": "ANTHROPIC_BASE_URL",
+        "model": "ANTHROPIC_MODEL",
+        "small_fast_model": "ANTHROPIC_SMALL_FAST_MODEL"
+      },
       "config_path": ".claude/settings.json",
       "package": {
         "manager": "npm",
@@ -64,6 +72,7 @@
       "command": "opencode",
       "config_mode": "auto",
       "config_adapter": "opencode",
+      "credential_delivery": "oneagent_env",
       "config_path": ".config/opencode/opencode.jsonc",
       "package": {
         "manager": "npm",
@@ -91,6 +100,7 @@
       "command": "kilo",
       "config_mode": "auto",
       "config_adapter": "kilo-cli",
+      "credential_delivery": "oneagent_env",
       "config_path": ".config/kilo/kilo.jsonc",
       "package": {
         "manager": "npm",
@@ -117,6 +127,7 @@
       "command": "aider",
       "config_mode": "auto",
       "config_adapter": "aider",
+      "credential_delivery": "config_file",
       "config_path": ".oneagent/aider.env",
       "windows_config_path": ".oneagent/aider.ps1",
       "package": {

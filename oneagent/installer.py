@@ -234,6 +234,17 @@ def agent_env_var(agent_id: str, suffix: str = "API_KEY") -> str:
     return f"ONEAGENT_{suffix}_{stem}"
 
 
+def needs_env_file(meta: dict[str, Any]) -> bool:
+    """Whether this Agent's credential travels through an env file.
+
+    Read from the manifest rather than a set of ids written here: the set had
+    left Claude Code out while it was the one Agent that could not authenticate
+    without one, and nothing in the code said which Agents were meant to be in
+    it or why.
+    """
+    return str(meta.get("credential_delivery", "")) in {"oneagent_env", "native_env"}
+
+
 def agent_env_path(runtime: Runtime, agent_id: str) -> Path:
     name = validate_agent_id(agent_id)
     suffix = "env.ps1" if runtime.os_id == "windows" else "env"
@@ -264,20 +275,49 @@ def write_shared_env(runtime: Runtime, api_key: str, base_url: str) -> Path:
     return path
 
 
-def write_agent_env(runtime: Runtime, agent_id: str, api_key: str, base_url: str) -> Path:
+def write_agent_env(
+    runtime: Runtime,
+    agent_id: str,
+    api_key: str,
+    base_url: str,
+    *,
+    meta: dict[str, Any] | None = None,
+    model: str = "",
+) -> Path:
+    """Write the env file an Agent's credential reaches it through.
+
+    Two shapes, declared per Agent as credential_delivery in the lock manifest:
+
+    oneagent_env -- the config file this adapter wrote references ONEAGENT_*
+    names (Codex's env_key, OpenCode's {env:...}), so those are what the file
+    has to define.
+
+    native_env -- the Agent only reads variable names it defines itself. Claude
+    Code is the case that proves this matters: it ignores the credential in its
+    own settings.json and answers "Not logged in" until ANTHROPIC_AUTH_TOKEN is
+    in the environment. Writing only ONEAGENT_* for it produced an Agent that
+    OneAgent reported as configured and that could not authenticate.
+    """
     path = agent_env_path(runtime, agent_id)
-    content = _env_assignments(
-        runtime,
-        {
-            agent_env_var(agent_id): api_key,
-            agent_env_var(agent_id, "API_BASE_URL"): base_url,
-            # Also define the shared names so a shell that sources only this
-            # file still satisfies a config written before per-Agent variables.
-            "ONEAGENT_API_KEY": api_key,
-            "ONEAGENT_API_BASE_URL": base_url,
-        },
-    )
-    atomic_write(runtime, path, content, secret=True)
+    values = {
+        agent_env_var(agent_id): api_key,
+        agent_env_var(agent_id, "API_BASE_URL"): base_url,
+        # Also define the shared names so a shell that sources only this
+        # file still satisfies a config written before per-Agent variables.
+        "ONEAGENT_API_KEY": api_key,
+        "ONEAGENT_API_BASE_URL": base_url,
+    }
+    native = (meta or {}).get("env_vars") or {}
+    if native:
+        # The Agent's own names, so sourcing this file is enough to start it.
+        for field, value in (("api_key", api_key), ("base_url", base_url), ("model", model)):
+            name = native.get(field)
+            if name and value:
+                values[str(name)] = value
+        small_fast = native.get("small_fast_model")
+        if small_fast and model:
+            values[str(small_fast)] = model
+    atomic_write(runtime, path, _env_assignments(runtime, values), secret=True)
     return path
 
 
@@ -682,21 +722,39 @@ def install_locked_agent(
 
 
 def _next_step(runtime: Runtime, agent_id: str, model: str) -> str:
+    """The command that starts this Agent against what was just written.
+
+    Derived from the manifest -- the command name and whether a credential
+    arrives through an env file are both declared there. Spelling the commands
+    out here meant Claude Code's line said plain "claude" while its credential
+    sat in a file nothing told the user to source.
+    """
+    meta = agent_catalog().get(agent_id)
+    if not meta or meta.get("config_mode") != "auto":
+        return ""
+    # Every auto Agent has a command; test_release_policy holds the manifest to
+    # that, so this does not need a second guard here.
+    command = str(meta["command"])
     # Each Agent sources its own file, so two Agents pointing at different
     # providers do not overwrite each other's credential in one shell.
-    if runtime.os_id == "windows":
-        env = f'. "$HOME\\.oneagent\\agents\\{agent_id}.env.ps1"'
-        aider_env = '. "$HOME\\.oneagent\\aider.ps1"'
-    else:
-        env = f"source ~/.oneagent/agents/{agent_id}.env"
-        aider_env = "source ~/.oneagent/aider.env"
-    return {
-        "codex": f"{env}; codex" if runtime.os_id == "windows" else f"{env} && codex",
-        "claude-code": "claude",
-        "opencode": f"{env}; opencode" if runtime.os_id == "windows" else f"{env} && opencode",
-        "kilo-cli": f"{env}; kilo" if runtime.os_id == "windows" else f"{env} && kilo",
-        "aider": f"{aider_env}; aider --model openai/{model}" if runtime.os_id == "windows" else f"{aider_env} && aider --model openai/{model}",
-    }.get(agent_id, "")
+    joiner = ";" if runtime.os_id == "windows" else "&&"
+    if agent_id == "aider":
+        # Aider's credential is the config the adapter writes, which is itself a
+        # shell script, and the model is a launch argument rather than a field.
+        source = (
+            '. "$HOME\\.oneagent\\aider.ps1"'
+            if runtime.os_id == "windows"
+            else "source ~/.oneagent/aider.env"
+        )
+        return f"{source} {joiner} {command} --model openai/{model}"
+    if needs_env_file(meta):
+        source = (
+            f'. "$HOME\\.oneagent\\agents\\{agent_id}.env.ps1"'
+            if runtime.os_id == "windows"
+            else f"source ~/.oneagent/agents/{agent_id}.env"
+        )
+        return f"{source} {joiner} {command}"
+    return command
 
 
 def _write_agent_config(
@@ -1134,9 +1192,16 @@ def install_many(options: InstallOptions, runtime: Runtime | None = None) -> dic
             raise OneAgentError("INVALID_REQUEST", "API key is required")
         base_url = provider_base(options.provider, options.api_base_url)
         provider_name = PROVIDERS.get(options.provider, {"name": "Custom"})["name"]
-        env_agents = [agent for agent in auto_agents if agent in {"codex", "opencode", "kilo-cli"}]
+        env_agents = [agent for agent in auto_agents if needs_env_file(catalog[agent])]
         for agent in env_agents:
-            write_agent_env(runtime, agent, options.api_key, base_url)
+            write_agent_env(
+                runtime,
+                agent,
+                options.api_key,
+                base_url,
+                meta=catalog[agent],
+                model=options.model,
+            )
         if env_agents:
             # Configs written by earlier versions still name ONEAGENT_API_KEY.
             # Keep the shared file until those have been rewritten.
@@ -1332,11 +1397,19 @@ def _restart_hint(agent_id: str) -> str:
     already-running process. Saying "activated" without this is how a user
     concludes the switch silently failed.
     """
-    command = {"codex": "codex", "claude-code": "claude", "opencode": "opencode", "kilo-cli": "kilo"}.get(agent_id)
-    if agent_id == "aider":
-        return "Restart aider in a shell that sources ~/.oneagent/aider.env"
+    meta = agent_catalog().get(agent_id) or {}
+    command = str(meta.get("command", ""))
     if not command:
         return f"Restart {agent_id}"
+    if agent_id == "aider":
+        return f"Restart {command} in a shell that sources ~/.oneagent/aider.env"
+    if needs_env_file(meta):
+        # Restarting alone is not enough when the credential lives in a file:
+        # the new shell has to source it, or the Agent starts unauthenticated.
+        return (
+            f"Quit any running {command} process, then start it again in a shell that sources "
+            f"~/.oneagent/agents/{agent_id}.env"
+        )
     return f"Quit any running {command} process, then start it again"
 
 
@@ -1372,8 +1445,15 @@ def activate_agent(
     provider_name = PROVIDERS.get(provider, {"name": "Custom"})["name"]
     config_base_url = provider_config_base(provider, api_base_url, str(meta["config_adapter"]))
 
-    if agent_id in {"codex", "opencode", "kilo-cli"}:
-        write_agent_env(runtime, agent_id, api_key, provider_base(provider, api_base_url))
+    if needs_env_file(meta):
+        write_agent_env(
+            runtime,
+            agent_id,
+            api_key,
+            provider_base(provider, api_base_url),
+            meta=meta,
+            model=resolved_model,
+        )
     config_path = _write_agent_config(
         runtime, agent_id, meta, provider_name, config_base_url, api_key, resolved_model
     )

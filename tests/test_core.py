@@ -597,6 +597,9 @@ class InstallerContractTests(unittest.TestCase):
             # compatibility copy for configs written before that split. The
             # per-profile secret store (ADR-006) holds a copy so profiles can
             # be re-activated without re-pasting the key.
+            # Claude Code has an env file for the same reason, plus one of its
+            # own: it ignores the credential in its settings.json and starts
+            # unauthenticated unless ANTHROPIC_AUTH_TOKEN is in the environment.
             self.assertEqual(
                 leaked,
                 {
@@ -604,6 +607,7 @@ class InstallerContractTests(unittest.TestCase):
                     ".oneagent/agents/codex.env",
                     ".oneagent/agents/opencode.env",
                     ".oneagent/agents/kilo-cli.env",
+                    ".oneagent/agents/claude-code.env",
                     ".claude/settings.json",
                     ".oneagent/aider.env",
                     ".oneagent/secrets/default.env",

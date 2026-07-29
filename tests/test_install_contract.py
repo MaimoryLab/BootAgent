@@ -24,9 +24,13 @@ from oneagent.errors import OneAgentError
 from oneagent.installer import (
     InstallOptions,
     Runtime,
+    _next_step,
+    _restart_hint,
     install_locked_agent,
     install_many,
+    needs_env_file,
     resolve_registry,
+    write_agent_env,
 )
 
 
@@ -182,6 +186,205 @@ class InstallCommandTests(unittest.TestCase):
         self.assertEqual(argv[:4], ["/usr/bin/uv", "tool", "install", "--force"])
         self.assertIn("--no-python-downloads", argv)
         self.assertTrue(argv[-1].startswith("aider-chat=="))
+
+
+class CredentialDeliveryTests(unittest.TestCase):
+    """Every auto Agent must have a credential route that actually works.
+
+    Claude Code was reported as `configured` while starting with "Not logged in":
+    its credential went only into settings.json, which it ignores. Nothing in the
+    suite could see that, because no test asked how a credential was supposed to
+    reach an Agent -- only that a file had been written.
+    """
+
+    def configure(self, tmp: str, agents: list[str], *, model: str = "m"):
+        runtime = Runtime(
+            home=Path(tmp),
+            os_id="linux",
+            runner=RecordingRunner(),
+            which=lambda name: f"/usr/bin/{name}",
+            env={},
+        )
+        result = install_many(
+            InstallOptions(
+                agents=agents,
+                provider="ppio",
+                api_key="K-DELIVERY",
+                model=model,
+                configure=True,
+                skip_test=True,
+                home=Path(tmp),
+                os_id="linux",
+            ),
+            runtime,
+        )
+        self.assertTrue(result["ok"], result)
+        return result
+
+    def test_every_auto_agent_declares_how_its_credential_arrives(self):
+        # An Agent with no declaration silently gets no env file, which is the
+        # exact shape of the Claude Code defect.
+        for agent_id, meta in agent_catalog().items():
+            if meta.get("config_mode") != "auto":
+                continue
+            with self.subTest(agent=agent_id):
+                self.assertIn(
+                    meta.get("credential_delivery"),
+                    {"oneagent_env", "native_env", "config_file"},
+                    f"{agent_id} does not declare credential_delivery",
+                )
+
+    def test_an_agent_reading_only_its_own_variables_gets_them(self):
+        # Claude Code is this case. The env file has to define the names the
+        # Agent itself reads, not just OneAgent's own.
+        with tempfile.TemporaryDirectory() as tmp:
+            self.configure(tmp, ["claude-code"], model="claude-model")
+            env_file = Path(tmp) / ".oneagent" / "agents" / "claude-code.env"
+            self.assertTrue(env_file.is_file(), "claude-code got no env file")
+            content = env_file.read_text(encoding="utf-8")
+            declared = agent_catalog()["claude-code"]["env_vars"]
+            for name in declared.values():
+                self.assertIn(f"export {name}=", content, f"{name} missing from the env file")
+            self.assertIn("K-DELIVERY", content)
+            self.assertIn("claude-model", content)
+
+    def test_the_start_command_sources_the_file_holding_the_credential(self):
+        # Telling the user to run plain `claude` while the credential sits in a
+        # file nothing sources is how the original defect reached them.
+        with tempfile.TemporaryDirectory() as tmp:
+            result = self.configure(tmp, ["claude-code"])
+            self.assertIn("source ~/.oneagent/agents/claude-code.env", result["next"])
+            self.assertIn("claude", result["next"])
+
+    def test_each_auto_agent_has_a_credential_route_after_configuring(self):
+        # The general form of the defect: for every Agent, the key must be
+        # reachable either from its env file or from the config the adapter
+        # wrote. Neither means the Agent cannot authenticate.
+        catalog = agent_catalog()
+        auto = [agent for agent, meta in catalog.items() if meta.get("config_mode") == "auto"]
+        with tempfile.TemporaryDirectory() as tmp:
+            self.configure(tmp, auto)
+            home = Path(tmp)
+            for agent_id in auto:
+                with self.subTest(agent=agent_id):
+                    meta = catalog[agent_id]
+                    env_file = home / ".oneagent" / "agents" / f"{agent_id}.env"
+                    config_path = meta.get("config_path")
+                    holders = []
+                    if env_file.is_file() and "K-DELIVERY" in env_file.read_text(encoding="utf-8"):
+                        holders.append("env file")
+                    if config_path:
+                        config = home / str(config_path)
+                        if config.is_file() and "K-DELIVERY" in config.read_text(encoding="utf-8"):
+                            holders.append("config file")
+                    self.assertTrue(holders, f"{agent_id} has no route to its credential")
+
+    def test_an_agent_whose_credential_lives_in_its_config_gets_no_env_file(self):
+        # Aider's config is itself a shell script holding the key, so a second
+        # file would duplicate the secret for nothing.
+        self.assertFalse(needs_env_file(agent_catalog()["aider"]))
+        with tempfile.TemporaryDirectory() as tmp:
+            self.configure(tmp, ["aider"])
+            self.assertFalse((Path(tmp) / ".oneagent" / "agents" / "aider.env").exists())
+            self.assertIn("K-DELIVERY", (Path(tmp) / ".oneagent" / "aider.env").read_text(encoding="utf-8"))
+
+    def test_the_credential_file_is_private(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.configure(tmp, ["claude-code"])
+            env_file = Path(tmp) / ".oneagent" / "agents" / "claude-code.env"
+            self.assertEqual(env_file.stat().st_mode & 0o777, 0o600)
+
+    def test_a_declared_variable_with_no_value_is_omitted_not_written_empty(self):
+        # An empty ANTHROPIC_MODEL is worse than an absent one: the Agent would
+        # read the blank and refuse the request rather than fall back.
+        with tempfile.TemporaryDirectory() as tmp:
+            runtime = Runtime(
+                home=Path(tmp),
+                os_id="linux",
+                runner=RecordingRunner(),
+                which=lambda name: f"/usr/bin/{name}",
+                env={},
+            )
+            write_agent_env(
+                runtime,
+                "claude-code",
+                "K-NOMODEL",
+                "https://example.com/anthropic",
+                meta=agent_catalog()["claude-code"],
+                model="",
+            )
+            content = (Path(tmp) / ".oneagent" / "agents" / "claude-code.env").read_text(encoding="utf-8")
+            self.assertIn("export ANTHROPIC_AUTH_TOKEN=", content)
+            self.assertNotIn("ANTHROPIC_MODEL=", content)
+            self.assertNotIn("ANTHROPIC_SMALL_FAST_MODEL=", content)
+
+    def test_an_agent_with_no_declared_variables_gets_only_the_oneagent_names(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            runtime = Runtime(
+                home=Path(tmp),
+                os_id="linux",
+                runner=RecordingRunner(),
+                which=lambda name: f"/usr/bin/{name}",
+                env={},
+            )
+            write_agent_env(
+                runtime, "codex", "K-CODEX", "https://example.com/openai", meta=agent_catalog()["codex"]
+            )
+            content = (Path(tmp) / ".oneagent" / "agents" / "codex.env").read_text(encoding="utf-8")
+            self.assertIn("export ONEAGENT_API_KEY_CODEX=", content)
+            self.assertNotIn("ANTHROPIC_", content)
+
+
+class StartAndRestartHintTests(unittest.TestCase):
+    """The hints have to name a command that exists and source what holds the key."""
+
+    def hints(self, agent_id: str, os_id: str = "linux", model: str = "m") -> tuple[str, str]:
+        runtime = Runtime(
+            home=Path("/tmp/oneagent-hints"),
+            os_id=os_id,
+            runner=RecordingRunner(),
+            which=lambda name: f"/usr/bin/{name}",
+            env={},
+        )
+        return _next_step(runtime, agent_id, model), _restart_hint(agent_id)
+
+    def test_every_auto_agent_gets_a_start_command_naming_its_own_binary(self):
+        # Derived from the manifest, so a renamed command cannot leave a stale
+        # instruction behind in the code.
+        for agent_id, meta in agent_catalog().items():
+            if meta.get("config_mode") != "auto":
+                continue
+            with self.subTest(agent=agent_id):
+                start, restart = self.hints(agent_id)
+                self.assertIn(str(meta["command"]), start)
+                self.assertIn(str(meta["command"]), restart)
+
+    def test_an_agent_needing_an_env_file_is_told_to_source_it_in_both_hints(self):
+        for agent_id in ("codex", "claude-code", "opencode", "kilo-cli"):
+            with self.subTest(agent=agent_id):
+                start, restart = self.hints(agent_id)
+                self.assertIn(f"~/.oneagent/agents/{agent_id}.env", start)
+                self.assertIn(f"~/.oneagent/agents/{agent_id}.env", restart)
+
+    def test_windows_uses_its_own_shell_syntax(self):
+        start, _ = self.hints("claude-code", os_id="windows")
+        self.assertIn("agents\\claude-code.env.ps1", start)
+        self.assertIn(";", start)
+        aider_start, _ = self.hints("aider", os_id="windows")
+        self.assertIn("aider.ps1", aider_start)
+        self.assertIn("--model openai/m", aider_start)
+
+    def test_aider_sources_its_config_script_and_passes_the_model(self):
+        start, restart = self.hints("aider")
+        self.assertIn("source ~/.oneagent/aider.env", start)
+        self.assertIn("--model openai/m", start)
+        self.assertIn("aider.env", restart)
+
+    def test_a_guide_only_or_unknown_agent_gets_no_start_command(self):
+        self.assertEqual(self.hints("cursor")[0], "")
+        self.assertEqual(self.hints("brand-new-agent")[0], "")
+        # A restart hint still has to say something actionable.
+        self.assertIn("brand-new-agent", self.hints("brand-new-agent")[1])
 
 
 class RegistryTests(unittest.TestCase):

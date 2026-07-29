@@ -246,13 +246,19 @@ Aider 使用隔离的 `uv tool install --python python3.12 --no-python-downloads
 | Agent/状态 | 写入路径 |
 | --- | --- |
 | Codex | `~/.codex/config.toml`、`~/.oneagent/agents/codex.env` |
-| Claude Code | `~/.claude/settings.json` |
+| Claude Code | `~/.claude/settings.json`、`~/.oneagent/agents/claude-code.env` |
 | OpenCode | `~/.config/opencode/opencode.jsonc`、`~/.oneagent/agents/opencode.env` |
 | Kilo CLI | `~/.config/kilo/kilo.jsonc`、`~/.oneagent/agents/kilo-cli.env` |
 | Aider | `~/.oneagent/aider.env` 或 Windows `aider.ps1` |
 | 环境摘要 | `~/.oneagent/profile.json` |
 
-Codex、OpenCode 和 Kilo CLI 各读自己的环境变量（`ONEAGENT_API_KEY_CODEX` 等），因此三者可以同时指向不同 Provider；启动命令 source 各自的 env 文件。`~/.oneagent/env` 仍写入共享的 `ONEAGENT_API_KEY`，供旧版本写下的配置继续使用。
+凭据如何到达各 Agent 由 `agents.lock.json` 的 `credential_delivery` 声明，共三种：
+
+- **`oneagent_env`**（Codex、OpenCode、Kilo CLI）——配置文件通过 `env_key` 或 `{env:...}` 引用 `ONEAGENT_API_KEY_CODEX` 这类专属变量，因此三者可同时指向不同 Provider。
+- **`native_env`**（Claude Code）——它只读自己定义的变量名，`env_vars` 声明为 `ANTHROPIC_AUTH_TOKEN` / `ANTHROPIC_BASE_URL` / `ANTHROPIC_MODEL` / `ANTHROPIC_SMALL_FAST_MODEL`。**只写 `settings.json` 不足以让它认证**——它会忽略其中的凭据并报 `Not logged in`，所以 env 文件同时导出这四个原生变量。
+- **`config_file`**（Aider）——配置本身就是一个导出变量的 shell 脚本，无需额外 env 文件。
+
+因此除 Aider 外，每个 Agent 的启动命令都会先 source 自己的 env 文件；`~/.oneagent/env` 仍写入共享的 `ONEAGENT_API_KEY`，供旧版本写下的配置继续使用。
 
 Codex TOML、Claude/OpenCode/Kilo JSON 会保留非 OneAgent 管理字段。写入前创建 `*.backup-<timestamp>`；损坏配置返回 `CONFIG_WRITE_FAILED`，不会静默覆盖。
 
