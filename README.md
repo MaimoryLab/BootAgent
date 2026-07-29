@@ -151,7 +151,15 @@ $env:ONEAGENT_API_KEY = $MyApiKey
 ./scripts/install.sh --agent codex --check-agent-only --install-agent --locked-version
 ```
 
-`--latest` 只能由用户显式选择，默认安装与发布测试均使用 `agents.lock.json` 的锁定版本。
+`--latest` 只能由用户显式选择，默认安装与发布测试均使用 `agents.lock.json` 的锁定版本。安装前会用 `npm view` 取 registry 声明的 `dist.integrity` 与锁定清单比对，不一致或版本不存在时拒绝安装，不会退到其他版本。
+
+官方 npm registry 不可达时可显式指定授权镜像：
+
+```bash
+./scripts/install.sh --agent codex --install-agent --locked-version --registry npmmirror
+```
+
+`--registry` 接受镜像 id（`official`、`npmmirror`）或 `https://` URL，只允许 HTTPS 且不得携带凭据。**默认始终是官方源**，镜像永远是显式选择，不会因网络失败自动切换——否则用户无法得知包的来源。实际使用的 registry 会记入安装日志。镜像只能是第三方公开 registry，OneAgent 不托管、不重打包任何 Agent 包体。
 
 ## GUI 流程
 
@@ -332,6 +340,24 @@ bash scripts/test_docker_cleanroom.sh
 镜像构建阶段允许下载 apt、pip 和 npm 锁定依赖；正式测试容器不挂载源码、Docker Socket 或用户 HOME，只把结果写入 `build/docker-cleanroom/`。镜像不包含五个 Agent、`uv`、Provider Key 或用户配置，也不会上传到镜像仓库。
 
 Docker Desktop 在 macOS 上仍运行 Linux VM。该报告固定标记为 `linux`，只能证明 Linux cleanroom，不能替代 Darwin、APFS、`stat -f`、macOS PyInstaller、签名或公证验证。
+
+### 空白机器可用性验证
+
+常规套件都替换了 `Runtime.runner`，因此「Agent 真的装得上、装完真的能用」需要单独的三层验证。范围是 Codex 与 Claude Code，设计与结论见 [空白机器可用性验证计划](docs/blank-machine-verification-plan.md)。
+
+```bash
+# 装包命令契约：离线、毫秒级，随常规 CI 运行
+python3.12 -m unittest tests.test_install_contract
+
+# 真实安装：干净 HOME + 隔离 npm 前缀，断言可执行文件落到 PATH、版本等于锁定版本
+bash tests/real_install_test.sh
+ONEAGENT_REGISTRY=npmmirror bash tests/real_install_test.sh   # 同样验证镜像路径
+
+# 端到端可用性：需真实 Key，实际让两个 Agent 各回答一次请求
+ONEAGENT_API_KEY=... python3.12 scripts/agent_e2e_smoke.py --provider ppio
+```
+
+真实安装与端到端不进常规 CI：前者每次提交都会打 registry，后者需要真实凭据。二者分别由 `release-candidate.yml` 与人工在发行前执行。
 
 ### 真实 macOS Cleanroom
 
