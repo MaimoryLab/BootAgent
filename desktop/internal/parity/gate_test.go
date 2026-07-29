@@ -28,7 +28,7 @@ var expected = map[string]int{
 	filepath.Join("securefs", "bytes_parity_test.go"):     4,
 	filepath.Join("jsonorder", "encoding_parity_test.go"): 2,
 	filepath.Join("jsonorder", "number_parity_test.go"):   2,
-	filepath.Join("config", "adapters_parity_test.go"):    3,
+	filepath.Join("config", "adapters_parity_test.go"):    4,
 }
 
 var testFunc = regexp.MustCompile(`func (Test\w+)`)

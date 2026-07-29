@@ -306,6 +306,99 @@ var awkwardSettings = []struct {
 	}},
 }
 
+// pythonAgentEnv runs the real write_agent_env and returns the file it wrote.
+func pythonAgentEnv(t *testing.T, agentID string, s paritySettings) []byte {
+	t.Helper()
+	root := repoRoot(t)
+	home := t.TempDir()
+	encoded, err := json.Marshal(s)
+	if err != nil {
+		t.Fatalf("cannot encode settings: %v", err)
+	}
+	script := `
+import json, sys
+from pathlib import Path
+sys.path.insert(0, sys.argv[1])
+from oneagent.catalog import agent_catalog
+from oneagent.installer import Runtime, write_agent_env
+
+home = Path(sys.argv[2])
+agent_id = sys.argv[3]
+s = json.loads(sys.argv[4])
+runtime = Runtime.create(home=home, os_id="linux", env={"HOME": str(home)})
+path = write_agent_env(
+    runtime, agent_id, s["api_key"], s["base_url"],
+    meta=agent_catalog()[agent_id], model=s["model"],
+    small_fast_model=s["small_fast_model"],
+)
+print(json.dumps(str(path.relative_to(home))))
+`
+	cmd := exec.Command(pythonBin(t), "-c", script, root, home, agentID, string(encoded))
+	cmd.Dir = root
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("python write_agent_env failed for %s: %v\n%s", agentID, err, output)
+	}
+	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+	var relative string
+	if err := json.Unmarshal([]byte(lines[len(lines)-1]), &relative); err != nil {
+		t.Fatalf("cannot read python output %q: %v", output, err)
+	}
+	raw, err := os.ReadFile(filepath.Join(home, relative))
+	if err != nil {
+		t.Fatalf("python wrote no env file: %v", err)
+	}
+	return raw
+}
+
+func TestParityEnvFilesAreIdenticalIncludingLineOrder(t *testing.T) {
+	// The env file is where the credential actually reaches the Agent, so a
+	// difference here is an Agent that cannot authenticate. Line order is part of
+	// the comparison because Python builds the file from a dict in insertion
+	// order, and a Go map would emit the same variables sorted.
+	manifest := catalog.MustLoad()
+	for _, id := range manifest.AutoAgents() {
+		agent, _ := manifest.Agent(id)
+		if !NeedsEnvFile(agent) {
+			continue
+		}
+		for _, testCase := range append([]struct {
+			name     string
+			settings paritySettings
+		}{{"base", baseSettings}}, awkwardSettings...) {
+			t.Run(id+"/"+testCase.name, func(t *testing.T) {
+				want := pythonAgentEnv(t, id, testCase.settings)
+
+				home := t.TempDir()
+				rt := runtime.New(
+					runtime.WithHome(home),
+					runtime.WithOSID("linux"),
+					runtime.WithEnv(map[string]string{"HOME": home}),
+				)
+				writer := &Writer{Runtime: rt, FS: securefs.New(rt)}
+				path, err := writer.WriteAgentEnv(id, agent, Settings{
+					AgentID:        id,
+					ProviderName:   testCase.settings.ProviderName,
+					BaseURL:        testCase.settings.BaseURL,
+					APIKey:         testCase.settings.APIKey,
+					Model:          testCase.settings.Model,
+					SmallFastModel: testCase.settings.SmallFastModel,
+				})
+				if err != nil {
+					t.Fatalf("go write failed: %v", err)
+				}
+				got, err := os.ReadFile(path)
+				if err != nil {
+					t.Fatalf("cannot read: %v", err)
+				}
+				if string(got) != string(want) {
+					t.Fatalf("bytes differ:\n  Go:\n%s\n  Python:\n%s", got, want)
+				}
+			})
+		}
+	}
+}
+
 func TestParityAwkwardValuesEncodeIdenticallyInEveryAdapter(t *testing.T) {
 	// This is where the two JSON encodings and the TOML escaping part company:
 	// the codex adapter quotes with ensure_ascii on, the JSON adapters with it
