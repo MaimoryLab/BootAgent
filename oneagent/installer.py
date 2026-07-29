@@ -1153,7 +1153,14 @@ def read_profile_secret(runtime: Runtime, profile_id: str) -> str:
     raw = match.group(1)
     if runtime.os_id == "windows":
         return raw.replace("''", "'")
-    return next(iter(shlex.split(raw)), "")
+    try:
+        return next(iter(shlex.split(raw)), "")
+    except ValueError:
+        # An unbalanced quote, which only a hand edit can produce -- shlex.quote
+        # never emits one. Reported as no key held rather than allowed to escape:
+        # ValueError is not a OneAgentError, so it reached the CLI's outer handler
+        # as a traceback and the server as a 500, for a file the user can fix.
+        return ""
 
 
 def load_profile(runtime: Runtime) -> tuple[dict[str, Any] | None, str | None]:

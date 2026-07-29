@@ -23,7 +23,7 @@ var expected = map[string]int{
 	filepath.Join("runtime", "home_parity_test.go"):     2,
 	filepath.Join("catalog", "embed_parity_test.go"):    6,
 	filepath.Join("provider", "urls_parity_test.go"):    9,
-	filepath.Join("shellquote", "quote_parity_test.go"): 4,
+	filepath.Join("shellquote", "quote_parity_test.go"): 5,
 	// The byte comparison the migration's stop-loss checkpoint depends on.
 	filepath.Join("securefs", "bytes_parity_test.go"):     4,
 	filepath.Join("jsonorder", "encoding_parity_test.go"): 2,
@@ -31,6 +31,11 @@ var expected = map[string]int{
 	filepath.Join("config", "adapters_parity_test.go"):    4,
 	filepath.Join("config", "readers_parity_test.go"):     7,
 	filepath.Join("install", "install_parity_test.go"):    4,
+	// The profile store and the Agent bindings persist across runs and decide
+	// where a plaintext key is written, so these compare the bytes rather than a
+	// parsed shape -- both implementations have to keep reading each other's
+	// output for as long as the migration lasts.
+	filepath.Join("profile", "store_parity_test.go"): 3,
 }
 
 var testFunc = regexp.MustCompile(`func (Test\w+)`)

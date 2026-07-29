@@ -140,6 +140,114 @@ func TestParityPowerShellQuotingMatchesPython(t *testing.T) {
 	}
 }
 
+// splitInputs are lines as they appear after the ONEAGENT_API_KEY= prefix. The
+// first group is what Posix writes, so a round trip must hold. The rest is what a
+// hand edit can leave behind -- these files are user-editable by design, and the
+// unbalanced ones are why this comparison exists: shlex.split raises ValueError
+// there, and Python let it escape as a traceback.
+var splitInputs = []string{
+	"", "''", `""`,
+	"plain",
+	"sk-abc123",
+	"'quoted key'",
+	`'sk-with'"'"'quote'`,
+	`"double quoted"`,
+	"one two",
+	"  leading",
+	"trailing  ",
+	"\tbetween\ttabs\t",
+	"a\\ b",
+	"a\\\\b",
+	`a"b"c`,
+	"a'b'c",
+	`"a'b"`,
+	`'a"b'`,
+	"a#b",
+	"a #b",
+	`"a$b"`,
+	`'a$b'`,
+	// Inside double quotes a backslash escapes only some characters, which is a
+	// different rule from the unquoted case. That branch was written from
+	// reasoning alone, so these pin every shape it decides.
+	`"a\"b"`,
+	`"a\\b"`,
+	`"a\nb"`,
+	`"a\$b"`,
+	`"a\'b"`,
+	`"a\ b"`,
+	`"a\`,
+	`"trailing\\"`,
+	"trailing\\",
+	"a\\'b",
+	"a\\\"b",
+	// Unbalanced: only a hand edit produces these.
+	"'unterminated",
+	`"unterminated`,
+	"unterminated'",
+	`a'b`,
+	`'a"b`,
+	"'''",
+	"中文",
+	"'中 文'",
+}
+
+func TestParityPosixSplittingMatchesShlex(t *testing.T) {
+	// The credential is read back out of a file written with shlex.quote, so
+	// trimming the outer quotes is not the inverse: 'a'"'"'b' would come back
+	// with the escape still in it. This compares against the real splitter,
+	// including where it refuses -- a line one side accepts and the other rejects
+	// is either a key silently read as something else or an activation that
+	// cannot happen.
+	script := `
+import json, shlex, sys
+results = []
+for value in json.loads(sys.argv[1]):
+    try:
+        results.append(shlex.split(value))
+    except ValueError:
+        results.append(None)
+print(json.dumps(results))
+`
+	encoded, err := json.Marshal(splitInputs)
+	if err != nil {
+		t.Fatalf("cannot encode: %v", err)
+	}
+	cmd := exec.Command(pythonBin(t), "-c", script, string(encoded))
+	cmd.Dir = repoRoot(t)
+	output, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("python failed: %v", err)
+	}
+	var want [][]string
+	if err := json.Unmarshal(output, &want); err != nil {
+		t.Fatalf("cannot read python output: %v", err)
+	}
+
+	for index, input := range splitInputs {
+		fields, splitErr := SplitPosix(input)
+		if want[index] == nil {
+			if splitErr == nil {
+				t.Errorf("SplitPosix(%q) = %q, Python raises ValueError", input, fields)
+			}
+			continue
+		}
+		if splitErr != nil {
+			t.Errorf("SplitPosix(%q) failed with %v, Python returns %q", input, splitErr, want[index])
+			continue
+		}
+		if len(fields) != len(want[index]) {
+			t.Errorf("SplitPosix(%q):\n  Go:     %q\n  Python: %q", input, fields, want[index])
+			continue
+		}
+		for position := range fields {
+			if fields[position] != want[index][position] {
+				t.Errorf("SplitPosix(%q):\n  Go:     %q\n  Python: %q", input, fields, want[index])
+				break
+			}
+		}
+	}
+}
+
 func TestParityAQuotedValueSurvivesARealShell(t *testing.T) {
 	// The comparison above proves the two implementations agree. This proves
 	// they are both right: an actual shell reads the value back unchanged, which

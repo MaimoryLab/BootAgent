@@ -403,6 +403,18 @@ class AgentActivationTests(unittest.TestCase):
             secrets_path(runtime, "p1").write_text("# nothing here\n", encoding="utf-8")
             self.assertEqual(read_profile_secret(runtime, "p1"), "")
 
+            # A hand-edited file with an unbalanced quote yields no key rather
+            # than a ValueError. shlex.quote never writes one, so only an edit
+            # produces it -- and shlex.split raises on it, which is not a
+            # OneAgentError: it reached the `oneagent agent set` CLI as a
+            # traceback (that path is dispatched before the try block) and the
+            # server as a 500. Activation now says "API key is required", which
+            # names something the user can act on.
+            secrets_path(runtime, "p1").write_text(
+                "export ONEAGENT_API_KEY='unterminated\n", encoding="utf-8"
+            )
+            self.assertEqual(read_profile_secret(runtime, "p1"), "")
+
             # An unreadable secret file is a reported failure, not a silent "".
             # Returning "" there would make activation fail later with a
             # confusing "API key is required" instead of the real cause.
