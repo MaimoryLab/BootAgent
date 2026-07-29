@@ -51,6 +51,7 @@ function statusWith(agents: Record<string, string | null>): StatusResponse {
       ppio: { name: "PPIO", home: "https://ppio.com/", base_url: "https://api.ppio.com/openai", anthropic_base_url: "https://api.ppio.com/anthropic" },
       novita: { name: "Novita", home: "https://novita.ai/", base_url: "https://api.novita.ai/openai" },
     },
+    mirrors: [],
     paths: {},
     backups: {},
     environment: null,

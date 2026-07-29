@@ -47,6 +47,7 @@ function status(): StatusResponse {
     ],
     groups: [],
     providers: { ppio: { name: "PPIO", home: "https://ppio.com/", base_url: "https://api.ppio.com/openai" } },
+    mirrors: [],
     paths: { codex_config: "/home/u/.codex/config.toml" },
     backups: { codex: true },
     environment: null,

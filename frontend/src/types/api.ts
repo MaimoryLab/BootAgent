@@ -78,6 +78,12 @@ export interface StatusResponse {
   catalog: AgentCatalogItem[];
   groups: Array<{ id: AgentGroupId; name: string }>;
   providers: Record<string, { name: string; home: string; base_url: string; anthropic_base_url?: string }>;
+  /**
+   * Package registries the user may install from. The official one is the
+   * default; a mirror is only ever an explicit choice, and `upstream` is carried
+   * so the UI can show where a package ultimately comes from.
+   */
+  mirrors: Array<{ id: string; name: string; registry: string; upstream: string; note: string }>;
   paths: Record<string, string>;
   backups: Record<string, boolean>;
   environment: EnvironmentProfile | null;
@@ -159,4 +165,6 @@ export interface InstallRequest extends ProviderInput {
   locked_version?: boolean;
   latest?: boolean;
   profile_agents?: string[];
+  /** Mirror id or https:// URL. Omit for the official registry. */
+  registry?: string;
 }

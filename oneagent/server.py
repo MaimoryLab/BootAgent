@@ -393,6 +393,7 @@ def install_payload(payload: dict[str, object]) -> dict[str, object]:
             skip_test=_bool_field(payload, "skip_test"),
             locked_version=_bool_field(payload, "locked_version"),
             latest=_bool_field(payload, "latest"),
+            registry=_string_field(payload, "registry"),
             channel="gui",
             timeout=_timeout_field(payload),
         ),

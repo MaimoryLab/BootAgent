@@ -11,6 +11,7 @@ const status = {
   catalog: [],
   groups: [],
   providers: {},
+  mirrors: [],
   paths: {},
   backups: {},
   environment: null,

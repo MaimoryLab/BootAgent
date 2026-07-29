@@ -74,6 +74,50 @@ def agent_protocol(adapter: str) -> str:
     return ADAPTER_PROTOCOLS.get(adapter, PROTOCOL_OPENAI)
 
 
+# Package registries a user may install from when the official one is not
+# reachable. The product boundary allows an authorised mirror (priority 2 in the
+# software-acquisition policy) provided it carries a licence, a pinned version,
+# a checksum and the upstream address -- so each entry records its upstream, and
+# install_locked_agent verifies the manifest's integrity value against whatever
+# the mirror served.
+#
+# This changes where a package is fetched from, not how the user reaches the
+# network: OneAgent opens no tunnel and forwards no traffic, which is what
+# separates it from the proxying the boundary forbids. Nothing here may point at
+# storage OneAgent operates -- redistributing a proprietary Agent needs a
+# licence that pointing at a public read-only mirror does not.
+OFFICIAL_NPM_REGISTRY = "https://registry.npmjs.org/"
+
+PACKAGE_MIRRORS = {
+    "official": {
+        "name": "官方源",
+        "registry": OFFICIAL_NPM_REGISTRY,
+        "upstream": OFFICIAL_NPM_REGISTRY,
+        "note": "npm 官方 registry，默认使用。",
+    },
+    "npmmirror": {
+        "name": "npmmirror（阿里云）",
+        "registry": "https://registry.npmmirror.com/",
+        "upstream": OFFICIAL_NPM_REGISTRY,
+        "note": "官方源的公开只读镜像，包体与校验值均与官方一致；官方源不可达时可用。",
+    },
+}
+
+
+def public_mirrors() -> list[dict[str, str]]:
+    """Mirror choices for the UI, upstream included so the origin is visible."""
+    return [
+        {
+            "id": mirror_id,
+            "name": str(meta["name"]),
+            "registry": str(meta["registry"]),
+            "upstream": str(meta["upstream"]),
+            "note": str(meta["note"]),
+        }
+        for mirror_id, meta in PACKAGE_MIRRORS.items()
+    ]
+
+
 def resource_root() -> Path:
     """Locate agents.lock.json and the built frontend across all three layouts.
 

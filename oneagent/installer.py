@@ -13,14 +13,18 @@ from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Iterable
+from urllib.parse import urlparse
 
 from .catalog import (
     AGENT_GROUPS,
+    OFFICIAL_NPM_REGISTRY,
+    PACKAGE_MIRRORS,
     PROVIDERS,
     agent_catalog,
     current_platform,
     fallback_probe_model,
     public_catalog,
+    public_mirrors,
     public_providers,
     resolve_home,
 )
@@ -58,6 +62,10 @@ class InstallOptions:
     home: Path | None = None
     os_id: str | None = None
     timeout: int = 180
+    # Empty means the official registry. A mirror is always an explicit choice:
+    # switching automatically on a network error would leave the user unable to
+    # tell where a package came from.
+    registry: str = ""
 
 
 @dataclass
@@ -523,6 +531,76 @@ def _require_prerequisites(runtime: Runtime, agent_id: str, meta: dict[str, Any]
         raise OneAgentError("PREREQUISITE_MISSING", "Git for Windows / Git Bash is required for Claude Code")
 
 
+def resolve_registry(value: str) -> str:
+    """Resolve a mirror id or explicit URL to a registry address.
+
+    HTTPS only, and credentials are refused: a registry URL ends up in the
+    installer environment and in the install log, so a token embedded in it
+    would leak into both. validate_base_url is not reused because it permits
+    http:// -- acceptable for a Provider endpoint the user names, not for the
+    address a package is fetched from.
+    """
+    if not value:
+        return OFFICIAL_NPM_REGISTRY
+    known = PACKAGE_MIRRORS.get(value)
+    if known:
+        return str(known["registry"])
+    if any(ord(char) < 32 or ord(char) == 127 for char in value):
+        raise OneAgentError("INVALID_REQUEST", "Registry URL contains control characters")
+    parsed = urlparse(value)
+    if parsed.scheme != "https" or not parsed.netloc:
+        raise OneAgentError("INVALID_REQUEST", "Registry URL must start with https://")
+    if parsed.username or parsed.password:
+        raise OneAgentError("INVALID_REQUEST", "Registry URL must not contain credentials")
+    return value if value.endswith("/") else f"{value}/"
+
+
+def verify_npm_integrity(
+    runtime: Runtime, npm: str, spec: str, expected: str, registry: str, timeout: int
+) -> None:
+    """Check the registry's integrity for a pinned spec against the manifest.
+
+    The manifest records a sha512 for every npm package but nothing ever read
+    it, so the version was pinned and the bytes were not. That gap only becomes
+    exploitable once a mirror is allowed: npm verifies a download against the
+    integrity the registry itself served, which secures the transfer but takes
+    the registry's word for what the package is. Comparing that value with the
+    manifest closes the loop -- npm proves the bytes match what the registry
+    declared, and this proves the declaration matches the official release.
+    """
+    if not expected:
+        return
+    try:
+        result = runtime.runner(
+            [npm, "view", spec, "dist.integrity", f"--registry={registry}"],
+            text=True,
+            capture_output=True,
+            timeout=timeout,
+            env=runtime.env,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise OneAgentError(
+            "AGENT_INSTALL_FAILED", f"Timed out reading the checksum for {spec}", retryable=True
+        ) from exc
+    except OSError as exc:
+        raise OneAgentError("AGENT_INSTALL_FAILED", f"Cannot read the checksum for {spec}: {exc}") from exc
+    if result.returncode != 0:
+        raise OneAgentError(
+            "AGENT_INSTALL_FAILED",
+            f"{spec} is not available on {registry}",
+            retryable=True,
+        )
+    reported = (result.stdout or "").strip()
+    if reported != expected:
+        # Fail closed and name both values: a mismatch means the registry is
+        # serving something other than the locked release, which is exactly the
+        # case a mirror has to be held to.
+        raise OneAgentError(
+            "AGENT_INSTALL_FAILED",
+            f"Checksum mismatch for {spec} on {registry}: manifest expects {expected}, registry reports {reported or '(none)'}",
+        )
+
+
 def install_locked_agent(
     runtime: Runtime,
     agent_id: str,
@@ -531,6 +609,7 @@ def install_locked_agent(
     enforce_locked: bool,
     latest: bool,
     timeout: int,
+    registry: str = "",
 ) -> dict[str, object]:
     command = meta.get("command")
     executable = runtime.which(command) if command else None
@@ -544,10 +623,22 @@ def install_locked_agent(
     _require_prerequisites(runtime, agent_id, meta)
     manager = package.get("manager")
     package_name = package.get("name")
+    resolved_registry = resolve_registry(registry)
+    env = runtime.env
     if manager == "npm":
         npm = runtime.which("npm")
         assert npm is not None
         spec = package_name if latest else f"{package_name}@{locked}"
+        if resolved_registry != OFFICIAL_NPM_REGISTRY:
+            # npm reads the registry from its environment, so no argument has to
+            # be threaded through the install command itself.
+            env = {**env, "npm_config_registry": resolved_registry}
+        if not latest:
+            # Only meaningful for a pinned spec: the manifest's checksum
+            # describes the locked version, not whatever floats at the tag.
+            verify_npm_integrity(
+                runtime, npm, spec, str(package.get("integrity", "")), resolved_registry, timeout
+            )
         args = [npm, "install", "-g", spec]
     elif manager == "uv":
         uv = runtime.which("uv")
@@ -567,7 +658,7 @@ def install_locked_agent(
     else:
         raise OneAgentError("PREREQUISITE_MISSING", f"No allowlisted package manager for {meta['name']}")
     try:
-        result = runtime.runner(args, text=True, capture_output=True, timeout=timeout, env=runtime.env)
+        result = runtime.runner(args, text=True, capture_output=True, timeout=timeout, env=env)
     except subprocess.TimeoutExpired as exc:
         raise OneAgentError("TIMEOUT", f"Installing {meta['name']} timed out", retryable=True) from exc
     except OSError as exc:
@@ -582,7 +673,12 @@ def install_locked_agent(
             message,
             retryable=True,
         )
-    return {"installed": True, "version": locked if not latest else None, "lockedVersion": locked}
+    return {
+        "installed": True,
+        "version": locked if not latest else None,
+        "lockedVersion": locked,
+        "registry": resolved_registry,
+    }
 
 
 def _next_step(runtime: Runtime, agent_id: str, model: str) -> str:
@@ -1092,7 +1188,12 @@ def install_many(options: InstallOptions, runtime: Runtime | None = None) -> dic
                     enforce_locked=options.locked_version,
                     latest=options.latest,
                     timeout=options.timeout,
+                    registry=options.registry,
                 )
+                if install_info.get("registry"):
+                    # Recorded so the user can tell afterwards which registry a
+                    # package actually came from.
+                    logs.append(f"## {agent_id}\nregistry: {install_info['registry']}")
             elif meta.get("command") and not runtime.which(meta["command"]):
                 package = meta.get("package") or {}
                 manager = package.get("manager")
@@ -1347,6 +1448,7 @@ def status_payload(runtime: Runtime | None = None) -> dict[str, Any]:
         "catalog": public_catalog(),
         "groups": AGENT_GROUPS,
         "providers": public_providers(),
+        "mirrors": public_mirrors(),
         "paths": paths,
         "backups": {
             "codex": bool(list((runtime.home / ".codex").glob("config.toml.backup-*"))),

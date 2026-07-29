@@ -9,7 +9,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from oneagent.catalog import load_manifest, resolve_home
+from oneagent.catalog import agent_catalog, load_manifest, resolve_home
 from oneagent.errors import OneAgentError
 from oneagent.installer import (
     InstallOptions,
@@ -42,6 +42,19 @@ class FakeProcessRunner:
         self.calls.append(values)
         if "--version" in values:
             return subprocess.CompletedProcess(values, 0, "codex-cli 0.145.0\n", "")
+        if "view" in values and "dist.integrity" in values:
+            # install_locked_agent compares the registry's checksum with the
+            # manifest before installing, so the stand-in has to answer with the
+            # value the manifest holds for whichever package is being asked
+            # about; anything else is treated as a tampered registry.
+            name = values[2].rsplit("@", 1)[0]
+            integrity = ""
+            for meta in agent_catalog().values():
+                package = meta.get("package") or {}
+                if package.get("name") == name:
+                    integrity = str(package.get("integrity", ""))
+                    break
+            return subprocess.CompletedProcess(values, 0, f"{integrity}\n", "")
         if self.fail_install_for and any(self.fail_install_for in item for item in values):
             return subprocess.CompletedProcess(values, 9, "", "failed")
         return subprocess.CompletedProcess(values, 0, "ok\n", "")

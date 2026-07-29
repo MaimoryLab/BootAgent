@@ -78,6 +78,7 @@ function divergentStatus(): StatusResponse {
       ppio: { name: "PPIO", home: "https://ppio.com/", base_url: "https://api.ppio.com/openai" },
       novita: { name: "Novita", home: "https://novita.ai/", base_url: "https://api.novita.ai/openai" },
     },
+    mirrors: [],
     paths: { profile: "/tmp/home/.oneagent/profile.json" },
     backups: {},
     environment: null,

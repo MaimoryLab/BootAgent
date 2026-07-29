@@ -38,6 +38,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--json", action="store_true", dest="json_output")
     parser.add_argument("--locked-version", action="store_true")
     parser.add_argument("--latest", action="store_true")
+    parser.add_argument(
+        "--registry",
+        default="",
+        help="Package registry: a mirror id (official, npmmirror) or an https:// URL. Defaults to the official registry.",
+    )
     parser.add_argument("--home", type=Path, default=None, help=argparse.SUPPRESS)
     return parser
 
@@ -158,6 +163,7 @@ def run(argv: list[str] | None = None) -> int:
                 skip_test=args.skip_test,
                 locked_version=args.locked_version,
                 latest=args.latest,
+                registry=args.registry,
                 channel=args.channel,
                 home=args.home,
             ),

@@ -47,6 +47,7 @@ function statusWith(profiles: ProfileSummary[]): StatusResponse {
     ],
     groups: [],
     providers: { ppio: { name: "PPIO", home: "https://ppio.com/", base_url: "https://api.ppio.com/openai" } },
+    mirrors: [],
     paths: {},
     backups: {},
     environment: null,
