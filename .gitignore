@@ -33,3 +33,8 @@ site/playwright-report/
 # 把只有本机才有的产物校验和写进仓库。
 site/src/generated/
 site/public/downloads/
+
+# Go 内核（迁移中）：编译产物与覆盖率数据。go.sum 与源码要提交。
+desktop/bin/
+desktop/**/*.test
+*.coverprofile
