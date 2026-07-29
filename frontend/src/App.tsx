@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 
 import { AppWindow } from "./components/AppWindow";
+import { LandingPage } from "./pages/LandingPage";
 import { ActivationPage } from "./pages/ActivationPage";
 import { AgentDetailPage } from "./pages/AgentDetailPage";
 import { AgentSelectionPage } from "./pages/AgentSelectionPage";
@@ -11,26 +12,7 @@ import { ProfilesPage } from "./pages/ProfilesPage";
 import { ProviderKeyPage } from "./pages/ProviderKeyPage";
 import { ProvidersPage } from "./pages/ProvidersPage";
 import { ReviewPage } from "./pages/ReviewPage";
-import { useWizard } from "./state/WizardContext";
-
-function LandingRoute() {
-  const { state } = useWizard();
-  // Wait for the first status read before choosing. The fetch starts in an
-  // effect, so the initial render has no status and a state of "idle" rather
-  // than "loading" — treating that as "nothing configured" would redirect a
-  // returning user into the wizard before their Agents ever loaded, and the
-  // redirect is not revisited once status arrives.
-  if (!state.status && state.statusState !== "error") {
-    return <div className="loading-block"><span className="spinner" />正在读取环境状态</div>;
-  }
-  // An Agent already pointed somewhere, or a previously activated profile,
-  // means this is a returning user; the wizard is for first run only. This is
-  // what makes it a tool you come back to rather than one you run once.
-  const configured =
-    Boolean(state.status?.environment) ||
-    Object.values(state.status?.agents ?? {}).some((agent) => agent.provider);
-  return <Navigate to={configured ? "/overview" : "/setup/agents"} replace />;
-}
+import { WizardProvider, useWizard } from "./state/WizardContext";
 
 function SetupGuard({ stage, children }: { stage: "mode" | "provider" | "model" | "review" | "activation"; children: React.ReactNode }) {
   const { state } = useWizard();
@@ -57,11 +39,33 @@ function SetupGuard({ stage, children }: { stage: "mode" | "provider" | "model" 
   return children;
 }
 
-export default function App() {
+function LandingRoute() {
+  const { state } = useWizard();
+  // Wait for the first status read before choosing. The fetch starts in an
+  // effect, so the initial render has no status and a state of "idle" rather
+  // than "loading" — treating that as "nothing configured" would show the
+  // landing page to a returning user before their Agents ever loaded.
+  if (!state.status && state.statusState !== "error") {
+    return <div className="loading-block"><span className="spinner" />正在读取环境状态</div>;
+  }
+  // An Agent already pointed somewhere, or a previously activated profile,
+  // means this is a returning user: send them to their own environment. The
+  // landing page is for someone who has not configured anything yet, and has
+  // nothing to tell a user whose Agents are already running.
+  const configured =
+    Boolean(state.status?.environment) ||
+    Object.values(state.status?.agents ?? {}).some((agent) => agent.provider);
+  if (configured) {
+    return <Navigate to="/overview" replace />;
+  }
+  return <LandingPage />;
+}
+
+/** The product itself: every route that belongs inside the app window. */
+function WorkspaceRoutes() {
   return (
     <AppWindow>
       <Routes>
-        <Route path="/" element={<LandingRoute />} />
         <Route path="/setup/agents" element={<AgentSelectionPage />} />
         <Route path="/setup/mode" element={<SetupGuard stage="mode"><ConfigModePage /></SetupGuard>} />
         <Route path="/setup/provider" element={<SetupGuard stage="provider"><ProviderKeyPage /></SetupGuard>} />
@@ -75,5 +79,19 @@ export default function App() {
         <Route path="*" element={<Navigate to="/setup/agents" replace />} />
       </Routes>
     </AppWindow>
+  );
+}
+
+export default function App() {
+  // One provider around both, because "/" has to read status to know whether
+  // this is a returning user. The landing page renders outside AppWindow: it is
+  // a full-page document, not a view inside the app's window chrome.
+  return (
+    <WizardProvider>
+      <Routes>
+        <Route path="/" element={<LandingRoute />} />
+        <Route path="*" element={<WorkspaceRoutes />} />
+      </Routes>
+    </WizardProvider>
   );
 }

@@ -153,7 +153,7 @@ for (const viewport of [
   test(`完整七页流程 ${viewport.label}`, async ({ page }, testInfo) => {
     await page.setViewportSize(viewport);
     await mockApi(page);
-    await page.goto("/");
+    await page.goto("/#/setup/agents");
     await expect(page.getByRole("heading", { name: "选择 Agent" })).toBeVisible();
     // Ranked, not grouped: leading with the "auto" group used to put Kilo and
     // Aider here and fold Cursor and OpenClaw out of sight.
@@ -219,7 +219,7 @@ for (const viewport of [
 
 test("浏览器后退到激活页不重放安装", async ({ page }) => {
   const mock = await mockApi(page);
-  await page.goto("/");
+  await page.goto("/#/setup/agents");
   await page.getByRole("checkbox", { name: "选择 Codex" }).check();
   await page.getByRole("button", { name: "继续" }).click();
   await page.getByRole("button", { name: /配置模型服务/ }).click();
@@ -245,7 +245,7 @@ test("浏览器后退到激活页不重放安装", async ({ page }) => {
 
 test("已有账号路径跳过 Provider 和模型", async ({ page }) => {
   const mock = await mockApi(page);
-  await page.goto("/");
+  await page.goto("/#/setup/agents");
   await page.getByRole("checkbox", { name: "选择 Codex" }).check();
   await page.getByRole("button", { name: "继续" }).click();
   await page.getByRole("button", { name: /使用已有账号或配置/ }).click();
@@ -259,7 +259,7 @@ test("已有账号路径跳过 Provider 和模型", async ({ page }) => {
 
 test("切回内置 Provider 后不提交残留 Custom URL", async ({ page }) => {
   const mock = await mockApi(page);
-  await page.goto("/");
+  await page.goto("/#/setup/agents");
   await page.getByRole("checkbox", { name: "选择 Codex" }).check();
   await page.getByRole("button", { name: "继续" }).click();
   await page.getByRole("button", { name: /配置模型服务/ }).click();
@@ -283,7 +283,7 @@ test("切回内置 Provider 后不提交残留 Custom URL", async ({ page }) => 
 
 test("失败 Agent 可以单独重试且不重复成功项", async ({ page }) => {
   const mock = await mockApi(page, { failFirstInstall: true });
-  await page.goto("/");
+  await page.goto("/#/setup/agents");
   await page.getByRole("checkbox", { name: "选择 Codex" }).check();
   await page.getByRole("checkbox", { name: "选择 OpenCode" }).check();
   await page.getByRole("button", { name: "继续" }).click();
@@ -301,4 +301,17 @@ test("失败 Agent 可以单独重试且不重复成功项", async ({ page }) =>
   await expect(page.getByRole("heading", { name: "激活完成" })).toBeVisible();
   expect(mock.installBodies).toHaveLength(2);
   expect(mock.installBodies[1]).toMatchObject({ agents: ["codex"], profile_agents: ["codex", "opencode"] });
+});
+
+test("未配置时根路径展示着陆页，且入口通向向导", async ({ page }) => {
+  // The landing page exists for someone who has not configured anything. A
+  // returning user is sent to their own overview instead (overview.spec.ts
+  // covers that half); this is the other side of the same decision.
+  await mockApi(page);
+  await page.goto("/");
+  await expect(page.getByRole("link", { name: /Open OneAgent/ }).first()).toBeVisible();
+  // It renders as its own document, not inside the app's window chrome.
+  await expect(page.locator(".app-window")).toHaveCount(0);
+  await page.getByRole("link", { name: /Open workspace/ }).first().click();
+  await expect(page.getByRole("heading", { name: "选择 Agent" })).toBeVisible();
 });

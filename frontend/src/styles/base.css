@@ -15,7 +15,8 @@ body {
   min-height: 100vh;
   color: var(--text-primary);
   background: var(--page-bg);
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 button,
