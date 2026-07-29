@@ -256,7 +256,11 @@ func NpmIntegrityResponder(t Reporter) Responder {
 		}
 	}
 	return func(argv []string) (runtime.Result, error, bool) {
-		if len(argv) < 4 || argv[0] != "npm" || argv[1] != "view" {
+		// argv[0] is the resolved path to npm rather than the bare name, because
+		// production looks it up on PATH first. Matching the base name is what
+		// lets this double answer the command the core actually issues -- an
+		// earlier version required "npm" exactly and silently matched nothing.
+		if len(argv) < 4 || !strings.HasPrefix(filepath.Base(argv[0]), "npm") || argv[1] != "view" {
 			return runtime.Result{}, nil, false
 		}
 		if !containsAll(strings.Join(argv, " "), []string{"dist.integrity"}) {
