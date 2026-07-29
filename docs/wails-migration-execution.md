@@ -51,8 +51,10 @@ desktop/
     testutil/      阶段 0  测试替身
     catalog/       ✓ 阶段 1  lock 解析与排序、Provider 与镜像投影
     provider/      ✓ 阶段 1  URL 校验推导、协议映射（探测在阶段 2）
-    securefs/      阶段 2  原子写、备份、权限
-    config/        阶段 2–3  五写五读适配器
+    securefs/      ✓ 阶段 2  原子写、备份、权限、Windows ACL
+    jsonorder/     ✓ 阶段 2  保序 JSON 编解码（复刻 json.dumps）
+    shellquote/    ✓ 阶段 2  shlex.quote 与 PowerShell 引用
+    config/        ✓ 阶段 2  五个写入适配器与 env 文件（读取器在阶段 3）
     install/       阶段 4  编排、integrity、前置条件
     app/           阶段 4  use case，桌面与 CLI 共用
   cmd/
@@ -179,15 +181,32 @@ type Runtime struct {
 
 Go 的 RE2 原样接受 Python 那条 non-chat 模型正则，29 个模型 ID 逐个分类结果一致，无需改写。
 
-### 阶段 2：写入链路
+### 阶段 2：写入链路（已完成，止损点已通过）
 
-先 `atomic_write` 的全部失败分支，再五个适配器。`atomic_write` 的七步次序、密钥备份加固失败的处置、临时文件清理失败本身也报错，见[重写计划 §3.1](wails-rewrite-plan.md)。
+**止损结论：等价性成立，继续推进。** 157 项跨语言比对全过，其中 111 项是配置文件与 env 文件的**逐字节**比对。
 
-Windows 权限走 `icacls` 两步（`/reset` 后 `/inheritance:r /grant:r`，授权当前用户与 SYSTEM），经可注入 runner，找不到 `icacls` 是硬 `CONFIG_WRITE_FAILED`。DACL 直设版作后续优化，两者过同一组测试。
+| 包 | 覆盖 | 内容 |
+| --- | --- | --- |
+| `securefs` | 86.5% | 七步写入次序、备份、权限、Windows ACL |
+| `jsonorder` | 83.7% | 保序 JSON，复刻 `json.dumps(ensure_ascii=False, indent=2)` |
+| `shellquote` | 76.9% | `shlex.quote` 与 PowerShell 引用 |
+| `config` | 92.3% | 五个适配器、TOML 合并、env 文件 |
 
-`_merge_codex_toml` 的行级合并要保留用户键，两处 `Unsupported ... syntax` 拒绝不能放宽，合并后回读校验保留。`_load_json` 对 JSONC 注释 fail closed。
+整体 90.2%，`-race` 干净。
 
-**门禁**：写入用例全移植 + 跨实现字节比对（第 5 节五条）。**止损点在此**——比对过不去说明等价成本被低估，此时前端未动、Python 仍可发布。
+`atomic_write` 的次序按[重写计划 §3.1](wails-rewrite-plan.md) 实现，并有测试锁住「先加固临时文件再 rename」——反过来做会让 ACL 失败同时毁掉用户原文件。Windows 用 `MoveFileEx(MOVEFILE_REPLACE_EXISTING)` 而非 `os.Rename`（后者对已存在目标失败，会在最难发现的平台上破坏每一次覆盖写）。该路径目前只经过交叉编译验证，真机测试要等 CI 的 Windows runner。
+
+**第 5 节预测的五个陷阱,三个已通过「故意改回 Go 默认行为」验证会被抓住**（HTML 转义、键序、结尾换行）；`ensure_ascii` 双语义同样验证过；`MoveFileEx` 是 Windows-only,无法在此验证。
+
+**发现两处只有字节比对才能发现的分歧：**
+
+1. **数字格式**。保留原文本是显而易见的做法,也是错的:Python 的 `json.loads` 把任何带指数的数字提升为 float,`json.dumps` 再写 `repr()`,所以用户文件里的 `1e10` 会变成 `10000000000.0`、`1e-5` 变成 `1e-05`。整数与普通小数确实原样往返。这些值是用户设的 timeout 与 token 上限,改写它们正是「保留非管理字段」要防的静默编辑。40 种数字形态跨越 Python 两个指数阈值两侧比对。
+
+2. **codex 适配器与 JSON 适配器的转义语义相反**。前者用 `json.dumps` 默认值(`ensure_ascii=True`),非 ASCII 模型名写成 `\uXXXX`;后三者用 `ensure_ascii=False`,原样 UTF-8。共用一个 helper 会通过所有手写测试,只在没人写测试的输入上产出不同字节。
+
+另外发现 `catalog.Agent` 漏了两个 manifest 键(`windows_config_path`、`version_args`)——字节一致的 embed 对此**毫无保证**,因为字节相同不代表读取相同。Aider 是唯一声明 Windows 专用配置路径的 Agent,漏读会在 Windows 上把配置写到 POSIX 位置。现已加一个反射结构体标签的测试,manifest 声明了而无字段读取即失败。
+
+**新增两个依赖**:`BurntSushi/toml`(仅用于校验)与 `golang.org/x/sys`(Windows rename),均已精确锁版本。本机到 `proxy.golang.org` 不通,经 `goproxy.cn` 获取——与 npm 路径同样的授权镜像原则,且 `go.sum` 锁住字节。
 
 ### 阶段 3：读取链路
 
