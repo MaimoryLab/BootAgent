@@ -1,8 +1,10 @@
 # 近期工作纪要
 
-分支 `codex/trusted-distribution-site`，9 个提交，82 文件 +11537/−45。已推送 `origin` 与 `maimory`。
+分支 `codex/trusted-distribution-site`，12 个提交，97 文件 +13650/−110。已推送 `origin` 与 `maimory`。
 
-三条线：公开分发站、安装链路可验证、配置链路能用。每条都是先实测、再修、再用测试固定住结论。
+四条线：公开分发站、安装链路可验证、配置链路能用、入口分流。每条都是先实测、再修、再用测试固定住结论。
+
+发现的三个缺陷有个共同点：**它们都表现为成功**——页面返回 200 但整站无样式，Agent 报 `configured` 但启动即失败，`tsc` 干净但返回用户被送去营销页。所以每条都补了能看见「假成功」的断言，而不只是修掉现象。
 
 ## 1. 公开分发站（`bc01bcd` → `67b3706`）
 
@@ -51,25 +53,13 @@ Codex 能用正是因为它多一个 env 文件，而**唯一无法认证的 Age
 
 **缺陷能存在，是因为没有任何测试问过密钥怎么到达 Agent**，只验了文件写没写。现在 `CredentialDeliveryTests` 遍历所有 auto Agent 要求凭据可达，`test_release_policy` 要求 lock 声明安装器依赖的字段。
 
-## 现状与未完成
+## 前三条线交付时的状态
 
-测试：Python 211 用例，`installer.py` 288/288 分支且零 partial，整体 96%；前端 68 用例 + 14 个 e2e；站点 10 + 33；真实安装 cleanroom 双 registry 通过。
+Python 211 用例，`installer.py` 288/288 分支且零 partial，整体 96%；前端 68 用例 + 14 个 e2e；站点 10 + 33；真实安装 cleanroom 双 registry 通过。
 
-[配置链路审查](config-chain-audit.md) 里还有两项未做：
+当时挂着三项待办：[配置链路审查](config-chain-audit.md) 的任务 2（消除剩余硬编码）与任务 3（无 Key 的配置可用性检查），以及 [按 Agent 分化配置界面](per-agent-config-plan.md) §6 的 Claude Code 双模型字段。**三项都已在下面两节完成**，最新数字见文末。
 
-- **任务 2**：消除剩余硬编码。`backups` 仍手写 `.codex/config.toml` 与 `.claude/settings.json`（重复了 lock 的 `config_path`），`providers.py:66`/`:178` 仍比较 `"claude-code"` 判协议（已有 `ADAPTER_PROTOCOLS` 可用）。目标是新增 Agent 只改 lock 加一个适配器函数。
-- **任务 3**：把「配置后能用」做成不需要 Key 的检查进常规 CI。本轮缺陷正是在真实 Key 那道门槛之外发现的——指向丢弃端口、断言报的是连接失败而非认证错误，就能区分本轮两种结果。
-
-另有 [按 Agent 分化配置界面](per-agent-config-plan.md) 停在「评估 Claude Code 双模型字段」一级，未启动。
-
-## 相关文档
-
-- [空白机器可用性验证计划](blank-machine-verification-plan.md) —— 三层验证的设计与实测结论
-- [配置链路审查](config-chain-audit.md) —— 硬编码清单与剩余任务
-- [公开分发站运营与发布手册](public-site-operations.md)
-- [CC Switch 参考笔记](cc-switch-reference-notes.md)
-
-## 后续：剩余项收尾（本次会话）
+## 4. 三项待办收尾（`3c8335c`）
 
 上文「未完成」的三项已全部完成：
 
@@ -77,4 +67,22 @@ Codex 能用正是因为它多一个 env 文件，而**唯一无法认证的 Age
 - **任务 3（无 Key 配置可用性检查）**：新增 `scripts/agent_config_adopted_check.py`。分类器 `classify_adoption` 离线进常规 CI（`test_rc_scripts.py` 用本轮两个真实输出覆盖）；实跑脚本无 Key、指向丢弃端口 `127.0.0.1:9`，已接入 `release-candidate.yml`。
 - **Claude Code 双模型字段（per-agent-config-plan §6）**：可选 `small_fast_model`（留空回退主模型）贯穿 `write_claude_config`/`write_agent_env`/`activate_agent`/activate 端点/`types/api.ts`；`AgentDetailPage` 高级选项加 Claude Code 专属「快速小模型」字段。
 
-测试现状：Python 222 用例，`installer.py` 298/298 分支且零 partial，整体 96%；前端 71 用例（`src/api`/`src/state` 覆盖率 100%/97%），`tsc --noEmit` 与 `vite build` 通过。前端 e2e 本轮未跑（需 Playwright 浏览器）。
+## 5. 入口分流：着陆页只给未配置用户（`dfff727`）
+
+一个并发编辑引入了着陆页，`/` 无条件渲染它。这让**返回用户打开 OneAgent 落在营销页而不是自己的环境总览**，等于把 `LandingRoute` 专门防的行为又放回来了，8 个从 `/` 进入的 e2e 因此失败。补一个漏掉的 `useWizard` import 只能让 `tsc` 干净，不解决行为问题。
+
+修法是让根路径先读 status：已有 Agent 指向某处、或存在已激活档案，就跳 `/overview`；只有未配置的机器才看到着陆页。两处判断都要 status，所以 `WizardProvider` 上移到整个 router 之外；着陆页在 `AppWindow` 之外渲染——它是整页文档，不是应用窗口里的一个视图。
+
+原实现做不到这个判断：`pathname` 检查在 Provider 外面，读不到状态。恢复的 `LandingRoute` 保留了等待首次 status 读取的那一步，理由和当初一样——fetch 在 effect 里启动，首帧 `statusState` 是 `idle` 而非 `loading`，不等就会让返回用户闪一下着陆页。
+
+测试改法：`wizard.spec.ts` 五处入口改为 `/#/setup/agents`（它们测的是向导流程，不是路由决策），另补一条专测分流的用例，同时断言着陆页**不在** `.app-window` 内——把上面那个结构约束做成回归保护。`overview.spec.ts:264` 原样覆盖另一侧，两侧都有关卡。
+
+## 当前测试现状
+
+Python 222 用例，`installer.py` 298/298 分支且零 partial，整体 96%；前端 71 单测 + 15 个 e2e（新增着陆页分流一条），覆盖率语句 100% / 分支 97%；`tsc --noEmit` 与 `vite build` 通过。真机确认已配置的机器访问 `/` 直达环境总览。
+
+## 相关文档
+- [空白机器可用性验证计划](blank-machine-verification-plan.md) —— 三层验证的设计与实测结论
+- [配置链路审查](config-chain-audit.md) —— 实测方法、硬编码清单与三项任务的落实情况
+- [公开分发站运营与发布手册](public-site-operations.md)
+- [CC Switch 参考笔记](cc-switch-reference-notes.md)
