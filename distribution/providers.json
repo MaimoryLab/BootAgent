@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "providers": {
+    "ppio": {
+      "name": "PPIO",
+      "home": "https://ppio.com/",
+      "relationship": "none",
+      "disclosure": "",
+      "referral_url": "",
+      "order": 1,
+      "protocols": {
+        "openai": "implementation-supported",
+        "anthropic": "implementation-supported",
+        "responses": "release-candidate-required"
+      }
+    },
+    "novita": {
+      "name": "Novita",
+      "home": "https://novita.ai/",
+      "relationship": "none",
+      "disclosure": "",
+      "referral_url": "",
+      "order": 2,
+      "protocols": {
+        "openai": "implementation-supported",
+        "anthropic": "implementation-supported",
+        "responses": "release-candidate-required"
+      }
+    }
+  }
+}

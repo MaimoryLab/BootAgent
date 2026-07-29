@@ -1,0 +1,119 @@
+{
+  "schema_version": 1,
+  "product": {
+    "name": "OneAgent",
+    "tagline": "用一个可信的本地流程，激活你自己的 Agent、账号和 Provider。",
+    "release_policy": "security/",
+    "privacy_policy": "security/#privacy"
+  },
+  "channels": {
+    "technical-preview-unsigned": {
+      "label": "未签名技术预览版",
+      "published_at": "2026-07-28T00:00:00Z",
+      "targets": [
+        {
+          "platform": "macos",
+          "arch": "arm64",
+          "status": "available",
+          "verification": {
+            "native_build": true,
+            "cleanroom": "verified",
+            "evidence": "security/#release-evidence"
+          },
+          "mirrors": [
+            {
+              "id": "website",
+              "label": "官网下载",
+              "kind": "official",
+              "url": "downloads/{file}",
+              "primary": true
+            }
+          ]
+        },
+        {
+          "platform": "macos",
+          "arch": "x64",
+          "status": "verification-pending",
+          "verification": {
+            "native_build": false,
+            "cleanroom": "not-recorded",
+            "evidence": null
+          },
+          "mirrors": []
+        },
+        {
+          "platform": "windows",
+          "arch": "x64",
+          "status": "verification-pending",
+          "verification": {
+            "native_build": false,
+            "cleanroom": "not-recorded",
+            "evidence": null
+          },
+          "mirrors": []
+        },
+        {
+          "platform": "linux",
+          "arch": "x64",
+          "status": "verification-pending",
+          "verification": {
+            "native_build": false,
+            "cleanroom": "not-recorded",
+            "evidence": null
+          },
+          "mirrors": []
+        }
+      ]
+    },
+    "stable": {
+      "label": "Stable",
+      "published_at": null,
+      "targets": [
+        {
+          "platform": "macos",
+          "arch": "arm64",
+          "status": "planned",
+          "verification": {
+            "native_build": false,
+            "cleanroom": "not-recorded",
+            "evidence": null
+          },
+          "mirrors": []
+        },
+        {
+          "platform": "macos",
+          "arch": "x64",
+          "status": "planned",
+          "verification": {
+            "native_build": false,
+            "cleanroom": "not-recorded",
+            "evidence": null
+          },
+          "mirrors": []
+        },
+        {
+          "platform": "windows",
+          "arch": "x64",
+          "status": "planned",
+          "verification": {
+            "native_build": false,
+            "cleanroom": "not-recorded",
+            "evidence": null
+          },
+          "mirrors": []
+        },
+        {
+          "platform": "linux",
+          "arch": "x64",
+          "status": "planned",
+          "verification": {
+            "native_build": false,
+            "cleanroom": "not-recorded",
+            "evidence": null
+          },
+          "mirrors": []
+        }
+      ]
+    }
+  }
+}
