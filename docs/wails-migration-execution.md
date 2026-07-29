@@ -49,8 +49,8 @@ desktop/
     oerr/          阶段 0  错误码与响应形，含跨语言 parity 门禁
     runtime/       阶段 0  可注入 Runtime
     testutil/      阶段 0  测试替身
-    catalog/       阶段 1  lock 解析、平台判定、Provider 与镜像
-    provider/      阶段 1  URL 校验推导、协议探测
+    catalog/       ✓ 阶段 1  lock 解析与排序、Provider 与镜像投影
+    provider/      ✓ 阶段 1  URL 校验推导、协议映射（探测在阶段 2）
     securefs/      阶段 2  原子写、备份、权限
     config/        阶段 2–3  五写五读适配器
     install/       阶段 4  编排、integrity、前置条件
@@ -138,6 +138,9 @@ type Runtime struct {
 | 改名（不再匹配 `-run` 模式） | 静默 skip | `internal/parity` 计数断言失败并点名 |
 | 删掉整个 parity 文件 | `ok ... [no tests to run]` | `internal/parity` 断言文件存在 |
 | Python 不在 PATH（跨语言比较无法进行） | `t.Skip`，报 ok | CI 设 `ONEAGENT_REQUIRE_PARITY`，改为硬失败 |
+| 新增 parity 文件但没进门禁清单 | 看着被覆盖，实际不在计数内 | `TestNoParityFileEscapesTheDeclaredList` 反向检查 |
+
+`internal/parity/gate_test.go` 的 `expected` 表逐文件声明最低测试数（目前 `oerr` 3、`runtime` 2、`catalog` 5、`provider` 9）。新增 parity 文件必须加一行——这是有意的，替代方案是一个悄悄停止覆盖它的门禁。
 
 第一版把计数自检写在 `codes_parity_test.go` 内部——能拦改名，但**删掉该文件后自检本身也不在了**。所以计数移到独立的 `internal/parity` 包，从外部断言每个 parity 文件仍存在、仍带着它的测试，并反向检查没有未声明的 parity 文件游离在门禁之外。
 
@@ -159,9 +162,22 @@ type Runtime struct {
 
 每阶段以「该阶段移植的测试全过」为门禁，不允许先全写完再补测试。战略见[重写计划 §4](wails-rewrite-plan.md)，此处只记它没写到的执行细节。
 
-### 阶段 1：纯逻辑
+### 阶段 1：纯逻辑（已完成）
 
-`catalog` 与 `provider` 的无 IO 部分。**门禁**：对应用例移植全过；新增交叉解析测试——两侧解析同一 `agents.lock.json` 得到相同结果。
+`catalog` 与 `provider` 的无 IO 部分：lock 解析与排序、Provider 与镜像的公开投影、URL 校验推导、协议映射与分类、模型挑选。触网的 `chat_probe`/`list_models`/`protocol_probe` 留到阶段 2。
+
+| 包 | 覆盖 | 跨语言门禁 |
+| --- | --- | --- |
+| `catalog` | 96.4% | 5 个：embed 字节一致、Provider 投影、镜像、目录顺序、14 个 Agent 逐字段 |
+| `provider` | 96.9% | 9 个：两种 URL 推导、校验拒绝边界、模型分类逐 ID、ConfigBase 路由、fallback、协议分类与文案 |
+
+整体 94.0%，`-race` 干净。
+
+**`go:embed` 迫使 manifest 有一份副本。** 它既不能跨出包目录，也拒绝符号链接。副本命名为 `agents.lock.embed.json` 并由 `go generate ./internal/catalog/` 生成；`TestParityEmbeddedManifestIsByteIdenticalToTheRealOne` 对任何差异失败，CI 另跑一次 `go generate` 后做 `git diff --exit-code`，所以改了 manifest 却忘了同步副本会红而不是静默带着旧数据构建。仓库根目录仍是唯一可编辑的真源。
+
+**跨语言对比抓到一处我不会手写出来的分歧。** `openai_base_url` 的后缀剥离是「每个后缀检查一次」，改写成看起来更整洁的「循环直到稳定」后，`https://example.com/v1/models/models` 两侧结果不同（Go 得 `/v1`，Python 得 `/v1/models/v1`）。没有任何手写用例会覆盖这种输入——这正是字节/逐输入对比相对「移植测试」的额外价值。
+
+Go 的 RE2 原样接受 Python 那条 non-chat 模型正则，29 个模型 ID 逐个分类结果一致，无需改写。
 
 ### 阶段 2：写入链路
 

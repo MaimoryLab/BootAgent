@@ -19,8 +19,10 @@ import (
 // number each must hold. Adding a parity file means adding a line here; that is
 // the point, because the alternative is a gate that silently stops covering it.
 var expected = map[string]int{
-	filepath.Join("oerr", "codes_parity_test.go"):   3,
-	filepath.Join("runtime", "home_parity_test.go"): 2,
+	filepath.Join("oerr", "codes_parity_test.go"):    3,
+	filepath.Join("runtime", "home_parity_test.go"):  2,
+	filepath.Join("catalog", "embed_parity_test.go"): 5,
+	filepath.Join("provider", "urls_parity_test.go"): 9,
 }
 
 var testFunc = regexp.MustCompile(`func (Test\w+)`)

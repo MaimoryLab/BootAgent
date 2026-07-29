@@ -102,6 +102,17 @@ jobs:
           go vet ./...
           go test -race -cover ./...
 
+      # go:embed cannot reach the repository root, so the catalog package holds a
+      # generated copy of agents.lock.json. embed_parity_test.go already fails on
+      # any difference; this additionally proves the generator reproduces it, so
+      # a manifest edit cannot be committed with a stale copy beside it.
+      - name: Embedded manifest is reproducible
+        working-directory: desktop
+        shell: bash
+        run: |
+          go generate ./internal/catalog/
+          git diff --exit-code -- internal/catalog/agents.lock.embed.json
+
       # Exit codes and home resolution are external contracts, and two
       # implementations now claim to honour them. These tests read the Python
       # source and compare, so a divergence on either side fails here.
@@ -120,7 +131,8 @@ jobs:
           ONEAGENT_REQUIRE_PARITY: "1"
         run: |
           go test ./internal/parity/ -v -count=1
-          go test ./internal/oerr/ ./internal/runtime/ -run TestParity -v -count=1
+          go test ./internal/oerr/ ./internal/runtime/ ./internal/catalog/ ./internal/provider/ \
+            -run TestParity -v -count=1
 
       - name: Bash compatibility contracts
         if: runner.os != 'Windows'

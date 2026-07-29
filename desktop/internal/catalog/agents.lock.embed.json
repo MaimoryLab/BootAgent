@@ -1,0 +1,270 @@
+{
+  "schema_version": 1,
+  "oneagent_version": "0.2.0-dev",
+  "generated_at": "2026-07-22",
+  "agents": {
+    "codex": {
+      "name": "Codex",
+      "group": "auto",
+      "command": "codex",
+      "config_mode": "auto",
+      "config_adapter": "codex",
+      "credential_delivery": "oneagent_env",
+      "config_path": ".codex/config.toml",
+      "package": {
+        "manager": "npm",
+        "name": "@openai/codex",
+        "version": "0.145.0",
+        "integrity": "sha512-/PSPSFujjjmiyVFvG2yu/grOFhsWdokTH8t2KGWhXSo/M5n/dIDsnbsnO82/7bLtIoDuzQf7ATBUMWqPWQINlQ==",
+        "source": "https://github.com/openai/codex",
+        "license": "Apache-2.0",
+        "license_url": "https://github.com/openai/codex/blob/main/LICENSE"
+      },
+      "version_args": [
+        "--version"
+      ],
+      "platforms": [
+        "macos",
+        "linux",
+        "windows"
+      ],
+      "rank": 1
+    },
+    "claude-code": {
+      "name": "Claude Code",
+      "group": "auto",
+      "command": "claude",
+      "config_mode": "auto",
+      "config_adapter": "claude-code",
+      "credential_delivery": "native_env",
+      "env_vars": {
+        "api_key": "ANTHROPIC_AUTH_TOKEN",
+        "base_url": "ANTHROPIC_BASE_URL",
+        "model": "ANTHROPIC_MODEL",
+        "small_fast_model": "ANTHROPIC_SMALL_FAST_MODEL"
+      },
+      "config_path": ".claude/settings.json",
+      "package": {
+        "manager": "npm",
+        "name": "@anthropic-ai/claude-code",
+        "version": "2.1.217",
+        "integrity": "sha512-EIcc3GmI7x+qPlKCjpcLIjCh7YOaCFbOqKfL4BmwZS6QmtduVNT5E98oyr8n2cxsgeWVbnQ0mSVljTw5C/kFtA==",
+        "source": "https://github.com/anthropics/claude-code",
+        "license": "Proprietary",
+        "license_url": "https://github.com/anthropics/claude-code/blob/main/LICENSE.md"
+      },
+      "version_args": [
+        "--version"
+      ],
+      "platforms": [
+        "macos",
+        "linux",
+        "windows"
+      ],
+      "windows_prerequisites": [
+        "git"
+      ],
+      "rank": 2
+    },
+    "opencode": {
+      "name": "OpenCode",
+      "group": "auto",
+      "command": "opencode",
+      "config_mode": "auto",
+      "config_adapter": "opencode",
+      "credential_delivery": "oneagent_env",
+      "config_path": ".config/opencode/opencode.jsonc",
+      "package": {
+        "manager": "npm",
+        "name": "opencode-ai",
+        "version": "1.18.4",
+        "integrity": "sha512-B8pFAs1g158ZU+C6eSiJz/5ZhG7Vr2mH7Z7ruYEHLElAlX9tehrRTnzTTgjSxHY2vwZ/5VplwR3odFU+Dai8jg==",
+        "source": "https://github.com/anomalyco/opencode",
+        "license": "MIT",
+        "license_url": "https://github.com/anomalyco/opencode/blob/dev/LICENSE"
+      },
+      "version_args": [
+        "--version"
+      ],
+      "platforms": [
+        "macos",
+        "linux",
+        "windows"
+      ],
+      "windows_note": "Native Windows is supported; WSL is recommended upstream for the best experience.",
+      "rank": 4
+    },
+    "kilo-cli": {
+      "name": "Kilo CLI",
+      "group": "auto",
+      "command": "kilo",
+      "config_mode": "auto",
+      "config_adapter": "kilo-cli",
+      "credential_delivery": "oneagent_env",
+      "config_path": ".config/kilo/kilo.jsonc",
+      "package": {
+        "manager": "npm",
+        "name": "@kilocode/cli",
+        "version": "7.4.11",
+        "integrity": "sha512-v9w0Zv7SYkHbd8D2HK1qjJOnQACg9kOfjl3tRjErytnCWuALS5yRmmVP4ekXsR++3+SePMeGX6HOa5H6lWdfeQ==",
+        "source": "https://github.com/Kilo-Org/kilocode",
+        "license": "MIT",
+        "license_url": "https://github.com/Kilo-Org/kilocode/blob/main/LICENSE"
+      },
+      "version_args": [
+        "--version"
+      ],
+      "platforms": [
+        "macos",
+        "linux",
+        "windows"
+      ],
+      "rank": 8
+    },
+    "aider": {
+      "name": "Aider",
+      "group": "auto",
+      "command": "aider",
+      "config_mode": "auto",
+      "config_adapter": "aider",
+      "credential_delivery": "config_file",
+      "config_path": ".oneagent/aider.env",
+      "windows_config_path": ".oneagent/aider.ps1",
+      "package": {
+        "manager": "uv",
+        "name": "aider-chat",
+        "version": "0.86.2",
+        "integrity": null,
+        "source": "https://github.com/Aider-AI/aider",
+        "license": "Apache-2.0",
+        "license_url": "https://github.com/Aider-AI/aider/blob/main/LICENSE.txt"
+      },
+      "version_args": [
+        "--version"
+      ],
+      "platforms": [
+        "macos",
+        "linux",
+        "windows"
+      ],
+      "rank": 9
+    },
+    "openclaw": {
+      "name": "OpenClaw",
+      "group": "gateway",
+      "command": "openclaw",
+      "config_mode": "guide",
+      "platforms": [
+        "macos",
+        "linux",
+        "windows"
+      ],
+      "guide": "Install from OpenClaw docs, then run: openclaw onboard --install-daemon && openclaw gateway status",
+      "rank": 5
+    },
+    "hermes": {
+      "name": "Hermes",
+      "group": "gateway",
+      "command": "hermes",
+      "config_mode": "guide",
+      "platforms": [
+        "macos",
+        "linux",
+        "windows"
+      ],
+      "guide": "Install Hermes, then configure models with hermes model or ~/.hermes/config.yaml.",
+      "rank": 6
+    },
+    "cursor": {
+      "name": "Cursor",
+      "group": "platform",
+      "command": "cursor",
+      "config_mode": "guide",
+      "platforms": [
+        "macos",
+        "linux",
+        "windows"
+      ],
+      "guide": "Use Cursor subscription or official account settings; OneAgent does not write a private Cursor configuration.",
+      "rank": 3
+    },
+    "kiro": {
+      "name": "Kiro",
+      "group": "platform",
+      "command": "kiro",
+      "config_mode": "guide",
+      "platforms": [
+        "macos",
+        "linux",
+        "windows"
+      ],
+      "guide": "Use kiro login or KIRO_API_KEY for official CLI usage.",
+      "rank": 10
+    },
+    "gemini-cli": {
+      "name": "Gemini CLI",
+      "group": "platform",
+      "command": "gemini",
+      "config_mode": "guide",
+      "platforms": [
+        "macos",
+        "linux",
+        "windows"
+      ],
+      "guide": "Use Google login, GEMINI_API_KEY, or Vertex AI configuration.",
+      "rank": 7
+    },
+    "cline": {
+      "name": "Cline",
+      "group": "ide",
+      "command": "",
+      "config_mode": "guide",
+      "platforms": [
+        "macos",
+        "linux",
+        "windows"
+      ],
+      "guide": "Install the IDE extension and choose OpenAI Compatible provider in the extension UI.",
+      "rank": 11
+    },
+    "continue": {
+      "name": "Continue",
+      "group": "ide",
+      "command": "",
+      "config_mode": "guide",
+      "platforms": [
+        "macos",
+        "linux",
+        "windows"
+      ],
+      "guide": "Install the IDE extension and add an OpenAI-compatible model in Continue config.",
+      "rank": 12
+    },
+    "qwen-code": {
+      "name": "Qwen Code",
+      "group": "ide",
+      "command": "qwen",
+      "config_mode": "guide",
+      "platforms": [
+        "macos",
+        "linux",
+        "windows"
+      ],
+      "guide": "Use the official Qwen Code setup and provider configuration.",
+      "rank": 13
+    },
+    "kilo-vscode": {
+      "name": "Kilo VS Code",
+      "group": "ide",
+      "command": "",
+      "config_mode": "guide",
+      "platforms": [
+        "macos",
+        "linux",
+        "windows"
+      ],
+      "guide": "Install the Kilo Code extension and choose OpenAI Compatible provider.",
+      "rank": 14
+    }
+  }
+}
