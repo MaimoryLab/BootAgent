@@ -10,13 +10,23 @@
   --surface-pressed: #ededf0;
   --text-primary: #1d1d1f;
   --text-secondary: #6e6e73;
-  --text-tertiary: #8e8e93;
+  /* Measured, not chosen by eye: this is used at 11px on white, on the sidebar
+     and on --surface-subtle, and the previous #8e8e93 reached only 3.0:1 there
+     against the 4.5:1 WCAG AA needs for text that small. #6b6b70 clears it on
+     all three while staying a visible step lighter than --text-secondary. */
+  --text-tertiary: #6b6b70;
   --border: rgba(60, 60, 67, 0.18);
   --border-strong: rgba(60, 60, 67, 0.28);
-  --blue: #007aff;
-  --blue-hover: #006ee6;
-  --blue-soft: rgba(0, 122, 255, 0.08);
-  --green: #248a3d;
+  /* Used both as link text on white and as a button fill with white text on it.
+     Contrast is symmetric, so one value serves both -- but #007aff gave only
+     4.0:1 in each direction, below the 4.5:1 AA needs. #0b66cc reaches 5.6:1
+     on white and 5.1:1 on --blue-soft. */
+  --blue: #0b66cc;
+  --blue-hover: #0a5cb8;
+  --blue-soft: rgba(11, 102, 204, 0.08);
+  /* The "已安装" badge puts this on --green-soft at 11px, where #248a3d gave
+     4.0:1 against the 4.5:1 needed. */
+  --green: #1f7a35;
   --green-soft: #e9f7ec;
   --orange: #b25000;
   --orange-soft: #fff3e7;

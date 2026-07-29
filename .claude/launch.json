@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "oneagent-gui",
+      "runtimeExecutable": "python3.12",
+      "runtimeArgs": ["scripts/gui.py", "--port", "8765", "--no-open"],
+      "port": 8765,
+      "url": "http://127.0.0.1:8765"
+    }
+  ]
+}

@@ -442,6 +442,43 @@ class RegistryTests(unittest.TestCase):
                     resolve_registry(value)
                 self.assertEqual(caught.exception.code, "INVALID_REQUEST")
 
+    def test_an_unusable_registry_is_refused_even_when_nothing_needs_installing(self):
+        # Found by driving the running server: resolve_registry was only reached
+        # from install_locked_agent, which returns early for an Agent that is
+        # already present. So a request naming an http:// registry, or one with
+        # credentials in it, came back 200 with the setting silently ignored --
+        # the user was told the operation succeeded and never learned their
+        # registry choice had not been applied.
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            runtime = Runtime(
+                home=home,
+                os_id="linux",
+                runner=RecordingRunner(),
+                # codex is present, so the install path would return early.
+                which=lambda name: f"/usr/bin/{name}",
+                env={},
+            )
+            for value in ["http://npm.example.com/", "https://user:pass@npm.example.com/"]:
+                with self.subTest(registry=value):
+                    with self.assertRaises(OneAgentError) as caught:
+                        install_many(
+                            InstallOptions(
+                                agents=["codex"],
+                                provider="ppio",
+                                api_key="K",
+                                model="m",
+                                skip_test=True,
+                                home=home,
+                                os_id="linux",
+                                registry=value,
+                            ),
+                            runtime,
+                        )
+                    self.assertEqual(caught.exception.code, "INVALID_REQUEST")
+                    # And the refusal does not echo the credential back.
+                    self.assertNotIn("user:pass", caught.exception.message)
+
     def test_every_declared_mirror_records_its_upstream_and_uses_https(self):
         # The product boundary admits a mirror only with a licence, a pinned
         # version, a checksum and an upstream address; the first and last are

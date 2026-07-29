@@ -38,3 +38,6 @@ site/public/downloads/
 desktop/bin/
 desktop/**/*.test
 *.coverprofile
+
+# Playwright 从仓库根运行时会在这里留产物；正确的运行位置是 frontend/。
+test-results/

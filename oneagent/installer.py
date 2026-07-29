@@ -1368,6 +1368,11 @@ def install_many(options: InstallOptions, runtime: Runtime | None = None) -> dic
     for agent_id in [*options.agents, *profile_agents]:
         if agent_id not in catalog:
             raise OneAgentError("INVALID_REQUEST", f"Unknown Agent: {agent_id}")
+    # Validated here rather than only inside install_locked_agent, which returns
+    # early for an Agent that is already present. An unusable registry was
+    # therefore accepted silently whenever nothing needed installing, so the
+    # request looked successful and the setting was never applied or reported.
+    resolve_registry(options.registry)
 
     auto_agents = [agent_id for agent_id in options.agents if catalog[agent_id]["config_mode"] == "auto"]
     base_url = ""
