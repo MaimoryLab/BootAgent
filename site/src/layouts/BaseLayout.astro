@@ -1,0 +1,71 @@
+---
+import Header from "../components/Header.astro";
+import Footer from "../components/Footer.astro";
+import releaseIndexData from "../generated/release-index.json";
+import "../styles/global.css";
+
+interface Props {
+  title?: string;
+  description?: string;
+  image?: string;
+  noindex?: boolean;
+}
+
+const {
+  title = "OneAgent — 可信的本地 AI 开发环境激活器",
+  description = "用一个可信的本地流程，激活你自己的 Agent、账号和 Provider。",
+  image = "images/oneagent-overview.jpg",
+  noindex = false,
+} = Astro.props;
+const canonical = new URL(Astro.url.pathname, Astro.site ?? Astro.url.origin);
+const baseUrl = new URL(import.meta.env.BASE_URL, Astro.site ?? Astro.url.origin);
+const imageUrl = new URL(image.replace(/^\/+/, ""), baseUrl);
+const preview = releaseIndexData.channels.find((channel) => channel.channel === "technical-preview-unsigned");
+const availableSystems = preview?.targets
+  .filter((target) => target.status === "available")
+  .map((target) => `${target.platformLabel} ${target.archLabel}`) ?? [];
+const structuredData = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  name: "OneAgent",
+  applicationCategory: "DeveloperApplication",
+  operatingSystem: availableSystems.join(", ") || "No public build",
+  softwareVersion: preview?.version,
+  url: canonical,
+  description,
+  offers: { "@type": "Offer", price: "0", priceCurrency: "CNY" },
+};
+---
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-src 'none'; worker-src 'none'"
+    />
+    <meta name="description" content={description} />
+    <meta name="theme-color" content="#f4f3ef" />
+    {noindex && <meta name="robots" content="noindex" />}
+    <base href={baseUrl.toString()} />
+    <link rel="canonical" href={canonical} />
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="zh_CN" />
+    <meta property="og:site_name" content="OneAgent" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={imageUrl} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <title>{title}</title>
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(structuredData)} />
+  </head>
+  <body>
+    <a class="skip-link" href="#main">跳到主要内容</a>
+    <Header />
+    <main id="main"><slot /></main>
+    <Footer />
+  </body>
+</html>

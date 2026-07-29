@@ -1,0 +1,40 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import releaseIndexData from "../../generated/release-index.json";
+import type { ReleaseChannel } from "../../lib/downloads";
+const preview = ((releaseIndexData as unknown as { channels: ReleaseChannel[] }).channels.find((channel) => channel.channel === "technical-preview-unsigned"))!;
+const verifiedTarget = preview.targets.find((target) => target.status === "available")!;
+const verifiedArtifact = verifiedTarget.artifacts.find((artifact) => artifact.kind === "binary")!;
+---
+<BaseLayout title="安全、隐私与发行完整性 — OneAgent" description="OneAgent 的本地执行、密钥处理、配置备份、同包分发和未签名预览版边界。">
+  <header class="page-hero">
+    <div class="shell page-hero-grid">
+      <div><nav class="breadcrumb" aria-label="面包屑"><a href="">首页</a> / 安全与隐私</nav><p class="eyebrow">Trust is inspectable</p><h1 class="page-title">信任来自可以核对的边界。</h1></div>
+      <div class="page-hero-aside"><strong>默认不采集应用遥测</strong>OneAgent 不需要云端账号，不建立模型流量中转，也不把 API Key 发送给 OneAgent 服务。</div>
+    </div>
+  </header>
+  <section class="section-compact">
+    <div class="shell content-grid">
+      <article class="prose">
+        <h2 id="local">本地执行</h2>
+        <p>Launcher 在本机回环地址上提供界面与 API。配置、备份和状态保存在用户设备；本地服务不作为公网控制面。</p>
+        <h2 id="privacy">API Key 与隐私</h2>
+        <p>API Key 只写入目标 Agent 工作所需的本地配置或 OneAgent 环境文件。Key 不进入 OneAgent profile、日志、截图、网页分析事件或命令行参数。</p>
+        <p>典型写入位置包括 <code>~/.codex/config.toml</code>、<code>~/.claude/settings.json</code>、<code>~/.config/opencode/opencode.jsonc</code>、<code>~/.config/kilo/kilo.jsonc</code> 和 <code>~/.oneagent/</code>。具体路径取决于 Agent 与操作系统，写入前后均由 Launcher 展示。</p>
+        <h2 id="backups">权限与备份</h2>
+        <p>OneAgent 在修改既有配置前创建备份，并把配置目录和包含密钥的文件限制为当前用户可访问。cleanroom 会检查真实用户目录没有被测试流程修改。</p>
+        <h2 id="distribution">同包分发</h2>
+        <p>官网、GitHub Release、网盘和企业云盘只能分发完全相同的 OneAgent 官方构建。同版本的文件内容和 SHA-256 必须一致，渠道不得重新打包、追加推广内容或二次签名。</p>
+        <p>OneAgent 不重新分发第三方 Agent 二进制。Agent 应来自官方安装源、经过书面授权的镜像或用户手动安装。</p>
+        <h2 id="release-evidence">当前发行证据</h2>
+        <div class="notice notice-success"><span class="notice-mark">✓</span><div><strong>macOS arm64 cleanroom 已复核</strong><p>{preview.version} 的当前 {verifiedTarget.platformLabel} {verifiedTarget.archLabel} ZIP 已按精确 SHA-256 完成原生 cleanroom 复核。</p></div></div>
+        <ul><li>渠道：<code>technical-preview-unsigned</code></li><li>SHA-256：<code>{verifiedArtifact.sha256}</code></li><li>签名与公证：尚未完成，因此不是 Stable。</li></ul>
+        <h2 id="stable">Stable 门禁</h2>
+        <p>macOS 需要 Developer ID 签名、公证和 stapled ticket；Windows 需要有效 Authenticode；每个平台还必须有原生构建与 cleanroom 证据。平台可以独立进入 Stable，不用等待所有平台同时完成。</p>
+        <h2 id="excluded">明确排除</h2>
+        <ul><li>VPN、代理节点或绕过网络限制的指导；</li><li>共享 API Key、统一模型网关、模型/API 转售；</li><li>未授权 Agent 二进制和渠道定制包；</li><li>把未签名预览版描述为 Stable 或安全认证版本。</li></ul>
+      </article>
+      <nav class="side-index" aria-label="本页目录"><a href="#local">本地执行</a><a href="#privacy">Key 与隐私</a><a href="#backups">权限与备份</a><a href="#distribution">同包分发</a><a href="#release-evidence">发行证据</a><a href="#stable">Stable 门禁</a><a href="#excluded">明确排除</a></nav>
+    </div>
+  </section>
+</BaseLayout>

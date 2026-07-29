@@ -1,0 +1,100 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import AgentMark from "../components/AgentMark.astro";
+import releaseIndexData from "../generated/release-index.json";
+import catalogData from "../generated/catalog.json";
+import { agentDescriptions, groupLabels, protocolLabels } from "../lib/content";
+import type { ReleaseChannel } from "../lib/downloads";
+
+const releaseIndex = releaseIndexData as unknown as { channels: ReleaseChannel[] };
+const preview = releaseIndex.channels.find((channel) => channel.channel === "technical-preview-unsigned")!;
+const catalog = catalogData as any;
+const primaryAgents = catalog.agents.slice(0, 6);
+const available = preview.targets.find((target) => target.status === "available");
+---
+<BaseLayout>
+  <section class="hero">
+    <div class="shell hero-copy">
+      <div>
+        <p class="eyebrow">Local-first · Bring your own key</p>
+        <h1 class="display">一个入口，<br /><em>激活你的 AI 开发环境。</em></h1>
+      </div>
+      <div class="hero-side">
+        <p class="lede">OneAgent 检测、安装并初始化常用 Agent。账号、Provider 和 API Key 始终属于你，配置留在本机。</p>
+        <div class="hero-actions">
+          <a class="button button-primary" href="downloads/">下载 OneAgent</a>
+          <a class="button button-secondary" href="quickstart/">查看快速开始</a>
+        </div>
+        <p class="hero-note">{preview.version} · {preview.label} · 当前开放 {available?.platformLabel} {available?.archLabel}</p>
+      </div>
+    </div>
+    <figure class="product-shot">
+      <img src="images/oneagent-overview.jpg" width="1215" height="690" alt="OneAgent 环境总览，显示 Codex、Claude Code、Cursor、OpenCode、OpenClaw 与 Hermes 的状态" />
+    </figure>
+  </section>
+
+  <section class="trust-strip" aria-label="产品边界">
+    <div class="shell trust-grid">
+      <div class="trust-item"><strong>本地执行</strong><span>配置与备份留在用户设备</span></div>
+      <div class="trust-item"><strong>自己的 Key</strong><span>不提供共享 Key 或统一网关</span></div>
+      <div class="trust-item"><strong>同包分发</strong><span>所有渠道保持相同 SHA-256</span></div>
+      <div class="trust-item"><strong>诚实标注</strong><span>未签名预览版不冒充 Stable</span></div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="shell">
+      <div class="section-heading">
+        <div><p class="eyebrow">First success path</p><h2 class="section-title">从下载到首次成功，只保留必要步骤。</h2></div>
+        <p>不要求注册 OneAgent 账号，不要求把 Key 交给新的中间服务，也不会在安装包里捆绑第三方 Agent。</p>
+      </div>
+      <div class="steps">
+        <article class="step"><h3>选择 Agent</h3><p>优先展示常用工具，同时保留只能按官方方式安装的 Agent。</p></article>
+        <article class="step"><h3>连接 Provider</h3><p>使用你自己的 Provider 账号与 Key，并在写入配置前验证对应协议。</p></article>
+        <article class="step"><h3>完成并复核</h3><p>查看实际写入位置、备份和下一步命令；失败时得到明确错误而非静默降级。</p></article>
+      </div>
+    </div>
+  </section>
+
+  <section class="section section-muted">
+    <div class="shell">
+      <div class="section-heading">
+        <div><p class="eyebrow">Compatibility, stated precisely</p><h2 class="section-title">“支持”不是一个模糊的勾。</h2></div>
+        <p>安装、配置和协议分别标注。仅引导的 Agent 仍然可以进入流程，但不会被描述成 OneAgent 自动管理。</p>
+      </div>
+      <div class="agent-list">
+        {primaryAgents.map((agent: any) => (
+          <a class="agent-row" href={`agents/${agent.id}/`}>
+            <AgentMark id={agent.id} name={agent.name} />
+            <div><strong>{agent.name}</strong><span class="agent-meta">{groupLabels[agent.group] ?? agent.group}</span></div>
+            <span class="agent-meta">{agentDescriptions[agent.id] ?? "按项目公开能力提供安装或配置支持。"}</span>
+            <div class="agent-status">
+              {agent.support.managedInstall ? <span class="chip chip-green">管理安装</span> : <span class="chip">官方引导</span>}
+              {agent.support.managedConfig ? <span class="chip chip-blue">管理配置</span> : <span class="chip">官方配置</span>}
+              {agent.protocol && <span class="chip">{protocolLabels[agent.protocol]}</span>}
+            </div>
+          </a>
+        ))}
+      </div>
+      <div style="margin-top:28px"><a class="button button-secondary" href="agents/">查看全部 {catalog.agents.length} 个 Agent</a></div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="shell split-callout">
+      <span class="callout-index">01 / TRUST</span>
+      <div class="callout-body">
+        <h2>分发不是把一个 ZIP 放到更多地方，而是让每个地方都能证明它是同一个 ZIP。</h2>
+        <p>每个公开产物都带版本、平台、架构、大小和 SHA-256。官网、GitHub Release、网盘或企业云盘只能分发完全相同的官方构建。</p>
+        <a class="button button-secondary" href="security/">查看安全与发行政策</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="cta-band">
+    <div class="shell cta-grid">
+      <div><h2>先让一个人的环境可靠，再把它标准化到整个团队。</h2><p>团队启用、环境基线、内部镜像与商业支持，不接管企业 API Key。</p></div>
+      <a class="button button-secondary" href="enterprise/">了解企业服务</a>
+    </div>
+  </section>
+</BaseLayout>

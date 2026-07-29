@@ -1,0 +1,40 @@
+---
+import BrandMark from "./BrandMark.astro";
+
+const pathname = Astro.url.pathname;
+const basePath = import.meta.env.BASE_URL;
+const withBase = (path: string) => `${basePath}${path.replace(/^\/+/, "")}`;
+const nav = [
+  { path: "downloads/", label: "下载" },
+  { path: "quickstart/", label: "快速开始" },
+  { path: "agents/", label: "Agent" },
+  { path: "providers/", label: "Provider" },
+  { path: "security/", label: "安全" },
+];
+const active = (path: string) => pathname.includes(`/${path}`);
+---
+<header class="site-header">
+  <div class="shell header-inner">
+    <a class="wordmark" href={withBase("")} aria-label="OneAgent 首页">
+      <span class="wordmark-mark"><BrandMark size={24} /></span>
+      <span>OneAgent</span>
+    </a>
+    <nav class="desktop-nav" aria-label="主导航">
+      {nav.map((item) => (
+        <a href={withBase(item.path)} aria-current={active(item.path) ? "page" : undefined}>{item.label}</a>
+      ))}
+    </nav>
+    <div class="header-actions">
+      <a class="header-link" href={withBase("enterprise/")}>企业服务</a>
+      <a class="button button-small button-primary" href={withBase("downloads/")}>下载预览版</a>
+      <details class="mobile-menu">
+        <summary aria-label="打开导航菜单">菜单</summary>
+        <nav aria-label="移动端导航">
+          {nav.map((item) => <a href={withBase(item.path)}>{item.label}</a>)}
+          <a href={withBase("enterprise/")}>企业服务</a>
+          <a href={withBase("support/")}>支持</a>
+        </nav>
+      </details>
+    </div>
+  </div>
+</header>

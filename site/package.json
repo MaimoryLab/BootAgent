@@ -1,0 +1,29 @@
+{
+  "name": "oneagent-public-site",
+  "version": "0.2.0-dev",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "prepare:data": "python3.12 ../scripts/build_release_index.py --release-dir ../release --channels ../distribution/channels.json --output src/generated/release-index.json --copy-downloads public/downloads && python3.12 ../scripts/build_site_catalog.py --lock ../agents.lock.json --providers ../distribution/providers.json --output src/generated/catalog.json",
+    "dev": "npm run prepare:data && astro dev",
+    "build": "npm run prepare:data && npm run check && astro build && npm run validate",
+    "check": "astro check",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "preview": "astro preview",
+    "validate": "node scripts/validate-build.mjs",
+    "test:all": "npm test && npm run build && npm run test:e2e"
+  },
+  "dependencies": {
+    "@astrojs/sitemap": "3.7.3",
+    "astro": "7.1.4"
+  },
+  "devDependencies": {
+    "@astrojs/check": "0.9.10",
+    "@playwright/test": "1.62.0",
+    "axe-core": "4.12.1",
+    "jsdom": "30.0.0",
+    "typescript": "6.0.3",
+    "vitest": "4.1.10"
+  }
+}

@@ -1,0 +1,139 @@
+---
+import releaseIndexData from "../generated/release-index.json";
+import { binaryArtifact, formatBytes, formatDate, primaryDownload, type ReleaseChannel } from "../lib/downloads";
+
+const releaseIndex = releaseIndexData as unknown as { channels: ReleaseChannel[] };
+const channel = releaseIndex.channels.find((item) => item.channel === "technical-preview-unsigned")!;
+const defaultTarget = channel.targets.find((target) => target.status === "available") ?? channel.targets[0];
+---
+<div class="download-layout" data-download-selector>
+  <aside class="platform-control">
+    <label for="platform-target">选择平台与架构</label>
+    <select id="platform-target" data-platform-select>
+      {channel.targets.map((target) => (
+        <option value={target.id} selected={target.id === defaultTarget.id}>
+          {target.platformLabel} · {target.archLabel}
+        </option>
+      ))}
+    </select>
+    <p class="detected-note" data-detected-note>已优先显示当前可下载的平台；你可以随时手动切换。</p>
+    <div class="notice notice-warning" style="margin-top:22px">
+      <span class="notice-mark">!</span>
+      <div>
+        <strong>这不是 Stable</strong>
+        <p>当前包未签名、未公证。OneAgent 不提供绕过操作系统安全策略的说明。</p>
+      </div>
+    </div>
+  </aside>
+
+  <div>
+    {channel.targets.map((target) => {
+      const artifact = binaryArtifact(target);
+      const download = artifact ? primaryDownload(artifact) : null;
+      return (
+        <section class:list={["release-panel", { "is-active": target.id === defaultTarget.id }]} data-release-panel={target.id} aria-hidden={target.id === defaultTarget.id ? "false" : "true"}>
+          <div class="release-head">
+            <div>
+              <h2>{target.platformLabel}</h2>
+              <p>{target.archLabel}</p>
+            </div>
+            {target.status === "available" ? <span class="chip chip-green">已验证可下载</span> : <span class="chip chip-orange">验证中</span>}
+          </div>
+
+          {target.status === "available" && artifact && download ? (
+            <>
+              <dl class="release-meta-grid">
+                <div><dt>版本</dt><dd>{channel.version}</dd></div>
+                <div><dt>发行渠道</dt><dd>{channel.label}</dd></div>
+                <div><dt>文件大小</dt><dd>{formatBytes(artifact.bytes)}</dd></div>
+                <div><dt>构建日期</dt><dd>{formatDate(target.built_at)}</dd></div>
+                <div><dt>签名状态</dt><dd>未签名、未公证</dd></div>
+                <div><dt>验证状态</dt><dd>原生构建 + cleanroom 通过</dd></div>
+              </dl>
+              <div class="download-action">
+                <a class="button button-primary" href={download.url} download>下载 {target.platformLabel} 预览版</a>
+                <a class="button button-secondary" href="quickstart/">查看快速开始</a>
+              </div>
+              <div class="notice notice-info">
+                <span class="notice-mark">i</span>
+                <div>
+                  <strong>下载即得到被校验的官方同包产物</strong>
+                  <p>任何官网、GitHub Release 或镜像渠道都必须保持相同 SHA-256，禁止二次打包。</p>
+                </div>
+              </div>
+              <div class="hash-block">
+                <p><strong>SHA-256</strong></p>
+                <div class="hash-row">
+                  <code class="hash-value">{artifact.sha256}</code>
+                  <button class="copy-button" type="button" data-copy={artifact.sha256}>复制</button>
+                </div>
+              </div>
+              <div class="hash-block">
+                <p><strong>macOS 校验命令</strong></p>
+                <pre class="code-block"><code>shasum -a 256 {artifact.file}</code></pre>
+              </div>
+              <p class="hero-note">cleanroom 证据只对应此文件的精确 SHA-256；包体变化后必须重新验证。</p>
+            </>
+          ) : (
+            <div class="unavailable-panel">
+              <h3>这个平台尚未公开发行</h3>
+              <p>构建工作流已经保留，但在原生构建、cleanroom 证据和发行元数据齐备前，不提供空下载按钮，也不把 CI 产物描述为正式可用。</p>
+              <a class="button button-secondary" href="changelog/">查看发行进度</a>
+            </div>
+          )}
+        </section>
+      );
+    })}
+  </div>
+</div>
+
+<script>
+  import { detectTargetFromUserAgent } from "../lib/downloads";
+
+  const root = document.querySelector<HTMLElement>("[data-download-selector]");
+  const select = root?.querySelector<HTMLSelectElement>("[data-platform-select]");
+  const note = root?.querySelector<HTMLElement>("[data-detected-note]");
+  const panels = root ? Array.from(root.querySelectorAll<HTMLElement>("[data-release-panel]")) : [];
+
+  const show = (id: string) => {
+    panels.forEach((panel) => {
+      const active = panel.dataset.releasePanel === id;
+      panel.classList.toggle("is-active", active);
+      panel.setAttribute("aria-hidden", active ? "false" : "true");
+    });
+  };
+
+  if (select) {
+    const detected = detectTargetFromUserAgent(navigator.userAgent);
+    if (detected) {
+      const exact = Array.from(select.options).find((option) => option.value === `${detected.platform}-${detected.arch}`);
+      const samePlatform = Array.from(select.options).find((option) => option.value.startsWith(`${detected.platform}-`));
+      const option = exact ?? samePlatform;
+      if (option) {
+        select.value = option.value;
+        show(option.value);
+        if (note) {
+          const selectedLabel = option.textContent?.trim() ?? "当前平台";
+          const platformLabel = selectedLabel.split("·", 1)[0]?.trim() ?? selectedLabel;
+          if (exact) note.textContent = `已识别为 ${selectedLabel}；你仍可手动切换。`;
+          else if (detected.arch) {
+            const architecture = detected.arch === "arm64" ? "ARM64" : "x64";
+            note.textContent = `已识别为 ${platformLabel} ${architecture}，当前目录没有完全匹配的构建；请勿运行架构不匹配的包。`;
+          } else {
+            note.textContent = `已识别为 ${platformLabel}，但浏览器无法可靠判断芯片架构；请确认选项后下载。`;
+          }
+        }
+      }
+    }
+    select.addEventListener("change", () => show(select.value));
+  }
+
+  root?.querySelectorAll<HTMLButtonElement>("[data-copy]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const value = button.dataset.copy ?? "";
+      await navigator.clipboard.writeText(value);
+      button.textContent = "已复制";
+      window.setTimeout(() => { button.textContent = "复制"; }, 1500);
+    });
+  });
+</script>

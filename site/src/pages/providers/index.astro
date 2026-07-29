@@ -1,0 +1,39 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import catalogData from "../../generated/catalog.json";
+import { protocolLabels, protocolStatusLabels } from "../../lib/content";
+const catalog = catalogData as any;
+---
+<BaseLayout title="Provider 目录 — OneAgent" description="查看 OneAgent 的公开 Provider 接入、协议状态和商业关系披露。">
+  <header class="page-hero">
+    <div class="shell page-hero-grid">
+      <div><nav class="breadcrumb" aria-label="面包屑"><a href="">首页</a> / Provider</nav><p class="eyebrow">Bring your own provider</p><h1 class="page-title">你的账号，你的 Key，你选择的 Provider。</h1></div>
+      <div class="page-hero-aside"><strong>没有统一网关</strong>OneAgent 不转售模型、不代收充值、不代理推理流量。商业合作状态与兼容性结论分开保存和展示。</div>
+    </div>
+  </header>
+  <section class="section-compact">
+    <div class="shell provider-grid">
+      {catalog.providers.map((provider: any) => (
+        <article class="provider-card">
+          <div style="display:flex;justify-content:space-between;gap:20px;align-items:start">
+            <h2>{provider.name}</h2>
+            <span class:list={["chip", provider.relationship === "none" ? "" : "chip-orange"]}>{provider.relationship === "none" ? "无商业合作" : provider.disclosure}</span>
+          </div>
+          <p>使用 Provider 官方账号和 Key；OneAgent 只负责本地连接测试与目标 Agent 配置。</p>
+          <div class="agent-status">
+            {provider.protocols.map((protocol: any) => <span class="chip">{protocolLabels[protocol.id] ?? protocol.id} · {protocolStatusLabels[protocol.status] ?? protocol.status}</span>)}
+          </div>
+          <a class="button button-text" href={`providers/${provider.id}/`}>查看协议状态 →</a>
+        </article>
+      ))}
+    </div>
+  </section>
+  <section class="section section-muted">
+    <div class="narrow prose">
+      <p class="eyebrow">Commercial disclosure</p>
+      <h2 class="section-title">合作可以被看见，但不能偷偷改变排序。</h2>
+      <p>Provider referral 或赞助关系必须带明确标签。它不能修改 Agent rank、兼容性结论、默认 Provider 选择或连接测试结果。</p>
+      <p>首期不复制容易过期的价格表，也不承诺固定免费额度；用户应在 Provider 官方页面核对价格、地区和使用条款。</p>
+    </div>
+  </section>
+</BaseLayout>

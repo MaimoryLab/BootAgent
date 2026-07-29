@@ -1,0 +1,46 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import AgentMark from "../../components/AgentMark.astro";
+import catalogData from "../../generated/catalog.json";
+import { agentDescriptions, groupLabels, platformLabels, protocolLabels } from "../../lib/content";
+import { supportLabels } from "../../lib/downloads";
+
+export function getStaticPaths() {
+  return (catalogData as any).agents.map((agent: any) => ({ params: { id: agent.id }, props: { agent } }));
+}
+const { agent } = Astro.props as any;
+const labels = supportLabels(agent.support);
+---
+<BaseLayout title={`${agent.name} — OneAgent Agent 兼容目录`} description={agentDescriptions[agent.id] ?? `${agent.name} 在 OneAgent 中的安装、配置和协议支持状态。`}>
+  <header class="page-hero">
+    <div class="shell page-hero-grid">
+      <div>
+        <nav class="breadcrumb" aria-label="面包屑"><a href="">首页</a> / <a href="agents/">Agent</a> / {agent.name}</nav>
+        <div style="display:flex;align-items:center;gap:16px;margin-bottom:18px"><AgentMark id={agent.id} name={agent.name} size={30} /><p class="eyebrow" style="margin:0">{groupLabels[agent.group] ?? agent.group}</p></div>
+        <h1 class="page-title">{agent.name}</h1>
+      </div>
+      <div class="page-hero-aside"><strong>{agentDescriptions[agent.id] ?? "按公开能力提供安装或配置支持。"}</strong>{agent.lockedVersion ? `当前锁定安装版本 ${agent.lockedVersion}。` : "版本由 Agent 官方渠道管理。"}</div>
+    </div>
+  </header>
+  <section class="section-compact">
+    <div class="shell">
+      <div class="detail-grid">
+        <div class="detail-cell"><span>安装支持</span><strong>{agent.support.managedInstall ? "OneAgent 可管理安装" : "按官方方式安装"}</strong><p>{agent.support.managedInstall ? "使用锁定来源、版本与完整性信息。" : "选择后返回官方指引，不捆绑第三方二进制。"}</p></div>
+        <div class="detail-cell"><span>配置支持</span><strong>{agent.support.managedConfig ? "OneAgent 可管理配置" : "由 Agent 官方流程管理"}</strong><p>底层配置文件不同本身不构成新增 UI 字段的理由。</p></div>
+        <div class="detail-cell"><span>推理协议</span><strong>{agent.protocol ? protocolLabels[agent.protocol] : "不由 OneAgent 代配协议"}</strong><p>连接测试按 Agent 的真实协议执行，不只依赖模型列表。</p></div>
+        <div class="detail-cell"><span>平台</span><strong>{agent.platforms.map((id: string) => platformLabels[id] ?? id).join(" · ")}</strong><p>具体产物是否公开仍取决于平台原生发行门禁。</p></div>
+      </div>
+      <div class="section-compact wide-narrow">
+        <div class="agent-status" style="margin-bottom:26px">{labels.map((label) => <span class="chip">{label}</span>)}</div>
+        {agent.guide && <div class="notice notice-info"><span class="notice-mark">i</span><div><strong>官方流程摘要</strong><p>{agent.guide}</p></div></div>}
+        <div class="prose">
+          <h2>来源与许可证</h2>
+          {agent.source ? <p>锁定包来源：<a href={agent.source} rel="noreferrer">项目公开来源</a>。</p> : <p>OneAgent 不重新分发该 Agent；请从其官方渠道获取。</p>}
+          {agent.license && <p>当前锁定包声明的许可证：{agent.license}{agent.licenseUrl && <>，<a href={agent.licenseUrl} rel="noreferrer">查看许可证文本</a></>}。</p>}
+          <h2>为什么表单没有为它无限扩展？</h2>
+          <p>OneAgent 只暴露会改变用户意图、且后端真实支持写入的选择。任意 headers、代理转换、共享网关或原始配置 JSON 不会因为其他工具提供了它们，就成为 OneAgent 的承诺。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+</BaseLayout>

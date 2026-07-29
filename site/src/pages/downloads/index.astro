@@ -1,0 +1,32 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import DownloadSelector from "../../components/DownloadSelector.astro";
+---
+<BaseLayout title="下载 OneAgent — 未签名技术预览版" description="下载经过 manifest、SHA-256 与原生 cleanroom 记录的 OneAgent 技术预览版。">
+  <header class="page-hero">
+    <div class="shell page-hero-grid">
+      <div>
+        <nav class="breadcrumb" aria-label="面包屑"><a href="">首页</a> / 下载</nav>
+        <p class="eyebrow">Download center</p>
+        <h1 class="page-title">下载之前，先看清它是什么。</h1>
+      </div>
+      <div class="page-hero-aside">
+        <strong>无需 OneAgent 账号</strong>
+        选择与你设备匹配的产物，核对版本、签名状态与 SHA-256，再开始本地激活流程。
+      </div>
+    </div>
+  </header>
+  <section class="section-compact">
+    <div class="shell"><DownloadSelector /></div>
+  </section>
+  <section class="section section-muted">
+    <div class="narrow prose">
+      <p class="eyebrow">Integrity</p>
+      <h2 class="section-title">为什么下载页一定要显示 SHA-256？</h2>
+      <p>下载渠道只是镜像，不应该改变包体。对同一版本而言，官网、GitHub Release、网盘和企业云盘上的文件必须拥有完全相同的 SHA-256。渠道方不能追加推广文件、替换安装脚本或再次签名。</p>
+      <p>如果你计算出的值与页面不一致，请不要运行该文件，并通过支持页面报告下载地址、文件名和实际哈希。</p>
+      <h3>为什么当前不叫 Stable？</h3>
+      <p>当前技术预览包尚未完成 macOS Developer ID 公证或 Windows Authenticode。OneAgent 不通过降低系统安全策略来掩盖这项缺失；每个平台只有在签名、公证和原生验证门禁完成后，才会独立进入 Stable。</p>
+    </div>
+  </section>
+</BaseLayout>

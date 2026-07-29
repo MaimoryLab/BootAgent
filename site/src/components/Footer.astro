@@ -1,0 +1,38 @@
+---
+import BrandMark from "./BrandMark.astro";
+const year = new Date().getUTCFullYear();
+---
+<footer class="site-footer">
+  <div class="shell footer-grid">
+    <div class="footer-brand">
+      <a class="wordmark" href="">
+        <span class="wordmark-mark"><BrandMark size={22} /></span>
+        <span>OneAgent</span>
+      </a>
+      <p>可信的本地 AI 开发环境激活器。</p>
+      <p class="footer-fine">不提供共享 Key，不代理模型请求，不重新分发第三方 Agent。</p>
+    </div>
+    <div>
+      <strong>开始</strong>
+      <a href="downloads/">下载中心</a>
+      <a href="quickstart/">快速开始</a>
+      <a href="changelog/">更新日志</a>
+    </div>
+    <div>
+      <strong>能力</strong>
+      <a href="agents/">Agent 兼容目录</a>
+      <a href="providers/">Provider 目录</a>
+      <a href="enterprise/">企业服务</a>
+    </div>
+    <div>
+      <strong>信任</strong>
+      <a href="security/">安全与隐私</a>
+      <a href="support/">支持与反馈</a>
+      <a href="release-index.json">发行索引 JSON</a>
+    </div>
+  </div>
+  <div class="shell footer-bottom">
+    <span>© {year} OneAgent</span>
+    <span>当前公开渠道：technical-preview-unsigned</span>
+  </div>
+</footer>

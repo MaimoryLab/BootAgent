@@ -1,0 +1,27 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { optionalEmail } from "../../lib/public-config";
+const businessEmail = optionalEmail(import.meta.env.PUBLIC_BUSINESS_EMAIL as string | undefined, "PUBLIC_BUSINESS_EMAIL");
+const contactHref = businessEmail ? `mailto:${businessEmail}?subject=OneAgent%20企业服务` : `${import.meta.env.BASE_URL}support/`;
+---
+<BaseLayout title="企业服务 — OneAgent" description="OneAgent 团队启用、环境标准化、内部镜像与商业支持服务。">
+  <header class="page-hero">
+    <div class="shell page-hero-grid">
+      <div><nav class="breadcrumb" aria-label="面包屑"><a href="">首页</a> / 企业服务</nav><p class="eyebrow">Standardize the environment</p><h1 class="page-title">把个人成功路径，变成团队可复核的基线。</h1></div>
+      <div class="page-hero-aside"><strong>服务先行，不急着造许可证系统</strong>在重复需求和付费试点成立前，OneAgent 不为想象中的专业版扩张产品边界。</div>
+    </div>
+  </header>
+  <section class="section-compact">
+    <div class="shell service-grid">
+      <article class="service"><span class="service-number">01 / ENABLE</span><h2>团队启用</h2><ul><li>环境与前置工具盘点</li><li>Agent / Provider 选型</li><li>安装培训与上线检查</li></ul></article>
+      <article class="service"><span class="service-number">02 / BASELINE</span><h2>环境标准化</h2><ul><li>批准的 Agent 版本基线</li><li>Provider 配置模板与回滚说明</li><li>官方同包内部镜像流程</li></ul></article>
+      <article class="service"><span class="service-number">03 / SUPPORT</span><h2>商业支持</h2><ul><li>发布与升级协助</li><li>兼容性验证</li><li>约定响应时间与 SLA</li></ul></article>
+    </div>
+  </section>
+  <section class="section section-muted">
+    <div class="shell split-callout"><span class="callout-index">BOUNDARY</span><div class="callout-body"><h2>企业服务不等于接管企业的模型流量。</h2><p>OneAgent 不托管企业 API Key，不建立集中代理，不把未授权 Agent 二进制塞进内部镜像。配置和秘密仍由客户设备或客户自己的秘密管理系统持有。</p><a class="button button-primary" href={contactHref}>{businessEmail ? "发送企业合作邮件" : "查看当前联系状态"}</a>{!businessEmail && <p class="hero-note">公开商务邮箱尚未配置；网站不会展示虚构联系方式。</p>}</div></div>
+  </section>
+  <section class="section-compact">
+    <div class="narrow prose"><h2>产品化门禁</h2><p>只有在至少获得 3 个设计合作方、其中 2 个付费试点，并且它们反复提出相同需求后，才评估团队模板导入导出、环境合规报告、组织版本策略或内部升级策略。进入产品前必须新增 ADR，重新评估权限与隐私。</p></div>
+  </section>
+</BaseLayout>

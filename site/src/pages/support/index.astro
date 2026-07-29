@@ -1,0 +1,24 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { optionalHttpsUrl } from "../../lib/public-config";
+const supportUrl = optionalHttpsUrl(import.meta.env.PUBLIC_SUPPORT_URL as string | undefined, "PUBLIC_SUPPORT_URL");
+---
+<BaseLayout title="支持与反馈 — OneAgent" description="OneAgent 下载校验、安装、协议与安全问题的支持入口。">
+  <header class="page-hero">
+    <div class="shell page-hero-grid">
+      <div><nav class="breadcrumb" aria-label="面包屑"><a href="">首页</a> / 支持</nav><p class="eyebrow">Support without lock-in</p><h1 class="page-title">先把答案写下来，再把人拉进群。</h1></div>
+      <div class="page-hero-aside"><strong>支持不是下载前置条件</strong>文档、校验信息与已知限制保持公开；社群只承担辅助安装、反馈和用户研究。</div>
+    </div>
+  </header>
+  <section class="section-compact">
+    <div class="shell service-grid">
+      <article class="service"><span class="service-number">01</span><h2>下载与校验</h2><p>报告文件名、下载地址和你计算出的 SHA-256。不要上传整个未知文件，也不要运行哈希不一致的包。</p><a class="button button-text" href="downloads/">打开下载中心 →</a></article>
+      <article class="service"><span class="service-number">02</span><h2>安装与配置</h2><p>先查快速开始和 Agent 目录。提交问题时隐藏用户名、本地绝对路径和任何 Key。</p><a class="button button-text" href="quickstart/">查看快速开始 →</a></article>
+      <article class="service"><span class="service-number">03</span><h2>安全问题</h2><p>不要在公开 Issue 中披露 Key 或可利用细节。正式安全接收地址会在公开发行前单独公布。</p><a class="button button-text" href="security/">查看安全边界 →</a></article>
+    </div>
+    <div class="wide-narrow section-compact">
+      <div class="notice notice-info"><span class="notice-mark">i</span><div><strong>官方反馈渠道</strong><p>{supportUrl ? "当前已启用公开反馈入口。" : "仓库目前仍是私有状态；公开反馈入口将在首次公开发行时启用，网站不会链接到不可访问的私有 Issue。"}</p></div></div>
+      {supportUrl && <p style="margin-top:20px"><a class="button button-primary" href={supportUrl} rel="noreferrer">提交反馈</a></p>}
+    </div>
+  </section>
+</BaseLayout>

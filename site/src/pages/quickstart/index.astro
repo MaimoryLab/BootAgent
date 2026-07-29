@@ -1,0 +1,50 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+---
+<BaseLayout title="快速开始 — OneAgent" description="从下载到首次 Agent 配置成功的 OneAgent 快速开始指南。">
+  <header class="page-hero">
+    <div class="shell page-hero-grid">
+      <div>
+        <nav class="breadcrumb" aria-label="面包屑"><a href="">首页</a> / 快速开始</nav>
+        <p class="eyebrow">Six deliberate steps</p>
+        <h1 class="page-title">第一次成功，不需要先理解每个配置文件。</h1>
+      </div>
+      <div class="page-hero-aside"><strong>目标</strong>完成一个 Agent、一个 Provider 和一个实际模型协议的配置，并知道 OneAgent 写了什么。</div>
+    </div>
+  </header>
+  <section class="section-compact">
+    <div class="shell content-grid">
+      <article class="prose">
+        <div class="notice notice-warning">
+          <span class="notice-mark">!</span><div><strong>当前是未签名技术预览版</strong><p>如果操作系统阻止运行，请停止并等待签名版本或使用仓库文档中的受支持源码路径；本文不提供绕过系统安全策略的方法。</p></div>
+        </div>
+        <h2 id="download">1. 下载并校验</h2>
+        <p>从下载中心选择与你的平台和架构匹配的产物。运行前计算 SHA-256，并与下载页显示的值逐字核对。</p>
+        <h2 id="launch">2. 启动 OneAgent</h2>
+        <p>解压后运行 OneAgent。界面在本机回环地址上提供服务，不暴露到局域网或公网；关闭应用后本地服务随之退出。</p>
+        <h2 id="agent">3. 选择 Agent</h2>
+        <p>选择你真正要使用的工具。标记为“官方安装引导”的 Agent 仍可进入流程，但 OneAgent 不会把它们伪装成自动安装或自动配置。</p>
+        <h2 id="provider">4. 连接自己的 Provider</h2>
+        <p>选择 Provider 或自定义兼容端点，并使用你自己的 API Key。OneAgent 不提供共享 Key，不建立统一模型网关，也不代收模型费用。</p>
+        <h2 id="probe">5. 测试真实协议</h2>
+        <p>模型列表可达不等于 Agent 一定可用。OneAgent 会按 Agent 使用的协议测试连接：OpenAI Chat Completions、Anthropic Messages 或 OpenAI Responses。</p>
+        <h2 id="review">6. 复核写入与下一步</h2>
+        <p>完成页会展示每个 Agent 的结果、配置位置与启动方式。配置前会创建备份；错误不会被静默推迟到 Agent 的第一次请求。</p>
+        <div class="notice notice-info">
+          <span class="notice-mark">i</span><div><strong>Key 保存在哪里？</strong><p>Key 只写入目标 Agent 工作所需的本地配置或 OneAgent 环境文件，不写入 OneAgent profile、日志、截图或遥测。</p></div>
+        </div>
+        <h2 id="troubleshooting">遇到问题</h2>
+        <ul>
+          <li>缺少 Agent：按页面给出的官方来源安装，不使用不明镜像脚本。</li>
+          <li>Key 被拒绝：回到 Provider 控制台检查权限与余额，不要把 Key 发到聊天或 Issue。</li>
+          <li>协议不兼容：换用明确支持该 Agent 协议的模型，而不是只验证 <code>/v1/models</code>。</li>
+          <li>下载校验不一致：不要运行文件，保留文件名、下载地址与实际 SHA-256。</li>
+        </ul>
+        <p><a class="button button-primary" href="downloads/">前往下载中心</a></p>
+      </article>
+      <nav class="side-index" aria-label="本页目录">
+        <a href="#download">1. 下载并校验</a><a href="#launch">2. 启动</a><a href="#agent">3. 选择 Agent</a><a href="#provider">4. 连接 Provider</a><a href="#probe">5. 测试协议</a><a href="#review">6. 复核结果</a><a href="#troubleshooting">遇到问题</a>
+      </nav>
+    </div>
+  </section>
+</BaseLayout>

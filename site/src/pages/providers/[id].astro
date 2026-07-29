@@ -1,0 +1,34 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import catalogData from "../../generated/catalog.json";
+import { protocolLabels, protocolStatusLabels } from "../../lib/content";
+
+export function getStaticPaths() {
+  return (catalogData as any).providers.map((provider: any) => ({ params: { id: provider.id }, props: { provider } }));
+}
+const { provider } = Astro.props as any;
+---
+<BaseLayout title={`${provider.name} Provider — OneAgent`} description={`${provider.name} 在 OneAgent 中的公开协议接入和商业关系披露。`}>
+  <header class="page-hero">
+    <div class="shell page-hero-grid">
+      <div><nav class="breadcrumb" aria-label="面包屑"><a href="">首页</a> / <a href="providers/">Provider</a> / {provider.name}</nav><p class="eyebrow">Provider profile</p><h1 class="page-title">{provider.name}</h1></div>
+      <div class="page-hero-aside"><strong>{provider.relationship === "none" ? "当前无商业合作" : provider.disclosure}</strong>商业关系数据与兼容性数据独立，不能影响默认排序或技术结论。</div>
+    </div>
+  </header>
+  <section class="section-compact">
+    <div class="wide-narrow">
+      <div class="detail-grid">
+        {provider.protocols.map((protocol: any) => (
+          <div class="detail-cell"><span>{protocolLabels[protocol.id] ?? protocol.id}</span><strong>{protocolStatusLabels[protocol.status] ?? protocol.status}</strong><p>{protocol.status === "release-candidate-required" ? "实现路径已存在，但真实 Provider Key 与对应模型仍须在 Release Candidate 中验收。" : "OneAgent 已实现该协议的连接与配置路径；模型本身仍需支持该协议。"}</p></div>
+        ))}
+        <div class="detail-cell"><span>API Key</span><strong>使用用户自己的账号</strong><p>OneAgent 不创建共享 Key，也不把请求转发到自己的网关。</p></div>
+      </div>
+      <div class="prose section-compact">
+        <h2>开始前请核对</h2>
+        <ul><li>在 Provider 官方控制台创建权限最小化的 Key。</li><li>确认目标模型支持 Agent 使用的协议，而不只是出现在模型列表中。</li><li>价格、地区和额度以 Provider 官方页面为准。</li></ul>
+        <p><a class="button button-primary" href={provider.referralUrl || provider.home} rel="noreferrer">访问 {provider.name} 官方网站</a></p>
+        {provider.relationship !== "none" && <p class="hero-note">该链接属于已披露的商业合作链接；不会改变 OneAgent 的兼容性判断。</p>}
+      </div>
+    </div>
+  </section>
+</BaseLayout>
