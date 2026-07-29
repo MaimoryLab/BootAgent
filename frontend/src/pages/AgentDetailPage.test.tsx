@@ -57,8 +57,47 @@ function status(): StatusResponse {
   };
 }
 
-function renderPage(agentId = "codex") {
-  mockState = { status: status(), statusState: "success" };
+function claudeStatus(): StatusResponse {
+  const base = status();
+  return {
+    ...base,
+    capabilities: { canInstall: { "claude-code": true }, supportedAgentIds: ["claude-code"] },
+    agents: {
+      "claude-code": {
+        installed: true,
+        configured: true,
+        guideOnly: false,
+        config: "/home/u/.claude/settings.json",
+        version: "2.1.217",
+        lockedVersion: "2.1.217",
+        canInstall: true,
+        provider: "ppio",
+        model: "model-a",
+        baseUrl: "https://api.ppio.com/anthropic",
+        updatedAt: "2026-07-27T00:00:00Z",
+      },
+    },
+    catalog: [
+      {
+        id: "claude-code",
+        name: "Claude Code",
+        group: "auto",
+        configMode: "auto",
+        guideOnly: false,
+        lockedVersion: "2.1.217",
+        protocol: "anthropic",
+        platforms: ["macos"],
+        platformNote: "",
+        rank: 2,
+      },
+    ],
+    paths: { "claude-code_config": "/home/u/.claude/settings.json" },
+    backups: { "claude-code": false },
+  };
+}
+
+function renderPage(agentId = "codex", override?: StatusResponse) {
+  mockState = { status: override ?? status(), statusState: "success" };
   render(
     <MemoryRouter initialEntries={[`/agents/${agentId}`]}>
       <Routes>
@@ -155,5 +194,43 @@ describe("AgentDetailPage", () => {
   it("refuses an Agent that has no managed configuration", () => {
     renderPage("no-such-agent");
     expect(screen.getByText(/找不到/)).toBeTruthy();
+  });
+
+  it("offers Claude Code a fast small-model field and sends it on activate", async () => {
+    // The one user-facing difference between adapters: Claude Code runs its
+    // background work on a second, optionally cheaper model.
+    const { api } = await import("../api/client");
+    vi.spyOn(api, "probe").mockResolvedValue(passingProbe());
+    const activate = vi.spyOn(api, "activateAgent").mockResolvedValue({
+      ok: true,
+      agent: "claude-code",
+      config: "/home/u/.claude/settings.json",
+      provider: "ppio",
+      model: "model-a",
+      restart: "Quit any running claude process, then start it again",
+      next: "source ~/.oneagent/agents/claude-code.env && claude",
+    });
+    // The spy persists across tests in this file; drop earlier calls so calls[0]
+    // is this test's activation.
+    activate.mockClear();
+
+    renderPage("claude-code", claudeStatus());
+    fireEvent.click(screen.getByRole("button", { name: /高级选项/ }));
+    fireEvent.change(screen.getByLabelText("快速小模型"), { target: { value: "model-fast" } });
+    fireEvent.change(screen.getByLabelText(/API Key/i), { target: { value: "sk-secret" } });
+    fireEvent.click(screen.getByRole("button", { name: /测试连接/ }));
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /^应用/ }).hasAttribute("disabled")).toBe(false),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /^应用/ }));
+    await waitFor(() => expect(activate.mock.calls[0][1].smallFastModel).toBe("model-fast"));
+  });
+
+  it("does not show the small-model field for non-Claude Agents", () => {
+    renderPage();
+    fireEvent.click(screen.getByRole("button", { name: /高级选项/ }));
+    expect(screen.getByLabelText("模型")).toBeTruthy();
+    expect(screen.queryByLabelText("快速小模型")).toBeNull();
   });
 });

@@ -88,7 +88,9 @@
 
 按第 2 节的筛选结果，Codex / OpenCode / Kilo / Aider 的「专属区块」内容都是内部实现说明，不建。不启动 `configAdapter → 多区块` 体系，也不为此改 `AgentCatalogItem` 契约。
 
-## 6. 待评估：Claude Code 双模型字段
+## 6. Claude Code 双模型字段 — 已实现（产品已确认）
+
+落实情况：产品确认支持后按本节落点实施。`write_claude_config` 与 `write_agent_env`、`activate_agent` 增可选 `small_fast_model`（留空回退主模型），activate 端点与 `frontend/src/types/api.ts` 同步；`AgentDetailPage` 的 `AdvancedSection` 内增 Claude Code 专属「快速小模型」字段并经 `api.activateAgent` 传 `small_fast_model`。`installer.py` 两侧用例（给值 / 留空）守住 100% 分支门禁，`AgentDetailPage.test.tsx` 与 `client.test.ts` 覆盖前端两侧。未建立完整分区块体系——仅这一个字段。
 
 若产品确认支持「主模型 + 快速小模型」，落点是现有 `AdvancedSection` 里增一个 Claude Code 专属可选字段，留空回退到主模型。涉及 `write_claude_config` 与 `activate_agent` 增一个可选参数、activate 端点与 `types/api.ts` 同步，以及 `installer.py` 100% 分支门禁要求的两侧用例（给值 / 留空）。
 

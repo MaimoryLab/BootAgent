@@ -646,7 +646,10 @@ class PrerequisiteTests(unittest.TestCase):
         with self.assertRaises(OneAgentError) as caught:
             self.install("claude-code", runtime)
         self.assertEqual(caught.exception.code, "PREREQUISITE_MISSING")
-        self.assertIn("Git", str(caught.exception))
+        # The message is derived from the lock manifest: it names the declared
+        # prerequisite and the Agent, not a string written into the installer.
+        self.assertIn("git", str(caught.exception))
+        self.assertIn("Claude Code", str(caught.exception))
 
         # With git present the same call proceeds.
         with_git = RecordingRunner()

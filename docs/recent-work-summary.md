@@ -68,3 +68,13 @@ Codex 能用正是因为它多一个 env 文件，而**唯一无法认证的 Age
 - [配置链路审查](config-chain-audit.md) —— 硬编码清单与剩余任务
 - [公开分发站运营与发布手册](public-site-operations.md)
 - [CC Switch 参考笔记](cc-switch-reference-notes.md)
+
+## 后续：剩余项收尾（本次会话）
+
+上文「未完成」的三项已全部完成：
+
+- **任务 2（lock 唯一真源）**：`backups` 遍历 lock 按 `config_path` 推导；`provider_config_base` 改收推理协议、移除 `providers.py` 两处 `"claude-code"` 比较；Windows 门禁改读 `windows_prerequisites`。`test_release_policy.py` 新增 `LockIsTheSourceOfTruthTests` 遍历 lock 守护。
+- **任务 3（无 Key 配置可用性检查）**：新增 `scripts/agent_config_adopted_check.py`。分类器 `classify_adoption` 离线进常规 CI（`test_rc_scripts.py` 用本轮两个真实输出覆盖）；实跑脚本无 Key、指向丢弃端口 `127.0.0.1:9`，已接入 `release-candidate.yml`。
+- **Claude Code 双模型字段（per-agent-config-plan §6）**：可选 `small_fast_model`（留空回退主模型）贯穿 `write_claude_config`/`write_agent_env`/`activate_agent`/activate 端点/`types/api.ts`；`AgentDetailPage` 高级选项加 Claude Code 专属「快速小模型」字段。
+
+测试现状：Python 222 用例，`installer.py` 298/298 分支且零 partial，整体 96%；前端 71 用例（`src/api`/`src/state` 覆盖率 100%/97%），`tsc --noEmit` 与 `vite build` 通过。前端 e2e 本轮未跑（需 Playwright 浏览器）。

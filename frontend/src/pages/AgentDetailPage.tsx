@@ -27,6 +27,7 @@ export function AgentDetailPage() {
   const [customBaseUrl, setCustomBaseUrl] = useState(agent?.provider === "custom" ? agent.baseUrl || "" : "");
   const [apiKey, setApiKey] = useState("");
   const [model, setModel] = useState(agent?.model || "");
+  const [smallFastModel, setSmallFastModel] = useState("");
   const [probe, setProbe] = useState<ProbeResponse | null>(null);
   const [probeState, setProbeState] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [applying, setApplying] = useState(false);
@@ -91,6 +92,7 @@ export function AgentDetailPage() {
         apiKey,
         model,
         profileId: params.get("profile") || undefined,
+        smallFastModel,
       });
       setApplied({ restart: result.restart, next: result.next });
       setApiKey("");
@@ -206,6 +208,18 @@ export function AgentDetailPage() {
               placeholder="留空则由端点的模型列表自动选择"
             />
           </div>
+          {agentId === "claude-code" ? (
+            <div className="field-stack">
+              <label htmlFor="detail-small-fast-model">快速小模型</label>
+              <input
+                id="detail-small-fast-model"
+                className="text-field"
+                value={smallFastModel}
+                onChange={(event) => setSmallFastModel(event.target.value)}
+                placeholder="留空则与主模型相同"
+              />
+            </div>
+          ) : null}
         </AdvancedSection>
 
         {failure ? <p className="agent-manage-error">{failure}</p> : null}

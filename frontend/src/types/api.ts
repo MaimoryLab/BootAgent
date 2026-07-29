@@ -159,6 +159,9 @@ export interface ProviderInput {
 export interface InstallRequest extends ProviderInput {
   agents: string[];
   model: string;
+  /** Claude Code only: a cheaper model for fast/background work. Empty follows
+   *  `model`; the backend ignores it for every other adapter. */
+  small_fast_model?: string;
   configure: boolean;
   install_agent: boolean;
   skip_test: boolean;

@@ -109,7 +109,14 @@ export const api = {
   /** Repoint one Agent. Only that Agent's config and credential file change. */
   activateAgent: (
     agentId: string,
-    input: { provider: ProviderId; apiBaseUrl: string; apiKey: string; model: string; profileId?: string },
+    input: {
+      provider: ProviderId;
+      apiBaseUrl: string;
+      apiKey: string;
+      model: string;
+      profileId?: string;
+      smallFastModel?: string;
+    },
   ) =>
     post<ActivateAgentResponse>(`/api/agents/${encodeURIComponent(agentId)}/activate`, {
       provider: input.provider,
@@ -117,5 +124,6 @@ export const api = {
       api_key: input.apiKey,
       model: input.model,
       ...(input.profileId ? { profile_id: input.profileId } : {}),
+      ...(input.smallFastModel ? { small_fast_model: input.smallFastModel } : {}),
     }),
 };

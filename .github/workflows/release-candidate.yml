@@ -93,6 +93,16 @@ jobs:
         shell: bash
         run: bash tests/real_install_test.sh
 
+      # A configured Agent can still fail to adopt what we wrote -- the Claude
+      # Code "Not logged in" defect, found outside the real-key threshold. This
+      # points the config at the discard port with no key and asserts the failure
+      # is at the network layer (config adopted), not the auth layer (ignored).
+      # It installs the Agents itself, so it needs no secret and no prior step's
+      # prefix.
+      - name: Verify configured Agents adopt their config without a key
+        if: runner.os != 'Windows'
+        run: python scripts/agent_config_adopted_check.py
+
       - name: Upload blank-machine verification failures
         if: failure() && runner.os != 'Windows'
         uses: actions/upload-artifact@v4

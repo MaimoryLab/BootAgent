@@ -16,7 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from oneagent.providers import openai_base_url, provider_base, provider_config_base
+from oneagent.providers import PROTOCOL_ANTHROPIC, openai_base_url, provider_base, provider_config_base
 
 
 FORMAL_RC_PROVIDERS = ("ppio", "novita")
@@ -74,7 +74,7 @@ def smoke_provider(config: ProviderSmokeConfig, *, timeout: float = 30) -> dict[
     if not all([config.api_key, config.openai_model, config.anthropic_model, config.responses_model]):
         raise RuntimeError(f"{config.provider}: API key and all three protocol model IDs are required")
     openai = config.openai_base or provider_base(config.provider)
-    anthropic = config.anthropic_base or provider_config_base(config.provider, "", "claude-code")
+    anthropic = config.anthropic_base or provider_config_base(config.provider, "", PROTOCOL_ANTHROPIC)
     v1 = openai_base_url(openai)
     headers = {"Authorization": f"Bearer {config.api_key}"}
     results = {

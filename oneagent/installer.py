@@ -52,6 +52,9 @@ class InstallOptions:
     api_base_url: str = ""
     api_key: str = ""
     model: str = ""
+    # Claude Code can run its fast/background work on a cheaper second model;
+    # empty falls back to `model`. Only the claude-code adapter reads it.
+    small_fast_model: str = ""
     configure: bool = True
     install_agent: bool = False
     check_agent_only: bool = False
@@ -283,6 +286,7 @@ def write_agent_env(
     *,
     meta: dict[str, Any] | None = None,
     model: str = "",
+    small_fast_model: str = "",
 ) -> Path:
     """Write the env file an Agent's credential reaches it through.
 
@@ -316,7 +320,7 @@ def write_agent_env(
                 values[str(name)] = value
         small_fast = native.get("small_fast_model")
         if small_fast and model:
-            values[str(small_fast)] = model
+            values[str(small_fast)] = small_fast_model or model
     atomic_write(runtime, path, _env_assignments(runtime, values), secret=True)
     return path
 
@@ -420,7 +424,14 @@ def _load_json(path: Path) -> dict[str, Any]:
     return value
 
 
-def write_claude_config(runtime: Runtime, meta: dict[str, Any], base_url: str, api_key: str, model: str) -> Path:
+def write_claude_config(
+    runtime: Runtime,
+    meta: dict[str, Any],
+    base_url: str,
+    api_key: str,
+    model: str,
+    small_fast_model: str = "",
+) -> Path:
     path = _config_path(runtime, meta)
     assert path is not None
     data = _load_json(path)
@@ -430,7 +441,9 @@ def write_claude_config(runtime: Runtime, meta: dict[str, Any], base_url: str, a
     env["ANTHROPIC_BASE_URL"] = base_url
     env["ANTHROPIC_AUTH_TOKEN"] = api_key
     env["ANTHROPIC_MODEL"] = model
-    env["ANTHROPIC_SMALL_FAST_MODEL"] = model
+    # Claude Code drives its fast/background work from a second model. A user may
+    # point it at something cheaper; left empty it follows the main model.
+    env["ANTHROPIC_SMALL_FAST_MODEL"] = small_fast_model or model
     atomic_write(runtime, path, json.dumps(data, ensure_ascii=False, indent=2) + "\n", secret=True)
     return path
 
@@ -558,7 +571,7 @@ def _installer_failure_detail(runtime: Runtime, result: subprocess.CompletedProc
     return " | ".join(lines[-3:])[:600]
 
 
-def _require_prerequisites(runtime: Runtime, agent_id: str, meta: dict[str, Any]) -> None:
+def _require_prerequisites(runtime: Runtime, meta: dict[str, Any]) -> None:
     package = meta.get("package") or {}
     manager = package.get("manager")
     if manager == "npm" and not runtime.which("npm"):
@@ -567,8 +580,15 @@ def _require_prerequisites(runtime: Runtime, agent_id: str, meta: dict[str, Any]
         if not runtime.which("uv"):
             raise OneAgentError("PREREQUISITE_MISSING", "uv is required to install Aider")
         _python_312_for_uv(runtime)
-    if runtime.os_id == "windows" and agent_id == "claude-code" and not runtime.which("git"):
-        raise OneAgentError("PREREQUISITE_MISSING", "Git for Windows / Git Bash is required for Claude Code")
+    if runtime.os_id == "windows":
+        # Declared per Agent in the lock manifest (windows_prerequisites), so a
+        # new Agent's Windows requirement is added there rather than here.
+        for prerequisite in meta.get("windows_prerequisites", []):
+            if not runtime.which(str(prerequisite)):
+                raise OneAgentError(
+                    "PREREQUISITE_MISSING",
+                    f"{prerequisite} is required for {meta['name']} on Windows",
+                )
 
 
 def resolve_registry(value: str) -> str:
@@ -660,7 +680,7 @@ def install_locked_agent(
         return {"installed": False, "version": current, "lockedVersion": locked}
     if executable and enforce_locked and current == locked:
         return {"installed": False, "version": current, "lockedVersion": locked}
-    _require_prerequisites(runtime, agent_id, meta)
+    _require_prerequisites(runtime, meta)
     manager = package.get("manager")
     package_name = package.get("name")
     resolved_registry = resolve_registry(registry)
@@ -765,12 +785,13 @@ def _write_agent_config(
     base_url: str,
     api_key: str,
     model: str,
+    small_fast_model: str = "",
 ) -> Path:
     adapter = meta.get("config_adapter")
     if adapter == "codex":
         return write_codex_config(runtime, meta, provider_name, base_url, model)
     if adapter == "claude-code":
-        return write_claude_config(runtime, meta, base_url, api_key, model)
+        return write_claude_config(runtime, meta, base_url, api_key, model, small_fast_model)
     if adapter == "opencode":
         return write_openai_compatible_config(
             runtime, meta, provider_name, base_url, model, "https://opencode.ai/config.json", agent_id
@@ -1201,6 +1222,7 @@ def install_many(options: InstallOptions, runtime: Runtime | None = None) -> dic
                 base_url,
                 meta=catalog[agent],
                 model=options.model,
+                small_fast_model=options.small_fast_model,
             )
         if env_agents:
             # Configs written by earlier versions still name ONEAGENT_API_KEY.
@@ -1293,7 +1315,7 @@ def install_many(options: InstallOptions, runtime: Runtime | None = None) -> dic
                 config_base_url = provider_config_base(
                     options.provider,
                     options.api_base_url,
-                    adapter,
+                    agent_protocol(adapter),
                 )
                 config_path = _write_agent_config(
                     runtime,
@@ -1303,6 +1325,7 @@ def install_many(options: InstallOptions, runtime: Runtime | None = None) -> dic
                     config_base_url,
                     options.api_key,
                     options.model,
+                    options.small_fast_model,
                 )
                 # Record the binding only after the config write succeeded, so a
                 # failed write never leaves a binding claiming a state the
@@ -1421,6 +1444,7 @@ def activate_agent(
     api_base_url: str = "",
     api_key: str,
     model: str,
+    small_fast_model: str = "",
     timeout: int = 180,
 ) -> dict[str, Any]:
     """Point one Agent at a provider and model, leaving every other Agent alone.
@@ -1443,7 +1467,7 @@ def activate_agent(
         provider=provider, api_key=api_key, custom_base=api_base_url, timeout=timeout
     )
     provider_name = PROVIDERS.get(provider, {"name": "Custom"})["name"]
-    config_base_url = provider_config_base(provider, api_base_url, str(meta["config_adapter"]))
+    config_base_url = provider_config_base(provider, api_base_url, agent_protocol(str(meta["config_adapter"])))
 
     if needs_env_file(meta):
         write_agent_env(
@@ -1453,9 +1477,10 @@ def activate_agent(
             provider_base(provider, api_base_url),
             meta=meta,
             model=resolved_model,
+            small_fast_model=small_fast_model,
         )
     config_path = _write_agent_config(
-        runtime, agent_id, meta, provider_name, config_base_url, api_key, resolved_model
+        runtime, agent_id, meta, provider_name, config_base_url, api_key, resolved_model, small_fast_model
     )
     binding = write_agent_binding(
         runtime, agent_id, provider=provider, base_url=config_base_url, model=resolved_model
@@ -1498,8 +1523,9 @@ def status_payload(runtime: Runtime | None = None) -> dict[str, Any]:
                 can_install = False
         else:
             can_install = False
-        if runtime.os_id == "windows" and agent_id == "claude-code":
-            can_install = can_install and bool(runtime.which("git"))
+        if runtime.os_id == "windows":
+            for prerequisite in meta.get("windows_prerequisites", []):
+                can_install = can_install and bool(runtime.which(str(prerequisite)))
         capabilities["canInstall"][agent_id] = can_install
         if runtime.os_id in meta.get("platforms", []):
             capabilities["supportedAgentIds"].append(agent_id)
@@ -1520,6 +1546,17 @@ def status_payload(runtime: Runtime | None = None) -> dict[str, Any]:
         }
     profile, profile_error = load_profile(runtime)
     profiles = [public_profile_summary(item) for item in list_profiles(runtime)]
+    # Backups are derived from each Agent's declared config_path rather than a
+    # hand-written pair: a new auto Agent's backups appear here the moment its
+    # lock entry lands, with no second place to keep in sync.
+    backups: dict[str, bool] = {}
+    for backup_agent_id, backup_meta in catalog.items():
+        backup_path = _config_path(runtime, backup_meta)
+        if backup_path is not None:
+            backups[backup_agent_id] = bool(list(backup_path.parent.glob(f"{backup_path.name}.backup-*")))
+    oneagent_dir = runtime.home / ".oneagent"
+    backups["env"] = bool(list(oneagent_dir.glob(f"{_env_path(runtime).name}.backup-*")))
+    backups["profile"] = bool(list(oneagent_dir.glob("profile.json.backup-*")))
     return {
         "apiVersion": 1,
         "platform": {**current_platform(), "os": runtime.os_id},
@@ -1530,12 +1567,7 @@ def status_payload(runtime: Runtime | None = None) -> dict[str, Any]:
         "providers": public_providers(),
         "mirrors": public_mirrors(),
         "paths": paths,
-        "backups": {
-            "codex": bool(list((runtime.home / ".codex").glob("config.toml.backup-*"))),
-            "claude-code": bool(list((runtime.home / ".claude").glob("settings.json.backup-*"))),
-            "env": bool(list((runtime.home / ".oneagent").glob(f"{_env_path(runtime).name}.backup-*"))),
-            "profile": bool(list((runtime.home / ".oneagent").glob("profile.json.backup-*"))),
-        },
+        "backups": backups,
         "profiles": profiles,
         "activeProfile": active_profile_id(runtime),
         "environment": profile,

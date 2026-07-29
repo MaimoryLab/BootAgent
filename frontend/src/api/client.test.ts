@@ -136,6 +136,36 @@ describe("api client", () => {
     expect(body).not.toHaveProperty("agents");
   });
 
+  it("includes small_fast_model on activate only when provided", async () => {
+    // A fresh response per call: a Response body can only be read once, and this
+    // test exercises activate twice.
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(() =>
+      Promise.resolve(
+        jsonResponse({ ok: true, agent: "claude-code", config: "/c", provider: "ppio", model: "m", restart: "r", next: "n" }),
+      ),
+    );
+    await api.activateAgent("claude-code", {
+      provider: "ppio",
+      apiBaseUrl: "",
+      apiKey: "sentinel",
+      model: "model-a",
+      smallFastModel: "model-fast",
+    });
+    let body = JSON.parse(String((fetchMock.mock.calls[0][1] as RequestInit).body));
+    expect(body.small_fast_model).toBe("model-fast");
+
+    // Empty falls back to the main model on the backend, so the field is omitted
+    // rather than sent blank.
+    await api.activateAgent("claude-code", {
+      provider: "ppio",
+      apiBaseUrl: "",
+      apiKey: "sentinel",
+      model: "model-a",
+    });
+    body = JSON.parse(String((fetchMock.mock.calls[1][1] as RequestInit).body));
+    expect(body).not.toHaveProperty("small_fast_model");
+  });
+
   it("supports models, install and register endpoints", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(jsonResponse({ ok: true, models: ["a"] }))

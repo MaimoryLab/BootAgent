@@ -105,7 +105,9 @@ Claude Code 的 env 文件应导出 `ANTHROPIC_BASE_URL` / `ANTHROPIC_AUTH_TOKEN
 
 必须有一个测试断言「每个自动配置 Agent 都有可用的认证途径」，否则同类缺陷会再次静默通过。
 
-### 任务 2：让 lock 成为真正的唯一真源
+### 任务 2：让 lock 成为真正的唯一真源 — 已完成
+
+落实情况：`backups` 改为遍历 lock、按各 Agent 的 `config_path` 推导备份 glob，不再手写两条路径；`providers.py` 的 `provider_config_base` 改收推理协议（调用方传 `agent_protocol(adapter)`），两处 `"claude-code"` 字面量比较移除；`_require_prerequisites` 与 `status_payload` 的 Windows 门禁改读 `windows_prerequisites`。`test_release_policy.py` 新增 `LockIsTheSourceOfTruthTests`，遍历 lock 断言备份、Windows 门禁与协议判定都由声明驱动。
 
 把重复的三项改为读 lock：
 
@@ -116,7 +118,9 @@ Claude Code 的 env 文件应导出 `ANTHROPIC_BASE_URL` / `ANTHROPIC_AUTH_TOKEN
 
 目标：新增 Agent 只需改 lock 加一个适配器函数。加一个测试遍历 lock，断言不存在只在 Python 里出现的 Agent 行为。
 
-### 任务 3：把「配置后能用」纳入验证
+### 任务 3：把「配置后能用」纳入验证 — 已完成
+
+落实情况：新增 `scripts/agent_config_adopted_check.py`。其中纯分类器 `classify_adoption` 判别「连接失败 = 配置已采用」与「认证/登录错误 = 配置未采用」，由 `test_rc_scripts.py` 用本轮 Codex 与 Claude Code 两个真实输出在常规 CI 离线覆盖；脚本本体把配置指向丢弃端口 `127.0.0.1:9`、用假 Key，自包含安装并实跑 Agent，无需任何真实 Key，已接入 `release-candidate.yml`（非 Windows）。这把发现本轮缺陷的那道「真实 Key 门槛」从该检查里移除了。
 
 `agent_e2e_smoke.py` 已经会实际调用两个 Agent，但它需要真实 Key，本轮缺陷就是在那道门槛之外发现的。补一个不需要 Key 的检查：把配置指向丢弃端口，断言 Agent 报的是连接失败而非认证/配置错误——这恰好能区分本轮两种结果，且能进常规 CI。
 

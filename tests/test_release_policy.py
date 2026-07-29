@@ -14,6 +14,7 @@ from unittest.mock import patch
 
 from oneagent import catalog, entrypoint
 from oneagent.catalog import load_manifest
+from oneagent.installer import Runtime, status_payload
 from scripts import build_release
 from scripts.check_release import inspect_zip, validate_manifest
 from scripts.stage_resources import prune_stale_build_output, stage_resources
@@ -450,6 +451,73 @@ class ReleasePolicyTests(unittest.TestCase):
             problems = validate_manifest(manifest)
             self.assertTrue(any("artifact checksum mismatch" in problem for problem in problems))
             self.assertTrue(any("checksum file mismatch" in problem for problem in problems))
+
+
+class LockIsTheSourceOfTruthTests(unittest.TestCase):
+    """Behaviour must be derived from agents.lock.json, not restated in Python.
+
+    The defect that motivated this suite: a fact lived in two places (the lock
+    and a hardcoded id set), the lock changed, and the behaviour did not. Each
+    test iterates the manifest and asserts the runtime follows whatever it
+    declares, so a new Agent added only to the lock works without a code edit.
+    """
+
+    def test_backups_are_derived_from_each_agents_config_path(self):
+        manifest = load_manifest()
+        auto_with_config = [
+            agent_id
+            for agent_id, meta in manifest["agents"].items()
+            if meta.get("config_mode") == "auto" and meta.get("config_path")
+        ]
+        # More than the two the payload used to hardcode, or the test proves
+        # nothing about generalisation.
+        self.assertGreater(len(auto_with_config), 2)
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            runtime = Runtime.create(home=home, os_id="linux", which=lambda _name: None)
+            target = "opencode"
+            config_path = home / manifest["agents"][target]["config_path"]
+            config_path.parent.mkdir(parents=True, exist_ok=True)
+            (config_path.parent / f"{config_path.name}.backup-20260729").write_text("old", encoding="utf-8")
+
+            backups = status_payload(runtime)["backups"]
+            # Every auto Agent with a config_path is a key, and only the one with
+            # a backup on disk reports True -- the glob came from config_path.
+            for agent_id in auto_with_config:
+                self.assertIn(agent_id, backups)
+                self.assertEqual(backups[agent_id], agent_id == target, agent_id)
+
+    def test_windows_install_gating_follows_windows_prerequisites(self):
+        manifest = load_manifest()
+        gated = {
+            agent_id
+            for agent_id, meta in manifest["agents"].items()
+            if meta.get("windows_prerequisites")
+        }
+        self.assertIn("claude-code", gated)
+        with tempfile.TemporaryDirectory() as tmp:
+            # npm present, every prerequisite absent: only Agents that declare a
+            # Windows prerequisite lose canInstall.
+            runtime = Runtime.create(
+                home=Path(tmp),
+                os_id="windows",
+                which=lambda name: "npm.cmd" if name == "npm" else None,
+                env={"USERPROFILE": tmp},
+            )
+            can_install = status_payload(runtime)["capabilities"]["canInstall"]
+            for agent_id, meta in manifest["agents"].items():
+                if meta.get("config_mode") != "auto" or (meta.get("package") or {}).get("manager") != "npm":
+                    continue
+                with self.subTest(agent=agent_id):
+                    self.assertEqual(can_install[agent_id], agent_id not in gated)
+
+    def test_providers_module_decides_by_protocol_not_agent_id(self):
+        # provider_config_base used to compare the adapter against "claude-code";
+        # the inference protocol is the real input. Restating an Agent id here
+        # would silently re-couple providers.py to the lock's identifiers.
+        source = (ROOT / "oneagent" / "providers.py").read_text(encoding="utf-8")
+        self.assertNotIn('"claude-code"', source)
+        self.assertNotIn("'claude-code'", source)
 
 
 if __name__ == "__main__":

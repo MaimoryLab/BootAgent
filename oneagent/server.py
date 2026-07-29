@@ -369,6 +369,7 @@ def activate_agent_payload(agent_id: str, payload: dict[str, object]) -> dict[st
         api_base_url=api_base_url,
         api_key=api_key,
         model=_string_field(payload, "model"),
+        small_fast_model=_string_field(payload, "small_fast_model"),
         timeout=_timeout(),
     )
 
@@ -384,6 +385,7 @@ def install_payload(payload: dict[str, object]) -> dict[str, object]:
             api_base_url=_string_field(payload, "api_base_url"),
             api_key=_string_field(payload, "api_key"),
             model=_string_field(payload, "model"),
+            small_fast_model=_string_field(payload, "small_fast_model"),
             configure=configure,
             install_agent=_bool_field(payload, "install_agent"),
             # The GUI's existing-account path still completes the selected

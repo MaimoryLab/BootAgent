@@ -45,6 +45,8 @@ from oneagent.installer import (
 from oneagent.providers import (
     _protocol_request,
     _unsupported_protocol,
+    PROTOCOL_ANTHROPIC,
+    PROTOCOL_OPENAI,
     agent_protocol,
     anthropic_messages_url,
     chat_probe,
@@ -550,10 +552,12 @@ class ProviderEdgeTests(unittest.TestCase):
         self.assertEqual(provider_base("custom", "http://127.0.0.1:9000/"), "http://127.0.0.1:9000")
         with self.assertRaises(OneAgentError):
             provider_base("custom")
-        self.assertEqual(provider_config_base("ppio", "", "claude-code"), "https://api.ppio.com/anthropic")
-        self.assertEqual(provider_config_base("novita", "", "claude-code"), "https://api.novita.ai/anthropic")
-        self.assertEqual(provider_config_base("ppio", "https://override.example.com", "claude-code"), "https://override.example.com")
-        self.assertEqual(provider_config_base("custom", "http://127.0.0.1:9000", "claude-code"), "http://127.0.0.1:9000")
+        self.assertEqual(provider_config_base("ppio", "", PROTOCOL_ANTHROPIC), "https://api.ppio.com/anthropic")
+        self.assertEqual(provider_config_base("novita", "", PROTOCOL_ANTHROPIC), "https://api.novita.ai/anthropic")
+        # A non-Anthropic protocol keeps the OpenAI-compatible base.
+        self.assertEqual(provider_config_base("ppio", "", PROTOCOL_OPENAI), "https://api.ppio.com/openai")
+        self.assertEqual(provider_config_base("ppio", "https://override.example.com", PROTOCOL_ANTHROPIC), "https://override.example.com")
+        self.assertEqual(provider_config_base("custom", "http://127.0.0.1:9000", PROTOCOL_ANTHROPIC), "http://127.0.0.1:9000")
         with self.assertRaises(OneAgentError):
             provider_base("unknown")
         with self.assertRaises(OneAgentError):
@@ -1143,6 +1147,43 @@ class InstallerEdgeTests(unittest.TestCase):
             missing_runtime = Runtime.create(home=Path(tmp), os_id="linux", which=lambda _name: None)
             checked = install_many(InstallOptions(agents=["codex"], configure=False, check_agent_only=True), missing_runtime)
             self.assertEqual(checked["results"][0]["status"], "skipped")
+
+    def test_claude_code_small_fast_model_is_optional_and_overrides(self):
+        # The fast/background model is an optional second field: empty follows the
+        # main model, a value overrides it. Both the settings.json the adapter
+        # writes and the native env file Claude Code actually reads must agree,
+        # or the Agent would run a different small model than the one configured.
+        with tempfile.TemporaryDirectory() as tmp:
+            runtime = Runtime.create(home=Path(tmp), os_id="linux", which=lambda name: {"claude": "/bin/claude"}.get(name))
+            runtime.runner = lambda args, **_kwargs: subprocess.CompletedProcess(args, 0, "version 1.0.0", "")
+
+            def small_fast():
+                settings = json.loads((Path(tmp) / ".claude" / "settings.json").read_text(encoding="utf-8"))
+                env_file = (Path(tmp) / ".oneagent" / "agents" / "claude-code.env").read_text(encoding="utf-8")
+                return settings["env"]["ANTHROPIC_SMALL_FAST_MODEL"], env_file
+
+            install_many(
+                InstallOptions(agents=["claude-code"], provider="ppio", api_key="secret", model="model-a", skip_test=True),
+                runtime,
+            )
+            value, env_file = small_fast()
+            self.assertEqual(value, "model-a")
+            self.assertIn("export ANTHROPIC_SMALL_FAST_MODEL=model-a", env_file)
+
+            install_many(
+                InstallOptions(
+                    agents=["claude-code"],
+                    provider="ppio",
+                    api_key="secret",
+                    model="model-a",
+                    small_fast_model="model-fast",
+                    skip_test=True,
+                ),
+                runtime,
+            )
+            value, env_file = small_fast()
+            self.assertEqual(value, "model-fast")
+            self.assertIn("export ANTHROPIC_SMALL_FAST_MODEL=model-fast", env_file)
 
     def test_jsonc_comments_are_reported_as_comments_not_invalid_json(self):
         # OpenCode and Kilo ship .jsonc, where comments are legal. OneAgent

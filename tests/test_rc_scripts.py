@@ -12,6 +12,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from oneagent.installer import Runtime
+from scripts.agent_config_adopted_check import classify_adoption, parse_env_file
 from scripts.provider_rc_smoke import (
     ProviderSmokeConfig,
     config_from_env,
@@ -271,6 +272,82 @@ class VerificationScriptTests(unittest.TestCase):
         self.assertIn("--version", source)
         self.assertIn("profile.json", source)
         self.assertIn("MOCK_KEY", source)
+
+
+class ConfigAdoptionCheckTests(unittest.TestCase):
+    """The keyless check that a configured Agent adopts what OneAgent wrote.
+
+    The classifier is the discriminator between this round's two outcomes --
+    Codex adopted (connection failure) and Claude Code not adopted ("Not logged
+    in") -- so it is unit-tested here, in ordinary CI, against the real outputs.
+    Running the Agents themselves needs them installed and happens in the
+    release-candidate workflow.
+    """
+
+    def test_connection_failure_is_read_as_adopted(self):
+        # Codex echoes the provider section it read, then fails to reach the
+        # discard port.
+        adopted, reason = classify_adoption("provider: oneagent\nERROR: Reconnecting... 1/5")
+        self.assertTrue(adopted, reason)
+        # Claude Code after the credential fix: it reaches for the endpoint and
+        # the socket is refused.
+        adopted, reason = classify_adoption("API Error: fetch failed (connect ECONNREFUSED 127.0.0.1:9)")
+        self.assertTrue(adopted, reason)
+
+    def test_auth_error_is_read_as_not_adopted(self):
+        # The exact defect: reported configured, but answering about login rather
+        # than the network means the configuration never reached the Agent.
+        adopted, reason = classify_adoption("Not logged in · Please run /login")
+        self.assertFalse(adopted, reason)
+        self.assertIn("not adopted", reason)
+
+    def test_auth_signal_wins_when_both_layers_appear(self):
+        # A verbose error mentioning both is the failure, never a pass.
+        adopted, _ = classify_adoption("connection failed; also Not logged in")
+        self.assertFalse(adopted)
+
+    def test_unknown_output_is_not_confirmed(self):
+        adopted, reason = classify_adoption("everything is fine")
+        self.assertFalse(adopted)
+        self.assertIn("neither", reason)
+
+    def test_parse_env_file_reads_bash_and_powershell_forms(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            bash = Path(tmp) / "agent.env"
+            bash.write_text(
+                "export ANTHROPIC_AUTH_TOKEN='secret value'\nexport ANTHROPIC_MODEL=m\n",
+                encoding="utf-8",
+            )
+            self.assertEqual(
+                parse_env_file(bash),
+                {"ANTHROPIC_AUTH_TOKEN": "secret value", "ANTHROPIC_MODEL": "m"},
+            )
+            powershell = Path(tmp) / "agent.env.ps1"
+            powershell.write_text("$env:ONEAGENT_API_KEY_CODEX = 'k'\n", encoding="utf-8")
+            self.assertEqual(parse_env_file(powershell), {"ONEAGENT_API_KEY_CODEX": "k"})
+
+    def test_script_needs_no_key_and_targets_the_discard_port(self):
+        source = (ROOT / "scripts" / "agent_config_adopted_check.py").read_text(encoding="utf-8")
+        # The real-key threshold is what hid the defect; this layer must not
+        # reintroduce it.
+        self.assertNotIn("ONEAGENT_API_KEY", source)
+        self.assertIn('DISCARD_BASE_URL = "http://127.0.0.1:9"', source)
+        # The discard port cannot answer a probe; probing would only block the
+        # config write this check is for.
+        self.assertIn("skip_test=True", source)
+        result = subprocess.run(
+            [sys.executable, str(ROOT / "scripts" / "agent_config_adopted_check.py"), "--help"],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("--agents", result.stdout)
+
+    def test_release_candidate_runs_the_keyless_adoption_check(self):
+        rc = (ROOT / ".github" / "workflows" / "release-candidate.yml").read_text(encoding="utf-8")
+        self.assertIn("scripts/agent_config_adopted_check.py", rc)
 
 
 if __name__ == "__main__":

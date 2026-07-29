@@ -61,9 +61,17 @@ def provider_base(provider: str, custom_base: str = "") -> str:
     return PROVIDERS[provider]["base_url"]
 
 
-def provider_config_base(provider: str, custom_base: str, adapter: str) -> str:
+def provider_config_base(provider: str, custom_base: str, protocol: str) -> str:
+    """The base URL a config write or probe targets for one inference protocol.
+
+    Anthropic-speaking Agents are served from a separate route on the managed
+    providers, so the decision is keyed on the protocol -- derived from the
+    Agent's adapter by callers via agent_protocol() -- rather than on an Agent
+    id. A custom base or a non-Anthropic protocol keeps the OpenAI-compatible
+    URL.
+    """
     base_url = provider_base(provider, custom_base)
-    if adapter == "claude-code" and provider in PROVIDERS and not custom_base:
+    if protocol == PROTOCOL_ANTHROPIC and provider in PROVIDERS and not custom_base:
         return PROVIDERS[provider]["anthropic_base_url"]
     return base_url
 
@@ -175,7 +183,7 @@ def _protocol_request(
 ) -> Request:
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
     if protocol == PROTOCOL_ANTHROPIC:
-        url = anthropic_messages_url(provider_config_base(provider, custom_base, "claude-code"))
+        url = anthropic_messages_url(provider_config_base(provider, custom_base, protocol))
         headers["X-Api-Key"] = api_key
         headers["Anthropic-Version"] = "2023-06-01"
         body: dict[str, Any] = {
