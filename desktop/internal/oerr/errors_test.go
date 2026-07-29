@@ -38,7 +38,7 @@ func TestTheThreeProviderCodesShareOneExitCode(t *testing.T) {
 }
 
 func TestPayloadHasExactlyTheSixKeysTheContractNames(t *testing.T) {
-	payload := New("TIMEOUT", "超时").With(Retryable()).Payload()
+	payload := New("TIMEOUT", "超时", WithRetryable()).Payload()
 	want := map[string]any{
 		"ok":         false,
 		"error":      "超时",
@@ -79,12 +79,21 @@ func TestErrorStringIsTheMessageAlone(t *testing.T) {
 }
 
 func TestOptionsOverrideTheDefaults(t *testing.T) {
-	err := Newf("PREREQUISITE_MISSING", []Option{Retryable(), Status(503), ExitCode(42)}, "缺少 %s", "npm")
+	err := New("PREREQUISITE_MISSING", "缺少 npm", WithRetryable(), WithStatus(503), WithExitCode(42))
+	if !err.Retryable || err.Status != 503 || err.ExitCode != 42 {
+		t.Fatalf("options did not apply: %+v", err)
+	}
+}
+
+func TestAFormattedMessageTakesItsOptionsThroughSet(t *testing.T) {
+	// Variadic format args and variadic options cannot both be last, so the
+	// formatted constructor hands overrides to Set instead.
+	err := Newf("PREREQUISITE_MISSING", "缺少 %s", "npm").Set(WithRetryable())
 	if err.Message != "缺少 npm" {
 		t.Fatalf("message = %q", err.Message)
 	}
-	if !err.Retryable || err.Status != 503 || err.ExitCode != 42 {
-		t.Fatalf("options did not apply: %+v", err)
+	if !err.Retryable {
+		t.Error("Set did not apply the option")
 	}
 }
 

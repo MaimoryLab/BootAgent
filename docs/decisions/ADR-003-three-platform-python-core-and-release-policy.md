@@ -10,7 +10,9 @@ Accepted
 
 ## Scope Update
 
-Python 共用内核、版本锁定、配置适配和结构化错误决策继续有效。当前渠道分发范围和发行门禁已由 [ADR-005](ADR-005-channel-neutral-distribution-and-compliance.md) 更新，不再以四平台同时发布作为当前产品阶段门槛。
+版本锁定、配置适配、结构化错误、三平台适配设计和 Windows 用原生用户目录的决策继续有效。当前渠道分发范围和发行门禁已由 [ADR-005](ADR-005-channel-neutral-distribution-and-compliance.md) 更新，不再以四平台同时发布作为当前产品阶段门槛。
+
+**三项决策已由 [ADR-008](ADR-008-go-core-and-wails-desktop-shell.md) 取代**：Python 共用内核（改为 Go）、本地 HTTP 浏览器 GUI（改为 Wails IPC，生产进程不监听端口）、PyInstaller 打包（改为单个 Go 二进制）。下文「Electron 或 Tauri 桌面壳」一节含一处事实错误，已在该节就地标注。
 
 ## Context
 
@@ -107,6 +109,12 @@ React 前端需要稳定的状态、错误和安装结果 API。如果前端迁�
 - 优点：更接近原生桌面分发。
 - 缺点：引入额外运行时、签名面和构建复杂度，当前本地浏览器 GUI 已能满足流程需求。
 - 结论：V1 不采用。
+
+> **已由 [ADR-008](ADR-008-go-core-and-wails-desktop-shell.md) 推翻，并修正其中一处事实错误。**
+>
+> 「引入额外运行时」对 Electron 成立（打包 Chromium），对 Tauri 与 Wails 不成立——两者都使用系统 WebView，产物是单个二进制。本 ADR 决定的 PyInstaller 方案反而确实携带运行时（见下条）。
+>
+> 「当前本地浏览器 GUI 已能满足流程需求」这个前提在托盘常驻成为产品要求后不再成立：托盘需要原生窗口系统 API，进程生命周期不能绑在浏览器标签页上。
 
 ## Consequences
 

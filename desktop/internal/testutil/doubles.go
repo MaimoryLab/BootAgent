@@ -106,15 +106,6 @@ func (r *RecordingRunner) Calls() []Call {
 	return append([]Call(nil), r.calls...)
 }
 
-// Commands returns each recorded call as a joined string.
-func (r *RecordingRunner) Commands() []string {
-	commands := []string{}
-	for _, call := range r.Calls() {
-		commands = append(commands, call.Command())
-	}
-	return commands
-}
-
 // FindCall returns the first recorded call containing every given fragment.
 func (r *RecordingRunner) FindCall(fragments ...string) (Call, bool) {
 	for _, call := range r.Calls() {

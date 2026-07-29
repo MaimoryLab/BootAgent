@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"os"
+	"os/user"
 	"path/filepath"
 	goruntime "runtime"
+	"strings"
 	"testing"
 	"time"
 )
@@ -60,31 +62,77 @@ func TestResolveHomeFallsBackToTheUserDirectoryWhenNothingIsSet(t *testing.T) {
 	}
 }
 
-func TestNoHomeAnywhereYieldsEmptyRatherThanAGuessedPath(t *testing.T) {
-	// os.UserHomeDir reads $HOME on POSIX, so clearing it reaches the last
-	// fallback. Returning "" lets the caller report a real prerequisite
-	// failure; inventing a path would write configuration somewhere arbitrary.
+func TestAnUnsetHomeReachesThePasswdDatabaseRatherThanGivingUp(t *testing.T) {
+	// This asserted the opposite until a review pointed out the divergence:
+	// os.UserHomeDir errors when $HOME is unset, but Python's Path.home() falls
+	// back to passwd. Returning "" here would have made Go resolve no home
+	// where Python resolves one, which surfaces as a different exit code rather
+	// than as an obvious failure. home_parity_test.go holds both sides to this.
 	if goruntimeGOOS() == "windows" {
 		t.Skip("UserHomeDir reads the profile variables on Windows")
 	}
 	t.Setenv("HOME", "")
-	if got := ResolveHome(map[string]string{}, "linux"); got != "" {
-		t.Fatalf("home = %q, want empty when nothing declares one", got)
+	if got := ResolveHome(map[string]string{}, "linux"); got == "" {
+		t.Fatal("no home resolved; the passwd database still names one")
 	}
 }
 
-func TestATildeThatCannotBeExpandedIsLeftAloneRatherThanMangled(t *testing.T) {
+func TestWhenEvenPasswdNamesNoHomeTheResultIsEmpty(t *testing.T) {
+	// Unreachable on a machine with a passwd entry, which is why the lookups are
+	// injectable: this is the one branch that decides "there is nowhere to
+	// write", and it should not be the only one nothing checks. Returning ""
+	// lets the caller report a missing prerequisite instead of writing
+	// configuration to an invented path the user would never find.
+	restore := stubHomeLookups(t, func() (string, error) { return "", errors.New("no $HOME") }, func() (*user.User, error) { return nil, errors.New("no passwd entry") })
+	defer restore()
+
+	if got := ResolveHome(map[string]string{}, "linux"); got != "" {
+		t.Fatalf("home = %q, want empty when nothing can name one", got)
+	}
+	// And a tilde with nothing to expand against stays as written, so the
+	// failure is visible rather than becoming a relative path.
+	if got := ResolveHome(map[string]string{"ONEAGENT_HOME": "~/x"}, "linux"); got != "~/x" {
+		t.Fatalf("home = %q, want the tilde left alone", got)
+	}
+	if got := ResolveHome(map[string]string{"ONEAGENT_HOME": "~"}, "linux"); got != "~" {
+		t.Fatalf("home = %q, want the tilde left alone", got)
+	}
+}
+
+func TestAnEmptyHomeFromTheSystemFallsThroughToPasswd(t *testing.T) {
+	// UserHomeDir reporting success with an empty string would otherwise be
+	// taken as an answer.
+	restore := stubHomeLookups(t,
+		func() (string, error) { return "", nil },
+		func() (*user.User, error) { return &user.User{HomeDir: "/from/passwd"}, nil },
+	)
+	defer restore()
+
+	if got := ResolveHome(map[string]string{}, "linux"); got != "/from/passwd" {
+		t.Fatalf("home = %q, want the passwd entry", got)
+	}
+}
+
+func stubHomeLookups(t *testing.T, home func() (string, error), current func() (*user.User, error)) func() {
+	t.Helper()
+	previousHome, previousUser := userHomeDir, currentUser
+	userHomeDir, currentUser = home, current
+	return func() { userHomeDir, currentUser = previousHome, previousUser }
+}
+
+func TestATildeStillExpandsWhenHomeIsUnset(t *testing.T) {
 	if goruntimeGOOS() == "windows" {
 		t.Skip("UserHomeDir reads the profile variables on Windows")
 	}
 	t.Setenv("HOME", "")
-	// "~/x" with no home to expand against stays as written, so the failure
-	// surfaces as a path that obviously was not resolved.
-	if got := ResolveHome(map[string]string{"ONEAGENT_HOME": "~/x"}, "linux"); got != "~/x" {
-		t.Fatalf("home = %q, want the unexpanded value", got)
+	// The tilde resolves against the same passwd-backed home, so an explicit
+	// ONEAGENT_HOME=~/x still lands somewhere real.
+	got := ResolveHome(map[string]string{"ONEAGENT_HOME": "~/x"}, "linux")
+	if got == "~/x" || got == "" {
+		t.Fatalf("home = %q, want the tilde expanded", got)
 	}
-	if got := ResolveHome(map[string]string{"ONEAGENT_HOME": "~"}, "linux"); got != "~" {
-		t.Fatalf("home = %q, want the unexpanded value", got)
+	if !filepath.IsAbs(got) {
+		t.Fatalf("home = %q, want an absolute path", got)
 	}
 }
 
@@ -284,12 +332,45 @@ func TestTheRunnerClassifiesTimeoutWithoutChoosingAnErrorCode(t *testing.T) {
 	// Installing an Agent times out as TIMEOUT while reading a checksum times
 	// out as AGENT_INSTALL_FAILED. If this package picked a code, that
 	// deliberate distinction would be flattened.
-	err := &TimeoutError{Argv: []string{"npm", "install"}, Timeout: time.Second}
-	if IsTimeout(err) != true {
+	err := &TimeoutError{Argv: []string{"npm", "install"}, Timeout: time.Second, FromCaller: true}
+	if !IsTimeout(err) {
 		t.Fatal("IsTimeout must recognise its own type")
 	}
-	if err.Error() == "" {
-		t.Fatal("the message should name the command")
+	if !strings.Contains(err.Error(), "npm install") {
+		t.Errorf("message = %q, want the command named", err.Error())
+	}
+}
+
+func TestAParentDeadlineIsNotReportedAsThisCallsLimit(t *testing.T) {
+	// Both produce DeadlineExceeded, but only one had a limit to name. Reporting
+	// "exceeded its 0s limit" would send whoever reads it looking for a timeout
+	// this call never set.
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Millisecond)
+	defer cancel()
+	_, err := ExecRunner(ctx, []string{"sleep", "5"}, RunOptions{})
+	if !IsTimeout(err) {
+		t.Fatalf("err = %v, want a timeout", err)
+	}
+	var timeout *TimeoutError
+	if !errors.As(err, &timeout) {
+		t.Fatalf("err = %v, want a *TimeoutError", err)
+	}
+	if timeout.FromCaller {
+		t.Error("the deadline came from the caller's context, not from RunOptions")
+	}
+	if strings.Contains(timeout.Error(), "0s") {
+		t.Errorf("message = %q, want no invented limit", timeout.Error())
+	}
+}
+
+func TestAnImposedLimitIsNamedInTheMessage(t *testing.T) {
+	_, err := ExecRunner(context.Background(), []string{"sleep", "5"}, RunOptions{Timeout: 40 * time.Millisecond})
+	var timeout *TimeoutError
+	if !errors.As(err, &timeout) || !timeout.FromCaller {
+		t.Fatalf("err = %v, want a caller-imposed timeout", err)
+	}
+	if !strings.Contains(timeout.Error(), "40ms") {
+		t.Errorf("message = %q, want the limit named", timeout.Error())
 	}
 }
 

@@ -102,12 +102,25 @@ jobs:
           go vet ./...
           go test -race -cover ./...
 
-      # The exit codes are an external contract and two implementations now
-      # claim to honour it. This test reads oneagent/errors.py and compares, so
-      # a code renumbered on either side fails rather than drifting silently.
-      - name: Go and Python error-code parity
+      # Exit codes and home resolution are external contracts, and two
+      # implementations now claim to honour them. These tests read the Python
+      # source and compare, so a divergence on either side fails here.
+      #
+      # internal/parity runs first and is not filtered: `go test -run` exits 0
+      # when its pattern matches nothing, so a deleted parity file would make
+      # the filtered step below pass while testing nothing. The gate checks from
+      # outside that each parity file still exists and still carries its tests.
+      - name: Go and Python cross-language parity
         working-directory: desktop
-        run: go test ./internal/oerr/ -run TestParity -v -count=1
+        # The home comparison shells out to Python and would otherwise skip if
+        # the interpreter were missing -- another way for a gate to retire
+        # quietly. This makes that a failure on CI while leaving the skip in
+        # place for a developer machine without Python.
+        env:
+          ONEAGENT_REQUIRE_PARITY: "1"
+        run: |
+          go test ./internal/parity/ -v -count=1
+          go test ./internal/oerr/ ./internal/runtime/ -run TestParity -v -count=1
 
       - name: Bash compatibility contracts
         if: runner.os != 'Windows'

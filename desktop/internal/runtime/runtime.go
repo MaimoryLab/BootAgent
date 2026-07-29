@@ -12,6 +12,7 @@ import (
 	"errors"
 	"os"
 	"os/exec"
+	"os/user"
 	"path/filepath"
 	goruntime "runtime"
 	"strings"
@@ -62,12 +63,21 @@ type Runtime struct {
 // AGENT_INSTALL_FAILED. Deciding that here would flatten a distinction the
 // call sites make deliberately.
 type TimeoutError struct {
-	Argv    []string
-	Timeout time.Duration
+	Argv []string
+	// Timeout is the limit this call imposed, and is meaningful only when
+	// FromCaller is true. A parent context expiring produces the same
+	// DeadlineExceeded, and naming a limit that was never applied would send
+	// whoever reads the message looking for the wrong cause.
+	Timeout    time.Duration
+	FromCaller bool
 }
 
 func (e *TimeoutError) Error() string {
-	return "command timed out: " + strings.Join(e.Argv, " ")
+	command := strings.Join(e.Argv, " ")
+	if e.FromCaller {
+		return "command exceeded its " + e.Timeout.String() + " limit: " + command
+	}
+	return "command cancelled by an enclosing deadline: " + command
 }
 
 // StartError reports that the subprocess could not be started at all -- the
@@ -227,17 +237,43 @@ func ResolveHome(env map[string]string, osID string) string {
 	if value := env["HOME"]; value != "" {
 		return value
 	}
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return ""
+	return systemHome()
+}
+
+// systemHome is the last resort, and it deliberately tries twice.
+//
+// Python reaches this point through Path.home(), which falls back to the passwd
+// database when HOME is unset. os.UserHomeDir reads $HOME alone and errors
+// otherwise, so stopping there would make Go resolve no home in cases where
+// Python resolves one -- and the difference would not surface as a clear
+// failure but as a different exit code from somewhere further up. user.Current
+// reads passwd, which restores the equivalence.
+// The two lookups are variables so a test can reach the case where both fail.
+// That case is unreachable on any machine with a passwd entry, and leaving it
+// untested would mean the only branch deciding "there is nowhere to write" is
+// also the only one nothing checks.
+var (
+	userHomeDir = os.UserHomeDir
+	currentUser = user.Current
+)
+
+func systemHome() string {
+	if home, err := userHomeDir(); err == nil && home != "" {
+		return home
 	}
-	return home
+	if current, err := currentUser(); err == nil && current.HomeDir != "" {
+		return current.HomeDir
+	}
+	// Genuinely nowhere to write. The caller reports this as a missing
+	// prerequisite; inventing a path would put configuration somewhere
+	// arbitrary and the user would never find it.
+	return ""
 }
 
 func expandUser(path string) string {
 	if path == "~" || strings.HasPrefix(path, "~/") || strings.HasPrefix(path, `~\`) {
-		home, err := os.UserHomeDir()
-		if err != nil {
+		home := systemHome()
+		if home == "" {
 			return path
 		}
 		if path == "~" {
@@ -291,7 +327,10 @@ func ExecRunner(ctx context.Context, argv []string, opts RunOptions) (Result, er
 	// Checked before ExitError: a killed process also reports an exit status,
 	// and reading that first would hide the timeout.
 	if ctx.Err() == context.DeadlineExceeded {
-		return result, &TimeoutError{Argv: argv, Timeout: opts.Timeout}
+		// Timeout is only set when this call imposed the deadline. A parent
+		// context expiring is also a deadline, and reporting opts.Timeout there
+		// would name a limit that was never applied.
+		return result, &TimeoutError{Argv: argv, Timeout: opts.Timeout, FromCaller: opts.Timeout > 0}
 	}
 	var exitErr *exec.ExitError
 	if errors.As(err, &exitErr) {

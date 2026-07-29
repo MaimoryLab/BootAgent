@@ -5,7 +5,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"strconv"
-	"strings"
 	"testing"
 )
 
@@ -20,28 +19,9 @@ import (
 
 var pythonEntry = regexp.MustCompile(`^\s*"([A-Z_]+)"\s*:\s*(\d+)\s*,\s*$`)
 
-// CI runs these separately with -run TestParity so a cross-language failure is
-// named in its own step. But `go test -run` reports success when its pattern
-// matches nothing, so renaming one of these would silently retire the gate
-// rather than break it. This test counts them, which turns that into a failure.
-func TestParityGateCoversEveryCrossLanguageTest(t *testing.T) {
-	source, err := os.ReadFile("codes_parity_test.go")
-	if err != nil {
-		t.Fatalf("cannot read this test file: %v", err)
-	}
-	found := regexp.MustCompile(`func (Test\w+)`).FindAllStringSubmatch(string(source), -1)
-	prefixed := 0
-	for _, match := range found {
-		if strings.HasPrefix(match[1], "TestParity") {
-			prefixed++
-			continue
-		}
-		t.Errorf("%s lives in the parity file but CI's -run TestParity would skip it", match[1])
-	}
-	if prefixed < 4 {
-		t.Fatalf("found %d TestParity tests, expected at least 4; did one get renamed?", prefixed)
-	}
-}
+// The count of these, and the fact that they exist at all, is checked from
+// internal/parity -- outside this file, because a self-check cannot survive its
+// own file being deleted and `go test -run` exits 0 when it matches nothing.
 
 func pythonExitCodes(t *testing.T) map[string]int {
 	t.Helper()

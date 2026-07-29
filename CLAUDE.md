@@ -13,14 +13,21 @@ OneAgent：本地 AI 开发环境激活器。Python 3.12 标准库内核 + React
 本机 `python3` 是 3.14，测试与打包必须显式用 `python3.12`；`scripts/gui.py` 用任意 ≥3.12 均可。
 
 ```bash
-# Python 契约测试（74 用例，约 7s）
+# Python 契约测试（245 用例，约 17s）。必须是这 9 个模块——漏掉后三个只跑出 171，
+# 而 CI 跑的是全集，本地少跑会让失败推迟到 CI 才出现。
 python3.12 -m unittest tests.test_core tests.test_cli tests.test_server \
-  tests.test_release_policy tests.test_edge_cases tests.test_rc_scripts
+  tests.test_release_policy tests.test_edge_cases tests.test_rc_scripts \
+  tests.test_install_contract tests.test_config_discovery tests.test_distribution_data
 
 # 覆盖率门禁：整体 ≥85%，installer.py 必须 100% 分支且无 partial
 python3.12 -m coverage run --branch -m unittest tests.test_core tests.test_cli \
-  tests.test_server tests.test_release_policy tests.test_edge_cases tests.test_rc_scripts
+  tests.test_server tests.test_release_policy tests.test_edge_cases tests.test_rc_scripts \
+  tests.test_install_contract tests.test_config_discovery tests.test_distribution_data
 python3.12 -m coverage report --fail-under=85
+
+# Go 内核（迁移中，见 docs/wails-migration-execution.md）。-race 是必须的：
+# Wails 的每个 binding 调用跑在独立 goroutine 里。
+cd desktop && go vet ./... && go test -race -cover ./...
 
 # 源码 GUI
 python3 scripts/gui.py --port 8765 --no-open
@@ -53,6 +60,9 @@ frontend/src/
   api/client.ts    fetch 封装，非 2xx 抛 OneAgentApiError
 agents.lock.json   Agent 版本/包管理器/配置适配器/平台/许可证的唯一真源
 scripts/           gui.py、install.sh/.ps1、build_release.py、check_release.py
+desktop/           Go 内核（迁移中，ADR-008）。internal/oerr 错误码契约、
+                   internal/runtime 副作用注入、internal/testutil 测试替身、
+                   internal/parity 跨语言门禁。Python 仍是生产实现。
 ```
 
 主链路：`React → POST /api/install → install_many() → _write_agent_config() → atomic_write()`。

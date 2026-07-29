@@ -76,7 +76,7 @@ desktop/
 - 未知码回落到 **10**，不是查 `EXIT_CODES["INTERNAL_ERROR"]`。语义相同但来源不同，Go 侧照抄字面量。
 - `to_dict()` 输出恰好六键：`ok`、`error`、`message`、`status`、`error_code`、`retryable`。`message` 出现两次（`error` 与 `message` 同值），`exit_code` **不在其中**。
 
-**门禁**：`codes_parity_test.go` 解析 `../oneagent/errors.py` 的 `EXIT_CODES` 字面量，逐键与 Go 对比；并断言序列化键集合一致。码值是外部契约，真源锁在 Python 文件——Go 偏离即红。这个测试在 Python 删除时才随之改为 Go 内部常量断言。
+**门禁**：`codes_parity_test.go` 解析 `../oneagent/errors.py` 的 `EXIT_CODES` 字面量，逐键与 Go 对比；并断言回落字面量与序列化键集合一致。码值是外部契约，真源锁在 Python 文件——Go 偏离即红。这个测试在 Python 删除时才随之改为 Go 内部常量断言，契约比 Python 文件活得久。
 
 ### 4.2 `internal/runtime`
 
@@ -90,7 +90,9 @@ type Runtime struct {
 }
 ```
 
-`Home` 解析优先级与 `catalog.py:214` 一致：`ONEAGENT_HOME` →（windows：`USERPROFILE` → `HOMEDRIVE`+`HOMEPATH`）→ `HOME` → 用户目录。平台判定：`darwin`→`macos`、`windows`→`windows`、其余 `linux`；arch 取 `arm64`/`x64`；shell 取 `powershell`/`bash`。
+`Home` 解析优先级与 `catalog.py:214` 一致：`ONEAGENT_HOME` →（windows：`USERPROFILE` → `HOMEDRIVE`+`HOMEPATH`）→ `HOME` → 系统用户目录。最后一跳要**两次**尝试（`os.UserHomeDir` 后再 `user.Current`）才与 Python 等价，理由见 4.5。平台判定：`darwin`→`macos`、`windows`→`windows`、其余 `linux`；arch 取 `arm64`/`x64`；shell 取 `powershell`/`bash`。
+
+**门禁**：`home_parity_test.go` 调用真实的 Python `resolve_home`（而非重新实现它——重新实现只能证明测试与自己一致）并逐例比较，覆盖优先级全表与「什么都没声明」的场景。
 
 `Run` 的错误分类是移植重点，但**分类与错误码要分开**。Python 侧两处超时映射到不同的码：安装 Agent 超时是 `TIMEOUT`（`installer.py:723`），读取 integrity 超时是 `AGENT_INSTALL_FAILED`（`installer.py:641`），两者都 retryable。这不是不一致，是调用点各自的判断。
 
@@ -114,15 +116,32 @@ type Runtime struct {
 
 | 包 | 语句覆盖 | 说明 |
 | --- | --- | --- |
-| `oerr` | 100% | 含 4 个 `TestParity*` 跨语言门禁 |
-| `runtime` | 100% | 平台映射抽成 `OSIDFor`/`ArchFor` 纯函数 |
-| `testutil` | 89% | 替身自身的保证也被测试 |
+| `oerr` | 100% | 3 个跨语言门禁：码表、回落字面量、响应键集 |
+| `runtime` | 100% | 2 个跨语言门禁：home 优先级全表 + 无 HOME 场景 |
+| `testutil` | 92% | 替身自身的保证也被测试 |
+| `parity` | — | 只含门禁，无实现语句 |
 
-`go test -race ./...` 干净；Python 245 用例不受影响。
+`go test -race ./...` 干净；Python 245 用例不受影响（要用 CI 的 9 个模块集合；`CLAUDE.md` 里列的 6 个只跑出 171）。
 
-实施中发现两处计划需要修正，已并入本文：`Run` 的错误分类不能固化码值（见 4.2）；平台判定直读 `goruntime.GOOS` 会让覆盖率依赖 CI 矩阵而非测试，抽成取参数的纯函数后同一进程可覆盖三个映射。
+实施与审查中发现三处需要修正，已并入本文与 [ADR-008](decisions/ADR-008-go-core-and-wails-desktop-shell.md)：
 
-CI 里 Go 步骤的过滤器 `-run TestParity` 有个陷阱：**`go test -run` 匹配零个测试时返回成功**。最初写成 `-run Parity` 时它匹配不到任何测试却是绿的——一个永远通不了红的门禁。现已统一前缀，并加 `TestParityGateCoversEveryCrossLanguageTest` 断言数量，把「改名导致门禁静默失效」变成失败。
+- `Run` 的错误分类不能固化码值（见 4.2）。
+- 平台判定直读 `goruntime.GOOS` 会让覆盖率依赖 CI 矩阵而非测试，抽成取参数的纯函数后同一进程可覆盖三个映射。
+- **home 解析的兜底行为原本悄悄改了外部契约**。Python 的 `Path.home()` 在 `HOME` 缺失时回落到 passwd，Go 的 `os.UserHomeDir` 只读 `$HOME` 并报错。最初的 Go 实现在这里返回 `""`，意图是让上层报 `PREREQUISITE_MISSING`（exit 3）——但 Python 在同样输入下能解析出 home，上层不会走到那条路径。这不是「兜底返回什么」的选择，是两侧解析能力不同，而差异会表现为不同的退出码。Go 侧补了 `user.Current()` 一跳恢复等价，并由 `home_parity_test.go` 的 7 个用例锁死。真正「无处可写」的分支仍返回 `""`，通过可注入的查询函数测试到。
+
+### 4.6 parity 门禁本身的三个静默失效路径
+
+`go test -run` **匹配零个测试时退出码为 0**。这让「跑 parity 测试」这个 CI 步骤有三种变绿而不报错的方式，全部已堵住并实测验证：
+
+| 失效方式 | 旧行为 | 现在 |
+| --- | --- | --- |
+| 改名（不再匹配 `-run` 模式） | 静默 skip | `internal/parity` 计数断言失败并点名 |
+| 删掉整个 parity 文件 | `ok ... [no tests to run]` | `internal/parity` 断言文件存在 |
+| Python 不在 PATH（跨语言比较无法进行） | `t.Skip`，报 ok | CI 设 `ONEAGENT_REQUIRE_PARITY`，改为硬失败 |
+
+第一版把计数自检写在 `codes_parity_test.go` 内部——能拦改名，但**删掉该文件后自检本身也不在了**。所以计数移到独立的 `internal/parity` 包，从外部断言每个 parity 文件仍存在、仍带着它的测试，并反向检查没有未声明的 parity 文件游离在门禁之外。
+
+**当前局限**：`ci.yml` 是 `workflow_dispatch` 专属（自动触发已按仓库所有者要求关闭），所以这些门禁只在手动触发时生效，推送时不看着任何人。阶段 1 落地前需记住这一点。
 
 **阶段 0 验收**：`go vet` 干净、`go test -race ./...` 全过（含 parity 门禁）、四平台 CI 绿、Python 245 用例与 `installer.py` 100% 分支门禁不受影响。
 
@@ -196,12 +215,11 @@ Wails binding 默认并发，而现有 `HTTPServer` 是串行的——这是形�
 - **密钥不落地**：不进 profile、argv、URL、日志、前端状态、浏览器存储；Go 侧等价 `redact` 且被测试覆盖。常驻新增一条：内存密钥显式清零，不为「下次免输」缓存。
 - **传输契约**：`StatusResponse` 等派生字段 camelCase、请求体 snake_case。不因 Go 惯例改动，也不借迁移做命名清理。
 
-## 8. 需要新增的决策记录
+## 8. 决策记录
 
-新 ADR 只替换 ADR-003 中「Python 核心、本地 HTTP、PyInstaller」三项决策，其余产品边界继续有效。必须写清两件事：
+[ADR-008](decisions/ADR-008-go-core-and-wails-desktop-shell.md) 已写，只替换 ADR-003 中「Python 核心、本地 HTTP、PyInstaller」三项决策；ADR-003 已就地标注被取代的部分与那处事实错误。
 
-- **舍弃本地 HTTP 是安全约束的性质变化**。现在的「只绑 127.0.0.1 + Origin 白名单 + `compare_digest` 会话」随 IPC 消失，且不再需要——但要显式记录，否则下次审查会以为约束被悄悄放弃。替代它的是「生产无监听端口 + binding allowlist + 外链白名单」。
-- **修正 ADR-003 的事实错误**。它称桌面壳「引入额外运行时」，这对 Electron 成立、对 Wails 不成立（系统 WebView，产物单二进制）。这个说法留着会误导下次评估。
+顺带修掉一个存量问题：`docs/decisions/` 曾有两个 ADR-006（多 Profile 与公开站）。两者都无外部引用，所以后加的公开站那份重编号为 ADR-007，迁移 ADR 取 008。
 
 ## 9. 不做
 

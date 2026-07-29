@@ -40,15 +40,19 @@ type Error struct {
 	ExitCode  int
 }
 
-// New builds an Error with the same defaults as the Python constructor:
-// not retryable, HTTP 400, and the exit code the table gives for this code.
-func New(code, message string) *Error {
-	return &Error{
+// New builds an Error with the same defaults as the Python constructor: not
+// retryable, HTTP 400, and the exit code the table gives for this code.
+func New(code, message string, opts ...Option) *Error {
+	err := &Error{
 		Code:     code,
 		Message:  message,
 		Status:   400,
 		ExitCode: exitCodeFor(code),
 	}
+	for _, opt := range opts {
+		opt(err)
+	}
+	return err
 }
 
 // Option adjusts a field that New defaults. Retryable and Status vary per call
@@ -58,32 +62,34 @@ type Option func(*Error)
 
 // Retryable marks the failure as worth another attempt, which the frontend
 // uses to decide whether to offer a retry rather than only an explanation.
-func Retryable() Option {
+func WithRetryable() Option {
 	return func(e *Error) { e.Retryable = true }
 }
 
 // Status overrides the HTTP status. Retained through the Wails migration
 // because the frontend error contract still carries it.
-func Status(status int) Option {
+func WithStatus(status int) Option {
 	return func(e *Error) { e.Status = status }
 }
 
-// ExitCode overrides the code the table would give.
-func ExitCode(code int) Option {
+// WithExitCode overrides the code the table would give. Named for the option
+// rather than the field so it does not read as a second meaning of Error.ExitCode.
+func WithExitCode(code int) Option {
 	return func(e *Error) { e.ExitCode = code }
 }
 
-// Newf builds an Error with a formatted message and optional overrides.
-func Newf(code string, opts []Option, format string, args ...any) *Error {
-	err := New(code, fmt.Sprintf(format, args...))
-	for _, opt := range opts {
-		opt(err)
-	}
-	return err
+// Newf builds an Error whose message is formatted. Options are applied
+// afterwards through Set, because variadic format args and variadic options
+// cannot both be last:
+//
+//	oerr.Newf("PREREQUISITE_MISSING", "缺少 %s", "npm").Set(oerr.WithRetryable())
+func Newf(code, format string, args ...any) *Error {
+	return New(code, fmt.Sprintf(format, args...))
 }
 
-// With applies options to an existing Error and returns it.
-func (e *Error) With(opts ...Option) *Error {
+// Set applies options to an existing Error and returns it, so a formatted
+// message and an override can be written in one expression.
+func (e *Error) Set(opts ...Option) *Error {
 	for _, opt := range opts {
 		opt(e)
 	}
