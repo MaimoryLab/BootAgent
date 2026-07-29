@@ -55,7 +55,7 @@ jobs:
           npm run build
 
       - name: Run Python contracts
-        run: python -m unittest tests.test_core tests.test_cli tests.test_server tests.test_release_policy tests.test_edge_cases tests.test_rc_scripts
+        run: python -m unittest tests.test_core tests.test_cli tests.test_server tests.test_release_policy tests.test_edge_cases tests.test_rc_scripts tests.test_install_contract
 
       - name: Build unsigned native package
         shell: bash
@@ -83,6 +83,23 @@ jobs:
 
       - name: Install and verify all locked Agents
         run: python scripts/verify_locked_agents.py
+
+      # verify_locked_agents resolves commands through an injected which() over a
+      # PATH it built itself, so it proves OneAgent believes the install worked.
+      # This proves the shell agrees: npm's global prefix differs per machine and
+      # a binary that never lands on PATH is the common real-world failure.
+      - name: Verify a blank machine can run Codex and Claude Code
+        if: runner.os != 'Windows'
+        shell: bash
+        run: bash tests/real_install_test.sh
+
+      - name: Upload blank-machine verification failures
+        if: failure() && runner.os != 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: real-install-${{ matrix.os }}
+          path: build/real-install
+          if-no-files-found: ignore
 
       - name: Validate release contents
         run: python scripts/check_release.py release

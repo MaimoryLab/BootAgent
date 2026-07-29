@@ -215,5 +215,63 @@ class ReleaseCandidateScriptTests(unittest.TestCase):
         self.assertEqual(runtime.env["SAFE_VALUE"], "preserved")
 
 
+class VerificationScriptTests(unittest.TestCase):
+    """The two scripts that verify a blank machine can run these Agents."""
+
+    def test_agent_e2e_smoke_refuses_to_run_without_a_real_credential(self):
+        # It exists to prove an Agent answers a real request; silently proceeding
+        # keyless would report a pass that means nothing.
+        environment = {key: value for key, value in os.environ.items() if key != "ONEAGENT_API_KEY"}
+        result = subprocess.run(
+            [sys.executable, str(ROOT / "scripts" / "agent_e2e_smoke.py")],
+            capture_output=True,
+            text=True,
+            timeout=120,
+            env=environment,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("ONEAGENT_API_KEY", result.stdout + result.stderr)
+
+    def test_agent_e2e_smoke_exercises_both_protocols_and_redacts(self):
+        source = (ROOT / "scripts" / "agent_e2e_smoke.py").read_text(encoding="utf-8")
+        # Codex speaks Responses and Claude Code speaks Anthropic Messages, so
+        # neither can stand in for the other.
+        self.assertIn('AGENTS = ("codex", "claude-code")', source)
+        # The probe has to run; --skip-test here would leave the endpoint pairing
+        # unverified, which is the thing this layer is for.
+        self.assertIn("skip_test=False", source)
+        # Both Agents default to a REPL; a smoke has to use the one-shot form.
+        self.assertIn('"exec"', source)
+        self.assertIn('"-p"', source)
+        self.assertIn("redact(", source)
+
+    def test_real_install_cleanroom_isolates_the_prefix_and_watches_real_home(self):
+        source = (ROOT / "tests" / "real_install_test.sh").read_text(encoding="utf-8")
+        # A developer's globally installed Agent must not be able to satisfy the
+        # assertions, so the throwaway prefix comes first on PATH.
+        self.assertIn('npm_config_prefix="$NPM_PREFIX"', source)
+        self.assertIn('CLEAN_PATH="$NPM_PREFIX/bin', source)
+        self.assertIn("env -i", source)
+        # The run must fail if it touched the real user's configuration.
+        self.assertIn("snapshot_real_home", source)
+        self.assertIn("real-home-before.json", source)
+        # It only covers the two Agents under verification.
+        self.assertIn("--agent codex,claude-code", source)
+        self.assertIn("--locked-version", source)
+        # And it must actually install, unlike the suites that stub the runner.
+        self.assertIn("--install-agent", source)
+        self.assertIn("ONEAGENT_REGISTRY", source)
+
+    def test_real_install_cleanroom_checks_path_version_and_secrecy(self):
+        source = (ROOT / "tests" / "real_install_test.sh").read_text(encoding="utf-8")
+        # The step no other suite covers: npm putting the binary where PATH can
+        # find it.
+        self.assertIn("command -v", source)
+        self.assertIn("did not land anywhere on PATH", source)
+        self.assertIn("--version", source)
+        self.assertIn("profile.json", source)
+        self.assertIn("MOCK_KEY", source)
+
+
 if __name__ == "__main__":
     unittest.main()

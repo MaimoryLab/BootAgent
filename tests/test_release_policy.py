@@ -325,6 +325,31 @@ class ReleasePolicyTests(unittest.TestCase):
         self.assertIn("ONEAGENT_PACKAGED_BINARY", ci)
         self.assertIn("tests/macos_cleanroom_test.sh", rc)
 
+    def test_install_path_is_verified_offline_in_ci_and_for_real_before_release(self):
+        # The command that installs an Agent was only ever exercised through a
+        # replaced runner that ignored its argv, so the contract suite has to run
+        # everywhere, and the real install has to run before a release.
+        ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+        rc = (ROOT / ".github" / "workflows" / "release-candidate.yml").read_text(encoding="utf-8")
+        self.assertIn("tests.test_install_contract", ci)
+        self.assertIn("tests.test_install_contract", rc)
+        # Real installation stays out of ordinary CI: it would hit the registry
+        # on every commit.
+        self.assertNotIn("real_install_test.sh", ci)
+        self.assertIn("tests/real_install_test.sh", rc)
+        self.assertIn("scripts/verify_locked_agents.py", rc)
+
+    def test_mirrors_are_public_read_only_registries_not_our_own_storage(self):
+        # An authorised mirror is permitted; redistributing a proprietary Agent
+        # from storage we run is not. Enforced here as well as in the install
+        # contract because it is a distribution rule, not an install detail.
+        for mirror_id, meta in catalog.PACKAGE_MIRRORS.items():
+            with self.subTest(mirror=mirror_id):
+                self.assertTrue(str(meta["registry"]).startswith("https://"))
+                self.assertTrue(str(meta["upstream"]).startswith("https://"))
+                for forbidden in ("oneagent", "maimory"):
+                    self.assertNotIn(forbidden, str(meta["registry"]).lower())
+
     def test_frontend_output_may_not_reference_a_cdn(self):
         # The policy forbids CDN and remote-font references in frontend output,
         # but only source maps were ever checked. Agent marks are inlined for
