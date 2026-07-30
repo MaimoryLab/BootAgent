@@ -10,6 +10,7 @@ import (
 	"github.com/MaimoryLab/OneAgent/internal/app"
 	"github.com/MaimoryLab/OneAgent/internal/catalog"
 	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
+	"github.com/MaimoryLab/OneAgent/internal/provider"
 )
 
 type Services struct {
@@ -22,7 +23,7 @@ type Services struct {
 func NewServices(core *app.UseCases, opener BrowserOpener) *Services {
 	return &Services{
 		Status:   &StatusService{core: core},
-		Provider: &ProviderService{opener: opener},
+		Provider: NewProviderService(core, opener),
 		Agent:    &AgentService{},
 		Profile:  &ProfileService{},
 	}
@@ -43,6 +44,11 @@ type BrowserOpener func(string) error
 
 type ProviderService struct {
 	opener BrowserOpener
+	core   *app.UseCases
+}
+
+func NewProviderService(core *app.UseCases, opener BrowserOpener) *ProviderService {
+	return &ProviderService{opener: opener, core: core}
 }
 
 func (s *ProviderService) ListProviders(ctx context.Context) (map[string]catalog.Provider, error) {
@@ -56,14 +62,39 @@ func (s *ProviderService) Probe(ctx context.Context, request ProbeRequest) (Prob
 	if err := contextError(ctx); err != nil {
 		return ProbeResponse{}, err
 	}
-	return ProbeResponse{}, notReady("Provider probing is not available in the migration foundation")
+	if s == nil || s.core == nil {
+		return ProbeResponse{}, notReady("Provider probing is not configured")
+	}
+	result, err := s.core.ProbeProvider(ctx, app.ProviderProbeOptions{
+		Provider:   request.Provider,
+		APIBaseURL: request.APIBaseURL,
+		APIKey:     request.APIKey,
+		Model:      request.Model,
+		AgentIDs:   request.Agents,
+	})
+	if err != nil {
+		return ProbeResponse{}, err
+	}
+	response := probeResponse(result.Primary)
+	response.Protocols = make(map[string]ProbeResponse, len(result.Protocols))
+	for protocolID, protocolResult := range result.Protocols {
+		response.Protocols[protocolID] = probeResponse(protocolResult)
+	}
+	return response, nil
 }
 
 func (s *ProviderService) ListModels(ctx context.Context, request ModelsRequest) (ModelsResponse, error) {
 	if err := contextError(ctx); err != nil {
 		return ModelsResponse{}, err
 	}
-	return ModelsResponse{}, notReady("Model discovery is not available in the migration foundation")
+	if s == nil || s.core == nil {
+		return ModelsResponse{}, notReady("Model discovery is not configured")
+	}
+	result, err := s.core.ListProviderModels(ctx, request.Provider, request.APIKey, request.APIBaseURL)
+	if err != nil {
+		return ModelsResponse{}, err
+	}
+	return modelsResponse(result), nil
 }
 
 func (s *ProviderService) OpenRegistration(ctx context.Context, request OpenRegistrationRequest) (OpenRegistrationResponse, error) {
@@ -145,13 +176,14 @@ type OpenRegistrationResponse struct {
 }
 
 type ProbeResponse struct {
-	OK        bool   `json:"ok"`
-	Reachable bool   `json:"reachable"`
-	Status    int    `json:"status"`
-	Message   string `json:"message"`
-	ErrorCode string `json:"error_code"`
-	Retryable bool   `json:"retryable"`
-	Protocol  string `json:"protocol"`
+	OK        bool                     `json:"ok"`
+	Reachable bool                     `json:"reachable"`
+	Status    int                      `json:"status"`
+	Message   string                   `json:"message"`
+	ErrorCode *string                  `json:"error_code"`
+	Retryable bool                     `json:"retryable"`
+	Protocol  *string                  `json:"protocol,omitempty"`
+	Protocols map[string]ProbeResponse `json:"protocols,omitempty"`
 }
 
 type ModelsResponse struct {
@@ -223,4 +255,31 @@ func contextError(ctx context.Context) error {
 
 func notReady(message string) error {
 	return oneerrors.New(oneerrors.InternalError, strings.TrimSpace(message), oneerrors.WithStatus(501))
+}
+
+func probeResponse(result provider.ProbeResult) ProbeResponse {
+	return ProbeResponse{
+		OK:        result.OK,
+		Reachable: result.Reachable,
+		Status:    result.Status,
+		Message:   result.Message,
+		ErrorCode: result.ErrorCode,
+		Retryable: result.Retryable,
+		Protocol:  result.Protocol,
+	}
+}
+
+func modelsResponse(result provider.ModelsResult) ModelsResponse {
+	return ModelsResponse{
+		ProbeResponse: ProbeResponse{
+			OK:        result.OK,
+			Reachable: result.Reachable,
+			Status:    result.Status,
+			Message:   result.Message,
+			ErrorCode: result.ErrorCode,
+			Retryable: result.Retryable,
+			Protocol:  result.Protocol,
+		},
+		Models: result.Models,
+	}
 }

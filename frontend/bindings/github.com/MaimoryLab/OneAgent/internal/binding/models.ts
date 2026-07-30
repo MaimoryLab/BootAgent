@@ -56,9 +56,10 @@ export interface ModelsResponse {
     "reachable": boolean;
     "status": number;
     "message": string;
-    "error_code": string;
+    "error_code": string | null;
     "retryable": boolean;
-    "protocol": string;
+    "protocol"?: string | null;
+    "protocols"?: { [_ in string]?: ProbeResponse } | null;
     "models": string[] | null;
 }
 
@@ -86,9 +87,10 @@ export interface ProbeResponse {
     "reachable": boolean;
     "status": number;
     "message": string;
-    "error_code": string;
+    "error_code": string | null;
     "retryable": boolean;
-    "protocol": string;
+    "protocol"?: string | null;
+    "protocols"?: { [_ in string]?: ProbeResponse } | null;
 }
 
 export interface SaveProfileRequest {

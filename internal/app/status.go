@@ -1,6 +1,6 @@
-// Package app contains transport-independent use cases. Only the small status
-// slice is moved in this first migration increment; installation and config
-// writes remain in Python until their Go equivalents pass their own gates.
+// Package app contains transport-independent use cases. Status and Provider
+// reads are the first migrated slices; installation and config writes remain
+// in Python until their Go equivalents pass their own gates.
 package app
 
 import (
@@ -13,6 +13,7 @@ import (
 	"github.com/MaimoryLab/OneAgent/internal/catalog"
 	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
 	"github.com/MaimoryLab/OneAgent/internal/platform"
+	"github.com/MaimoryLab/OneAgent/internal/provider"
 )
 
 type CommandLookup func(string) (string, bool)
@@ -24,10 +25,18 @@ type StatusOptions struct {
 }
 
 type UseCases struct {
-	status StatusOptions
+	status   StatusOptions
+	provider *provider.Client
 }
 
 func NewUseCases(options StatusOptions) *UseCases {
+	return NewUseCasesWithProviderClient(options, nil)
+}
+
+// NewUseCasesWithProviderClient keeps network access injectable while the
+// Python production path remains active and Go behavior is verified with fake
+// transports.
+func NewUseCasesWithProviderClient(options StatusOptions, client *provider.Client) *UseCases {
 	if options.Platform.OS == "" {
 		options.Platform = platform.Current()
 	}
@@ -37,7 +46,10 @@ func NewUseCases(options StatusOptions) *UseCases {
 	if options.Lookup == nil {
 		options.Lookup = defaultLookup
 	}
-	return &UseCases{status: options}
+	if client == nil {
+		client = provider.NewClient(nil)
+	}
+	return &UseCases{status: options, provider: client}
 }
 
 func NewUseCasesFromEnvironment() *UseCases {
