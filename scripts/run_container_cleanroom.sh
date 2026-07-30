@@ -6,6 +6,9 @@ ARTIFACT_DIR="${ONEAGENT_ARTIFACT_DIR:-/artifacts}"
 expected_platform="linux"
 
 if [[ "${ONEAGENT_CLEANROOM_SANITIZED:-0}" != "1" ]]; then
+  # The Go CLI is built into the image, not here: this stage runs with
+  # --network none and the sanitized PATH below carries no Go toolchain.
+  # scripts/install.sh is a pure forwarding layer and needs the binary named.
   exec env -i \
     PATH="/opt/oneagent-venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
     LANG="C.UTF-8" \
@@ -14,7 +17,13 @@ if [[ "${ONEAGENT_CLEANROOM_SANITIZED:-0}" != "1" ]]; then
     ONEAGENT_CLEANROOM_SANITIZED="1" \
     ONEAGENT_DISABLE_BROWSER="1" \
     ONEAGENT_ARTIFACT_DIR="$ARTIFACT_DIR" \
+    ONEAGENT_CLI_BINARY="${ONEAGENT_CLI_BINARY:-$ROOT_DIR/bin/oneagent}" \
     bash "$0"
+fi
+
+if [[ ! -x "${ONEAGENT_CLI_BINARY:-}" ]]; then
+  echo "The Go CLI must be built into the image before the cleanroom runs." >&2
+  exit 2
 fi
 
 mkdir -p "$ARTIFACT_DIR/logs"
@@ -108,6 +117,48 @@ PY
   done
 }
 
+assert_go_cli_without_python() {
+  local probe_home probe_path status
+  probe_home="$(mktemp -d "$TMPDIR/oneagent-go-cli.XXXXXX")"
+  # No Python interpreter, no Node and no package manager on PATH: if the Go
+  # install path still depended on any of them, this stage is where it breaks.
+  probe_path="/usr/bin:/bin"
+
+  if env -i HOME="$probe_home" PATH="$probe_path" TMPDIR="$TMPDIR" \
+    "$ONEAGENT_CLI_BINARY" --version >/dev/null; then
+    :
+  else
+    echo "the Go CLI could not report its version without Python" >&2
+    rm -rf "$probe_home"
+    return 1
+  fi
+
+  env -i HOME="$probe_home" PATH="$probe_path" TMPDIR="$TMPDIR" \
+    "$ONEAGENT_CLI_BINARY" --agent codex \
+    --api-base-url https://models.example.com/v1 \
+    --api-key cleanroom-placeholder-key \
+    --model cleanroom-model \
+    --skip-test --no-open --json > "$probe_home/install.json"
+  status=$?
+  if [[ "$status" -ne 0 ]]; then
+    echo "the Go CLI could not configure an Agent without Python" >&2
+    rm -rf "$probe_home"
+    return 1
+  fi
+
+  if ! grep -Fq 'model_provider = "oneagent"' "$probe_home/.codex/config.toml"; then
+    echo "the Go CLI did not write the expected Codex configuration" >&2
+    rm -rf "$probe_home"
+    return 1
+  fi
+  if grep -Fq "cleanroom-placeholder-key" "$probe_home/install.json"; then
+    echo "the Go CLI leaked the API key into its JSON result" >&2
+    rm -rf "$probe_home"
+    return 1
+  fi
+  rm -rf "$probe_home"
+}
+
 scan_release_policy() {
   if find "$ROOT_DIR/frontend/dist" -type f -name '*.map' -print -quit | grep -q .; then
     echo "frontend build contains source maps" >&2
@@ -157,6 +208,10 @@ run_stage python-contracts bash -c '
   python3.12 -c '\''import json; summary = json.load(open("build/coverage/coverage.json", encoding="utf-8"))["files"]["oneagent/installer.py"]["summary"]; assert summary["percent_branches_covered"] == 100 and summary["num_partial_branches"] == 0, summary'\''
 '
 
+# The bash contracts now exercise the Go CLI through the forwarding wrapper, so
+# this stage is the cleanroom's evidence that the migrated install path works
+# with no Python on PATH for it at all.
+run_stage go-cli-no-python assert_go_cli_without_python
 run_stage bash-compatibility bash tests/install_test.sh
 run_stage existing-config bash tests/existing_config_test.sh
 run_stage gui-smoke python3.12 tests/gui_smoke_test.py

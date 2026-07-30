@@ -15,6 +15,7 @@ auth.json
 .docker
 .aws
 .qoder
+bin
 .codex
 .claude
 .oneagent

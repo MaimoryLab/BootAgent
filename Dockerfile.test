@@ -22,6 +22,27 @@ RUN set -eux; \
     python3.12 -m venv /opt/oneagent-venv; \
     /opt/oneagent-venv/bin/python -m pip install --no-cache-dir coverage==7.15.2
 
+# Pinned Go toolchain for the migration CLI. The archive is verified against a
+# recorded SHA-256 rather than trusted by URL, matching how OneAgent itself
+# refuses to install a package whose integrity it cannot confirm.
+ARG TARGETARCH
+ARG GO_RELEASE=go1.25.12
+ARG GO_SHA256_amd64=234828b7a89e0e303d2556310ee549fbcf253d28de937bac3da13d6294262ac1
+ARG GO_SHA256_arm64=8b5884aef89600aef5b0b051fb971f11f49bb996521e911f30f02a66884f7bd2
+RUN set -eux; \
+    arch="${TARGETARCH:-amd64}"; \
+    case "$arch" in \
+        amd64) expected="$GO_SHA256_amd64" ;; \
+        arm64) expected="$GO_SHA256_arm64" ;; \
+        *) echo "unsupported architecture for the pinned Go toolchain: $arch" >&2; exit 1 ;; \
+    esac; \
+    archive="/tmp/${GO_RELEASE}.linux-${arch}.tar.gz"; \
+    curl -fsSL -o "$archive" "https://go.dev/dl/${GO_RELEASE}.linux-${arch}.tar.gz"; \
+    echo "${expected}  ${archive}" | sha256sum -c -; \
+    tar -C /usr/local -xzf "$archive"; \
+    rm -f "$archive"; \
+    /usr/local/go/bin/go version
+
 WORKDIR /opt/oneagent
 
 COPY --chown=pwuser:pwuser frontend/package.json frontend/package-lock.json ./frontend/
@@ -35,5 +56,12 @@ RUN chown pwuser:pwuser /opt/oneagent \
     && chmod +x scripts/install.sh scripts/test_docker_cleanroom.sh scripts/run_container_cleanroom.sh tests/install_test.sh
 
 USER pwuser
+
+# The CLI is built here, while the image build still has network access. The
+# cleanroom itself runs with --network none and a sanitized PATH that carries no
+# Go toolchain, so scripts/install.sh only ever forwards to this binary.
+RUN set -eux; \
+    /usr/local/go/bin/go build -o bin/oneagent ./cmd/oneagent; \
+    ./bin/oneagent --version
 
 ENTRYPOINT ["bash", "scripts/run_container_cleanroom.sh"]

@@ -241,10 +241,30 @@ class ReleasePolicyTests(unittest.TestCase):
                 (root / "agents.lock.json").unlink()
                 self.assertEqual(catalog.resource_root(), stale)
 
-    def test_source_launchers_require_python_312(self):
-        for relative in ["scripts/install.sh", "scripts/install.ps1", "scripts/gui.py"]:
+    def test_python_gui_launcher_still_requires_python_312(self):
+        # The GUI launcher is the remaining Python entry point during migration.
+        self.assertIn("3.12", (ROOT / "scripts" / "gui.py").read_text(encoding="utf-8"))
+
+    def test_cli_wrappers_forward_to_the_go_cli_without_locating_python(self):
+        # Phase 3 of the Wails migration turns these into pure forwarding layers.
+        # They must not reintroduce a Python runtime requirement, and they must
+        # not build on demand: callers run them with a temporary HOME, and a
+        # toolchain build would write a module cache into it.
+        for relative in ["scripts/install.sh", "scripts/install.ps1"]:
             with self.subTest(path=relative):
-                self.assertIn("3.12", (ROOT / relative).read_text(encoding="utf-8"))
+                source = (ROOT / relative).read_text(encoding="utf-8")
+                self.assertIn("ONEAGENT_CLI_BINARY", source)
+                self.assertIn("cmd/oneagent", source)
+                self.assertNotIn("oneagent.cli", source)
+                self.assertNotIn("PYTHONPATH", source)
+                # A missing binary is a prerequisite failure, not a crash.
+                self.assertIn("exit 3", source)
+                # Building on demand requires locating a toolchain first, so the
+                # absence of that lookup is what keeps these wrappers pure. Both
+                # scripts still name `go build` in comments and in the hint they
+                # print, which is guidance for the operator rather than an action.
+                self.assertNotIn("command -v go ", source)
+                self.assertNotIn("Get-Command go ", source)
 
     def test_frontend_build_has_no_remote_assets_or_source_maps(self):
         dist = ROOT / "frontend" / "dist"

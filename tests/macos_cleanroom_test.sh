@@ -18,10 +18,21 @@ fi
 PYTHON_BIN="$(command -v python3.12 || true)"
 NODE_BIN="$(command -v node || true)"
 NPM_BIN="$(command -v npm || true)"
+GO_BIN="$(command -v go || true)"
 if [[ -z "$PYTHON_BIN" || -z "$NODE_BIN" || -z "$NPM_BIN" ]]; then
   echo "Python 3.12, Node and npm are required for the macOS cleanroom." >&2
   exit 2
 fi
+if [[ -z "$GO_BIN" ]]; then
+  echo "Go is required to build the CLI the wrapper contracts forward to." >&2
+  exit 2
+fi
+
+# The CLI is built before the sanitized PATH is assembled: scripts/install.sh is
+# a pure forwarding layer, and the cleanroom stages below run without Go.
+ONEAGENT_CLI_BINARY="$ROOT_DIR/bin/oneagent"
+(cd "$ROOT_DIR" && "$GO_BIN" build -o "$ONEAGENT_CLI_BINARY" ./cmd/oneagent)
+export ONEAGENT_CLI_BINARY
 
 CLEAN_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/oneagent-macos-cleanroom.XXXXXX")"
 CLEAN_HOME="$CLEAN_ROOT/home"
@@ -98,6 +109,8 @@ PY
 }
 
 clean_env() {
+  # env -i drops the exported CLI path, so it is reinstated explicitly. It names
+  # a prebuilt binary rather than a toolchain, so the environment stays clean.
   env -i \
     HOME="$CLEAN_HOME" \
     USERPROFILE="$CLEAN_HOME" \
@@ -108,6 +121,7 @@ clean_env() {
     LANG="C" \
     LC_ALL="C" \
     ONEAGENT_DISABLE_BROWSER="1" \
+    ONEAGENT_CLI_BINARY="$ONEAGENT_CLI_BINARY" \
     "$@"
 }
 
