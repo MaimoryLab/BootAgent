@@ -212,6 +212,47 @@ func TestAgentServiceInstallsThroughGoUseCase(t *testing.T) {
 	}
 }
 
+func TestInstallResultBindingPreservesPythonFieldPresence(t *testing.T) {
+	tests := []struct {
+		name string
+		item app.AgentInstallResult
+		want string
+	}{
+		{
+			name: "automatic",
+			item: app.AgentInstallResult{
+				Agent: "codex", Status: "configured", Config: "/tmp/config.json",
+				Installed: false, LockedVersion: "0.145.0",
+			},
+			want: `{"agent":"codex","status":"configured","config":"/tmp/config.json","installed":false,"version":null,"lockedVersion":"0.145.0","retryable":false}`,
+		},
+		{
+			name: "guide-only",
+			item: app.AgentInstallResult{Agent: "gemini-cli", Status: "guide-only", Message: "use login"},
+			want: `{"agent":"gemini-cli","status":"guide-only","message":"use login","retryable":false}`,
+		},
+		{
+			name: "failed",
+			item: app.AgentInstallResult{
+				Agent: "codex", Status: "failed", Code: 7, ErrorCode: "AGENT_INSTALL_FAILED",
+				Message: "npm missing", Retryable: true,
+			},
+			want: `{"agent":"codex","status":"failed","code":7,"error_code":"AGENT_INSTALL_FAILED","message":"npm missing","retryable":true}`,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			wire, err := json.Marshal(installResult(test.item))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := string(wire); got != test.want {
+				t.Fatalf("wire = %s, want %s", got, test.want)
+			}
+		})
+	}
+}
+
 func TestProviderServiceAggregatesSelectedAgentProtocols(t *testing.T) {
 	seen := make([]string, 0)
 	client := provider.NewClient(providerFakeDoer(func(request *http.Request) (*http.Response, error) {

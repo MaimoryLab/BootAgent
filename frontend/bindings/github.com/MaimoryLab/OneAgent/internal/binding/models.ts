@@ -24,14 +24,14 @@ export interface ActivateResponse {
 export interface AgentInstallResult {
     "agent": string;
     "status": string;
-    "installed"?: boolean;
-    "version"?: string;
-    "lockedVersion"?: string;
-    "registry"?: string;
-    "config"?: string;
-    "code"?: number;
-    "error_code"?: string;
-    "message"?: string;
+    "config"?: string | null;
+    "installed"?: boolean | null;
+    "version"?: string | null;
+    "lockedVersion"?: string | null;
+    "registry"?: string | null;
+    "code"?: number | null;
+    "error_code"?: string | null;
+    "message"?: string | null;
     "retryable": boolean;
 }
 

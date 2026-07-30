@@ -292,17 +292,17 @@ type InstallRequest struct {
 }
 
 type AgentInstallResult struct {
-	Agent         string `json:"agent"`
-	Status        string `json:"status"`
-	Installed     bool   `json:"installed,omitempty"`
-	Version       string `json:"version,omitempty"`
-	LockedVersion string `json:"lockedVersion,omitempty"`
-	Registry      string `json:"registry,omitempty"`
-	Config        string `json:"config,omitempty"`
-	Code          int    `json:"code,omitempty"`
-	ErrorCode     string `json:"error_code,omitempty"`
-	Message       string `json:"message,omitempty"`
-	Retryable     bool   `json:"retryable"`
+	Agent         string   `json:"agent"`
+	Status        string   `json:"status"`
+	Config        *string  `json:"config,omitempty"`
+	Installed     *bool    `json:"installed,omitempty"`
+	Version       **string `json:"version,omitempty"`
+	LockedVersion **string `json:"lockedVersion,omitempty"`
+	Registry      *string  `json:"registry,omitempty"`
+	Code          *int     `json:"code,omitempty"`
+	ErrorCode     *string  `json:"error_code,omitempty"`
+	Message       *string  `json:"message,omitempty"`
+	Retryable     bool     `json:"retryable"`
 }
 
 type InstallResponse struct {
@@ -394,19 +394,7 @@ func installResponse(result app.InstallAgentsResult) InstallResponse {
 		Probes:  make(map[string]ProbeResponse, len(result.Probes)),
 	}
 	for _, item := range result.Results {
-		response.Results = append(response.Results, AgentInstallResult{
-			Agent:         item.Agent,
-			Status:        item.Status,
-			Installed:     item.Installed,
-			Version:       item.Version,
-			LockedVersion: item.LockedVersion,
-			Registry:      item.Registry,
-			Config:        item.Config,
-			Code:          item.Code,
-			ErrorCode:     item.ErrorCode,
-			Message:       item.Message,
-			Retryable:     item.Retryable,
-		})
+		response.Results = append(response.Results, installResult(item))
 	}
 	if result.Probe != nil {
 		probe := probeResponse(*result.Probe)
@@ -416,4 +404,52 @@ func installResponse(result app.InstallAgentsResult) InstallResponse {
 		response.Probes[protocolID] = probeResponse(verdict)
 	}
 	return response
+}
+
+func installResult(item app.AgentInstallResult) AgentInstallResult {
+	result := AgentInstallResult{
+		Agent:     item.Agent,
+		Status:    item.Status,
+		Retryable: item.Retryable,
+	}
+	if item.Status == "configured" || item.Status == "skipped" || item.Status == "installed" {
+		if !item.IsCheckOnly() {
+			result.Config = stringPointer(item.Config)
+		}
+		result.Installed = boolPointer(item.Installed)
+		result.Version = nullableStringPointer(item.Version)
+		result.LockedVersion = nullableStringPointer(item.LockedVersion)
+		if item.Registry != "" {
+			result.Registry = stringPointer(item.Registry)
+		}
+	}
+	if item.Status == "failed" {
+		result.Code = intPointer(item.Code)
+		result.ErrorCode = stringPointer(item.ErrorCode)
+		result.Message = stringPointer(item.Message)
+	} else if item.Status == "guide-only" {
+		result.Message = stringPointer(item.Message)
+	}
+	return result
+}
+
+func stringPointer(value string) *string {
+	return &value
+}
+
+func boolPointer(value bool) *bool {
+	return &value
+}
+
+func intPointer(value int) *int {
+	return &value
+}
+
+func nullableStringPointer(value string) **string {
+	if value == "" {
+		var nilValue *string
+		return &nilValue
+	}
+	valuePointer := &value
+	return &valuePointer
 }
