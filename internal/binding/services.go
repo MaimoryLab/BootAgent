@@ -24,7 +24,7 @@ func NewServices(core *app.UseCases, opener BrowserOpener) *Services {
 	return &Services{
 		Status:   &StatusService{core: core},
 		Provider: NewProviderService(core, opener),
-		Agent:    &AgentService{},
+		Agent:    NewAgentService(core),
 		Profile:  NewProfileService(core),
 	}
 }
@@ -118,7 +118,13 @@ func (s *ProviderService) OpenRegistration(ctx context.Context, request OpenRegi
 	return OpenRegistrationResponse{OK: true, URL: provider.Home, Message: "Provider registration opened"}, nil
 }
 
-type AgentService struct{}
+type AgentService struct {
+	core *app.UseCases
+}
+
+func NewAgentService(core *app.UseCases) *AgentService {
+	return &AgentService{core: core}
+}
 
 func (s *AgentService) Install(ctx context.Context, request InstallRequest) (InstallResponse, error) {
 	if err := contextError(ctx); err != nil {
@@ -131,7 +137,30 @@ func (s *AgentService) Activate(ctx context.Context, request ActivateRequest) (A
 	if err := contextError(ctx); err != nil {
 		return ActivateResponse{}, err
 	}
-	return ActivateResponse{}, notReady("Agent activation is not available in the migration foundation")
+	if s == nil || s.core == nil {
+		return ActivateResponse{}, notReady("Agent activation is not configured")
+	}
+	result, err := s.core.ActivateAgent(ctx, app.ActivateAgentOptions{
+		AgentID:        request.AgentID,
+		Provider:       request.Provider,
+		APIBaseURL:     request.APIBaseURL,
+		APIKey:         request.APIKey,
+		Model:          request.Model,
+		ProfileID:      request.ProfileID,
+		SmallFastModel: request.SmallFastModel,
+	})
+	if err != nil {
+		return ActivateResponse{}, err
+	}
+	return ActivateResponse{
+		OK:       true,
+		Agent:    result.AgentID,
+		Config:   result.Config,
+		Provider: result.Provider,
+		Model:    result.Model,
+		Restart:  result.Restart,
+		Next:     result.Next,
+	}, nil
 }
 
 type ProfileService struct {

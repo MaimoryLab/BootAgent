@@ -1,0 +1,247 @@
+package app
+
+import (
+	"context"
+	"fmt"
+	"path/filepath"
+	"regexp"
+	"strings"
+
+	"github.com/MaimoryLab/OneAgent/internal/catalog"
+	configWriter "github.com/MaimoryLab/OneAgent/internal/config"
+	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
+	profileStore "github.com/MaimoryLab/OneAgent/internal/profile"
+	"github.com/MaimoryLab/OneAgent/internal/provider"
+)
+
+// ActivateAgentOptions is the transport-independent input for pointing one
+// managed Agent at a Provider. APIKey is deliberately kept inside the use
+// case and never appears in ActivateAgentResult.
+type ActivateAgentOptions struct {
+	AgentID        string
+	Provider       string
+	APIBaseURL     string
+	APIKey         string
+	Model          string
+	ProfileID      string
+	SmallFastModel string
+}
+
+// ActivateAgentResult contains only the public outcome needed by the UI and
+// CLI. The binding itself is persisted separately and is not repeated here.
+type ActivateAgentResult struct {
+	AgentID  string
+	Config   string
+	Provider string
+	Model    string
+	Restart  string
+	Next     string
+	Binding  profileStore.AgentBinding
+}
+
+var managedAgentIDPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*$`)
+
+// ActivateAgent points one Agent at a Provider while leaving all other Agent
+// files untouched. The write lock covers model resolution and every write so
+// concurrent Wails calls cannot interleave backups or publish stale bindings.
+func (u *UseCases) ActivateAgent(ctx context.Context, options ActivateAgentOptions) (ActivateAgentResult, error) {
+	if u == nil {
+		return ActivateAgentResult{}, oneerrors.New(oneerrors.InternalError, "Agent service is not configured", oneerrors.WithStatus(501))
+	}
+	if err := contextError(ctx, "Agent activation request was cancelled"); err != nil {
+		return ActivateAgentResult{}, err
+	}
+
+	u.writeMu.Lock()
+	defer u.writeMu.Unlock()
+
+	manifest, err := catalog.LoadEmbedded()
+	if err != nil {
+		return ActivateAgentResult{}, err
+	}
+	agentID := options.AgentID
+	if !managedAgentIDPattern.MatchString(agentID) {
+		return ActivateAgentResult{}, oneerrors.New(oneerrors.InvalidRequest, fmt.Sprintf("Invalid Agent ID: %s", agentID))
+	}
+	agent, ok := manifest.Agents[agentID]
+	if !ok {
+		return ActivateAgentResult{}, oneerrors.New(oneerrors.InvalidRequest, "Unknown Agent: "+agentID)
+	}
+	if !contains(agent.Platforms, u.status.Platform.OS) {
+		return ActivateAgentResult{}, oneerrors.New(
+			oneerrors.PrerequisiteMissing,
+			fmt.Sprintf("%s is not supported on %s", agent.Name, u.status.Platform.OS),
+		)
+	}
+	if agent.ConfigMode != "auto" {
+		return ActivateAgentResult{}, oneerrors.New(oneerrors.InvalidRequest, fmt.Sprintf("%s is guide-only and has no managed configuration", agentID))
+	}
+
+	providerID := strings.TrimSpace(options.Provider)
+	if providerID == "" {
+		providerID = "ppio"
+	}
+	apiKey := options.APIKey
+	profileID := strings.TrimSpace(options.ProfileID)
+	if apiKey == "" && profileID != "" {
+		apiKey, err = u.profiles.ReadSecret(ctx, profileID)
+		if err != nil {
+			return ActivateAgentResult{}, err
+		}
+	}
+	if apiKey == "" {
+		return ActivateAgentResult{}, oneerrors.New(oneerrors.InvalidRequest, "API key is required")
+	}
+
+	model := strings.TrimSpace(options.Model)
+	if model == "" {
+		if u.provider == nil {
+			return ActivateAgentResult{}, oneerrors.New(oneerrors.InternalError, "Model discovery is not configured", oneerrors.WithStatus(501))
+		}
+		model, err = u.provider.ResolveProbeModel(ctx, providerID, apiKey, "", options.APIBaseURL)
+		if err != nil {
+			return ActivateAgentResult{}, err
+		}
+	}
+	if model == "" {
+		return ActivateAgentResult{}, oneerrors.New(oneerrors.InvalidRequest, "model is required")
+	}
+
+	baseURL, err := provider.ProviderBase(providerID, options.APIBaseURL)
+	if err != nil {
+		return ActivateAgentResult{}, err
+	}
+	protocol := provider.ProtocolForAdapter(agent.ConfigAdapter)
+	configBaseURL, err := provider.ProviderConfigBase(providerID, options.APIBaseURL, protocol)
+	if err != nil {
+		return ActivateAgentResult{}, err
+	}
+	providerName := "Custom"
+	if definition, found := catalog.ProviderByID(providerID); found {
+		providerName = definition.Name
+	}
+	configPath := configPath(u.status.Home, u.status.Platform.OS, agent)
+	if configPath == "" {
+		return ActivateAgentResult{}, oneerrors.New(oneerrors.InvalidRequest, "Managed Agent has no configuration path")
+	}
+
+	filesystem := u.filesystem
+	if needsAgentEnv(agent) {
+		envPath := agentEnvPath(u.status.Home, u.status.Platform.OS, agentID)
+		if err := configWriter.WriteAgentEnv(
+			ctx,
+			filesystem,
+			envPath,
+			u.status.Platform.OS,
+			agentID,
+			apiKey,
+			baseURL,
+			model,
+			options.SmallFastModel,
+			agent.EnvVars,
+		); err != nil {
+			return ActivateAgentResult{}, err
+		}
+	}
+
+	writer := configWriter.NewWriter(u.status.Home, u.status.Platform.OS, filesystem)
+	if err := writeManagedAgentConfig(ctx, writer, agentID, agent, configPath, providerName, configBaseURL, apiKey, model, options.SmallFastModel); err != nil {
+		return ActivateAgentResult{}, err
+	}
+	binding, err := u.profiles.WriteAgentBinding(ctx, agentID, profileStore.BindingWriteRequest{
+		Provider:   providerID,
+		BaseURL:    configBaseURL,
+		Model:      model,
+		ProfileRef: profileID,
+	})
+	if err != nil {
+		return ActivateAgentResult{}, err
+	}
+
+	return ActivateAgentResult{
+		AgentID:  agentID,
+		Config:   configPath,
+		Provider: providerID,
+		Model:    model,
+		Restart:  restartHint(agentID, agent),
+		Next:     nextStep(u.status.Platform.OS, agentID, agent, model),
+		Binding:  binding,
+	}, nil
+}
+
+func contextError(ctx context.Context, message string) error {
+	if ctx == nil {
+		return nil
+	}
+	if err := ctx.Err(); err != nil {
+		return oneerrors.New(oneerrors.Timeout, message, oneerrors.WithRetryable(true), oneerrors.WithCause(err))
+	}
+	return nil
+}
+
+func needsAgentEnv(agent catalog.Agent) bool {
+	return agent.CredentialDelivery == "oneagent_env" || agent.CredentialDelivery == "native_env"
+}
+
+func agentEnvPath(home, osID, agentID string) string {
+	suffix := ".env"
+	if osID == "windows" {
+		suffix = ".env.ps1"
+	}
+	return filepath.Join(home, ".oneagent", "agents", agentID+suffix)
+}
+
+func writeManagedAgentConfig(ctx context.Context, writer configWriter.Writer, agentID string, agent catalog.Agent, path, providerName, baseURL, apiKey, model, smallFastModel string) error {
+	switch agent.ConfigAdapter {
+	case "codex":
+		return writer.WriteCodex(ctx, path, providerName, baseURL, model)
+	case "claude-code":
+		return writer.WriteClaude(ctx, path, baseURL, apiKey, model, smallFastModel)
+	case "opencode":
+		return writer.WriteOpenAICompatible(ctx, path, "https://opencode.ai/config.json", providerName, baseURL, model, agentID)
+	case "kilo-cli":
+		return writer.WriteOpenAICompatible(ctx, path, "https://app.kilo.ai/config.json", providerName, baseURL, model, agentID)
+	case "aider":
+		return writer.WriteAider(ctx, path, baseURL, apiKey)
+	default:
+		return oneerrors.New(oneerrors.InvalidRequest, fmt.Sprintf("Unsupported auto-config Agent: %s", agentID))
+	}
+}
+
+func restartHint(agentID string, agent catalog.Agent) string {
+	if agent.Command == "" {
+		return "Restart " + agentID
+	}
+	if agentID == "aider" {
+		return "Restart " + agent.Command + " in a shell that sources ~/.oneagent/aider.env"
+	}
+	if needsAgentEnv(agent) {
+		return fmt.Sprintf("Quit any running %s process, then start it again in a shell that sources ~/.oneagent/agents/%s.env", agent.Command, agentID)
+	}
+	return fmt.Sprintf("Quit any running %s process, then start it again", agent.Command)
+}
+
+func nextStep(osID, agentID string, agent catalog.Agent, model string) string {
+	if agent.ConfigMode != "auto" || agent.Command == "" {
+		return ""
+	}
+	joiner := "&&"
+	if osID == "windows" {
+		joiner = ";"
+	}
+	if agentID == "aider" {
+		source := "source ~/.oneagent/aider.env"
+		if osID == "windows" {
+			source = `. "$HOME\\.oneagent\\aider.ps1"`
+		}
+		return fmt.Sprintf("%s %s %s --model openai/%s", source, joiner, agent.Command, model)
+	}
+	if needsAgentEnv(agent) {
+		source := fmt.Sprintf("source ~/.oneagent/agents/%s.env", agentID)
+		if osID == "windows" {
+			source = fmt.Sprintf(`. "$HOME\\.oneagent\\agents\\%s.env.ps1"`, agentID)
+		}
+		return fmt.Sprintf("%s %s %s", source, joiner, agent.Command)
+	}
+	return agent.Command
+}

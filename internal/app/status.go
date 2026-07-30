@@ -1,6 +1,6 @@
-// Package app contains transport-independent use cases. Status, Provider and
-// profile reads/writes are migrated slices; installation and Agent config
-// writes remain in Python until their Go equivalents pass their own gates.
+// Package app contains transport-independent use cases. Status, Provider,
+// profile, and single-Agent activation are migrated slices; installation
+// remains in Python until its Go equivalent passes its own gates.
 package app
 
 import (
@@ -17,6 +17,7 @@ import (
 	"github.com/MaimoryLab/OneAgent/internal/platform"
 	profileStore "github.com/MaimoryLab/OneAgent/internal/profile"
 	"github.com/MaimoryLab/OneAgent/internal/provider"
+	"github.com/MaimoryLab/OneAgent/internal/securefs"
 )
 
 type CommandLookup func(string) (string, bool)
@@ -25,13 +26,18 @@ type StatusOptions struct {
 	Home     string
 	Platform platform.Info
 	Lookup   CommandLookup
+	// FileSystem is optional and exists for tests or platform-specific hosts
+	// that need to inject ACL behavior. Production callers use the default
+	// securefs implementation for the selected platform.
+	FileSystem *securefs.Store
 }
 
 type UseCases struct {
-	status   StatusOptions
-	provider *provider.Client
-	profiles profileStore.Store
-	writeMu  sync.Mutex
+	status     StatusOptions
+	provider   *provider.Client
+	profiles   profileStore.Store
+	filesystem securefs.Store
+	writeMu    sync.Mutex
 }
 
 func NewUseCases(options StatusOptions) *UseCases {
@@ -65,10 +71,20 @@ func newUseCases(options StatusOptions, client *provider.Client, profiles profil
 	if profiles.Home == "" {
 		profiles = profileStore.NewStore(options.Home, options.Platform.OS)
 	}
+	filesystem := securefs.New(securefs.Options{OS: options.Platform.OS})
+	if options.FileSystem != nil {
+		filesystem = *options.FileSystem
+		profiles.FS = &filesystem
+	} else if profiles.FS != nil {
+		// Reuse an injected profile filesystem so one operation has one
+		// security policy for profile, env, and Agent config writes.
+		filesystem = *profiles.FS
+	}
 	return &UseCases{
-		status:   options,
-		provider: client,
-		profiles: profiles,
+		status:     options,
+		provider:   client,
+		profiles:   profiles,
+		filesystem: filesystem,
 	}
 }
 

@@ -147,6 +147,35 @@ func TestProfileServiceSavesWithoutReturningSecret(t *testing.T) {
 	}
 }
 
+func TestAgentServiceActivatesThroughGoUseCase(t *testing.T) {
+	home := t.TempDir()
+	core := app.NewUseCases(app.StatusOptions{
+		Home:     home,
+		Platform: platform.For("linux", "amd64"),
+		Lookup:   func(string) (string, bool) { return "", false },
+	})
+	service := NewAgentService(core)
+	response, err := service.Activate(context.Background(), ActivateRequest{
+		AgentID:  "codex",
+		Provider: "ppio",
+		APIKey:   "binding-secret",
+		Model:    "model-a",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !response.OK || response.Agent != "codex" || response.Provider != "ppio" || response.Model != "model-a" {
+		t.Fatalf("activation response = %#v", response)
+	}
+	wire, err := json.Marshal(response)
+	if err != nil || strings.Contains(string(wire), "binding-secret") || strings.Contains(string(wire), "api_key") {
+		t.Fatalf("activation binding response leaked secret material: %s (%v)", wire, err)
+	}
+	if _, err := os.Stat(filepath.Join(home, ".codex", "config.toml")); err != nil {
+		t.Fatalf("Go activation did not write Codex config: %v", err)
+	}
+}
+
 func TestProviderServiceAggregatesSelectedAgentProtocols(t *testing.T) {
 	seen := make([]string, 0)
 	client := provider.NewClient(providerFakeDoer(func(request *http.Request) (*http.Response, error) {
