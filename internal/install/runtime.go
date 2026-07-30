@@ -24,6 +24,7 @@ type Runtime struct {
 	Platform platform.Info
 	Env      map[string]string
 	Runner   process.Runner
+	OnOutput process.OutputListener
 }
 
 func NewRuntime(home string, info platform.Info, runner process.Runner, env map[string]string) Runtime {
@@ -55,7 +56,16 @@ func (r Runtime) command(ctx context.Context, argv []string, env map[string]stri
 	}
 	overrides := cloneEnv(r.Env)
 	maps.Copy(overrides, env)
-	result, err := r.Runner.Run(ctx, argv, overrides, timeout)
+	if r.OnOutput != nil {
+		r.OnOutput(process.Output{Kind: "command", Args: append([]string(nil), argv...)})
+	}
+	var result process.Result
+	var err error
+	if runner, ok := r.Runner.(process.StreamingRunner); ok {
+		result, err = runner.RunWithOutput(ctx, argv, overrides, timeout, r.OnOutput)
+	} else {
+		result, err = r.Runner.Run(ctx, argv, overrides, timeout)
+	}
 	if err == nil {
 		return result, nil
 	}

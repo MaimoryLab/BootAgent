@@ -11,6 +11,7 @@ import (
 	"github.com/MaimoryLab/OneAgent/internal/app"
 	"github.com/MaimoryLab/OneAgent/internal/catalog"
 	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
+	"github.com/MaimoryLab/OneAgent/internal/process"
 	"github.com/MaimoryLab/OneAgent/internal/provider"
 )
 
@@ -23,6 +24,7 @@ type Services struct {
 
 type ServicesOptions struct {
 	AfterGetStatus func()
+	InstallOutput  process.OutputListener
 }
 
 func NewServices(core *app.UseCases, opener BrowserOpener) *Services {
@@ -33,7 +35,7 @@ func NewServicesWithOptions(core *app.UseCases, opener BrowserOpener, options Se
 	return &Services{
 		Status:   &StatusService{core: core, afterGetStatus: options.AfterGetStatus},
 		Provider: NewProviderService(core, opener),
-		Agent:    NewAgentService(core),
+		Agent:    &AgentService{core: core, onOutput: options.InstallOutput},
 		Profile:  NewProfileService(core),
 	}
 }
@@ -126,7 +128,8 @@ func (s *ProviderService) OpenRegistration(ctx context.Context, request OpenRegi
 }
 
 type AgentService struct {
-	core *app.UseCases
+	core     *app.UseCases
+	onOutput process.OutputListener
 }
 
 func NewAgentService(core *app.UseCases) *AgentService {
@@ -164,6 +167,7 @@ func (s *AgentService) Install(ctx context.Context, request InstallRequest) (Ins
 		Latest:         request.Latest,
 		Timeout:        timeout,
 		Registry:       request.Registry,
+		Output:         s.onOutput,
 	})
 	if err != nil {
 		return InstallResponse{}, err

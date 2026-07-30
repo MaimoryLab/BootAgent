@@ -1,3 +1,5 @@
+import { Events } from "@wailsio/runtime";
+
 import * as AgentService from "../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/agentservice.js";
 import * as ProfileService from "../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/profileservice.js";
 import * as ProviderService from "../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/providerservice.js";
@@ -5,6 +7,7 @@ import * as StatusService from "../../bindings/github.com/MaimoryLab/OneAgent/in
 import type {
   ActivateAgentResponse,
   InstallRequest,
+  InstallOutput,
   InstallResponse,
   ModelsResponse,
   OpenRegistrationResponse,
@@ -16,6 +19,17 @@ import type {
 import { OneAgentApiError } from "./errors";
 
 export { OneAgentApiError, describeError } from "./errors";
+
+export const INSTALL_OUTPUT_EVENT = "oneagent:install-output";
+
+export function onInstallOutput(listener: (output: InstallOutput) => void): () => void {
+  return Events.On(INSTALL_OUTPUT_EVENT, (event) => {
+    const data = event.data;
+    if (!data || typeof data !== "object") return;
+    const kind = (data as { kind?: unknown }).kind;
+    if (kind === "command" || kind === "output") listener(data as InstallOutput);
+  });
+}
 
 type ErrorCause = Record<string, unknown>;
 
@@ -62,6 +76,7 @@ async function call<T>(operation: () => PromiseLike<T>): Promise<T> {
 }
 
 export const wailsApi = {
+  onInstallOutput,
   status: (): Promise<StatusResponse> => call(() => StatusService.GetStatus()) as Promise<StatusResponse>,
   probe: (input: { provider: ProviderId; apiBaseUrl: string; apiKey: string; model: string; agents?: string[] }): Promise<ProbeResponse> =>
     call(() => ProviderService.Probe({

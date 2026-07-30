@@ -5,6 +5,7 @@ import type {
   ProbeResponse,
   ProviderId,
   StatusResponse,
+  InstallOutput,
 } from "../types/api";
 
 export type ConfigMode = "provider" | "existing-account" | null;
@@ -79,6 +80,7 @@ export type WizardAction =
   | { type: "SET_MODEL"; value: string }
   | { type: "REQUEST_ACTIVATION" }
   | { type: "ACTIVATION_LOADING"; agentIds: string[] }
+  | { type: "ACTIVATION_OUTPUT"; output: InstallOutput }
   | {
       type: "ACTIVATION_RESULT";
       results: AgentInstallResult[];
@@ -101,6 +103,16 @@ function mergeResults(
     ...current.filter((item) => !replacements.has(item.agent) && !incomingIds.has(item.agent)),
     ...incoming,
   ];
+}
+
+function formatCommand(args: string[]): string {
+  return args.map((arg) => (/^[A-Za-z0-9_./:@%+=,-]+$/.test(arg) ? arg : JSON.stringify(arg))).join(" ");
+}
+
+function appendActivationOutput(log: string, output: InstallOutput): string {
+  const text = output.kind === "command" ? `$ ${formatCommand(output.args)}\n` : output.text;
+  if (!text) return log;
+  return `${log}${output.kind === "command" && log && !log.endsWith("\n") ? "\n" : ""}${text}`;
 }
 
 export function wizardReducer(state: WizardState, action: WizardAction): WizardState {
@@ -215,6 +227,8 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
           ? state.activationResults
           : action.agentIds.map((agent) => ({ agent, status: "skipped", retryable: false })),
       };
+    case "ACTIVATION_OUTPUT":
+      return { ...state, activationLog: appendActivationOutput(state.activationLog, action.output) };
     case "ACTIVATION_RESULT": {
       const activationResults = mergeResults(state.activationResults, action.results, action.replaceAgents);
       return {

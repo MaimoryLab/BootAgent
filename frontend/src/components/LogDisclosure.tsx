@@ -1,8 +1,11 @@
 import { ChevronDown, TerminalSquare } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
-export function LogDisclosure({ log }: { log: string }) {
-  const [open, setOpen] = useState(false);
+export function LogDisclosure({ log, open: openByParent = false }: { log: string; open?: boolean }) {
+  const [open, setOpen] = useState(openByParent);
+  useEffect(() => {
+    if (openByParent) setOpen(true);
+  }, [openByParent]);
   if (!log) return null;
   return (
     <section className={`log-disclosure${open ? " is-open" : ""}`}>

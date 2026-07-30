@@ -155,6 +155,14 @@ describe("wizardReducer", () => {
     expect(state.activationState).toBe("loading");
   });
 
+  it("appends installation commands and output as it arrives", () => {
+    let state = wizardReducer(initialWizardState, { type: "ACTIVATION_LOADING", agentIds: ["codex"] });
+    state = wizardReducer(state, { type: "ACTIVATION_OUTPUT", output: { kind: "command", args: ["npm", "install", "-g", "agent@1.0.0"] } });
+    state = wizardReducer(state, { type: "ACTIVATION_OUTPUT", output: { kind: "output", stream: "stdout", text: "fetching\n" } });
+    state = wizardReducer(state, { type: "ACTIVATION_OUTPUT", output: { kind: "output", stream: "stderr", text: "warning\n" } });
+    expect(state.activationLog).toBe("$ npm install -g agent@1.0.0\nfetching\nwarning\n");
+  });
+
   it("merges retry results and preserves non-secret activation summary", () => {
     let state = wizardReducer(initialWizardState, { type: "ACTIVATION_LOADING", agentIds: ["codex", "opencode"] });
     expect(state.activationResults).toHaveLength(2);

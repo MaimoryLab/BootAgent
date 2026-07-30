@@ -13,6 +13,7 @@ import (
 	configWriter "github.com/MaimoryLab/OneAgent/internal/config"
 	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
 	"github.com/MaimoryLab/OneAgent/internal/install"
+	"github.com/MaimoryLab/OneAgent/internal/process"
 	profileStore "github.com/MaimoryLab/OneAgent/internal/profile"
 	"github.com/MaimoryLab/OneAgent/internal/provider"
 )
@@ -36,6 +37,7 @@ type InstallAgentsOptions struct {
 	Latest         bool
 	Timeout        time.Duration
 	Registry       string
+	Output         process.OutputListener
 	// ProfileID is optional. It is used only as the binding's profile reference;
 	// the active profile store keeps its existing/default id semantics.
 	ProfileID string
@@ -134,6 +136,7 @@ func (u *UseCases) InstallAgents(ctx context.Context, options InstallAgentsOptio
 		options:      options,
 		providerName: providerName,
 		probes:       probes,
+		output:       options.Output,
 	}
 	for _, agentID := range options.Agents {
 		run.step(ctx, agentID)
@@ -303,6 +306,7 @@ type installRun struct {
 	options      InstallAgentsOptions
 	providerName string
 	probes       map[string]provider.ProbeResult
+	output       process.OutputListener
 	results      []AgentInstallResult
 	logs         []string
 	nextSteps    []string
@@ -329,6 +333,15 @@ func (r *installRun) step(ctx context.Context, agentID string) {
 
 func (r *installRun) configure(ctx context.Context, agentID string, agent catalog.Agent) error {
 	runtime := install.NewRuntime(r.core.status.Home, r.core.status.Platform, r.core.runner, r.core.environment)
+	runtime.OnOutput = func(output process.Output) {
+		output.Text = install.Redact(output.Text, []string{r.options.APIKey})
+		for index, argument := range output.Args {
+			output.Args[index] = install.Redact(argument, []string{r.options.APIKey})
+		}
+		if r.output != nil {
+			r.output(output)
+		}
+	}
 	installed := install.Result{Version: install.InstalledVersion(ctx, runtime, agent)}
 	if agent.Package != nil {
 		installed.LockedVersion = agent.Package.Version

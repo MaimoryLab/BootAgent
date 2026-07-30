@@ -61,6 +61,20 @@ func TestOSRunnerUsesArgvAndMergesEnvironment(t *testing.T) {
 	}
 }
 
+func TestOSRunnerStreamsOutputWithoutChangingResult(t *testing.T) {
+	runner := helperRunner(t)
+	outputs := make([]Output, 0)
+	result, err := runner.RunWithOutput(context.Background(), []string{os.Args[0], "-test.run=TestProcessHelper"}, map[string]string{
+		"ONEAGENT_PROCESS_VALUE": "stream-value",
+	}, helperTimeout, func(output Output) { outputs = append(outputs, output) })
+	if err != nil || result.ExitCode != 0 || result.Stdout != "stream-value" {
+		t.Fatalf("streamed process result = %#v, err=%v", result, err)
+	}
+	if len(outputs) != 1 || outputs[0].Kind != "output" || outputs[0].Stream != "stdout" || outputs[0].Text != "stream-value" {
+		t.Fatalf("streamed outputs = %#v", outputs)
+	}
+}
+
 func TestOSRunnerReturnsExitCodeAndCapturesOutput(t *testing.T) {
 	runner := helperRunner(t)
 	result, err := runner.Run(context.Background(), []string{os.Args[0], "-test.run=TestProcessHelper"}, map[string]string{

@@ -80,6 +80,10 @@ export type InstallResponse = Omit<BindingModels.InstallResponse, "results" | "p
   probes?: Partial<Record<ProtocolId, ProbeResponse>>;
 };
 
+export type InstallOutput =
+  | { kind: "command"; args: string[] }
+  | { kind: "output"; stream: "stdout" | "stderr"; text: string };
+
 export type InstallRequest = Pick<
   BindingModels.InstallRequest,
   "api_key" | "model" | "configure" | "install_agent" | "skip_test"

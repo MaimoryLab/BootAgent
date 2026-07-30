@@ -11,12 +11,13 @@ import (
 	oneagent "github.com/MaimoryLab/OneAgent"
 	"github.com/MaimoryLab/OneAgent/internal/binding"
 	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
+	"github.com/MaimoryLab/OneAgent/internal/process"
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 func main() {
-	core := newDesktopUseCases()
 	var appInstance *application.App
+	core := newDesktopUseCases()
 	var nativeSmokeOnce sync.Once
 	var afterGetStatus func()
 	if os.Getenv("ONEAGENT_NATIVE_SMOKE") == "1" {
@@ -39,7 +40,14 @@ func main() {
 			return oneerrors.New(oneerrors.InternalError, "Desktop browser is not ready")
 		}
 		return current.Browser.OpenURL(url)
-	}, binding.ServicesOptions{AfterGetStatus: afterGetStatus})
+	}, binding.ServicesOptions{
+		AfterGetStatus: afterGetStatus,
+		InstallOutput: func(output process.Output) {
+			if appInstance != nil {
+				appInstance.Event.Emit("oneagent:install-output", output)
+			}
+		},
+	})
 
 	// No Route or RawMessageHandler is configured. The default Wails transport
 	// is internal IPC; the production app does not expose a business HTTP port.

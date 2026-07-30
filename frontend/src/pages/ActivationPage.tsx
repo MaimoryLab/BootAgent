@@ -57,6 +57,8 @@ export function ActivationPage() {
     }
   }, [dispatch, refreshStatus, requestFor, secret, state.selectedAgentIds]);
 
+  useEffect(() => api.onInstallOutput((output) => dispatch({ type: "ACTIVATION_OUTPUT", output })), [dispatch]);
+
   useEffect(() => {
     // Runs only for an explicit request from the review page. Returning here
     // via browser back keeps activationRequested false, so a mount alone never
@@ -126,7 +128,7 @@ export function ActivationPage() {
           <pre>{state.activationNext}</pre>
         </section>
       ) : null}
-      <LogDisclosure log={state.activationLog} />
+      <LogDisclosure log={state.activationLog} open={state.activationState === "loading" || retrying !== null} />
     </PageScaffold>
   );
 }

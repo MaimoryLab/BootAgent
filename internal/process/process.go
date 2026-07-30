@@ -25,6 +25,19 @@ type Result struct {
 	Stderr   string
 }
 
+type Output struct {
+	Kind   string   `json:"kind"`
+	Args   []string `json:"args,omitempty"`
+	Stream string   `json:"stream,omitempty"`
+	Text   string   `json:"text,omitempty"`
+}
+
+type OutputListener func(Output)
+
+type StreamingRunner interface {
+	RunWithOutput(context.Context, []string, map[string]string, time.Duration, OutputListener) (Result, error)
+}
+
 // Runner is deliberately small so install tests can assert exact argv and
 // environment without starting a process.
 type Runner interface {
@@ -56,6 +69,10 @@ func (r OSRunner) LookPath(command string) (string, bool) {
 }
 
 func (r OSRunner) Run(ctx context.Context, argv []string, overrides map[string]string, timeout time.Duration) (Result, error) {
+	return r.RunWithOutput(ctx, argv, overrides, timeout, nil)
+}
+
+func (r OSRunner) RunWithOutput(ctx context.Context, argv []string, overrides map[string]string, timeout time.Duration, listener OutputListener) (Result, error) {
 	result := Result{Args: append([]string(nil), argv...), ExitCode: -1}
 	if len(argv) == 0 || strings.TrimSpace(argv[0]) == "" {
 		return result, fmt.Errorf("process argv must not be empty")
@@ -73,8 +90,8 @@ func (r OSRunner) Run(ctx context.Context, argv []string, overrides map[string]s
 	command.Env = mergeEnvironment(r.Env, overrides)
 	stdout := &boundedBuffer{limit: MaxOutputBytes}
 	stderr := &boundedBuffer{limit: MaxOutputBytes}
-	command.Stdout = stdout
-	command.Stderr = stderr
+	command.Stdout = &streamWriter{stream: "stdout", buffer: stdout, listener: listener}
+	command.Stderr = &streamWriter{stream: "stderr", buffer: stderr, listener: listener}
 	err := command.Run()
 	result.Stdout = stdout.String()
 	result.Stderr = stderr.String()
@@ -95,6 +112,22 @@ func (r OSRunner) Run(ctx context.Context, argv []string, overrides map[string]s
 		result.ExitCode = 0
 	}
 	return result, nil
+}
+
+type streamWriter struct {
+	stream   string
+	buffer   *boundedBuffer
+	listener OutputListener
+}
+
+func (w *streamWriter) Write(data []byte) (int, error) {
+	before := w.buffer.buffer.Len()
+	n, err := w.buffer.Write(data)
+	accepted := w.buffer.buffer.Len() - before
+	if w.listener != nil && accepted > 0 {
+		w.listener(Output{Kind: "output", Stream: w.stream, Text: string(data[:accepted])})
+	}
+	return n, err
 }
 
 type boundedBuffer struct {

@@ -11,8 +11,10 @@ const bridge = vi.hoisted(() => ({
   activate: vi.fn(),
   profiles: vi.fn(),
   saveProfile: vi.fn(),
+  eventsOn: vi.fn(),
 }));
 
+vi.mock("@wailsio/runtime", () => ({ Events: { On: bridge.eventsOn } }));
 vi.mock("../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/statusservice.js", () => ({ GetStatus: bridge.status }));
 vi.mock("../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/providerservice.js", () => ({
   Probe: bridge.probe,
@@ -28,7 +30,7 @@ vi.mock("../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/profiles
   SaveProfile: bridge.saveProfile,
 }));
 
-import { normalizeWailsError, wailsApi } from "./wails";
+import { INSTALL_OUTPUT_EVENT, normalizeWailsError, onInstallOutput, wailsApi } from "./wails";
 
 describe("Wails backend adapter", () => {
   afterEach(() => vi.resetAllMocks());
@@ -81,5 +83,22 @@ describe("Wails backend adapter", () => {
     expect(normalizeWailsError(new Error("secret-key-value"))).toMatchObject({
       message: "无法调用本机 OneAgent 服务", code: "INTERNAL_ERROR", status: 500, retryable: true,
     });
+  });
+
+  it("subscribes to and filters installation output events", () => {
+    const unsubscribe = vi.fn();
+    const listener = vi.fn();
+    bridge.eventsOn.mockImplementation((_name, callback) => {
+      callback({ data: { kind: "command", args: ["npm"] } });
+      callback({ data: { kind: "output", stream: "stdout", text: "ready" } });
+      callback({ data: null });
+      callback({ data: "ignored" });
+      callback({ data: { kind: "other" } });
+      return unsubscribe;
+    });
+
+    expect(onInstallOutput(listener)).toBe(unsubscribe);
+    expect(bridge.eventsOn).toHaveBeenCalledWith(INSTALL_OUTPUT_EVENT, expect.any(Function));
+    expect(listener).toHaveBeenCalledTimes(2);
   });
 });
