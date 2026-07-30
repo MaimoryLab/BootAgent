@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"net/http"
 	"os"
@@ -14,6 +15,36 @@ import (
 	"github.com/MaimoryLab/OneAgent/internal/process"
 	"github.com/MaimoryLab/OneAgent/internal/provider"
 )
+
+func TestInstallResultWirePreservesPythonFieldPresence(t *testing.T) {
+	configured, err := json.Marshal(AgentInstallResult{
+		Agent: "codex", Status: "configured", Config: "", Installed: false, LockedVersion: "0.145.0",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := string(configured), `{"agent":"codex","status":"configured","config":"","installed":false,"version":null,"lockedVersion":"0.145.0","retryable":false}`; got != want {
+		t.Fatalf("configured wire = %s, want %s", got, want)
+	}
+
+	checkOnly, err := json.Marshal(AgentInstallResult{
+		Agent: "codex", Status: "skipped", Installed: false, Version: "1.0.0", LockedVersion: "0.145.0", checkOnly: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := string(checkOnly), `{"agent":"codex","status":"skipped","installed":false,"version":"1.0.0","lockedVersion":"0.145.0","retryable":false}`; got != want {
+		t.Fatalf("check-only wire = %s, want %s", got, want)
+	}
+
+	guide, err := json.Marshal(AgentInstallResult{Agent: "gemini-cli", Status: "guide-only", Message: "use login"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := string(guide), `{"agent":"gemini-cli","status":"guide-only","message":"use login","retryable":false}`; got != want {
+		t.Fatalf("guide wire = %s, want %s", got, want)
+	}
+}
 
 type installAppRunner struct {
 	paths map[string]string

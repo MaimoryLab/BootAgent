@@ -58,6 +58,10 @@ type AgentInstallResult struct {
 	ErrorCode     string `json:"error_code,omitempty"`
 	Message       string `json:"message,omitempty"`
 	Retryable     bool   `json:"retryable"`
+	// checkOnly distinguishes the check path's skipped result from a normal
+	// configure=false result. Python includes config: "" for the latter but
+	// does not include a config field in check-agent-only results.
+	checkOnly bool
 }
 
 // AgentResult is the short compatibility name used by the first Go port.
@@ -355,7 +359,7 @@ func (r *installRun) configure(ctx context.Context, agentID string, agent catalo
 		if (agent.Command != "" && present) || installed.Installed {
 			status = "installed"
 		}
-		r.results = append(r.results, installResultFor(agentID, status, "", installed))
+		r.results = append(r.results, installResultFor(agentID, status, "", installed, true))
 		r.logs = append(r.logs, "## "+agentID+"\nAgent check complete.")
 		return nil
 	}
@@ -397,7 +401,7 @@ func (r *installRun) configure(ctx context.Context, agentID string, agent catalo
 		status = "configured"
 		message = "Configured"
 	}
-	r.results = append(r.results, installResultFor(agentID, status, configPathValue, installed))
+	r.results = append(r.results, installResultFor(agentID, status, configPathValue, installed, false))
 	r.logs = append(r.logs, "## "+agentID+"\n"+message+".")
 	if next := nextStep(r.core.status.Platform.OS, agentID, agent, r.options.Model); next != "" {
 		r.nextSteps = append(r.nextSteps, next)
@@ -465,7 +469,7 @@ func (r *installRun) finish(ctx context.Context, baseURL string) InstallAgentsRe
 	}
 }
 
-func installResultFor(agentID, status, path string, installed install.Result) AgentInstallResult {
+func installResultFor(agentID, status, path string, installed install.Result, checkOnly bool) AgentInstallResult {
 	return AgentInstallResult{
 		Agent:         agentID,
 		Status:        status,
@@ -475,6 +479,7 @@ func installResultFor(agentID, status, path string, installed install.Result) Ag
 		LockedVersion: installed.LockedVersion,
 		Registry:      installed.Registry,
 		Retryable:     false,
+		checkOnly:     checkOnly,
 	}
 }
 

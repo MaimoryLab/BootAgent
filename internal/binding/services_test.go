@@ -204,6 +204,9 @@ func TestAgentServiceInstallsThroughGoUseCase(t *testing.T) {
 	if err != nil || strings.Contains(string(wire), "binding-install-secret") || strings.Contains(string(wire), "api_key") {
 		t.Fatalf("install binding response leaked secret material: %s (%v)", wire, err)
 	}
+	if !strings.Contains(string(wire), `"installed":false`) || !strings.Contains(string(wire), `"version":`) {
+		t.Fatalf("install binding response lost Python result fields: %s", wire)
+	}
 	if _, err := os.Stat(filepath.Join(home, ".oneagent", "profile.json")); err != nil {
 		t.Fatalf("Go install did not publish profile: %v", err)
 	}
