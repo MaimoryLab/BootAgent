@@ -14,14 +14,14 @@ import (
 )
 
 type AgentBinding struct {
-	SchemaVersion int
-	AgentID       string
-	Provider      string
-	BaseURL       string
-	Model         string
-	ProfileRef    string
-	CreatedAt     string
-	UpdatedAt     string
+	SchemaVersion int    `json:"schema_version"`
+	AgentID       string `json:"agent_id"`
+	Provider      string `json:"provider"`
+	BaseURL       string `json:"base_url"`
+	Model         string `json:"model"`
+	ProfileRef    string `json:"profile_ref"`
+	CreatedAt     string `json:"created_at"`
+	UpdatedAt     string `json:"updated_at"`
 }
 
 type BindingWriteRequest struct {

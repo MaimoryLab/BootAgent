@@ -329,6 +329,21 @@ func (u *UseCases) ListProfiles(ctx context.Context) ([]ProfileSummary, error) {
 	return u.profileSummaries(), nil
 }
 
+// ListAgentBindings returns the public per-Agent routing records used by the
+// CLI's `agent list` command. Binding files contain no credential material.
+func (u *UseCases) ListAgentBindings(ctx context.Context) (map[string]profileStore.AgentBinding, error) {
+	if u == nil {
+		return nil, oneerrors.New(oneerrors.InternalError, "Agent service is not configured", oneerrors.WithStatus(501))
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if err := contextError(ctx, "Agent listing request was cancelled"); err != nil {
+		return nil, err
+	}
+	return u.profiles.ListAgentBindings(), nil
+}
+
 type SaveProfileOptions struct {
 	ID         string
 	Label      string

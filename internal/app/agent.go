@@ -30,13 +30,13 @@ type ActivateAgentOptions struct {
 // ActivateAgentResult contains only the public outcome needed by the UI and
 // CLI. The binding itself is persisted separately and is not repeated here.
 type ActivateAgentResult struct {
-	AgentID  string
-	Config   string
-	Provider string
-	Model    string
-	Restart  string
-	Next     string
-	Binding  profileStore.AgentBinding
+	AgentID  string                    `json:"agent"`
+	Config   string                    `json:"config"`
+	Provider string                    `json:"provider"`
+	Model    string                    `json:"model"`
+	Restart  string                    `json:"restart"`
+	Next     string                    `json:"next"`
+	Binding  profileStore.AgentBinding `json:"binding"`
 }
 
 var managedAgentIDPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*$`)
