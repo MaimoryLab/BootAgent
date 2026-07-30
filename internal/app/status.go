@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/MaimoryLab/OneAgent/internal/catalog"
 	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
@@ -29,6 +30,7 @@ type UseCases struct {
 	status   StatusOptions
 	provider *provider.Client
 	profiles profileStore.Store
+	writeMu  sync.Mutex
 }
 
 func NewUseCases(options StatusOptions) *UseCases {
@@ -39,6 +41,14 @@ func NewUseCases(options StatusOptions) *UseCases {
 // Python production path remains active and Go behavior is verified with fake
 // transports.
 func NewUseCasesWithProviderClient(options StatusOptions, client *provider.Client) *UseCases {
+	return newUseCases(options, client, profileStore.Store{})
+}
+
+func NewUseCasesWithDependencies(options StatusOptions, client *provider.Client, profiles profileStore.Store) *UseCases {
+	return newUseCases(options, client, profiles)
+}
+
+func newUseCases(options StatusOptions, client *provider.Client, profiles profileStore.Store) *UseCases {
 	if options.Platform.OS == "" {
 		options.Platform = platform.Current()
 	}
@@ -51,10 +61,13 @@ func NewUseCasesWithProviderClient(options StatusOptions, client *provider.Clien
 	if client == nil {
 		client = provider.NewClient(nil)
 	}
+	if profiles.Home == "" {
+		profiles = profileStore.NewStore(options.Home, options.Platform.OS)
+	}
 	return &UseCases{
 		status:   options,
 		provider: client,
-		profiles: profileStore.NewStore(options.Home, options.Platform.OS),
+		profiles: profiles,
 	}
 }
 
@@ -233,6 +246,42 @@ func (u *UseCases) ListProfiles(ctx context.Context) ([]ProfileSummary, error) {
 	return u.profileSummaries(), nil
 }
 
+type SaveProfileOptions struct {
+	ID         string
+	Label      string
+	Provider   string
+	APIBaseURL string
+	APIKey     string
+	Model      string
+	ConfigMode string
+	AgentIDs   []string
+}
+
+func (u *UseCases) SaveProfile(ctx context.Context, options SaveProfileOptions) (ProfileSummary, error) {
+	if u == nil {
+		return ProfileSummary{}, oneerrors.New(oneerrors.InternalError, "Profile service is not configured", oneerrors.WithStatus(501))
+	}
+	if err := ctx.Err(); err != nil {
+		return ProfileSummary{}, oneerrors.New(oneerrors.Timeout, "Profile request was cancelled", oneerrors.WithRetryable(true), oneerrors.WithCause(err))
+	}
+	u.writeMu.Lock()
+	defer u.writeMu.Unlock()
+	stored, err := u.profiles.Save(ctx, profileStore.SaveRequest{
+		ID:         options.ID,
+		Label:      options.Label,
+		Provider:   options.Provider,
+		BaseURL:    options.APIBaseURL,
+		APIKey:     options.APIKey,
+		Model:      options.Model,
+		ConfigMode: options.ConfigMode,
+		AgentIDs:   append([]string(nil), options.AgentIDs...),
+	})
+	if err != nil {
+		return ProfileSummary{}, err
+	}
+	return profileSummary(stored), nil
+}
+
 func (u *UseCases) profileStatus() ([]ProfileSummary, *string, any, *string) {
 	active := u.profiles.LoadActive()
 	// Load the active profile first so the status projection follows the same
@@ -259,19 +308,23 @@ func (u *UseCases) profileSummaries() []ProfileSummary {
 	stored := u.profiles.List()
 	result := make([]ProfileSummary, 0, len(stored))
 	for _, item := range stored {
-		summary := item.Summary()
-		result = append(result, ProfileSummary{
-			ID:          summary.ID,
-			Label:       summary.Label,
-			Provider:    summary.Provider,
-			BaseURL:     summary.BaseURL,
-			Model:       summary.Model,
-			AgentIDs:    summary.AgentIDs,
-			ActivatedAt: summary.ActivatedAt,
-			HasKey:      summary.HasKey,
-		})
+		result = append(result, profileSummary(item))
 	}
 	return result
+}
+
+func profileSummary(item profileStore.Profile) ProfileSummary {
+	summary := item.Summary()
+	return ProfileSummary{
+		ID:          summary.ID,
+		Label:       summary.Label,
+		Provider:    summary.Provider,
+		BaseURL:     summary.BaseURL,
+		Model:       summary.Model,
+		AgentIDs:    summary.AgentIDs,
+		ActivatedAt: summary.ActivatedAt,
+		HasKey:      summary.HasKey,
+	}
 }
 
 func envFilename(osID string) string {

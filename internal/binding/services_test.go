@@ -122,6 +122,31 @@ func TestProfileServiceListsPublicSummaries(t *testing.T) {
 	}
 }
 
+func TestProfileServiceSavesWithoutReturningSecret(t *testing.T) {
+	core := app.NewUseCases(app.StatusOptions{
+		Home:     t.TempDir(),
+		Platform: platform.For("linux", "amd64"),
+		Lookup:   func(string) (string, bool) { return "", false },
+	})
+	service := NewProfileService(core)
+	summary, err := service.SaveProfile(context.Background(), SaveProfileRequest{
+		ID:         "team",
+		Label:      "Team",
+		Provider:   "ppio",
+		Model:      "model-a",
+		APIKey:     "sk-secret",
+		ConfigMode: "provider",
+		AgentIDs:   []string{"codex"},
+	})
+	if err != nil || summary.ID != "team" || !summary.HasKey {
+		t.Fatalf("saved profile = %#v, err=%v", summary, err)
+	}
+	wire, err := json.Marshal(summary)
+	if err != nil || strings.Contains(string(wire), "sk-secret") || strings.Contains(string(wire), "api_key") {
+		t.Fatalf("binding response leaked secret data: %s (%v)", wire, err)
+	}
+}
+
 func TestProviderServiceAggregatesSelectedAgentProtocols(t *testing.T) {
 	seen := make([]string, 0)
 	client := provider.NewClient(providerFakeDoer(func(request *http.Request) (*http.Response, error) {

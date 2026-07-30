@@ -156,7 +156,19 @@ func (s *ProfileService) SaveProfile(ctx context.Context, request SaveProfileReq
 	if err := contextError(ctx); err != nil {
 		return app.ProfileSummary{}, err
 	}
-	return app.ProfileSummary{}, notReady("Profile writes are not available in the migration foundation")
+	if s == nil || s.core == nil {
+		return app.ProfileSummary{}, notReady("Profile service is not configured")
+	}
+	return s.core.SaveProfile(ctx, app.SaveProfileOptions{
+		ID:         request.ID,
+		Label:      request.Label,
+		Provider:   request.Provider,
+		APIBaseURL: request.APIBaseURL,
+		APIKey:     request.APIKey,
+		Model:      request.Model,
+		ConfigMode: request.ConfigMode,
+		AgentIDs:   append([]string(nil), request.AgentIDs...),
+	})
 }
 
 type ProbeRequest struct {

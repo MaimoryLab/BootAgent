@@ -163,6 +163,38 @@ func TestStatusKeepsLegacyProfileInMemoryAndReportsFailures(t *testing.T) {
 	}
 }
 
+func TestSaveProfileUseCaseWritesOnlyPublicSummary(t *testing.T) {
+	home := t.TempDir()
+	core := NewUseCases(StatusOptions{
+		Home:     home,
+		Platform: platform.For("linux", "amd64"),
+		Lookup:   func(string) (string, bool) { return "", false },
+	})
+	summary, err := core.SaveProfile(context.Background(), SaveProfileOptions{
+		ID:         "team",
+		Label:      "Team",
+		Provider:   "ppio",
+		Model:      "model-a",
+		APIKey:     "sk-secret",
+		ConfigMode: "provider",
+		AgentIDs:   []string{"opencode", "codex"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if summary.ID != "team" || !summary.HasKey || !reflect.DeepEqual(summary.AgentIDs, []string{"codex", "opencode"}) {
+		t.Fatalf("saved summary = %#v", summary)
+	}
+	status, err := core.GetStatus(context.Background())
+	if err != nil || len(status.Profiles) != 1 || status.Profiles[0].ID != "team" {
+		t.Fatalf("status after save = %#v, err=%v", status, err)
+	}
+	wire, err := json.Marshal(summary)
+	if err != nil || strings.Contains(string(wire), "sk-secret") || strings.Contains(string(wire), "api_key") {
+		t.Fatalf("summary leaked secret data: %s (%v)", wire, err)
+	}
+}
+
 func TestStatusMatchesPythonEmptyLinuxARM64Fixture(t *testing.T) {
 	home := t.TempDir()
 	core := NewUseCases(StatusOptions{
