@@ -26,7 +26,7 @@ RUN set -eux; \
 # recorded SHA-256 rather than trusted by URL, matching how OneAgent itself
 # refuses to install a package whose integrity it cannot confirm.
 ARG TARGETARCH
-ARG GO_RELEASE=go1.25.12
+ARG GO_RELEASE=go1.26.6
 ARG GO_SHA256_amd64=234828b7a89e0e303d2556310ee549fbcf253d28de937bac3da13d6294262ac1
 ARG GO_SHA256_arm64=8b5884aef89600aef5b0b051fb971f11f49bb996521e911f30f02a66884f7bd2
 RUN set -eux; \
