@@ -19,7 +19,7 @@ tasks:
   generate:bindings:
     summary: Regenerate Wails TypeScript bindings
     cmds:
-      - go run {{.WAILS_MODULE}}/cmd/wails3@{{.WAILS_VERSION}} generate bindings -f wails -ts -d frontend/bindings ./cmd/oneagent-desktop
+      - go run {{.WAILS_MODULE}}/cmd/wails3@{{.WAILS_VERSION}} generate bindings -f "-tags wails" -ts -i -d frontend/bindings ./cmd/oneagent-desktop
 
   build:frontend:
     summary: Build the existing React frontend for the migration shell

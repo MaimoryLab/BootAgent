@@ -9,4 +9,4 @@ tasks:
   generate:bindings:
     summary: Generate bindings using the pinned Wails version
     cmds:
-      - go run github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha2.119 generate bindings -f wails -ts -d frontend/bindings ./cmd/oneagent-desktop
+      - go run github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha2.119 generate bindings -f "-tags wails" -ts -i -d frontend/bindings ./cmd/oneagent-desktop

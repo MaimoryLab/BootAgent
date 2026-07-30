@@ -13,6 +13,7 @@
     "e2e": "playwright test"
   },
   "dependencies": {
+    "@wailsio/runtime": "3.0.0-alpha2.117",
     "lucide-react": "1.25.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
