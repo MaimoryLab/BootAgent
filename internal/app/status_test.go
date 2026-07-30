@@ -133,7 +133,7 @@ func TestStatusKeepsLegacyProfileInMemoryAndReportsFailures(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if status.ActiveProfile == nil || *status.ActiveProfile != "default" || status.Environment == nil || status.EnvironmentError != nil {
+	if status.ActiveProfile == nil || *status.ActiveProfile != "default" || status.Environment == nil || status.EnvironmentError != nil || len(status.Profiles) != 1 || status.Profiles[0].ID != "default" {
 		t.Fatalf("legacy status = %#v", status)
 	}
 

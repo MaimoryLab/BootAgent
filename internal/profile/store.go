@@ -1,15 +1,16 @@
-// Package profile reads the on-disk profile store without exposing secret
-// contents. Write and migration primitives are added separately once securefs
-// has its platform-specific tests.
+// Package profile reads and writes the on-disk profile store without exposing
+// secret contents. Agent configuration and installation remain separate.
 package profile
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
@@ -23,6 +24,7 @@ type Store struct {
 	OS   string
 	FS   *securefs.Store
 	Now  func() time.Time
+	mu   *sync.Mutex
 }
 
 type Profile struct {
@@ -72,14 +74,14 @@ type storedProfile struct {
 
 func NewStore(home, osID string) Store {
 	filesystem := securefs.New(securefs.Options{OS: osID})
-	return Store{Home: home, OS: osID, FS: &filesystem, Now: time.Now}
+	return Store{Home: home, OS: osID, FS: &filesystem, Now: time.Now, mu: &sync.Mutex{}}
 }
 
 func NewStoreWithDependencies(home, osID string, filesystem securefs.Store, now func() time.Time) Store {
 	if now == nil {
 		now = time.Now
 	}
-	return Store{Home: home, OS: osID, FS: &filesystem, Now: now}
+	return Store{Home: home, OS: osID, FS: &filesystem, Now: now, mu: &sync.Mutex{}}
 }
 
 func ValidateID(id string) error {
@@ -149,6 +151,13 @@ func (s Store) List() []Profile {
 }
 
 func (s Store) LoadActive() ActiveResult {
+	return s.LoadActiveContext(context.Background())
+}
+
+func (s Store) LoadActiveContext(ctx context.Context) ActiveResult {
+	if err := requestContext(ctx); err != nil {
+		return ActiveResult{Error: err.Error()}
+	}
 	data, err := os.ReadFile(s.PointerPath())
 	if os.IsNotExist(err) {
 		return ActiveResult{}
@@ -166,6 +175,10 @@ func (s Store) LoadActive() ActiveResult {
 	}
 	if schema == 1 {
 		profile := migrateLegacy(pointer)
+		profile, err = s.persistLegacy(ctx, profile)
+		if err != nil {
+			return ActiveResult{Error: fmt.Sprintf("Cannot migrate legacy profile: %v", err)}
+		}
 		return ActiveResult{Profile: &profile, Environment: profile.environment(), ID: profile.ID}
 	}
 	if schema != 2 {
@@ -209,6 +222,47 @@ func (s Store) LoadActive() ActiveResult {
 	result.Profile = &profile
 	result.Environment = profile.environment()
 	return result
+}
+
+func (s Store) persistLegacy(ctx context.Context, profile Profile) (Profile, error) {
+	if s.mu != nil {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+	}
+	stored := storedProfile{
+		SchemaVersion: 2,
+		ID:            profile.ID,
+		Label:         profile.Label,
+		Provider:      profile.Provider,
+		BaseURL:       profile.BaseURL,
+		Model:         profile.Model,
+		ConfigMode:    profile.ConfigMode,
+		AgentIDs:      cloneStrings(profile.AgentIDs),
+		CreatedAt:     profile.CreatedAt,
+		ActivatedAt:   profile.ActivatedAt,
+	}
+	if stored.CreatedAt == "" {
+		stored.CreatedAt = s.clock().UTC().Format(time.RFC3339)
+		profile.CreatedAt = stored.CreatedAt
+	}
+	if stored.ActivatedAt == nil {
+		stored.ActivatedAt = stringPointer(stored.CreatedAt)
+		profile.ActivatedAt = stored.ActivatedAt
+	}
+	if err := s.writeStored(ctx, stored); err != nil {
+		return Profile{}, err
+	}
+	pointer := map[string]any{"schema_version": 2, "active": stored.ID}
+	data, err := json.MarshalIndent(pointer, "", "  ")
+	if err != nil {
+		return Profile{}, writeError("Cannot encode migrated profile pointer: %v", err)
+	}
+	data = append(data, '\n')
+	_, err = s.filesystem().AtomicWrite(ctx, s.PointerPath(), data, false)
+	if err != nil {
+		return Profile{}, err
+	}
+	return profile, nil
 }
 
 func (p Profile) Summary() Summary {

@@ -1,6 +1,6 @@
-// Package app contains transport-independent use cases. Status and Provider
-// reads are the first migrated slices; installation and config writes remain
-// in Python until their Go equivalents pass their own gates.
+// Package app contains transport-independent use cases. Status, Provider and
+// profile reads/writes are migrated slices; installation and Agent config
+// writes remain in Python until their Go equivalents pass their own gates.
 package app
 
 import (
@@ -214,7 +214,7 @@ func (u *UseCases) GetStatus(ctx context.Context) (StatusResponse, error) {
 			CanInstall:    canInstall,
 		}
 	}
-	profiles, activeProfile, environment, environmentError := u.profileStatus()
+	profiles, activeProfile, environment, environmentError := u.profileStatus(ctx)
 	return StatusResponse{
 		APIVersion:       1,
 		Platform:         options.Platform,
@@ -282,8 +282,13 @@ func (u *UseCases) SaveProfile(ctx context.Context, options SaveProfileOptions) 
 	return profileSummary(stored), nil
 }
 
-func (u *UseCases) profileStatus() ([]ProfileSummary, *string, any, *string) {
-	active := u.profiles.LoadActive()
+func (u *UseCases) profileStatus(ctx context.Context) ([]ProfileSummary, *string, any, *string) {
+	// A v1 read can perform the one-time migration. Serialize that path with
+	// profile writes so the old pointer is backed up before another operation
+	// can publish a new profile state.
+	u.writeMu.Lock()
+	defer u.writeMu.Unlock()
+	active := u.profiles.LoadActiveContext(ctx)
 	// Load the active profile first so the status projection follows the same
 	// read ordering as the legacy implementation when a v1 pointer is present.
 	profiles := u.profileSummaries()
