@@ -1,4 +1,4 @@
-import type { FailureDetail } from "../api/client";
+import type { FailureDetail } from "../backend/errors";
 import type {
   AgentInstallResult,
   ModelsResponse,

@@ -2,7 +2,7 @@ import { RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { api, describeError } from "../api/client";
+import { api, describeError } from "../backend/api";
 import { ModelPicker } from "../components/ModelPicker";
 import { PageScaffold } from "../components/PageScaffold";
 import { useWizard } from "../state/WizardContext";

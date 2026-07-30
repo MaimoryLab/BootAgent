@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { api, describeError } from "../api/client";
+import { api, describeError } from "../backend/api";
 import { AgentProgressRow } from "../components/AgentProgressRow";
 import { LogDisclosure } from "../components/LogDisclosure";
 import { PageScaffold } from "../components/PageScaffold";

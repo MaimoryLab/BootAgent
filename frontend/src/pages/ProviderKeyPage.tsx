@@ -2,7 +2,7 @@ import { ExternalLink, FlaskConical, Link2 } from "lucide-react";
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { api, describeError } from "../api/client";
+import { api, describeError } from "../backend/api";
 import { ConnectionStatus } from "../components/ConnectionStatus";
 import { PageScaffold } from "../components/PageScaffold";
 import { ProviderSegment } from "../components/ProviderSegment";

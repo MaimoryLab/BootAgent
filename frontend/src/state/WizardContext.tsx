@@ -11,7 +11,7 @@ import {
   useRef,
 } from "react";
 
-import { api, describeError } from "../api/client";
+import { api, describeError } from "../backend/api";
 import { initialWizardState, wizardReducer, type WizardAction, type WizardState } from "./wizardReducer";
 
 interface SecretStore {

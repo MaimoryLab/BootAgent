@@ -62,6 +62,12 @@ export interface ActivateAgentResponse {
   next: string;
 }
 
+export interface OpenRegistrationResponse {
+  ok: boolean;
+  url: string;
+  message: string;
+}
+
 export interface EnvironmentProfile {
   schema_version: number;
   id?: string;

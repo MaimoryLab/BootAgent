@@ -2,7 +2,7 @@ import { FlaskConical } from "lucide-react";
 import { useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 
-import { api, describeError } from "../api/client";
+import { api, describeError } from "../backend/api";
 import { AdvancedSection } from "../components/AdvancedSection";
 import { ConnectionStatus } from "../components/ConnectionStatus";
 import { AgentIcon, agentTagline } from "../components/icons/agents";

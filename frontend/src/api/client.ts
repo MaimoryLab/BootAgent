@@ -3,6 +3,7 @@ import type {
   InstallRequest,
   InstallResponse,
   ModelsResponse,
+  OpenRegistrationResponse,
   ProbeResponse,
   ProviderId,
   StatusResponse,
@@ -54,7 +55,8 @@ function post<T>(path: string, body: object): Promise<T> {
   return request<T>(path, { method: "POST", body: JSON.stringify(body) });
 }
 
-export const api = {
+/** The browser/Python HTTP adapter remains available during migration. */
+export const httpApi = {
   status: () => request<StatusResponse>("/api/status"),
   probe: (input: {
     provider: ProviderId;
@@ -80,7 +82,7 @@ export const api = {
     }),
   install: (input: InstallRequest) => post<InstallResponse>("/api/install", input),
   openRegister: (provider: Exclude<ProviderId, "custom">, agents: string[]) =>
-    post<{ ok: true; url: string; message: string }>("/api/open-register", { provider, agents }),
+    post<OpenRegistrationResponse>("/api/open-register", { provider, agents }),
   /** Repoint one Agent. Only that Agent's config and credential file change. */
   activateAgent: (
     agentId: string,
@@ -102,3 +104,6 @@ export const api = {
       ...(input.smallFastModel ? { small_fast_model: input.smallFastModel } : {}),
     }),
 };
+
+/** Compatibility export for the legacy browser entry point and its tests. */
+export const api = httpApi;
