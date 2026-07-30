@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"reflect"
 	"sort"
 	"strings"
@@ -85,6 +87,38 @@ func TestServiceCancellationUsesStableTimeoutCode(t *testing.T) {
 	_, err := (&ProviderService{}).ListProviders(ctx)
 	if err == nil || oneerrors.As(err).Code != oneerrors.Timeout {
 		t.Fatalf("cancellation error = %v", err)
+	}
+}
+
+func TestProfileServiceListsPublicSummaries(t *testing.T) {
+	home := t.TempDir()
+	profilesDir := filepath.Join(home, ".oneagent", "profiles")
+	if err := os.MkdirAll(profilesDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(profilesDir, "team.json"), []byte(`{"schema_version":2,"id":"team","label":"Team","provider":"ppio","base_url":null,"model":"model","config_mode":"provider","agent_ids":["codex"]}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	secretDir := filepath.Join(home, ".oneagent", "secrets")
+	if err := os.MkdirAll(secretDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(secretDir, "team.env"), []byte("export ONEAGENT_API_KEY=sk-secret\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	core := app.NewUseCases(app.StatusOptions{
+		Home:     home,
+		Platform: platform.For("linux", "amd64"),
+		Lookup:   func(string) (string, bool) { return "", false },
+	})
+	service := NewProfileService(core)
+	profiles, err := service.ListProfiles(context.Background())
+	if err != nil || len(profiles) != 1 || profiles[0].ID != "team" || !profiles[0].HasKey {
+		t.Fatalf("profiles = %#v, err=%v", profiles, err)
+	}
+	wire, err := json.Marshal(profiles)
+	if err != nil || strings.Contains(string(wire), "sk-secret") || strings.Contains(string(wire), "api_key") {
+		t.Fatalf("profile listing leaked secret data: %s (%v)", wire, err)
 	}
 }
 

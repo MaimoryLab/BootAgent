@@ -25,7 +25,7 @@ func NewServices(core *app.UseCases, opener BrowserOpener) *Services {
 		Status:   &StatusService{core: core},
 		Provider: NewProviderService(core, opener),
 		Agent:    &AgentService{},
-		Profile:  &ProfileService{},
+		Profile:  NewProfileService(core),
 	}
 }
 
@@ -134,13 +134,22 @@ func (s *AgentService) Activate(ctx context.Context, request ActivateRequest) (A
 	return ActivateResponse{}, notReady("Agent activation is not available in the migration foundation")
 }
 
-type ProfileService struct{}
+type ProfileService struct {
+	core *app.UseCases
+}
+
+func NewProfileService(core *app.UseCases) *ProfileService {
+	return &ProfileService{core: core}
+}
 
 func (s *ProfileService) ListProfiles(ctx context.Context) ([]app.ProfileSummary, error) {
 	if err := contextError(ctx); err != nil {
 		return nil, err
 	}
-	return []app.ProfileSummary{}, nil
+	if s == nil || s.core == nil {
+		return nil, notReady("Profile listing is not configured")
+	}
+	return s.core.ListProfiles(ctx)
 }
 
 func (s *ProfileService) SaveProfile(ctx context.Context, request SaveProfileRequest) (app.ProfileSummary, error) {

@@ -13,6 +13,7 @@ import (
 	"github.com/MaimoryLab/OneAgent/internal/catalog"
 	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
 	"github.com/MaimoryLab/OneAgent/internal/platform"
+	profileStore "github.com/MaimoryLab/OneAgent/internal/profile"
 	"github.com/MaimoryLab/OneAgent/internal/provider"
 )
 
@@ -27,6 +28,7 @@ type StatusOptions struct {
 type UseCases struct {
 	status   StatusOptions
 	provider *provider.Client
+	profiles profileStore.Store
 }
 
 func NewUseCases(options StatusOptions) *UseCases {
@@ -49,7 +51,11 @@ func NewUseCasesWithProviderClient(options StatusOptions, client *provider.Clien
 	if client == nil {
 		client = provider.NewClient(nil)
 	}
-	return &UseCases{status: options, provider: client}
+	return &UseCases{
+		status:   options,
+		provider: client,
+		profiles: profileStore.NewStore(options.Home, options.Platform.OS),
+	}
 }
 
 func NewUseCasesFromEnvironment() *UseCases {
@@ -132,6 +138,9 @@ type ProfileSummary struct {
 }
 
 func (u *UseCases) GetStatus(ctx context.Context) (StatusResponse, error) {
+	if u == nil {
+		return StatusResponse{}, oneerrors.New(oneerrors.InternalError, "Status service is not configured", oneerrors.WithStatus(501))
+	}
 	if err := ctx.Err(); err != nil {
 		return StatusResponse{}, oneerrors.New(oneerrors.Timeout, "Status request was cancelled", oneerrors.WithRetryable(true), oneerrors.WithCause(err))
 	}
@@ -192,20 +201,77 @@ func (u *UseCases) GetStatus(ctx context.Context) (StatusResponse, error) {
 			CanInstall:    canInstall,
 		}
 	}
+	profiles, activeProfile, environment, environmentError := u.profileStatus()
 	return StatusResponse{
-		APIVersion:   1,
-		Platform:     options.Platform,
-		Capabilities: capabilities,
-		Agents:       statuses,
-		Catalog:      catalog.PublicCatalog(manifest, options.Platform.OS),
-		Groups:       catalog.Groups(),
-		Providers:    catalog.PublicProviders(),
-		Mirrors:      catalog.Mirrors(),
-		Paths:        paths,
-		Backups:      backupState(options.Home, options.Platform.OS, manifest),
-		Profiles:     []ProfileSummary{},
-		Environment:  nil,
+		APIVersion:       1,
+		Platform:         options.Platform,
+		Capabilities:     capabilities,
+		Agents:           statuses,
+		Catalog:          catalog.PublicCatalog(manifest, options.Platform.OS),
+		Groups:           catalog.Groups(),
+		Providers:        catalog.PublicProviders(),
+		Mirrors:          catalog.Mirrors(),
+		Paths:            paths,
+		Backups:          backupState(options.Home, options.Platform.OS, manifest),
+		Profiles:         profiles,
+		ActiveProfile:    activeProfile,
+		Environment:      environment,
+		EnvironmentError: environmentError,
 	}, nil
+}
+
+// ListProfiles returns only the public profile projection. Secret files are
+// checked for existence by the profile store, but their contents never enter
+// this use case or its transport DTOs.
+func (u *UseCases) ListProfiles(ctx context.Context) ([]ProfileSummary, error) {
+	if u == nil {
+		return nil, oneerrors.New(oneerrors.InternalError, "Profile service is not configured", oneerrors.WithStatus(501))
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, oneerrors.New(oneerrors.Timeout, "Profile request was cancelled", oneerrors.WithRetryable(true), oneerrors.WithCause(err))
+	}
+	return u.profileSummaries(), nil
+}
+
+func (u *UseCases) profileStatus() ([]ProfileSummary, *string, any, *string) {
+	active := u.profiles.LoadActive()
+	// Load the active profile first so the status projection follows the same
+	// read ordering as the legacy implementation when a v1 pointer is present.
+	profiles := u.profileSummaries()
+	var activeID *string
+	if active.ID != "" {
+		id := active.ID
+		activeID = &id
+	}
+	var environment any
+	if active.Environment != nil {
+		environment = active.Environment
+	}
+	var environmentError *string
+	if active.Error != "" {
+		errorText := active.Error
+		environmentError = &errorText
+	}
+	return profiles, activeID, environment, environmentError
+}
+
+func (u *UseCases) profileSummaries() []ProfileSummary {
+	stored := u.profiles.List()
+	result := make([]ProfileSummary, 0, len(stored))
+	for _, item := range stored {
+		summary := item.Summary()
+		result = append(result, ProfileSummary{
+			ID:          summary.ID,
+			Label:       summary.Label,
+			Provider:    summary.Provider,
+			BaseURL:     summary.BaseURL,
+			Model:       summary.Model,
+			AgentIDs:    summary.AgentIDs,
+			ActivatedAt: summary.ActivatedAt,
+			HasKey:      summary.HasKey,
+		})
+	}
+	return result
 }
 
 func envFilename(osID string) string {

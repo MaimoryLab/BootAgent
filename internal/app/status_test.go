@@ -66,6 +66,103 @@ func TestStatusReportsExistingConfigWithoutWriting(t *testing.T) {
 	}
 }
 
+func TestStatusProjectsProfilesAndActiveEnvironmentWithoutSecrets(t *testing.T) {
+	home := t.TempDir()
+	oneagentDir := filepath.Join(home, ".oneagent")
+	profilesDir := filepath.Join(oneagentDir, "profiles")
+	if err := os.MkdirAll(profilesDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	profileJSON := `{"schema_version":2,"id":"team","label":"Team","provider":"ppio","base_url":"https://api.ppio.com/openai","model":"model-a","config_mode":"provider","agent_ids":["codex","opencode"],"created_at":"created","activated_at":"active","api_key":"must-not-escape"}`
+	if err := os.WriteFile(filepath.Join(profilesDir, "team.json"), []byte(profileJSON), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(oneagentDir, "secrets"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(oneagentDir, "secrets", "team.env"), []byte("export ONEAGENT_API_KEY=sk-secret\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(oneagentDir, "profile.json"), []byte(`{"schema_version":2,"active":"team"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	core := NewUseCases(StatusOptions{
+		Home:     home,
+		Platform: platform.For("linux", "amd64"),
+		Lookup:   func(string) (string, bool) { return "", false },
+	})
+	status, err := core.GetStatus(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(status.Profiles) != 1 || status.Profiles[0].ID != "team" || !status.Profiles[0].HasKey {
+		t.Fatalf("profile summaries = %#v", status.Profiles)
+	}
+	if status.ActiveProfile == nil || *status.ActiveProfile != "team" {
+		t.Fatalf("active profile = %#v", status.ActiveProfile)
+	}
+	environment, ok := status.Environment.(map[string]any)
+	if !ok || environment["provider"] != "ppio" || environment["model"] != "model-a" {
+		t.Fatalf("environment projection = %#v", status.Environment)
+	}
+	if _, leaked := environment["api_key"]; leaked {
+		t.Fatalf("environment exposed a secret: %#v", environment)
+	}
+	wire, err := json.Marshal(status)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(wire), "sk-secret") || strings.Contains(string(wire), "must-not-escape") {
+		t.Fatalf("status contains secret material: %s", wire)
+	}
+}
+
+func TestStatusKeepsLegacyProfileInMemoryAndReportsFailures(t *testing.T) {
+	home := t.TempDir()
+	oneagentDir := filepath.Join(home, ".oneagent")
+	if err := os.MkdirAll(oneagentDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	legacy := `{"schema_version":1,"provider":"ppio","base_url":"https://api.ppio.com/openai","model":"legacy-model","config_mode":"provider","agent_ids":["codex"],"activated_at":"legacy-time"}`
+	if err := os.WriteFile(filepath.Join(oneagentDir, "profile.json"), []byte(legacy), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	core := NewUseCases(StatusOptions{Home: home, Platform: platform.For("linux", "amd64"), Lookup: func(string) (string, bool) { return "", false }})
+	status, err := core.GetStatus(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if status.ActiveProfile == nil || *status.ActiveProfile != "default" || status.Environment == nil || status.EnvironmentError != nil {
+		t.Fatalf("legacy status = %#v", status)
+	}
+
+	if err := os.WriteFile(filepath.Join(oneagentDir, "profile.json"), []byte(`{"schema_version":2,"active":"ghost"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	status, err = core.GetStatus(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if status.ActiveProfile == nil || *status.ActiveProfile != "ghost" || status.Environment != nil || status.EnvironmentError == nil || !strings.Contains(*status.EnvironmentError, "ghost") {
+		t.Fatalf("missing profile status = %#v", status)
+	}
+
+	if err := os.MkdirAll(filepath.Join(oneagentDir, "profiles"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(oneagentDir, "profiles", "ghost.json"), []byte("{"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	status, err = core.GetStatus(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if status.EnvironmentError == nil || status.Environment != nil {
+		t.Fatalf("corrupt profile status = %#v", status)
+	}
+}
+
 func TestStatusMatchesPythonEmptyLinuxARM64Fixture(t *testing.T) {
 	home := t.TempDir()
 	core := NewUseCases(StatusOptions{
