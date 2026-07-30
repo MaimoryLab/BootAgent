@@ -9,9 +9,11 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"os/signal"
 	"runtime"
 	"sort"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/MaimoryLab/OneAgent/internal/app"
@@ -29,12 +31,12 @@ func main() {
 }
 
 func run(args []string, stdout, stderr io.Writer) int {
-	if len(args) == 0 {
+	if len(args) == 0 || helpRequested(args) {
 		printUsage(stdout)
 		return 0
 	}
 	switch args[0] {
-	case "--version", "version":
+	case "--version", "-version", "version":
 		_, _ = fmt.Fprintln(stdout, version.Version)
 		return 0
 	case "status":
@@ -56,7 +58,9 @@ func runStatus(args []string, stdout, stderr io.Writer) int {
 	}
 	info := platform.Current()
 	core := app.NewUseCases(app.StatusOptions{Home: *home, Platform: info})
-	status, err := core.GetStatus(flagsContext())
+	ctx, stop := flagsContext()
+	defer stop()
+	status, err := core.GetStatus(ctx)
 	if err != nil {
 		return writeError(stdout, stderr, err, *jsonOutput, "")
 	}
@@ -77,7 +81,9 @@ func runAgent(args []string, stdout, stderr io.Writer) int {
 			return oneerrors.ExitCodes[oneerrors.InvalidRequest]
 		}
 		core := newCLIUseCases(*home)
-		bindings, err := core.ListAgentBindings(flagsContext())
+		ctx, stop := flagsContext()
+		defer stop()
+		bindings, err := core.ListAgentBindings(ctx)
 		if err != nil {
 			return writeError(stdout, stderr, err, *jsonOutput, "")
 		}
@@ -115,7 +121,9 @@ func runAgent(args []string, stdout, stderr io.Writer) int {
 			key = os.Getenv("ONEAGENT_API_KEY")
 		}
 		core := newCLIUseCases(*home)
-		result, err := core.ActivateAgent(flagsContext(), app.ActivateAgentOptions{
+		ctx, stop := flagsContext()
+		defer stop()
+		result, err := core.ActivateAgent(ctx, app.ActivateAgentOptions{
 			AgentID: args[1], Provider: *providerID, APIBaseURL: *baseURL,
 			APIKey: key, Model: *model, ProfileID: *profileID, SmallFastModel: *smallFast,
 		})
@@ -200,7 +208,9 @@ func runInstall(args []string, stdout, stderr io.Writer) int {
 		return writeError(stdout, stderr, oneerrors.New(oneerrors.InvalidRequest, "timeout must be greater than zero"), options.JSON, key)
 	}
 	core := newCLIUseCases(options.Home)
-	result, err := core.InstallAgents(flagsContext(), app.InstallAgentsOptions{
+	ctx, stop := flagsContext()
+	defer stop()
+	result, err := core.InstallAgents(ctx, app.InstallAgentsOptions{
 		Agents: agents, Provider: options.Provider, APIBaseURL: options.APIBaseURL,
 		APIKey: key, Model: options.Model, SmallFastModel: options.SmallFastModel,
 		Configure: !options.CheckOnly, InstallAgent: options.InstallAgent,
@@ -209,6 +219,9 @@ func runInstall(args []string, stdout, stderr io.Writer) int {
 		Timeout: time.Duration(options.Timeout) * time.Second, Registry: options.Registry,
 	})
 	if err != nil {
+		if code, ok := interruptExitCode(ctx); ok {
+			return code
+		}
 		return writeError(stdout, stderr, err, options.JSON, key)
 	}
 	if options.JSON {
@@ -338,14 +351,88 @@ func writeError(stdout, stderr io.Writer, err error, jsonOutput bool, secret str
 	return oneErr.ExitCode
 }
 
-func printUsage(stdout io.Writer) {
-	_, _ = fmt.Fprintln(stdout, "OneAgent Go migration CLI")
-	_, _ = fmt.Fprintln(stdout, "Usage: oneagent [flags] | oneagent status [--json] | oneagent agent list|set")
+// helpRequested reports whether the argument list asks for usage rather than an
+// operation. Go's flag package treats -h as a parse error and exits non-zero;
+// the Python CLI it replaces exits 0, and the compatibility wrappers rely on
+// that, so help is handled before any FlagSet sees the arguments.
+func helpRequested(args []string) bool {
+	for _, arg := range args {
+		switch arg {
+		case "-h", "--help", "help":
+			return true
+		case "--":
+			return false
+		}
+	}
+	return false
 }
 
-// flagsContext is kept as a function so future CLI signal cancellation wiring
-// can be added without changing command handlers.
-func flagsContext() context.Context { return context.Background() }
+// printUsage mirrors the Python argparse help contract: the same flag names in
+// the same double-dash form, so existing scripts and the wrapper contract tests
+// keep matching on it.
+func printUsage(stdout io.Writer) {
+	// One write, like Python's single help write. Callers pipe help into
+	// `grep -q`, which closes the pipe on its first match; line-by-line writes
+	// would take a SIGPIPE mid-help and fail the caller's pipeline.
+	lines := []string{
+		"usage: oneagent [--agent AGENT] [--provider PROVIDER]",
+		"                [--api-base-url API_BASE_URL] [--api-key API_KEY]",
+		"                [--model MODEL] [--small-fast-model MODEL]",
+		"                [--register-url URL] [--channel CHANNEL] [--install-agent]",
+		"                [--check-agent-only] [--skip-test] [--no-open] [--json]",
+		"                [--locked-version] [--latest] [--registry REGISTRY]",
+		"                [--timeout SECONDS]",
+		"       oneagent status [--json]",
+		"       oneagent agent list [--json]",
+		"       oneagent agent set AGENT_ID [--provider PROVIDER] [--model MODEL]",
+		"                                   [--api-base-url URL] [--api-key API_KEY]",
+		"                                   [--profile PROFILE] [--json]",
+		"       oneagent --version",
+		"",
+		"Install or configure one Agent with OneAgent",
+		"",
+		"options:",
+		"  -h, --help            show this help message and exit",
+		"  --agent AGENT         Agent ID; comma-separated for several",
+		"  --provider PROVIDER   Provider ID; defaults to ppio",
+		"  --api-base-url API_BASE_URL",
+		"                        Custom Provider base URL",
+		"  --api-key API_KEY     API key; prefer ONEAGENT_API_KEY",
+		"  --model MODEL         Defaults to the provider's probe model",
+		"  --small-fast-model MODEL",
+		"                        Claude Code only: a cheaper fast/background model",
+		"  --register-url URL    Registration URL to open when a key is missing",
+		"  --channel CHANNEL     Launch channel recorded with the install",
+		"  --install-agent       Install missing Agent packages",
+		"  --check-agent-only    Only inspect Agents; writes no configuration",
+		"  --skip-test           Skip Provider probes",
+		"  --no-open             Do not open the registration URL",
+		"  --json                Write a JSON result",
+		"  --locked-version      Enforce the version in agents.lock.json",
+		"  --latest              Install the latest version instead of the locked one",
+		"  --registry REGISTRY   Package registry: a mirror id (official, npmmirror) or",
+		"                        an https:// URL. Defaults to the official registry.",
+		"  --timeout SECONDS     Operation timeout in seconds; defaults to 180",
+	}
+	_, _ = fmt.Fprintln(stdout, strings.Join(lines, "\n"))
+}
+
+// flagsContext cancels the running operation on the first interrupt so provider
+// requests and package-manager subprocesses stop with it. A second interrupt
+// falls through to the runtime's default handler.
+func flagsContext() (context.Context, context.CancelFunc) {
+	return signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+}
+
+// interruptExitCode reports the shell convention for an interrupted command,
+// matching the Python CLI's KeyboardInterrupt exit code. An interrupt is not an
+// operation failure, so no error payload is written for it.
+func interruptExitCode(ctx context.Context) (int, bool) {
+	if ctx.Err() == nil {
+		return 0, false
+	}
+	return 130, true
+}
 
 func sortedBindingIDs(bindings map[string]profileStore.AgentBinding) []string {
 	ids := make([]string, 0, len(bindings))

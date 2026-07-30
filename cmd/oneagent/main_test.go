@@ -2,11 +2,16 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/MaimoryLab/OneAgent/internal/app"
+	"github.com/MaimoryLab/OneAgent/internal/platform"
 )
 
 func TestFlatInstallCLIEmitsStructuredGuideResult(t *testing.T) {
@@ -62,6 +67,66 @@ func TestAgentSetAndListCLIUseGoBindingsWithoutLeakingKey(t *testing.T) {
 	}
 	if listPayload.Agents["codex"]["model"] != "model-a" {
 		t.Fatalf("agents=%v", listPayload.Agents)
+	}
+}
+
+// The compatibility wrappers and tests/install_test.sh grep this help text and
+// treat a non-zero exit as a failure, so help keeps the Python CLI's contract:
+// exit 0, double-dash flag names, one write.
+func TestHelpMatchesThePythonCLIContract(t *testing.T) {
+	for _, args := range [][]string{{"--help"}, {"-h"}, {"help"}, {"--agent", "codex", "--help"}} {
+		var stdout, stderr bytes.Buffer
+		if code := run(args, &stdout, &stderr); code != 0 {
+			t.Fatalf("%v exit=%d stderr=%s", args, code, stderr.String())
+		}
+		help := stdout.String()
+		for _, flagName := range []string{
+			"--register-url URL", "--agent AGENT", "--check-agent-only",
+			"--locked-version", "--latest", "--registry REGISTRY", "--skip-test",
+		} {
+			if !strings.Contains(help, flagName) {
+				t.Fatalf("%v help is missing %q", args, flagName)
+			}
+		}
+		if stderr.Len() != 0 {
+			t.Fatalf("%v wrote help diagnostics to stderr: %s", args, stderr.String())
+		}
+	}
+}
+
+// An interrupt is not an operation failure: it exits with the shell convention
+// and writes no error payload, matching the Python CLI's KeyboardInterrupt path.
+func TestInterruptExitCodeUsesShellConventionWithoutErrorPayload(t *testing.T) {
+	if code, interrupted := interruptExitCode(context.Background()); interrupted || code != 0 {
+		t.Fatalf("uncancelled context reported code=%d interrupted=%v", code, interrupted)
+	}
+	cancelled, cancel := context.WithCancel(context.Background())
+	cancel()
+	code, interrupted := interruptExitCode(cancelled)
+	if !interrupted || code != 130 {
+		t.Fatalf("cancelled context reported code=%d interrupted=%v", code, interrupted)
+	}
+}
+
+// The install path must observe cancellation rather than run to completion, so
+// a signal stops provider requests and package-manager subprocesses with it.
+func TestInstallHonoursACancelledContext(t *testing.T) {
+	home := t.TempDir()
+	core := app.NewUseCases(app.StatusOptions{Home: home, Platform: platform.Current()})
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, err := core.InstallAgents(ctx, app.InstallAgentsOptions{
+		Agents: []string{"codex"}, Provider: "ppio", APIKey: "cancel-secret",
+		Model: "model-a", Configure: true, SkipTest: true, Timeout: 30 * time.Second,
+	})
+	if err == nil {
+		t.Fatal("a cancelled install returned no error")
+	}
+	if strings.Contains(err.Error(), "cancel-secret") {
+		t.Fatalf("cancellation error leaked the API key: %v", err)
+	}
+	if _, statErr := os.Stat(filepath.Join(home, ".codex", "config.toml")); statErr == nil {
+		t.Fatal("a cancelled install still wrote Agent configuration")
 	}
 }
 
