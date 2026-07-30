@@ -8,6 +8,10 @@ OneAgent 不重新分发 Agent 二进制，不捆绑 Node.js、Python、Git Bash
 
 当前版本为 `0.2.0-dev`，当前发行目标是可直接下载运行的 `technical-preview-unsigned` 二进制包。不以四平台同时分发作为产品阶段门槛；每个实际发布的平台仍须在对应操作系统原生构建，并以 CI cleanroom 作业作为验收证据。各平台最低目标见 [ADR-003](docs/decisions/ADR-003-three-platform-python-core-and-release-policy.md)。
 
+Wails v3 迁移已在当前分支开始，当前仍处于阶段 0/1：Go catalog、错误/平台基础包、
+纯 Go CLI 和带 `wails` 标签的桌面空壳已建立，但 Python 核心和本地 HTTP GUI 仍是
+生产路径。迁移完成前不会删除或旁路任何 Python 源码、测试、脚本或打包流程。
+
 发行渠道不限定为 GitHub。官网、GitHub Release、网盘和企业云盘可以作为同一官方构建的镜像，但同一版本必须保持文件内容和 SHA-256 一致，渠道方不得重新打包或加入渠道专属内容。每个产物只声明实际构建和验证过的目标环境。
 
 仍未取得证据的部分：

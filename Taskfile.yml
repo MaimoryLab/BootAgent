@@ -1,0 +1,43 @@
+version: '3'
+
+vars:
+  WAILS_MODULE: github.com/wailsapp/wails/v3
+  WAILS_VERSION: v3.0.0-alpha2.119
+
+tasks:
+  test:go:
+    summary: Run the Python-independent Go migration tests
+    cmds:
+      - go test ./...
+
+  build:cli:
+    summary: Build the headless Go CLI
+    cmds:
+      - mkdir -p bin
+      - go build -o bin/oneagent ./cmd/oneagent
+
+  generate:bindings:
+    summary: Regenerate Wails TypeScript bindings
+    cmds:
+      - go run {{.WAILS_MODULE}}/cmd/wails3@{{.WAILS_VERSION}} generate bindings -f wails -ts -d frontend/bindings ./cmd/oneagent-desktop
+
+  build:frontend:
+    summary: Build the existing React frontend for the migration shell
+    dir: frontend
+    cmds:
+      - npm ci
+      - npm run build
+
+  build:desktop:
+    summary: Build the opt-in Wails desktop shell
+    deps:
+      - build:frontend
+      - generate:bindings
+    cmds:
+      - mkdir -p bin
+      - go run {{.WAILS_MODULE}}/cmd/wails3@{{.WAILS_VERSION}} build -tags wails
+
+  dev:desktop:
+    summary: Run the Wails development shell
+    cmds:
+      - go run {{.WAILS_MODULE}}/cmd/wails3@{{.WAILS_VERSION}} dev -config build/config.yml

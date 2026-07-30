@@ -1,0 +1,12 @@
+version: '3'
+
+tasks:
+  test:go:
+    summary: Run the Go migration tests
+    cmds:
+      - go test ./...
+
+  generate:bindings:
+    summary: Generate bindings using the pinned Wails version
+    cmds:
+      - go run github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha2.119 generate bindings -f wails -ts -d frontend/bindings ./cmd/oneagent-desktop

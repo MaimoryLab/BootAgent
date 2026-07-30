@@ -4,6 +4,11 @@ OneAgent：本地 AI 开发环境激活器。Python 3.12 标准库内核 + React
 
 当前 `0.2.0-dev`，发行渠道只能标记 `technical-preview-unsigned`。功能说明与发行流程见 [README.md](README.md)。
 
+Wails v3 迁移已在当前分支开始，但尚未切换生产入口。阶段 0/1 的 Go 骨架位于
+`internal/`、`cmd/oneagent` 和 `cmd/oneagent-desktop`；默认桌面命令只有在显式使用
+`wails` build tag 时才链接 Wails。Python 核心、HTTP GUI、Python 测试和发布流程在
+迁移完成前继续保留并作为当前生产路径。
+
 ## 沟通语言
 
 **回复一律使用简体中文，没有例外。** 包括分析、结论、计划、代码审查意见和确认提问；用户用英文提问也不切换。代码、标识符、提交信息和代码注释保持英文（与现有代码库一致）；README、`docs/` 和 ADR 保持中文。

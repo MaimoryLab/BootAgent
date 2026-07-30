@@ -1,0 +1,35 @@
+version: '3'
+
+info:
+  companyName: "MaimoryLab"
+  productName: "OneAgent"
+  productIdentifier: "com.maimorylab.oneagent"
+  description: "Local AI development environment activator"
+  copyright: "(c) 2026 MaimoryLab"
+  version: "0.3.0-dev"
+
+dev_mode:
+  root_path: .
+  log_level: warn
+  debounce: 500
+  ignore:
+    dir:
+      - .git
+      - frontend/node_modules
+      - frontend/dist
+      - bin
+    file:
+      - .DS_Store
+      - .gitkeep
+      - .keep
+      - "*_test.go"
+    watched_extension:
+      - "*.go"
+    git_ignore: true
+  executes:
+    - cmd: task build:frontend
+      type: blocking
+    - cmd: task generate:bindings
+      type: blocking
+    - cmd: go run -tags wails ./cmd/oneagent-desktop
+      type: primary
