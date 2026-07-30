@@ -72,6 +72,14 @@ type storedProfile struct {
 	ActivatedAt   *string  `json:"activated_at"`
 }
 
+// activePointer is deliberately a struct rather than a map. Python writes
+// schema_version before active, and encoding/json sorts map keys, which would
+// otherwise produce a byte-level difference for every activation.
+type activePointer struct {
+	SchemaVersion int    `json:"schema_version"`
+	Active        string `json:"active"`
+}
+
 func NewStore(home, osID string) Store {
 	filesystem := securefs.New(securefs.Options{OS: osID})
 	return Store{Home: home, OS: osID, FS: &filesystem, Now: time.Now, mu: &sync.Mutex{}}
@@ -252,7 +260,7 @@ func (s Store) persistLegacy(ctx context.Context, profile Profile) (Profile, err
 	if err := s.writeStored(ctx, stored); err != nil {
 		return Profile{}, err
 	}
-	pointer := map[string]any{"schema_version": 2, "active": stored.ID}
+	pointer := activePointer{SchemaVersion: 2, Active: stored.ID}
 	data, err := json.MarshalIndent(pointer, "", "  ")
 	if err != nil {
 		return Profile{}, writeError("Cannot encode migrated profile pointer: %v", err)

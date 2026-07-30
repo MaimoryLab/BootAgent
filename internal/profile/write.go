@@ -163,7 +163,7 @@ func (s Store) WriteActive(ctx context.Context, request ActiveRequest) (string, 
 			return "", err
 		}
 	}
-	pointer := map[string]any{"schema_version": 2, "active": profileID}
+	pointer := activePointer{SchemaVersion: 2, Active: profileID}
 	data, err := json.MarshalIndent(pointer, "", "  ")
 	if err != nil {
 		return "", writeError("Cannot encode active profile: %v", err)

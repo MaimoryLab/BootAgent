@@ -74,9 +74,15 @@ func TestWriteJSONAdaptersPreserveFieldsAndRejectJSONC(t *testing.T) {
 	if err := json.Unmarshal(data, &claude); err != nil || claude["keep"] != true {
 		t.Fatalf("Claude config = %s, %v", data, err)
 	}
+	if got := string(data); !strings.Contains(got, "\"keep\": true,\n  \"env\":") {
+		t.Fatalf("Claude top-level key order changed: %s", data)
+	}
 	env := claude["env"].(map[string]any)
 	if env["ANTHROPIC_SMALL_FAST_MODEL"] != "model-a" || env["CUSTOM"] != "value" {
 		t.Fatalf("Claude env = %#v", env)
+	}
+	if got := string(data); !strings.Contains(got, "\"CUSTOM\": \"value\",\n    \"ANTHROPIC_BASE_URL\":") {
+		t.Fatalf("Claude nested key order changed: %s", data)
 	}
 	if !strings.Contains(string(data), "sk-claude-secret") {
 		t.Fatal("Claude config did not contain its required native credential")
@@ -96,6 +102,9 @@ func TestWriteJSONAdaptersPreserveFieldsAndRejectJSONC(t *testing.T) {
 	data, _ = os.ReadFile(openPath)
 	if err := json.Unmarshal(data, &open); err != nil || open["keep"] != true || open["model"] != "oneagent/model-a" {
 		t.Fatalf("OpenCode config = %s, %v", data, err)
+	}
+	if got := string(data); !strings.Contains(got, "\"keep\": true,\n  \"provider\":") || !strings.Contains(got, "\"provider\":") {
+		t.Fatalf("OpenCode top-level key order changed: %s", data)
 	}
 	providers := open["provider"].(map[string]any)
 	if _, ok := providers["other"]; !ok {

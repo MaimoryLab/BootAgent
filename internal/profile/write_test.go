@@ -144,6 +144,9 @@ func TestWriteActiveMergesAgentsAndSupportsExistingAccount(t *testing.T) {
 	if err := json.Unmarshal(data, &pointer); err != nil || pointer["active"] != "default" || pointer["schema_version"] != float64(2) {
 		t.Fatalf("active pointer = %s, %v", data, err)
 	}
+	if got := string(data); !strings.HasPrefix(got, "{\n  \"schema_version\": 2,\n  \"active\": \"default\"\n}") {
+		t.Fatalf("active pointer key order changed: %s", data)
+	}
 }
 
 func TestProfileWritesHonorCancellation(t *testing.T) {

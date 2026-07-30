@@ -2,7 +2,6 @@ package config
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"regexp"
@@ -10,6 +9,7 @@ import (
 	"strings"
 
 	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
+	"github.com/MaimoryLab/OneAgent/internal/jsonorder"
 	"github.com/MaimoryLab/OneAgent/internal/provider"
 	"github.com/MaimoryLab/OneAgent/internal/securefs"
 	"github.com/pelletier/go-toml/v2"
@@ -49,55 +49,49 @@ func (w Writer) WriteCodex(ctx context.Context, path, providerName, baseURL, mod
 }
 
 func (w Writer) WriteClaude(ctx context.Context, path, baseURL, apiKey, model, smallFastModel string) error {
-	data, err := loadJSON(path)
+	document, err := loadJSON(path)
 	if err != nil {
 		return err
 	}
-	env, ok := data["env"]
-	if env == nil {
-		env = map[string]any{}
-		data["env"] = env
-	}
-	envMap, ok := env.(map[string]any)
-	if !ok {
+	env, err := document.Child("env")
+	if err != nil {
 		return configError("Existing Claude Code env configuration must contain an object: %s", path)
 	}
-	envMap["ANTHROPIC_BASE_URL"] = baseURL
-	envMap["ANTHROPIC_AUTH_TOKEN"] = apiKey
-	envMap["ANTHROPIC_MODEL"] = model
+	env.Set("ANTHROPIC_BASE_URL", baseURL)
+	env.Set("ANTHROPIC_AUTH_TOKEN", apiKey)
+	env.Set("ANTHROPIC_MODEL", model)
 	if smallFastModel == "" {
 		smallFastModel = model
 	}
-	envMap["ANTHROPIC_SMALL_FAST_MODEL"] = smallFastModel
-	return w.writeJSON(ctx, path, data, true)
+	env.Set("ANTHROPIC_SMALL_FAST_MODEL", smallFastModel)
+	return w.writeJSON(ctx, path, document, true)
 }
 
 func (w Writer) WriteOpenAICompatible(ctx context.Context, path, schemaURL, providerName, baseURL, model, agentID string) error {
-	data, err := loadJSON(path)
+	document, err := loadJSON(path)
 	if err != nil {
 		return err
 	}
-	data["$schema"] = schemaURL
-	providersValue := data["provider"]
-	if providersValue == nil {
-		providersValue = map[string]any{}
-		data["provider"] = providersValue
-	}
-	providers, ok := providersValue.(map[string]any)
-	if !ok {
+	document.Set("$schema", schemaURL)
+	providers, err := document.Child("provider")
+	if err != nil {
 		return configError("Existing provider configuration must contain an object: %s", path)
 	}
-	providers["oneagent"] = map[string]any{
-		"npm":  "@ai-sdk/openai-compatible",
-		"name": providerName,
-		"options": map[string]any{
-			"baseURL": provider.OpenAIBaseURL(baseURL),
-			"apiKey":  "{env:" + agentEnvVar(agentID) + "}",
-		},
-		"models": map[string]any{model: map[string]any{"name": model}},
-	}
-	data["model"] = "oneagent/" + model
-	return w.writeJSON(ctx, path, data, false)
+	options := jsonorder.NewObject()
+	options.Set("baseURL", provider.OpenAIBaseURL(baseURL))
+	options.Set("apiKey", "{env:"+agentEnvVar(agentID)+"}")
+	models := jsonorder.NewObject()
+	modelEntry := jsonorder.NewObject()
+	modelEntry.Set("name", model)
+	models.Set(model, modelEntry)
+	oneagent := jsonorder.NewObject()
+	oneagent.Set("npm", "@ai-sdk/openai-compatible")
+	oneagent.Set("name", providerName)
+	oneagent.Set("options", options)
+	oneagent.Set("models", models)
+	providers.Set("oneagent", oneagent)
+	document.Set("model", "oneagent/"+model)
+	return w.writeJSON(ctx, path, document, false)
 }
 
 func (w Writer) WriteAider(ctx context.Context, path, baseURL, apiKey string) error {
@@ -120,12 +114,11 @@ func (w Writer) write(ctx context.Context, path string, data []byte, secret bool
 	return nil
 }
 
-func (w Writer) writeJSON(ctx context.Context, path string, value map[string]any, secret bool) error {
-	data, err := json.MarshalIndent(value, "", "  ")
+func (w Writer) writeJSON(ctx context.Context, path string, value *jsonorder.Object, secret bool) error {
+	data, err := jsonorder.Marshal(value)
 	if err != nil {
 		return configError("Cannot encode JSON configuration %s: %v", path, err)
 	}
-	data = append(data, '\n')
 	return w.write(ctx, path, data, secret)
 }
 
@@ -140,23 +133,20 @@ func readText(path string) (string, error) {
 	return string(data), nil
 }
 
-func loadJSON(path string) (map[string]any, error) {
+func loadJSON(path string) (*jsonorder.Object, error) {
 	text, err := readText(path)
 	if err != nil {
 		return nil, configError("Cannot read existing JSON configuration %s: %v", path, err)
 	}
 	if strings.TrimSpace(text) == "" {
-		return map[string]any{}, nil
+		return jsonorder.NewObject(), nil
 	}
-	var value map[string]any
-	if err := json.Unmarshal([]byte(text), &value); err != nil {
+	value, err := jsonorder.Parse([]byte(text))
+	if err != nil {
 		if strings.HasSuffix(path, ".jsonc") && jsoncCommentPattern.MatchString(text) {
 			return nil, configError("%s contains JSONC comments, which OneAgent cannot preserve when it rewrites the file", path)
 		}
 		return nil, configError("Existing JSON configuration is invalid: %s: %v", path, err)
-	}
-	if value == nil {
-		return nil, configError("Existing JSON configuration must contain an object: %s", path)
 	}
 	return value, nil
 }
