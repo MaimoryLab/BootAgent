@@ -10,8 +10,10 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
+	"github.com/MaimoryLab/OneAgent/internal/securefs"
 )
 
 var profileIDPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]{0,63}$`)
@@ -19,6 +21,8 @@ var profileIDPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]{0,63}$`)
 type Store struct {
 	Home string
 	OS   string
+	FS   *securefs.Store
+	Now  func() time.Time
 }
 
 type Profile struct {
@@ -67,7 +71,15 @@ type storedProfile struct {
 }
 
 func NewStore(home, osID string) Store {
-	return Store{Home: home, OS: osID}
+	filesystem := securefs.New(securefs.Options{OS: osID})
+	return Store{Home: home, OS: osID, FS: &filesystem, Now: time.Now}
+}
+
+func NewStoreWithDependencies(home, osID string, filesystem securefs.Store, now func() time.Time) Store {
+	if now == nil {
+		now = time.Now
+	}
+	return Store{Home: home, OS: osID, FS: &filesystem, Now: now}
 }
 
 func ValidateID(id string) error {
