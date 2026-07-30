@@ -222,18 +222,6 @@ func mergeCodexTOML(existing, managed, path string) (string, error) {
 	return merged, nil
 }
 
-func agentEnvVar(agentID string) string {
-	var builder strings.Builder
-	for _, character := range strings.ToUpper(agentID) {
-		if character >= 'A' && character <= 'Z' || character >= '0' && character <= '9' {
-			builder.WriteRune(character)
-		} else {
-			builder.WriteRune('_')
-		}
-	}
-	return "ONEAGENT_API_KEY_" + strings.Trim(builder.String(), "_")
-}
-
 func quoteTOML(value string) string {
 	return strconv.Quote(value)
 }
