@@ -15,18 +15,25 @@ import (
 // It is skipped when Python is unavailable so clean Go-only builds remain
 // possible; CI can set ONEAGENT_REQUIRE_PARITY to make it mandatory.
 func TestJSONWriterParityWithPython(t *testing.T) {
+	// The first python3 on PATH is often older than the 3.12 the Python core
+	// requires, so candidates are probed rather than assumed: an unusable
+	// interpreter must skip this gate, not fail it with an import error.
 	python := ""
-	for _, name := range []string{"python3.12", "python3"} {
-		if path, err := exec.LookPath(name); err == nil {
+	for _, name := range []string{"python3.12", "python3", "python"} {
+		path, err := exec.LookPath(name)
+		if err != nil {
+			continue
+		}
+		if runsPythonCore(path) {
 			python = path
 			break
 		}
 	}
 	if python == "" {
 		if os.Getenv("ONEAGENT_REQUIRE_PARITY") != "" {
-			t.Fatal("Python is required for JSON writer parity")
+			t.Fatal("Python 3.12+ is required for JSON writer parity")
 		}
-		t.Skip("Python is not available")
+		t.Skip("no Python 3.12+ interpreter is available")
 	}
 
 	cases := []struct {
@@ -64,6 +71,15 @@ func TestJSONWriterParityWithPython(t *testing.T) {
 			}
 		})
 	}
+}
+
+// runsPythonCore reports whether an interpreter is new enough to import the
+// Python core this gate compares against. tomllib arrived in 3.11 and the core
+// requires 3.12, so the version check is what decides; importing it here also
+// confirms the interpreter is not a stub that satisfies the version test alone.
+func runsPythonCore(python string) bool {
+	command := exec.Command(python, "-c", "import sys, tomllib; raise SystemExit(0 if sys.version_info >= (3, 12) else 1)")
+	return command.Run() == nil
 }
 
 func pythonJSONWriterOutput(t *testing.T, python, kind, relative, existing string) []byte {
