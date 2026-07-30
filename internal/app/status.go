@@ -5,6 +5,7 @@ package app
 
 import (
 	"context"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -112,9 +113,7 @@ func newUseCases(options StatusOptions, client *provider.Client, profiles profil
 
 func cloneEnvironment(source map[string]string) map[string]string {
 	result := make(map[string]string, len(source))
-	for key, value := range source {
-		result[key] = value
-	}
+	maps.Copy(result, source)
 	return result
 }
 
@@ -232,9 +231,10 @@ func (u *UseCases) GetStatus(ctx context.Context) (StatusResponse, error) {
 		canInstall := false
 		if agent.Package != nil {
 			_, canInstall = options.Lookup(agent.Package.Manager)
-			if agent.Package.Manager == "npm" {
+			switch agent.Package.Manager {
+			case "npm":
 				_, canInstall = options.Lookup("npm")
-			} else if agent.Package.Manager == "uv" {
+			case "uv":
 				_, canInstall = options.Lookup("uv")
 			}
 		}

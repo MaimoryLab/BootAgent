@@ -48,11 +48,11 @@ func decimalExponent(value float64) int {
 		return 0
 	}
 	text := strconv.FormatFloat(value, 'e', -1, 64)
-	index := strings.IndexByte(text, 'e')
-	if index < 0 {
+	_, after, ok := strings.Cut(text, "e")
+	if !ok {
 		return 0
 	}
-	exponent, err := strconv.Atoi(text[index+1:])
+	exponent, err := strconv.Atoi(after)
 	if err != nil {
 		return 0
 	}

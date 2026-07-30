@@ -230,7 +230,7 @@ func runInstall(args []string, stdout, stderr io.Writer) int {
 	if result.Log != "" {
 		_, _ = fmt.Fprintln(stdout, result.Log)
 	}
-	for _, line := range strings.Split(result.Next, "\n") {
+	for line := range strings.SplitSeq(result.Next, "\n") {
 		if strings.TrimSpace(line) != "" {
 			_, _ = fmt.Fprintln(stdout, "[oneagent] next: "+line)
 		}

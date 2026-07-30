@@ -3,6 +3,7 @@ package install
 import (
 	"context"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -79,12 +80,7 @@ func mustManifest() catalog.Manifest {
 }
 
 func containsArg(argv []string, wanted string) bool {
-	for _, value := range argv {
-		if value == wanted {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(argv, wanted)
 }
 
 func runtimeForInstall(runner process.Runner, osID string, env map[string]string) Runtime {

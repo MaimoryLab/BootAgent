@@ -41,7 +41,7 @@ function SetupGuard({ stage, children }: { stage: "mode" | "provider" | "model" 
 
 function LandingRoute() {
   const { state } = useWizard();
-  // Wait for the first status read before choosing. The fetch starts in an
+  // Wait for the first status read before choosing. The binding call starts in an
   // effect, so the initial render has no status and a state of "idle" rather
   // than "loading" — treating that as "nothing configured" would show the
   // landing page to a returning user before their Agents ever loaded.

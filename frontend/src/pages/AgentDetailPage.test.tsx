@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 
+import { api } from "../backend/api";
 import type { StatusResponse } from "../types/api";
 import { AgentDetailPage } from "./AgentDetailPage";
 
@@ -131,7 +132,6 @@ describe("AgentDetailPage", () => {
 
   it("drops a passing verdict when the key is edited afterwards", async () => {
     // Constraint 2: otherwise a wrong key rides in on the previous verdict.
-    const { api } = await import("../api/client");
     vi.spyOn(api, "probe").mockResolvedValue(passingProbe());
     renderPage();
     fireEvent.change(screen.getByLabelText(/API Key/i), { target: { value: "sk-good" } });
@@ -147,7 +147,6 @@ describe("AgentDetailPage", () => {
   it("reports the restart instruction and clears the key after applying", async () => {
     // Constraints 3 and 4: an Agent reads its config at startup, so silence
     // reads as failure; and a key left in a visible field outlives its request.
-    const { api } = await import("../api/client");
     vi.spyOn(api, "probe").mockResolvedValue(passingProbe());
     vi.spyOn(api, "activateAgent").mockResolvedValue({
       ok: true,
@@ -201,7 +200,6 @@ describe("AgentDetailPage", () => {
   it("offers Claude Code a fast small-model field and sends it on activate", async () => {
     // The one user-facing difference between adapters: Claude Code runs its
     // background work on a second, optionally cheaper model.
-    const { api } = await import("../api/client");
     vi.spyOn(api, "probe").mockResolvedValue(passingProbe());
     const activate = vi.spyOn(api, "activateAgent").mockResolvedValue({
       ok: true,

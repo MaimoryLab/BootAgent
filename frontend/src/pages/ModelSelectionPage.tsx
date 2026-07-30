@@ -12,7 +12,7 @@ export function ModelSelectionPage() {
   const { state, dispatch, secret } = useWizard();
   const requested = useRef(false);
 
-  const fetchModels = useCallback(async () => {
+  const loadModels = useCallback(async () => {
     dispatch({ type: "MODELS_LOADING" });
     try {
       const result = await api.models({
@@ -27,12 +27,12 @@ export function ModelSelectionPage() {
   }, [dispatch, secret.keyRef, state.customBaseUrl, state.provider]);
 
   useEffect(() => {
-    // SetupGuard has already verified the key; only the fetch lives here.
+    // SetupGuard has already verified the key; only model loading lives here.
     if (!requested.current) {
       requested.current = true;
-      void fetchModels();
+      void loadModels();
     }
-  }, [fetchModels]);
+  }, [loadModels]);
 
   return (
     <PageScaffold
@@ -44,7 +44,7 @@ export function ModelSelectionPage() {
       onPrimary={() => navigate("/setup/review")}
       primaryDisabled={!state.model.trim() || state.modelsState === "loading"}
       secondaryAction={
-        <button className="button button-secondary" type="button" onClick={() => void fetchModels()} disabled={state.modelsState === "loading"}>
+        <button className="button button-secondary" type="button" onClick={() => void loadModels()} disabled={state.modelsState === "loading"}>
           <RefreshCw size={15} className={state.modelsState === "loading" ? "spin" : ""} />
           刷新列表
         </button>

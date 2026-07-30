@@ -96,12 +96,12 @@ func (c *Client) Probe(ctx context.Context, protocol, providerID, apiKey, model,
 			_ = response.Body.Close()
 		}
 		result := transportResult(err)
-		result.Protocol = stringPointer(protocol)
+		result.Protocol = new(protocol)
 		return result, nil
 	}
 	if response == nil {
 		result := transportResult(errors.New("Provider transport returned no response"))
-		result.Protocol = stringPointer(protocol)
+		result.Protocol = new(protocol)
 		return result, nil
 	}
 	defer response.Body.Close()
@@ -115,7 +115,7 @@ func (c *Client) Probe(ctx context.Context, protocol, providerID, apiKey, model,
 			Status:    response.StatusCode,
 			Message:   fmt.Sprintf("%s connection test passed.", ProtocolLabel(protocol)),
 			Retryable: false,
-			Protocol:  stringPointer(protocol),
+			Protocol:  new(protocol),
 		}, nil
 	}
 	body, _, _ := c.readBody(response.Body)
@@ -164,7 +164,7 @@ func (c *Client) ListModels(ctx context.Context, providerID, apiKey, customBase 
 			Reachable: true,
 			Status:    response.StatusCode,
 			Message:   fmt.Sprintf("Model list response is not valid JSON: %v", err),
-			ErrorCode: stringPointer(oneerrors.ModelsUnsupported),
+			ErrorCode: new(oneerrors.ModelsUnsupported),
 			Models:    []string{},
 		}, nil
 	}
@@ -175,7 +175,7 @@ func (c *Client) ListModels(ctx context.Context, providerID, apiKey, customBase 
 		result.Message = fmt.Sprintf("Found %d models.", len(models))
 	} else {
 		result.Message = "No model IDs returned; enter model ID manually."
-		result.ErrorCode = stringPointer(oneerrors.ModelsUnsupported)
+		result.ErrorCode = new(oneerrors.ModelsUnsupported)
 	}
 	return result, nil
 }
@@ -285,8 +285,8 @@ func classifyHTTPProbe(status int, body, protocol, model string) ProbeResult {
 			Reachable: true,
 			Status:    status,
 			Message:   fmt.Sprintf("Model %q does not support %s. Choose a model that serves this protocol.", model, label),
-			ErrorCode: stringPointer(oneerrors.ProtocolUnsupported),
-			Protocol:  stringPointer(protocol),
+			ErrorCode: new(oneerrors.ProtocolUnsupported),
+			Protocol:  new(protocol),
 		}
 	}
 	if status == http.StatusUnauthorized || status == http.StatusForbidden {
@@ -294,18 +294,18 @@ func classifyHTTPProbe(status int, body, protocol, model string) ProbeResult {
 			Reachable: true,
 			Status:    status,
 			Message:   fmt.Sprintf("API key was rejected (%d).", status),
-			ErrorCode: stringPointer(oneerrors.APIKeyRejected),
+			ErrorCode: new(oneerrors.APIKeyRejected),
 			Retryable: true,
-			Protocol:  stringPointer(protocol),
+			Protocol:  new(protocol),
 		}
 	}
 	return ProbeResult{
 		Reachable: true,
 		Status:    status,
 		Message:   fmt.Sprintf("Endpoint returned HTTP %d.", status),
-		ErrorCode: stringPointer(oneerrors.ProviderUnreachable),
+		ErrorCode: new(oneerrors.ProviderUnreachable),
 		Retryable: status >= 500,
-		Protocol:  stringPointer(protocol),
+		Protocol:  new(protocol),
 	}
 }
 
@@ -315,7 +315,7 @@ func classifyHTTPModels(status int) ModelsResult {
 			Reachable: true,
 			Status:    status,
 			Message:   fmt.Sprintf("API key was rejected (%d). Enter model ID manually.", status),
-			ErrorCode: stringPointer(oneerrors.APIKeyRejected),
+			ErrorCode: new(oneerrors.APIKeyRejected),
 			Retryable: true,
 			Models:    []string{},
 		}
@@ -325,7 +325,7 @@ func classifyHTTPModels(status int) ModelsResult {
 			Reachable: true,
 			Status:    status,
 			Message:   fmt.Sprintf("This endpoint does not expose /v1/models (%d); enter model ID manually.", status),
-			ErrorCode: stringPointer(oneerrors.ModelsUnsupported),
+			ErrorCode: new(oneerrors.ModelsUnsupported),
 			Models:    []string{},
 		}
 	}
@@ -333,7 +333,7 @@ func classifyHTTPModels(status int) ModelsResult {
 		Reachable: true,
 		Status:    status,
 		Message:   fmt.Sprintf("Endpoint returned HTTP %d.", status),
-		ErrorCode: stringPointer(oneerrors.ProviderUnreachable),
+		ErrorCode: new(oneerrors.ProviderUnreachable),
 		Retryable: status >= 500,
 		Models:    []string{},
 	}
@@ -344,7 +344,7 @@ func transportResult(err error) ProbeResult {
 	return ProbeResult{
 		Status:    unsupportedStatus,
 		Message:   fmt.Sprintf("Cannot reach endpoint: %s", err),
-		ErrorCode: stringPointer(code),
+		ErrorCode: new(code),
 		Retryable: retryable,
 	}
 }
@@ -354,7 +354,7 @@ func transportModelsResult(err error) ModelsResult {
 	return ModelsResult{
 		Status:    unsupportedStatus,
 		Message:   fmt.Sprintf("Cannot reach endpoint: %s", err),
-		ErrorCode: stringPointer(code),
+		ErrorCode: new(code),
 		Retryable: retryable,
 		Models:    []string{},
 	}
@@ -379,7 +379,7 @@ func modelsFailure(message string) ModelsResult {
 		Reachable: true,
 		Status:    http.StatusOK,
 		Message:   message,
-		ErrorCode: stringPointer(oneerrors.ModelsUnsupported),
+		ErrorCode: new(oneerrors.ModelsUnsupported),
 		Models:    []string{},
 	}
 }
@@ -420,8 +420,4 @@ func unsupportedProtocol(status int, body string) bool {
 		}
 	}
 	return false
-}
-
-func stringPointer(value string) *string {
-	return &value
 }

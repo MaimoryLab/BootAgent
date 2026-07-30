@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"os/exec"
 	"sort"
@@ -42,9 +43,7 @@ func Current() OSRunner {
 
 func New(env map[string]string) OSRunner {
 	values := make(map[string]string, len(env))
-	for key, value := range env {
-		values[key] = value
-	}
+	maps.Copy(values, env)
 	return OSRunner{Env: values}
 }
 
@@ -132,12 +131,8 @@ func (b *boundedBuffer) String() string {
 
 func mergeEnvironment(base, overrides map[string]string) []string {
 	values := make(map[string]string, len(base)+len(overrides))
-	for key, value := range base {
-		values[key] = value
-	}
-	for key, value := range overrides {
-		values[key] = value
-	}
+	maps.Copy(values, base)
+	maps.Copy(values, overrides)
 	keys := make([]string, 0, len(values))
 	for key := range values {
 		keys = append(keys, key)

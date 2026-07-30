@@ -7,18 +7,10 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import * as catalog$0 from "../catalog/models.js";
-
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore: Unused imports
 import * as $models from "./models.js";
 
 export function ListModels(request: $models.ModelsRequest): $CancellablePromise<$models.ModelsResponse> {
     return $Call.ByID(1201530915, request);
-}
-
-export function ListProviders(): $CancellablePromise<{ [_ in string]?: catalog$0.Provider } | null> {
-    return $Call.ByID(3942954229);
 }
 
 export function OpenRegistration(request: $models.OpenRegistrationRequest): $CancellablePromise<$models.OpenRegistrationResponse> {

@@ -96,7 +96,7 @@ func ReadOpenAICompatibleConfig(text string) Detected {
 
 func ReadAiderConfig(text string) Detected {
 	baseURL := ""
-	for _, line := range strings.Split(text, "\n") {
+	for line := range strings.SplitSeq(text, "\n") {
 		trimmed := strings.TrimSpace(line)
 		for _, prefix := range []string{"export OPENAI_API_BASE=", "$env:OPENAI_API_BASE ="} {
 			if !strings.HasPrefix(trimmed, prefix) {
@@ -170,14 +170,7 @@ func safeRead(read reader, text string) (result Detected) {
 }
 
 func unreadable(message string) Detected {
-	return Detected{Unreadable: stringPointer(message)}
-}
-
-func stringPointer(value string) *string {
-	if value == "" {
-		return nil
-	}
-	return &value
+	return Detected{Unreadable: new(message)}
 }
 
 func splitModel(value string) (string, string) {

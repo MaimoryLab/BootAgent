@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"maps"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -60,9 +61,7 @@ func (r *installAppRunner) LookPath(command string) (string, bool) {
 func (r *installAppRunner) Run(_ context.Context, argv []string, env map[string]string, _ time.Duration) (process.Result, error) {
 	r.calls = append(r.calls, append([]string(nil), argv...))
 	copyEnv := make(map[string]string, len(env))
-	for key, value := range env {
-		copyEnv[key] = value
-	}
+	maps.Copy(copyEnv, env)
 	r.envs = append(r.envs, copyEnv)
 	if strings.Contains(strings.Join(argv, " "), "dist.integrity") {
 		return process.Result{Args: argv, ExitCode: 0, Stdout: "sha512-test\n"}, nil

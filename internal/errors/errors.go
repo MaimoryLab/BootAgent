@@ -139,8 +139,7 @@ func As(err error) *OneAgentError {
 	if err == nil {
 		return nil
 	}
-	var oneErr *OneAgentError
-	if errors.As(err, &oneErr) {
+	if oneErr, ok := errors.AsType[*OneAgentError](err); ok {
 		return oneErr
 	}
 	return New(InternalError, "Unexpected OneAgent failure", WithStatus(500), WithRetryable(true), WithCause(err))
@@ -151,7 +150,7 @@ func Marshal(err error) []byte {
 	if marshalErr != nil {
 		// The shape above only contains primitive values; this is a final guard
 		// for a Wails callback, which cannot return an error itself.
-		return []byte(fmt.Sprintf(`{"error_code":%q,"message":%q,"status":500,"retryable":true,"exit_code":10}`, InternalError, "Unexpected OneAgent failure"))
+		return fmt.Appendf(nil, `{"error_code":%q,"message":%q,"status":500,"retryable":true,"exit_code":10}`, InternalError, "Unexpected OneAgent failure")
 	}
 	return payload
 }

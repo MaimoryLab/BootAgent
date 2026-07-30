@@ -1,6 +1,6 @@
 # OneAgent 全量迁移至 Wails v3 规划方案
 
-- 状态：In Progress（阶段 0-3 退出门禁已通过，阶段 4 进行中，生产入口尚未切换）
+- 状态：In Progress（阶段 0-4 退出门禁已通过，阶段 5 尚未开始，桌面发布入口尚未切换）
 - 日期：2026-07-30
 - 目标版本：下一主版本（建议 `0.3.0-dev` 开始迁移）
 - 适用范围：桌面应用、Go 核心、CLI、前端通信、测试、构建、发布和公开站数据生成
@@ -17,12 +17,12 @@
   日志脱敏和 `agent list/set` 均在 Go 中，`scripts/install.sh` 与 `.ps1` 已改为纯
   转发层调用 Go CLI，不再定位 Python；`tests/install_test.sh` 的 13 项契约现在由
   Go CLI 通过。CLI 支持中断取消（退出码 130），帮助文本保持 argparse 的双破折号形式。
-- 阶段 4 进行中：四个 service 已注册，`frontend/bindings/` 已生成并提交，
-  `frontend/src/backend/` 薄 adapter 已按运行时选择 Wails 或 HTTP 传输。尚未删除
-  `frontend/src/api/client.ts` 的 fetch 路径，手写后端 DTO 也尚未改为生成类型别名。
+- 阶段 4 已完成：四个 service 通过生成的 Wails binding 暴露；前端只经
+  `frontend/src/backend/wails.ts` 调用，已删除 fetch、HTTP fallback 和手写后端 DTO。
+  旧 API/fetch 单测与路由 mock E2E 已删除，Wails `server` build 的浏览器链路留待阶段 5。
 
-现有 Python 核心、HTTP GUI 和发布流程仍是当前生产路径；在阶段 4-6 的行为等价门禁
-通过前不得删除或旁路它们。
+Python HTTP GUI 和发布流程仍是遗留路径；Wails 前端不再回退到它们。阶段 5-6 的行为
+等价门禁通过前不得删除现有 Python 核心或发布实现。
 
 ## 1. 结论
 

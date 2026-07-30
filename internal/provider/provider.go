@@ -107,8 +107,8 @@ func ProtocolLabel(protocol string) string {
 func OpenAIBaseURL(baseURL string) string {
 	base := strings.TrimRight(baseURL, "/")
 	for _, suffix := range []string{"/chat/completions", "/responses", "/models"} {
-		if strings.HasSuffix(base, suffix) {
-			base = strings.TrimRight(strings.TrimSuffix(base, suffix), "/")
+		if before, ok := strings.CutSuffix(base, suffix); ok {
+			base = strings.TrimRight(before, "/")
 			break
 		}
 	}
@@ -121,8 +121,8 @@ func OpenAIBaseURL(baseURL string) string {
 func AnthropicMessagesURL(baseURL string) string {
 	base := strings.TrimRight(baseURL, "/")
 	for _, suffix := range []string{"/v1/messages", "/messages"} {
-		if strings.HasSuffix(base, suffix) {
-			base = strings.TrimRight(strings.TrimSuffix(base, suffix), "/")
+		if before, ok := strings.CutSuffix(base, suffix); ok {
+			base = strings.TrimRight(before, "/")
 			break
 		}
 	}

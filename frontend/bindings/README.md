@@ -9,6 +9,5 @@ Regenerate with the pinned CLI and build tag:
 wails3 generate bindings -f "-tags wails" -ts -i -d frontend/bindings ./cmd/oneagent-desktop
 ```
 
-The current production frontend still uses `frontend/src/api/client.ts`; these
-bindings are staged for the later service-switch phase. Until that phase is
-complete, the Python HTTP path remains authoritative.
+`frontend/src/backend/wails.ts` is the only page-facing transport adapter.
+React calls these generated bindings directly; there is no HTTP fallback.

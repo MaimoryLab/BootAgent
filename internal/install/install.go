@@ -278,7 +278,7 @@ func installerFailureDetail(result process.Result, environment map[string]string
 	text := redact(result.Stderr+"\n"+result.Stdout, secretValues(environment))
 	text = ansiPattern.ReplaceAllString(text, "")
 	lines := make([]string, 0)
-	for _, line := range strings.Split(text, "\n") {
+	for line := range strings.SplitSeq(text, "\n") {
 		line = strings.TrimSpace(line)
 		if line != "" {
 			lines = append(lines, line)

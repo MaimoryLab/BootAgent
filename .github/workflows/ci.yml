@@ -141,14 +141,6 @@ jobs:
         working-directory: frontend
         run: npm run test:coverage
 
-      - name: Install Chromium
-        working-directory: frontend
-        run: npx playwright install chromium
-
-      - name: Browser E2E
-        working-directory: frontend
-        run: npm run e2e
-
       - name: Build native macOS onedir
         if: runner.os == 'macOS'
         run: python scripts/build_release.py --channel technical-preview-unsigned --skip-frontend
@@ -170,14 +162,6 @@ jobs:
           name: public-site-release-macos-arm64
           path: release/*
           if-no-files-found: error
-
-      - name: Upload browser failures
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: browser-failures-${{ matrix.os }}
-          path: frontend/test-results
-          if-no-files-found: ignore
 
       - name: Upload macOS cleanroom failures
         if: failure() && runner.os == 'macOS'

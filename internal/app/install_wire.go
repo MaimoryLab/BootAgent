@@ -39,11 +39,12 @@ func (r AgentInstallResult) MarshalJSON() ([]byte, error) {
 			document.Set("registry", r.Registry)
 		}
 	}
-	if r.Status == "failed" {
+	switch r.Status {
+	case "failed":
 		document.Set("code", r.Code)
 		document.Set("error_code", r.ErrorCode)
 		document.Set("message", r.Message)
-	} else if r.Status == "guide-only" {
+	case "guide-only":
 		document.Set("message", r.Message)
 	}
 	document.Set("retryable", r.Retryable)

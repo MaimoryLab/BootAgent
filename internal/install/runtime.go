@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"time"
 
 	"github.com/MaimoryLab/OneAgent/internal/platform"
@@ -53,9 +54,7 @@ func (r Runtime) command(ctx context.Context, argv []string, env map[string]stri
 		return process.Result{Args: append([]string(nil), argv...), ExitCode: -1}, fmt.Errorf("process runner is not configured")
 	}
 	overrides := cloneEnv(r.Env)
-	for key, value := range env {
-		overrides[key] = value
-	}
+	maps.Copy(overrides, env)
 	result, err := r.Runner.Run(ctx, argv, overrides, timeout)
 	if err == nil {
 		return result, nil
@@ -78,8 +77,6 @@ func cloneEnv(source map[string]string) map[string]string {
 		return map[string]string{}
 	}
 	result := make(map[string]string, len(source))
-	for key, value := range source {
-		result[key] = value
-	}
+	maps.Copy(result, source)
 	return result
 }

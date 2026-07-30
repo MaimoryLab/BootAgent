@@ -1,131 +1,11 @@
+import type * as AppModels from "../../bindings/github.com/MaimoryLab/OneAgent/internal/app/models.js";
+import type * as BindingModels from "../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/models.js";
+import type * as CatalogModels from "../../bindings/github.com/MaimoryLab/OneAgent/internal/catalog/models.js";
+import type * as PlatformModels from "../../bindings/github.com/MaimoryLab/OneAgent/internal/platform/models.js";
+
 export type PlatformId = "macos" | "windows" | "linux";
 export type AgentGroupId = "auto" | "gateway" | "platform" | "ide";
 export type ProviderId = "ppio" | "novita" | "custom";
-
-export interface AgentCatalogItem {
-  id: string;
-  name: string;
-  group: AgentGroupId;
-  configMode: "auto" | "guide";
-  guideOnly: boolean;
-  lockedVersion: string | null;
-  /** Inference protocol this Agent speaks; null for guide-only Agents. */
-  protocol: ProtocolId | null;
-  platforms: PlatformId[];
-  platformNote: string;
-  /** Display prominence; lower sorts first. Independent of configMode. */
-  rank: number;
-}
-
-export interface AgentStatus {
-  installed: boolean;
-  configured: boolean;
-  guideOnly: boolean;
-  config: string;
-  version: string | null;
-  lockedVersion: string | null;
-  canInstall: boolean;
-  /** What this Agent is pointed at. Null until it has been configured once. */
-  provider: string | null;
-  model: string | null;
-  baseUrl: string | null;
-  updatedAt: string | null;
-  /**
-   * What the Agent's own config file says, read from disk.
-   *
-   * Alongside the fields above rather than instead of them: those come from
-   * OneAgent's own record and only exist for configurations it wrote, so a
-   * disagreement between the two means the config changed outside OneAgent —
-   * which is itself worth showing. Null for a guide-only Agent, or when there is
-   * no config file yet. Carries no credential, by design.
-   */
-  detected: DetectedConfig | null;
-}
-
-export interface DetectedConfig {
-  baseUrl: string;
-  model: string;
-  /** Whether the file carries the markers OneAgent's own writes leave behind. */
-  managedByOneAgent: boolean;
-  /** Why the file could not be read, when it could not be. */
-  unreadable: string | null;
-}
-
-export interface ActivateAgentResponse {
-  ok: boolean;
-  agent: string;
-  config: string;
-  provider: string;
-  model: string;
-  /** How to make the rewritten config take effect; Agents read it at startup. */
-  restart: string;
-  next: string;
-}
-
-export interface OpenRegistrationResponse {
-  ok: boolean;
-  url: string;
-  message: string;
-}
-
-export interface EnvironmentProfile {
-  schema_version: number;
-  id?: string;
-  label?: string;
-  provider: string;
-  base_url: string | null;
-  model: string | null;
-  config_mode: "provider" | "existing-account";
-  agent_ids: string[];
-  activated_at: string;
-  created_at?: string;
-}
-
-export interface ProfileSummary {
-  id: string;
-  label: string;
-  provider: string;
-  baseUrl: string | null;
-  model: string | null;
-  agentIds: string[];
-  activatedAt: string | null;
-  hasKey: boolean;
-}
-
-export interface StatusResponse {
-  apiVersion: number;
-  platform: { os: PlatformId; arch: string; shell: string };
-  capabilities: {
-    canInstall: Record<string, boolean>;
-    supportedAgentIds: string[];
-  };
-  agents: Record<string, AgentStatus>;
-  catalog: AgentCatalogItem[];
-  groups: Array<{ id: AgentGroupId; name: string }>;
-  providers: Record<string, { name: string; home: string; base_url: string; anthropic_base_url?: string }>;
-  /**
-   * Package registries the user may install from. The official one is the
-   * default; a mirror is only ever an explicit choice, and `upstream` is carried
-   * so the UI can show where a package ultimately comes from.
-   */
-  mirrors: Array<{ id: string; name: string; registry: string; upstream: string; note: string }>;
-  paths: Record<string, string>;
-  backups: Record<string, boolean>;
-  environment: EnvironmentProfile | null;
-  environmentError: string | null;
-  profiles: ProfileSummary[];
-  activeProfile: string | null;
-}
-
-export interface ApiErrorShape {
-  ok: false;
-  error: string;
-  message: string;
-  status: number;
-  error_code: string;
-  retryable: boolean;
-}
-
 export type ProtocolId = "openai" | "anthropic" | "responses";
 
 export const PROTOCOL_LABELS: Record<ProtocolId, string> = {
@@ -134,68 +14,84 @@ export const PROTOCOL_LABELS: Record<ProtocolId, string> = {
   responses: "OpenAI Responses",
 };
 
-export interface ProbeResponse {
-  ok: boolean;
-  reachable: boolean;
-  status: number;
-  message: string;
-  error_code: string | null;
-  retryable: boolean;
-  /** Which protocol this result describes. Absent on pre-protocol responses. */
-  protocol?: ProtocolId;
-  /** One entry per protocol the selected Agents speak. */
-  protocols?: Partial<Record<ProtocolId, ProbeResponse>>;
-}
+// The generated models are the backend DTO source of truth. These aliases only
+// narrow catalog-controlled strings and non-null successful responses for UI use.
+export type AgentCatalogItem = Omit<CatalogModels.CatalogItem, "group" | "configMode" | "protocol" | "platforms"> & {
+  group: AgentGroupId;
+  configMode: "auto" | "guide";
+  protocol: ProtocolId | null;
+  platforms: PlatformId[];
+};
 
-export interface ModelsResponse extends ProbeResponse {
+export type AgentStatus = AppModels.AgentStatus;
+export type DetectedConfig = AppModels.DetectedConfig;
+export type ActivateAgentResponse = BindingModels.ActivateResponse;
+export type OpenRegistrationResponse = BindingModels.OpenRegistrationResponse;
+export type ProfileSummary = Omit<AppModels.ProfileSummary, "agentIds"> & { agentIds: string[] };
+
+export type StatusResponse = Omit<
+  AppModels.StatusResponse,
+  "platform" | "capabilities" | "agents" | "catalog" | "groups" | "providers" | "mirrors" | "paths" | "backups" | "profiles"
+> & {
+  platform: Omit<PlatformModels.Info, "os"> & { os: PlatformId };
+  capabilities: Omit<AppModels.Capabilities, "canInstall" | "supportedAgentIds"> & {
+    canInstall: Record<string, boolean>;
+    supportedAgentIds: string[];
+  };
+  agents: Record<string, AgentStatus>;
+  catalog: AgentCatalogItem[];
+  groups: Array<Omit<CatalogModels.Group, "id"> & { id: AgentGroupId }>;
+  providers: Record<string, CatalogModels.Provider>;
+  mirrors: CatalogModels.Mirror[];
+  paths: Record<string, string>;
+  backups: Record<string, boolean>;
+  profiles: ProfileSummary[];
+};
+
+export type ProbeResponse = Omit<BindingModels.ProbeResponse, "protocol" | "protocols"> & {
+  protocol?: ProtocolId;
+  protocols?: Partial<Record<ProtocolId, ProbeResponse>>;
+};
+
+export type ModelsResponse = Omit<BindingModels.ModelsResponse, "models" | "protocol" | "protocols"> & ProbeResponse & {
   models: string[];
-}
+};
 
 export type AgentResultStatus = "configured" | "guide-only" | "installed" | "skipped" | "failed";
 
-export interface AgentInstallResult {
-  agent: string;
+export type AgentInstallResult = Omit<
+  BindingModels.AgentInstallResult,
+  "status" | "config" | "installed" | "version" | "lockedVersion" | "registry" | "code" | "error_code" | "message"
+> & {
   status: AgentResultStatus;
+  config?: string;
   installed?: boolean;
   version?: string | null;
   lockedVersion?: string | null;
-  config?: string;
+  registry?: string;
   code?: number;
   error_code?: string;
   message?: string;
-  retryable: boolean;
-}
+};
 
-export interface InstallResponse {
-  ok: boolean;
-  code: number;
+export type InstallResponse = Omit<BindingModels.InstallResponse, "results" | "probe" | "probes"> & {
   results: AgentInstallResult[];
-  log: string;
-  next: string;
   probe: ProbeResponse | null;
   probes?: Partial<Record<ProtocolId, ProbeResponse>>;
-}
+};
 
-export interface ProviderInput {
+export type InstallRequest = Pick<
+  BindingModels.InstallRequest,
+  "api_key" | "model" | "configure" | "install_agent" | "skip_test"
+> & {
+  agents: string[];
   provider: ProviderId;
   api_base_url?: string;
-  api_key: string;
-}
-
-export interface InstallRequest extends ProviderInput {
-  agents: string[];
-  model: string;
-  /** Claude Code only: a cheaper model for fast/background work. Empty follows
-   *  `model`; the backend ignores it for every other adapter. */
   small_fast_model?: string;
-  configure: boolean;
-  install_agent: boolean;
-  skip_test: boolean;
   locked_version?: boolean;
   latest?: boolean;
   profile_agents?: string[];
-  /** Mirror id or https:// URL. Omit for the official registry. */
   registry?: string;
   profile_id?: string;
   timeout?: number;
-}
+};

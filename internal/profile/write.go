@@ -362,7 +362,7 @@ func parseSecret(content, osID string) string {
 	if osID == "windows" {
 		prefix = "$env:ONEAGENT_API_KEY = "
 	}
-	for _, line := range strings.Split(content, "\n") {
+	for line := range strings.SplitSeq(content, "\n") {
 		line = strings.TrimSpace(line)
 		if !strings.HasPrefix(line, prefix) {
 			continue

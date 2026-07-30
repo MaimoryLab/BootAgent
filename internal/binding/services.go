@@ -52,13 +52,6 @@ func NewProviderService(core *app.UseCases, opener BrowserOpener) *ProviderServi
 	return &ProviderService{opener: opener, core: core}
 }
 
-func (s *ProviderService) ListProviders(ctx context.Context) (map[string]catalog.Provider, error) {
-	if err := contextError(ctx); err != nil {
-		return nil, err
-	}
-	return catalog.PublicProviders(), nil
-}
-
 func (s *ProviderService) Probe(ctx context.Context, request ProbeRequest) (ProbeResponse, error) {
 	if err := contextError(ctx); err != nil {
 		return ProbeResponse{}, err
@@ -414,35 +407,24 @@ func installResult(item app.AgentInstallResult) AgentInstallResult {
 	}
 	if item.Status == "configured" || item.Status == "skipped" || item.Status == "installed" {
 		if !item.IsCheckOnly() {
-			result.Config = stringPointer(item.Config)
+			result.Config = new(item.Config)
 		}
-		result.Installed = boolPointer(item.Installed)
+		result.Installed = new(item.Installed)
 		result.Version = nullableStringPointer(item.Version)
 		result.LockedVersion = nullableStringPointer(item.LockedVersion)
 		if item.Registry != "" {
-			result.Registry = stringPointer(item.Registry)
+			result.Registry = new(item.Registry)
 		}
 	}
-	if item.Status == "failed" {
-		result.Code = intPointer(item.Code)
-		result.ErrorCode = stringPointer(item.ErrorCode)
-		result.Message = stringPointer(item.Message)
-	} else if item.Status == "guide-only" {
-		result.Message = stringPointer(item.Message)
+	switch item.Status {
+	case "failed":
+		result.Code = new(item.Code)
+		result.ErrorCode = new(item.ErrorCode)
+		result.Message = new(item.Message)
+	case "guide-only":
+		result.Message = new(item.Message)
 	}
 	return result
-}
-
-func stringPointer(value string) *string {
-	return &value
-}
-
-func boolPointer(value bool) *bool {
-	return &value
-}
-
-func intPointer(value int) *int {
-	return &value
 }
 
 func nullableStringPointer(value string) **string {

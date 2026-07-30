@@ -164,7 +164,7 @@ func mergeCodexTOML(existing, managed, path string) (string, error) {
 	managedFound := false
 	inTable := false
 	skipManaged := false
-	for _, line := range strings.Split(existing, "\n") {
+	for line := range strings.SplitSeq(existing, "\n") {
 		stripped := strings.TrimSpace(line)
 		if strings.HasPrefix(stripped, "[") {
 			header := strings.ReplaceAll(strings.TrimSpace(strings.SplitN(stripped, "#", 2)[0]), " ", "")

@@ -2,7 +2,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import type { PropsWithChildren } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { api } from "../api/client";
+import { api } from "../backend/api";
 import type { StatusResponse } from "../types/api";
 import { useWizard, WizardProvider } from "./WizardContext";
 

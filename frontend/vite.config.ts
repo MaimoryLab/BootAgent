@@ -21,10 +21,9 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       reporter: ["text", "json-summary"],
-      // src/backend is the Wails-era transport adapter and carries the same
-      // coverage obligation as the HTTP client it will replace.
+      // The maintained binding adapter and UI state stay covered; browser E2E
+      // moves to the Wails server-build phase.
       include: [
-        "src/api/**/*.ts",
         "src/backend/**/*.ts",
         "src/state/**/*.ts",
         "src/state/**/*.tsx",

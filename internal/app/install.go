@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -277,10 +278,8 @@ func (u *UseCases) sharpenInstallModelDiagnosis(ctx context.Context, probes map[
 	if err != nil || !listing.OK || len(listing.Models) == 0 {
 		return
 	}
-	for _, model := range listing.Models {
-		if model == options.Model {
-			return
-		}
+	if slices.Contains(listing.Models, options.Model) {
+		return
 	}
 	sample := listing.Models
 	if len(sample) > 5 {

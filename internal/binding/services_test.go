@@ -43,15 +43,15 @@ func TestServiceMethodAllowlist(t *testing.T) {
 		want    []string
 	}{
 		{&StatusService{}, []string{"GetStatus"}},
-		{&ProviderService{}, []string{"ListModels", "ListProviders", "OpenRegistration", "Probe"}},
+		{&ProviderService{}, []string{"ListModels", "OpenRegistration", "Probe"}},
 		{&AgentService{}, []string{"Activate", "Install"}},
 		{&ProfileService{}, []string{"ListProfiles", "SaveProfile"}},
 	}
 	for _, test := range tests {
 		typeOf := reflect.TypeOf(test.service)
 		got := make([]string, 0, typeOf.NumMethod())
-		for index := 0; index < typeOf.NumMethod(); index++ {
-			got = append(got, typeOf.Method(index).Name)
+		for method := range typeOf.Methods() {
+			got = append(got, method.Name)
 		}
 		sort.Strings(got)
 		sort.Strings(test.want)
@@ -84,7 +84,7 @@ func TestOpenRegistrationUsesCatalogURLOnly(t *testing.T) {
 func TestServiceCancellationUsesStableTimeoutCode(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	_, err := (&ProviderService{}).ListProviders(ctx)
+	_, err := (&ProviderService{}).Probe(ctx, ProbeRequest{})
 	if err == nil || oneerrors.As(err).Code != oneerrors.Timeout {
 		t.Fatalf("cancellation error = %v", err)
 	}
