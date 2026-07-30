@@ -21,7 +21,14 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       reporter: ["text", "json-summary"],
-      include: ["src/api/**/*.ts", "src/state/**/*.ts", "src/state/**/*.tsx"],
+      // src/backend is the Wails-era transport adapter and carries the same
+      // coverage obligation as the HTTP client it will replace.
+      include: [
+        "src/api/**/*.ts",
+        "src/backend/**/*.ts",
+        "src/state/**/*.ts",
+        "src/state/**/*.tsx",
+      ],
       thresholds: {
         branches: 85,
         functions: 85,
