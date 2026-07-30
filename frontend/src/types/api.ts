@@ -167,6 +167,7 @@ export interface InstallResponse {
   log: string;
   next: string;
   probe: ProbeResponse | null;
+  probes?: Partial<Record<ProtocolId, ProbeResponse>>;
 }
 
 export interface ProviderInput {
@@ -189,4 +190,6 @@ export interface InstallRequest extends ProviderInput {
   profile_agents?: string[];
   /** Mirror id or https:// URL. Omit for the official registry. */
   registry?: string;
+  profile_id?: string;
+  timeout?: number;
 }

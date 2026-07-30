@@ -7,35 +7,10 @@ import type {
   ProviderId,
   StatusResponse,
 } from "../types/api";
+import { OneAgentApiError } from "../backend/errors";
 
-export class OneAgentApiError extends Error {
-  readonly code: string;
-  readonly retryable: boolean;
-  readonly status: number;
-
-  constructor(message: string, code: string, retryable: boolean, status: number) {
-    super(message);
-    this.name = "OneAgentApiError";
-    this.code = code;
-    this.retryable = retryable;
-    this.status = status;
-  }
-}
-
-export interface FailureDetail {
-  message: string;
-  code: string;
-  retryable: boolean;
-}
-
-/** Normalise any thrown value into the API error contract, so callers keep
- *  the backend's error_code/retryable instead of hard-coding replacements. */
-export function describeError(error: unknown, fallback: string): FailureDetail {
-  if (error instanceof OneAgentApiError) {
-    return { message: error.message, code: error.code, retryable: error.retryable };
-  }
-  return { message: error instanceof Error ? error.message : fallback, code: "INTERNAL_ERROR", retryable: true };
-}
+export { OneAgentApiError, describeError } from "../backend/errors";
+export type { FailureDetail } from "../backend/errors";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let response: Response;
