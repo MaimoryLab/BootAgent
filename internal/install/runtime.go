@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/MaimoryLab/OneAgent/internal/platform"
@@ -72,10 +71,6 @@ func (r Runtime) timeout(value time.Duration) time.Duration {
 		return value
 	}
 	return DefaultCommandTimeout
-}
-
-func (r Runtime) environmentValue(key string) string {
-	return strings.TrimSpace(r.Env[key])
 }
 
 func cloneEnv(source map[string]string) map[string]string {

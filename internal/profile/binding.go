@@ -155,14 +155,5 @@ func (s Store) WriteAgentBinding(ctx context.Context, agentID string, request Bi
 	if _, err := s.filesystem().AtomicWrite(ctx, path, data, false); err != nil {
 		return AgentBinding{}, err
 	}
-	return AgentBinding{
-		SchemaVersion: stored.SchemaVersion,
-		AgentID:       stored.AgentID,
-		Provider:      stored.Provider,
-		BaseURL:       stored.BaseURL,
-		Model:         stored.Model,
-		ProfileRef:    stored.ProfileRef,
-		CreatedAt:     stored.CreatedAt,
-		UpdatedAt:     stored.UpdatedAt,
-	}, nil
+	return AgentBinding(stored), nil
 }

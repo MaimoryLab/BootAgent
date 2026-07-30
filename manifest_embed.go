@@ -1,3 +1,6 @@
+// Package oneagent is the module root. It exists to embed the two asset trees
+// the CLI and desktop shell share: the Agent lock manifest and the built
+// frontend bundle.
 package oneagent
 
 import "embed"

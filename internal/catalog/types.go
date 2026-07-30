@@ -1,3 +1,6 @@
+// Package catalog parses the embedded agents.lock.json and projects it for the
+// desktop shell and the CLI. The lock file stays the only hand-edited Agent
+// source, so nothing here invents Agent metadata or provider URLs.
 package catalog
 
 type Manifest struct {
