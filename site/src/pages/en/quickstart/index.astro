@@ -1,0 +1,57 @@
+---
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { localePath } from "../../../i18n";
+---
+<BaseLayout
+  title="Quickstart — OneAgent"
+  description="From download to a first verified agent configuration with OneAgent."
+>
+  <header class="page-hero">
+    <div class="shell page-hero-grid">
+      <div>
+        <nav class="breadcrumb" aria-label="Breadcrumb"><a href={localePath("en", "")}>Home</a> / Quickstart</nav>
+        <p class="eyebrow">Six deliberate steps</p>
+        <h1 class="page-title">Succeed once, without reading every config file first.</h1>
+      </div>
+      <div class="page-hero-aside">
+        <strong>Goal</strong>
+        Configure one agent, one provider and one real model protocol — and know exactly what OneAgent wrote.
+      </div>
+    </div>
+  </header>
+  <section class="section-compact">
+    <div class="shell content-grid reveal">
+      <article class="prose">
+        <div class="notice notice-warning">
+          <span class="notice-mark">!</span><div><strong>This is an unsigned technical preview</strong><p>If your operating system blocks it from running, stop there and either wait for a signed build or use the supported from-source path in the repository docs. This page does not describe ways around your system's security policy.</p></div>
+        </div>
+        <h2 id="download">1. Download and verify</h2>
+        <p>Pick the artifact matching your platform and architecture from the download centre. Compute its SHA-256 before running anything, and compare it character by character with the value shown on that page.</p>
+        <h2 id="launch">2. Launch OneAgent</h2>
+        <p>Unpack and run it. The interface is served on your machine's loopback address, never exposed to your LAN or the internet, and the local service exits with the app.</p>
+        <h2 id="agent">3. Choose an agent</h2>
+        <p>Choose the tool you actually intend to use. Agents marked “official guide” still go through the flow, but OneAgent will not dress them up as automatically installed or configured.</p>
+        <h2 id="provider">4. Connect your own provider</h2>
+        <p>Choose a provider or a custom compatible endpoint, and use your own API key. OneAgent offers no shared key, builds no unified model gateway, and never bills you for model usage.</p>
+        <h2 id="probe">5. Test the real protocol</h2>
+        <p>A reachable model list does not mean the agent will work. OneAgent tests the connection using the protocol that agent actually speaks: OpenAI Chat Completions, Anthropic Messages, or OpenAI Responses.</p>
+        <h2 id="review">6. Review what was written</h2>
+        <p>The final page shows each agent's result, where its configuration lives and how to start it. Backups are taken before anything is modified, and errors surface immediately rather than at the agent's first request.</p>
+        <div class="notice notice-info">
+          <span class="notice-mark">i</span><div><strong>Where does the key go?</strong><p>Your key is written only to the local config or OneAgent environment file the target agent needs to work. It never reaches a OneAgent profile, log, screenshot or telemetry event.</p></div>
+        </div>
+        <h2 id="troubleshooting">If something goes wrong</h2>
+        <ul>
+          <li>Agent missing: install it from the official source shown on the page, never from an unverified mirror script.</li>
+          <li>Key rejected: check permissions and balance in the provider's own console. Do not paste the key into a chat or an issue.</li>
+          <li>Protocol mismatch: switch to a model that explicitly supports the agent's protocol, rather than only checking <code>/v1/models</code>.</li>
+          <li>Checksum mismatch: do not run the file. Keep the filename, the download URL and the hash you computed.</li>
+        </ul>
+        <p><a class="button button-primary" href={localePath("en", "downloads/")}>Go to the download centre</a></p>
+      </article>
+      <nav class="side-index" aria-label="On this page">
+        <a href="#download">1. Download and verify</a><a href="#launch">2. Launch</a><a href="#agent">3. Choose an agent</a><a href="#provider">4. Connect a provider</a><a href="#probe">5. Test the protocol</a><a href="#review">6. Review results</a><a href="#troubleshooting">Troubleshooting</a>
+      </nav>
+    </div>
+  </section>
+</BaseLayout>

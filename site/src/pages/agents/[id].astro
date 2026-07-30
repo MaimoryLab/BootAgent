@@ -2,7 +2,9 @@
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import AgentMark from "../../components/AgentMark.astro";
 import catalogData from "../../generated/catalog.json";
-import { agentDescriptions, groupLabels, platformLabels, protocolLabels } from "../../lib/content";
+import { platformLabels, protocolLabels } from "../../lib/content";
+import { localeFromPath } from "../../i18n";
+import { useCatalogLabels } from "../../i18n/catalog";
 import { supportLabels } from "../../lib/downloads";
 
 export function getStaticPaths() {
@@ -10,6 +12,7 @@ export function getStaticPaths() {
 }
 const { agent } = Astro.props as any;
 const labels = supportLabels(agent.support);
+const { agentDescriptions, groupLabels } = useCatalogLabels(localeFromPath(Astro.url.pathname));
 ---
 <BaseLayout title={`${agent.name} — OneAgent Agent 兼容目录`} description={agentDescriptions[agent.id] ?? `${agent.name} 在 OneAgent 中的安装、配置和协议支持状态。`}>
   <header class="page-hero">

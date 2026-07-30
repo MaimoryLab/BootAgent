@@ -1,12 +1,15 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import catalogData from "../../generated/catalog.json";
-import { protocolLabels, protocolStatusLabels } from "../../lib/content";
+import { protocolLabels } from "../../lib/content";
+import { localeFromPath } from "../../i18n";
+import { useCatalogLabels } from "../../i18n/catalog";
 
 export function getStaticPaths() {
   return (catalogData as any).providers.map((provider: any) => ({ params: { id: provider.id }, props: { provider } }));
 }
 const { provider } = Astro.props as any;
+const { protocolStatusLabels } = useCatalogLabels(localeFromPath(Astro.url.pathname));
 ---
 <BaseLayout title={`${provider.name} Provider — OneAgent`} description={`${provider.name} 在 OneAgent 中的公开协议接入和商业关系披露。`}>
   <header class="page-hero">

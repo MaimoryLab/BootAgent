@@ -1,0 +1,108 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import AgentMark from "../../components/AgentMark.astro";
+import HeroParticles from "../../components/HeroParticles.astro";
+import ProductShot from "../../components/ProductShot.astro";
+import releaseIndexData from "../../generated/release-index.json";
+import catalogData from "../../generated/catalog.json";
+import { protocolLabels } from "../../lib/content";
+import { bestLocaleFor, localePath } from "../../i18n";
+import { useCatalogLabels } from "../../i18n/catalog";
+import type { ReleaseChannel } from "../../lib/downloads";
+
+const releaseIndex = releaseIndexData as unknown as { channels: ReleaseChannel[] };
+const preview = releaseIndex.channels.find((channel) => channel.channel === "technical-preview-unsigned")!;
+const catalog = catalogData as any;
+const primaryAgents = catalog.agents.slice(0, 6);
+const available = preview.targets.find((target) => target.status === "available");
+const { agentDescriptions, groupLabels, agentFallbackDescription } = useCatalogLabels("en");
+const href = (path: string) => localePath("en", path);
+/* Untranslated destinations fall back to the Chinese page that exists — see
+   translatedRoutes in src/i18n/index.ts. */
+const zh = (path: string) => localePath(bestLocaleFor("en", path), path);
+---
+<BaseLayout>
+  <section class="hero">
+    <HeroParticles />
+    <div class="shell hero-copy">
+      <div>
+        <p class="eyebrow">Local-first · Bring your own key</p>
+        <h1 class="display">One entry point,<br /><em>your whole AI dev environment.</em></h1>
+      </div>
+      <div class="hero-side">
+        <p class="lede">OneAgent detects, installs and initialises the agents you already use. Your accounts, providers and API keys stay yours, and the configuration stays on your machine.</p>
+        <div class="hero-actions">
+          <a class="button button-primary" href={href("downloads/")}>Download OneAgent</a>
+          <a class="button button-secondary" href={href("quickstart/")}>Read the quickstart</a>
+        </div>
+        <p class="hero-note">{preview.version} · unsigned technical preview · currently {available?.platformLabel} {available?.archLabel}</p>
+      </div>
+    </div>
+    <ProductShot />
+  </section>
+
+  <section class="trust-strip" aria-label="Product boundary">
+    <div class="shell trust-grid">
+      <div class="trust-item"><strong>Runs locally</strong><span>Configuration and backups stay on your device</span></div>
+      <div class="trust-item"><strong>Your own key</strong><span>No shared keys, no unified gateway</span></div>
+      <div class="trust-item"><strong>One build</strong><span>Every channel serves the same SHA-256</span></div>
+      <div class="trust-item"><strong>Stated honestly</strong><span>An unsigned preview is never called stable</span></div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="shell reveal">
+      <div class="section-heading">
+        <div><p class="eyebrow">First success path</p><h2 class="section-title">From download to first success, with nothing in between.</h2></div>
+        <p>No OneAgent account to register, no key handed to a new intermediary, and no third-party agent bundled into the installer.</p>
+      </div>
+      <div class="steps">
+        <article class="step"><h3>Pick an agent</h3><p>Common tools come first, and agents that can only be installed the official way are still listed.</p></article>
+        <article class="step"><h3>Connect a provider</h3><p>Use your own provider account and key, verified against the real protocol before anything is written.</p></article>
+        <article class="step"><h3>Review what changed</h3><p>See the exact paths written, the backups taken and the next command to run. Failures surface as errors, not silent fallbacks.</p></article>
+      </div>
+    </div>
+  </section>
+
+  <section class="section section-muted">
+    <div class="shell reveal">
+      <div class="section-heading">
+        <div><p class="eyebrow">Compatibility, stated precisely</p><h2 class="section-title">“Supported” is not a single checkmark.</h2></div>
+        <p>Install, configuration and protocol are stated separately. Guide-only agents still go through the flow, but they are never described as OneAgent-managed.</p>
+      </div>
+      <div class="agent-list">
+        {primaryAgents.map((agent: any) => (
+          <a class="agent-row" href={zh(`agents/${agent.id}/`)}>
+            <AgentMark id={agent.id} name={agent.name} />
+            <div><strong>{agent.name}</strong><span class="agent-meta">{groupLabels[agent.group] ?? agent.group}</span></div>
+            <span class="agent-meta">{agentDescriptions[agent.id] ?? agentFallbackDescription}</span>
+            <div class="agent-status">
+              {agent.support.managedInstall ? <span class="chip chip-green">Managed install</span> : <span class="chip">Official guide</span>}
+              {agent.support.managedConfig ? <span class="chip chip-blue">Managed config</span> : <span class="chip">Official config</span>}
+              {agent.protocol && <span class="chip">{protocolLabels[agent.protocol]}</span>}
+            </div>
+          </a>
+        ))}
+      </div>
+      <div style="margin-top:28px"><a class="button button-secondary" href={zh("agents/")}>See all {catalog.agents.length} agents</a></div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="shell split-callout reveal">
+      <span class="callout-index">01 / TRUST</span>
+      <div class="callout-body">
+        <h2>Distribution is not putting one ZIP in more places. It is letting every place prove it is the same ZIP.</h2>
+        <p>Every published artifact carries its version, platform, architecture, size and SHA-256. This site, GitHub Releases, a file host or an internal drive may only serve the identical official build.</p>
+        <a class="button button-secondary" href={zh("security/")}>Read the security and release policy</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="cta-band">
+    <div class="shell cta-grid reveal">
+      <div><h2>Make one person's environment reliable, then standardise it across the team.</h2><p>Team enablement, environment baselines, internal mirrors and commercial support — without taking custody of your API keys.</p></div>
+      <a class="button button-secondary" href={zh("enterprise/")}>Explore enterprise</a>
+    </div>
+  </section>
+</BaseLayout>

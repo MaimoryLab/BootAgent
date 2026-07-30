@@ -34,7 +34,10 @@ function localTarget(href) {
 }
 
 walk(rootPath);
-for (const required of ["index.html", "downloads/index.html", "quickstart/index.html", "agents/index.html", "providers/index.html", "security/index.html", "release-index.json"]) {
+// The /en/ entries are listed for the same reason as the rest: a translated page
+// silently dropping out of the build is otherwise invisible, since the link
+// checker below only sees links that were actually emitted.
+for (const required of ["index.html", "downloads/index.html", "quickstart/index.html", "agents/index.html", "providers/index.html", "security/index.html", "release-index.json", "en/index.html", "en/downloads/index.html", "en/quickstart/index.html", "llms.txt", "site.webmanifest"]) {
   if (!existsSync(join(rootPath, required))) failures.push(`Missing required output: ${required}`);
 }
 
@@ -52,6 +55,20 @@ for (const path of htmlFiles) {
   else if (!new URL(socialImage).pathname.startsWith(`${configuredBasePrefix}images/`)) failures.push(`${label} has an Open Graph image outside the base path: ${socialImage}`);
   if (/<script[^>]+src=["']https?:\/\//i.test(text) || /<img[^>]+src=["']https?:\/\//i.test(text) || /<link[^>]+rel=["']stylesheet["'][^>]+href=["']https?:\/\//i.test(text)) failures.push(`${label} loads a remote script, image, or stylesheet`);
   if (/sk-[A-Za-z0-9_-]{20,}/.test(text)) failures.push(`${label} appears to contain an API key`);
+  // A page's declared language has to match the directory it was emitted into,
+  // and any hreflang set has to be reciprocal and carry an x-default. Neither is
+  // visible to the link check below, which only sees hrefs.
+  const declaredLang = text.match(/<html lang="([^"]+)"/)?.[1];
+  const expectedLang = label.startsWith("en/") || label === "en.html" ? "en" : "zh-CN";
+  if (!declaredLang) failures.push(`${label} is missing a lang attribute`);
+  else if (declaredLang !== expectedLang) failures.push(`${label} declares lang="${declaredLang}" but sits under ${expectedLang}`);
+  const alternates = [...text.matchAll(/<link rel="alternate" hreflang="([^"]+)"/g)].map(([, code]) => code);
+  if (alternates.length && !alternates.includes("x-default")) {
+    failures.push(`${label} declares hreflang alternates without an x-default`);
+  }
+  if (alternates.length && !(alternates.includes("en") && alternates.includes("zh-CN"))) {
+    failures.push(`${label} declares an incomplete hreflang set: ${alternates.join(", ")}`);
+  }
   const matches = text.matchAll(/(?:href|src)="([^"]+)"/g);
   for (const [, href] of matches) {
     if (configuredBase && href.startsWith("/") && !href.startsWith(configuredBasePrefix) && !href.startsWith("//")) {

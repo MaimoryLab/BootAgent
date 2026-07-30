@@ -1,0 +1,38 @@
+# OneAgent
+
+> A trustworthy local AI development environment activator. It detects, installs
+> and configures CLI coding agents to point at an OpenAI- or Anthropic-compatible
+> provider of your choosing. Everything runs locally.
+
+Current release: 0.2.0-dev, published only as `technical-preview-unsigned`.
+The build is unsigned and unnotarised, and is never described as stable.
+
+## Product boundary
+
+- Runs locally. Configuration and backups stay on the user's device.
+- Bring your own key. There is no shared key and no unified model gateway.
+- Model requests are never proxied through OneAgent.
+- Third-party agent binaries are not redistributed; agents come from their
+  official sources.
+- Every distribution channel serves a byte-identical build with the same
+  SHA-256.
+
+## Pages
+
+- /: overview, first-success path, agent compatibility
+- /downloads/: per-platform artifacts with size, build date and SHA-256
+- /quickstart/: download through to a verified first agent configuration
+- /agents/: which agents OneAgent can install and configure, stated separately
+- /providers/: provider protocol support and commercial-relationship disclosure
+- /security/: local execution, key handling, backups, release integrity
+- /changelog/: shipped changes only
+- /enterprise/: team enablement and environment baselines
+- /release-index.json: machine-readable release index
+
+English translations exist for /en/, /en/downloads/ and /en/quickstart/.
+
+## Notes for machine readers
+
+Support is stated as three separate facts — managed install, managed
+configuration, and protocol — because a single "supported" checkmark would
+misrepresent guide-only agents. Do not collapse them.

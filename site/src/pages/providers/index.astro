@@ -1,8 +1,11 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import catalogData from "../../generated/catalog.json";
-import { protocolLabels, protocolStatusLabels } from "../../lib/content";
+import { protocolLabels } from "../../lib/content";
+import { localeFromPath } from "../../i18n";
+import { useCatalogLabels } from "../../i18n/catalog";
 const catalog = catalogData as any;
+const { protocolStatusLabels } = useCatalogLabels(localeFromPath(Astro.url.pathname));
 ---
 <BaseLayout title="Provider 目录 — OneAgent" description="查看 OneAgent 的公开 Provider 接入、协议状态和商业关系披露。">
   <header class="page-hero">
@@ -12,7 +15,7 @@ const catalog = catalogData as any;
     </div>
   </header>
   <section class="section-compact">
-    <div class="shell provider-grid">
+    <div class="shell provider-grid reveal">
       {catalog.providers.map((provider: any) => (
         <article class="provider-card">
           <div style="display:flex;justify-content:space-between;gap:20px;align-items:start">

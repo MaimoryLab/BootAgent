@@ -1,0 +1,36 @@
+---
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import DownloadSelector from "../../../components/DownloadSelector.astro";
+import { localePath } from "../../../i18n";
+---
+<BaseLayout
+  title="Download OneAgent — unsigned technical preview"
+  description="Download the OneAgent technical preview, published with a manifest, SHA-256 and native cleanroom evidence."
+>
+  <header class="page-hero">
+    <div class="shell page-hero-grid">
+      <div>
+        <nav class="breadcrumb" aria-label="Breadcrumb"><a href={localePath("en", "")}>Home</a> / Downloads</nav>
+        <p class="eyebrow">Download center</p>
+        <h1 class="page-title">See exactly what it is, before you run it.</h1>
+      </div>
+      <div class="page-hero-aside">
+        <strong>No OneAgent account required</strong>
+        Pick the artifact matching your device, check the version, signing status and SHA-256, then start the local activation flow.
+      </div>
+    </div>
+  </header>
+  <section class="section-compact">
+    <div class="shell"><DownloadSelector /></div>
+  </section>
+  <section class="section section-muted">
+    <div class="narrow prose">
+      <p class="eyebrow">Integrity</p>
+      <h2 class="section-title">Why does a download page have to show the SHA-256?</h2>
+      <p>A distribution channel is a mirror; it has no business changing the package. For a given version, the file on this site, on GitHub Releases, on a file host and on an internal drive must all carry the identical SHA-256. A channel may not append promotional files, swap the install script, or re-sign the build.</p>
+      <p>If the value you compute does not match the page, do not run the file. Report the download URL, the filename and the hash you actually got through the support page.</p>
+      <h3>Why is this not called stable?</h3>
+      <p>The current technical preview has neither macOS Developer ID notarisation nor Windows Authenticode. OneAgent does not paper over that by asking you to weaken your operating system's security policy. Each platform enters stable on its own, once signing, notarisation and native verification are all done.</p>
+    </div>
+  </section>
+</BaseLayout>
