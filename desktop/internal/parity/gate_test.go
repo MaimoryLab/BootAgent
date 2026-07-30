@@ -8,6 +8,7 @@
 package parity
 
 import (
+	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -97,28 +98,44 @@ func TestEveryParityTestIsNamedSoTheCIFilterFindsIt(t *testing.T) {
 func TestNoParityFileEscapesTheDeclaredList(t *testing.T) {
 	// A parity file nobody declared is as much a gap as a deleted one: it looks
 	// covered, and the count above would not notice if it lost its tests.
-	root := internalDir(t)
-	entries, err := os.ReadDir(root)
-	if err != nil {
-		t.Fatalf("cannot read %s: %v", root, err)
-	}
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
+	//
+	// Walks the whole module rather than the immediate children of internal/. The
+	// first version read one level of internal/, so a parity file under cmd/ -- or
+	// nested any deeper -- was invisible to this check, which is the same shape of
+	// hole the gate exists to close.
+	root := filepath.Dir(internalDir(t))
+	for _, relative := range parityFilesUnder(t, root) {
+		if _, declared := expected[relative]; !declared {
+			t.Errorf("%s carries parity tests but is not in the declared list", relative)
 		}
-		files, err := os.ReadDir(filepath.Join(root, entry.Name()))
+	}
+}
+
+// parityFilesUnder lists every file carrying parity tests, relative to internal/
+// so the paths match the declared list.
+func parityFilesUnder(t *testing.T, root string) []string {
+	t.Helper()
+	found := []string{}
+	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
 		if err != nil {
-			continue
+			return err
 		}
-		for _, file := range files {
-			name := file.Name()
-			if !strings.Contains(name, "parity") || !strings.HasSuffix(name, "_test.go") {
-				continue
-			}
-			relative := filepath.Join(entry.Name(), name)
-			if _, declared := expected[relative]; !declared {
-				t.Errorf("%s carries parity tests but is not in the declared list", relative)
-			}
+		if entry.IsDir() {
+			return nil
 		}
+		name := entry.Name()
+		if !strings.Contains(name, "parity") || !strings.HasSuffix(name, "_test.go") {
+			return nil
+		}
+		relative, err := filepath.Rel(filepath.Join(root, "internal"), path)
+		if err != nil {
+			return err
+		}
+		found = append(found, relative)
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("cannot walk %s: %v", root, err)
 	}
+	return found
 }

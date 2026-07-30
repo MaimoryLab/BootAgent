@@ -545,6 +545,40 @@ class LockIsTheSourceOfTruthTests(unittest.TestCase):
         self.assertNotIn("'claude-code'", source)
 
 
+class UserFacingClaimsMatchTheLockTests(unittest.TestCase):
+    """What the UI promises about installation has to be what the lock permits.
+
+    A browser review found the Agent selection page telling the user OneAgent only
+    calls "official npm or pip packages" while no implementation has ever accepted
+    pip: the manifest allows npm and uv, both cores dispatch on those two, and the
+    policy test above enforces it. The copy was the only place pip appeared, so
+    nothing failed -- the user was simply told something untrue about how software
+    reaches their machine, which is the one claim this product exists to be precise
+    about.
+    """
+
+    def test_the_install_toggle_names_the_managers_the_lock_actually_allows(self):
+        manifest = load_manifest()
+        allowed = {
+            str(meta["package"]["manager"])
+            for meta in manifest["agents"].values()
+            if meta.get("package")
+        }
+        self.assertTrue(allowed, "the lock declares no package managers")
+
+        page = (ROOT / "frontend" / "src" / "pages" / "AgentSelectionPage.tsx").read_text(encoding="utf-8")
+        claim = [line for line in page.splitlines() if "lock manifest" in line]
+        self.assertEqual(len(claim), 1, "expected exactly one sentence describing what gets installed")
+        sentence = claim[0]
+
+        for manager in sorted(allowed):
+            self.assertIn(manager, sentence, f"the copy does not mention {manager}, which the lock uses")
+        # And it must not name a manager nothing can install from. Checked against
+        # the ecosystems a reader would recognise rather than a free-text scan.
+        for absent in {"pip", "pipx", "brew", "cargo", "go install", "apt", "conda"} - allowed:
+            self.assertNotIn(absent, sentence, f"the copy promises {absent}, which no implementation accepts")
+
+
 class GoModuleNoticeTests(unittest.TestCase):
     """Every Go dependency is named in the notices with its license text.
 

@@ -108,7 +108,11 @@ export function ProviderKeyPage() {
           </div>
         )}
 
-        <SecureKeyField value={secret.keyRef.current} onChange={secret.setApiKey} />
+        <SecureKeyField
+          initialValue={secret.keyRef.current}
+          onChange={secret.setApiKey}
+          register={secret.registerField}
+        />
 
         <div className="connection-row">
           <button className="button button-secondary" type="button" onClick={() => void testConnection()} disabled={!canProbe || state.connectionState === "loading"}>

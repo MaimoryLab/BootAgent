@@ -59,7 +59,7 @@ desktop/
     profile/       ✓ 阶段 4  profile 存储、密钥文件、Agent binding
     app/           ✓ 阶段 4  use case，桌面与 CLI 共用；共享写锁
   cmd/
-    oneagent/          纯 Go CLI，不链接 Wails/GTK
+    oneagent/          ✓ 纯 Go CLI，不链接 Wails/GTK（阶段 4 末补齐）
     oneagent-desktop/   阶段 5  Wails 外壳
     oneagent-release/   阶段 6
 ```

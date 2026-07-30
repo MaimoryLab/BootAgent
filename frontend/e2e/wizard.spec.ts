@@ -184,6 +184,14 @@ for (const viewport of [
     // The endpoint note must aggregate the protocols of the selected Agents.
     await expect(page.getByText(/Anthropic Messages \+ OpenAI Chat Completions \+ OpenAI Responses/)).toBeVisible();
     await page.getByLabel("API Key").fill("sentinel-browser-secret");
+    // Checked here, while the field is still mounted and holding the key. The
+    // assertion further down runs on the result page, where the field has already
+    // unmounted -- so it passed while the key was in the markup of this step. A
+    // browser review found exactly that: the field mirrored the key into React
+    // state, which made it a controlled input, and React writes a controlled
+    // input's value through to the DOM as an attribute.
+    expect(await page.content()).not.toContain("sentinel-browser-secret");
+    expect(await page.getByLabel("API Key").evaluate((node) => node.hasAttribute("value"))).toBe(false);
     await page.getByRole("button", { name: "测试连接" }).click();
     await expect(page.getByText("连接测试通过")).toBeVisible();
     await page.screenshot({ path: testInfo.outputPath(`03-provider-${viewport.label}.png`) });

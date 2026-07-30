@@ -1,5 +1,5 @@
 import { FlaskConical } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import { api, describeError } from "../api/client";
@@ -25,7 +25,12 @@ export function AgentDetailPage() {
 
   const [provider, setProvider] = useState<ProviderId>((agent?.provider as ProviderId) || "ppio");
   const [customBaseUrl, setCustomBaseUrl] = useState(agent?.provider === "custom" ? agent.baseUrl || "" : "");
-  const [apiKey, setApiKey] = useState("");
+  // A ref, not state: the key must not enter React state, and the field it comes
+  // from is uncontrolled so the DOM node holds the only copy. hasKey drives the
+  // buttons that need to know whether something was typed.
+  const apiKeyRef = useRef("");
+  const [hasKey, setHasKey] = useState(false);
+  const keyFieldRef = useRef<HTMLInputElement | null>(null);
   const [model, setModel] = useState(agent?.model || "");
   const [smallFastModel, setSmallFastModel] = useState("");
   const [probe, setProbe] = useState<ProbeResponse | null>(null);
@@ -33,9 +38,7 @@ export function AgentDetailPage() {
   const [applying, setApplying] = useState(false);
   const [applied, setApplied] = useState<{ restart: string; next: string } | null>(null);
   const [failure, setFailure] = useState("");
-  // SecureKeyField echoes from its own state by design, so clearing the value
-  // cannot clear the field; remounting it does.
-  const [keyFieldId, setKeyFieldId] = useState(0);
+
 
   if (!status || !agent || !catalog || catalog.configMode !== "auto") {
     return (
@@ -61,7 +64,7 @@ export function AgentDetailPage() {
     agent.detected && !agent.detected.managedByOneAgent && !agent.detected.unreadable
       ? agent.detected
       : null;
-  const canProbe = Boolean(apiKey) && (provider !== "custom" || Boolean(customBaseUrl.trim()));
+  const canProbe = hasKey && (provider !== "custom" || Boolean(customBaseUrl.trim()));
   const canApply = canProbe && probeState === "success" && !applying;
 
   const resetVerdict = () => {
@@ -78,7 +81,7 @@ export function AgentDetailPage() {
       const result = await api.probe({
         provider,
         apiBaseUrl: provider === "custom" ? customBaseUrl : "",
-        apiKey,
+        apiKey: apiKeyRef.current,
         model,
         agents: [agentId],
       });
@@ -97,14 +100,19 @@ export function AgentDetailPage() {
       const result = await api.activateAgent(agentId, {
         provider,
         apiBaseUrl: provider === "custom" ? customBaseUrl : "",
-        apiKey,
+        apiKey: apiKeyRef.current,
         model,
         profileId: params.get("profile") || undefined,
         smallFastModel,
       });
       setApplied({ restart: result.restart, next: result.next });
-      setApiKey("");
-      setKeyFieldId((value) => value + 1);
+      // Clearing the ref is not enough: the characters are in the DOM node, so
+      // the field itself has to be emptied or the key stays on screen.
+      apiKeyRef.current = "";
+      if (keyFieldRef.current) {
+        keyFieldRef.current.value = "";
+      }
+      setHasKey(false);
       setProbeState("idle");
       setProbe(null);
       void refreshStatus();
@@ -188,11 +196,13 @@ export function AgentDetailPage() {
           </div>
         ) : null}
         <SecureKeyField
-          key={keyFieldId}
-          value={apiKey}
           onChange={(value) => {
-            setApiKey(value);
+            apiKeyRef.current = value;
+            setHasKey(Boolean(value));
             resetVerdict();
+          }}
+          register={(node) => {
+            keyFieldRef.current = node;
           }}
         />
 

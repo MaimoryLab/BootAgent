@@ -21,14 +21,14 @@ covering 13 commits，从 `6899cf1`（关闭自动 CI）到 `0794918`。
 全部数字用 `go test -json` 逐条计数得出，不再手工累加——**曾经写的「807 用例」是错的**。审查指出它时我的第一反应是去核对而不是解释，因为「106 不是 111」用的就是同一把尺子。
 
 ```
-Go 源码 6606 行，测试 11482 行
-测试 387 个顶层用例 / 740 个含子测试
+Go 源码 6887 行，测试 11779 行（含 cmd/oneagent）
+测试 396 个顶层用例 / 759 个含子测试
 跨语言门禁 14 个文件、58 个顶层用例、240 个逐输入子测试
   config 151 项（配置与 env 文件逐字节）、app 27 项（整个响应 + 全部落盘文件）
   catalog 14、install 14、profile 14（逐字节）、securefs 13（原子写次序）、runtime 7
-整体覆盖 88.3%（逐包见下表），go test -race 干净
-Python 248 用例（新增 3 个回归测试），installer.py 100% 分支 0 partial
-前端 78 单测 + 20 e2e（新增 5 个对比度测试）
+整体覆盖 88.0%（逐包见下表），go test -race 干净
+Python 249 用例（新增 4 个回归测试），installer.py 100% 分支 0 partial
+前端 81 单测 + 20 e2e（新增 3 个密钥泄漏测试）
 ```
 
 `go test -json` 的计数命令记在 [执行计划 §4.6](wails-migration-execution.md)，下次报数直接跑，不再凭记忆。
@@ -45,6 +45,7 @@ Python 248 用例（新增 3 个回归测试），installer.py 100% 分支 0 par
 | `shellquote` | 87.5% | `shlex.quote`/`split` 与 PowerShell 引用 |
 | `securefs` | 86.5% | 七步原子写、备份、权限、Windows ACL |
 | `app` | 86.2% | 编排：install/activate/status，共享写锁 |
+| `cmd/oneagent` | 83.7% | 纯 Go CLI，不链接 Wails/GTK |
 | `jsonorder` | 83.3% | 保序 JSON，复刻 `json.dumps` |
 | `profile` | 82.9% | profile 存储、密钥文件、Agent binding |
 
@@ -241,7 +242,63 @@ ADR-008 承诺的并发面。**先证明危险真实存在再写锁**：把读�
 
 延迟注入点也踩了一次：先用 securefs 的 clock（本来就是注入点），但 clock 是在**给备份命名时**读的，那发生在合并读之后——延迟落在了危险窗口之外。
 
-## 8. 我在过程中出错的地方
+## 8. 真实运行审查（两个实现同时跑）
+
+前面所有比对都在测试进程里。这一轮把两个实现**当成产品跑起来**:Go 侧先补 `cmd/oneagent`（在此之前 Go 内核从未被执行过），Python 侧起 GUI 用 Chromium 驱动。
+
+### 8.1 同一请求，两个实现，10 个文件逐字节一致
+
+```
+/tmp/oneagent-go --agent codex,claude-code --api-key ... --skip-test --home <A>
+python3.12 -m oneagent.cli   --agent codex,claude-code --api-key ... --skip-test   (HOME=<B>)
+→ 10 个文件，0 处差异（时间戳归一化后）
+→ status payload 14 个顶层键，0 处差异
+→ 8 种失败情形退出码全部相同
+```
+
+磁盘上的实测:全部文件 0600、全部目录 0700,密钥只出现在**必须**持有它的 5 个文件里,`profile.json`、`profiles/*.json`、`agents/*.json` 均无。Codex 配置以 `env_key` 引用变量名而非内嵌密钥。
+
+Aider 的 shell 脚本用真实 `sh` source 后读回 `sk-aider'quoted` 原样——`'"'"'` 转义两侧字节一致且真的可用。
+
+### 8.2 用户可见文案承诺了一个不存在的包管理器（已修）
+
+Agent 选择页写着「仅调用 lock manifest 中允许的官方 npm 或 **pip** 包」。而 manifest 只允许 npm 与 uv,两个内核都只 dispatch 这两个,`test_release_policy` 也只断言这两个——**pip 只存在于这句文案里**。
+
+没有任何测试失败,因为没有测试把文案和 manifest 联系起来。用户被告知的是软件如何进入自己机器的方式,而这恰恰是这个产品唯一必须精确的声明。已加门禁:文案必须提到 lock 里实际使用的每个管理器,且不得提到任何实现不接受的管理器。
+
+### 8.3 API Key 进入了 React state 与 DOM 属性（已修）
+
+`SecureKeyField` 把 Key 镜像进本地 `useState` 以便逐键回显。后果有三层,我在浏览器里逐层证实:
+
+```
+React fiber hook state         → 持有完整 Key
+input 的 value 属性（React 写入）→ 持有完整 Key
+document.outerHTML             → 因此包含明文 Key
+```
+
+`CLAUDE.md` 写明「API Key 不进 React state、浏览器存储」。reducer 确实干净(Key 在 ref 里),但**字段自己留了一份副本**,所以 `clearApiKey()` 清不掉它:装完之后 Key 还留在屏幕上,离开页面再回来仍在。`AgentDetailPage` 用变更 `key` 强制 remount 绕过了这个问题,`ProviderKeyPage` 没有——两处都没有测试。
+
+改成非受控输入:DOM 节点是字符唯一的存放处,`register` 把节点交给 secret store 以便真正清空。`AgentDetailPage` 的 `useState` 也一并改成 ref。
+
+**我的第一版修复引入了一个更糟的观感**:字段变空而 ref 仍持有 Key,于是表单看着没填却能探测成功。加了 `initialValue` 在挂载时**命令式**恢复(`node.value = ...` 不产生 value 属性),两个性质同时成立。
+
+新增 3 个单测 + 1 个 e2e 断言。**关键在于原有 e2e 已经检查过 `page.content()`——但只在结果页,那时字段早已卸载**,所以它一直是绿的。新断言放在字段仍挂载时,恢复旧实现会红。
+
+### 8.4 parity 门禁只扫 `internal/`（已修）
+
+反向检查(「有 parity 文件没进清单」)只读 `internal/` 的一级子目录。`cmd/` 下或更深层的 parity 文件对它不可见——**与这个门禁本身要防的漏洞同一形状**。改为遍历整个 module,实测放一个 `cmd/oneagent/tmp_parity_test.go` 会被点名。
+
+### 8.5 确认正常的部分
+
+- 三重 POST 拒绝全部生效:无 Origin、外部 Origin、无会话均 403;合法请求得到六键错误形
+- registry 两处拒绝仍生效,且响应不回显 URL 里的凭据
+- 监听器只在 IPv4 `127.0.0.1`
+- 产物无 source map、无 CDN、无远程字体(命中的外链是 React 错误文案与占位 URL)
+- `SetupGuard` 把深链接弹回第 1 步——返回用户保护有效
+- 探测真的打到 PPIO 并正确报 `API key was rejected (401)`
+- localStorage / sessionStorage / cookie / URL 均无 Key
+
+## 9. 我在过程中出错的地方
 
 值得记录,因为它们说明哪种测试真正有效:
 
@@ -251,8 +308,10 @@ ADR-008 承诺的并发面。**先证明危险真实存在再写锁**：把读�
 - **两次误判浏览器审查结果**。`localhost` 不可达(错,curl 会回落)、装饰性图标缺 alt(错,`alt=""` + `aria-hidden` 是正确写法)。
 - **报了一个手工累加的用例数**。上一版写「807 用例」,`go test -json` 实测顶层 325、含子测试 574。同一份文档里我为「111 改 106」专门留了一行,却对更大的那个数字没用同一把尺子。现在计数命令写进[执行计划 §4.6](wails-migration-execution.md),报数前跑一遍。
 - **两处注释断言了没被测的契约**(见 6.1、6.2)。注释里写「双方必须一致」而语料不覆盖它,比不写更糟:它让下一个人以为这里已经被守住了。
+- **修 Key 泄漏时第一版引入了更糟的观感**(见 8.3):字段变空而 Key 仍被持有,表单看着没填却能探测成功。安全性对了,可用性错了——只有把流程真的走一遍才会发现。
+- **写门禁时漏掉了 `cmd/`**(见 8.4)。反向检查只扫 `internal/` 一级子目录,而它防的正是「看着被覆盖、实际没有」。
 
-## 9. 还差什么
+## 10. 还差什么
 
 **阶段 5**:Wails 外壳。已核对官方文档的四条约束——仍是 Alpha(只能发 technical preview)、需 Go 1.25+、托盘 API 是 `app.SystemTray.New()`、Linux 因 GTK4 成为默认栈需固定 `gtk3` tag 以维持 Ubuntu 22.04 承诺。
 
@@ -269,4 +328,4 @@ ADR-008 承诺的并发面。**先证明危险真实存在再写锁**：把读�
 
 **registry 前置校验已搬过去了**（见 5.1）:Go 的 `validateInstall` 与 Agent ID 校验并列做这件事，`LockedAgent` 内部的惰性校验保留但不再是唯一一道。有一个 Go 侧的回归测试断言 `http://` registry 与内嵌凭据的 URL 都被拒且不回显凭据。
 
-**阶段 5 之前要做的一件事**:`internal/app` 已经是 CLI 与外壳共用的 use case 层，但 `cmd/oneagent` 还不存在。CLI 必须不链接 Wails 运行时——否则「去 Python」之后又引入一个不必要的 GUI 依赖，headless 与自动化环境会退化。
+**`cmd/oneagent` 已补齐**（真实运行审查的前提，见 §8）:纯 Go CLI，不链接 Wails 与 GTK，9.7MB 单文件、零 Python。8 种失败情形的退出码与 Python 逐一相同——它们是 `install.sh` 与 CI 分支的依据。

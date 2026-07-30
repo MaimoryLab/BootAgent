@@ -18,6 +18,9 @@ interface SecretStore {
   keyRef: RefObject<string>;
   setApiKey: (value: string) => void;
   clearApiKey: () => void;
+  // registerField hands the input element to the store so clearApiKey can empty
+  // it. The field is uncontrolled, so that node is where the key actually lives.
+  registerField: (node: HTMLInputElement | null) => void;
 }
 
 interface WizardContextValue {
@@ -38,8 +41,19 @@ export function WizardProvider({ children }: PropsWithChildren) {
     dispatch({ type: "SET_HAS_API_KEY", value: Boolean(value) });
   }, []);
 
+  // The field is uncontrolled, so the DOM node holds the only copy of the
+  // characters. It registers itself here so clearApiKey can empty it -- without
+  // this, clearing reset the ref while the key stayed visible on screen.
+  const fieldRef = useRef<HTMLInputElement | null>(null);
+  const registerField = useCallback((node: HTMLInputElement | null) => {
+    fieldRef.current = node;
+  }, []);
+
   const clearApiKey = useCallback(() => {
     keyRef.current = "";
+    if (fieldRef.current) {
+      fieldRef.current.value = "";
+    }
     dispatch({ type: "SET_HAS_API_KEY", value: false });
   }, []);
 
@@ -60,10 +74,10 @@ export function WizardProvider({ children }: PropsWithChildren) {
     () => ({
       state,
       dispatch,
-      secret: { keyRef, setApiKey, clearApiKey },
+      secret: { keyRef, setApiKey, clearApiKey, registerField },
       refreshStatus,
     }),
-    [clearApiKey, refreshStatus, setApiKey, state],
+    [clearApiKey, refreshStatus, registerField, setApiKey, state],
   );
 
   return <WizardContext.Provider value={value}>{children}</WizardContext.Provider>;
