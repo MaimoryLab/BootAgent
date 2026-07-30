@@ -6,8 +6,10 @@
 - 适用范围：桌面应用、Go 核心、CLI、前端通信、测试、构建、发布和公开站数据生成
 
 当前进度：已建立 Go module、嵌入式 Agent catalog、稳定错误/平台类型、纯 Go CLI
-和带 `wails` 构建标签的桌面空壳。现有 Python 核心、HTTP GUI、包装脚本、测试和
-发布流程仍是当前生产路径；在阶段 2-6 的行为等价门禁通过前不得删除或旁路它们。
+和带 `wails` 构建标签的桌面空壳，并已用 Python 当前实现冻结空 HOME、Linux arm64、
+无命令环境的 status/catalog fixture；Go 测试独立读取该 fixture。现有 Python 核心、
+HTTP GUI、包装脚本、测试和发布流程仍是当前生产路径；在阶段 2-6 的行为等价门禁
+通过前不得删除或旁路它们。
 
 ## 1. 结论
 

@@ -5,6 +5,7 @@ type Manifest struct {
 	OneAgentVersion string           `json:"oneagent_version"`
 	GeneratedAt     string           `json:"generated_at"`
 	Agents          map[string]Agent `json:"agents"`
+	AgentOrder      []string         `json:"-"`
 }
 
 type Agent struct {

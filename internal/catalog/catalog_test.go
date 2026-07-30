@@ -2,6 +2,7 @@ package catalog
 
 import (
 	"encoding/json"
+	"reflect"
 	"testing"
 )
 
@@ -55,6 +56,23 @@ func TestParseRejectsInvalidManifest(t *testing.T) {
 		if _, err := Parse([]byte(data)); err == nil {
 			t.Errorf("Parse(%s) unexpectedly succeeded", data)
 		}
+	}
+}
+
+func TestParsePreservesDeclaredAgentOrder(t *testing.T) {
+	manifest, err := Parse([]byte(`{
+		"schema_version": 1,
+		"agents": {
+			"z-agent": {"name":"Z","config_mode":"guide","guide":"z","platforms":["linux"],"rank":2},
+			"a-agent": {"name":"A","config_mode":"guide","guide":"a","platforms":["linux"],"rank":1}
+		}
+	}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"z-agent", "a-agent"}
+	if got := AgentIDs(manifest); !reflect.DeepEqual(got, want) {
+		t.Fatalf("AgentIDs() = %v, want declaration order %v", got, want)
 	}
 }
 

@@ -1,6 +1,7 @@
 package catalog
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/url"
@@ -50,10 +51,63 @@ func Parse(data []byte) (Manifest, error) {
 			oneerrors.WithCause(err),
 		)
 	}
+	order, err := decodeAgentOrder(data)
+	if err != nil {
+		return Manifest{}, oneerrors.New(
+			oneerrors.InvalidRequest,
+			fmt.Sprintf("Cannot load Agent lock manifest: %v", err),
+			oneerrors.WithCause(err),
+		)
+	}
+	manifest.AgentOrder = order
 	if err := validate(manifest); err != nil {
 		return Manifest{}, err
 	}
 	return cloneManifest(manifest), nil
+}
+
+func decodeAgentOrder(data []byte) ([]string, error) {
+	var document struct {
+		Agents json.RawMessage `json:"agents"`
+	}
+	if err := json.Unmarshal(data, &document); err != nil {
+		return nil, err
+	}
+	if len(document.Agents) == 0 || bytes.Equal(bytes.TrimSpace(document.Agents), []byte("null")) {
+		return nil, nil
+	}
+	decoder := json.NewDecoder(bytes.NewReader(document.Agents))
+	token, err := decoder.Token()
+	if err != nil {
+		return nil, err
+	}
+	if delimiter, ok := token.(json.Delim); !ok || delimiter != '{' {
+		return nil, fmt.Errorf("agents must be an object")
+	}
+	order := make([]string, 0)
+	seen := make(map[string]bool)
+	for decoder.More() {
+		key, err := decoder.Token()
+		if err != nil {
+			return nil, err
+		}
+		id, ok := key.(string)
+		if !ok {
+			return nil, fmt.Errorf("Agent ID must be a string")
+		}
+		if !seen[id] {
+			order = append(order, id)
+			seen[id] = true
+		}
+		var value json.RawMessage
+		if err := decoder.Decode(&value); err != nil {
+			return nil, err
+		}
+	}
+	if _, err := decoder.Token(); err != nil {
+		return nil, err
+	}
+	return order, nil
 }
 
 func validate(manifest Manifest) error {
@@ -127,6 +181,7 @@ func invalidManifest(agentID, message string) error {
 
 func cloneManifest(source Manifest) Manifest {
 	result := source
+	result.AgentOrder = append([]string(nil), source.AgentOrder...)
 	result.Agents = make(map[string]Agent, len(source.Agents))
 	for id, agent := range source.Agents {
 		copyAgent := agent
@@ -160,9 +215,20 @@ func cloneMap(source map[string]string) map[string]string {
 
 func AgentIDs(manifest Manifest) []string {
 	ids := make([]string, 0, len(manifest.Agents))
-	for id := range manifest.Agents {
-		ids = append(ids, id)
+	seen := make(map[string]bool, len(manifest.Agents))
+	for _, id := range manifest.AgentOrder {
+		if _, ok := manifest.Agents[id]; ok && !seen[id] {
+			ids = append(ids, id)
+			seen[id] = true
+		}
 	}
-	sort.Strings(ids)
+	missing := make([]string, 0, len(manifest.Agents)-len(ids))
+	for id := range manifest.Agents {
+		if !seen[id] {
+			missing = append(missing, id)
+		}
+	}
+	sort.Strings(missing)
+	ids = append(ids, missing...)
 	return ids
 }

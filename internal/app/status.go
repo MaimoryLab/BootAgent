@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"sort"
 	"strings"
 
 	"github.com/MaimoryLab/OneAgent/internal/catalog"
@@ -138,7 +137,8 @@ func (u *UseCases) GetStatus(ctx context.Context) (StatusResponse, error) {
 		SupportedAgentIDs: make([]string, 0, len(manifest.Agents)),
 	}
 	statuses := make(map[string]AgentStatus, len(manifest.Agents))
-	for id, agent := range manifest.Agents {
+	for _, id := range catalog.AgentIDs(manifest) {
+		agent := manifest.Agents[id]
 		configPath := configPath(options.Home, options.Platform.OS, agent)
 		if configPath != "" {
 			paths[id+"_config"] = configPath
@@ -180,7 +180,6 @@ func (u *UseCases) GetStatus(ctx context.Context) (StatusResponse, error) {
 			CanInstall:    canInstall,
 		}
 	}
-	sort.Strings(capabilities.SupportedAgentIDs)
 	return StatusResponse{
 		APIVersion:   1,
 		Platform:     options.Platform,
@@ -225,7 +224,8 @@ func fileExists(path string) bool {
 
 func backupState(home, osID string, manifest catalog.Manifest) map[string]bool {
 	result := make(map[string]bool)
-	for id, agent := range manifest.Agents {
+	for _, id := range catalog.AgentIDs(manifest) {
+		agent := manifest.Agents[id]
 		path := configPath(home, osID, agent)
 		if path == "" {
 			continue
