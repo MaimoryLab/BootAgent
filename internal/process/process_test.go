@@ -18,11 +18,19 @@ func TestProcessHelper(t *testing.T) {
 		os.Exit(7)
 	}
 	if os.Getenv("ONEAGENT_PROCESS_WAIT") == "1" {
+		// Long enough that the caller's deadline always fires first; the runner
+		// kills this process, so the sleep never runs to completion.
 		<-time.After(10 * time.Second)
 	}
 	os.Stdout.WriteString(os.Getenv("ONEAGENT_PROCESS_VALUE"))
 	os.Exit(0)
 }
+
+// helperTimeout is generous on purpose. These cases re-exec the test binary as
+// a helper process, and a race-instrumented binary needs well over a second to
+// start; a tight budget here fails the run for timing rather than behavior.
+// Cases that assert timeout handling set their own short deadline.
+const helperTimeout = 60 * time.Second
 
 func helperRunner(t *testing.T) OSRunner {
 	t.Helper()
@@ -44,7 +52,7 @@ func TestOSRunnerUsesArgvAndMergesEnvironment(t *testing.T) {
 	runner := helperRunner(t)
 	result, err := runner.Run(context.Background(), []string{os.Args[0], "-test.run=TestProcessHelper"}, map[string]string{
 		"ONEAGENT_PROCESS_VALUE": "safe-value",
-	}, time.Second)
+	}, helperTimeout)
 	if err != nil || result.ExitCode != 0 || result.Stdout != "safe-value" {
 		t.Fatalf("process result = %#v, err=%v", result, err)
 	}
@@ -57,7 +65,7 @@ func TestOSRunnerReturnsExitCodeAndCapturesOutput(t *testing.T) {
 	runner := helperRunner(t)
 	result, err := runner.Run(context.Background(), []string{os.Args[0], "-test.run=TestProcessHelper"}, map[string]string{
 		"ONEAGENT_PROCESS_EXIT": "1",
-	}, time.Second)
+	}, helperTimeout)
 	if err != nil || result.ExitCode != 7 || result.Stderr != "helper stderr" {
 		t.Fatalf("non-zero result = %#v, err=%v", result, err)
 	}
@@ -67,11 +75,11 @@ func TestOSRunnerHonorsCancellationAndRejectsEmptyArgv(t *testing.T) {
 	runner := helperRunner(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	_, err := runner.Run(ctx, []string{os.Args[0], "-test.run=TestProcessHelper"}, nil, time.Second)
+	_, err := runner.Run(ctx, []string{os.Args[0], "-test.run=TestProcessHelper"}, nil, helperTimeout)
 	if err == nil || err != context.Canceled {
 		t.Fatalf("cancelled process error = %v", err)
 	}
-	if _, err := runner.Run(context.Background(), nil, nil, time.Second); err == nil {
+	if _, err := runner.Run(context.Background(), nil, nil, helperTimeout); err == nil {
 		t.Fatal("empty argv unexpectedly succeeded")
 	}
 }
@@ -108,7 +116,7 @@ func TestBoundedBufferDoesNotBlockProducer(t *testing.T) {
 
 func TestOSRunnerUsesExecutableWithoutShell(t *testing.T) {
 	runner := helperRunner(t)
-	result, err := runner.Run(context.Background(), []string{exec.Command("true").Path}, nil, time.Second)
+	result, err := runner.Run(context.Background(), []string{exec.Command("true").Path}, nil, helperTimeout)
 	if err != nil || result.ExitCode != 0 {
 		t.Fatalf("direct executable result = %#v, err=%v", result, err)
 	}
