@@ -1,6 +1,6 @@
-// Package app contains transport-independent use cases. Status, Provider,
-// profile, and single-Agent activation are migrated slices; installation
-// remains in Python until its Go equivalent passes its own gates.
+// Package app contains transport-independent use cases shared by the desktop
+// binding and the headless CLI. The Python production path remains available
+// during migration, but migrated Go operations are exercised independently.
 package app
 
 import (
@@ -15,6 +15,7 @@ import (
 	configReader "github.com/MaimoryLab/OneAgent/internal/config"
 	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
 	"github.com/MaimoryLab/OneAgent/internal/platform"
+	"github.com/MaimoryLab/OneAgent/internal/process"
 	profileStore "github.com/MaimoryLab/OneAgent/internal/profile"
 	"github.com/MaimoryLab/OneAgent/internal/provider"
 	"github.com/MaimoryLab/OneAgent/internal/securefs"
@@ -29,15 +30,19 @@ type StatusOptions struct {
 	// FileSystem is optional and exists for tests or platform-specific hosts
 	// that need to inject ACL behavior. Production callers use the default
 	// securefs implementation for the selected platform.
-	FileSystem *securefs.Store
+	FileSystem  *securefs.Store
+	Runner      process.Runner
+	Environment map[string]string
 }
 
 type UseCases struct {
-	status     StatusOptions
-	provider   *provider.Client
-	profiles   profileStore.Store
-	filesystem securefs.Store
-	writeMu    sync.Mutex
+	status      StatusOptions
+	provider    *provider.Client
+	profiles    profileStore.Store
+	filesystem  securefs.Store
+	runner      process.Runner
+	environment map[string]string
+	writeMu     sync.Mutex
 }
 
 func NewUseCases(options StatusOptions) *UseCases {
@@ -63,10 +68,25 @@ func newUseCases(options StatusOptions, client *provider.Client, profiles profil
 		options.Home = platform.ResolveHome(nil, options.Platform.OS)
 	}
 	if options.Lookup == nil {
-		options.Lookup = defaultLookup
+		if options.Runner != nil {
+			options.Lookup = options.Runner.LookPath
+		} else {
+			options.Lookup = defaultLookup
+		}
 	}
 	if client == nil {
 		client = provider.NewClient(nil)
+	}
+	runner := options.Runner
+	if runner == nil {
+		current := process.Current()
+		runner = current
+		if options.Environment == nil {
+			options.Environment = current.Env
+		}
+	}
+	if options.Environment == nil {
+		options.Environment = map[string]string{}
 	}
 	if profiles.Home == "" {
 		profiles = profileStore.NewStore(options.Home, options.Platform.OS)
@@ -81,11 +101,21 @@ func newUseCases(options StatusOptions, client *provider.Client, profiles profil
 		filesystem = *profiles.FS
 	}
 	return &UseCases{
-		status:     options,
-		provider:   client,
-		profiles:   profiles,
-		filesystem: filesystem,
+		status:      options,
+		provider:    client,
+		profiles:    profiles,
+		filesystem:  filesystem,
+		runner:      runner,
+		environment: cloneEnvironment(options.Environment),
 	}
+}
+
+func cloneEnvironment(source map[string]string) map[string]string {
+	result := make(map[string]string, len(source))
+	for key, value := range source {
+		result[key] = value
+	}
+	return result
 }
 
 func NewUseCasesFromEnvironment() *UseCases {

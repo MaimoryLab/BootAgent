@@ -15,6 +15,7 @@ export {
 export type {
     ActivateRequest,
     ActivateResponse,
+    AgentInstallResult,
     InstallRequest,
     InstallResponse,
     ModelsRequest,

@@ -21,8 +21,23 @@ export interface ActivateResponse {
     "next": string;
 }
 
+export interface AgentInstallResult {
+    "agent": string;
+    "status": string;
+    "installed"?: boolean;
+    "version"?: string;
+    "lockedVersion"?: string;
+    "registry"?: string;
+    "config"?: string;
+    "code"?: number;
+    "error_code"?: string;
+    "message"?: string;
+    "retryable": boolean;
+}
+
 export interface InstallRequest {
     "agents": string[] | null;
+    "profile_agents": string[] | null;
     "provider": string;
     "api_base_url": string;
     "api_key": string;
@@ -34,15 +49,18 @@ export interface InstallRequest {
     "locked_version": boolean;
     "latest": boolean;
     "skip_test": boolean;
+    "registry": string;
     "timeout": number;
 }
 
 export interface InstallResponse {
     "ok": boolean;
     "code": number;
-    "results": any[] | null;
+    "results": AgentInstallResult[] | null;
     "log": string;
     "next": string;
+    "probe": ProbeResponse | null;
+    "probes": { [_ in string]?: ProbeResponse } | null;
 }
 
 export interface ModelsRequest {

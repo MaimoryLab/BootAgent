@@ -6,6 +6,7 @@ import (
 	"context"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/MaimoryLab/OneAgent/internal/app"
 	"github.com/MaimoryLab/OneAgent/internal/catalog"
@@ -130,7 +131,38 @@ func (s *AgentService) Install(ctx context.Context, request InstallRequest) (Ins
 	if err := contextError(ctx); err != nil {
 		return InstallResponse{}, err
 	}
-	return InstallResponse{}, notReady("Agent installation is not available in the migration foundation")
+	if s == nil || s.core == nil {
+		return InstallResponse{}, notReady("Agent installation is not configured")
+	}
+	timeout := 180 * time.Second
+	if request.Timeout < 0 || request.Timeout > 3600 {
+		return InstallResponse{}, oneerrors.New(oneerrors.InvalidRequest, "timeout must be an integer between 1 and 3600")
+	}
+	if request.Timeout > 0 {
+		timeout = time.Duration(request.Timeout) * time.Second
+	}
+	result, err := s.core.InstallAgents(ctx, app.InstallAgentsOptions{
+		Agents:         append([]string(nil), request.Agents...),
+		ProfileAgents:  append([]string(nil), request.ProfileAgents...),
+		Provider:       request.Provider,
+		APIBaseURL:     request.APIBaseURL,
+		APIKey:         request.APIKey,
+		Model:          request.Model,
+		SmallFastModel: request.SmallFastModel,
+		ProfileID:      request.ProfileID,
+		Configure:      request.Configure,
+		InstallAgent:   request.InstallAgent,
+		CheckAgentOnly: false,
+		SkipTest:       request.SkipTest,
+		LockedVersion:  request.LockedVersion,
+		Latest:         request.Latest,
+		Timeout:        timeout,
+		Registry:       request.Registry,
+	})
+	if err != nil {
+		return InstallResponse{}, err
+	}
+	return installResponse(result), nil
 }
 
 func (s *AgentService) Activate(ctx context.Context, request ActivateRequest) (ActivateResponse, error) {
@@ -243,6 +275,7 @@ type ModelsResponse struct {
 
 type InstallRequest struct {
 	Agents         []string `json:"agents"`
+	ProfileAgents  []string `json:"profile_agents"`
 	Provider       string   `json:"provider"`
 	APIBaseURL     string   `json:"api_base_url"`
 	APIKey         string   `json:"api_key"`
@@ -254,15 +287,32 @@ type InstallRequest struct {
 	LockedVersion  bool     `json:"locked_version"`
 	Latest         bool     `json:"latest"`
 	SkipTest       bool     `json:"skip_test"`
+	Registry       string   `json:"registry"`
 	Timeout        int      `json:"timeout"`
 }
 
+type AgentInstallResult struct {
+	Agent         string `json:"agent"`
+	Status        string `json:"status"`
+	Installed     bool   `json:"installed,omitempty"`
+	Version       string `json:"version,omitempty"`
+	LockedVersion string `json:"lockedVersion,omitempty"`
+	Registry      string `json:"registry,omitempty"`
+	Config        string `json:"config,omitempty"`
+	Code          int    `json:"code,omitempty"`
+	ErrorCode     string `json:"error_code,omitempty"`
+	Message       string `json:"message,omitempty"`
+	Retryable     bool   `json:"retryable"`
+}
+
 type InstallResponse struct {
-	OK      bool   `json:"ok"`
-	Code    int    `json:"code"`
-	Results []any  `json:"results"`
-	Log     string `json:"log"`
-	Next    string `json:"next"`
+	OK      bool                     `json:"ok"`
+	Code    int                      `json:"code"`
+	Results []AgentInstallResult     `json:"results"`
+	Log     string                   `json:"log"`
+	Next    string                   `json:"next"`
+	Probe   *ProbeResponse           `json:"probe"`
+	Probes  map[string]ProbeResponse `json:"probes"`
 }
 
 type ActivateRequest struct {
@@ -332,4 +382,38 @@ func modelsResponse(result provider.ModelsResult) ModelsResponse {
 		},
 		Models: result.Models,
 	}
+}
+
+func installResponse(result app.InstallAgentsResult) InstallResponse {
+	response := InstallResponse{
+		OK:      result.OK,
+		Code:    result.Code,
+		Log:     result.Log,
+		Next:    result.Next,
+		Results: make([]AgentInstallResult, 0, len(result.Results)),
+		Probes:  make(map[string]ProbeResponse, len(result.Probes)),
+	}
+	for _, item := range result.Results {
+		response.Results = append(response.Results, AgentInstallResult{
+			Agent:         item.Agent,
+			Status:        item.Status,
+			Installed:     item.Installed,
+			Version:       item.Version,
+			LockedVersion: item.LockedVersion,
+			Registry:      item.Registry,
+			Config:        item.Config,
+			Code:          item.Code,
+			ErrorCode:     item.ErrorCode,
+			Message:       item.Message,
+			Retryable:     item.Retryable,
+		})
+	}
+	if result.Probe != nil {
+		probe := probeResponse(*result.Probe)
+		response.Probe = &probe
+	}
+	for protocolID, verdict := range result.Probes {
+		response.Probes[protocolID] = probeResponse(verdict)
+	}
+	return response
 }

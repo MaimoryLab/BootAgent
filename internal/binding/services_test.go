@@ -176,6 +176,39 @@ func TestAgentServiceActivatesThroughGoUseCase(t *testing.T) {
 	}
 }
 
+func TestAgentServiceInstallsThroughGoUseCase(t *testing.T) {
+	home := t.TempDir()
+	core := app.NewUseCases(app.StatusOptions{
+		Home:     home,
+		Platform: platform.For("linux", "amd64"),
+		Lookup:   func(string) (string, bool) { return "", false },
+	})
+	service := NewAgentService(core)
+	response, err := service.Install(context.Background(), InstallRequest{
+		Agents:        []string{"codex"},
+		ProfileAgents: []string{"codex"},
+		Provider:      "ppio",
+		APIKey:        "binding-install-secret",
+		Model:         "model-a",
+		Configure:     true,
+		SkipTest:      true,
+		Timeout:       30,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !response.OK || len(response.Results) != 1 || response.Results[0].Status != "configured" {
+		t.Fatalf("install response = %#v", response)
+	}
+	wire, err := json.Marshal(response)
+	if err != nil || strings.Contains(string(wire), "binding-install-secret") || strings.Contains(string(wire), "api_key") {
+		t.Fatalf("install binding response leaked secret material: %s (%v)", wire, err)
+	}
+	if _, err := os.Stat(filepath.Join(home, ".oneagent", "profile.json")); err != nil {
+		t.Fatalf("Go install did not publish profile: %v", err)
+	}
+}
+
 func TestProviderServiceAggregatesSelectedAgentProtocols(t *testing.T) {
 	seen := make([]string, 0)
 	client := provider.NewClient(providerFakeDoer(func(request *http.Request) (*http.Response, error) {
