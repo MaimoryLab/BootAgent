@@ -49,7 +49,8 @@ export function ProviderKeyPage() {
         provider: state.provider,
         apiBaseUrl: state.provider === "custom" ? state.customBaseUrl : "",
         apiKey: secret.keyRef.current,
-        // Empty before the model step; the backend picks its probe default.
+        // A user-supplied ID lets providers without model discovery validate
+        // the model that will actually be configured.
         model: state.model,
         agents: state.selectedAgentIds,
       });
@@ -107,6 +108,19 @@ export function ProviderKeyPage() {
             </button>
           </div>
         )}
+
+        <div className="field-stack">
+          <label htmlFor="provider-model">自定义模型名称（可选）</label>
+          <input
+            id="provider-model"
+            className="text-field"
+            value={state.model}
+            onChange={(event) => dispatch({ type: "SET_MODEL", value: event.target.value })}
+            placeholder="例如 deepseek/deepseek-v3"
+            spellCheck={false}
+          />
+          <small>填写后将用此模型测试连接；留空时自动选择。</small>
+        </div>
 
         <SecureKeyField value={secret.keyRef.current} onChange={secret.setApiKey} />
 

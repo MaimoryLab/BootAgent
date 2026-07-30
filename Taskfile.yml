@@ -35,7 +35,21 @@ tasks:
       - generate:bindings
     cmds:
       - mkdir -p bin
-      - go run {{.WAILS_MODULE}}/cmd/wails3@{{.WAILS_VERSION}} build -tags wails
+      - go build -tags "wails,production" -o bin/oneagent-desktop ./cmd/oneagent-desktop
+
+  test:e2e:
+    summary: Run the Wails server binding browser test
+    deps:
+      - build:frontend
+    cmds:
+      - cd frontend && npm run test:e2e
+
+  test:native:
+    summary: Start the native Wails binary and require a GetStatus binding call
+    deps:
+      - build:desktop
+    cmds:
+      - go run ./cmd/oneagent-native-smoke -binary ./bin/oneagent-desktop
 
   dev:desktop:
     summary: Run the Wails development shell

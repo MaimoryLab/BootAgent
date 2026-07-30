@@ -201,7 +201,7 @@ mkdir -p build/coverage
 run_stage python-contracts bash -c '
   coverage erase
   coverage run --branch -m unittest \
-    tests.test_core tests.test_cli tests.test_server \
+    tests.test_core tests.test_cli \
     tests.test_release_policy tests.test_edge_cases tests.test_rc_scripts
   coverage report --fail-under=85
   coverage json
@@ -214,12 +214,10 @@ run_stage python-contracts bash -c '
 run_stage go-cli-no-python assert_go_cli_without_python
 run_stage bash-compatibility bash tests/install_test.sh
 run_stage existing-config bash tests/existing_config_test.sh
-run_stage gui-smoke python3.12 tests/gui_smoke_test.py
 
 run_stage react-coverage bash -c 'cd frontend && npm run test:coverage'
 
 run_stage react-build bash -c 'cd frontend && npm run build'
-run_stage browser-e2e bash -c 'cd frontend && npm run e2e'
 
 collect_artifacts
 run_stage policy-scan scan_release_policy

@@ -61,6 +61,28 @@ func TestServiceMethodAllowlist(t *testing.T) {
 	}
 }
 
+func TestStatusServiceRunsNativeSmokeHookAfterSuccess(t *testing.T) {
+	called := 0
+	service := NewServicesWithOptions(app.NewUseCases(app.StatusOptions{
+		Home:     t.TempDir(),
+		Platform: platform.For("linux", "amd64"),
+		Lookup:   func(string) (string, bool) { return "", false },
+	}), nil, ServicesOptions{AfterGetStatus: func() { called++ }}).Status
+	if _, err := service.GetStatus(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if called != 1 {
+		t.Fatalf("native smoke hook calls = %d, want 1", called)
+	}
+
+	if _, err := (&StatusService{afterGetStatus: func() { called++ }}).GetStatus(context.Background()); err == nil {
+		t.Fatal("unconfigured status service succeeded")
+	}
+	if called != 1 {
+		t.Fatalf("native smoke hook ran after failed status = %d", called)
+	}
+}
+
 func TestOpenRegistrationUsesCatalogURLOnly(t *testing.T) {
 	var opened string
 	service := &ProviderService{opener: func(value string) error {

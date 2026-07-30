@@ -1,6 +1,6 @@
 # OneAgent
 
-OneAgent 是一个本地 AI 开发环境激活器。它用 React 七页向导检测、安装并初始化常用 Agent，同时保留 Bash、PowerShell 和结构化 CLI。安装、备份、权限、Provider 探测和配置写入统一由 Python 3.12 核心完成。
+OneAgent 是一个本地 AI 开发环境激活器。它用 React 七页向导检测、安装并初始化常用 Agent，同时保留 Bash、PowerShell 和结构化 CLI。桌面应用通过 Wails v3 binding 调用 Go 核心完成安装、备份、权限、Provider 探测和配置写入。
 
 OneAgent 不重新分发 Agent 二进制，不捆绑 Node.js、Python、Git Bash、VPN、代理、共享 API Key 或第三方配置工具。缺少前置工具时只返回明确错误和官方安装指引。
 
@@ -8,9 +8,9 @@ OneAgent 不重新分发 Agent 二进制，不捆绑 Node.js、Python、Git Bash
 
 当前版本为 `0.2.0-dev`，当前发行目标是可直接下载运行的 `technical-preview-unsigned` 二进制包。不以四平台同时分发作为产品阶段门槛；每个实际发布的平台仍须在对应操作系统原生构建，并以 CI cleanroom 作业作为验收证据。各平台最低目标见 [ADR-003](docs/decisions/ADR-003-three-platform-python-core-and-release-policy.md)。
 
-Wails v3 迁移已在当前分支开始，当前仍处于阶段 0/1：Go catalog、错误/平台基础包、
-纯 Go CLI 和带 `wails` 标签的桌面空壳已建立，但 Python 核心和本地 HTTP GUI 仍是
-生产路径。迁移完成前不会删除或旁路任何 Python 源码、测试、脚本或打包流程。
+Wails v3 迁移现处于阶段 5：React 仅通过生成的 binding 与 Go service 通信，旧 HTTP API/fetch
+测试已删除；Wails `server,e2e` 浏览器链路和原生 `GetStatus` smoke 已在本机 macOS arm64 验证。Python 发布链路
+保留到阶段 6-7 再替换，但不再是桌面前端的通信路径。
 
 发行渠道不限定为 GitHub。官网、GitHub Release、网盘和企业云盘可以作为同一官方构建的镜像，但同一版本必须保持文件内容和 SHA-256 一致，渠道方不得重新打包或加入渠道专属内容。每个产物只声明实际构建和验证过的目标环境。
 
@@ -26,12 +26,12 @@ Wails v3 迁移已在当前分支开始，当前仍处于阶段 0/1：Go catalog
 ```text
 React + TypeScript + Vite
           |
-          | localhost JSON API
+          | generated Wails bindings
           v
-Python 3.12 HTTP Server
+Status / Provider / Agent / Profile services
           |
           v
-oneagent.installer
+Go application use cases
   - 平台路径和前置检测
   - 锁定版本安装
   - 配置合并和备份
@@ -39,11 +39,11 @@ oneagent.installer
   - Provider 探测和结构化错误
 ```
 
-- `scripts/gui.py`：源码 GUI 入口。
 - `scripts/install.sh`：macOS/Linux CLI 转发层，转发到 Go CLI（`cmd/oneagent`）。
 - `scripts/install.ps1`：Windows CLI 转发层，转发到 Go CLI。
 - `cmd/oneagent`：纯 Go CLI，是 CLI 路径的实现所在；包装脚本只做转发。
-- `oneagent/`：三平台共用安装核心、API Server 和 Python CLI（GUI 路径仍在使用）。
+- `internal/`：桌面 service 与 CLI 共用的 Go 核心。
+- `cmd/oneagent-desktop/`：Wails 桌面入口，仅在 `wails` build tag 下链接 Wails。
 - `frontend/`：React 七页向导；发行包只携带构建后的 `dist`，终端用户不需要 Node.js。
 - `site/`：独立 Astro 静态公开站；不进入 Launcher 包体，也不复用本地路由和状态。
 - `distribution/`：公开渠道状态与 Provider 商业关系披露；技术排序与商业数据保持分离。
@@ -66,22 +66,15 @@ npm run test:e2e
 
 ## 快速启动
 
-### 源码 GUI
+### 源码桌面应用
 
-GUI 路径仍是 Python，要求 Python 3.12+（CLI 路径已不需要，见下节）。如需让 OneAgent
-自动安装 Aider，还需要预先安装 `uv`；无论走哪条路径，OneAgent 都不会自动下载 Python：
-
-```bash
-python3 scripts/gui.py
-```
-
-固定端口且不自动打开浏览器：
+先构建前端，再启动 Wails 桌面壳。生产桌面进程不监听业务 TCP 端口：
 
 ```bash
-python3 scripts/gui.py --port 8765 --no-open
+cd frontend && npm ci && npm run build
+cd ..
+go run -tags wails ./cmd/oneagent-desktop
 ```
-
-GUI 只监听 `127.0.0.1`。首页设置随机 HttpOnly、SameSite=Strict 会话 Cookie，所有 POST 同时校验 Cookie 和 localhost Origin。
 
 ### 打包版
 
@@ -291,13 +284,13 @@ oneagent agent set codex --provider ppio --model deepseek/deepseek-v3 --api-key 
 oneagent agent set opencode --provider novita --model <MODEL> --profile team
 ```
 
-`--profile` 复用 `profiles/` 里已保存模板的 Key，无需重新粘贴。GUI 对应 `POST /api/agents/<id>/activate`。
+`--profile` 复用 `profiles/` 里已保存模板的 Key，无需重新粘贴。桌面应用通过 `AgentService.Activate` 完成同一操作。
 
 Agent 在启动时读取配置，因此重新指向后必须重启该 Agent 进程才会生效；响应与 CLI 输出都会给出对应的重启指引。切换只影响单个 Agent，失败不会波及其他 Agent。
 
 ## 错误契约
 
-CLI `--json` 和本地 API 使用稳定错误码：
+CLI `--json` 和 Wails binding 使用稳定错误码：
 
 - `INVALID_REQUEST`
 - `INVALID_ORIGIN`
@@ -326,7 +319,7 @@ Python 3.12 契约和覆盖率：
 
 ```bash
 python3.12 -m coverage run --branch -m unittest \
-  tests.test_core tests.test_cli tests.test_server \
+  tests.test_core tests.test_cli \
   tests.test_release_policy tests.test_edge_cases tests.test_rc_scripts
 python3.12 -m coverage report --fail-under=85
 python3.12 -m coverage json
@@ -349,7 +342,6 @@ go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...
 ```bash
 go build -o bin/oneagent ./cmd/oneagent
 bash tests/install_test.sh
-python3.12 tests/gui_smoke_test.py
 ```
 
 React 与浏览器：
@@ -359,7 +351,9 @@ cd frontend
 npm run test:coverage
 npm run build
 npx playwright install chromium
-npm run e2e
+npm run test:e2e
+cd ..
+task test:native
 ```
 
 ### Docker Linux Cleanroom
@@ -396,14 +390,13 @@ ONEAGENT_API_KEY=... python3.12 scripts/agent_e2e_smoke.py --provider ppio
 
 ### 真实 macOS Cleanroom
 
-真实 macOS cleanroom 是**已发布 macOS 产物**的验收依据，不是“必须先发布 macOS”的要求。当前架构的前端和 unsigned onedir 构建完成后，可以在真实 macOS 上运行：
+真实 macOS cleanroom 隔离验证 Go CLI 的配置、权限和备份行为。当前 Python 发布链路的产物验收仍留待阶段 6，脚本可在真实 macOS 上直接运行：
 
 ```bash
-ONEAGENT_PACKAGED_BINARY="$PWD/build/pyinstaller-dist/OneAgent/OneAgent" \
 bash tests/macos_cleanroom_test.sh
 ```
 
-脚本要求真实 `uname -s == Darwin`，使用 `env -i`、临时 HOME/TMPDIR 和受控 PATH，验证源码 GUI、打包 GUI、随机本地端口、Cookie/Origin、五个配置适配器、备份以及目录 `0700`/文件 `0600`。执行前后会比对真实用户配置目标，发现污染立即失败。
+脚本要求真实 `uname -s == Darwin`，使用 `env -i`、临时 HOME/TMPDIR 和受控 PATH，验证五个配置适配器、备份以及目录 `0700`/文件 `0600`。执行前后会比对真实用户配置目标，发现污染立即失败。
 
 GitHub Actions 的 `ci.yml` macOS 作业（`macos-15` arm64 与 `macos-15-intel` x64）和手动 Release Candidate 运行该脚本，`tests/test_release_policy.py` 断言其契约不被弱化。普通 PR 与常规 CI 只使用 fake npm/uv，不下载真实 Agent，也不访问 PPIO/Novita；只有手动 Release Candidate 才在隔离 prefix/tool 目录中安装五个锁定版本并执行真实 Provider 冒烟。
 

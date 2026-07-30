@@ -1,20 +1,19 @@
 # CLAUDE.md
 
-OneAgent：本地 AI 开发环境激活器。Python 3.12 标准库内核 + React 七页向导，经 `127.0.0.1` HTTP 通信，负责检测、安装并配置 5 个 CLI Agent 指向 OpenAI- 或 Anthropic-compatible Provider。
+OneAgent：本地 AI 开发环境激活器。React 七页向导通过 Wails v3 binding 调用 Go 核心，负责检测、安装并配置 5 个 CLI Agent 指向 OpenAI- 或 Anthropic-compatible Provider。
 
 当前 `0.2.0-dev`，发行渠道只能标记 `technical-preview-unsigned`。功能说明与发行流程见 [README.md](README.md)。
 
-Wails v3 迁移已在当前分支进行，阶段 0-3 的退出门禁已通过，但尚未切换生产入口。Go 核心
-位于 `internal/`、`cmd/oneagent` 和 `cmd/oneagent-desktop`；默认桌面命令只有在显式使用
-`wails` build tag 时才链接 Wails。
+Wails v3 迁移处于阶段 5。前端只调用 `frontend/src/backend/wails.ts`，它只转发生成的
+Wails binding；不要恢复 HTTP fallback、`fetch` 或手写后端 DTO。Go 核心位于 `internal/`、
+`cmd/oneagent` 和 `cmd/oneagent-desktop`；默认桌面命令只有在显式使用 `wails` build tag 时才链接 Wails。
 
 **CLI 路径已迁移到 Go**：`scripts/install.sh` 与 `.ps1` 是纯转发层，转发到
 `cmd/oneagent` 且不再定位 Python，改动 CLI 行为要改 Go 而不是 `oneagent/cli.py`。它们
 不做按需构建（调用方使用临时 HOME，`go build` 会把 module cache 写进去），所以
 `tests/install_test.sh` 之前需要先 `go build -o bin/oneagent ./cmd/oneagent`。
 
-GUI 路径（`scripts/gui.py`、`oneagent/server.py`）、Python 测试和发布流程在阶段 4-6
-的门禁通过前继续保留并作为当前生产路径。
+Python 发布链路在阶段 6-7 完成前仍保留；桌面前端的通信路径已切换为 Wails binding。
 
 ## 沟通语言
 
@@ -22,25 +21,23 @@ GUI 路径（`scripts/gui.py`、`oneagent/server.py`）、Python 测试和发布
 
 ## 常用命令
 
-本机 `python3` 是 3.14，测试与打包必须显式用 `python3.12`；`scripts/gui.py` 用任意 ≥3.12 均可。
+本机 `python3` 是 3.14，遗留 Python 测试与打包必须显式用 `python3.12`。
 
 ```bash
 # Python 契约测试（74 用例，约 7s）
-python3.12 -m unittest tests.test_core tests.test_cli tests.test_server \
+python3.12 -m unittest tests.test_core tests.test_cli \
   tests.test_release_policy tests.test_edge_cases tests.test_rc_scripts
 
 # 覆盖率门禁：整体 ≥85%，installer.py 必须 100% 分支且无 partial
 python3.12 -m coverage run --branch -m unittest tests.test_core tests.test_cli \
-  tests.test_server tests.test_release_policy tests.test_edge_cases tests.test_rc_scripts
+  tests.test_release_policy tests.test_edge_cases tests.test_rc_scripts
 python3.12 -m coverage report --fail-under=85
-
-# 源码 GUI
-python3 scripts/gui.py --port 8765 --no-open
 
 # 前端（build 会先跑 tsc --noEmit）
 cd frontend && npm ci && npm run build
 npm run test:coverage
-npm run e2e                            # Playwright 自动拉起 gui.py:8765
+npx playwright install chromium
+npm run test:e2e                        # Playwright 自动拉起 Wails server,e2e
 
 # Go 迁移线（不需要 Python；parity 门禁需要 ≥3.12 才会真正运行）
 go vet ./... && ONEAGENT_REQUIRE_PARITY=1 go test ./... && go test -race ./...
@@ -48,21 +45,18 @@ go build -o bin/oneagent ./cmd/oneagent   # install_test.sh 依赖它先存在
 
 # 隔离验证
 bash tests/install_test.sh             # 经 install.sh 转发到 Go CLI，临时 HOME
-python3.12 tests/gui_smoke_test.py     # 真实 HTTP + Cookie/Origin 冒烟
+task test:native                        # 原生 WebView 完成一次真实 GetStatus binding
 bash scripts/test_docker_cleanroom.sh  # Linux 断网 cleanroom
 ```
 
 ## 代码地图
 
 ```
-oneagent/          Python 内核，零第三方依赖
+oneagent/          遗留 Python 发布实现，零第三方依赖
   catalog.py       读 agents.lock.json、平台/HOME 解析、PROVIDERS 常量
   providers.py     base URL 校验与推导、chat_probe、list_models
   installer.py     主体：原子写、备份、权限、5 个配置适配器、install_many、status_payload
-  server.py        stdlib http.server：/api/{status,probe,models,install,profiles,open-register}、
-                   POST /api/agents/<id>/activate（单 Agent 重新指向）+ 静态托管
-  cli.py           argparse CLI（已被 cmd/oneagent 取代，仅 GUI 打包入口仍引用）
-  entrypoint.py    打包版入口：无参→GUI，有参→CLI
+  cli.py           argparse CLI（已被 cmd/oneagent 取代）
 internal/          Go 核心，桌面壳与 CLI 共用
   app/             use case：GetStatus、InstallAgents、ActivateAgent、SaveProfile
   binding/         Wails service 与传输 DTO，不放业务逻辑
@@ -72,14 +66,13 @@ cmd/oneagent-desktop  Wails 壳，仅 `-tags wails` 时链接 Wails
 frontend/src/
   App.tsx          react-router 七页 + SetupGuard 前置校验
   state/           useReducer + Context，WizardState 是唯一状态源
-  backend/         传输 adapter：按运行时选 Wails binding 或 HTTP
-  api/client.ts    fetch 封装，非 2xx 抛 OneAgentApiError（GUI 路径）
+  backend/         传输 adapter：只调用 Wails binding
 frontend/bindings/ Wails 生成物，禁止手改；改 Go DTO 后重新生成
 agents.lock.json   Agent 版本/包管理器/配置适配器/平台/许可证的唯一真源
-scripts/           gui.py、install.sh/.ps1（转发到 Go CLI）、build_release.py
+scripts/           install.sh/.ps1（转发到 Go CLI）、build_release.py
 ```
 
-GUI 主链路：`React → POST /api/install → install_many() → _write_agent_config() → atomic_write()`。
+桌面主链路：`React → AgentService.Install binding → app.InstallAgents() → config.Writer → securefs.AtomicWrite()`。
 CLI 主链路：`cmd/oneagent → app.InstallAgents() → config.Writer → securefs.AtomicWrite()`。
 
 ## 硬性约束
@@ -88,7 +81,7 @@ CLI 主链路：`cmd/oneagent → app.InstallAgents() → config.Writer → secu
 
 - **零运行时依赖**：`oneagent/` 只用标准库，`pyproject.toml` 的 `dependencies` 保持为空。
 - **禁止 `shell=True` 与 `curl | sh`**：子进程一律走 `runtime.runner([...])` 列表参数。
-- **只绑定 127.0.0.1**：`create_server` 拒绝其他 host；POST 同时校验 Origin 白名单与 HttpOnly/SameSite=Strict 会话 Cookie（`secrets.compare_digest`）。
+- **桌面通信边界**：生产桌面进程不监听业务 TCP 端口；只注册四个 Wails service，不配置 HTTP Route 或 Raw Message Handler。
 - **API Key 不落地**：不进 `profile.json`、argv、URL、日志、React state、浏览器存储；日志一律过 `redact(text, [api_key])`。
 - **写配置只走 `atomic_write`**：`ensure_private_dir`(0700) → 备份 `*.backup-<ts>` → 临时文件先 `secure_path`(0600 / Windows icacls 断继承) → `os.replace`。密钥备份无法加固时删除并报错。
 - **保留用户字段**：Codex TOML 与 Claude/OpenCode/Kilo JSON 合并时不得丢弃非 OneAgent 管理的键；解析失败返回 `CONFIG_WRITE_FAILED`，绝不静默覆盖。

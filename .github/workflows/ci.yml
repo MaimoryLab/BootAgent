@@ -60,8 +60,12 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.25"
+          go-version: "1.26.5"
           cache-dependency-path: go.sum
+
+      - name: Verify generated Wails bindings
+        if: runner.os == 'Linux'
+        run: bash scripts/check_wails_bindings.sh
 
       - name: Install Python test tools
         run: python -m pip install coverage==7.15.2
@@ -83,7 +87,7 @@ jobs:
         run: |
           mkdir -p build/coverage
           coverage erase
-          coverage run --branch -m unittest tests.test_core tests.test_cli tests.test_server tests.test_release_policy tests.test_distribution_data tests.test_edge_cases tests.test_rc_scripts tests.test_install_contract tests.test_config_discovery
+          coverage run --branch -m unittest tests.test_core tests.test_cli tests.test_release_policy tests.test_distribution_data tests.test_edge_cases tests.test_rc_scripts tests.test_install_contract tests.test_config_discovery
           coverage report --fail-under=85
           coverage json
           python -c "import json, os; files = json.load(open('build/coverage/coverage.json', encoding='utf-8'))['files']; normalized = {key.replace(os.sep, '/'): value for key, value in files.items()}; summary = normalized['oneagent/installer.py']['summary']; assert summary['percent_branches_covered'] == 100 and summary['num_partial_branches'] == 0, summary"
@@ -123,10 +127,6 @@ jobs:
         if: runner.os != 'Windows'
         run: bash tests/install_test.sh
 
-      - name: GUI compatibility smoke
-        if: runner.os != 'Windows'
-        run: python tests/gui_smoke_test.py
-
       - name: PowerShell wrapper contract
         if: runner.os == 'Windows'
         shell: pwsh
@@ -141,14 +141,40 @@ jobs:
         working-directory: frontend
         run: npm run test:coverage
 
+      - name: Install Chromium for Wails binding E2E
+        if: runner.os == 'Linux'
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Install Linux native smoke dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes libgtk-3-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev xvfb
+
+      - name: Wails server binding E2E
+        if: runner.os == 'Linux'
+        working-directory: frontend
+        run: npm run test:e2e
+
+      - name: Wails native smoke on Linux
+        if: runner.os == 'Linux'
+        run: |
+          go build -tags "wails,production,gtk3" -o bin/oneagent-desktop ./cmd/oneagent-desktop
+          xvfb-run --auto-servernum go run ./cmd/oneagent-native-smoke -binary ./bin/oneagent-desktop
+
+      - name: Wails native smoke on macOS
+        if: runner.os == 'macOS'
+        run: |
+          go build -tags "wails,production" -o bin/oneagent-desktop ./cmd/oneagent-desktop
+          go run ./cmd/oneagent-native-smoke -binary ./bin/oneagent-desktop
+
       - name: Build native macOS onedir
         if: runner.os == 'macOS'
         run: python scripts/build_release.py --channel technical-preview-unsigned --skip-frontend
 
       - name: Real macOS cleanroom
         if: runner.os == 'macOS'
-        env:
-          ONEAGENT_PACKAGED_BINARY: ${{ github.workspace }}/build/pyinstaller-dist/OneAgent/OneAgent
         run: bash tests/macos_cleanroom_test.sh
 
       - name: Validate macOS arm64 release for the public site

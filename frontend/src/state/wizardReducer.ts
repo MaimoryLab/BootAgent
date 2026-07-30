@@ -203,7 +203,7 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
         modelsMessage: action.message,
       };
     case "SET_MODEL":
-      return { ...state, model: action.value };
+      return { ...state, model: action.value, connection: null, connectionState: "idle" };
     case "REQUEST_ACTIVATION":
       return { ...state, activationRequested: true };
     case "ACTIVATION_LOADING":

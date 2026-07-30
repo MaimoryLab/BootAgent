@@ -70,7 +70,7 @@ describe("wizardReducer", () => {
     expect(state.connectionState).toBe("idle");
   });
 
-  it("invalidates a stale probe verdict whenever the key changes", () => {
+  it("invalidates a stale probe verdict whenever the key or model changes", () => {
     // The reducer only sees the non-empty boolean (the secret stays in a ref),
     // so editing "valid key" into "wrong key" dispatches the very same
     // SET_HAS_API_KEY(true). It must reset the verdict: keeping the stale
@@ -88,6 +88,9 @@ describe("wizardReducer", () => {
     const cleared = wizardReducer(probed, { type: "SET_HAS_API_KEY", value: false });
     expect(cleared.connectionState).toBe("idle");
     expect(cleared.connection).toBeNull();
+    const changedModel = wizardReducer(probed, { type: "SET_MODEL", value: "vendor-model" });
+    expect(changedModel.connectionState).toBe("idle");
+    expect(changedModel.connection).toBeNull();
   });
 
   it("marks skipped configuration steps and clears model selection", () => {

@@ -5,27 +5,45 @@ package main
 import (
 	"log/slog"
 	"os"
+	"sync"
+	"time"
 
 	oneagent "github.com/MaimoryLab/OneAgent"
-	"github.com/MaimoryLab/OneAgent/internal/app"
 	"github.com/MaimoryLab/OneAgent/internal/binding"
 	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 func main() {
-	core := app.NewUseCasesFromEnvironment()
-	services := binding.NewServices(core, func(url string) error {
+	core := newDesktopUseCases()
+	var appInstance *application.App
+	var nativeSmokeOnce sync.Once
+	var afterGetStatus func()
+	if os.Getenv("ONEAGENT_NATIVE_SMOKE") == "1" {
+		afterGetStatus = func() {
+			nativeSmokeOnce.Do(func() {
+				if result := os.Getenv("ONEAGENT_NATIVE_SMOKE_RESULT"); result != "" {
+					_ = os.WriteFile(result, []byte("ok\n"), 0o600)
+				}
+				time.AfterFunc(250*time.Millisecond, func() {
+					if appInstance != nil {
+						appInstance.Quit()
+					}
+				})
+			})
+		}
+	}
+	services := binding.NewServicesWithOptions(core, func(url string) error {
 		current := application.Get()
 		if current == nil || current.Browser == nil {
 			return oneerrors.New(oneerrors.InternalError, "Desktop browser is not ready")
 		}
 		return current.Browser.OpenURL(url)
-	})
+	}, binding.ServicesOptions{AfterGetStatus: afterGetStatus})
 
 	// No Route or RawMessageHandler is configured. The default Wails transport
 	// is internal IPC; the production app does not expose a business HTTP port.
-	appInstance := application.New(application.Options{
+	appInstance = application.New(application.Options{
 		Name:        "OneAgent",
 		Description: "Local AI development environment activator",
 		LogLevel:    slog.LevelInfo,
@@ -42,12 +60,14 @@ func main() {
 		},
 		Mac: application.MacOptions{ApplicationShouldTerminateAfterLastWindowClosed: true},
 	})
-	appInstance.Window.NewWithOptions(application.WebviewWindowOptions{
-		Title:  "OneAgent",
-		Width:  1180,
-		Height: 760,
-		URL:    "/",
-	})
+	if !application.System.IsServer() {
+		appInstance.Window.NewWithOptions(application.WebviewWindowOptions{
+			Title:  "OneAgent",
+			Width:  1180,
+			Height: 760,
+			URL:    "/",
+		})
+	}
 	if err := appInstance.Run(); err != nil {
 		// Do not print an arbitrary Wails error containing binding arguments.
 		_, _ = os.Stderr.WriteString("OneAgent desktop failed to start\n")

@@ -12,7 +12,7 @@ import zipfile
 from pathlib import Path
 from unittest.mock import patch
 
-from oneagent import catalog, entrypoint
+from oneagent import catalog
 from oneagent.catalog import load_manifest
 from oneagent.installer import Runtime, status_payload
 from scripts import build_release
@@ -80,24 +80,6 @@ class ReleasePolicyTests(unittest.TestCase):
                 # spelling it out rather than softening the scan.
                 self.assertNotRegex(sources, r"shell\s*=\s*True")
                 self.assertNotRegex(sources, r"curl\s+[^\n|]+\|\s*(?:ba)?sh")
-
-    def test_no_bare_http_server_reintroduces_the_reverse_dns_stall(self):
-        # http.server's server_bind() calls socket.getfqdn(). On a host with no
-        # reverse resolver that blocks ~35s per process, which is why the macOS
-        # CI jobs used to spend 44s on a 9s test step. Every server must come
-        # from a subclass that overrides the bind.
-        offenders: list[str] = []
-        for directory in ("oneagent", "scripts", "tests"):
-            for path in sorted((ROOT / directory).glob("*.py")):
-                text = path.read_text(encoding="utf-8")
-                for line_number, line in enumerate(text.splitlines(), start=1):
-                    if re.search(r"(?<![A-Za-z0-9_])HTTPServer\(\(", line):
-                        offenders.append(f"{directory}/{path.name}:{line_number}")
-        self.assertEqual(
-            offenders,
-            [],
-            "use LocalHTTPServer (tests) or OneAgentHTTPServer (product) instead of a bare HTTPServer",
-        )
 
     def test_external_tools_are_resolved_to_an_absolute_path(self):
         # Windows ships npm as npm.cmd and CreateProcess only appends .exe to a
@@ -241,10 +223,6 @@ class ReleasePolicyTests(unittest.TestCase):
                 (root / "agents.lock.json").unlink()
                 self.assertEqual(catalog.resource_root(), stale)
 
-    def test_python_gui_launcher_still_requires_python_312(self):
-        # The GUI launcher is the remaining Python entry point during migration.
-        self.assertIn("3.12", (ROOT / "scripts" / "gui.py").read_text(encoding="utf-8"))
-
     def test_cli_wrappers_forward_to_the_go_cli_without_locating_python(self):
         # Phase 3 of the Wails migration turns these into pure forwarding layers.
         # They must not reintroduce a Python runtime requirement, and they must
@@ -277,19 +255,6 @@ class ReleasePolicyTests(unittest.TestCase):
             if path.is_file() and path.suffix in {".html", ".js", ".css"}
         )
         self.assertNotRegex(text, r"https?://(?:fonts\.|cdn\.|unpkg\.|jsdelivr\.)")
-
-    def test_packaged_entrypoint_routes_no_args_to_gui_and_args_to_cli(self):
-        with patch.object(entrypoint.server, "main") as gui, patch.object(entrypoint.cli, "main") as cli:
-            with patch("sys.argv", ["OneAgent"]):
-                entrypoint.main()
-            gui.assert_called_once_with()
-            cli.assert_not_called()
-
-        with patch.object(entrypoint.server, "main") as gui, patch.object(entrypoint.cli, "main") as cli:
-            with patch("sys.argv", ["OneAgent", "--json"]):
-                entrypoint.main()
-            cli.assert_called_once_with()
-            gui.assert_not_called()
 
     def test_source_archive_allowlist_excludes_runtime_and_concept_assets(self):
         source = (ROOT / "scripts" / "build_release.py").read_text(encoding="utf-8")
@@ -345,19 +310,17 @@ class ReleasePolicyTests(unittest.TestCase):
         self.assertIn('id -u', runner)
         self.assertIn("ONEAGENT_DISABLE_BROWSER", runner)
         self.assertIn("PASSWORD", runner)
-        self.assertIn("npm run e2e", runner)
         self.assertIn("coverage-summary.json", runner)
         for required in [".git", ".env*", "frontend/node_modules", "release", "output"]:
             with self.subTest(pattern=required):
                 self.assertIn(required, dockerignore)
 
-    def test_macos_cleanroom_requires_real_darwin_and_native_binary(self):
+    def test_macos_cleanroom_requires_real_darwin(self):
         source = (ROOT / "tests" / "macos_cleanroom_test.sh").read_text(encoding="utf-8")
         self.assertIn('uname -s', source)
         self.assertIn('Darwin', source)
         self.assertIn('env -i', source)
         self.assertIn('stat -f', source)
-        self.assertIn('ONEAGENT_PACKAGED_BINARY', source)
         self.assertIn('Unexpected preinstalled Agent', source)
         self.assertNotIn('ONEAGENT_TEST_OS', source)
 
@@ -368,7 +331,6 @@ class ReleasePolicyTests(unittest.TestCase):
         self.assertIn("scripts/test_docker_cleanroom.sh", ci)
         self.assertIn("pyinstaller==6.21.0", ci)
         self.assertIn("tests/macos_cleanroom_test.sh", ci)
-        self.assertIn("ONEAGENT_PACKAGED_BINARY", ci)
         self.assertIn("tests/macos_cleanroom_test.sh", rc)
 
     def test_install_path_is_verified_offline_in_ci_and_for_real_before_release(self):
@@ -400,7 +362,7 @@ class ReleasePolicyTests(unittest.TestCase):
     def test_config_readers_never_extract_a_credential(self):
         # Three of the five formats hold the key in plain text next to the
         # endpoint, so a reader that reached for one field too many would put it
-        # straight into /api/status.
+        # straight into the status binding.
         source = (ROOT / "oneagent" / "installer.py").read_text(encoding="utf-8")
         readers = source.split("def _detected(", 1)[1].split("def _write_agent_config", 1)[0]
         for forbidden in ["AUTH_TOKEN", "API_KEY", "apiKey", "api_key", "hasKey"]:

@@ -94,8 +94,6 @@ jobs:
 
       - name: Real macOS arm64 cleanroom
         if: matrix.os == 'macos-15'
-        env:
-          ONEAGENT_PACKAGED_BINARY: ${{ github.workspace }}/build/pyinstaller-dist/OneAgent/OneAgent
         run: bash tests/macos_cleanroom_test.sh
 
       - name: Validate release contents

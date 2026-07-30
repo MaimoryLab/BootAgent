@@ -21,9 +21,17 @@ type Services struct {
 	Profile  *ProfileService
 }
 
+type ServicesOptions struct {
+	AfterGetStatus func()
+}
+
 func NewServices(core *app.UseCases, opener BrowserOpener) *Services {
+	return NewServicesWithOptions(core, opener, ServicesOptions{})
+}
+
+func NewServicesWithOptions(core *app.UseCases, opener BrowserOpener, options ServicesOptions) *Services {
 	return &Services{
-		Status:   &StatusService{core: core},
+		Status:   &StatusService{core: core, afterGetStatus: options.AfterGetStatus},
 		Provider: NewProviderService(core, opener),
 		Agent:    NewAgentService(core),
 		Profile:  NewProfileService(core),
@@ -31,14 +39,19 @@ func NewServices(core *app.UseCases, opener BrowserOpener) *Services {
 }
 
 type StatusService struct {
-	core *app.UseCases
+	core           *app.UseCases
+	afterGetStatus func()
 }
 
 func (s *StatusService) GetStatus(ctx context.Context) (app.StatusResponse, error) {
 	if s == nil || s.core == nil {
 		return app.StatusResponse{}, notReady("Status service is not configured")
 	}
-	return s.core.GetStatus(ctx)
+	status, err := s.core.GetStatus(ctx)
+	if err == nil && s.afterGetStatus != nil {
+		s.afterGetStatus()
+	}
+	return status, err
 }
 
 type BrowserOpener func(string) error
