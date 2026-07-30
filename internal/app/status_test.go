@@ -220,6 +220,49 @@ func TestStatusProjectsAgentBindingsWithoutUnknownFields(t *testing.T) {
 	}
 }
 
+func TestStatusDetectsExternalConfigWithoutSecretsOrGlobalFailure(t *testing.T) {
+	home := t.TempDir()
+	codexPath := filepath.Join(home, ".codex", "config.toml")
+	claudePath := filepath.Join(home, ".claude", "settings.json")
+	if err := os.MkdirAll(filepath.Dir(codexPath), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Dir(claudePath), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(codexPath, []byte(`model_provider = "vendor"
+model = "gpt-5-mini"
+[model_providers.vendor]
+base_url = "https://api.other-vendor.com/v1"
+api_key = "sk-detected-secret"
+`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(claudePath, []byte("{not json"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	core := NewUseCases(StatusOptions{Home: home, Platform: platform.For("linux", "amd64"), Lookup: func(string) (string, bool) { return "", false }})
+	status, err := core.GetStatus(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	codex := status.Agents["codex"]
+	if codex.Detected == nil || codex.Detected.BaseURL != "https://api.other-vendor.com/v1" || codex.Detected.Model != "gpt-5-mini" || codex.Detected.ManagedByOneAgent {
+		t.Fatalf("codex detected = %#v", codex.Detected)
+	}
+	claude := status.Agents["claude-code"]
+	if claude.Detected == nil || claude.Detected.Unreadable == nil {
+		t.Fatalf("claude malformed detection = %#v", claude.Detected)
+	}
+	wire, err := json.Marshal(status)
+	if err != nil || strings.Contains(string(wire), "sk-detected-secret") || strings.Contains(string(wire), "api_key") {
+		t.Fatalf("detected status leaked secret data: %s (%v)", wire, err)
+	}
+	if status.Agents["openclaw"].Detected != nil {
+		t.Fatalf("guide-only Agent unexpectedly detected config: %#v", status.Agents["openclaw"].Detected)
+	}
+}
+
 func TestStatusMatchesPythonEmptyLinuxARM64Fixture(t *testing.T) {
 	home := t.TempDir()
 	core := NewUseCases(StatusOptions{

@@ -12,6 +12,7 @@ import (
 	"sync"
 
 	"github.com/MaimoryLab/OneAgent/internal/catalog"
+	configReader "github.com/MaimoryLab/OneAgent/internal/config"
 	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
 	"github.com/MaimoryLab/OneAgent/internal/platform"
 	profileStore "github.com/MaimoryLab/OneAgent/internal/profile"
@@ -213,6 +214,10 @@ func (u *UseCases) GetStatus(ctx context.Context) (StatusResponse, error) {
 			boundBaseURL = nonEmptyPointer(binding.BaseURL)
 			boundUpdatedAt = nonEmptyPointer(binding.UpdatedAt)
 		}
+		var detected *DetectedConfig
+		if agent.ConfigMode == "auto" && configPath != "" {
+			detected = detectedConfig(configReader.DetectFile(configPath, agent.ConfigAdapter, agent.EnvVars))
+		}
 		statuses[id] = AgentStatus{
 			Installed:     installed,
 			Configured:    fileExists(configPath),
@@ -224,6 +229,7 @@ func (u *UseCases) GetStatus(ctx context.Context) (StatusResponse, error) {
 			Model:         boundModel,
 			BaseURL:       boundBaseURL,
 			UpdatedAt:     boundUpdatedAt,
+			Detected:      detected,
 		}
 	}
 	profiles, activeProfile, environment, environmentError := u.profileStatus(ctx)
@@ -243,6 +249,18 @@ func (u *UseCases) GetStatus(ctx context.Context) (StatusResponse, error) {
 		Environment:      environment,
 		EnvironmentError: environmentError,
 	}, nil
+}
+
+func detectedConfig(value *configReader.Detected) *DetectedConfig {
+	if value == nil {
+		return nil
+	}
+	return &DetectedConfig{
+		BaseURL:           value.BaseURL,
+		Model:             value.Model,
+		ManagedByOneAgent: value.ManagedByOneAgent,
+		Unreadable:        value.Unreadable,
+	}
 }
 
 func nonEmptyPointer(value string) *string {
