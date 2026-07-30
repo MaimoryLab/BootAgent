@@ -40,9 +40,10 @@ oneagent.installer
 ```
 
 - `scripts/gui.py`：源码 GUI 入口。
-- `scripts/install.sh`：macOS/Linux CLI 转发层。
-- `scripts/install.ps1`：Windows CLI 转发层。
-- `oneagent/`：三平台共用安装核心、API Server 和 CLI。
+- `scripts/install.sh`：macOS/Linux CLI 转发层，转发到 Go CLI（`cmd/oneagent`）。
+- `scripts/install.ps1`：Windows CLI 转发层，转发到 Go CLI。
+- `cmd/oneagent`：纯 Go CLI，是 CLI 路径的实现所在；包装脚本只做转发。
+- `oneagent/`：三平台共用安装核心、API Server 和 Python CLI（GUI 路径仍在使用）。
 - `frontend/`：React 七页向导；发行包只携带构建后的 `dist`，终端用户不需要 Node.js。
 - `site/`：独立 Astro 静态公开站；不进入 Launcher 包体，也不复用本地路由和状态。
 - `distribution/`：公开渠道状态与 Provider 商业关系披露；技术排序与商业数据保持分离。
@@ -67,7 +68,8 @@ npm run test:e2e
 
 ### 源码 GUI
 
-源码运行要求 Python 3.12+。如需让 OneAgent 自动安装 Aider，还需要预先安装 `uv`；OneAgent 不会自动下载 Python：
+GUI 路径仍是 Python，要求 Python 3.12+（CLI 路径已不需要，见下节）。如需让 OneAgent
+自动安装 Aider，还需要预先安装 `uv`；无论走哪条路径，OneAgent 都不会自动下载 Python：
 
 ```bash
 python3 scripts/gui.py
@@ -122,6 +124,17 @@ python3.12 -m pip wheel . --no-deps -w dist
 尚未发布到 PyPI，目前只能从本地或 Release 附件安装。
 
 ### CLI
+
+CLI 路径已迁移到 Go。`scripts/install.sh` 与 `.ps1` 保留为纯转发层（预计保留一个发行
+周期），它们只定位并执行二进制，不再需要 Python。从源码使用时先构建一次：
+
+```bash
+go build -o bin/oneagent ./cmd/oneagent
+```
+
+也可以直接调用 `./bin/oneagent`，或用 `ONEAGENT_CLI_BINARY` 指向已有二进制。二进制
+不存在时包装脚本以退出码 3 报前置缺失，不会隐式构建——调用方常使用临时 HOME，构建会
+把 Go module cache 写进去。
 
 macOS/Linux：
 
@@ -320,9 +333,21 @@ python3.12 -m coverage json
 python3.12 -c "import json; s=json.load(open('build/coverage/coverage.json'))['files']['oneagent/installer.py']['summary']; assert s['percent_branches_covered'] == 100 and s['num_partial_branches'] == 0"
 ```
 
-兼容测试：
+Go 契约与静态检查（迁移线；`ONEAGENT_REQUIRE_PARITY=1` 让 JSON 写入器 parity 门禁
+不允许静默跳过）：
 
 ```bash
+go vet ./...
+ONEAGENT_REQUIRE_PARITY=1 go test ./...
+go test -race ./...
+go run honnef.co/go/tools/cmd/staticcheck@2025.1.1 ./...
+go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...
+```
+
+兼容测试。`install_test.sh` 经包装脚本转发到 Go CLI，需要先构建一次二进制：
+
+```bash
+go build -o bin/oneagent ./cmd/oneagent
 bash tests/install_test.sh
 python3.12 tests/gui_smoke_test.py
 ```

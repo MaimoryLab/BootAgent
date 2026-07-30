@@ -1,16 +1,28 @@
 # OneAgent 全量迁移至 Wails v3 规划方案
 
-- 状态：In Progress（阶段 0/1 骨架已开始，生产入口尚未切换）
-- 日期：2026-07-29
+- 状态：In Progress（阶段 0-3 退出门禁已通过，阶段 4 进行中，生产入口尚未切换）
+- 日期：2026-07-30
 - 目标版本：下一主版本（建议 `0.3.0-dev` 开始迁移）
 - 适用范围：桌面应用、Go 核心、CLI、前端通信、测试、构建、发布和公开站数据生成
 
-当前进度：已建立 Go module、嵌入式 Agent catalog、稳定错误/平台类型、纯 Go CLI
-和带 `wails` 构建标签的桌面空壳，并已用 Python 当前实现冻结空 HOME、Linux arm64、
-无命令环境的 status/catalog fixture；Go 测试独立读取该 fixture。Provider URL 校验、
-模型发现和 OpenAI/Anthropic/Responses 三协议探测已移植到可注入 HTTP client，并接入
-Wails `ProviderService`。现有 Python 核心、HTTP GUI、包装脚本、测试和发布流程仍是
-当前生产路径；在阶段 2-6 的行为等价门禁通过前不得删除或旁路它们。
+当前进度：
+
+- 阶段 0-1 已完成：Go module、嵌入式 Agent catalog、稳定错误/平台类型、纯 Go CLI
+  和带 `wails` 构建标签的桌面空壳；status/catalog fixture 由 Python 当前实现冻结，
+  Go 测试独立读取。
+- 阶段 2 已完成：Provider URL 校验、模型发现、三协议探测、原子写、备份、Unix mode
+  与 Windows ACL、profile/secret/Agent binding store 和五个配置 adapter 均已移植；
+  `internal/config` 另有一道 JSON 写入器 parity 门禁，直接与 Python 写入器逐字节比对。
+- 阶段 3 已完成：安装编排、prerequisite、版本解析、npm/uv 安装、integrity 校验、
+  日志脱敏和 `agent list/set` 均在 Go 中，`scripts/install.sh` 与 `.ps1` 已改为纯
+  转发层调用 Go CLI，不再定位 Python；`tests/install_test.sh` 的 13 项契约现在由
+  Go CLI 通过。CLI 支持中断取消（退出码 130），帮助文本保持 argparse 的双破折号形式。
+- 阶段 4 进行中：四个 service 已注册，`frontend/bindings/` 已生成并提交，
+  `frontend/src/backend/` 薄 adapter 已按运行时选择 Wails 或 HTTP 传输。尚未删除
+  `frontend/src/api/client.ts` 的 fetch 路径，手写后端 DTO 也尚未改为生成类型别名。
+
+现有 Python 核心、HTTP GUI 和发布流程仍是当前生产路径；在阶段 4-6 的行为等价门禁
+通过前不得删除或旁路它们。
 
 ## 1. 结论
 
@@ -282,6 +294,18 @@ HTTP 删除后，Cookie、Host 和 Origin 校验也随之删除，但不能简�
 - `scripts/install.sh`/`.ps1` 暂时保留为纯转发兼容层，改为调用 Go CLI，不再定位 Python；一个发行周期后再评估删除。
 
 退出门禁：fake npm/uv 契约、真实锁定 Agent 安装、CLI 快照和取消/超时全部通过；Aider 边界已按第 1 节落地。
+
+阶段 3 已通过（2026-07-30）。证据：
+
+- `tests/install_test.sh` 的 13 项契约经 `scripts/install.sh` 转发到 Go CLI 全部通过，
+  且不再需要 PATH 上有 Python。
+- 包装脚本是纯转发层，不做按需构建：调用方使用临时 HOME，`go build` 会把 module
+  cache 写进去。二进制缺失时报 `PREREQUISITE_MISSING` 语义的退出码 3。
+- 容器 cleanroom 新增 `go-cli-no-python` 阶段：在 `PATH=/usr/bin:/bin`（无 Python、
+  无 Node、无包管理器）下完成一次真实 Codex 配置写入，并断言 API Key 不进入 JSON 结果。
+- `go vet`、`go test ./...`、`go test -race ./...`、staticcheck 和 govulncheck 均已
+  纳入 CI，且当前全绿；JSON 写入器 parity 门禁在 CI 中以 `ONEAGENT_REQUIRE_PARITY=1`
+  运行，不允许静默跳过。
 
 ### 阶段 4：Wails service 与 React binding 切换
 
