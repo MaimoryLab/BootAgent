@@ -420,6 +420,13 @@ python3 scripts/provider_rc_smoke.py \
 
 ## 文档
 
+Go 内核与 Wails 外壳的迁移正在进行中（阶段 0–4 完成，Python 仍是唯一生产实现）。从[交接文档](docs/handover.md)开始读——它是现状、遗留问题与下一步的入口。
+
+- [迁移交接文档](docs/handover.md)
+- [Go 内核与 Wails 外壳 ADR](docs/decisions/ADR-008-go-core-and-wails-desktop-shell.md)
+- [Wails 重写计划](docs/wails-rewrite-plan.md)
+- [Wails 迁移执行计划](docs/wails-migration-execution.md)
+- [迁移进展与审查记录](docs/migration-progress.md)
 - [产品边界基线](docs/product-boundary-baseline.md)
 - [公开分发站运营与发布手册](docs/public-site-operations.md)
 - [独立公开站与机器生成发行索引 ADR](docs/decisions/ADR-006-public-site-and-generated-release-index.md)
