@@ -171,6 +171,7 @@ func (u *UseCases) GetStatus(ctx context.Context) (StatusResponse, error) {
 		SupportedAgentIDs: make([]string, 0, len(manifest.Agents)),
 	}
 	statuses := make(map[string]AgentStatus, len(manifest.Agents))
+	bindings := u.profiles.ListAgentBindings()
 	for _, id := range catalog.AgentIDs(manifest) {
 		agent := manifest.Agents[id]
 		configPath := configPath(options.Home, options.Platform.OS, agent)
@@ -205,6 +206,13 @@ func (u *UseCases) GetStatus(ctx context.Context) (StatusResponse, error) {
 			version := agent.Package.Version
 			lockedVersion = &version
 		}
+		var boundProvider, boundModel, boundBaseURL, boundUpdatedAt *string
+		if binding, ok := bindings[id]; ok {
+			boundProvider = nonEmptyPointer(binding.Provider)
+			boundModel = nonEmptyPointer(binding.Model)
+			boundBaseURL = nonEmptyPointer(binding.BaseURL)
+			boundUpdatedAt = nonEmptyPointer(binding.UpdatedAt)
+		}
 		statuses[id] = AgentStatus{
 			Installed:     installed,
 			Configured:    fileExists(configPath),
@@ -212,6 +220,10 @@ func (u *UseCases) GetStatus(ctx context.Context) (StatusResponse, error) {
 			Config:        configPath,
 			LockedVersion: lockedVersion,
 			CanInstall:    canInstall,
+			Provider:      boundProvider,
+			Model:         boundModel,
+			BaseURL:       boundBaseURL,
+			UpdatedAt:     boundUpdatedAt,
 		}
 	}
 	profiles, activeProfile, environment, environmentError := u.profileStatus(ctx)
@@ -231,6 +243,13 @@ func (u *UseCases) GetStatus(ctx context.Context) (StatusResponse, error) {
 		Environment:      environment,
 		EnvironmentError: environmentError,
 	}, nil
+}
+
+func nonEmptyPointer(value string) *string {
+	if value == "" {
+		return nil
+	}
+	return &value
 }
 
 // ListProfiles returns only the public profile projection. Secret files are

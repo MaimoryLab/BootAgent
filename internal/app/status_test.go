@@ -195,6 +195,31 @@ func TestSaveProfileUseCaseWritesOnlyPublicSummary(t *testing.T) {
 	}
 }
 
+func TestStatusProjectsAgentBindingsWithoutUnknownFields(t *testing.T) {
+	home := t.TempDir()
+	path := filepath.Join(home, ".oneagent", "agents", "codex.json")
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	content := `{"schema_version":1,"agent_id":"codex","provider":"ppio","base_url":"https://api.ppio.com/responses","model":"model-a","profile_ref":"team","created_at":"created","updated_at":"updated","api_key":"must-not-escape"}`
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	core := NewUseCases(StatusOptions{Home: home, Platform: platform.For("linux", "amd64"), Lookup: func(string) (string, bool) { return "", false }})
+	status, err := core.GetStatus(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	agent := status.Agents["codex"]
+	if agent.Provider == nil || *agent.Provider != "ppio" || agent.Model == nil || *agent.Model != "model-a" || agent.BaseURL == nil || *agent.BaseURL != "https://api.ppio.com/responses" || agent.UpdatedAt == nil || *agent.UpdatedAt != "updated" {
+		t.Fatalf("agent binding projection = %#v", agent)
+	}
+	wire, err := json.Marshal(status)
+	if err != nil || strings.Contains(string(wire), "must-not-escape") || strings.Contains(string(wire), "api_key") {
+		t.Fatalf("status binding leaked unknown fields: %s (%v)", wire, err)
+	}
+}
+
 func TestStatusMatchesPythonEmptyLinuxARM64Fixture(t *testing.T) {
 	home := t.TempDir()
 	core := NewUseCases(StatusOptions{
