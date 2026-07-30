@@ -89,9 +89,18 @@ func (c *Client) Probe(ctx context.Context, protocol, providerID, apiKey, model,
 	if err != nil {
 		return ProbeResult{}, err
 	}
-	response, err := c.do(request)
+	response, cancelRequest, err := c.do(request)
+	defer cancelRequest()
 	if err != nil {
+		if response != nil && response.Body != nil {
+			_ = response.Body.Close()
+		}
 		result := transportResult(err)
+		result.Protocol = stringPointer(protocol)
+		return result, nil
+	}
+	if response == nil {
+		result := transportResult(errors.New("Provider transport returned no response"))
 		result.Protocol = stringPointer(protocol)
 		return result, nil
 	}
@@ -126,10 +135,17 @@ func (c *Client) ListModels(ctx context.Context, providerID, apiKey, customBase 
 		return ModelsResult{}, oneerrors.New(oneerrors.InvalidRequest, "Provider endpoint is invalid", oneerrors.WithCause(err))
 	}
 	request.Header.Set("Authorization", "Bearer "+apiKey)
-	response, err := c.do(request)
+	response, cancelRequest, err := c.do(request)
+	defer cancelRequest()
 	if err != nil {
+		if response != nil && response.Body != nil {
+			_ = response.Body.Close()
+		}
 		result := transportModelsResult(err)
 		return result, nil
+	}
+	if response == nil {
+		return transportModelsResult(errors.New("Provider transport returned no response")), nil
 	}
 	defer response.Body.Close()
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
@@ -235,14 +251,14 @@ func protocolRequest(ctx context.Context, protocol, providerID, customBase, apiK
 	return request, nil
 }
 
-func (c *Client) do(request *http.Request) (*http.Response, error) {
+func (c *Client) do(request *http.Request) (*http.Response, context.CancelFunc, error) {
 	timeout := c.timeout
 	if timeout <= 0 {
 		timeout = defaultTimeout
 	}
 	ctx, cancel := context.WithTimeout(request.Context(), timeout)
-	defer cancel()
-	return c.doer.Do(request.WithContext(ctx))
+	response, err := c.doer.Do(request.WithContext(ctx))
+	return response, cancel, err
 }
 
 func (c *Client) readBody(reader io.Reader) ([]byte, bool) {

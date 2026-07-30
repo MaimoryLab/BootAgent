@@ -29,6 +29,20 @@ func fakeResponse(status int, body string) *http.Response {
 	}
 }
 
+type contextAwareBody struct {
+	ctx  context.Context
+	data *strings.Reader
+}
+
+func (body *contextAwareBody) Read(target []byte) (int, error) {
+	if err := body.ctx.Err(); err != nil {
+		return 0, err
+	}
+	return body.data.Read(target)
+}
+
+func (body *contextAwareBody) Close() error { return nil }
+
 func TestProbeBuildsProtocolSpecificRequests(t *testing.T) {
 	tests := []struct {
 		protocol string
@@ -169,6 +183,23 @@ func TestListModelsTransportTimeoutAndSizeLimit(t *testing.T) {
 	result, err = large.ListModels(context.Background(), "ppio", "key", "")
 	if err != nil || result.ErrorCode == nil || *result.ErrorCode != oneerrors.ModelsUnsupported {
 		t.Fatalf("large response result = %#v, err=%v", result, err)
+	}
+}
+
+func TestClientKeepsRequestContextAliveWhileReadingBody(t *testing.T) {
+	client := NewClient(fakeDoer(func(request *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body: &contextAwareBody{
+				ctx:  request.Context(),
+				data: strings.NewReader(`{"data":[{"id":"chat-model"}]}`),
+			},
+			Header: make(http.Header),
+		}, nil
+	}))
+	result, err := client.ListModels(context.Background(), "ppio", "key", "")
+	if err != nil || !result.OK || !reflect.DeepEqual(result.Models, []string{"chat-model"}) {
+		t.Fatalf("context-aware body result = %#v, err=%v", result, err)
 	}
 }
 
