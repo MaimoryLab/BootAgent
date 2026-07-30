@@ -49,6 +49,14 @@ var expected = map[string]int{
 	// that must be provably free of credential material -- three of the five config
 	// formats hold the key in plain text and this payload reports on all of them.
 	filepath.Join("app", "status_parity_test.go"): 2,
+	// Outside internal/, hence the "..": the CLI's exit codes are read by
+	// install.sh and by CI, which cannot read a message. Every other entry here
+	// compares what a layer computes; this one compares what the process returns,
+	// because the argument parsing and the code mapping sit above every layer the
+	// rest of this table reaches. It was verified by hand once during the review
+	// that first ran the Go core as a program -- a contract checked once with no
+	// gate behind it is exactly what this file exists to prevent.
+	filepath.Join("..", "cmd", "oneagent", "exitcode_parity_test.go"): 3,
 }
 
 var testFunc = regexp.MustCompile(`func (Test\w+)`)

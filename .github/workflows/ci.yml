@@ -129,8 +129,12 @@ jobs:
           ONEAGENT_REQUIRE_PARITY: "1"
         run: |
           go test ./internal/parity/ -v -count=1
-          go test ./internal/oerr/ ./internal/runtime/ ./internal/catalog/ ./internal/provider/ \
-            -run TestParity -v -count=1
+          # ./... rather than a list of packages. The list had four entries while
+          # eleven packages carried parity tests, so config, securefs, jsonorder,
+          # install, profile, app and the CLI's exit codes were never run by the
+          # step named after them -- they only ran inside the full suite above.
+          # Enumerating is what made that possible, so this stops enumerating.
+          go test ./... -run TestParity -v -count=1
 
       - name: Bash compatibility contracts
         if: runner.os != 'Windows'

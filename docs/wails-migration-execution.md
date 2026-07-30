@@ -134,7 +134,7 @@ type Runtime struct {
 
 ### 4.6 parity 门禁本身的四个静默失效路径
 
-`go test -run` **匹配零个测试时退出码为 0**。这让「跑 parity 测试」这个 CI 步骤有四种变绿而不报错的方式，全部已堵住并实测验证：
+`go test -run` **匹配零个测试时退出码为 0**。这让「跑 parity 测试」这个 CI 步骤有五种变绿而不报错的方式，全部已堵住并实测验证：
 
 | 失效方式 | 旧行为 | 现在 |
 | --- | --- | --- |
@@ -142,8 +142,13 @@ type Runtime struct {
 | 删掉整个 parity 文件 | `ok ... [no tests to run]` | `internal/parity` 断言文件存在 |
 | Python 不在 PATH（跨语言比较无法进行） | `t.Skip`，报 ok | CI 设 `ONEAGENT_REQUIRE_PARITY`，改为硬失败 |
 | 新增 parity 文件但没进门禁清单 | 看着被覆盖，实际不在计数内 | `TestNoParityFileEscapesTheDeclaredList` 反向检查 |
+| **CI 步骤按包名枚举** | 名叫「cross-language parity」的步骤只跑了 24 个用例中的 4 个包 | 改成 `./... -run TestParity`，不再枚举 |
 
-`internal/parity/gate_test.go` 的 `expected` 表逐文件声明最低测试数，目前覆盖 11 个文件（`oerr` 3、`runtime` 2、`catalog` 6、`provider` 9、`shellquote` 4、`securefs` 4、`jsonorder` 2+2、`config` 4+7、`install` 4）。新增 parity 文件必须加一行——这是有意的，替代方案是一个悄悄停止覆盖它的门禁。
+最后一条是这一轮发现的,形状和前四条一样但位置更靠外:门禁本身全部有效、`internal/parity` 也在守着,**而 CI 那个专门步骤的包清单停在四个包上**——`config`、`securefs`、`jsonorder`、`install`、`profile`、`app` 与 CLI 退出码共 37 个用例从未被它跑到。它们只在同一个 job 里更早的 `go test ./...` 里跑过,所以没人察觉;真要有人把那步删掉或改成只跑变更包,这个步骤会继续报绿。**枚举就是漏的原因,所以停止枚举。**
+
+`internal/parity/gate_test.go` 的 `expected` 表逐文件声明最低测试数，目前覆盖 16 个文件（`oerr` 3、`runtime` 2、`catalog` 6、`provider` 9+4、`shellquote` 5、`securefs` 4、`jsonorder` 2+2、`config` 4+7、`install` 4、`profile` 3、`app` 1+2、`cmd/oneagent` 3）。新增 parity 文件必须加一行——这是有意的，替代方案是一个悄悄停止覆盖它的门禁。
+
+最后一项在 `internal/` 之外，键以 `..` 开头。它是唯一比对**进程返回值**而非某层计算结果的门禁：CLI 的退出码被 `install.sh` 与 CI 分支读取，而它们读不到消息。这个契约在「把 Go 内核当程序跑起来」那轮审查里手工验证过一次,之后没有任何东西守着——**验证过一次、没有门禁**正是这套方法论要消灭的形状。
 
 第一版把计数自检写在 `codes_parity_test.go` 内部——能拦改名，但**删掉该文件后自检本身也不在了**。所以计数移到独立的 `internal/parity` 包，从外部断言每个 parity 文件仍存在、仍带着它的测试，并反向检查没有未声明的 parity 文件游离在门禁之外。
 
@@ -163,7 +168,9 @@ for line in sys.stdin:
 print("top-level",len(top),"with subtests",len(allt))'
 ```
 
-把 `./...` 换成 `-run TestParity ./...` 得到跨语言门禁的计数（58 顶层 / 240 子测试）。
+把 `./...` 换成 `-run TestParity ./...` 得到跨语言门禁的计数：61 顶层，脚本的 `with subtests` 报 308。
+
+**这两个数字口径不同,别混用。** 脚本的 `allt` 同时收顶层与子测试,所以 `with subtests` 是二者之和;而文档里说「247 个逐输入子测试」指的是**纯子测试**(308 − 61)。我核对时按前一个口径去改后一个数字,把对的改成了错的——两个数各自都对,写的时候必须说清是哪一个。
 
 **当前局限**：`ci.yml` 是 `workflow_dispatch` 专属（自动触发已按仓库所有者要求关闭），所以这些门禁只在手动触发时生效，推送时不看着任何人。阶段 1 落地前需记住这一点。
 
@@ -202,7 +209,7 @@ Go 的 RE2 原样接受 Python 那条 non-chat 模型正则，29 个模型 ID �
 
 ### 阶段 2：写入链路（已完成，止损点已通过）
 
-**止损结论：等价性成立，继续推进。** 跨语言比对全过。按上面那条计数命令，阶段 2–4 完成后跨语言门禁是 58 个顶层用例、240 个逐输入子测试，其中 `config` 的 151 项是配置与 env 文件的**逐字节**比对、`app` 的 27 项是整个响应加全部落盘文件、`profile` 的 14 项逐字节、`securefs` 的 13 项是原子写次序。
+**止损结论：等价性成立，继续推进。** 跨语言比对全过。按上面那条计数命令，阶段 2–4 完成后跨语言门禁是 61 个顶层用例、247 个逐输入子测试，其中 `config` 的 151 项是配置与 env 文件的**逐字节**比对、`app` 的 27 项是整个响应加全部落盘文件、`profile` 的 14 项逐字节、`securefs` 的 13 项是原子写次序、`cmd/oneagent` 的 7 项是进程退出码。
 
 | 包 | 覆盖 | 内容 |
 | --- | --- | --- |
