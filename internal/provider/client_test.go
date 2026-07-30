@@ -231,10 +231,26 @@ func TestClientPropagatesContextCancellation(t *testing.T) {
 		return nil, request.Context().Err()
 	}))
 	result, err := client.ListModels(ctx, "ppio", "key", "")
-	if err != nil || result.ErrorCode == nil || *result.ErrorCode != oneerrors.ProviderUnreachable {
-		// A caller cancellation is intentionally represented as a transport
-		// failure here; Wails context validation handles cancellation before a
-		// request is started.
+	if err != nil || result.ErrorCode == nil || *result.ErrorCode != oneerrors.Timeout {
 		t.Fatalf("cancelled result = %#v, err=%v", result, err)
+	}
+}
+
+type failingBody struct{ err error }
+
+func (body failingBody) Read([]byte) (int, error) { return 0, body.err }
+func (failingBody) Close() error                  { return nil }
+
+func TestListModelsMapsBodyReadCancellationToTimeout(t *testing.T) {
+	client := NewClient(fakeDoer(func(*http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       failingBody{err: context.Canceled},
+			Header:     make(http.Header),
+		}, nil
+	}))
+	result, err := client.ListModels(context.Background(), "ppio", "key", "")
+	if err != nil || result.ErrorCode == nil || *result.ErrorCode != oneerrors.Timeout || result.Reachable {
+		t.Fatalf("body cancellation result = %#v, err=%v", result, err)
 	}
 }

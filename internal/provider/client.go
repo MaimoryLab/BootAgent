@@ -118,7 +118,7 @@ func (c *Client) Probe(ctx context.Context, protocol, providerID, apiKey, model,
 			Protocol:  stringPointer(protocol),
 		}, nil
 	}
-	body, _ := c.readBody(response.Body)
+	body, _, _ := c.readBody(response.Body)
 	return classifyHTTPProbe(response.StatusCode, string(body), protocol, requestModel), nil
 }
 
@@ -149,10 +149,12 @@ func (c *Client) ListModels(ctx context.Context, providerID, apiKey, customBase 
 	}
 	defer response.Body.Close()
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		body, _ := c.readBody(response.Body)
-		return classifyHTTPModels(response.StatusCode, string(body)), nil
+		return classifyHTTPModels(response.StatusCode), nil
 	}
-	body, tooLarge := c.readBody(response.Body)
+	body, tooLarge, readErr := c.readBody(response.Body)
+	if readErr != nil {
+		return transportModelsResult(readErr), nil
+	}
 	if tooLarge {
 		return modelsFailure("Model list response is too large; enter model ID manually."), nil
 	}
@@ -261,19 +263,19 @@ func (c *Client) do(request *http.Request) (*http.Response, context.CancelFunc, 
 	return response, cancel, err
 }
 
-func (c *Client) readBody(reader io.Reader) ([]byte, bool) {
+func (c *Client) readBody(reader io.Reader) ([]byte, bool, error) {
 	limit := c.maxBody
 	if limit <= 0 {
 		limit = defaultMaxBody
 	}
 	data, err := io.ReadAll(io.LimitReader(reader, limit+1))
 	if err != nil {
-		return nil, false
+		return nil, false, err
 	}
 	if int64(len(data)) > limit {
-		return data[:limit], true
+		return data[:limit], true, nil
 	}
-	return data, false
+	return data, false, nil
 }
 
 func classifyHTTPProbe(status int, body, protocol, model string) ProbeResult {
@@ -307,7 +309,7 @@ func classifyHTTPProbe(status int, body, protocol, model string) ProbeResult {
 	}
 }
 
-func classifyHTTPModels(status int, body string) ModelsResult {
+func classifyHTTPModels(status int) ModelsResult {
 	if status == http.StatusUnauthorized || status == http.StatusForbidden {
 		return ModelsResult{
 			Reachable: true,
@@ -359,7 +361,7 @@ func transportModelsResult(err error) ModelsResult {
 }
 
 func transportCode(err error) (string, bool) {
-	if errors.Is(err, context.DeadlineExceeded) {
+	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
 		return oneerrors.Timeout, true
 	}
 	var networkError net.Error
