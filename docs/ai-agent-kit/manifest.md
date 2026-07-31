@@ -7,8 +7,6 @@
 | `launcher` | 启动本地 GUI | 否 |
 | `start.sh` | macOS / Linux 启动入口 | 否 |
 | `start.command` | macOS 双击入口 | 否 |
-| `scripts/install.sh` | 检测、安装和写配置 | 运行时输入 |
-| `scripts/verify.sh` | 连通性和模型验证 | 运行时输入 |
 
 ## 文档文件
 

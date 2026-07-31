@@ -35,8 +35,6 @@ Pure Go CLI --------------------^      Astro site ---- release metadata
 - `site/`：独立 Astro 公开站，不进入桌面包体。
 - `agents.lock.json`：Agent 版本、来源、配置适配器和许可证的唯一清单。
 
-`scripts/install.sh` 和 `scripts/install.ps1` 只是兼容转发层。先构建 `bin/oneagent`，再调用包装脚本；包装脚本不会隐式写入 Go module cache。
-
 ## 快速启动
 
 ### 桌面应用
@@ -55,11 +53,6 @@ go run -tags wails ./cmd/oneagent-desktop
 
 ```bash
 go build -o bin/oneagent ./cmd/oneagent
-
-ONEAGENT_API_KEY="$MY_API_KEY" ./scripts/install.sh \
-  --agent codex --provider ppio --model your-model-id
-./scripts/install.sh --agent codex --check-agent-only
-./scripts/install.sh --agent codex --install-agent --locked-version
 ```
 
 Windows PowerShell：
@@ -114,14 +107,6 @@ go test -race ./...
 go run honnef.co/go/tools/cmd/staticcheck@2025.1.1 ./...
 go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...
 ```
-
-CLI shell 契约（需要先构建 CLI）：
-
-```bash
-go build -o bin/oneagent ./cmd/oneagent
-bash tests/install_test.sh
-```
-
 React/Wails 测试：
 
 ```bash
@@ -135,24 +120,6 @@ cd ..
 task test:native
 ```
 
-Linux cleanroom：
-
-```bash
-bash scripts/test_docker_cleanroom.sh
-```
-
-cleanroom 以非 root 用户、全新 HOME、`--network none` 和预构建 Go CLI 运行；它不安装语言运行时，不访问 Provider，不把凭据写入报告。macOS 原生验证：
-
-```bash
-bash tests/macos_cleanroom_test.sh
-```
-
-真实 npm 安装和 PATH/版本检查（会访问 registry）：
-
-```bash
-bash tests/real_install_test.sh
-ONEAGENT_REGISTRY=npmmirror bash tests/real_install_test.sh
-```
 
 ## Release Candidate
 

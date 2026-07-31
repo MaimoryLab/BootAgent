@@ -17,7 +17,6 @@
 ```bash
 go test ./...
 go test -race ./...
-bash scripts/check_wails_bindings.sh
 bash tests/install_test.sh
 go run ./cmd/oneagent-release build --channel technical-preview-unsigned --source
 go run ./cmd/oneagent-release check release

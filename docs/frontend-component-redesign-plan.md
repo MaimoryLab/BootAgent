@@ -19,7 +19,6 @@ npm run test:coverage
 npm run build
 npm run test:e2e
 cd ..
-bash scripts/check_wails_bindings.sh
 go run ./cmd/oneagent-release build --channel technical-preview-unsigned --skip-frontend
 go run ./cmd/oneagent-release check release
 ```

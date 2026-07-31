@@ -19,7 +19,6 @@ npm run build
 npm run test:e2e
 cd ..
 go test ./internal/app ./internal/profile ./internal/binding
-bash scripts/check_wails_bindings.sh
 ```
 
 新增页面或字段必须先更新 Go DTO 和 binding，再更新 React adapter、state 和测试。旧 HTTP、Cookie/Origin 和解释器契约不再扩展。

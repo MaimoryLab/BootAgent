@@ -9,7 +9,7 @@
 - `internal/config`：TOML/JSON/JSONC 适配器、配置发现和 golden fixtures。
 - `internal/install`：锁定包安装、registry/integrity 校验和 Aider 外部前置条件。
 - `internal/profile`、`internal/securefs`：profile、secret、备份、权限和原子写。
-- `cmd/oneagent`：CLI；`scripts/install.*` 只能转发，不得重新实现解析。
+- `cmd/oneagent`
 - `cmd/oneagent-release`：原生 Wails/Go/React 发布包、notice、manifest 和 SHA-256。
 - `cmd/oneagent-rc`、`cmd/oneagent-provider-smoke`：发行候选的真实 Agent/Provider 检查。
 - `frontend/bindings`：Wails 生成物，禁止手工编辑。
@@ -28,12 +28,6 @@ npm ci
 npm run test
 npm run build
 npm run test:e2e
-```
-
-生成 binding 并检查差异：
-
-```bash
-bash scripts/check_wails_bindings.sh
 ```
 
 构建和检查发行包：

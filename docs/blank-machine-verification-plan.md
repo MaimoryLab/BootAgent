@@ -6,12 +6,9 @@
 
 | 层级 | 入口 | 证明内容 |
 | --- | --- | --- |
-| 配置契约 | `go test ./...`、`tests/install_test.sh` | argv、配置形状、保留字段、错误码和权限 |
-| 真实安装 | `tests/real_install_test.sh` | 隔离 HOME/npm prefix、PATH、锁定版本和真实 npm 安装 |
 | RC 安装 | `go run ./cmd/oneagent-rc verify-agents` | 多 Agent 隔离安装、版本和可执行文件 |
 | 配置采用 | `go run ./cmd/oneagent-rc adopted` | Codex/Claude Code 是否真正读取丢弃端点配置 |
 | Provider | `go run ./cmd/oneagent-provider-smoke` | models、Chat、Responses、Anthropic Messages |
-| 原生 cleanroom | `tests/macos_cleanroom_test.sh`、Docker cleanroom | 临时 HOME、备份、权限、脱敏和无 runtime 路径 |
 
 普通 CI 不访问 registry 或真实 Provider；Release Candidate workflow 在受保护环境中执行真实网络检查。Aider 需要其上游声明的 Python 3.12，但不纳入普通 Go/Wails cleanroom。
 
@@ -29,7 +26,6 @@
 
 ```bash
 go build -o bin/oneagent ./cmd/oneagent
-bash tests/real_install_test.sh
 go run ./cmd/oneagent-rc verify-agents
 go run ./cmd/oneagent-rc adopted
 ```

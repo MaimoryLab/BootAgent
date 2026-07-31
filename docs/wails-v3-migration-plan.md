@@ -65,8 +65,6 @@ site/                        independent Astro release site
 - `setup.py`、`pyproject.toml`、PyInstaller spec、wheel/resource staging。
 - CI/Docker 中的 setup-python、pip、coverage、PyInstaller 和 wheel 步骤。
 
-保留的 `scripts/install.sh` 和 `scripts/install.ps1` 只做二进制转发；Aider 的 runtime 检测留在 Go 安装边界内。
-
 ## 4. 文件映射
 
 | 旧职责 | 当前实现 |
@@ -79,7 +77,6 @@ site/                        independent Astro release site
 | Provider RC | `cmd/oneagent-provider-smoke` |
 | config adoption RC | `cmd/oneagent-rc adopted` |
 | resource staging | `go:embed` / Wails assets |
-| shell wrappers | `scripts/install.sh`、`scripts/install.ps1` |
 
 ## 5. 验收命令
 
@@ -87,7 +84,6 @@ site/                        independent Astro release site
 go vet ./...
 go test ./...
 go test -race ./...
-bash scripts/check_wails_bindings.sh
 
 cd frontend
 npm ci
@@ -100,7 +96,6 @@ go build -o bin/oneagent ./cmd/oneagent
 bash tests/install_test.sh
 go run ./cmd/oneagent-release build --channel technical-preview-unsigned --source
 go run ./cmd/oneagent-release check release
-bash scripts/test_docker_cleanroom.sh
 ```
 
 发行候选在受保护环境执行：
