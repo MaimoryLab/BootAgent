@@ -1,12 +1,70 @@
 version: '3'
 
 tasks:
-  test:go:
-    summary: Run the Go migration tests
+  go:mod:tidy:
+    summary: Runs `go mod tidy`
+    internal: true
+    # darwin:build:universal runs its per-arch builds as parallel deps; two
+    # `go mod tidy` processes racing on go.mod can corrupt it.
+    run: once
     cmds:
-      - go test ./...
+      - go mod tidy
+
+  install:frontend:deps:
+    summary: Install frontend dependencies (pnpm only)
+    run: once
+    dir: frontend
+    sources:
+      - package.json
+      - pnpm-lock.yaml
+    generates:
+      - node_modules
+    preconditions:
+      - sh: pnpm --version
+        msg: "pnpm not found. Install it first: https://pnpm.io/installation"
+    cmds:
+      - pnpm install
+
+  build:frontend:
+    summary: Build the React frontend (tsc --noEmit runs as part of the build script)
+    # Universal builds run per-arch builds as parallel deps, each depending on
+    # this task; without run:once the two executions race on frontend/bindings.
+    run: once
+    dir: frontend
+    sources:
+      - "**/*"
+      - exclude: node_modules/**/*
+    generates:
+      - dist/**/*
+    deps:
+      - task: install:frontend:deps
+      - task: generate:bindings
+    cmds:
+      - pnpm run build
+    env:
+      PRODUCTION: '{{if eq .DEV "true"}}false{{else}}true{{end}}'
 
   generate:bindings:
-    summary: Generate bindings using the pinned Wails version
+    summary: Regenerate Wails TypeScript bindings with the pinned Wails CLI
+    run: once
+    deps:
+      - task: go:mod:tidy
+    sources:
+      - "**/*.go"
+      - go.mod
+      - go.sum
+      - exclude: frontend/**/*
+    generates:
+      - frontend/bindings/**/*
     cmds:
-      - go run github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha2.119 generate bindings -f "-tags wails" -ts -i -d frontend/bindings ./cmd/oneagent-desktop
+      - '{{.WAILS3}} generate bindings -f "-tags wails" -ts -i -d frontend/bindings ./cmd/oneagent-desktop'
+
+  dev:frontend:
+    summary: Runs the Vite dev server (used by `task dev`)
+    deps:
+      - task: install:frontend:deps
+    dir: frontend
+    cmds:
+      # Vite 8 binds to [::1] only by default, but the Wails dev asset proxy
+      # dials localhost with forced IPv4 — bind 127.0.0.1 so they can meet.
+      - pnpm run dev --host 127.0.0.1 --port {{.VITE_PORT}} --strictPort

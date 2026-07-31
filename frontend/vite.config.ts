@@ -1,8 +1,12 @@
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
 
-export default defineConfig({
-  base: "./",
+export default defineConfig(({ command }) => ({
+  // Relative base is required for the packaged app (assets served from an
+  // embedded FS with no fixed root), but Vite's dev server does not support
+  // a relative base and will emit broken asset URLs (blank screen under
+  // `wails3 dev`). Only apply it to the production build.
+  base: command === "build" ? "./" : "/",
   plugins: [react()],
   build: {
     outDir: "dist",
@@ -36,4 +40,4 @@ export default defineConfig({
       },
     },
   },
-});
+}));

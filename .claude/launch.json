@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "vite-dev",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": ["-c", "cd frontend && pnpm run dev --port 9245 --strictPort"],
+      "port": 9245
+    }
+  ]
+}

@@ -4,7 +4,6 @@ __pycache__/
 .coverage
 .venv/
 htmlcov/
-build/
 dist/
 release/
 frontend/node_modules/
@@ -37,3 +36,5 @@ site/playwright-report/
 # 把只有本机才有的产物校验和写进仓库。
 site/src/generated/
 site/public/downloads/
+
+.task

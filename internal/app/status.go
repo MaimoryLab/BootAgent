@@ -9,8 +9,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/MaimoryLab/OneAgent/internal/catalog"
 	configReader "github.com/MaimoryLab/OneAgent/internal/config"
@@ -225,8 +227,9 @@ func (u *UseCases) GetStatus(ctx context.Context) (StatusResponse, error) {
 			paths[id+"_config"] = configPath
 		}
 		installed := false
+		executable := ""
 		if agent.Command != "" {
-			_, installed = options.Lookup(agent.Command)
+			executable, installed = options.Lookup(agent.Command)
 		}
 		canInstall := false
 		if agent.Package != nil {
@@ -264,11 +267,16 @@ func (u *UseCases) GetStatus(ctx context.Context) (StatusResponse, error) {
 		if agent.ConfigMode == "auto" && configPath != "" {
 			detected = detectedConfig(configReader.DetectFile(configPath, agent.ConfigAdapter, agent.EnvVars))
 		}
+		var installedVersion *string
+		if installed && agent.ConfigMode == "auto" {
+			installedVersion = u.installedVersion(ctx, executable, agent.VersionArgs)
+		}
 		statuses[id] = AgentStatus{
 			Installed:     installed,
 			Configured:    fileExists(configPath),
 			GuideOnly:     agent.ConfigMode == "guide",
 			Config:        configPath,
+			Version:       installedVersion,
 			LockedVersion: lockedVersion,
 			CanInstall:    canInstall,
 			Provider:      boundProvider,
@@ -295,6 +303,31 @@ func (u *UseCases) GetStatus(ctx context.Context) (StatusResponse, error) {
 		Environment:      environment,
 		EnvironmentError: environmentError,
 	}, nil
+}
+
+var versionPattern = regexp.MustCompile(`(^|[^\d])(\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?)`)
+
+// installedVersion mirrors the legacy installed_version(): run the Agent's
+// version command and take the first semver-looking token from either stream.
+// Any failure means "unknown", never an error — status must not break because
+// an Agent's --version is misbehaving.
+func (u *UseCases) installedVersion(ctx context.Context, executable string, versionArgs []string) *string {
+	if executable == "" || u.runner == nil {
+		return nil
+	}
+	args := versionArgs
+	if len(args) == 0 {
+		args = []string{"--version"}
+	}
+	result, err := u.runner.Run(ctx, append([]string{executable}, args...), nil, 30*time.Second)
+	if err != nil {
+		return nil
+	}
+	match := versionPattern.FindStringSubmatch(result.Stdout + "\n" + result.Stderr)
+	if match == nil {
+		return nil
+	}
+	return &match[2]
 }
 
 func detectedConfig(value *configReader.Detected) *DetectedConfig {

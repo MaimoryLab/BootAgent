@@ -1,10 +1,43 @@
 version: '3'
 
 vars:
+  APP_NAME: oneagent-desktop
+  BIN_DIR: bin
+  VITE_PORT: '{{.WAILS_VITE_PORT | default 9245}}'
+  # Target OS for build/run. Defaults to the host OS; override with GOOS=... to
+  # cross-compile (only windows supports cross-compilation, see build/*/Taskfile.yml).
+  GOOS: '{{.GOOS | default OS}}'
   WAILS_MODULE: github.com/wailsapp/wails/v3
   WAILS_VERSION: v3.0.0-alpha2.119
+  # Pinned Wails CLI (see build/tool-versions.env); never rely on a global wails3.
+  WAILS3: go run {{.WAILS_MODULE}}/cmd/wails3@{{.WAILS_VERSION}}
+
+includes:
+  common: ./build/Taskfile.yml
+  darwin: ./build/darwin/Taskfile.yml
+  linux: ./build/linux/Taskfile.yml
+  windows: ./build/windows/Taskfile.yml
 
 tasks:
+  build:
+    summary: Builds the desktop application for {{.GOOS}}
+    cmds:
+      - task: '{{.GOOS}}:build'
+        vars:
+          ARCH: '{{.ARCH}}'
+          DEV: '{{.DEV}}'
+          OUTPUT: '{{.OUTPUT}}'
+
+  run:
+    summary: Runs the built desktop application
+    cmds:
+      - task: '{{.GOOS}}:run'
+
+  dev:
+    summary: Runs the application in development mode (vite HMR + Go rebuild on change)
+    cmds:
+      - '{{.WAILS3}} dev -config ./build/config.yml -port {{.VITE_PORT}}'
+
   test:go:
     summary: Run the Python-independent Go migration tests
     cmds:
@@ -13,45 +46,34 @@ tasks:
   build:cli:
     summary: Build the headless Go CLI
     cmds:
-      - mkdir -p bin
-      - go build -o bin/oneagent ./cmd/oneagent
+      - mkdir -p {{.BIN_DIR}}
+      - go build -o {{.BIN_DIR}}/oneagent ./cmd/oneagent
 
   generate:bindings:
     summary: Regenerate Wails TypeScript bindings
     cmds:
-      - go run {{.WAILS_MODULE}}/cmd/wails3@{{.WAILS_VERSION}} generate bindings -f "-tags wails" -ts -i -d frontend/bindings ./cmd/oneagent-desktop
+      - task: common:generate:bindings
 
   build:frontend:
-    summary: Build the existing React frontend for the migration shell
-    dir: frontend
+    summary: Build the React frontend
     cmds:
-      - npm ci
-      - npm run build
+      - task: common:build:frontend
 
   build:desktop:
-    summary: Build the opt-in Wails desktop shell
-    deps:
-      - build:frontend
-      - generate:bindings
+    summary: Build the production Wails desktop binary for the host OS
     cmds:
-      - mkdir -p bin
-      - go build -tags "wails,production" -o bin/oneagent-desktop ./cmd/oneagent-desktop
+      - task: build
 
   test:e2e:
     summary: Run the Wails server binding browser test
     deps:
       - build:frontend
     cmds:
-      - cd frontend && npm run test:e2e
+      - cd frontend && pnpm run test:e2e
 
   test:native:
     summary: Start the native Wails binary and require a GetStatus binding call
     deps:
       - build:desktop
     cmds:
-      - go run ./cmd/oneagent-native-smoke -binary ./bin/oneagent-desktop
-
-  dev:desktop:
-    summary: Run the Wails development shell
-    cmds:
-      - go run {{.WAILS_MODULE}}/cmd/wails3@{{.WAILS_VERSION}} dev -config build/config.yml
+      - go run ./cmd/oneagent-native-smoke -binary ./{{.BIN_DIR}}/{{.APP_NAME}}

@@ -263,6 +263,36 @@ api_key = "sk-detected-secret"
 	}
 }
 
+func TestStatusReportsInstalledVersionFromVersionCommand(t *testing.T) {
+	home := t.TempDir()
+	runner := &installAppRunner{paths: map[string]string{"codex": "/fake/codex"}}
+	core := NewUseCases(StatusOptions{
+		Home:     home,
+		Platform: platform.For("linux", "amd64"),
+		Runner:   runner,
+	})
+	status, err := core.GetStatus(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	codex := status.Agents["codex"]
+	if !codex.Installed || codex.Version == nil || *codex.Version != "1.0.0" {
+		t.Fatalf("installed version not detected: %#v", codex)
+	}
+	found := false
+	for _, call := range runner.calls {
+		if reflect.DeepEqual(call, []string{"/fake/codex", "--version"}) {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("version command was not invoked: %#v", runner.calls)
+	}
+	if openclaw := status.Agents["openclaw"]; openclaw.Version != nil {
+		t.Fatalf("guide-only Agent should not report a version: %#v", openclaw)
+	}
+}
+
 func TestStatusMatchesPythonEmptyLinuxARM64Fixture(t *testing.T) {
 	home := t.TempDir()
 	core := NewUseCases(StatusOptions{

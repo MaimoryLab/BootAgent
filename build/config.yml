@@ -15,8 +15,8 @@ dev_mode:
   ignore:
     dir:
       - .git
-      - frontend/node_modules
-      - frontend/dist
+      - node_modules
+      - frontend
       - bin
     file:
       - .DS_Store
@@ -27,9 +27,11 @@ dev_mode:
       - "*.go"
     git_ignore: true
   executes:
-    - cmd: task build:frontend
+    # Dev build regenerates bindings and the frontend dist via task deps; the
+    # running app itself loads the frontend from the background Vite server.
+    - cmd: task build DEV=true
       type: blocking
-    - cmd: task generate:bindings
-      type: blocking
-    - cmd: go run -tags wails ./cmd/oneagent-desktop
+    - cmd: task common:dev:frontend
+      type: background
+    - cmd: task run
       type: primary
