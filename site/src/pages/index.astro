@@ -55,7 +55,7 @@ const href = (path: string) => localePath("zh-CN", path);
   <section class="section section-muted">
     <div class="shell reveal">
       <div class="section-heading">
-        <div><p class="eyebrow">Compatibility Explorer</p><h2 class="section-title">真实目录，不用一张静态兼容表糊弄你。</h2></div>
+        <div><p class="eyebrow">Compatibility catalog</p><h2 class="section-title">真实目录，不用一张静态兼容表糊弄你。</h2></div>
         <p>{catalog.agents.length} 个 Agent、{catalog.providers.length} 个公开 Provider，以及 OpenAI Responses、Anthropic Messages 与 Chat Completions 的独立兼容状态。</p>
       </div>
       <div class="agent-list">
@@ -72,7 +72,7 @@ const href = (path: string) => localePath("zh-CN", path);
           </a>
         ))}
       </div>
-      <div class="section-actions"><a class="button button-secondary" href={href("explore/")}>打开完整 Explorer</a></div>
+      <div class="section-actions"><a class="button button-secondary" href={href("explore/")}>打开完整配置目录</a></div>
     </div>
   </section>
 

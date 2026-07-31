@@ -3,6 +3,13 @@ import axe from "axe-core";
 
 const criticalPages = ["/", "/explore/", "/downloads/", "/agents/", "/security/"];
 
+/* Mirrors translatedRoutes in src/i18n/index.ts. It cannot be imported here:
+   that module reads import.meta.env.BASE_URL, which only exists under Vite, and
+   Playwright runs this file in plain Node. The englishPages list below is the
+   guard — every route named here has to have an /en/ page that gets audited, so
+   the two drifting apart fails rather than going unnoticed. */
+const translatedRoutes = ["", "downloads/", "quickstart/", "explore/", "security/"];
+
 test("critical pages fit the viewport without horizontal scrolling", async ({ page }) => {
   for (const path of criticalPages) {
     await page.goto(path);
@@ -47,7 +54,7 @@ test("activation demo reaches Ready only for a supported managed combination", a
   await expect(console).toHaveAttribute("data-phase", "ready");
   await expect(console.getByRole("heading", { name: "示例环境已 Ready" })).toBeVisible();
   await expect(console.getByRole("link", { name: "下载 OneAgent" })).toBeVisible();
-  await expect(console.getByRole("link", { name: "打开完整 Explorer" })).toBeVisible();
+  await expect(console.getByRole("link", { name: "打开完整配置目录" })).toBeVisible();
   await page.addScriptTag({ content: axe.source });
   const result = await page.evaluate(async () => {
     const axeApi = (window as typeof window & { axe: typeof axe }).axe;
@@ -374,7 +381,7 @@ test("navigating between pages runs a cross-document view transition", async ({ 
       sessionStorage.setItem("vt-ran", (event as PageSwapEvent).viewTransition ? "yes" : "no");
     });
   });
-  await page.getByLabel("主导航").getByRole("link", { name: "Explorer", exact: true }).click();
+  await page.getByLabel("主导航").getByRole("link", { name: "配置", exact: true }).click();
   await expect(page).toHaveURL(/\/explore\/$/);
   expect(await page.evaluate(() => sessionStorage.getItem("vt-ran"))).toBe("yes");
   // The shared chrome opts out of the crossfade by being named on both pages.
@@ -430,7 +437,9 @@ test.describe("hero entrance", () => {
 });
 
 test.describe("english locale", () => {
-  const englishPages = ["/en/", "/en/explore/", "/en/downloads/", "/en/quickstart/"];
+  // Derived from the route list rather than written out, so adding a translation
+  // without auditing its English page is not possible.
+  const englishPages = translatedRoutes.map((route) => `/en/${route}`);
 
   for (const path of englishPages) {
     test(`has no serious accessibility violations: ${path}`, async ({ page }) => {
@@ -450,7 +459,7 @@ test.describe("english locale", () => {
   }
 
   test("declares reciprocal hreflang alternates with an x-default", async ({ page }) => {
-    for (const path of ["/", "/en/", "/explore/", "/en/explore/"]) {
+    for (const path of ["/", "/en/", "/explore/", "/en/explore/", "/security/", "/en/security/"]) {
       await page.goto(path);
       const codes = await page.evaluate(() =>
         [...document.querySelectorAll('link[rel="alternate"][hreflang]')].map((link) => link.getAttribute("hreflang")),
@@ -464,13 +473,15 @@ test.describe("english locale", () => {
   // not. Every link that does it has to say so before the click.
   test("marks links that fall back to Chinese, and only on English pages", async ({ page }) => {
     await page.goto("/en/");
+    // Security is translated now, so it must stay in English and carry no hint.
     const security = page.locator(".desktop-nav a").filter({ hasText: "Security" });
-    await expect(security).toContainText("in Chinese");
-    await expect(security).toHaveAttribute("href", "/security/");
+    await expect(security).toHaveAttribute("href", "/en/security/");
+    await expect(security.locator(".lang-hint")).toHaveCount(0);
+    // Enterprise still has no translation, so it is the one that warns.
+    await expect(page.locator(".header-link").filter({ hasText: "Enterprise" })).toContainText("in Chinese");
 
     // Every link leaving /en/ for an untranslated route carries the hint.
-    const unmarked = await page.evaluate(() => {
-      const translated = ["", "downloads/", "quickstart/", "explore/"];
+    const unmarked = await page.evaluate((translated) => {
       return [...document.querySelectorAll("a[href^='/']")]
         .filter((link) => {
           const href = link.getAttribute("href") ?? "";
@@ -480,7 +491,7 @@ test.describe("english locale", () => {
         })
         .filter((link) => !link.querySelector(".lang-hint"))
         .map((link) => link.getAttribute("href"));
-    });
+    }, translatedRoutes);
     expect(unmarked, "these links change language without saying so").toEqual([]);
 
     // The hint is about leaving English; a Chinese reader is already there.

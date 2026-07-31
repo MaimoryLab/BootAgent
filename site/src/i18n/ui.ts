@@ -13,7 +13,7 @@ const strings = {
     "nav.home": "OneAgent 首页",
     "nav.downloads": "下载",
     "nav.quickstart": "快速开始",
-    "nav.explorer": "Explorer",
+    "nav.explorer": "配置",
     "nav.agents": "Agent",
     "nav.providers": "Provider",
     "nav.security": "安全",
