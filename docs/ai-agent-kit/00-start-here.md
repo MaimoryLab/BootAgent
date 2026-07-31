@@ -8,7 +8,7 @@
 
 ## 开始前准备
 
-- 一台可以运行 Python 3 的设备。
+- 一台支持的 macOS、Windows 或 Linux 设备；普通 OneAgent 流程不需要 Python。
 - 一个可用的模型 Provider 账号，或准备注册一个。
 - 你准备使用的 Agent，例如 Codex、Claude Code、OpenCode 或 Aider。
 
@@ -27,13 +27,15 @@
 
 如果你已经熟悉多 Provider 切换，可以在配置方式页面选择 **CC Switch**，然后阅读 [配置工具选择](./03-config-tools.md) 和 [CC Switch 指引](./tools/cc-switch.md)。
 
-## 启动本地 GUI
+## 启动桌面应用
 
 ```bash
-python3 scripts/gui.py
+cd frontend && npm ci && npm run build
+cd ..
+go run -tags wails ./cmd/oneagent-desktop
 ```
 
-GUI 只监听本机 `127.0.0.1`，不会主动暴露到局域网。
+也可以下载对应平台的 `technical-preview-unsigned` 包后直接启动 Wails 应用。
 
 ## 三条安全规则
 
@@ -58,4 +60,3 @@ OneAgent 不提供 VPN、代理、节点订阅或绕过网络限制的配置。
 - 配置工具问题：查看 [配置工具选择](./03-config-tools.md)。
 - Agent 问题：查看 [Agent 分类和安装指引](./04-agent-guides.md)。
 - 请求问题：查看 [第一次请求验证](./05-first-request.md)。
-

@@ -1,88 +1,33 @@
-# 近期工作纪要
+# Recent Work Summary
 
-分支 `codex/trusted-distribution-site`，12 个提交，97 文件 +13650/−110。已推送 `origin` 与 `maimory`。
+> 更新：2026-07-31。本文记录当前可复核的 Go/Wails 收尾结果；旧的 Python 计数和命令不再是验收依据。
 
-四条线：公开分发站、安装链路可验证、配置链路能用、入口分流。每条都是先实测、再修、再用测试固定住结论。
+## 已完成
 
-发现的三个缺陷有个共同点：**它们都表现为成功**——页面返回 200 但整站无样式，Agent 报 `configured` 但启动即失败，`tsc` 干净但返回用户被送去营销页。所以每条都补了能看见「假成功」的断言，而不只是修掉现象。
+- Go backend 覆盖 catalog、Provider、安装、配置发现/写入、profile、secret、备份、权限和 CLI。
+- React 已切换到生成的 Wails bindings；桌面生产路径不使用 HTTP API。
+- 配置写入使用 Go golden fixtures，直接锁定 JSON/TOML 输出，不启动第二套 runtime。
+- `cmd/oneagent-release` 生成原生 Wails/Go 包、源码 ZIP、manifest、SHA-256 和第三方 notices。
+- `cmd/oneagent-rc` 覆盖隔离 npm prefix、真实锁定版本、PATH 解析和无密钥配置采用。
+- `cmd/oneagent-provider-smoke` 覆盖 models、Chat Completions、Responses、Anthropic Messages。
+- Docker/macOS cleanroom、Go race、React/site 构建和 Wails binding diff 均有独立入口。
 
-## 1. 公开分发站（`bc01bcd` → `67b3706`）
+## 当前验证入口
 
-独立的 Astro 静态站，26 页，无第三方脚本，CSP `default-src 'self'`。
-
-**核心决定是下载页的每个断言都必须可核对。** 版本、SHA-256、cleanroom 结论都由 `scripts/build_release_index.py` 从 `release/` 的实际产物生成，缺产物或校验和不符就拒绝出条目。手工维护版本表会让页面宣传一个从未构建出来的包，对未签名预览版而言这是最不能犯的错。
-
-`site/src/generated/` 与 `site/public/downloads/` 不入库：前者是 `agents.lock.json` 加 Provider 配置的纯函数，提交只会让每次构建产生 diff；后者含 artifact 校验和，提交等于把某台机器的构建结果冻进仓库。
-
-**过程中发现一个真实缺陷。** 站点在本地打开时整站无样式、图标全 404，但**每个页面仍返回 200**。根因是 `BaseLayout.astro` 输出绝对 URL 的 `<base href>`，与同文件 CSP 的 `base-uri 'self'` 冲突——浏览器拒绝该标签，资源路径全部落空。线上不受影响（Pages 与页面同源），但任何人手动带 `BASE_PATH` 构建后本地预览就是坏的，而症状是 200 而非报错。`site.spec.ts` 现在同时检查无 4xx、背景色取自本站样式表、图片全部解码，让这种「200 但坏了」的状态在测试里可见。这条断言做过反向验证：故意用 `/OneAgent` base 构建后，它确实失败。
-
-顺带修掉一个分发问题：源码归档白名单加 `site/src` 时把 `src/generated/` 一并扫进去了，发布的源码包会携带某台机器的校验和。原有测试只 grep 函数源码文本，看不到这个；新测试断言 `source_files()` 的实际返回值。
-
-## 2. 安装链路可验证（`7c30c5d`、`9a20b21`、`f271d88`）
-
-问题是「Agent 装得上」此前是个假设。手动实测确认装得上（两个锁定版本在 registry 上都存在，落到 PATH，版本相符），然后把结论固化成可重复的脚本。
-
-**`integrity` 记而不验。** `agents.lock.json` 为每个 npm 包记了 sha512，也有测试断言它存在，但 `install_locked_agent()` 全函数不读它——**版本锁住了，字节没有。** 现在安装前用 `npm view` 取 registry 声明的 `dist.integrity` 与清单比对。
-
-**这个校验正是镜像可被接受的前提。** 国内网络下官方 registry 常不可达，而 [产品边界基线](product-boundary-baseline.md) 第 5 节已把「授权镜像」列为优先级 2，条件是有许可证、版本锁定、校验值和上游地址。换 registry 是换取包的渠道，不是代理用户的网络——不建隧道、不转发流量，这是基线划的界。两个锁定包在 npmmirror 与官方源上的 integrity **逐字节相同**，所以这是同一份包的两个渠道。
-
-三个设计决定：默认永远官方源，镜像只能显式选择（自动切换会让用户不知道包从哪来）；只允许 HTTPS 且拒绝内嵌凭据（registry URL 会进入安装环境和日志）；实际使用的 registry 记入日志。镜像不得指向 OneAgent 运营的存储——重新分发商业 Agent 需要授权，而指向公开只读镜像不需要。
-
-验证分三层：`tests/test_install_contract.py`（42 用例，离线，断言 argv 而非执行）进常规 CI；`tests/real_install_test.sh` 真实安装，隔离 npm 前缀排在 PATH 最前，官方源与镜像双路径实测通过；`scripts/agent_e2e_smoke.py` 需真实 Key，手动运行。真实安装不进常规 CI——每次提交打 registry 既慢又会限流。
-
-**一处更正**：我曾判断「没有任何一层真的装包」，这是错的。`scripts/verify_locked_agents.py` 一直在真实安装，且覆盖全部五个 Agent。真实缺口是它之后的两步：shell 是否同意二进制可达，以及 Agent 带着配置能否真的应答。
-
-## 3. 配置链路能用（`74d6633`、`e3e4782`）
-
-装上不等于能用。把配置指向 `127.0.0.1:9`（丢弃端口）实测：Agent 报连接失败说明配置生效，报别的说明没生效。
-
-Codex 通——输出 `provider: oneagent`，证明它读了我们写的 `[model_providers.oneagent]`。
-
-**Claude Code 不通**——报 `Not logged in`。它不从 `settings.json` 取认证，而 OneAgent 报的是 `status: configured` 并告知运行 `claude`。用户照做会撞墙，且没有线索指向 OneAgent。
-
-根因是两处硬编码的集合：
-
-```python
-if agent_id in {"codex", "opencode", "kilo-cli"}:
-    write_agent_env(...)
+```bash
+go test ./...
+go test -race ./...
+bash scripts/check_wails_bindings.sh
+bash tests/install_test.sh
+go run ./cmd/oneagent-release build --channel technical-preview-unsigned --source
+go run ./cmd/oneagent-release check release
 ```
 
-Codex 能用正是因为它多一个 env 文件，而**唯一无法认证的 Agent 恰好是被这个集合漏掉的那个**。
+需要真实网络和受保护凭据的检查只在 Release Candidate workflow 执行。Aider 的 Python 3.12 是其上游安装流程的可选外部前置条件，不属于 OneAgent 构建或发行包。
 
-修法是让 lock 声明凭据途径（`credential_delivery`：`oneagent_env` / `native_env` / `config_file`），Claude Code 另有 `env_vars` 声明它自己读的四个 `ANTHROPIC_*` 变量。`install_many`、`activate_agent`、`_next_step`、`_restart_hint` 都改为读声明，不再按 id 特判。实测确认按新的 `next` 指引启动后不再报 `Not logged in`。
+## 设计结论
 
-**缺陷能存在，是因为没有任何测试问过密钥怎么到达 Agent**，只验了文件写没写。现在 `CredentialDeliveryTests` 遍历所有 auto Agent 要求凭据可达，`test_release_policy` 要求 lock 声明安装器依赖的字段。
-
-## 前三条线交付时的状态
-
-Python 211 用例，`installer.py` 288/288 分支且零 partial，整体 96%；前端 68 用例 + 14 个 e2e；站点 10 + 33；真实安装 cleanroom 双 registry 通过。
-
-当时挂着三项待办：[配置链路审查](config-chain-audit.md) 的任务 2（消除剩余硬编码）与任务 3（无 Key 的配置可用性检查），以及 [按 Agent 分化配置界面](per-agent-config-plan.md) §6 的 Claude Code 双模型字段。**三项都已在下面两节完成**，最新数字见文末。
-
-## 4. 三项待办收尾（`3c8335c`）
-
-上文「未完成」的三项已全部完成：
-
-- **任务 2（lock 唯一真源）**：`backups` 遍历 lock 按 `config_path` 推导；`provider_config_base` 改收推理协议、移除 `providers.py` 两处 `"claude-code"` 比较；Windows 门禁改读 `windows_prerequisites`。`test_release_policy.py` 新增 `LockIsTheSourceOfTruthTests` 遍历 lock 守护。
-- **任务 3（无 Key 配置可用性检查）**：新增 `scripts/agent_config_adopted_check.py`。分类器 `classify_adoption` 离线进常规 CI（`test_rc_scripts.py` 用本轮两个真实输出覆盖）；实跑脚本无 Key、指向丢弃端口 `127.0.0.1:9`，已接入 `release-candidate.yml`。
-- **Claude Code 双模型字段（per-agent-config-plan §6）**：可选 `small_fast_model`（留空回退主模型）贯穿 `write_claude_config`/`write_agent_env`/`activate_agent`/activate 端点/`types/api.ts`；`AgentDetailPage` 高级选项加 Claude Code 专属「快速小模型」字段。
-
-## 5. 入口分流：着陆页只给未配置用户（`dfff727`）
-
-一个并发编辑引入了着陆页，`/` 无条件渲染它。这让**返回用户打开 OneAgent 落在营销页而不是自己的环境总览**，等于把 `LandingRoute` 专门防的行为又放回来了，8 个从 `/` 进入的 e2e 因此失败。补一个漏掉的 `useWizard` import 只能让 `tsc` 干净，不解决行为问题。
-
-修法是让根路径先读 status：已有 Agent 指向某处、或存在已激活档案，就跳 `/overview`；只有未配置的机器才看到着陆页。两处判断都要 status，所以 `WizardProvider` 上移到整个 router 之外；着陆页在 `AppWindow` 之外渲染——它是整页文档，不是应用窗口里的一个视图。
-
-原实现做不到这个判断：`pathname` 检查在 Provider 外面，读不到状态。恢复的 `LandingRoute` 保留了等待首次 status 读取的那一步，理由和当初一样——fetch 在 effect 里启动，首帧 `statusState` 是 `idle` 而非 `loading`，不等就会让返回用户闪一下着陆页。
-
-测试改法：`wizard.spec.ts` 五处入口改为 `/#/setup/agents`（它们测的是向导流程，不是路由决策），另补一条专测分流的用例，同时断言着陆页**不在** `.app-window` 内——把上面那个结构约束做成回归保护。`overview.spec.ts:264` 原样覆盖另一侧，两侧都有关卡。
-
-## 当前测试现状
-
-Python 222 用例，`installer.py` 298/298 分支且零 partial，整体 96%；前端 71 单测 + 15 个 e2e（新增着陆页分流一条），覆盖率语句 100% / 分支 97%；`tsc --noEmit` 与 `vite build` 通过。真机确认已配置的机器访问 `/` 直达环境总览。
-
-## 相关文档
-- [空白机器可用性验证计划](blank-machine-verification-plan.md) —— 三层验证的设计与实测结论
-- [配置链路审查](config-chain-audit.md) —— 实测方法、硬编码清单与三项任务的落实情况
-- [公开分发站运营与发布手册](public-site-operations.md)
-- [CC Switch 参考笔记](cc-switch-reference-notes.md)
+- `agents.lock.json` 是 Agent 元数据唯一真源；Go catalog 不复制版本和来源。
+- shell wrapper 只定位已构建的 CLI，不按需构建、不调用解释器。
+- source map、远程资源、secret、Agent 二进制和任何语言 runtime 都不能进入发行 ZIP。
+- Wails Alpha 阶段只发布 `technical-preview-unsigned`；Stable 签名/公证另行验收。

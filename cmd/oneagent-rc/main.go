@@ -272,7 +272,7 @@ func newIsolation(root string) (isolation, func(), error) {
 		if strings.Contains(upper, "KEY") || strings.Contains(upper, "TOKEN") || strings.Contains(upper, "SECRET") || strings.Contains(upper, "PASSWORD") {
 			continue
 		}
-		if name == "NPM_CONFIG_USERCONFIG" || name == "npm_config_userconfig" || name == "UV_CONFIG_FILE" || name == "PIP_CONFIG_FILE" {
+		if name == "NPM_CONFIG_USERCONFIG" || name == "npm_config_userconfig" || name == "UV_CONFIG_FILE" {
 			continue
 		}
 		env = append(env, entry)

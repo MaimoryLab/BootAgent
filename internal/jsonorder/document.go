@@ -1,8 +1,7 @@
 // Package jsonorder edits JSON objects without reordering them.
 //
-// encoding/json sorts map keys when it writes them, while Python dictionaries
-// retain insertion order. Config adapters use this package so rewriting a
-// user's file changes only the fields OneAgent manages.
+// encoding/json sorts map keys when it writes them. Config adapters use this
+// package so rewriting a user's file changes only the fields OneAgent manages.
 package jsonorder
 
 import (

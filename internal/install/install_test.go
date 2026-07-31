@@ -176,7 +176,7 @@ func TestInstallLockedAgentShortCircuitsAndSupportsLatest(t *testing.T) {
 	}
 }
 
-func TestInstallLockedAgentSupportsUVAndPythonBoundaries(t *testing.T) {
+func TestInstallLockedAgentSupportsAiderRuntimeBoundary(t *testing.T) {
 	manifest := mustManifest()
 	agent := manifest.Agents["aider"]
 	runner := &fakeInstallRunner{paths: map[string]string{"uv": "/fake/uv", "python3.12": "/fake/python"}}
@@ -194,7 +194,7 @@ func TestInstallLockedAgentSupportsUVAndPythonBoundaries(t *testing.T) {
 		return process.Result{Args: argv, ExitCode: 0, Stdout: "Python 3.12.9"}, nil
 	}
 	pythonRuntime := runtimeForInstall(pythonRunner, "linux", nil)
-	if got, err := ResolvePython312(context.Background(), pythonRuntime); err != nil || got != "/fake/python3" {
+	if got, err := ResolveAiderPython312(context.Background(), pythonRuntime); err != nil || got != "/fake/python3" {
 		t.Fatalf("python3 resolution = %q, %v", got, err)
 	}
 
@@ -203,7 +203,7 @@ func TestInstallLockedAgentSupportsUVAndPythonBoundaries(t *testing.T) {
 		return process.Result{Args: argv, ExitCode: 0, Stdout: "Python 3.12.7"}, nil
 	}
 	windowsRuntime := runtimeForInstall(windowsRunner, "windows", nil)
-	if got, err := ResolvePython312(context.Background(), windowsRuntime); err != nil || got != "3.12" {
+	if got, err := ResolveAiderPython312(context.Background(), windowsRuntime); err != nil || got != "3.12" {
 		t.Fatalf("py launcher resolution = %q, %v", got, err)
 	}
 }
@@ -248,9 +248,9 @@ func TestInstallPrerequisitesAndFailuresAreStableAndRedacted(t *testing.T) {
 	}
 }
 
-func TestResolvePython312MissingIsPrerequisiteError(t *testing.T) {
+func TestResolveAiderRuntimeMissingIsPrerequisiteError(t *testing.T) {
 	runner := &fakeInstallRunner{paths: map[string]string{}}
-	_, err := ResolvePython312(context.Background(), runtimeForInstall(runner, "linux", nil))
+	_, err := ResolveAiderPython312(context.Background(), runtimeForInstall(runner, "linux", nil))
 	if err == nil || oneerrors.As(err).Code != oneerrors.PrerequisiteMissing {
 		t.Fatalf("missing Python error = %v", err)
 	}

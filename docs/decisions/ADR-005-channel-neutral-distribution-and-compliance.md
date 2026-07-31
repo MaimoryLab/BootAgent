@@ -30,14 +30,14 @@ OneAgent 采用“一个官方构建、多个同包镜像”的分发模型：
 - 默认只分发 OneAgent 自有代码和完成许可证义务的运行依赖。
 - 不分发第三方 Agent 二进制，不把官方可下载等同于允许再分发。
 - Agent 安装继续采用官方源、授权镜像、用户手动安装和 `guide-only` 的降级顺序。
-- 不捆绑 Node.js、Python、Git Bash、VPN、代理、共享 Key 或第三方配置工具。
+- 不捆绑 Node.js、Git Bash、VPN、代理、共享 Key 或第三方配置工具；Aider 的 Python 3.12 仅是用户选择 Aider 时的外部上游前置条件。
 
 ### 当前发行范围
 
 - 当前目标是可直接下载和运行的技术预览二进制包。分渠道分发不要求四平台全部齐备，但每个实际发布的平台仍须在对应操作系统原生构建，并以 `ci.yml` 的 cleanroom 作业或 Release Candidate 流程作为平台验收证据。
 - 每个产物只声明其实际构建和验证过的目标环境，不对未构建环境作兼容承诺。
 - 平台签名、公证、商店分发和自动更新不属于当前阶段。
-- 未完成更高等级发行门禁前继续使用 `technical-preview-unsigned`，不使用 Stable 标签。Stable 门槛本身仍然有效：`scripts/build_release.py` 会对声明为 Stable 的产物执行产物级签名验证（macOS `codesign` / Windows Authenticode），签名工具链缺失时 fail-closed；当前阶段只是不发布 Stable。
+- 未完成更高等级发行门禁前继续使用 `technical-preview-unsigned`，不使用 Stable 标签。Stable 门槛本身仍然有效，并由 `cmd/oneagent-release` 的后续签名阶段对产物执行验证（macOS `codesign` / Windows Authenticode）；当前阶段只是不发布 Stable。
 
 ### 合规门禁
 
@@ -46,7 +46,7 @@ OneAgent 采用“一个官方构建、多个同包镜像”的分发模型：
 ## Relationship To Previous Decisions
 
 - ADR-002 的网络访问、共享 Key、第三方 Agent 和配置工具边界继续有效。
-- ADR-003 的 Python 共用内核、版本锁定和配置适配策略继续有效。
+- ADR-003 的版本锁定、配置适配和权限约束继续有效；其旧运行时实现已由 ADR-007 的 Go/Wails 路径取代。
 - ADR-003 中“四平台同时作为当前发行门槛”的部分被本 ADR 收窄：解除“四平台必须同时齐备”的耦合，不解除任何单平台的原生构建与验收要求；平台矩阵可以作为后续扩展，不再阻塞当前渠道分发目标。
 - ADR-004 的按 Agent 协议验证继续有效。
 
@@ -99,4 +99,3 @@ OneAgent 采用“一个官方构建、多个同包镜像”的分发模型：
 - 自动安装来源位于固定 allowlist。
 - 技术预览状态、目标环境和已知限制明确。
 - 渠道负责人、链接、上传时间和撤回状态可追溯。
-

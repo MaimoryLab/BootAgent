@@ -181,7 +181,7 @@ func (c *Client) ListModels(ctx context.Context, providerID, apiKey, customBase 
 }
 
 // ResolveProbeModel prefers a live chat-capable ID but keeps discovery failure
-// non-fatal, exactly as the Python installer does.
+// non-fatal so callers can still use the provider fallback model.
 func (c *Client) ResolveProbeModel(ctx context.Context, providerID, apiKey, model, customBase string) (string, error) {
 	if model != "" || apiKey == "" {
 		if model != "" {

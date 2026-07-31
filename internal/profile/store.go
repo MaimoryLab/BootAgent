@@ -72,9 +72,8 @@ type storedProfile struct {
 	ActivatedAt   *string  `json:"activated_at"`
 }
 
-// activePointer is deliberately a struct rather than a map. Python writes
-// schema_version before active, and encoding/json sorts map keys, which would
-// otherwise produce a byte-level difference for every activation.
+// activePointer is deliberately a struct rather than a map so the persisted
+// field order stays stable across activations.
 type activePointer struct {
 	SchemaVersion int    `json:"schema_version"`
 	Active        string `json:"active"`

@@ -1,25 +1,12 @@
 # OneAgent
 
-OneAgent 是一个本地 AI 开发环境激活器。它用 React 七页向导检测、安装并初始化常用 Agent，同时保留 Bash、PowerShell 和结构化 CLI。桌面应用通过 Wails v3 binding 调用 Go 核心完成安装、备份、权限、Provider 探测和配置写入。
+OneAgent 是一个本地 AI 开发环境激活器。React 向导和纯 Go CLI 共用同一套 Go 用例，负责检测 Agent、安装锁定版本、探测 Provider、合并配置、创建备份并收紧权限。桌面应用使用 Wails v3 binding；生产进程不监听业务 TCP 端口。
 
-OneAgent 不重新分发 Agent 二进制，不捆绑 Node.js、Python、Git Bash、VPN、代理、共享 API Key 或第三方配置工具。缺少前置工具时只返回明确错误和官方安装指引。
+OneAgent 不重新分发 Agent 包，也不捆绑 Node.js、系统 WebView、Git 或 API Key。缺少运行前置条件时返回明确错误和官方安装指引。
 
 ## 当前状态
 
-当前版本为 `0.2.0-dev`，当前发行目标是可直接下载运行的 `technical-preview-unsigned` 二进制包。不以四平台同时分发作为产品阶段门槛；每个实际发布的平台仍须在对应操作系统原生构建，并以 CI cleanroom 作业作为验收证据。各平台最低目标见 [ADR-003](docs/decisions/ADR-003-three-platform-python-core-and-release-policy.md)。
-
-Wails v3 迁移现处于阶段 5：React 仅通过生成的 binding 与 Go service 通信，旧 HTTP API/fetch
-测试已删除；Wails `server,e2e` 浏览器链路和原生 `GetStatus` smoke 已在本机 macOS arm64 验证。Python 发布链路
-保留到阶段 6-7 再替换，但不再是桌面前端的通信路径。
-
-发行渠道不限定为 GitHub。官网、GitHub Release、网盘和企业云盘可以作为同一官方构建的镜像，但同一版本必须保持文件内容和 SHA-256 一致，渠道方不得重新打包或加入渠道专属内容。每个产物只声明实际构建和验证过的目标环境。
-
-仍未取得证据的部分：
-
-- **真实 Agent 安装与真实 Provider 冒烟**：只在手动 `release-candidate.yml` 执行，需要受保护的 `ONEAGENT_PPIO_API_KEY`、`ONEAGENT_NOVITA_API_KEY` 与六个协议模型变量，尚未配置，因此尚未运行。
-- **Codex 的 Responses 协议**：PPIO/Novita 的 `/v1/responses` 仍未用真实 Key 验收；仅验证 Chat Completions 不能证明 Codex 可用。
-
-当前阶段不处理平台商店、自动更新、macOS 公证或 Windows Authenticode，因此不使用 Stable 标签。Stable 门槛（macOS 签名/公证、Windows Authenticode）仍然有效并由 `scripts/build_release.py` 做产物级强制，当前只是不发布 Stable。完整包体、品牌、许可证、Key、渠道台账和跨渠道撤回规则见 [多渠道分发与合规政策](docs/distribution-compliance-policy.md)。
+当前版本为 `0.3.0-dev`，Wails 仍处于 Alpha，因此发布渠道只能是 `technical-preview-unsigned`。Python 迁移已经完成：受版本控制的旧实现、测试、PyInstaller/wheel 打包链路均已删除；普通构建、测试、运行和发布只需要 Go、Node（构建前端）及目标平台 WebView。Aider 是唯一例外：只有用户选择安装 Aider 时，才要求本机已有 Python 3.12，OneAgent 不会下载或管理它。
 
 ## 架构
 
@@ -31,27 +18,61 @@ React + TypeScript + Vite
 Status / Provider / Agent / Profile services
           |
           v
-Go application use cases
-  - 平台路径和前置检测
-  - 锁定版本安装
-  - 配置合并和备份
-  - Unix mode / Windows ACL
-  - Provider 探测和结构化错误
+      Go application use cases
+          |
+  catalog / provider / install / config / profile / securefs
+
+Pure Go CLI --------------------^      Astro site ---- release metadata
 ```
 
-- `scripts/install.sh`：macOS/Linux CLI 转发层，转发到 Go CLI（`cmd/oneagent`）。
-- `scripts/install.ps1`：Windows CLI 转发层，转发到 Go CLI。
-- `cmd/oneagent`：纯 Go CLI，是 CLI 路径的实现所在；包装脚本只做转发。
-- `internal/`：桌面 service 与 CLI 共用的 Go 核心。
-- `cmd/oneagent-desktop/`：Wails 桌面入口，仅在 `wails` build tag 下链接 Wails。
-- `frontend/`：React 七页向导；发行包只携带构建后的 `dist`，终端用户不需要 Node.js。
-- `site/`：独立 Astro 静态公开站；不进入 Launcher 包体，也不复用本地路由和状态。
-- `distribution/`：Provider 商业关系披露；技术排序与商业数据保持分离。
-- `agents.lock.json`：五个自动配置 Agent 的版本、包管理器、配置适配器、平台、来源和许可证锁定清单。
+- `cmd/oneagent-desktop`：Wails 桌面入口。
+- `cmd/oneagent`：纯 Go headless CLI。
+- `cmd/oneagent-release`：构建、notice、manifest、SHA-256 和发行包检查。
+- `cmd/oneagent-rc`：真实锁定 Agent 安装和无密钥配置采用检查。
+- `cmd/oneagent-provider-smoke`：PPIO/Novita 三协议 RC smoke。
+- `internal/`：桌面、CLI 和 RC 工具共用的 Go 核心。
+- `frontend/`：React 应用；发行包只携带构建后的静态资源。
+- `site/`：独立 Astro 公开站，不进入桌面包体。
+- `agents.lock.json`：Agent 版本、来源、配置适配器和许可证的唯一清单。
 
-## 公开分发站
+`scripts/install.sh` 和 `scripts/install.ps1` 只是兼容转发层。先构建 `bin/oneagent`，再调用包装脚本；包装脚本不会隐式写入 Go module cache。
 
-公开站构建时从 GitHub Releases API 读取已发布版本和下载资产，并直接从 `agents.lock.json`、`distribution/providers.json` 读取兼容目录：
+## 快速启动
+
+### 桌面应用
+
+```bash
+cd frontend
+npm ci
+npm run build
+cd ..
+go run -tags wails ./cmd/oneagent-desktop
+```
+
+生产构建需要目标平台的 Wails/WebView 依赖。Linux 当前使用 `gtk3` tag（Ubuntu 22.04 cleanroom）；macOS 使用系统 WKWebView；Windows 使用 WebView2 Runtime。
+
+### CLI
+
+```bash
+go build -o bin/oneagent ./cmd/oneagent
+
+ONEAGENT_API_KEY="$MY_API_KEY" ./scripts/install.sh \
+  --agent codex --provider ppio --model your-model-id
+./scripts/install.sh --agent codex --check-agent-only
+./scripts/install.sh --agent codex --install-agent --locked-version
+```
+
+Windows PowerShell：
+
+```powershell
+go build -o bin\\oneagent.exe .\\cmd\\oneagent
+$env:ONEAGENT_API_KEY = $MyApiKey
+.\\scripts\\install.ps1 --agent codex --provider ppio --model your-model-id
+```
+
+日常使用优先通过 `ONEAGENT_API_KEY`、桌面粘贴或已保存 profile 传递凭据；`--api-key` 仅保留给受控脚本。 `--registry` 默认是官方 npm registry，镜像必须显式选择并使用 HTTPS。
+
+### 公开站
 
 ```bash
 cd site
@@ -62,172 +83,13 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-站点不读取本地 `release/`，不复制 App 资产，也不依赖 Python。`.github/workflows/site.yml` 与 App 发布工作流独立，Release 发布后自动重建 Pages；GitHub Pages 子路径构建可设置 `SITE_URL` 与 `BASE_PATH`。完整流程见 [公开站运营与发布手册](docs/public-site-operations.md)。
+站点只读取 GitHub Release、`agents.lock.json` 和 `distribution/providers.json`，不读取本地 `release/`，也不依赖桌面构建环境。
 
-## 快速启动
+## Agent 与 Provider
 
-### 源码桌面应用
+自动配置 Agent：
 
-先构建前端，再启动 Wails 桌面壳。生产桌面进程不监听业务 TCP 端口：
-
-```bash
-cd frontend && npm ci && npm run build
-cd ..
-go run -tags wails ./cmd/oneagent-desktop
-```
-
-### 打包版
-
-解压对应平台的 onedir 压缩包后运行：
-
-```bash
-./OneAgent/OneAgent
-```
-
-Windows：
-
-```powershell
-.\OneAgent\OneAgent.exe
-```
-
-未签名预览版不是 Stable。OneAgent 不提供绕过操作系统安全策略的指令。
-
-### Python 包安装
-
-OneAgent 内核只依赖标准库，可以直接作为 Python 包安装。已有 Python 3.12+ 的用户走这条路**不涉及 onedir 压缩包**，因此不触发 macOS Gatekeeper 或 Windows SmartScreen 对下载可执行文件的拦截：
-
-```bash
-uv tool install ./OneAgent-0.2.0.dev0-py3-none-any.whl
-# 或 pipx install ./OneAgent-0.2.0.dev0-py3-none-any.whl
-```
-
-安装后提供两个入口：
-
-```bash
-oneagent --agent codex --check-agent-only   # CLI
-oneagent-gui --port 8765 --no-open          # 本地 GUI
-```
-
-wheel 会把 `agents.lock.json` 与构建后的 `frontend/dist` 一并打进包内（见 `setup.py`），因此安装后无需仓库即可运行。本地构建 wheel：
-
-```bash
-python3.12 -m pip wheel . --no-deps -w dist
-```
-
-尚未发布到 PyPI，目前只能从本地或 Release 附件安装。
-
-### CLI
-
-CLI 路径已迁移到 Go。`scripts/install.sh` 与 `.ps1` 保留为纯转发层（预计保留一个发行
-周期），它们只定位并执行二进制，不再需要 Python。从源码使用时先构建一次：
-
-```bash
-go build -o bin/oneagent ./cmd/oneagent
-```
-
-也可以直接调用 `./bin/oneagent`，或用 `ONEAGENT_CLI_BINARY` 指向已有二进制。二进制
-不存在时包装脚本以退出码 3 报前置缺失，不会隐式构建——调用方常使用临时 HOME，构建会
-把 Go module cache 写进去。
-
-macOS/Linux：
-
-```bash
-ONEAGENT_API_KEY="$MY_API_KEY" \
-./scripts/install.sh \
-  --agent codex \
-  --provider ppio \
-  --model your-model-id \
-  --channel direct
-```
-
-Windows PowerShell：
-
-```powershell
-$env:ONEAGENT_API_KEY = $MyApiKey
-.\scripts\install.ps1 --agent codex --provider ppio --model your-model-id
-```
-
-`--api-key` 仅为旧参数兼容和受控测试保留。日常使用应通过 GUI、交互粘贴或 `ONEAGENT_API_KEY` 传入，避免进入 shell history。
-
-只检测或安装 Agent、不写模型配置：
-
-```bash
-./scripts/install.sh --agent codex --check-agent-only
-```
-
-显式安装锁定版本：
-
-```bash
-./scripts/install.sh --agent codex --check-agent-only --install-agent --locked-version
-```
-
-`--latest` 只能由用户显式选择，默认安装与发布测试均使用 `agents.lock.json` 的锁定版本。安装前会用 `npm view` 取 registry 声明的 `dist.integrity` 与锁定清单比对，不一致或版本不存在时拒绝安装，不会退到其他版本。
-
-官方 npm registry 不可达时可显式指定授权镜像：
-
-```bash
-./scripts/install.sh --agent codex --install-agent --locked-version --registry npmmirror
-```
-
-`--registry` 接受镜像 id（`official`、`npmmirror`）或 `https://` URL，只允许 HTTPS 且不得携带凭据。**默认始终是官方源**，镜像永远是显式选择，不会因网络失败自动切换——否则用户无法得知包的来源。实际使用的 registry 会记入安装日志。镜像只能是第三方公开 registry，OneAgent 不托管、不重打包任何 Agent 包体。
-
-## GUI 流程
-
-1. 多选 Agent，并查看本机安装、配置和前置条件状态。
-2. 选择配置模型服务，或使用官方账号/已有本地配置。
-3. 选择 PPIO、Novita 或 Custom，填写 Key 并测试连接。
-4. 请求 `GET <openai-base>/v1/models`；失败时手动输入模型 ID。
-5. 确认 Agent、写入路径、备份策略和 guide-only 项目。
-6. 同步执行安装与配置，按 Agent 返回最终状态；不伪造百分比。
-7. 从不含 Key 的 `~/.oneagent/profile.json` 恢复环境总览。
-
-## Provider
-
-| Provider | 官网 | OpenAI-compatible base | Anthropic-compatible base |
-| --- | --- | --- | --- |
-| PPIO | `https://ppio.com/` | `https://api.ppio.com/openai` | `https://api.ppio.com/anthropic` |
-| Novita | `https://novita.ai/` | `https://api.novita.ai/openai` | `https://api.novita.ai/anthropic` |
-
-连接测试使用：
-
-```text
-POST <openai-base>/v1/chat/completions
-GET  <openai-base>/v1/models
-```
-
-Custom 支持 HTTP/HTTPS，包括用户主动配置的本机地址；拒绝 URL 凭据、非法 scheme 和控制字符。推荐显式使用 `--provider custom --api-base-url ...`。为兼容旧 CLI，合法 Provider 也可以用 `--api-base-url` 做显式覆盖。
-
-### 按 Agent 协议验证
-
-每个 Agent 配置后实际使用的推理协议不同，OneAgent 按此逐一验证，而不是统一探测 Chat Completions：
-
-| Agent | 协议 | 验证请求 |
-| --- | --- | --- |
-| Codex | Responses | `POST <base>/v1/responses` |
-| Claude Code | Anthropic Messages | `POST <anthropic-base>/v1/messages` |
-| OpenCode、Kilo CLI、Aider | OpenAI-compatible | `POST <base>/v1/chat/completions` |
-
-**同一个模型 ID 不一定同时兼容三种协议**，这不是理论风险。对一个 OpenAI-compatible 中转端点的 36 个文本模型实测：
-
-| 协议 | 通过 |
-| --- | --- |
-| Chat Completions | 31 / 36 |
-| Anthropic Messages | 23 / 36 |
-| **Responses** | **10 / 36** |
-
-在 30 个能明确判定的模型里只有 10 个支持 Responses，判定依据是端点显式回复 `400 "does not support endpoint: responses"` 或 `500 "not implemented"`。因此：
-
-- 连接测试会带上所选 Agent，逐个协议验证；只验证 Chat Completions 不能证明 Codex 可用。
-- 探测到协议不兼容时返回 `PROTOCOL_UNSUPPORTED` 并**拒绝写入配置**，不会把失败推迟到 Agent 首次请求。
-- 该错误不可重试；配额超限、上游过载等瞬时故障仍按可重试处理。
-- Claude Code 使用 Provider 的 Anthropic-compatible base，并写入 `ANTHROPIC_BASE_URL`、`ANTHROPIC_AUTH_TOKEN`、`ANTHROPIC_MODEL` 和 `ANTHROPIC_SMALL_FAST_MODEL`。
-- 真实 Agent 首次请求仍是发布门禁，不以 `/v1/models` 成功代替。
-
-## Agent 范围
-
-### 自动配置
-
-| Agent | 锁定版本 | 安装器 | 配置协议 |
+| Agent | 锁定版本 | 安装器 | 协议 |
 | --- | --- | --- | --- |
 | Codex | `0.145.0` | npm | Responses |
 | Claude Code | `2.1.217` | npm | Anthropic Messages |
@@ -235,119 +97,36 @@ Custom 支持 HTTP/HTTPS，包括用户主动配置的本机地址；拒绝 URL 
 | Kilo CLI | `7.4.11` | npm | OpenAI-compatible |
 | Aider | `0.86.2` | uv tool | OpenAI-compatible |
 
-### 只做引导
+OpenClaw、Hermes、Cursor、Kiro、Gemini CLI、Cline、Continue、Qwen Code 和 Kilo VS Code 仅提供官方安装引导，不安装包、不写私有配置、不启动后台服务。
 
-- 网关型：OpenClaw、Hermes。
-- 官方账号/平台型：Cursor、Kiro、Gemini CLI。
-- IDE 扩展型：Cline、Continue、Qwen Code、Kilo VS Code。
+支持 PPIO、Novita 和 Custom。配置后按 Agent 实际协议探测：Codex 使用 `/v1/responses`，Claude Code 使用 `/v1/messages`，其余自动配置 Agent 使用 `/v1/chat/completions`。协议不兼容时返回 `PROTOCOL_UNSUPPORTED`，不会先写入不可用配置。
 
-guide-only Agent 不执行包管理器安装，不写私有配置，不启动 daemon、gateway、WSL 或后台服务。
-
-这与许可证无关：OpenClaw 与 Hermes 都是 MIT，分发上没有障碍。真正的原因是形态——两者以常驻网关方式运行，而统一网关被 [ADR-002](docs/decisions/ADR-002-product-boundary-and-network-access.md) 与 [ADR-003](docs/decisions/ADR-003-three-platform-python-core-and-release-policy.md) 明确划在当前范围之外；Cursor 与 Kiro 以应用形式安装并通过自有账号体系登录。
-
-### 界面顺序与可配置性无关
-
-总览按 `agents.lock.json` 的 `rank` 字段排序，依据是该 Agent 的实际使用广度，而不是 OneAgent 能否配置它。因此 Cursor、OpenClaw、Hermes 与 Codex、Claude Code、OpenCode 并列在首屏，Kilo CLI 与 Aider 收进折叠区。guide-only 条目使用同样的行式呈现，只是操作为「官方文档」而非配置表单——把常用工具藏进脚注会让总览无法反映这台机器的真实情况。
-
-Aider 使用隔离的 `uv tool install --python python3.12 --no-python-downloads`，不再调用系统级 pip。缺少 `uv` 或本机 Python 3.12 时返回 `PREREQUISITE_MISSING`，不会绕过 externally-managed Python，也不会自动安装语言运行时。
-
-## 配置与备份
-
-| Agent/状态 | 写入路径 |
-| --- | --- |
-| Codex | `~/.codex/config.toml`、`~/.oneagent/agents/codex.env` |
-| Claude Code | `~/.claude/settings.json`、`~/.oneagent/agents/claude-code.env` |
-| OpenCode | `~/.config/opencode/opencode.jsonc`、`~/.oneagent/agents/opencode.env` |
-| Kilo CLI | `~/.config/kilo/kilo.jsonc`、`~/.oneagent/agents/kilo-cli.env` |
-| Aider | `~/.oneagent/aider.env` 或 Windows `aider.ps1` |
-| 环境摘要 | `~/.oneagent/profile.json` |
-
-凭据如何到达各 Agent 由 `agents.lock.json` 的 `credential_delivery` 声明，共三种：
-
-- **`oneagent_env`**（Codex、OpenCode、Kilo CLI）——配置文件通过 `env_key` 或 `{env:...}` 引用 `ONEAGENT_API_KEY_CODEX` 这类专属变量，因此三者可同时指向不同 Provider。
-- **`native_env`**（Claude Code）——它只读自己定义的变量名，`env_vars` 声明为 `ANTHROPIC_AUTH_TOKEN` / `ANTHROPIC_BASE_URL` / `ANTHROPIC_MODEL` / `ANTHROPIC_SMALL_FAST_MODEL`。**只写 `settings.json` 不足以让它认证**——它会忽略其中的凭据并报 `Not logged in`，所以 env 文件同时导出这四个原生变量。
-- **`config_file`**（Aider）——配置本身就是一个导出变量的 shell 脚本，无需额外 env 文件。
-
-因此除 Aider 外，每个 Agent 的启动命令都会先 source 自己的 env 文件；`~/.oneagent/env` 仍写入共享的 `ONEAGENT_API_KEY`，供旧版本写下的配置继续使用。
-
-Codex TOML、Claude/OpenCode/Kilo JSON 会保留非 OneAgent 管理字段。写入前创建 `*.backup-<timestamp>`；损坏配置返回 `CONFIG_WRITE_FAILED`，不会静默覆盖。
-
-API Key 只进入本地密钥配置，不进入 `profile.json`、`agents/<id>.json`、命令行、URL、日志、React reducer、浏览器存储或遥测。Unix 私有目录使用 `0700`、密钥文件和备份使用 `0600`；Windows 关闭 ACL 继承，仅允许当前用户和 SYSTEM。权限设置失败会终止发布写入。
-
-## 按 Agent 管理
-
-每个 Agent 独立记录自己指向的 Provider 与模型，互不影响：绑定写入 `~/.oneagent/agents/<agent-id>.json`（不含 Key），凭据写入同名 `.env`。因此 Codex 可以用 PPIO，同时 OpenCode 用 Novita。
-
-```bash
-oneagent agent list                     # 每个 Agent 当前的 Provider 与模型
-oneagent agent set codex --provider ppio --model deepseek/deepseek-v3 --api-key <KEY>
-oneagent agent set opencode --provider novita --model <MODEL> --profile team
-```
-
-`--profile` 复用 `profiles/` 里已保存模板的 Key，无需重新粘贴。桌面应用通过 `AgentService.Activate` 完成同一操作。
-
-Agent 在启动时读取配置，因此重新指向后必须重启该 Agent 进程才会生效；响应与 CLI 输出都会给出对应的重启指引。切换只影响单个 Agent，失败不会波及其他 Agent。
-
-## 错误契约
-
-CLI `--json` 和 Wails binding 使用稳定错误码：
-
-- `INVALID_REQUEST`
-- `INVALID_ORIGIN`
-- `PREREQUISITE_MISSING`
-- `API_KEY_REJECTED`
-- `PROVIDER_UNREACHABLE`
-- `MODELS_UNSUPPORTED`
-- `PROTOCOL_UNSUPPORTED`
-- `AGENT_INSTALL_FAILED`
-- `CONFIG_WRITE_FAILED`
-- `TIMEOUT`
-
-错误响应保留 `error`、`message`、`status`，并提供 `error_code` 和 `retryable`。
+Aider 的安装命令由 Go 后端固定为 `uv tool install --force --python python3.12 --no-python-downloads ...`。这条路径只在选择 Aider 时执行；缺少 `uv` 或 Python 3.12 会返回 `PREREQUISITE_MISSING`。
 
 ## 开发与测试
 
-安装前端依赖并构建：
-
-```bash
-cd frontend
-npm ci
-npm run build
-```
-
-Python 3.12 契约和覆盖率：
-
-```bash
-python3.12 -m coverage run --branch -m unittest \
-  tests.test_core tests.test_cli \
-  tests.test_release_policy tests.test_edge_cases tests.test_rc_scripts
-python3.12 -m coverage report --fail-under=85
-python3.12 -m coverage json
-python3.12 -c "import json; s=json.load(open('build/coverage/coverage.json'))['files']['oneagent/installer.py']['summary']; assert s['percent_branches_covered'] == 100 and s['num_partial_branches'] == 0"
-```
-
-Go 契约与静态检查（迁移线；`ONEAGENT_REQUIRE_PARITY=1` 让 JSON 写入器 parity 门禁
-不允许静默跳过）：
+Go 核心、发行工具和 RC 工具：
 
 ```bash
 go vet ./...
-ONEAGENT_REQUIRE_PARITY=1 go test ./...
+go test ./...
 go test -race ./...
 go run honnef.co/go/tools/cmd/staticcheck@2025.1.1 ./...
 go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...
 ```
 
-兼容测试。`install_test.sh` 经包装脚本转发到 Go CLI，需要先构建一次二进制：
+CLI shell 契约（需要先构建 CLI）：
 
 ```bash
 go build -o bin/oneagent ./cmd/oneagent
 bash tests/install_test.sh
 ```
 
-React 与浏览器：
+React/Wails 测试：
 
 ```bash
 cd frontend
+npm ci
 npm run test:coverage
 npm run build
 npx playwright install chromium
@@ -356,105 +135,72 @@ cd ..
 task test:native
 ```
 
-### Docker Linux Cleanroom
-
-这是开发和 CI 的可选测试资产，不是 OneAgent 的发行环境，也不代表 macOS 或其他平台验收：
-
-本地 Docker cleanroom 会构建测试专用镜像，再以非 root 用户、全新 HOME 和 `--network none` 执行 Python、Bash、GUI、React、Chromium E2E 与发行策略扫描：
+Linux cleanroom：
 
 ```bash
 bash scripts/test_docker_cleanroom.sh
 ```
 
-镜像构建阶段允许下载 apt、pip 和 npm 锁定依赖；正式测试容器不挂载源码、Docker Socket 或用户 HOME，只把结果写入 `build/docker-cleanroom/`。镜像不包含五个 Agent、`uv`、Provider Key 或用户配置，也不会上传到镜像仓库。
-
-Docker Desktop 在 macOS 上仍运行 Linux VM。该报告固定标记为 `linux`，只能证明 Linux cleanroom，不能替代 Darwin、APFS、`stat -f`、macOS PyInstaller、签名或公证验证。
-
-### 空白机器可用性验证
-
-常规套件都替换了 `Runtime.runner`，因此「Agent 真的装得上、装完真的能用」需要单独的三层验证。范围是 Codex 与 Claude Code，设计与结论见 [空白机器可用性验证计划](docs/blank-machine-verification-plan.md)。
-
-```bash
-# 装包命令契约：离线、毫秒级，随常规 CI 运行
-python3.12 -m unittest tests.test_install_contract
-
-# 真实安装：干净 HOME + 隔离 npm 前缀，断言可执行文件落到 PATH、版本等于锁定版本
-bash tests/real_install_test.sh
-ONEAGENT_REGISTRY=npmmirror bash tests/real_install_test.sh   # 同样验证镜像路径
-
-# 端到端可用性：需真实 Key，实际让两个 Agent 各回答一次请求
-ONEAGENT_API_KEY=... python3.12 scripts/agent_e2e_smoke.py --provider ppio
-```
-
-真实安装与端到端不进常规 CI：前者每次提交都会打 registry，后者需要真实凭据。二者分别由 `release-candidate.yml` 与人工在发行前执行。
-
-### 真实 macOS Cleanroom
-
-真实 macOS cleanroom 隔离验证 Go CLI 的配置、权限和备份行为。当前 Python 发布链路的产物验收仍留待阶段 6，脚本可在真实 macOS 上直接运行：
+cleanroom 以非 root 用户、全新 HOME、`--network none` 和预构建 Go CLI 运行；它不安装语言运行时，不访问 Provider，不把凭据写入报告。macOS 原生验证：
 
 ```bash
 bash tests/macos_cleanroom_test.sh
 ```
 
-脚本要求真实 `uname -s == Darwin`，使用 `env -i`、临时 HOME/TMPDIR 和受控 PATH，验证五个配置适配器、备份以及目录 `0700`/文件 `0600`。执行前后会比对真实用户配置目标，发现污染立即失败。
+真实 npm 安装和 PATH/版本检查（会访问 registry）：
 
-GitHub Actions 的 `ci.yml` macOS 作业（`macos-15` arm64 与 `macos-15-intel` x64）和手动 Release Candidate 运行该脚本，`tests/test_release_policy.py` 断言其契约不被弱化。普通 PR 与常规 CI 只使用 fake npm/uv，不下载真实 Agent，也不访问 PPIO/Novita；只有手动 Release Candidate 才在隔离 prefix/tool 目录中安装五个锁定版本并执行真实 Provider 冒烟。
+```bash
+bash tests/real_install_test.sh
+ONEAGENT_REGISTRY=npmmirror bash tests/real_install_test.sh
+```
 
-覆盖门槛：安全、备份、配置写入、权限、脱敏和 manifest 校验逻辑要求 100% 分支覆盖；Python 核心与 React 状态/API 层整体分支覆盖不低于 85%。
+## Release Candidate
+
+真实锁定 Agent 安装（默认四个 npm Agent，不包含可选 Aider）：
+
+```bash
+go build -o bin/oneagent ./cmd/oneagent
+go run ./cmd/oneagent-rc verify-agents
+go run ./cmd/oneagent-rc adopted
+```
+
+Provider 三协议 smoke 从受保护环境变量读取凭据和模型，不接受命令行 Key：
+
+```bash
+ONEAGENT_PPIO_API_KEY=... \
+ONEAGENT_PPIO_OPENAI_MODEL=... \
+ONEAGENT_PPIO_ANTHROPIC_MODEL=... \
+ONEAGENT_PPIO_RESPONSES_MODEL=... \
+ONEAGENT_NOVITA_API_KEY=... \
+ONEAGENT_NOVITA_OPENAI_MODEL=... \
+ONEAGENT_NOVITA_ANTHROPIC_MODEL=... \
+ONEAGENT_NOVITA_RESPONSES_MODEL=... \
+go run ./cmd/oneagent-provider-smoke --provider all --timeout 30s
+```
 
 ## 发行
 
-本机生成未签名预览包：
+在本机生成当前平台的未签名技术预览包：
 
 ```bash
-python3.12 -m pip install pyinstaller==6.21.0
-python3.12 scripts/build_release.py \
+go run ./cmd/oneagent-release build \
   --channel technical-preview-unsigned \
   --source
-python3.12 scripts/check_release.py release
+go run ./cmd/oneagent-release check release
 ```
 
-产物包括：
+命令会构建 React、Wails 桌面二进制和纯 Go CLI，生成 macOS `.app` 或 Windows/Linux ZIP、可选源码 ZIP、第三方 notices、release manifest 和 SHA-256 清单。检查会拒绝 source map、远程资源、secret、Agent 二进制、语言运行时和不完整的锁定版本信息。
 
-- 当前平台 PyInstaller onedir ZIP。
-- 可选源码 ZIP。
-- `release-manifest-<platform>-<arch>.json`。
-- `SHA256SUMS-<platform>-<arch>.txt`。
-- 第三方许可证和五个 Agent 的锁定版本清单。
-
-PyInstaller 产物只声明其实际构建和验证过的目标环境。生成后的同一压缩包可以上传到 GitHub、官网、网盘或企业云盘；所有镜像必须保持相同 SHA-256，并记录渠道、链接、上传人、上传时间和撤回状态。
-
-`.github/workflows/release-candidate.yml` 是定义中的真实验收门禁：四平台真实安装五个锁定 Agent，并使用受保护的 `ONEAGENT_PPIO_API_KEY`、`ONEAGENT_NOVITA_API_KEY` 与对应协议模型变量执行低 token 请求；缺少任一 Key 或协议模型 ID 时流程会失败，不会退化成假通过。在 CI Secret 配置完成前它尚未运行（见上文“仍未取得证据的部分”）；在此之前，常规 CI 门禁以包体、许可证、secret、SHA-256、临时 HOME 启动和本地 Mock 流程为主。
-
-在真实 PPIO/Novita 低权限 Key 尚未配置到受保护 CI Secret 前，可以使用 `apiproxy` 档案做本地三协议预检。该档案分别保留 OpenAI、Anthropic、Responses 三个模型槽位，当前统一使用 `openai/gpt-5.6-terra`；`openai/gpt-5.6-luna` 只支持两类协议，不作为三协议预检默认模型。
-
-```bash
-python3 scripts/provider_rc_smoke.py \
-  --provider apiproxy \
-  --api-key-json ~/.codex/auth.json \
-  --api-key-field OPENAI_API_KEY \
-  --timeout 45
-```
-
-此命令只读取本机 JSON 中的 Key，不会把 Key 放入命令行值或输出。`--provider all` 仍严格只运行 PPIO 和 Novita；代理预检成功不能替代正式 RC 验收。详细边界见 [Provider RC 测试说明](docs/provider-rc-testing.md)。
-
-当前只发布明确标记的 `technical-preview-unsigned`。当前阶段不做平台签名、公证和商店分发；Stable 门禁（macOS 签名/公证、Windows Authenticode）仍然有效并由 `scripts/build_release.py` 产物级强制，只是当前不走 Stable 渠道。
+Wails 仍处于 Alpha，当前不发布 Stable，不做平台签名、公证或商店分发。Stable 的签名门禁保留在后续发行阶段。
 
 ## 文档
 
-- [产品边界基线](docs/product-boundary-baseline.md)
-- [公开分发站运营与发布手册](docs/public-site-operations.md)
-- [独立公开站与 GitHub Release 事实源 ADR](docs/decisions/ADR-006-public-site-and-generated-release-index.md)
-- [多渠道分发与合规政策](docs/distribution-compliance-policy.md)
-- [渠道无关的二进制分发 ADR](docs/decisions/ADR-005-channel-neutral-distribution-and-compliance.md)
-- [三平台 Python 内核与版本锁定 ADR](docs/decisions/ADR-003-three-platform-python-core-and-release-policy.md)
-- [按 Agent 协议验证 ADR](docs/decisions/ADR-004-per-agent-protocol-verification.md)
-- [React 前端实现与发布门禁](docs/frontend-component-redesign-plan.md)
+- [Wails v3 迁移收尾计划](docs/wails-v3-migration-plan.md)
+- [发行与合规政策](docs/distribution-compliance-policy.md)
+- [公开站运营手册](docs/public-site-operations.md)
 - [Provider RC 测试说明](docs/provider-rc-testing.md)
-- [前端管理控制台改造计划](docs/frontend-management-console-plan.md)
-- [CC Switch 参考笔记](docs/cc-switch-reference-notes.md)
-- [用户使用文档](docs/ai-agent-kit/00-start-here.md)
-- [配置工具选择](docs/ai-agent-kit/03-config-tools.md)
-- [CC Switch 可选配置说明](docs/ai-agent-kit/tools/cc-switch.md)
+- [AI Agent Kit](docs/ai-agent-kit/00-start-here.md)
+- [Wails 架构 ADR](docs/decisions/ADR-007-wails-v3-go-migration.md)
+- [按 Agent 协议验证 ADR](docs/decisions/ADR-004-per-agent-protocol-verification.md)
+- [历史 Python 发行 ADR（已废弃）](docs/decisions/ADR-003-three-platform-python-core-and-release-policy.md)
 
-CC Switch 仅为可选文档，不自动安装、不进入运行依赖，也不替代 Provider API 服务。

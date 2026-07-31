@@ -6,9 +6,9 @@ import (
 	"strings"
 )
 
-// renderNumber matches Python's json.loads/json.dumps round trip. Plain
-// integers and decimals retain their text; exponent forms are promoted to a
-// float and rendered using Python's fixed/scientific notation rules.
+// renderNumber preserves the legacy configuration number representation. Plain
+// integers and decimals retain their text; exponent forms use the established
+// fixed/scientific notation rules.
 func renderNumber(number json.Number) string {
 	text := number.String()
 	if !strings.ContainsAny(text, "eE") {
@@ -18,10 +18,10 @@ func renderNumber(number json.Number) string {
 	if err != nil {
 		return text
 	}
-	return pythonFloat(value)
+	return renderFloat(value)
 }
 
-func pythonFloat(value float64) string {
+func renderFloat(value float64) string {
 	if value != value {
 		return "NaN"
 	}

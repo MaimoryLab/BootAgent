@@ -54,7 +54,7 @@ withdrawal_reason
 
 允许进入 OneAgent 发行包的内容：
 
-- OneAgent 自有代码、构建后的 React 静态资源和 Python 运行组件。
+- OneAgent 自有 Go 代码和构建后的 React 静态资源。
 - OneAgent 自有图标、文档和配置模板。
 - 许可证明确允许再分发，且已经完成对应义务的第三方依赖。
 - `agents.lock.json`、官方安装入口和手动配置说明。
@@ -68,7 +68,7 @@ withdrawal_reason
 以下内容不得进入二进制包、源码包、网盘附件、发行说明或自动化脚本：
 
 - 未获再分发授权的 Codex、Claude Code、Cursor、Kiro、OpenClaw、Hermes 或其他第三方 Agent 二进制。
-- 从 npm、pip、uv、GitHub 或官网下载后直接复制进包内，但没有完成许可证审查的软件。
+- 从 npm、uv、GitHub 或其他来源下载后直接复制进包内，但没有完成许可证审查的软件。
 - 修改、破解、补丁化或绕过签名的第三方软件。
 - VPN、代理、节点订阅、机场、专线或其他绕过网络限制的工具和配置。
 - 共享账号、共享 API Key、长期 Token、Cookie、验证码处理或批量注册工具。
@@ -93,7 +93,7 @@ Agent 获取顺序固定为：
 - 命令以参数数组执行，禁止 `shell=True` 和动态拼接 shell 命令。
 - 安装前显示软件名称、来源、版本和将执行的动作，并由用户确认。
 - API Key、Token 和账号信息不得出现在命令行参数中。
-- 不自动安装 Node.js、Python、Git Bash、VPN 或系统级网络组件。
+- 不自动安装 Node.js、Git、VPN 或系统级网络组件。Aider 的外部 Python 3.12 只在用户明确选择 Aider 时由上游安装流程自行要求，绝不进入 OneAgent 包体。
 - 不执行未经固定和审查的 `curl | bash`。
 
 官方来源不可达时，只能报告不可达并提供手动安装入口。OneAgent 不配置代理，不提供绕过网络限制的说明，也不把第三方二进制转存到网盘作为临时替代。

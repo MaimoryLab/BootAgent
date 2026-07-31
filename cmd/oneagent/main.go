@@ -353,8 +353,8 @@ func writeError(stdout, stderr io.Writer, err error, jsonOutput bool, secret str
 
 // helpRequested reports whether the argument list asks for usage rather than an
 // operation. Go's flag package treats -h as a parse error and exits non-zero;
-// the Python CLI it replaces exits 0, and the compatibility wrappers rely on
-// that, so help is handled before any FlagSet sees the arguments.
+// the wrapper contract expects help to exit 0, so handle it before any FlagSet
+// sees the arguments.
 func helpRequested(args []string) bool {
 	for _, arg := range args {
 		switch arg {
@@ -367,11 +367,9 @@ func helpRequested(args []string) bool {
 	return false
 }
 
-// printUsage mirrors the Python argparse help contract: the same flag names in
-// the same double-dash form, so existing scripts and the wrapper contract tests
-// keep matching on it.
+// printUsage keeps the wrapper's public flag names and double-dash form stable.
 func printUsage(stdout io.Writer) {
-	// One write, like Python's single help write. Callers pipe help into
+	// One write keeps help safe for callers piping it into
 	// `grep -q`, which closes the pipe on its first match; line-by-line writes
 	// would take a SIGPIPE mid-help and fail the caller's pipeline.
 	lines := []string{
@@ -425,8 +423,8 @@ func flagsContext() (context.Context, context.CancelFunc) {
 }
 
 // interruptExitCode reports the shell convention for an interrupted command,
-// matching the Python CLI's KeyboardInterrupt exit code. An interrupt is not an
-// operation failure, so no error payload is written for it.
+// matching the shell convention for an interrupted command. An interrupt is
+// not an operation failure, so no error payload is written for it.
 func interruptExitCode(ctx context.Context) (int, bool) {
 	if ctx.Err() == nil {
 		return 0, false

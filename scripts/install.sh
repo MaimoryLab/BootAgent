@@ -3,9 +3,8 @@
 # argument parsing, validation and exit codes belong to cmd/oneagent.
 #
 # Kept for one release cycle so existing docs, CI jobs and user scripts keep
-# working while the Go CLI becomes the only entry point. This wrapper no longer
-# locates Python: Python is now only an external prerequisite of Aider's own
-# installer, not of OneAgent.
+# working while the Go CLI remains the only implementation. This wrapper only
+# resolves the already-built binary.
 #
 # It deliberately does not build on demand. Callers run with a temporary HOME,
 # and `go build` would write a module cache into it -- a side effect a wrapper

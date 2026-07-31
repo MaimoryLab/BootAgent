@@ -1,6 +1,5 @@
 // Package app contains transport-independent use cases shared by the desktop
-// binding and the headless CLI. The Python production path remains available
-// during migration, but migrated Go operations are exercised independently.
+// binding and the headless CLI.
 package app
 
 import (
@@ -52,9 +51,8 @@ func NewUseCases(options StatusOptions) *UseCases {
 	return NewUseCasesWithProviderClient(options, nil)
 }
 
-// NewUseCasesWithProviderClient keeps network access injectable while the
-// Python production path remains active and Go behavior is verified with fake
-// transports.
+// NewUseCasesWithProviderClient keeps network access injectable so Go behavior
+// can be verified with fake transports.
 func NewUseCasesWithProviderClient(options StatusOptions, client *provider.Client) *UseCases {
 	return newUseCases(options, client, profileStore.Store{})
 }

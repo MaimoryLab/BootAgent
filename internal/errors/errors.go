@@ -22,8 +22,8 @@ const (
 	InternalError       = "INTERNAL_ERROR"
 )
 
-// ExitCodes is intentionally kept compatible with oneagent/errors.py. The
-// map is copied by callers when they need to expose it to a CLI parser.
+// ExitCodes is the stable process-level error contract. The map is copied by
+// callers when they need to expose it to a CLI parser.
 var ExitCodes = map[string]int{
 	InvalidRequest:      2,
 	InvalidOrigin:       2,

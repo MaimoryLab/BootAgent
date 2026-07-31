@@ -41,7 +41,7 @@ func normalizeOS(goos string) string {
 		return "windows"
 	default:
 		// The product currently has a Linux target for every non-Darwin,
-		// non-Windows Unix platform. This mirrors the Python baseline.
+		// non-Windows Unix platform. This keeps the product's Linux fallback.
 		return "linux"
 	}
 }

@@ -70,7 +70,7 @@ export function AgentSelectionPage() {
           <label className="toggle-row">
             <span>
               <strong>安装缺失的 Agent</strong>
-              <small>仅调用 lock manifest 中允许的官方 npm 或 pip 包。</small>
+              <small>仅调用 lock manifest 中允许的官方 npm 或 uv 包。</small>
             </span>
             <input
               type="checkbox"

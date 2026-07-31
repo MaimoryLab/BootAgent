@@ -1,12 +1,12 @@
 # OneAgent 公开站运营与发布手册
 
-状态：实施中。
+状态：已实施。
 
 ## 架构边界
 
 - `frontend/` 是随桌面 App 打包的 React 客户端。
 - `site/` 是独立构建和部署的 Astro 静态站，不进入 App 包体。
-- `.github/workflows/technical-preview.yml` 只构建 App 资产并创建 Draft GitHub Release。
+- `.github/workflows/technical-preview.yml` 只构建 Go/Wails App 资产并创建 Draft GitHub Release。
 - `.github/workflows/site.yml` 只测试、构建和部署 GitHub Pages。
 
 两个工作流没有 artifact 或 job 依赖。发布者人工审核并发布 Draft Release 后，`release.published` 事件会触发站点重建。

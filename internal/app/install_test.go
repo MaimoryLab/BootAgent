@@ -17,7 +17,7 @@ import (
 	"github.com/MaimoryLab/OneAgent/internal/provider"
 )
 
-func TestInstallResultWirePreservesPythonFieldPresence(t *testing.T) {
+func TestInstallResultWirePreservesFieldPresence(t *testing.T) {
 	configured, err := json.Marshal(AgentInstallResult{
 		Agent: "codex", Status: "configured", Config: "", Installed: false, LockedVersion: "0.145.0",
 	})

@@ -293,7 +293,7 @@ func TestStatusReportsInstalledVersionFromVersionCommand(t *testing.T) {
 	}
 }
 
-func TestStatusMatchesPythonEmptyLinuxARM64Fixture(t *testing.T) {
+func TestStatusMatchesEmptyLinuxARM64Fixture(t *testing.T) {
 	home := t.TempDir()
 	core := NewUseCases(StatusOptions{
 		Home:     home,
@@ -324,7 +324,7 @@ func TestStatusMatchesPythonEmptyLinuxARM64Fixture(t *testing.T) {
 	if !reflect.DeepEqual(actual, expected) {
 		actualPretty, _ := json.MarshalIndent(actual, "", "  ")
 		expectedPretty, _ := json.MarshalIndent(expected, "", "  ")
-		t.Fatalf("status diverged from the frozen Python fixture\nwant:\n%s\ngot:\n%s", expectedPretty, actualPretty)
+		t.Fatalf("status diverged from the frozen fixture\nwant:\n%s\ngot:\n%s", expectedPretty, actualPretty)
 	}
 }
 

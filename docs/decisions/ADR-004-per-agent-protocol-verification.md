@@ -10,7 +10,7 @@ Accepted
 
 ## Context
 
-[ADR-003](ADR-003-three-platform-python-core-and-release-policy.md) 冻结了五个自动配置 Agent 与配置适配器映射，但连接测试始终只发一种请求：`POST <openai-base>/v1/chat/completions`。
+[ADR-003](ADR-003-three-platform-python-core-and-release-policy.md) 冻结了五个自动配置 Agent 与配置适配器映射，但早期连接测试始终只发一种请求：`POST <openai-base>/v1/chat/completions`。
 
 这与 Agent 配置后的真实行为不一致：
 
@@ -41,7 +41,7 @@ README 早已声明"同一个模型 ID 不一定同时兼容 OpenAI、Anthropic 
 
 ### 协议映射
 
-每个 Agent 的推理协议由 `agents.lock.json` 的 `config_adapter` 推导，映射表位于 `oneagent/catalog.py`，与配置写入使用同一来源，避免两处漂移。未登记的适配器回退为 OpenAI-compatible。
+每个 Agent 的推理协议由 `agents.lock.json` 的 `config_adapter` 推导，映射表位于 `internal/catalog`，与配置写入使用同一来源，避免两处漂移。未登记的适配器回退为 OpenAI-compatible。
 
 ### 验证时机
 

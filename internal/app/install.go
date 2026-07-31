@@ -62,8 +62,8 @@ type AgentInstallResult struct {
 	Message       string `json:"message,omitempty"`
 	Retryable     bool   `json:"retryable"`
 	// checkOnly distinguishes the check path's skipped result from a normal
-	// configure=false result. Python includes config: "" for the latter but
-	// does not include a config field in check-agent-only results.
+	// configure=false result. The public contract includes config only for the
+	// latter, not for check-agent-only results.
 	checkOnly bool
 }
 

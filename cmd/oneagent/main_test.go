@@ -71,9 +71,9 @@ func TestAgentSetAndListCLIUseGoBindingsWithoutLeakingKey(t *testing.T) {
 }
 
 // The compatibility wrappers and tests/install_test.sh grep this help text and
-// treat a non-zero exit as a failure, so help keeps the Python CLI's contract:
+// treat a non-zero exit as a failure, so help keeps the wrapper's contract:
 // exit 0, double-dash flag names, one write.
-func TestHelpMatchesThePythonCLIContract(t *testing.T) {
+func TestHelpMatchesTheCLIContract(t *testing.T) {
 	for _, args := range [][]string{{"--help"}, {"-h"}, {"help"}, {"--agent", "codex", "--help"}} {
 		var stdout, stderr bytes.Buffer
 		if code := run(args, &stdout, &stderr); code != 0 {
@@ -95,7 +95,7 @@ func TestHelpMatchesThePythonCLIContract(t *testing.T) {
 }
 
 // An interrupt is not an operation failure: it exits with the shell convention
-// and writes no error payload, matching the Python CLI's KeyboardInterrupt path.
+// and writes no error payload, matching the CLI interrupt path.
 func TestInterruptExitCodeUsesShellConventionWithoutErrorPayload(t *testing.T) {
 	if code, interrupted := interruptExitCode(context.Background()); interrupted || code != 0 {
 		t.Fatalf("uncancelled context reported code=%d interrupted=%v", code, interrupted)

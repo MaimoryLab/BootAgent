@@ -2,6 +2,5 @@
 // the desktop shell.
 package version
 
-// Version is the first migration line. The Python 0.2.x entry points remain
-// the production path until the later migration gates are complete.
+// Version is the current native Go/Wails release line.
 const Version = "0.3.0-dev"

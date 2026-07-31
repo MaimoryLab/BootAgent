@@ -58,7 +58,7 @@ func InstalledVersion(ctx context.Context, runtime Runtime, agent catalog.Agent)
 	return VersionFromOutput(result.Stdout + "\n" + result.Stderr)
 }
 
-func ResolvePython312(ctx context.Context, runtime Runtime) (string, error) {
+func ResolveAiderPython312(ctx context.Context, runtime Runtime) (string, error) {
 	if err := checkContext(ctx); err != nil {
 		return "", err
 	}
@@ -206,15 +206,15 @@ func InstallLockedAgent(ctx context.Context, runtime Runtime, agentID string, ag
 		if !ok || uv == "" {
 			return Result{}, prerequisiteError("uv is required to install Aider")
 		}
-		python, pythonErr := ResolvePython312(ctx, runtime)
-		if pythonErr != nil {
-			return Result{}, pythonErr
+		aiderRuntime, runtimeErr := ResolveAiderPython312(ctx, runtime)
+		if runtimeErr != nil {
+			return Result{}, runtimeErr
 		}
 		spec := packageName
 		if !options.Latest {
 			spec += "==" + locked
 		}
-		argv = []string{uv, "tool", "install", "--force", "--python", python, "--no-python-downloads", spec}
+		argv = []string{uv, "tool", "install", "--force", "--python", aiderRuntime, "--no-python-downloads", spec}
 	default:
 		return Result{}, prerequisiteError(fmt.Sprintf("No allowlisted package manager for %s", agent.Name))
 	}

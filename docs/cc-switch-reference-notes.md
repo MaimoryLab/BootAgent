@@ -8,7 +8,7 @@
 
 | | CC Switch | OneAgent |
 | --- | --- | --- |
-| 形态 | Tauri 桌面应用（Rust + React） | 本地 HTTP + React，Python 标准库内核 |
+| 形态 | Tauri 桌面应用（Rust + React） | Wails 桌面应用（Go + React） |
 | 职责 | Provider 配置的**存取与切换** | Agent 的**检测、安装、配置** |
 | 配置模型 | 整块存原始配置对象 | 结构化字段，由适配器翻译 |
 | 外围能力 | 本地代理、熔断器、故障转移、用量统计、MCP、skills、prompts、sessions | 无 |

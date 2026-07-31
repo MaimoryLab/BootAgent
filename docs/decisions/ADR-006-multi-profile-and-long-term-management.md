@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Implemented
 
 ## Date
 
@@ -45,7 +45,7 @@ OneAgent 目前是一次性向导：激活完成即结束，`~/.oneagent/profile
 - 向导激活（`install_many` 收尾的 `write_profile`）变为"更新或创建当前激活 profile"：同一 `provider + model` 沿用原 id 并保留 `agent_ids` 合并语义，否则新建。
 - 切换 = 用另一组参数重写同一批配置文件，**完全复用现有写入链路**（`_write_agent_config` 分派 + `atomic_write` + 备份），不引入新的写入逻辑。
 - `POST /api/activate` 的响应必须携带逐 Agent 的**重启指引**（采纳 CC Switch 教训：Agent 不自动重载配置），而不是只返回"已切换"。
-- 新增端点一律复用 `server.py` 现有 POST 校验（Origin 白名单 + HttpOnly 会话 Cookie），不另开通道。Key 经请求体传入、只落 `secrets/`，与现有 `/api/install` 的安全姿态一致。
+- Profile 操作统一复用 Go `ProfileService` 和 `securefs` 写入边界，不新增 HTTP 通道。Key 只落 `secrets/`，binding 返回公开摘要。
 
 ### CLI
 
@@ -96,5 +96,5 @@ OneAgent 目前是一次性向导：激活完成即结束，`~/.oneagent/profile
 - `profile.json` schema 变更，迁移是唯一的数据风险点：备份先行 + 测试固定。
 - `status_payload` 增加 `profiles` / `activeProfile` 字段，必须同步 `frontend/src/types/api.ts`（传输契约规则）。
 - CC Switch 文档的推荐顺序需要调整：OneAgent 内置切换为主路径，CC Switch 作为可选下游。
-- 覆盖率门禁不变：`installer.py` 100% 分支、整体 ≥85%、前端 `src/api`/`src/state` ≥85%；新端点与迁移路径都要配测试。
+- Go profile/config tests、React state tests 和 Wails binding tests 覆盖新端点与迁移路径。
 - 备份回滚 UI、per-agent profile、`--wire-shell` 需要各自的后续评估，其中回滚 UI 需要新端点。
