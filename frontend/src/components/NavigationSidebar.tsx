@@ -36,11 +36,6 @@ export function NavigationSidebar() {
           </NavLink>
         ))}
       </nav>
-
-      <div className="sidebar-footnote">
-        <span className="privacy-dot" />
-        配置只保存在本机
-      </div>
     </aside>
   );
 }
