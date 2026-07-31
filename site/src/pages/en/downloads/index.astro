@@ -12,11 +12,11 @@ import { localePath } from "../../../i18n";
       <div>
         <nav class="breadcrumb" aria-label="Breadcrumb"><a href={localePath("en", "")}>Home</a> / Downloads</nav>
         <p class="eyebrow">Download center</p>
-        <h1 class="page-title">See exactly what it is, before you run it.</h1>
+        <h1 class="page-title">Pick your platform and get started.</h1>
       </div>
       <div class="page-hero-aside">
         <strong>No OneAgent account required</strong>
-        Pick the artifact matching your device, check the version, signing status and SHA-256, then start the local activation flow.
+        Every artifact carries its version, size, build date and SHA-256, so you can check it before you download.
       </div>
     </div>
   </header>
@@ -26,11 +26,13 @@ import { localePath } from "../../../i18n";
   <section class="section section-muted">
     <div class="narrow prose">
       <p class="eyebrow">Integrity</p>
-      <h2 class="section-title">Why does a download page have to show the SHA-256?</h2>
-      <p>A distribution channel is a mirror; it has no business changing the package. For a given version, the file on this site, on GitHub Releases, on a file host and on an internal drive must all carry the identical SHA-256. A channel may not append promotional files, swap the install script, or re-sign the build.</p>
-      <p>If the value you compute does not match the page, do not run the file. Report the download URL, the filename and the hash you actually got through the support page.</p>
-      <h3>Why is this not called stable?</h3>
-      <p>The current technical preview has neither macOS Developer ID notarisation nor Windows Authenticode. OneAgent does not paper over that by asking you to weaken your operating system's security policy. Each platform enters stable on its own, once signing, notarisation and native verification are all done.</p>
+      <h2 class="section-title">The SHA-256 on this page is here so you can check it yourself.</h2>
+      <p>A distribution channel is a mirror. For a given version, the file on this site, on GitHub Releases, on a file host and on an internal drive all carry the identical SHA-256.</p>
+      <p>Channels do not append promotional files, swap the install script, or re-sign the build.</p>
+      <p>If the value you compute does not match the page, do not run the file. Send the download URL, the filename and the hash you actually got to the support page.</p>
+      <h3>This is a technical preview</h3>
+      <p>macOS Developer ID notarisation and Windows Authenticode are not done yet, so it is not called stable. Each platform enters stable on its own once signing, notarisation and native verification are complete.</p>
+      <p>Until then, OneAgent does not document ways around your operating system's security policy.</p>
     </div>
   </section>
 </BaseLayout>

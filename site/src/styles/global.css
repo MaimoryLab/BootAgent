@@ -104,6 +104,7 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 img { display: block; max-width: 100%; height: auto; }
+[hidden] { display: none !important; }
 a { color: inherit; text-decoration: none; }
 button, input, select { font: inherit; }
 button, select { color: inherit; }
@@ -238,6 +239,12 @@ button, select { color: inherit; }
    both selectors are 0-2-0 and this one used to win on order alone. */
 .prose a:not(.button) { color: var(--blue-deep); text-decoration: underline; text-underline-offset: 3px; }
 .prose code, code.inline { padding: 2px 5px; overflow-wrap: anywhere; border: 1px solid var(--line); border-radius: 4px; background: var(--surface); color: var(--ink); font: 0.88em ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+/* Reference material that belongs on the page but should not compete with it:
+   the boundary and gating facts a reader consults rather than reads through.
+   Kept at full contrast — only the heading scale and leading step down. */
+.prose-aside { margin-top: 72px; padding-top: 8px; border-top: 1px solid var(--line-strong); }
+.prose-aside h2 { margin-top: 40px; font-size: 19px; letter-spacing: .006em; }
+.prose-aside p, .prose-aside li { font-size: 15px; }
 
 /* position + overflow:hidden keep the absolutely positioned particle canvas
    from widening the document — e2e asserts scrollWidth <= clientWidth. */
@@ -258,9 +265,8 @@ button, select { color: inherit; }
   border-radius: var(--radius-window);
   box-shadow: var(--shadow-float);
 }
-/* The inner preview keeps its own 1215:690 aspect-ratio (scoped in
-   ProductShot.astro) and follows the theme through tokens, so it needs no
-   image-specific sizing or dark-mode filter here. */
+/* The activation console owns its internal layout while this shared frame keeps
+   its edges aligned with the hero copy in every locale. */
 
 .trust-strip { padding: 34px 0 0; }
 .trust-grid { display: grid; grid-template-columns: repeat(4, 1fr); border-block: 1px solid var(--line); }
@@ -640,7 +646,7 @@ button, select { color: inherit; }
    a script that can disagree mid-session. */
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+  *, *::before, *::after { scroll-behavior: auto !important; animation: none !important; transition: none !important; }
 }
 
 /* Translucent chrome has to become a real surface when the reader has asked for
@@ -656,3 +662,10 @@ button, select { color: inherit; }
 }
 
 :focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 3px; }
+
+/* Homepage activation entry refinements. */
+.section-actions { margin-top: 28px; }
+.cta-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; }
+@media (max-width: 680px) {
+  .cta-actions { margin-top: 28px; justify-content: flex-start; }
+}

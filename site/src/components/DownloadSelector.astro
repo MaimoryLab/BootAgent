@@ -154,13 +154,16 @@ const c = locale === "en"
               <div class="hash-block">
                 <p><strong>SHA-256</strong></p>
                 <div class="hash-row">
-                  <code class="hash-value">{artifact.sha256}</code>
+                  {/* Both this and the command below scroll horizontally on narrow
+                      screens, so they need to be reachable without a pointer
+                      (WCAG 2.1.1). The label names which value has focus. */}
+                  <code class="hash-value" tabindex="0" role="group" aria-label="SHA-256">{artifact.sha256}</code>
                   <button class="copy-button" type="button" data-copy={artifact.sha256} data-copy-label={c.copy} data-copied-label={c.copied}>{c.copy}</button>
                 </div>
               </div>
               <div class="hash-block">
                 <p><strong>{c.checksumTitle}</strong></p>
-                <pre class="code-block"><code>shasum -a 256 {artifact.file}</code></pre>
+                <pre class="code-block" tabindex="0" role="group" aria-label={c.checksumTitle}><code>shasum -a 256 {artifact.file}</code></pre>
               </div>
               <p class="hero-note">{c.cleanroomNote}</p>
             </>

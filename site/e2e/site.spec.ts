@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import axe from "axe-core";
 
-const criticalPages = ["/", "/downloads/", "/agents/", "/security/"];
+const criticalPages = ["/", "/explore/", "/downloads/", "/agents/", "/security/"];
 
 test("critical pages fit the viewport without horizontal scrolling", async ({ page }) => {
   for (const path of criticalPages) {
@@ -14,12 +14,198 @@ test("critical pages fit the viewport without horizontal scrolling", async ({ pa
   }
 });
 
-test("home states the product boundary and current channel", async ({ page }) => {
+test("home presents one activation entry without claiming a real scan", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1 })).toContainText("激活你的 AI 开发环境");
-  await expect(page.getByRole("link", { name: "下载 OneAgent" })).toBeVisible();
-  await expect(page.getByText("自己的 Key", { exact: true })).toBeVisible();
+  await expect(page.locator(".hero-actions").getByRole("button", { name: "开始激活演示" })).toBeVisible();
+  await expect(page.locator(".hero-actions").getByRole("link")).toHaveCount(0);
+  await expect(page.locator("#activation-console")).toHaveAttribute("data-phase", "idle");
+  await expect(page.getByText("示例环境", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("不访问设备", { exact: true })).toBeVisible();
+  await expect(page.locator('input[type="password"], input[name*="key" i]')).toHaveCount(0);
   await expect(page.locator(".hero-note")).toContainText("未签名技术预览版");
+});
+
+test("activation demo reaches Ready only for a supported managed combination", async ({ page }) => {
+  const fetches: string[] = [];
+  page.on("request", (request) => {
+    if (["fetch", "xhr"].includes(request.resourceType())) fetches.push(request.url());
+  });
+  await page.goto("/");
+  const console = page.locator("#activation-console");
+  await page.getByRole("button", { name: "开始激活演示" }).click();
+  await expect(console).toHaveAttribute("data-phase", "agent");
+  await console.getByRole("button", { name: /Claude Code/ }).click();
+  await expect(console).toHaveAttribute("data-phase", "mode");
+  await console.getByRole("button", { name: /配置模型服务/ }).click();
+  await expect(console).toHaveAttribute("data-phase", "provider");
+  await console.getByRole("button", { name: /PPIO/ }).click();
+  await console.getByRole("button", { name: "验证示例连接" }).click();
+  await expect(console).toHaveAttribute("data-phase", "model");
+  await console.getByRole("button", { name: "deepseek/deepseek-v3" }).click();
+  await console.getByRole("button", { name: "确认激活" }).click();
+  await expect(console).toHaveAttribute("data-phase", "ready");
+  await expect(console.getByRole("heading", { name: "示例环境已 Ready" })).toBeVisible();
+  await expect(console.getByRole("link", { name: "下载 OneAgent" })).toBeVisible();
+  await expect(console.getByRole("link", { name: "打开完整 Explorer" })).toBeVisible();
+  await page.addScriptTag({ content: axe.source });
+  const result = await page.evaluate(async () => {
+    const axeApi = (window as typeof window & { axe: typeof axe }).axe;
+    return axeApi.run(document.querySelector("#activation-console")!, {
+      runOnly: { type: "tag", values: ["wcag2a", "wcag2aa"] },
+    });
+  });
+  const serious = result.violations.filter(
+    (violation) => violation.impact === "serious" || violation.impact === "critical",
+  );
+  expect(serious, JSON.stringify(serious, null, 2)).toEqual([]);
+  expect(fetches, "the public demo must not call a local or remote activation API").toEqual([]);
+});
+
+test("activation demo preserves guide-only and preview-gate boundaries", async ({ page }) => {
+  await page.goto("/");
+  const console = page.locator("#activation-console");
+
+  await page.getByRole("button", { name: "开始激活演示" }).click();
+  await expect(console).toHaveAttribute("data-phase", "agent");
+  await console.getByRole("button", { name: /Cursor/ }).click();
+  await expect(console).toHaveAttribute("data-phase", "guide-only");
+  await expect(console.getByRole("heading", { name: "转入官方设置" })).toBeVisible();
+  await expect(console.getByRole("link", { name: "下载 OneAgent" })).toBeHidden();
+
+  await console.getByRole("button", { name: "重置演示" }).click();
+  await page.getByRole("button", { name: "开始激活演示" }).click();
+  await expect(console).toHaveAttribute("data-phase", "agent");
+  await console.getByRole("button", { name: /Codex/ }).click();
+  await console.getByRole("button", { name: /配置模型服务/ }).click();
+  await console.getByRole("button", { name: /PPIO/ }).click();
+  await console.getByRole("button", { name: "验证示例连接" }).click();
+  await expect(console).toHaveAttribute("data-phase", "preview-gate");
+  await expect(console.getByRole("heading", { name: "仍需通过发布门禁" })).toBeVisible();
+  await expect(console.getByRole("link", { name: "下载 OneAgent" })).toBeHidden();
+  await expect(console.getByRole("link", { name: "发行政策" })).toBeVisible();
+});
+
+// The custom endpoint is the demo's only typed input, and its whole point is
+// that the browser applies the same rules as oneagent/providers.py. A field that
+// accepted anything would teach visitors an endpoint works when the app rejects it.
+test("activation demo validates a custom endpoint the way the app does", async ({ page }) => {
+  const fetches: string[] = [];
+  page.on("request", (request) => {
+    if (["fetch", "xhr"].includes(request.resourceType())) fetches.push(request.url());
+  });
+  await page.goto("/");
+  const console = page.locator("#activation-console");
+  await page.getByRole("button", { name: "开始激活演示" }).click();
+  await console.getByRole("button", { name: /Claude Code/ }).click();
+  await console.getByRole("button", { name: /配置模型服务/ }).click();
+  await console.getByRole("button", { name: /自定义端点/ }).click();
+
+  const url = console.getByLabel("Base URL");
+  const verify = console.getByRole("button", { name: "验证示例连接" });
+  await expect(url).toBeVisible();
+  await expect(verify).toBeDisabled();
+
+  for (const [value, message] of [
+    ["ftp://api.example.com", "需要以 http:// 或 https:// 开头。"],
+    ["https://user:secret@api.example.com", "请从地址中去掉用户名或密码。"],
+  ]) {
+    await url.fill(value);
+    await expect(console.locator("[data-custom-hint]")).toHaveText(message);
+    await expect(url).toHaveAttribute("aria-invalid", "true");
+    await expect(verify, `${value} must not be verifiable`).toBeDisabled();
+  }
+
+  await url.fill("https://api.example.com/openai");
+  await expect(console.locator("[data-custom-hint]")).toHaveText("端点可用");
+  await expect(verify).toBeEnabled();
+  await verify.click();
+
+  // A custom endpoint publishes no catalog, so the demo shows the app's real
+  // recovery — type the id — rather than inventing a discovered list.
+  await expect(console).toHaveAttribute("data-phase", "model");
+  await expect(console.locator("[data-model-grid]")).toBeHidden();
+  await console.getByLabel("模型 ID").fill("deepseek/deepseek-v3");
+  await console.getByRole("button", { name: "确认激活" }).click();
+  await expect(console).toHaveAttribute("data-phase", "ready");
+  await expect(console.locator("[data-result-provider]")).toHaveText("api.example.com");
+  expect(fetches, "typing an endpoint must not make the page call it").toEqual([]);
+});
+
+// Reusing an existing account is a real branch in the product's ConfigModePage,
+// and it exists precisely because no new credential is introduced — so the demo
+// must not walk it through provider and model steps it genuinely skips.
+test("activation demo skips provider and model for an existing account", async ({ page }) => {
+  await page.goto("/");
+  const console = page.locator("#activation-console");
+  await page.getByRole("button", { name: "开始激活演示" }).click();
+  await console.getByRole("button", { name: /Claude Code/ }).click();
+  await expect(console).toHaveAttribute("data-phase", "mode");
+  await console.getByRole("button", { name: /使用已有账号或配置/ }).click();
+
+  await expect(console).toHaveAttribute("data-phase", "ready");
+  await expect(console.getByRole("heading", { name: "保留现有账号" })).toBeVisible();
+  await expect(console.locator(".activation-steps li.is-skipped")).toHaveCount(2);
+  await expect(console.locator("[data-result-provider]")).toHaveText("已跳过");
+  await expect(console.locator("[data-log]")).toContainText("Provider 与模型步骤已跳过");
+});
+
+test("activation demo keeps a complete event history under reduced motion", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/");
+  const console = page.locator("#activation-console");
+  await page.getByRole("button", { name: "开始激活演示" }).click();
+  await expect(console).toHaveAttribute("data-phase", "agent");
+  await expect(console.locator("[data-log] li")).toHaveCount(2);
+  await console.getByRole("button", { name: /Claude Code/ }).click();
+  await console.getByRole("button", { name: /配置模型服务/ }).click();
+  await console.getByRole("button", { name: /PPIO/ }).click();
+  await console.getByRole("button", { name: "验证示例连接" }).click();
+  await expect(console).toHaveAttribute("data-phase", "model");
+  await console.getByRole("button", { name: "deepseek/deepseek-v3" }).click();
+  await console.getByRole("button", { name: "确认激活" }).click();
+  await expect(console).toHaveAttribute("data-phase", "ready");
+  await expect(console.locator("[data-log]")).toContainText("示例协议验证完成");
+  const animations = await console.evaluate((element) =>
+    element.getAnimations({ subtree: true }).filter((animation) => animation.playState === "running").length,
+  );
+  expect(animations).toBe(0);
+});
+
+test("Explorer restores shareable state and returns focus after the drawer closes", async ({ page }) => {
+  await page.goto("/explore/?agent=claude-code&provider=ppio&platform=macos&protocol=anthropic");
+  const explorer = page.locator("compatibility-explorer");
+  const drawer = explorer.locator("[data-explorer-drawer]");
+  await expect(drawer).toBeVisible();
+  await expect(drawer.getByRole("heading", { name: "Claude Code" })).toBeVisible();
+  await expect(explorer.locator('[data-filter="platform"]')).toHaveValue("macos");
+  await expect(explorer.locator('[data-filter="provider"]')).toHaveValue("ppio");
+  await expect(explorer.locator('[data-filter="protocol"]')).toHaveValue("anthropic");
+
+  await drawer.getByRole("button", { name: "关闭详情" }).click();
+  await expect(page).not.toHaveURL(/agent=/);
+
+  const card = explorer.locator('[data-agent-card][data-agent-id="claude-code"]');
+  await card.focus();
+  await page.keyboard.press("Enter");
+  await expect(drawer).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(drawer).toBeHidden();
+  await expect(card).toBeFocused();
+});
+
+test("Explorer filters only catalog-backed combinations", async ({ page }) => {
+  await page.goto("/explore/");
+  const explorer = page.locator("compatibility-explorer");
+  await explorer.locator('[data-filter="platform"]').selectOption("windows");
+  await explorer.locator('[data-filter="protocol"]').selectOption("responses");
+  await explorer.locator('[data-filter="provider"]').selectOption("ppio");
+  const visible = explorer.locator("[data-agent-card]:visible");
+  await expect(visible).toHaveCount(1);
+  await expect(visible).toHaveAttribute("data-agent-id", "codex");
+  await expect(page).toHaveURL(/platform=windows/);
+  await expect(page).toHaveURL(/protocol=responses/);
+  await expect(page).toHaveURL(/provider=ppio/);
 });
 
 test("download center recommends an available artifact but keeps manual choices", async ({ page, request }) => {
@@ -188,8 +374,8 @@ test("navigating between pages runs a cross-document view transition", async ({ 
       sessionStorage.setItem("vt-ran", (event as PageSwapEvent).viewTransition ? "yes" : "no");
     });
   });
-  await page.getByRole("link", { name: "Agent", exact: true }).click();
-  await expect(page).toHaveURL(/\/agents\/$/);
+  await page.getByLabel("主导航").getByRole("link", { name: "Explorer", exact: true }).click();
+  await expect(page).toHaveURL(/\/explore\/$/);
   expect(await page.evaluate(() => sessionStorage.getItem("vt-ran"))).toBe("yes");
   // The shared chrome opts out of the crossfade by being named on both pages.
   await expect(page.locator(".site-header")).toHaveCSS("view-transition-name", "site-header");
@@ -244,7 +430,7 @@ test.describe("hero entrance", () => {
 });
 
 test.describe("english locale", () => {
-  const englishPages = ["/en/", "/en/downloads/", "/en/quickstart/"];
+  const englishPages = ["/en/", "/en/explore/", "/en/downloads/", "/en/quickstart/"];
 
   for (const path of englishPages) {
     test(`has no serious accessibility violations: ${path}`, async ({ page }) => {
@@ -264,7 +450,7 @@ test.describe("english locale", () => {
   }
 
   test("declares reciprocal hreflang alternates with an x-default", async ({ page }) => {
-    for (const path of ["/", "/en/"]) {
+    for (const path of ["/", "/en/", "/explore/", "/en/explore/"]) {
       await page.goto(path);
       const codes = await page.evaluate(() =>
         [...document.querySelectorAll('link[rel="alternate"][hreflang]')].map((link) => link.getAttribute("hreflang")),
@@ -285,6 +471,16 @@ test.describe("english locale", () => {
     await page.getByRole("link", { name: "Change language" }).click();
     await expect(page).toHaveURL(/\/downloads\/$/);
     await expect(page.locator("html")).toHaveAttribute("lang", "zh-CN");
+  });
+
+  test("language switch preserves the Explorer route", async ({ page, viewport }) => {
+    test.skip((viewport?.width ?? 0) < 920, "header actions are collapsed at this width");
+    await page.goto("/explore/?platform=macos");
+    await page.getByRole("link", { name: "切换语言" }).click();
+    await expect(page).toHaveURL(/\/en\/explore\/$/);
+    await expect(page.locator("html")).toHaveAttribute("lang", "en");
+    await page.getByRole("link", { name: "Change language" }).click();
+    await expect(page).toHaveURL(/\/explore\/$/);
   });
 
   // Every link on an English page must resolve; an untranslated destination is
@@ -390,14 +586,11 @@ test.describe("dark scheme", () => {
   });
 });
 
-// The screenshot frame and the copy used to run on two different measures
-// (1215px vs 1180px), landing 18px apart — close enough to read as a mistake
-// rather than as a wider layer. Pinning the edges catches that drifting back.
-test("the hero screenshot sits on the same measure as the copy", async ({ page, viewport }) => {
+// The interactive console must share the hero copy measure and size to its own
+// content at every breakpoint. A clipped wizard can visually cover the next
+// section even when overflow hides the pixels.
+test("the activation console sits on the same measure as the copy", async ({ page }) => {
   await page.goto("/");
-  // The entrance translates the frame, so measuring before it lands reports the
-  // in-flight position and makes the gap below it look negative. Only the
-  // entrance is awaited — the scroll-driven .reveal animations never finish.
   await page.evaluate(() =>
     Promise.all(
       document
@@ -411,31 +604,21 @@ test("the hero screenshot sits on the same measure as the copy", async ({ page, 
       const rect = document.querySelector(selector)!.getBoundingClientRect();
       return { left: Math.round(rect.left), right: Math.round(rect.right) };
     };
-    const panel = document.querySelector<HTMLElement>(".product-shot [data-shot]")!;
-    const image = panel.getBoundingClientRect();
+    const panel = document.querySelector<HTMLElement>("[data-console-window]")!;
+    const rect = panel.getBoundingClientRect();
     return {
       copy: edges(".hero-copy"),
-      shot: edges(".product-shot"),
-      trust: edges(".trust-grid"),
-      ratio: image.width / image.height,
-      // Clipped content keeps its layout box, so an overflowing panel silently
-      // covers the section below even though overflow:hidden hides the pixels.
-      contentOverflow: panel.scrollHeight - Math.round(image.height),
-      gapBelowShot: Math.round(
-        document.querySelector(".trust-strip")!.getBoundingClientRect().top -
+      console: edges(".product-shot"),
+      contentOverflow: panel.scrollHeight - Math.round(rect.height),
+      gapBelowConsole: Math.round(
+        document.querySelector(".hero + .section")!.getBoundingClientRect().top -
           document.querySelector(".product-shot")!.getBoundingClientRect().bottom,
       ),
     };
   });
-  expect(layout.shot).toEqual(layout.copy);
-  expect(layout.shot).toEqual(layout.trust);
-  // The frame's padding shrinks the inner preview, so on the wide layout it holds
-  // the client's own 1215:690 proportions rather than squashing. Below 680px that
-  // ratio would leave ~190px for 570px of rows, so the panel sizes to its content
-  // there instead — hence the ratio is only asserted where it is intended.
-  if ((viewport?.width ?? 0) > 680) expect(layout.ratio).toBeCloseTo(1215 / 690, 2);
-  expect(layout.contentOverflow, "the preview must not clip its own content").toBeLessThanOrEqual(1);
-  expect(layout.gapBelowShot, "the preview must not butt against the trust strip").toBeGreaterThan(16);
+  expect(layout.console).toEqual(layout.copy);
+  expect(layout.contentOverflow, "the activation console must not clip its own content").toBeLessThanOrEqual(1);
+  expect(layout.gapBelowConsole, "the console must not butt against the next section").toBeGreaterThan(16);
 });
 
 // Synthetic mouse events never set :hover, so the resting-vs-hovered difference
