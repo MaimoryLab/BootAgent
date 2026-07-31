@@ -52,13 +52,13 @@ describe("cross-language link detection", () => {
     for (const route of translatedRoutes) {
       expect(switchesLanguage("en", route), `${route} is translated`).toBe(false);
     }
-    for (const route of ["security/", "enterprise/", "support/", "agents/", "providers/", "changelog/"]) {
+    for (const route of ["enterprise/", "support/", "agents/", "providers/", "changelog/"]) {
       expect(switchesLanguage("en", route), `${route} has no English page`).toBe(true);
     }
   });
 
   it("never flags a link for a Chinese reader, since Chinese is the fallback", () => {
-    for (const route of [...translatedRoutes, "security/", "enterprise/", "agents/"]) {
+    for (const route of [...translatedRoutes, "enterprise/", "agents/"]) {
       expect(switchesLanguage("zh-CN" as Locale, route)).toBe(false);
     }
   });

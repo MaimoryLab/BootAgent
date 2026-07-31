@@ -37,7 +37,7 @@ walk(rootPath);
 // The /en/ entries are listed for the same reason as the rest: a translated page
 // silently dropping out of the build is otherwise invisible, since the link
 // checker below only sees links that were actually emitted.
-for (const required of ["index.html", "downloads/index.html", "quickstart/index.html", "agents/index.html", "providers/index.html", "security/index.html", "release-index.json", "en/index.html", "en/downloads/index.html", "en/quickstart/index.html", "llms.txt", "site.webmanifest"]) {
+for (const required of ["index.html", "downloads/index.html", "quickstart/index.html", "agents/index.html", "providers/index.html", "security/index.html", "explore/index.html", "release-index.json", "en/index.html", "en/downloads/index.html", "en/quickstart/index.html", "en/explore/index.html", "en/security/index.html", "llms.txt", "site.webmanifest"]) {
   if (!existsSync(join(rootPath, required))) failures.push(`Missing required output: ${required}`);
 }
 
