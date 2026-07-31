@@ -46,12 +46,12 @@ Go application use cases
 - `cmd/oneagent-desktop/`：Wails 桌面入口，仅在 `wails` build tag 下链接 Wails。
 - `frontend/`：React 七页向导；发行包只携带构建后的 `dist`，终端用户不需要 Node.js。
 - `site/`：独立 Astro 静态公开站；不进入 Launcher 包体，也不复用本地路由和状态。
-- `distribution/`：公开渠道状态与 Provider 商业关系披露；技术排序与商业数据保持分离。
+- `distribution/`：Provider 商业关系披露；技术排序与商业数据保持分离。
 - `agents.lock.json`：五个自动配置 Agent 的版本、包管理器、配置适配器、平台、来源和许可证锁定清单。
 
 ## 公开分发站
 
-公开站从平台 manifest、SHA256SUMS、`agents.lock.json` 和 `distribution/` 配置生成下载与兼容目录，不手工复制版本或哈希：
+公开站构建时从 GitHub Releases API 读取已发布版本和下载资产，并直接从 `agents.lock.json`、`distribution/providers.json` 读取兼容目录：
 
 ```bash
 cd site
@@ -62,7 +62,7 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-`npm run build` 会生成 `/release-index.json` 并校验公开 artifact 的大小与 SHA-256。`site/src/generated/` 与 `site/public/downloads/` 都由构建重新生成，不提交到 Git。GitHub Pages 子路径构建可设置 `SITE_URL` 与 `BASE_PATH`（该产物无法本地预览，原因见运营手册）。完整发布、镜像、Provider 披露和撤回流程见 [公开分发站运营与发布手册](docs/public-site-operations.md)。
+站点不读取本地 `release/`，不复制 App 资产，也不依赖 Python。`.github/workflows/site.yml` 与 App 发布工作流独立，Release 发布后自动重建 Pages；GitHub Pages 子路径构建可设置 `SITE_URL` 与 `BASE_PATH`。完整流程见 [公开站运营与发布手册](docs/public-site-operations.md)。
 
 ## 快速启动
 
@@ -444,7 +444,7 @@ python3 scripts/provider_rc_smoke.py \
 
 - [产品边界基线](docs/product-boundary-baseline.md)
 - [公开分发站运营与发布手册](docs/public-site-operations.md)
-- [独立公开站与机器生成发行索引 ADR](docs/decisions/ADR-006-public-site-and-generated-release-index.md)
+- [独立公开站与 GitHub Release 事实源 ADR](docs/decisions/ADR-006-public-site-and-generated-release-index.md)
 - [多渠道分发与合规政策](docs/distribution-compliance-policy.md)
 - [渠道无关的二进制分发 ADR](docs/decisions/ADR-005-channel-neutral-distribution-and-compliance.md)
 - [三平台 Python 内核与版本锁定 ADR](docs/decisions/ADR-003-three-platform-python-core-and-release-policy.md)

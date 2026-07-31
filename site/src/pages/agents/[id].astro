@@ -1,14 +1,14 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import AgentMark from "../../components/AgentMark.astro";
-import catalogData from "../../generated/catalog.json";
+import { catalog, type SiteAgent } from "../../lib/catalog";
 import { agentDescriptions, groupLabels, platformLabels, protocolLabels } from "../../lib/content";
 import { supportLabels } from "../../lib/downloads";
 
 export function getStaticPaths() {
-  return (catalogData as any).agents.map((agent: any) => ({ params: { id: agent.id }, props: { agent } }));
+  return catalog.agents.map((agent) => ({ params: { id: agent.id }, props: { agent } }));
 }
-const { agent } = Astro.props as any;
+const { agent } = Astro.props as { agent: SiteAgent };
 const labels = supportLabels(agent.support);
 ---
 <BaseLayout title={`${agent.name} — OneAgent Agent 兼容目录`} description={agentDescriptions[agent.id] ?? `${agent.name} 在 OneAgent 中的安装、配置和协议支持状态。`}>

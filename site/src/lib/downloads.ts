@@ -1,47 +1,31 @@
-export type TargetStatus = "available" | "verification-pending" | "planned" | "withdrawn";
-
-export interface DownloadLink {
-  id: string;
-  label: string;
-  kind: "official" | "mirror";
-  url: string;
-  primary: boolean;
-}
-
-export interface ReleaseArtifact {
-  file: string;
-  sha256: string;
-  bytes: number;
-  kind: "binary" | "source";
-  downloads: DownloadLink[];
-}
-
 export interface ReleaseTarget {
   id: string;
-  platform: string;
+  platform: "macos" | "windows" | "linux";
   platformLabel: string;
-  arch: string;
+  arch: "arm64" | "x64";
   archLabel: string;
-  status: TargetStatus;
-  verification: {
-    native_build: boolean;
-    cleanroom: "verified" | "not-recorded" | "failed";
-    evidence: string | null;
-  };
-  python: string | null;
-  built_at: string | null;
-  agent_versions: Record<string, string>;
-  artifacts: ReleaseArtifact[];
+  file: string;
+  bytes: number;
+  sha256: string | null;
+  downloadUrl: string;
+  checksumUrl: string | null;
 }
 
-export interface ReleaseChannel {
-  channel: string;
-  label: string;
+export interface GitHubReleaseAsset {
+  name: string;
+  size: number;
+  digest?: string | null;
+  browser_download_url: string;
+}
+
+export interface GitHubRelease {
+  name: string | null;
+  tag_name: string;
+  html_url: string;
   published_at: string | null;
-  version: string | null;
-  unsigned: boolean;
-  status: "available" | "unavailable";
-  targets: ReleaseTarget[];
+  prerelease: boolean;
+  draft: boolean;
+  assets: GitHubReleaseAsset[];
 }
 
 export interface DetectedTarget {
@@ -53,6 +37,59 @@ export interface AgentSupport {
   managedInstall: boolean;
   officialInstallGuide: boolean;
   managedConfig: boolean;
+}
+
+const repository = process.env.GITHUB_REPOSITORY || "MaimoryLab/OneAgent";
+const releasesUrl = `https://api.github.com/repos/${repository}/releases?per_page=20`;
+export const releasesPageUrl = `https://github.com/${repository}/releases`;
+let releasesRequest: Promise<GitHubRelease[]> | undefined;
+
+export function getPublishedReleases(): Promise<GitHubRelease[]> {
+  releasesRequest ??= fetch(releasesUrl, {
+    headers: {
+      Accept: "application/vnd.github+json",
+      "X-GitHub-Api-Version": "2022-11-28",
+      ...(process.env.GITHUB_TOKEN ? { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` } : {}),
+    },
+  }).then(async (response) => {
+    if (response.status === 404 && !process.env.GITHUB_TOKEN) return [];
+    if (!response.ok) throw new Error(`GitHub Releases request failed: ${response.status} ${response.statusText}`);
+    const releases = await response.json();
+    if (!Array.isArray(releases)) throw new Error("GitHub Releases response must be an array");
+    return (releases as GitHubRelease[]).filter((release) => !release.draft);
+  });
+  return releasesRequest;
+}
+
+export async function getLatestRelease(): Promise<GitHubRelease | null> {
+  return (await getPublishedReleases())[0] ?? null;
+}
+
+const platformLabels = { macos: "macOS", windows: "Windows", linux: "Linux" } as const;
+const archLabels = { arm64: "Apple silicon / ARM64", x64: "Intel / AMD 64-bit" } as const;
+const binarySuffixes = [".zip", ".tar.gz", ".dmg", ".msi", ".exe", ".appimage"];
+
+export function releaseTargets(release: GitHubRelease): ReleaseTarget[] {
+  return release.assets.flatMap((asset) => {
+    const match = asset.name.toLowerCase().match(/-(macos|windows|linux)-(arm64|x64)(?:\.[a-z0-9.]+)$/);
+    if (!match || !binarySuffixes.some((suffix) => asset.name.toLowerCase().endsWith(suffix))) return [];
+    const platform = match[1] as ReleaseTarget["platform"];
+    const arch = match[2] as ReleaseTarget["arch"];
+    const digest = asset.digest?.match(/^sha256:([a-f0-9]{64})$/i)?.[1].toLowerCase() ?? null;
+    const checksum = release.assets.find((candidate) => candidate.name === `SHA256SUMS-${platform}-${arch}.txt`);
+    return [{
+      id: `${platform}-${arch}`,
+      platform,
+      platformLabel: platformLabels[platform],
+      arch,
+      archLabel: archLabels[arch],
+      file: asset.name,
+      bytes: asset.size,
+      sha256: digest,
+      downloadUrl: asset.browser_download_url,
+      checksumUrl: checksum?.browser_download_url ?? null,
+    }];
+  });
 }
 
 export function detectTargetFromUserAgent(userAgent: string): DetectedTarget | null {
@@ -73,28 +110,16 @@ export function detectTargetFromUserAgent(userAgent: string): DetectedTarget | n
   return null;
 }
 
-export function getRecommendedTarget(channel: ReleaseChannel, detected: DetectedTarget | null): ReleaseTarget | null {
+export function getRecommendedTarget(targets: ReleaseTarget[], detected: DetectedTarget | null): ReleaseTarget | null {
   if (detected) {
     const exact = detected.arch
-      ? channel.targets.find((target) => target.platform === detected.platform && target.arch === detected.arch)
+      ? targets.find((target) => target.platform === detected.platform && target.arch === detected.arch)
       : null;
     if (exact) return exact;
-    const samePlatform = channel.targets.find(
-      (target) => target.platform === detected.platform && target.status === "available",
-    );
+    const samePlatform = targets.find((target) => target.platform === detected.platform);
     if (samePlatform) return samePlatform;
-    const anySamePlatform = channel.targets.find((target) => target.platform === detected.platform);
-    if (anySamePlatform) return anySamePlatform;
   }
-  return channel.targets.find((target) => target.status === "available") ?? channel.targets[0] ?? null;
-}
-
-export function binaryArtifact(target: ReleaseTarget): ReleaseArtifact | null {
-  return target.artifacts.find((artifact) => artifact.kind === "binary") ?? null;
-}
-
-export function primaryDownload(artifact: ReleaseArtifact): DownloadLink | null {
-  return artifact.downloads.find((download) => download.primary) ?? artifact.downloads[0] ?? null;
+  return targets[0] ?? null;
 }
 
 export function formatBytes(bytes: number): string {

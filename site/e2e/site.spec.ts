@@ -19,23 +19,14 @@ test("home states the product boundary and current channel", async ({ page }) =>
   await expect(page.getByRole("heading", { level: 1 })).toContainText("激活你的 AI 开发环境");
   await expect(page.getByRole("link", { name: "下载 OneAgent" })).toBeVisible();
   await expect(page.getByText("自己的 Key", { exact: true })).toBeVisible();
-  await expect(page.locator(".hero-note")).toContainText("未签名技术预览版");
+  await expect(page.locator(".hero-note")).toContainText("GitHub");
 });
 
-test("download center recommends an available artifact but keeps manual choices", async ({ page, request }) => {
-  const index = await (await request.get("/release-index.json")).json();
-  const preview = index.channels.find((channel: { channel: string }) => channel.channel === "technical-preview-unsigned");
-  const mac = preview.targets.find((target: { id: string }) => target.id === "macos-arm64");
-  const expectedSha = mac.artifacts[0].sha256;
+test("download center links only to GitHub Releases", async ({ page }) => {
   await page.goto("/downloads/");
-  const select = page.getByLabel("选择平台与架构");
-  await expect(select).toBeVisible();
-  await select.selectOption("windows-x64");
-  await expect(page.getByRole("heading", { name: "这个平台尚未公开发行" })).toBeVisible();
-  await select.selectOption("macos-arm64");
-  await expect(page.getByRole("link", { name: "下载 macOS 预览版" })).toBeVisible();
-  await expect(page.getByText(expectedSha, { exact: true })).toBeVisible();
-  await expect(page.getByText("未签名、未公证", { exact: true })).toBeVisible();
+  const releaseLink = page.getByRole("link", { name: /查看 GitHub Releases?/ }).first();
+  await expect(releaseLink).toBeVisible();
+  await expect(releaseLink).toHaveAttribute("href", /^https:\/\/github\.com\/MaimoryLab\/OneAgent\/releases/);
 });
 
 test("guide-only compatibility remains distinct from managed installation", async ({ page }) => {
@@ -43,19 +34,6 @@ test("guide-only compatibility remains distinct from managed installation", asyn
   await expect(page.getByText("按官方方式安装", { exact: true })).toBeVisible();
   await expect(page.getByText("由 Agent 官方流程管理", { exact: true })).toBeVisible();
   await expect(page.getByText("OneAgent 可管理安装", { exact: true })).toHaveCount(0);
-});
-
-test("public release index exposes the same verified artifact", async ({ request }) => {
-  const response = await request.get("/release-index.json");
-  expect(response.ok()).toBeTruthy();
-  const index = await response.json();
-  const preview = index.channels.find((channel: { channel: string }) => channel.channel === "technical-preview-unsigned");
-  const mac = preview.targets.find((target: { id: string }) => target.id === "macos-arm64");
-  expect(preview.version).toBe("0.2.0-dev");
-  expect(preview.unsigned).toBe(true);
-  expect(mac.verification.cleanroom).toBe("verified");
-  expect(mac.artifacts[0].sha256).toMatch(/^[a-f0-9]{64}$/);
-  expect(mac.artifacts[0].downloads.some((download: { kind: string; primary: boolean }) => download.kind === "official" && download.primary)).toBe(true);
 });
 
 test("serves its own stylesheet and Agent marks rather than 404ing on them", async ({ page }) => {

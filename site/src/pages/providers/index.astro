@@ -1,8 +1,7 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
-import catalogData from "../../generated/catalog.json";
+import { catalog } from "../../lib/catalog";
 import { protocolLabels, protocolStatusLabels } from "../../lib/content";
-const catalog = catalogData as any;
 ---
 <BaseLayout title="Provider 目录 — OneAgent" description="查看 OneAgent 的公开 Provider 接入、协议状态和商业关系披露。">
   <header class="page-hero">
@@ -13,7 +12,7 @@ const catalog = catalogData as any;
   </header>
   <section class="section-compact">
     <div class="shell provider-grid">
-      {catalog.providers.map((provider: any) => (
+      {catalog.providers.map((provider) => (
         <article class="provider-card">
           <div style="display:flex;justify-content:space-between;gap:20px;align-items:start">
             <h2>{provider.name}</h2>
@@ -21,7 +20,7 @@ const catalog = catalogData as any;
           </div>
           <p>使用 Provider 官方账号和 Key；OneAgent 只负责本地连接测试与目标 Agent 配置。</p>
           <div class="agent-status">
-            {provider.protocols.map((protocol: any) => <span class="chip">{protocolLabels[protocol.id] ?? protocol.id} · {protocolStatusLabels[protocol.status] ?? protocol.status}</span>)}
+            {provider.protocols.map((protocol) => <span class="chip">{protocolLabels[protocol.id] ?? protocol.id} · {protocolStatusLabels[protocol.status] ?? protocol.status}</span>)}
           </div>
           <a class="button button-text" href={`providers/${provider.id}/`}>查看协议状态 →</a>
         </article>

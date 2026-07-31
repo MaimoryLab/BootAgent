@@ -31,10 +31,4 @@ site/coverage/
 site/test-results/
 site/playwright-report/
 
-# 站点数据由 `npm run prepare:data` 从 agents.lock.json、distribution/ 与
-# release/ 重新生成。提交它们会让每次构建都产生 diff，而 release-index 还会
-# 把只有本机才有的产物校验和写进仓库。
-site/src/generated/
-site/public/downloads/
-
 .task

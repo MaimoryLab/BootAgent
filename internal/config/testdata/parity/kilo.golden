@@ -1,0 +1,23 @@
+{
+  "provider": {
+    "other": {
+      "x": 1
+    },
+    "oneagent": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "PPIO",
+      "options": {
+        "baseURL": "https://api.ppio.com/openai/v1",
+        "apiKey": "{env:ONEAGENT_API_KEY_KILO_CLI}"
+      },
+      "models": {
+        "model-new": {
+          "name": "model-new"
+        }
+      }
+    }
+  },
+  "keep": true,
+  "$schema": "https://app.kilo.ai/config.json",
+  "model": "oneagent/model-new"
+}

@@ -1,10 +1,8 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
-import releaseIndexData from "../../generated/release-index.json";
-import type { ReleaseChannel } from "../../lib/downloads";
-const preview = ((releaseIndexData as unknown as { channels: ReleaseChannel[] }).channels.find((channel) => channel.channel === "technical-preview-unsigned"))!;
-const verifiedTarget = preview.targets.find((target) => target.status === "available")!;
-const verifiedArtifact = verifiedTarget.artifacts.find((artifact) => artifact.kind === "binary")!;
+import { getLatestRelease, releaseTargets, releasesPageUrl } from "../../lib/downloads";
+const release = await getLatestRelease();
+const target = release ? releaseTargets(release)[0] : null;
 ---
 <BaseLayout title="安全、隐私与发行完整性 — OneAgent" description="OneAgent 的本地执行、密钥处理、配置备份、同包分发和未签名预览版边界。">
   <header class="page-hero">
@@ -24,11 +22,21 @@ const verifiedArtifact = verifiedTarget.artifacts.find((artifact) => artifact.ki
         <h2 id="backups">权限与备份</h2>
         <p>OneAgent 在修改既有配置前创建备份，并把配置目录和包含密钥的文件限制为当前用户可访问。cleanroom 会检查真实用户目录没有被测试流程修改。</p>
         <h2 id="distribution">同包分发</h2>
-        <p>官网、GitHub Release、网盘和企业云盘只能分发完全相同的 OneAgent 官方构建。同版本的文件内容和 SHA-256 必须一致，渠道不得重新打包、追加推广内容或二次签名。</p>
+        <p>公开站只链接 GitHub Release 中的原始资产，不复制或重新打包下载文件。版本、发布日期、大小与校验摘要均来自 GitHub Release。</p>
         <p>OneAgent 不重新分发第三方 Agent 二进制。Agent 应来自官方安装源、经过书面授权的镜像或用户手动安装。</p>
         <h2 id="release-evidence">当前发行证据</h2>
-        <div class="notice notice-success"><span class="notice-mark">✓</span><div><strong>macOS arm64 cleanroom 已复核</strong><p>{preview.version} 的当前 {verifiedTarget.platformLabel} {verifiedTarget.archLabel} ZIP 已按精确 SHA-256 完成原生 cleanroom 复核。</p></div></div>
-        <ul><li>渠道：<code>technical-preview-unsigned</code></li><li>SHA-256：<code>{verifiedArtifact.sha256}</code></li><li>签名与公证：尚未完成，因此不是 Stable。</li></ul>
+        {release ? (
+          <>
+            <div class="notice notice-success"><span class="notice-mark">✓</span><div><strong>GitHub Release 已发布</strong><p>{release.tag_name} 的版本信息和下载资产由 GitHub Release 提供。</p></div></div>
+            <ul>
+              <li>Release：<a href={release.html_url}>{release.name || release.tag_name}</a></li>
+              <li>类型：{release.prerelease ? "预发布版" : "正式版"}</li>
+              {target?.sha256 && <li>首个公开资产 SHA-256：<code>{target.sha256}</code></li>}
+            </ul>
+          </>
+        ) : (
+          <div class="notice notice-warning"><span class="notice-mark">!</span><div><strong>尚无已发布版本</strong><p>当前没有可作为版本事实源的 GitHub Release。<a href={releasesPageUrl}>查看 Releases</a></p></div></div>
+        )}
         <h2 id="stable">Stable 门禁</h2>
         <p>macOS 需要 Developer ID 签名、公证和 stapled ticket；Windows 需要有效 Authenticode；每个平台还必须有原生构建与 cleanroom 证据。平台可以独立进入 Stable，不用等待所有平台同时完成。</p>
         <h2 id="excluded">明确排除</h2>

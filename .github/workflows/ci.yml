@@ -87,7 +87,7 @@ jobs:
         run: |
           mkdir -p build/coverage
           coverage erase
-          coverage run --branch -m unittest tests.test_core tests.test_cli tests.test_release_policy tests.test_distribution_data tests.test_edge_cases tests.test_rc_scripts tests.test_install_contract tests.test_config_discovery
+          coverage run --branch -m unittest tests.test_core tests.test_cli tests.test_release_policy tests.test_edge_cases tests.test_rc_scripts tests.test_install_contract tests.test_config_discovery
           coverage report --fail-under=85
           coverage json
           python -c "import json, os; files = json.load(open('build/coverage/coverage.json', encoding='utf-8'))['files']; normalized = {key.replace(os.sep, '/'): value for key, value in files.items()}; summary = normalized['oneagent/installer.py']['summary']; assert summary['percent_branches_covered'] == 100 and summary['num_partial_branches'] == 0, summary"
@@ -177,80 +177,10 @@ jobs:
         if: runner.os == 'macOS'
         run: bash tests/macos_cleanroom_test.sh
 
-      - name: Validate macOS arm64 release for the public site
-        if: matrix.os == 'macos-15'
-        run: python scripts/check_release.py release
-
-      - name: Upload verified macOS arm64 release for the public site
-        if: matrix.os == 'macos-15'
-        uses: actions/upload-artifact@v4
-        with:
-          name: public-site-release-macos-arm64
-          path: release/*
-          if-no-files-found: error
-
       - name: Upload macOS cleanroom failures
         if: failure() && runner.os == 'macOS'
         uses: actions/upload-artifact@v4
         with:
           name: macos-cleanroom-failures-${{ matrix.os }}
           path: build/macos-cleanroom
-          if-no-files-found: ignore
-
-
-  public-site:
-    name: Public distribution site
-    needs: contract-and-browser
-    runs-on: ubuntu-22.04
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Download verified macOS arm64 release
-        uses: actions/download-artifact@v4
-        with:
-          name: public-site-release-macos-arm64
-          path: release
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: npm
-          cache-dependency-path: site/package-lock.json
-
-      - name: Install site dependencies
-        working-directory: site
-        run: npm ci
-
-      - name: Unit, type and release-data checks
-        working-directory: site
-        run: |
-          npm test
-          npm run build
-
-      - name: Install Chromium
-        working-directory: site
-        run: npx playwright install --with-deps chromium
-
-      - name: Browser and accessibility checks
-        working-directory: site
-        run: npm run test:e2e
-
-      - name: Verify GitHub Pages base path build
-        working-directory: site
-        env:
-          SITE_URL: https://example.com
-          BASE_PATH: /OneAgent
-        run: npm run build
-
-      - name: Upload site browser failures
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: public-site-browser-failures
-          path: site/test-results
           if-no-files-found: ignore

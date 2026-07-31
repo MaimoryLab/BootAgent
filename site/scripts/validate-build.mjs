@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 
@@ -34,7 +33,7 @@ function localTarget(href) {
 }
 
 walk(rootPath);
-for (const required of ["index.html", "downloads/index.html", "quickstart/index.html", "agents/index.html", "providers/index.html", "security/index.html", "release-index.json"]) {
+for (const required of ["index.html", "downloads/index.html", "quickstart/index.html", "agents/index.html", "providers/index.html", "security/index.html"]) {
   if (!existsSync(join(rootPath, required))) failures.push(`Missing required output: ${required}`);
 }
 
@@ -62,24 +61,8 @@ for (const path of htmlFiles) {
   }
 }
 
-const index = JSON.parse(readFileSync(join(rootPath, "release-index.json"), "utf8"));
-for (const channel of index.channels) {
-  for (const target of channel.targets) {
-    if (target.status !== "available") continue;
-    for (const artifact of target.artifacts) {
-      const path = join(rootPath, "downloads", artifact.file);
-      if (!existsSync(path)) {
-        failures.push(`Available artifact is missing from site output: ${artifact.file}`);
-        continue;
-      }
-      const digest = createHash("sha256").update(readFileSync(path)).digest("hex");
-      if (digest !== artifact.sha256) failures.push(`Published artifact hash drift: ${artifact.file}`);
-    }
-  }
-}
-
 if (failures.length) {
   console.error(failures.join("\n"));
   process.exit(1);
 }
-console.log(`Validated ${htmlFiles.length} HTML pages and all published release artifacts.`);
+console.log(`Validated ${htmlFiles.length} HTML pages.`);

@@ -80,7 +80,7 @@ button:active:not(:disabled) {
 
 .button-secondary,
 .button-compact {
-  background: #ffffff;
+  background: var(--window-bg);
   border-color: var(--border-strong);
 }
 
@@ -103,7 +103,7 @@ button:active:not(:disabled) {
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-control);
   color: var(--text-primary);
-  background: #ffffff;
+  background: var(--window-bg);
   transition: border-color 140ms ease, box-shadow 140ms ease;
 }
 
@@ -166,8 +166,8 @@ button:active:not(:disabled) {
 }
 
 .notice-info {
-  color: #145da0;
-  background: #eff7ff;
+  color: var(--info);
+  background: var(--info-soft);
   border-color: rgba(0, 122, 255, 0.2);
 }
 

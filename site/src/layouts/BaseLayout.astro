@@ -1,7 +1,7 @@
 ---
 import Header from "../components/Header.astro";
 import Footer from "../components/Footer.astro";
-import releaseIndexData from "../generated/release-index.json";
+import { getLatestRelease, releaseTargets } from "../lib/downloads";
 import "../styles/global.css";
 
 interface Props {
@@ -20,17 +20,15 @@ const {
 const canonical = new URL(Astro.url.pathname, Astro.site ?? Astro.url.origin);
 const baseUrl = new URL(import.meta.env.BASE_URL, Astro.site ?? Astro.url.origin);
 const imageUrl = new URL(image.replace(/^\/+/, ""), baseUrl);
-const preview = releaseIndexData.channels.find((channel) => channel.channel === "technical-preview-unsigned");
-const availableSystems = preview?.targets
-  .filter((target) => target.status === "available")
-  .map((target) => `${target.platformLabel} ${target.archLabel}`) ?? [];
+const release = await getLatestRelease();
+const availableSystems = release ? releaseTargets(release).map((target) => `${target.platformLabel} ${target.archLabel}`) : [];
 const structuredData = {
   "@context": "https://schema.org",
   "@type": "SoftwareApplication",
   name: "OneAgent",
   applicationCategory: "DeveloperApplication",
   operatingSystem: availableSystems.join(", ") || "No public build",
-  softwareVersion: preview?.version,
+  softwareVersion: release?.tag_name,
   url: canonical,
   description,
   offers: { "@type": "Offer", price: "0", priceCurrency: "CNY" },

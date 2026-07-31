@@ -35,7 +35,7 @@ OneAgent 应迁移为“Wails v3 桌面壳 + Go 领域核心 + React/Vite 前端
 
 - OneAgent 的源码开发、测试、构建、运行和发布均不要求 Python。
 - 删除所有受版本控制的 `.py`、PyInstaller、wheel/setuptools 和 Python CI 步骤。
-- `site/` 保持 Astro 静态站，不塞入 Wails；它当前依赖的 Python 数据生成器改为 TypeScript。
+- `site/` 保持 Astro 静态站，不塞入 Wails；直接读取仓库 JSON 和 GitHub Releases API，不再运行 Python 数据生成器。
 - Aider 是唯一需要单独解释的外部边界：Aider 上游本身是 Python 工具。建议保留“检测、配置已安装 Aider”和“用户明确选择时通过 `uv` 安装”的能力，但将 Python 3.12 明确标记为 **Aider 的可选上游前置条件**，不是 OneAgent 的运行依赖。若产品要求目标机器绝对不能存在 Python，则必须把 Aider 自动安装降为 guide-only；两者不能同时成立。
 
 迁移采用契约优先、分阶段切换，不做一次性重写。Python 生产入口只在 Go 实现尚未达到行为等价时保留；正式切换后不提供 Python fallback，否则无法证明已经完成去依赖。
@@ -72,7 +72,7 @@ OneAgent 应迁移为“Wails v3 桌面壳 + Go 领域核心 + React/Vite 前端
 | `oneagent/entrypoint.py`、`scripts/gui.py` | GUI/CLI 分流和源码入口 | `cmd/oneagent-desktop`、`cmd/oneagent` |
 | `frontend/src/api/client.ts` | fetch、HTTP 错误归一化 | `frontend/src/backend/wails.ts` |
 | `packaging/oneagent.spec` | PyInstaller onedir | Wails v3 Taskfile 与 `build/config.yml` |
-| Python 发布脚本 | 构建、校验、notice、manifest、官网数据 | Go release tools + `site/scripts/*.ts` |
+| Python 发布脚本 | 构建、校验、notice、manifest | Go release tools；官网独立读取 GitHub Release |
 
 以下是迁移验收契约，不是实现细节：
 
@@ -339,7 +339,7 @@ HTTP 删除后，Cookie、Host 和 Origin 校验也随之删除，但不能简�
 
 - Wails Taskfile 取代 PyInstaller spec；`go:embed` 取代 resource staging。
 - `cmd/oneagent-release` 取代 build/check/notices/lock verification Python 脚本。
-- `site/scripts/build-release-index.ts` 和 `build-site-catalog.ts` 取代两个 Python 生成器；Playwright 用 Astro preview，不再用 `python -m http.server`。
+- 官网直接读取 GitHub Releases API 和仓库 JSON；Playwright 用 Astro preview，不再用 `python -m http.server`。
 - release manifest schema 升级，删除 `python` 字段，增加精确 `go`、`wails`、`frontend` 和 system WebView 要求。
 - 第三方 notice 同时覆盖 Go modules、Wails、npm 前端依赖和锁定 Agent 元数据。
 
@@ -406,7 +406,7 @@ HTTP 删除后，Cookie、Host 和 Origin 校验也随之删除，但不能简�
 | `scripts/gui.py` | `wails3 dev` / Wails desktop binary |
 | `scripts/build_release.py`、`check_release.py`、`verify_locked_agents.py` | `cmd/oneagent-release` 子命令 |
 | `packaging/generate_notices.py` | Go module/npm/Agent notice 生成器 |
-| `scripts/build_release_index.py`、`build_site_catalog.py` | `site/scripts/*.ts` |
+| `scripts/build_release_index.py`、`build_site_catalog.py` | Astro 数据模块直接读取 GitHub Release 与仓库 JSON |
 | `scripts/provider_rc_smoke.py`、`agent_e2e_smoke.py`、`agent_config_adopted_check.py` | Go integration commands/tests |
 | `scripts/stage_resources.py` | `go:embed` |
 | `scripts/verify_wheel.py`、`setup.py`、`pyproject.toml`、`.spec` | Wails build/package/smoke |

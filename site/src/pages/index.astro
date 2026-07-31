@@ -1,16 +1,14 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
 import AgentMark from "../components/AgentMark.astro";
-import releaseIndexData from "../generated/release-index.json";
-import catalogData from "../generated/catalog.json";
+import { catalog } from "../lib/catalog";
 import { agentDescriptions, groupLabels, protocolLabels } from "../lib/content";
-import type { ReleaseChannel } from "../lib/downloads";
+import { getLatestRelease, releaseTargets } from "../lib/downloads";
 
-const releaseIndex = releaseIndexData as unknown as { channels: ReleaseChannel[] };
-const preview = releaseIndex.channels.find((channel) => channel.channel === "technical-preview-unsigned")!;
-const catalog = catalogData as any;
+const release = await getLatestRelease();
+const targets = release ? releaseTargets(release) : [];
 const primaryAgents = catalog.agents.slice(0, 6);
-const available = preview.targets.find((target) => target.status === "available");
+const available = targets[0];
 ---
 <BaseLayout>
   <section class="hero">
@@ -25,7 +23,11 @@ const available = preview.targets.find((target) => target.status === "available"
           <a class="button button-primary" href="downloads/">下载 OneAgent</a>
           <a class="button button-secondary" href="quickstart/">查看快速开始</a>
         </div>
-        <p class="hero-note">{preview.version} · {preview.label} · 当前开放 {available?.platformLabel} {available?.archLabel}</p>
+        <p class="hero-note">
+          {release
+            ? `${release.tag_name} · ${release.prerelease ? "GitHub 预发布版" : "GitHub 正式版"}${available ? ` · 当前开放 ${available.platformLabel} ${available.archLabel}` : ""}`
+            : "尚无已发布版本 · 版本信息以 GitHub Release 为准"}
+        </p>
       </div>
     </div>
     <figure class="product-shot">
@@ -63,7 +65,7 @@ const available = preview.targets.find((target) => target.status === "available"
         <p>安装、配置和协议分别标注。仅引导的 Agent 仍然可以进入流程，但不会被描述成 OneAgent 自动管理。</p>
       </div>
       <div class="agent-list">
-        {primaryAgents.map((agent: any) => (
+        {primaryAgents.map((agent) => (
           <a class="agent-row" href={`agents/${agent.id}/`}>
             <AgentMark id={agent.id} name={agent.name} />
             <div><strong>{agent.name}</strong><span class="agent-meta">{groupLabels[agent.group] ?? agent.group}</span></div>

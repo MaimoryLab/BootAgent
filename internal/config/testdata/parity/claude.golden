@@ -1,0 +1,11 @@
+{
+  "keep": true,
+  "env": {
+    "CUSTOM": "value",
+    "ANTHROPIC_MODEL": "model-new",
+    "ANTHROPIC_BASE_URL": "https://api.ppio.com/anthropic",
+    "ANTHROPIC_AUTH_TOKEN": "sk-parity",
+    "ANTHROPIC_SMALL_FAST_MODEL": "model-new"
+  },
+  "other": true
+}
