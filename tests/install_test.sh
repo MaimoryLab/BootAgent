@@ -132,8 +132,6 @@ test_missing_agent_message_points_to_official_install() {
   tmp="$(mktemp -d)"
   trap 'rm -rf "$tmp"' RETURN
   mkdir -p "$tmp/bin"
-  ln -s "$(command -v python3)" "$tmp/bin/python3"
-
   out="$(
     PATH="$tmp/bin:/usr/bin:/bin" HOME="$tmp" "$INSTALLER" \
       --agent codex \
@@ -160,19 +158,15 @@ test_claude_merges_settings_json() {
     --skip-test \
     --no-open >/dev/null
 
-  python3 - "$tmp/.claude/settings.json" <<'PY'
-import json
-import sys
-
-with open(sys.argv[1], encoding="utf-8") as f:
-    data = json.load(f)
-
-assert data["permissions"]["allow"] == ["Bash(ls)"]
-assert data["env"]["FOO"] == "bar"
-assert data["env"]["ANTHROPIC_BASE_URL"] == "https://anthropic.example.com"
-assert data["env"]["ANTHROPIC_AUTH_TOKEN"] == "claude-test"
-assert data["env"]["ANTHROPIC_MODEL"] == "sonnet"
-PY
+  JSON_FILE="$tmp/.claude/settings.json" node --input-type=module <<'NODE'
+import { readFileSync } from "node:fs";
+const data = JSON.parse(readFileSync(process.env.JSON_FILE, "utf8"));
+if (JSON.stringify(data.permissions?.allow) !== JSON.stringify(["Bash(ls)"]) ||
+    data.env?.FOO !== "bar" ||
+    data.env?.ANTHROPIC_BASE_URL !== "https://anthropic.example.com" ||
+    data.env?.ANTHROPIC_AUTH_TOKEN !== "claude-test" ||
+    data.env?.ANTHROPIC_MODEL !== "sonnet") process.exit(1);
+NODE
 }
 
 test_opencode_writes_openai_compatible_config() {
@@ -188,20 +182,15 @@ test_opencode_writes_openai_compatible_config() {
     --skip-test \
     --no-open >/dev/null
 
-  python3 - "$tmp/.config/opencode/opencode.jsonc" <<'PY'
-import json
-import sys
-
-with open(sys.argv[1], encoding="utf-8") as f:
-    data = json.load(f)
-
-provider = data["provider"]["oneagent"]
-assert data["model"] == "oneagent/gpt-test"
-assert provider["npm"] == "@ai-sdk/openai-compatible"
-assert provider["options"]["baseURL"] == "https://api.ppio.com/openai/v1"
-assert provider["options"]["apiKey"] == "{env:ONEAGENT_API_KEY_OPENCODE}"
-assert provider["models"]["gpt-test"]["name"] == "gpt-test"
-PY
+  JSON_FILE="$tmp/.config/opencode/opencode.jsonc" node --input-type=module <<'NODE'
+import { readFileSync } from "node:fs";
+const data = JSON.parse(readFileSync(process.env.JSON_FILE, "utf8"));
+const provider = data.provider?.oneagent;
+if (data.model !== "oneagent/gpt-test" || provider?.npm !== "@ai-sdk/openai-compatible" ||
+    provider?.options?.baseURL !== "https://api.ppio.com/openai/v1" ||
+    provider?.options?.apiKey !== "{env:ONEAGENT_API_KEY_OPENCODE}" ||
+    provider?.models?.["gpt-test"]?.name !== "gpt-test") process.exit(1);
+NODE
 }
 
 test_kilo_writes_openai_compatible_config() {
@@ -217,15 +206,11 @@ test_kilo_writes_openai_compatible_config() {
     --skip-test \
     --no-open >/dev/null
 
-  python3 - "$tmp/.config/kilo/kilo.jsonc" <<'PY'
-import json
-import sys
-
-with open(sys.argv[1], encoding="utf-8") as f:
-    data = json.load(f)
-
-assert data["provider"]["oneagent"]["options"]["baseURL"] == "https://models.example.com/openai/v1"
-PY
+  JSON_FILE="$tmp/.config/kilo/kilo.jsonc" node --input-type=module <<'NODE'
+import { readFileSync } from "node:fs";
+const data = JSON.parse(readFileSync(process.env.JSON_FILE, "utf8"));
+if (data.provider?.oneagent?.options?.baseURL !== "https://models.example.com/openai/v1") process.exit(1);
+NODE
 }
 
 test_aider_writes_independent_env() {

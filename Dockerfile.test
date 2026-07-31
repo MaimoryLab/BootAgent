@@ -4,7 +4,7 @@ USER root
 
 ENV DEBIAN_FRONTEND=noninteractive \
     PLAYWRIGHT_BROWSERS_PATH=/ms-playwright \
-    PATH=/opt/oneagent-venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+    PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
 RUN set -eux; \
     sed -i 's|http://|https://|g' /etc/apt/sources.list.d/ubuntu.sources; \
@@ -15,12 +15,8 @@ RUN set -eux; \
         sleep "$((attempt * 5))"; \
     done; \
     apt-get install -y --no-install-recommends \
-        python3.12 \
-        python3.12-venv \
         ripgrep; \
-    rm -rf /var/lib/apt/lists/*; \
-    python3.12 -m venv /opt/oneagent-venv; \
-    /opt/oneagent-venv/bin/python -m pip install --no-cache-dir coverage==7.15.2
+    rm -rf /var/lib/apt/lists/*
 
 # Pinned Go toolchain for the migration CLI. The archive is verified against a
 # recorded SHA-256 rather than trusted by URL, matching how OneAgent itself

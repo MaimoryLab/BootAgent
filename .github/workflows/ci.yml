@@ -48,10 +48,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
@@ -67,13 +63,6 @@ jobs:
         if: runner.os == 'Linux'
         run: bash scripts/check_wails_bindings.sh
 
-      - name: Install Python test tools
-        run: python -m pip install coverage==7.15.2
-
-      - name: Install macOS packaging tool
-        if: runner.os == 'macOS'
-        run: python -m pip install pyinstaller==6.21.0
-
       - name: Install frontend dependencies
         working-directory: frontend
         run: npm ci
@@ -82,24 +71,12 @@ jobs:
         working-directory: frontend
         run: npm run build
 
-      - name: Python contracts and coverage
-        shell: bash
-        run: |
-          mkdir -p build/coverage
-          coverage erase
-          coverage run --branch -m unittest tests.test_core tests.test_cli tests.test_release_policy tests.test_edge_cases tests.test_rc_scripts tests.test_install_contract tests.test_config_discovery
-          coverage report --fail-under=85
-          coverage json
-          python -c "import json, os; files = json.load(open('build/coverage/coverage.json', encoding='utf-8'))['files']; normalized = {key.replace(os.sep, '/'): value for key, value in files.items()}; summary = normalized['oneagent/installer.py']['summary']; assert summary['percent_branches_covered'] == 100 and summary['num_partial_branches'] == 0, summary"
-
-      # Go gates for the migration line. staticcheck and govulncheck are pinned
+      # Go gates for the application and release tooling. staticcheck and
+      # govulncheck are pinned so a new upstream release cannot change what this
+      # job enforces.
       # so a new upstream release cannot change what this job enforces.
       - name: Go vet and contracts
         shell: bash
-        env:
-          # The wrappers below forward to this binary rather than locating
-          # Python, so the JSON writer parity gate must not silently skip.
-          ONEAGENT_REQUIRE_PARITY: "1"
         run: |
           go vet ./...
           go test ./...
@@ -133,9 +110,6 @@ jobs:
         run: |
           $homeDir = Join-Path $env:RUNNER_TEMP "oneagent-contract-home"
           ./scripts/install.ps1 --agent openclaw --check-agent-only --json --home $homeDir
-
-      - name: Wheel builds and runs from a clean install
-        run: python scripts/verify_wheel.py
 
       - name: React unit coverage
         working-directory: frontend
@@ -171,7 +145,7 @@ jobs:
 
       - name: Build native macOS onedir
         if: runner.os == 'macOS'
-        run: python scripts/build_release.py --channel technical-preview-unsigned --skip-frontend
+        run: go run ./cmd/oneagent-release build --channel technical-preview-unsigned --skip-frontend
 
       - name: Real macOS cleanroom
         if: runner.os == 'macOS'

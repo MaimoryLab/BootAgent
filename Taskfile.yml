@@ -39,7 +39,7 @@ tasks:
       - '{{.WAILS3}} dev -config ./build/config.yml -port {{.VITE_PORT}}'
 
   test:go:
-    summary: Run the Python-independent Go migration tests
+    summary: Run Go backend tests
     cmds:
       - go test ./...
 

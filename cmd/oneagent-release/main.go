@@ -24,7 +24,6 @@ import (
 	"strings"
 	"time"
 
-	oneagent "github.com/MaimoryLab/OneAgent"
 	"github.com/MaimoryLab/OneAgent/internal/catalog"
 	"github.com/MaimoryLab/OneAgent/internal/version"
 )
@@ -341,7 +340,9 @@ func makeManifest(root string, target targetInfo, channel string, files []string
 	}
 	frontendVersion := "unknown"
 	if data, readErr := os.ReadFile(filepath.Join(root, "frontend", "package.json")); readErr == nil {
-		var packageJSON struct{ Version string `json:"version"` }
+		var packageJSON struct {
+			Version string `json:"version"`
+		}
 		if json.Unmarshal(data, &packageJSON) == nil && packageJSON.Version != "" {
 			frontendVersion = packageJSON.Version
 		}
@@ -369,7 +370,7 @@ func makeManifest(root string, target targetInfo, channel string, files []string
 	return releaseManifest{
 		SchemaVersion: 2, OneAgentVersion: version.Version, Channel: channel,
 		Unsigned: true, Platform: target.OS, Arch: target.Arch,
-		Toolchain: toolchainInfo{Go: runtime.Version(), Wails: tools["WAILS_VERSION"], Frontend: frontendVersion},
+		Toolchain:     toolchainInfo{Go: runtime.Version(), Wails: tools["WAILS_VERSION"], Frontend: frontendVersion},
 		SystemWebView: webViewRequirement(target.OS), BuiltAt: time.Now().UTC().Format(time.RFC3339),
 		AgentVersions: agentVersions, Artifacts: artifacts,
 	}, nil
@@ -461,6 +462,9 @@ func zipSource(root, metadata, destination, versionValue string) error {
 			if relative == "" {
 				continue
 			}
+			if sourceArchiveExcluded(relative) {
+				continue
+			}
 			file := filepath.Join(root, filepath.FromSlash(relative))
 			if info, statErr := os.Stat(file); statErr == nil && info.Mode().IsRegular() {
 				if err := addZipFile(writer, file, path.Join("OneAgent-"+versionValue, filepath.ToSlash(relative))); err != nil {
@@ -482,6 +486,16 @@ func zipSource(root, metadata, destination, versionValue string) error {
 		}
 		return nil
 	})
+}
+
+func sourceArchiveExcluded(relative string) bool {
+	relative = filepath.ToSlash(relative)
+	for _, prefix := range []string{"build/metadata/", "build/release-stage/", "release/", "frontend/dist/"} {
+		if strings.HasPrefix(relative, prefix) {
+			return true
+		}
+	}
+	return false
 }
 
 func createZip(destination string, fill func(*zip.Writer) error) error {
@@ -619,9 +633,9 @@ func generateNotices(root, output string) error {
 }
 
 type noticeItem struct {
-	Name       string
-	Version    string
-	License    string
+	Name        string
+	Version     string
+	License     string
 	LicenseFile string
 }
 
@@ -855,7 +869,7 @@ func validateManifest(file string) []string {
 			}
 			checksums[fields[1]] = fields[0]
 		}
-		for _, expected := range append([]string{filepath.Base(file)}, artifactNames(manifest.Artifacts)...){
+		for _, expected := range append([]string{filepath.Base(file)}, artifactNames(manifest.Artifacts)...) {
 			candidate := filepath.Join(filepath.Dir(file), expected)
 			if digest, hashErr := fileSHA256(candidate); hashErr == nil && checksums[expected] != digest {
 				problems = append(problems, "checksum file mismatch: "+expected)
@@ -895,7 +909,9 @@ func archiveAgentVersions(file string) map[string]string {
 	defer reader.Close()
 	var manifest struct {
 		Agents map[string]struct {
-			Package *struct{ Version string `json:"version"` } `json:"package"`
+			Package *struct {
+				Version string `json:"version"`
+			} `json:"package"`
 		} `json:"agents"`
 	}
 	if json.NewDecoder(reader).Decode(&manifest) != nil {
@@ -998,4 +1014,3 @@ func slicesContain(values []string, target string) bool {
 	}
 	return false
 }
-

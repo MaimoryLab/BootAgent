@@ -1,9 +1,4 @@
 .DS_Store
-__pycache__/
-*.py[cod]
-.coverage
-.venv/
-htmlcov/
 dist/
 release/
 frontend/node_modules/
@@ -20,9 +15,6 @@ output/
 # Go CLI 与桌面壳的本地构建产物；scripts/install.* 只转发，不构建。
 bin/
 
-# 构建 wheel 时由 setup.py 暂存的运行时资源
-oneagent/_resources/
-*.egg-info/
 # 公开站点：构建缓存与测试产物
 site/node_modules/
 site/dist/

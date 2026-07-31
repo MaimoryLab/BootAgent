@@ -1,16 +1,11 @@
 .git
 .gitignore
 .env*
-.venv
-venv
-__pycache__
-*.py[cod]
 *.key
 *.pem
 *.p12
 auth.json
 .npmrc
-.pypirc
 .netrc
 .docker
 .aws

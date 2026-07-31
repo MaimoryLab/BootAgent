@@ -30,22 +30,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - uses: astral-sh/setup-uv@v7
-        with:
-          version: "0.11.20"
-
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
-      - name: Install build dependencies
-        run: python -m pip install pyinstaller==6.21.0
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26.5"
+          cache-dependency-path: go.sum
 
       - name: Build frontend
         working-directory: frontend
@@ -54,19 +48,32 @@ jobs:
           npm run test:coverage
           npm run build
 
-      - name: Run Python contracts
-        run: python -m unittest tests.test_core tests.test_cli tests.test_release_policy tests.test_edge_cases tests.test_rc_scripts tests.test_install_contract tests.test_config_discovery
+      - name: Run Go contracts
+        run: go test ./...
 
       - name: Build unsigned native package
         shell: bash
-        run: python scripts/build_release.py --channel technical-preview-unsigned --skip-frontend ${{ matrix.source }}
+        run: go run ./cmd/oneagent-release build --channel technical-preview-unsigned --skip-frontend ${{ matrix.source }}
+
+      - name: Build headless Go CLI
+        shell: bash
+        run: |
+          mkdir -p bin
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            go build -o bin/oneagent.exe ./cmd/oneagent
+          else
+            go build -o bin/oneagent ./cmd/oneagent
+          fi
 
       - name: Smoke packaged executable on Unix
         if: runner.os != 'Windows'
         shell: bash
         run: |
           home_dir="$(mktemp -d)"
-          build/pyinstaller-dist/OneAgent/OneAgent --agent openclaw --check-agent-only --json --home "$home_dir"
+          archive="$(find release -maxdepth 1 -name 'OneAgent-*.zip' ! -name '*-source.zip' -print -quit)"
+          package_dir="$(mktemp -d)"
+          unzip -q "$archive" -d "$package_dir"
+          "$package_dir/OneAgent/oneagent" --agent openclaw --check-agent-only --json --home "$home_dir"
 
       - name: Real macOS cleanroom
         if: runner.os == 'macOS'
@@ -77,29 +84,22 @@ jobs:
         shell: pwsh
         run: |
           $homeDir = Join-Path $env:RUNNER_TEMP "oneagent-package-home"
-          ./build/pyinstaller-dist/OneAgent/OneAgent.exe --agent openclaw --check-agent-only --json --home $homeDir
+          $archive = Get-ChildItem release\OneAgent-*.zip | Where-Object { $_.Name -notlike "*-source.zip" } | Select-Object -First 1
+          $packageDir = Join-Path $env:RUNNER_TEMP "oneagent-package"
+          Expand-Archive -LiteralPath $archive.FullName -DestinationPath $packageDir -Force
+          & (Join-Path $packageDir "OneAgent\oneagent.exe") --agent openclaw --check-agent-only --json --home $homeDir
 
       - name: Install and verify all locked Agents
-        run: python scripts/verify_locked_agents.py
+        run: go run ./cmd/oneagent-rc verify-agents
 
-      # verify_locked_agents resolves commands through an injected which() over a
-      # PATH it built itself, so it proves OneAgent believes the install worked.
-      # This proves the shell agrees: npm's global prefix differs per machine and
-      # a binary that never lands on PATH is the common real-world failure.
       - name: Verify a blank machine can run Codex and Claude Code
         if: runner.os != 'Windows'
         shell: bash
         run: bash tests/real_install_test.sh
 
-      # A configured Agent can still fail to adopt what we wrote -- the Claude
-      # Code "Not logged in" defect, found outside the real-key threshold. This
-      # points the config at the discard port with no key and asserts the failure
-      # is at the network layer (config adopted), not the auth layer (ignored).
-      # It installs the Agents itself, so it needs no secret and no prior step's
-      # prefix.
       - name: Verify configured Agents adopt their config without a key
         if: runner.os != 'Windows'
-        run: python scripts/agent_config_adopted_check.py
+        run: go run ./cmd/oneagent-rc adopted
 
       - name: Upload blank-machine verification failures
         if: failure() && runner.os != 'Windows'
@@ -110,7 +110,7 @@ jobs:
           if-no-files-found: ignore
 
       - name: Validate release contents
-        run: python scripts/check_release.py release
+        run: go run ./cmd/oneagent-release check release
 
       - name: Upload macOS cleanroom failures
         if: failure() && runner.os == 'macOS'
@@ -143,9 +143,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-go@v5
         with:
-          python-version: "3.12"
+          go-version: "1.26.5"
+          cache-dependency-path: go.sum
 
       - name: Run low-token protocol checks
-        run: python scripts/provider_rc_smoke.py --provider all --timeout 30
+        run: go run ./cmd/oneagent-provider-smoke --provider all --timeout 30s

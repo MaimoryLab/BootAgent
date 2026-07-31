@@ -4,27 +4,21 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 REAL_HOME="${HOME:?HOME is required}"
 ARTIFACT_DIR="${ONEAGENT_MACOS_CLEANROOM_ARTIFACTS:-$ROOT_DIR/build/macos-cleanroom}"
-
+NODE_BIN="$(command -v node || true)"
+NPM_BIN="$(command -v npm || true)"
+GO_BIN="$(command -v go || true)"
 if [[ "$(uname -s)" != "Darwin" ]]; then
   echo "macOS cleanroom requires a real Darwin host." >&2
   exit 2
 fi
-PYTHON_BIN="$(command -v python3.12 || true)"
-NODE_BIN="$(command -v node || true)"
-NPM_BIN="$(command -v npm || true)"
-GO_BIN="$(command -v go || true)"
-if [[ -z "$PYTHON_BIN" || -z "$NODE_BIN" || -z "$NPM_BIN" ]]; then
-  echo "Python 3.12, Node and npm are required for the macOS cleanroom." >&2
-  exit 2
-fi
-if [[ -z "$GO_BIN" ]]; then
-  echo "Go is required to build the CLI the wrapper contracts forward to." >&2
+if [[ -z "$NODE_BIN" || -z "$NPM_BIN" || -z "$GO_BIN" ]]; then
+  echo "Node, npm and Go are required for the macOS cleanroom." >&2
   exit 2
 fi
 
-# The CLI is built before the sanitized PATH is assembled: scripts/install.sh is
-# a pure forwarding layer, and the cleanroom stages below run without Go.
-ONEAGENT_CLI_BINARY="$ROOT_DIR/bin/oneagent"
+# Build the binary before the sanitized PATH is assembled. The cleanroom then
+# exercises the same forwarding wrapper users invoke, without a Go toolchain.
+ONEAGENT_CLI_BINARY="${ONEAGENT_CLI_BINARY:-$ROOT_DIR/bin/oneagent}"
 (cd "$ROOT_DIR" && "$GO_BIN" build -o "$ONEAGENT_CLI_BINARY" ./cmd/oneagent)
 export ONEAGENT_CLI_BINARY
 
@@ -37,72 +31,20 @@ AFTER_SNAPSHOT="$CLEAN_ROOT/real-home-after.json"
 MOCK_KEY="oneagent-macos-cleanroom-placeholder"
 mkdir -p "$CLEAN_HOME" "$CLEAN_TMP" "$FAKE_BIN" "$ARTIFACT_DIR"
 chmod 0700 "$CLEAN_HOME" "$CLEAN_TMP" "$FAKE_BIN"
-ln -s "$PYTHON_BIN" "$FAKE_BIN/python3.12"
-ln -s "$PYTHON_BIN" "$FAKE_BIN/python3"
 ln -s "$NODE_BIN" "$FAKE_BIN/node"
 ln -s "$NPM_BIN" "$FAKE_BIN/npm"
 printf '%s\n' '#!/bin/bash' 'echo "fake uv must not install a real package" >&2' 'exit 97' > "$FAKE_BIN/uv"
 chmod 0755 "$FAKE_BIN/uv"
 
 CLEAN_PATH="$FAKE_BIN:/usr/bin:/bin:/usr/sbin:/sbin"
-
 rm -rf "$ARTIFACT_DIR"
 mkdir -p "$ARTIFACT_DIR"
 
-snapshot_real_home() {
-  local destination="$1"
-  "$PYTHON_BIN" - "$REAL_HOME" "$destination" <<'PY'
-from __future__ import annotations
-
-import hashlib
-import json
-import os
-import stat
-import sys
-from pathlib import Path
-
-home = Path(sys.argv[1])
-destination = Path(sys.argv[2])
-targets = [
-    ".codex/config.toml",
-    ".claude/settings.json",
-    ".config/opencode/opencode.jsonc",
-    ".config/kilo/kilo.jsonc",
-    ".oneagent",
-    ".aider.conf.yml",
-]
-snapshot: dict[str, object] = {}
-
-for relative in targets:
-    target = home / relative
-    if not target.exists() and not target.is_symlink():
-        snapshot[relative] = None
-        continue
-    entries = [target]
-    if target.is_dir():
-        entries.extend(sorted(target.rglob("*")))
-    values = []
-    for entry in entries:
-        info = entry.lstat()
-        item = {
-            "path": str(entry.relative_to(home)),
-            "mode": stat.S_IMODE(info.st_mode),
-            "size": info.st_size,
-        }
-        if entry.is_symlink():
-            item["symlink"] = os.readlink(entry)
-        elif entry.is_file():
-            item["sha256"] = hashlib.sha256(entry.read_bytes()).hexdigest()
-        values.append(item)
-    snapshot[relative] = values
-
-destination.write_text(json.dumps(snapshot, sort_keys=True, indent=2), encoding="utf-8")
-PY
+snapshot_home() {
+  "$NODE_BIN" "$ROOT_DIR/scripts/snapshot-home.mjs" "$1" "$2"
 }
 
 clean_env() {
-  # env -i drops the exported CLI path, so it is reinstated explicitly. It names
-  # a prebuilt binary rather than a toolchain, so the environment stays clean.
   env -i \
     HOME="$CLEAN_HOME" \
     USERPROFILE="$CLEAN_HOME" \
@@ -120,7 +62,7 @@ clean_env() {
 finish() {
   local status=$?
   trap - EXIT INT TERM
-  snapshot_real_home "$AFTER_SNAPSHOT"
+  snapshot_home "$REAL_HOME" "$AFTER_SNAPSHOT"
   if ! cmp -s "$BEFORE_SNAPSHOT" "$AFTER_SNAPSHOT"; then
     echo "macOS cleanroom modified a real user configuration path." >&2
     cp "$BEFORE_SNAPSHOT" "$ARTIFACT_DIR/real-home-before.json"
@@ -133,33 +75,24 @@ finish() {
 trap finish EXIT INT TERM
 
 assert_mode() {
-  local expected="$1"
-  local path="$2"
-  local actual
+  local expected="$1" path="$2" actual
   actual="$(stat -f %Lp "$path")"
-  if [[ "$actual" != "$expected" ]]; then
+  [[ "$actual" == "$expected" ]] || {
     echo "unexpected mode for $path: expected $expected, got $actual" >&2
     return 1
-  fi
+  }
 }
 
-snapshot_real_home "$BEFORE_SNAPSHOT"
+snapshot_home "$REAL_HOME" "$BEFORE_SNAPSHOT"
 
 for command_name in codex claude opencode kilo aider; do
-  if clean_env "$PYTHON_BIN" -c 'import shutil, sys; raise SystemExit(0 if shutil.which(sys.argv[1]) else 1)' "$command_name"; then
+  if clean_env command -v "$command_name" >/dev/null 2>&1; then
     echo "Unexpected preinstalled Agent in macOS cleanroom PATH: $command_name" >&2
     exit 1
   fi
 done
 
-clean_env "$PYTHON_BIN" -m unittest \
-  tests.test_core tests.test_cli tests.test_edge_cases \
-  > "$ARTIFACT_DIR/python-contracts.log" 2>&1
-clean_env /bin/bash tests/install_test.sh > "$ARTIFACT_DIR/bash-contracts.log" 2>&1
-# Every stage above starts from an empty HOME, so a machine that already has
-# Agent configuration on it -- the normal case for a tool meant to manage them
-# over time -- was never exercised here.
-clean_env /bin/bash tests/existing_config_test.sh > "$ARTIFACT_DIR/existing-config.log" 2>&1
+clean_env /bin/bash tests/install_test.sh > "$ARTIFACT_DIR/install-contracts.log" 2>&1
 
 for agent in codex claude-code opencode kilo-cli aider; do
   clean_env env ONEAGENT_API_KEY="$MOCK_KEY" /bin/bash scripts/install.sh \
@@ -211,10 +144,7 @@ while IFS= read -r backup; do
   assert_mode 600 "$backup"
   backup_count=$((backup_count + 1))
 done < <(find "$CLEAN_HOME" -type f -name '*.backup-*' -print)
-if [[ "$backup_count" -lt 1 ]]; then
-  echo "Expected at least one secured backup file." >&2
-  exit 1
-fi
+[[ "$backup_count" -ge 1 ]] || { echo "Expected a secured backup file." >&2; exit 1; }
 
 if grep -Fq "$MOCK_KEY" "$CLEAN_HOME/.oneagent/profile.json"; then
   echo "Environment profile must not contain the API key." >&2

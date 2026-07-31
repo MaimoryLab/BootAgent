@@ -48,18 +48,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
-      - name: Install build dependencies
-        run: python -m pip install pyinstaller==6.21.0
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26.5"
+          cache-dependency-path: go.sum
 
       - name: Install and build frontend
         working-directory: frontend
@@ -69,28 +67,34 @@ jobs:
 
       - name: Build unsigned onedir package
         shell: bash
-        run: python scripts/build_release.py --channel technical-preview-unsigned --skip-frontend ${{ matrix.source }}
+        run: go run ./cmd/oneagent-release build --channel technical-preview-unsigned --skip-frontend ${{ matrix.source }}
 
       - name: Smoke packaged CLI on Unix
         if: runner.os != 'Windows'
         shell: bash
         run: |
           home_dir="$(mktemp -d)"
-          build/pyinstaller-dist/OneAgent/OneAgent --agent openclaw --check-agent-only --json --home "$home_dir"
+          archive="$(find release -maxdepth 1 -name 'OneAgent-*.zip' ! -name '*-source.zip' -print -quit)"
+          package_dir="$(mktemp -d)"
+          unzip -q "$archive" -d "$package_dir"
+          "$package_dir/OneAgent/oneagent" --agent openclaw --check-agent-only --json --home "$home_dir"
 
       - name: Smoke packaged CLI on Windows
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
           $homeDir = Join-Path $env:RUNNER_TEMP "oneagent-package-home"
-          ./build/pyinstaller-dist/OneAgent/OneAgent.exe --agent openclaw --check-agent-only --json --home $homeDir
+          $archive = Get-ChildItem release\OneAgent-*.zip | Where-Object { $_.Name -notlike "*-source.zip" } | Select-Object -First 1
+          $packageDir = Join-Path $env:RUNNER_TEMP "oneagent-package"
+          Expand-Archive -LiteralPath $archive.FullName -DestinationPath $packageDir -Force
+          & (Join-Path $packageDir "OneAgent\oneagent.exe") --agent openclaw --check-agent-only --json --home $homeDir
 
       - name: Real macOS arm64 cleanroom
         if: matrix.os == 'macos-15'
         run: bash tests/macos_cleanroom_test.sh
 
       - name: Validate release contents
-        run: python scripts/check_release.py release
+        run: go run ./cmd/oneagent-release check release
 
       - name: Upload native release files
         uses: actions/upload-artifact@v4

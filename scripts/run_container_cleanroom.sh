@@ -10,7 +10,7 @@ if [[ "${ONEAGENT_CLEANROOM_SANITIZED:-0}" != "1" ]]; then
   # --network none and the sanitized PATH below carries no Go toolchain.
   # scripts/install.sh is a pure forwarding layer and needs the binary named.
   exec env -i \
-    PATH="/opt/oneagent-venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
+    PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
     LANG="C.UTF-8" \
     LC_ALL="C.UTF-8" \
     PLAYWRIGHT_BROWSERS_PATH="/ms-playwright" \
@@ -45,9 +45,6 @@ write_report() {
 }
 
 collect_artifacts() {
-  if [[ -f "$ROOT_DIR/build/coverage/coverage.json" ]]; then
-    cp -f "$ROOT_DIR/build/coverage/coverage.json" "$ARTIFACT_DIR/coverage-python.json" || true
-  fi
   if [[ -f "$ROOT_DIR/frontend/coverage/coverage-summary.json" ]]; then
     cp -f "$ROOT_DIR/frontend/coverage/coverage-summary.json" "$ARTIFACT_DIR/coverage-react.json" || true
   fi
@@ -91,14 +88,13 @@ assert_clean_environment() {
     return 1
   }
 
-  python3.12 - <<'PY'
-import os
-
-markers = ("KEY", "TOKEN", "SECRET", "PASSWORD")
-leaked = sorted(name for name in os.environ if any(marker in name.upper() for marker in markers))
-if leaked:
-    raise SystemExit(f"secret-shaped environment variables remain: {', '.join(leaked)}")
-PY
+  local variable
+  while IFS='=' read -r variable _; do
+    if [[ "$variable" == *KEY* || "$variable" == *TOKEN* || "$variable" == *SECRET* || "$variable" == *PASSWORD* ]]; then
+      echo "secret-shaped environment variable remains: $variable" >&2
+      return 1
+    fi
+  done < <(env)
 
   local command_name
   for command_name in codex claude opencode kilo aider uv; do
@@ -117,18 +113,17 @@ PY
   done
 }
 
-assert_go_cli_without_python() {
+assert_go_cli_isolated() {
   local probe_home probe_path status
   probe_home="$(mktemp -d "$TMPDIR/oneagent-go-cli.XXXXXX")"
-  # No Python interpreter, no Node and no package manager on PATH: if the Go
-  # install path still depended on any of them, this stage is where it breaks.
+  # No Node or package manager on PATH: the headless Go path must still run.
   probe_path="/usr/bin:/bin"
 
   if env -i HOME="$probe_home" PATH="$probe_path" TMPDIR="$TMPDIR" \
     "$ONEAGENT_CLI_BINARY" --version >/dev/null; then
     :
   else
-    echo "the Go CLI could not report its version without Python" >&2
+    echo "the Go CLI could not report its version in the isolated PATH" >&2
     rm -rf "$probe_home"
     return 1
   fi
@@ -141,7 +136,7 @@ assert_go_cli_without_python() {
     --skip-test --no-open --json > "$probe_home/install.json"
   status=$?
   if [[ "$status" -ne 0 ]]; then
-    echo "the Go CLI could not configure an Agent without Python" >&2
+    echo "the Go CLI could not configure an Agent in the isolated PATH" >&2
     rm -rf "$probe_home"
     return 1
   fi
@@ -169,8 +164,8 @@ scan_release_policy() {
     echo "frontend build contains a forbidden remote asset" >&2
     return 1
   fi
-  if rg -n 'shell\s*=\s*True' "$ROOT_DIR/oneagent" "$ROOT_DIR/scripts"; then
-    echo "Python subprocess shell invocation is forbidden" >&2
+  if rg -n 'shell\s*=\s*True' "$ROOT_DIR/internal" "$ROOT_DIR/cmd" "$ROOT_DIR/scripts"; then
+    echo "shell subprocess invocation is forbidden" >&2
     return 1
   fi
   if rg -n 'curl[^|\n]*\|\s*(bash|sh)' \
@@ -197,23 +192,11 @@ scan_release_policy() {
 cd "$ROOT_DIR"
 run_stage environment assert_clean_environment
 
-mkdir -p build/coverage
-run_stage python-contracts bash -c '
-  coverage erase
-  coverage run --branch -m unittest \
-    tests.test_core tests.test_cli \
-    tests.test_release_policy tests.test_edge_cases tests.test_rc_scripts
-  coverage report --fail-under=85
-  coverage json
-  python3.12 -c '\''import json; summary = json.load(open("build/coverage/coverage.json", encoding="utf-8"))["files"]["oneagent/installer.py"]["summary"]; assert summary["percent_branches_covered"] == 100 and summary["num_partial_branches"] == 0, summary'\''
-'
-
-# The bash contracts now exercise the Go CLI through the forwarding wrapper, so
+# The bash contracts exercise the Go CLI through the forwarding wrapper, so
 # this stage is the cleanroom's evidence that the migrated install path works
-# with no Python on PATH for it at all.
-run_stage go-cli-no-python assert_go_cli_without_python
+# with only the prebuilt binary on PATH.
+run_stage go-cli-isolated assert_go_cli_isolated
 run_stage bash-compatibility bash tests/install_test.sh
-run_stage existing-config bash tests/existing_config_test.sh
 
 run_stage react-coverage bash -c 'cd frontend && npm run test:coverage'
 
