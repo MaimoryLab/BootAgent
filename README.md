@@ -203,4 +203,3 @@ Wails 仍处于 Alpha，当前不发布 Stable，不做平台签名、公证或�
 - [Wails 架构 ADR](docs/decisions/ADR-007-wails-v3-go-migration.md)
 - [按 Agent 协议验证 ADR](docs/decisions/ADR-004-per-agent-protocol-verification.md)
 - [历史 Python 发行 ADR（已废弃）](docs/decisions/ADR-003-three-platform-python-core-and-release-policy.md)
-

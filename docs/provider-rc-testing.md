@@ -53,4 +53,3 @@ go run ./cmd/oneagent-provider-smoke --provider all --timeout 30s
 - `/v1/models`、Chat Completions、Responses 和 Anthropic Messages 全部成功。
 - 随后的真实 Agent 安装、PATH、锁定版本和无密钥配置采用检查全部通过。
 - 任一协议不支持时，明确阻止对应 Agent/Provider 组合，不使用其他协议或临时端点绕过门禁。
-

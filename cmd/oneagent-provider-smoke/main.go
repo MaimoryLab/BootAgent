@@ -23,6 +23,9 @@ func run(args []string) int {
 	providerID := flags.String("provider", "all", "Provider ID (ppio, novita, or all)")
 	timeout := flags.Duration("timeout", 30*time.Second, "per-request timeout")
 	if err := flags.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return 0
+		}
 		return 2
 	}
 	ids := []string{"ppio", "novita"}

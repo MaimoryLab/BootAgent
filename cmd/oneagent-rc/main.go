@@ -55,11 +55,17 @@ func run(args []string) int {
 	switch args[0] {
 	case "verify-agents":
 		if err := verifyAgents(root, args[1:], false); err != nil {
+			if errors.Is(err, flag.ErrHelp) {
+				return 0
+			}
 			fmt.Fprintln(os.Stderr, err)
 			return 1
 		}
 	case "adopted":
 		if err := verifyAgents(root, args[1:], true); err != nil {
+			if errors.Is(err, flag.ErrHelp) {
+				return 0
+			}
 			fmt.Fprintln(os.Stderr, err)
 			return 1
 		}
@@ -345,8 +351,7 @@ func runWithEnv(ctx context.Context, env []string, timeout time.Duration, argv .
 		return result, runCtx.Err()
 	}
 	if err != nil {
-		var exitErr *exec.ExitError
-		if errors.As(err, &exitErr) {
+		if _, ok := errors.AsType[*exec.ExitError](err); ok {
 			return result, nil
 		}
 		return result, err

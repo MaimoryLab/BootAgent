@@ -20,6 +20,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -382,7 +383,7 @@ func readToolVersions(file string) map[string]string {
 	if err != nil {
 		return values
 	}
-	for _, line := range strings.Split(string(data), "\n") {
+	for line := range strings.SplitSeq(string(data), "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
@@ -457,8 +458,8 @@ func zipSource(root, metadata, destination, versionValue string) error {
 		if err != nil {
 			return fmt.Errorf("list source files: %w", err)
 		}
-		files := strings.Split(string(output), "\x00")
-		for _, relative := range files {
+		files := strings.SplitSeq(string(output), "\x00")
+		for relative := range files {
 			if relative == "" {
 				continue
 			}
@@ -1007,10 +1008,5 @@ func isTextArchiveFile(name string) bool {
 }
 
 func slicesContain(values []string, target string) bool {
-	for _, value := range values {
-		if value == target {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(values, target)
 }
