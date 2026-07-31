@@ -1,5 +1,5 @@
-// Command oneagent-provider-smoke runs the low-token Provider protocol checks
-// used by release-candidate verification.
+// Command oneagent-provider-smoke runs the low-token checks for every Provider
+// declared in providers.lock.json, as used by release-candidate verification.
 package main
 
 import (
@@ -20,7 +20,7 @@ func main() { os.Exit(run(os.Args[1:])) }
 func run(args []string) int {
 	flags := flag.NewFlagSet("oneagent-provider-smoke", flag.ContinueOnError)
 	flags.SetOutput(os.Stderr)
-	providerID := flags.String("provider", "all", "Provider ID (ppio, novita, or all)")
+	providerID := flags.String("provider", "all", "Provider ID or all")
 	timeout := flags.Duration("timeout", 30*time.Second, "per-request timeout")
 	if err := flags.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -28,7 +28,7 @@ func run(args []string) int {
 		}
 		return 2
 	}
-	ids := []string{"ppio", "novita"}
+	ids := catalog.ProviderIDs()
 	if *providerID != "all" {
 		ids = []string{*providerID}
 	}

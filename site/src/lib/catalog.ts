@@ -1,5 +1,5 @@
 import agentLock from "../../../agents.lock.json";
-import providerConfig from "../../../distribution/providers.json";
+import providerConfig from "../../../providers.lock.json";
 import type { AgentSupport } from "./downloads";
 
 const adapterProtocols: Record<string, string> = {

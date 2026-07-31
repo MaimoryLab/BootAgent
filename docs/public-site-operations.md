@@ -15,7 +15,7 @@
 
 公开站在构建时调用 GitHub Releases API，只读取已发布、非 Draft 的 Release。页面上的版本标签、发布日期、下载地址、文件大小和可用的 SHA-256 digest 均来自该 API；没有 Release 时页面明确显示尚未发布。
 
-站点不读取 App 的本地 `release/` 目录，不复制下载资产，也不维护版本回退值。Agent 目录直接读取 `agents.lock.json`，Provider 披露直接读取 `distribution/providers.json`。
+站点不读取 App 的本地 `release/` 目录，不复制下载资产，也不维护版本回退值。Agent 目录直接读取 `agents.lock.json`，Provider 目录直接读取根目录的 `providers.lock.json`；运行时端点和公开披露字段由同一份清单管理。
 
 私有仓库构建需要提供具有 `contents:read` 权限的 `GITHUB_TOKEN`。独立 Pages 工作流使用当前任务的 GitHub token；未提供 token 的本地构建若无法读取私有仓库，会渲染“尚无已发布版本”。
 
@@ -53,6 +53,6 @@ GitHub repository variables：
 
 ## Provider 与稳定版边界
 
-Provider 商业数据保存在 `distribution/providers.json`，不能影响 Agent rank、兼容性结论、默认选择或连接测试。
+Provider 商业数据保存在 `providers.lock.json`，不能影响 Agent rank、兼容性结论、默认选择或连接测试。
 
 Stable 仍需按平台满足签名、公证和原生 cleanroom 门禁。GitHub Release 是公开版本与资产的事实源，不替代 App 发布流程中的产物验证。

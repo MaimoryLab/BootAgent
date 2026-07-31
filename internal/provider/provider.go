@@ -46,15 +46,15 @@ func ValidateBaseURL(value string) (string, error) {
 // Built-in Providers may still receive an explicit override, matching the
 // existing CLI behavior.
 func ProviderBase(providerID, customBase string) (string, error) {
-	if providerID != "ppio" && providerID != "novita" && providerID != "custom" {
-		return "", oneerrors.New(oneerrors.InvalidRequest, "Provider must be ppio, novita, or custom")
-	}
-	if customBase != "" || providerID == "custom" {
+	if providerID == "custom" {
 		return ValidateBaseURL(customBase)
 	}
 	meta, ok := catalog.ProviderByID(providerID)
 	if !ok {
-		return "", oneerrors.New(oneerrors.InvalidRequest, "Provider must be ppio, novita, or custom")
+		return "", oneerrors.New(oneerrors.InvalidRequest, "Provider must be a configured Provider or custom")
+	}
+	if customBase != "" {
+		return ValidateBaseURL(customBase)
 	}
 	return meta.BaseURL, nil
 }
@@ -78,7 +78,7 @@ func ProviderConfigBase(providerID, customBase, protocol string) (string, error)
 func ProviderHome(providerID string) (string, error) {
 	meta, ok := catalog.ProviderByID(providerID)
 	if !ok {
-		return "", oneerrors.New(oneerrors.InvalidRequest, "Registration is only available for ppio or novita")
+		return "", oneerrors.New(oneerrors.InvalidRequest, "Registration is only available for a configured Provider")
 	}
 	return meta.Home, nil
 }

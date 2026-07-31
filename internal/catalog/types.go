@@ -1,6 +1,6 @@
-// Package catalog parses the embedded agents.lock.json and projects it for the
-// desktop shell and the CLI. The lock file stays the only hand-edited Agent
-// source, so nothing here invents Agent metadata or provider URLs.
+// Package catalog parses the embedded Agent and Provider lock files and
+// projects them for the desktop shell and the CLI. The lock files are the
+// hand-edited sources, so runtime code does not invent catalog URLs or models.
 package catalog
 
 type Manifest struct {
@@ -9,6 +9,12 @@ type Manifest struct {
 	GeneratedAt     string           `json:"generated_at"`
 	Agents          map[string]Agent `json:"agents"`
 	AgentOrder      []string         `json:"-"`
+}
+
+type ProviderManifest struct {
+	SchemaVersion             int                 `json:"schema_version"`
+	DefaultFallbackProbeModel string              `json:"default_fallback_probe_model"`
+	Providers                 map[string]Provider `json:"providers"`
 }
 
 type Agent struct {

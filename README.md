@@ -34,6 +34,7 @@ Pure Go CLI --------------------^      Astro site ---- release metadata
 - `frontend/`：React 应用；发行包只携带构建后的静态资源。
 - `site/`：独立 Astro 公开站，不进入桌面包体。
 - `agents.lock.json`：Agent 版本、来源、配置适配器和许可证的唯一清单。
+- `providers.lock.json`：Provider 端点、fallback probe model 和公开站披露字段的唯一清单。
 
 ## 快速启动
 
@@ -76,7 +77,7 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-站点只读取 GitHub Release、`agents.lock.json` 和 `distribution/providers.json`，不读取本地 `release/`，也不依赖桌面构建环境。
+站点只读取 GitHub Release、`agents.lock.json` 和 `providers.lock.json`，不读取本地 `release/`，也不依赖桌面构建环境。
 
 ## Agent 与 Provider
 

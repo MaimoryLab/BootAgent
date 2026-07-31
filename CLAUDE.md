@@ -5,7 +5,7 @@
 ## 目录
 
 - `internal/app`：Status、Provider、Agent、Profile 用例和写入协调锁。
-- `internal/catalog`：嵌入的 `agents.lock.json` 与 Provider 目录。
+- `internal/catalog`：嵌入的 `agents.lock.json`、`providers.lock.json` 与 Provider 目录。
 - `internal/config`：TOML/JSON/JSONC 适配器、配置发现和 golden fixtures。
 - `internal/install`：锁定包安装、registry/integrity 校验和 Aider 外部前置条件。
 - `internal/profile`、`internal/securefs`：profile、secret、备份、权限和原子写。
@@ -14,6 +14,8 @@
 - `cmd/oneagent-rc`、`cmd/oneagent-provider-smoke`：发行候选的真实 Agent/Provider 检查。
 - `frontend/bindings`：Wails 生成物，禁止手工编辑。
 - `site`：独立 Astro 公开站。
+
+`providers.lock.json` 是 Provider 端点、fallback model 和公开站商业披露字段的唯一真源。
 
 ## 本地命令
 

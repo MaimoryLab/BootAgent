@@ -3,6 +3,7 @@ package catalog
 import (
 	"encoding/json"
 	"reflect"
+	"sort"
 	"testing"
 )
 
@@ -37,6 +38,33 @@ func TestEmbeddedManifestMatchesCurrentCatalogContract(t *testing.T) {
 	}
 }
 
+func TestEmbeddedProvidersMatchCurrentCatalogContract(t *testing.T) {
+	manifest, err := LoadEmbeddedProviders()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if manifest.SchemaVersion != ProviderSchemaVersion || len(manifest.Providers) == 0 {
+		t.Fatalf("provider manifest = %#v", manifest)
+	}
+	for id, provider := range manifest.Providers {
+		if provider.Name == "" || provider.BaseURL == "" || provider.fallbackModel == "" {
+			t.Fatalf("provider %q is incomplete: %#v", id, provider)
+		}
+	}
+	ids := ProviderIDs()
+	wantIDs := make([]string, 0, len(manifest.Providers))
+	for id := range manifest.Providers {
+		wantIDs = append(wantIDs, id)
+	}
+	sort.Strings(wantIDs)
+	if !reflect.DeepEqual(ids, wantIDs) {
+		t.Fatalf("ProviderIDs() = %v, want %v", ids, wantIDs)
+	}
+	if got := FallbackProbeModel("unknown"); got != manifest.DefaultFallbackProbeModel {
+		t.Fatalf("unknown fallback = %q, want %q", got, manifest.DefaultFallbackProbeModel)
+	}
+}
+
 func TestPublicProjectionDoesNotExposeFallbackModel(t *testing.T) {
 	providers := PublicProviders()
 	data, err := json.Marshal(providers)
@@ -55,6 +83,20 @@ func TestParseRejectsInvalidManifest(t *testing.T) {
 	} {
 		if _, err := Parse([]byte(data)); err == nil {
 			t.Errorf("Parse(%s) unexpectedly succeeded", data)
+		}
+	}
+}
+
+func TestParseProvidersRejectsInvalidEntries(t *testing.T) {
+	tests := []string{
+		`{"schema_version":2,"providers":{}}`,
+		`{"schema_version":1,"default_fallback_probe_model":"m","providers":{"bad id":{"name":"Bad","home":"https://example.com","base_url":"https://api.example.com","fallback_probe_model":"m"}}}`,
+		`{"schema_version":1,"default_fallback_probe_model":"m","providers":{"ok":{"name":"OK","home":"http://example.com","base_url":"https://api.example.com","fallback_probe_model":"m"}}}`,
+		`{"schema_version":1,"default_fallback_probe_model":"m","providers":{"ok":{"name":"OK","home":"https://example.com","base_url":"https://api.example.com","fallback_probe_model":""}}}`,
+	}
+	for _, data := range tests {
+		if _, err := ParseProviders([]byte(data)); err == nil {
+			t.Errorf("ParseProviders(%s) unexpectedly succeeded", data)
 		}
 	}
 }

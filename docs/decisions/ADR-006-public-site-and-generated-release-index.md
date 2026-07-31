@@ -12,7 +12,7 @@ OneAgent 的 React 前端是随本地 Wails Launcher 打包的操作界面。公
 1. 在同一仓库维护独立 `site/` Astro 静态站，不把营销路由加入本地 Launcher。
 2. App 工作流只创建 GitHub Release；站点工作流由站点变更、Release 发布或人工操作独立触发。
 3. 公开版本、发布日期、下载资产、大小和摘要只读取 GitHub Releases API，不读取本地 App 构建目录，也不维护手工回退版本。
-4. Agent 兼容目录直接读取 `agents.lock.json`；Provider 商业披露直接读取独立数据文件，不能影响 rank 或技术结论。
+4. Agent 兼容目录直接读取 `agents.lock.json`；Provider 运行时端点和商业披露统一读取 `providers.lock.json`，商业字段不能影响 rank 或技术结论。
 5. 网站默认不加载客户端分析脚本；Launcher 保持默认无遥测。
 
 ## 后果

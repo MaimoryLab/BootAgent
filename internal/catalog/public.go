@@ -16,23 +16,6 @@ var adapterProtocols = map[string]string{
 	"aider":       ProtocolOpenAI,
 }
 
-var providerDefinitions = map[string]Provider{
-	"ppio": {
-		Name:             "PPIO",
-		Home:             "https://ppio.com/",
-		BaseURL:          "https://api.ppio.com/openai",
-		AnthropicBaseURL: "https://api.ppio.com/anthropic",
-		fallbackModel:    "deepseek/deepseek-v3",
-	},
-	"novita": {
-		Name:             "Novita",
-		Home:             "https://novita.ai/",
-		BaseURL:          "https://api.novita.ai/openai",
-		AnthropicBaseURL: "https://api.novita.ai/anthropic",
-		fallbackModel:    "deepseek/deepseek_v3",
-	},
-}
-
 var groups = []Group{
 	{ID: "auto", Name: "One-click configurable"},
 	{ID: "gateway", Name: "Gateway agents"},
@@ -70,7 +53,7 @@ func FallbackProbeModel(providerID string) string {
 	if provider, ok := providerDefinitions[providerID]; ok {
 		return provider.fallbackModel
 	}
-	return "deepseek/deepseek-v3"
+	return defaultFallbackProbeModel
 }
 
 func PublicProviders() map[string]Provider {
@@ -91,6 +74,15 @@ func ProviderByID(providerID string) (Provider, bool) {
 	}
 	provider.fallbackModel = ""
 	return provider, true
+}
+
+func ProviderIDs() []string {
+	ids := make([]string, 0, len(providerDefinitions))
+	for id := range providerDefinitions {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	return ids
 }
 
 func Groups() []Group {
