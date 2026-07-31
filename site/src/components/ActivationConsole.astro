@@ -74,6 +74,11 @@ const copy = locale === "en"
       modelManualLabel: "Model id",
       confirm: "Confirm activation",
       skipped: "Skipped",
+      /* The real window's sidebar is a workspace nav, not a progress list — the
+         stepper lives in the page header. These are its actual four entries. */
+      navItems: ["Activate", "Overview", "Providers", "Templates"],
+      sidebarNote: "Configuration stays on this machine",
+      footerIdle: "The demo never touches this device",
     }
   : {
       label: "可操作的产品证据",
@@ -133,6 +138,11 @@ const copy = locale === "en"
       modelManualLabel: "模型 ID",
       confirm: "确认激活",
       skipped: "已跳过",
+      /* The real window's sidebar is a workspace nav, not a progress list — the
+         stepper lives in the page header. These are its actual four entries. */
+      navItems: ["激活环境", "环境总览", "Provider", "配置模板"],
+      sidebarNote: "配置只保存在本机",
+      footerIdle: "演示不会访问这台设备",
     };
 ---
 <div class="product-shot activation-shell">
@@ -147,20 +157,19 @@ const copy = locale === "en"
       </header>
 
       <div class="activation-body">
-        <aside class="activation-rail" aria-label={locale === "en" ? "Demo progress" : "演示进度"}>
+        <aside class="activation-rail" aria-label={locale === "en" ? "Workspace" : "工作区"}>
           <div class="activation-rail-brand">
             <span class="activation-monogram" aria-hidden="true">OA</span>
             <div><strong>OneAgent</strong><span>{copy.sample}</span></div>
           </div>
-          <ol class="activation-steps">
-            {copy.steps.map((step, index) => (
-              <li data-step={index + 1}>
-                <span>{String(index + 1).padStart(2, "0")}</span>
-                <strong>{step}</strong>
-              </li>
+          {/* Presentational: the real sidebar navigates a workspace, but nothing
+              here is navigable, so these are not links or buttons. */}
+          <div class="activation-nav" aria-hidden="true">
+            {copy.navItems.map((item, index) => (
+              <span class:list={["activation-nav-item", { "is-active": index === 0 }]}>{item}</span>
             ))}
-          </ol>
-          <button class="activation-reset" type="button" data-reset hidden>{copy.reset}</button>
+          </div>
+          <p class="activation-rail-note">{copy.sidebarNote}</p>
         </aside>
 
         <div class="activation-main">
@@ -168,10 +177,18 @@ const copy = locale === "en"
             <div>
               <span class="activation-state-label" data-state-label>{copy.sample}</span>
               <h2>{copy.title}</h2>
+              <p class="activation-subtitle">{copy.subtitle}</p>
             </div>
             <span class="activation-status" data-status><span aria-hidden="true"></span><b>Idle</b></span>
           </div>
-          <p class="activation-subtitle">{copy.subtitle}</p>
+          <ol class="activation-steps">
+            {copy.steps.map((step, index) => (
+              <li data-step={index + 1}>
+                <span class="activation-step-marker">{index + 1}</span>
+                <strong>{step}</strong>
+              </li>
+            ))}
+          </ol>
 
           <section class="activation-panel" data-panel="idle" tabindex="-1">
             <div class="activation-empty-mark" aria-hidden="true"><span></span><span></span><span></span></div>
@@ -279,7 +296,6 @@ const copy = locale === "en"
                 <small>{copy.registerNote}</small>
               </a>
             </div>
-            <button class="button button-primary activation-verify" type="button" data-verify disabled>{copy.verify}</button>
           </section>
 
           <section class="activation-panel activation-choice-panel" data-panel="model" tabindex="-1" hidden>
@@ -300,7 +316,6 @@ const copy = locale === "en"
                 data-model-input
               />
             </details>
-            <button class="button button-primary activation-verify" type="button" data-confirm disabled>{copy.confirm}</button>
           </section>
 
           <section class="activation-panel activation-progress" data-panel="verifying" tabindex="-1" hidden>
@@ -334,6 +349,18 @@ const copy = locale === "en"
             </ol>
           </div>
         </div>
+
+        {/* The real window keeps its primary action in a fixed footer bar rather
+            than inside the scrolling body, so the next step is always in the same
+            place. The note on the left is where the app puts its own context. */}
+        <footer class="activation-footer">
+          <p class="activation-footer-note" data-footer-note>{copy.footerIdle}</p>
+          <div class="activation-footer-actions">
+            <button class="activation-reset" type="button" data-reset hidden>{copy.reset}</button>
+            <button class="button button-small button-primary" type="button" data-verify hidden disabled>{copy.verify}</button>
+            <button class="button button-small button-primary" type="button" data-confirm hidden disabled>{copy.confirm}</button>
+          </div>
+        </footer>
       </div>
 
       <footer class="activation-facts">
@@ -417,6 +444,21 @@ const copy = locale === "en"
         ok: "端点可用",
       },
       skipped: "已跳过",
+      /* The app puts step context in the footer bar next to the action. */
+      footer: {
+        idle: "演示不会访问这台设备",
+        scanning: "正在读取示例环境",
+        agent: "从上面选一个 Agent",
+        mode: "选择配置方式",
+        provider: "选择 Provider 或填入你自己的端点",
+        model: "选择一个模型后确认",
+        verifying: "正在验证，未提交凭证",
+        ready: "示例流程已完成",
+        "guide-only": "这个 Agent 走官方流程",
+        "preview-gate": "组合可演示，但未通过发布门禁",
+        unsupported: "请换一个支持该协议的 Provider",
+        error: "请重置演示后重试",
+      },
     },
     en: {
       status: {
@@ -476,6 +518,21 @@ const copy = locale === "en"
         ok: "Endpoint accepted",
       },
       skipped: "Skipped",
+      /* The app puts step context in the footer bar next to the action. */
+      footer: {
+        idle: "The demo never touches this device",
+        scanning: "Reading the example environment",
+        agent: "Choose an agent above",
+        mode: "Choose how to configure it",
+        provider: "Choose a provider, or enter your own endpoint",
+        model: "Choose a model, then confirm",
+        verifying: "Verifying — no credential submitted",
+        ready: "The example flow is complete",
+        "guide-only": "This agent uses its official flow",
+        "preview-gate": "Demonstrable, but the release gate remains",
+        unsupported: "Choose a provider that supports this protocol",
+        error: "Reset the demo and try again",
+      },
     },
   } as const;
 
@@ -642,6 +699,10 @@ const copy = locale === "en"
 
     get models() {
       return this.state.providerId === CUSTOM_PROVIDER_ID ? [] : demoModelsFor(this.state.providerId);
+    }
+
+    footerNoteFor(phase: ActivationState["phase"]) {
+      return this.copy.footer[phase];
     }
 
     customHost() {
@@ -814,16 +875,23 @@ const copy = locale === "en"
         customInput.setAttribute("aria-invalid", String(!untouched && !check.ok));
       }
 
+      /* Both primary actions live in the footer bar, so each is shown only on the
+         step it belongs to rather than moved between panels. */
       const verify = this.querySelector<HTMLButtonElement>("[data-verify]");
       if (verify) {
+        verify.hidden = phase !== "provider";
         verify.disabled =
-          phase !== "provider" ||
           !this.state.providerId ||
           this.state.compatibility === "unsupported" ||
           (isCustom && !(check && check.ok));
       }
       const confirm = this.querySelector<HTMLButtonElement>("[data-confirm]");
-      if (confirm) confirm.disabled = phase !== "model" || !this.state.model;
+      if (confirm) {
+        confirm.hidden = phase !== "model";
+        confirm.disabled = !this.state.model;
+      }
+      const footerNote = this.querySelector<HTMLElement>("[data-footer-note]");
+      if (footerNote) footerNote.textContent = this.footerNoteFor(phase);
 
       if (panel === "result") this.renderResult(phase);
     }
@@ -876,23 +944,27 @@ const copy = locale === "en"
 <style>
   activation-console { display: block; }
   .activation-shell { position: relative; z-index: 1; }
+  /* Geometry and colour measured off the running app (frontend/src/styles):
+     12px window radius, 52px title bar, 232px sidebar, 68px footer, and the
+     --shadow-window value verbatim. The app is light-only, so these use this
+     page's tokens rather than its hex values — that is the one difference. */
   .activation-window {
     overflow: hidden;
     border: 1px solid var(--line-strong);
-    border-radius: calc(var(--radius-window) - 6px);
+    border-radius: var(--radius-window);
     background: var(--surface);
     color: var(--ink);
-    box-shadow: inset 0 1px rgba(255, 255, 255, .4);
+    box-shadow: 0 22px 55px rgba(42, 42, 46, .16), 0 2px 8px rgba(42, 42, 46, .08);
   }
   .activation-topbar {
-    min-height: 62px;
-    padding: 12px 18px;
+    min-height: 52px;
+    padding: 0 18px;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 20px;
     border-bottom: 1px solid var(--line);
-    background: color-mix(in srgb, var(--surface) 88%, var(--paper));
+    background: var(--surface-muted);
   }
   .activation-topbar > div { display: grid; gap: 2px; }
   .activation-topbar strong { font-size: 14px; }
@@ -917,61 +989,118 @@ const copy = locale === "en"
     background: var(--orange);
     box-shadow: 0 0 0 4px var(--orange-soft);
   }
-  .activation-body { min-height: 560px; display: grid; grid-template-columns: 232px minmax(0, 1fr); }
+  /* Two columns, two rows: the sidebar and body share the first row, and the
+     footer spans both so the primary action stays put while the body scrolls —
+     the same shape as the app's 232px/auto + content/68px grid. */
+  .activation-body {
+    min-height: 560px;
+    display: grid;
+    grid-template-columns: 232px minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto;
+  }
   .activation-rail {
-    padding: 22px 18px 18px;
+    padding: 22px 12px 16px;
     display: flex;
     flex-direction: column;
-    color: #f5f7f9;
-    background: #111a21;
-    border-right: 1px solid rgba(255, 255, 255, .08);
+    color: var(--ink);
+    background: var(--surface-muted);
+    border-right: 1px solid var(--line);
   }
-  .activation-rail-brand { display: flex; align-items: center; gap: 11px; }
+  /* Static labels, not controls — the demo has nowhere to navigate to. */
+  .activation-nav { display: grid; gap: 4px; }
+  .activation-nav-item {
+    min-height: 38px;
+    padding: 0 10px;
+    display: flex;
+    align-items: center;
+    border-radius: var(--radius-control);
+    color: var(--ink-soft);
+    font-size: 13px;
+  }
+  .activation-nav-item.is-active { background: var(--blue-deep); color: var(--on-accent); font-weight: 600; }
+  .activation-rail-note { margin-top: auto; padding: 12px 10px 0; color: var(--ink-faint); font-size: 11px; }
+  .activation-footer {
+    min-height: 68px;
+    padding: 0 42px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    grid-column: 1 / -1;
+    border-top: 1px solid var(--line);
+    background: var(--surface-muted);
+  }
+  .activation-footer-note { color: var(--ink-soft); font-size: 13px; }
+  .activation-footer-actions { display: flex; align-items: center; gap: 12px; }
+  .activation-rail-brand { padding: 0 10px 18px; display: flex; align-items: center; gap: 11px; }
   .activation-rail-brand > div { display: grid; gap: 2px; }
   .activation-rail-brand strong { font-size: 13px; }
-  .activation-rail-brand span { color: #aeb8c0; font-size: 11px; }
+  /* Scoped to the subtitle rather than every span, so it cannot reach the
+     monogram — that one carries white on the accent fill and a broader
+     selector here would win on specificity and make it unreadable. */
+  .activation-rail-brand > div span { color: var(--ink-faint); font-size: 11px; }
   .activation-monogram {
-    width: 34px;
-    height: 34px;
+    width: 26px;
+    height: 26px;
     display: grid;
     place-items: center;
-    border: 1px solid rgba(255, 255, 255, .22);
-    border-radius: 10px;
-    color: #a9d4ff !important;
-    background: rgba(61, 155, 255, .14);
-    font: 750 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+    border-radius: 7px;
+    color: var(--on-accent);
+    background: var(--blue-deep);
+    font: 750 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
     letter-spacing: .04em;
   }
-  .activation-steps { margin: 36px 0 0; padding: 0; display: grid; gap: 4px; list-style: none; }
-  .activation-steps li {
-    min-height: 46px;
-    padding: 8px 10px;
+  /* The app's stepper: a horizontal row in the page header, each step a 27px
+     numbered circle above an 11px label. Nothing is a card and nothing is dark. */
+  .activation-steps {
+    margin: 22px 0 0;
+    padding: 0;
     display: grid;
-    grid-template-columns: 28px 1fr;
-    align-items: center;
-    gap: 8px;
-    border: 1px solid transparent;
-    border-radius: 10px;
-    color: #9aa6af;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 124px);
+    justify-content: start;
+    list-style: none;
   }
-  .activation-steps li span { font: 650 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace; }
-  .activation-steps li strong { font-size: 12px; font-weight: 600; }
-  .activation-steps li.is-current { color: #fff; border-color: rgba(105, 181, 255, .34); background: rgba(61, 155, 255, .13); }
-  .activation-steps li.is-done { color: #96d7aa; }
+  .activation-steps li { display: grid; gap: 5px; justify-items: start; color: var(--ink-faint); font-size: 11px; }
+  .activation-step-marker {
+    width: 27px;
+    height: 27px;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--line-strong);
+    border-radius: 50%;
+    color: var(--ink-soft);
+    background: var(--surface);
+    font-size: 13px;
+    font-weight: 600;
+  }
+  /* The app keeps every label at 400 and signals the current step through the
+     marker fill alone, so the row stays even rather than jumping as you advance. */
+  .activation-steps li strong { font-size: 11px; font-weight: 400; }
+  .activation-steps li.is-current { color: var(--ink); }
+  .activation-steps li.is-current .activation-step-marker {
+    border-color: var(--blue-deep);
+    background: var(--blue-deep);
+    color: var(--on-accent);
+  }
+  .activation-steps li.is-done .activation-step-marker {
+    border-color: var(--green);
+    color: var(--green);
+    background: var(--green-soft);
+  }
   .activation-reset {
-    margin-top: auto;
     padding: 8px 2px;
-    align-self: flex-start;
     border: 0;
-    color: #b6c0c8;
+    color: var(--ink-soft);
     background: transparent;
     font: 600 12px/1.2 inherit;
     cursor: pointer;
   }
-  .activation-reset:hover { color: #fff; }
-  .activation-main { min-width: 0; padding: 28px 30px 22px; display: flex; flex-direction: column; }
+  .activation-reset:hover { color: var(--ink); }
+  /* 42px gutters and a header/body split, matching the app's page-scaffold. */
+  .activation-main { min-width: 0; padding: 26px 42px 24px; display: flex; flex-direction: column; }
   .activation-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; }
-  .activation-heading > div { display: grid; gap: 7px; }
+  .activation-heading > div { display: grid; gap: 6px; }
   .activation-heading h2 { margin: 0; font-size: 24px; line-height: 1.15; letter-spacing: -.01em; }
   .activation-status { padding: 8px 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface-muted); }
   .activation-status > span { width: 7px; height: 7px; background: var(--ink-faint); box-shadow: none; }
@@ -1177,14 +1306,12 @@ const copy = locale === "en"
   }
   @keyframes activation-spin { to { transform: rotate(360deg); } }
 
+  /* The sidebar is the first thing to go: it is workspace chrome, and the demo
+     never navigates. The stepper stays, since it is the actual progress. */
   @media (max-width: 820px) {
-    .activation-body { grid-template-columns: 1fr; }
-    .activation-rail { padding: 14px 16px; border-right: 0; border-bottom: 1px solid rgba(255, 255, 255, .08); }
-    .activation-rail-brand { display: none; }
-    .activation-steps { margin: 0; grid-template-columns: repeat(5, 1fr); }
-    .activation-steps li { min-height: 40px; grid-template-columns: 20px 1fr; padding: 7px 8px; }
-    .activation-reset { position: absolute; right: 26px; margin-top: 48px; z-index: 2; color: var(--ink-soft); }
-    .activation-reset:hover { color: var(--ink); }
+    .activation-body { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) auto; }
+    .activation-rail { display: none; }
+    .activation-footer { padding: 0 20px; }
   }
   @media (max-width: 680px) {
     .activation-shell { width: min(100% - 28px, 1180px); }
@@ -1194,17 +1321,16 @@ const copy = locale === "en"
     .activation-main { padding: 20px 14px 16px; }
     .activation-heading h2 { font-size: 20px; }
     .activation-subtitle { font-size: 12px; }
-    .activation-steps li { display: flex; justify-content: center; }
+    /* Labels drop out and the circles compress to a row of five markers. */
+    .activation-steps { margin-top: 16px; grid-auto-columns: minmax(0, 1fr); }
     .activation-steps li strong { display: none; }
-    .activation-reset { right: 15px; margin-top: 42px; font-size: 11px; }
+    .activation-footer { min-height: 60px; padding: 0 14px; gap: 10px; }
+    .activation-footer-note { font-size: 11px; }
     .activation-panel { min-height: 250px; margin-top: 18px; padding: 18px; }
     .activation-panel[data-panel="idle"], .activation-progress, .activation-result { grid-template-columns: 1fr; gap: 16px; }
     .activation-empty-mark, .activation-scan { width: 62px; height: 62px; }
     .activation-panel h3 { font-size: 19px; }
     .activation-agent-grid, .activation-provider-grid { grid-template-columns: 1fr; }
-    /* The stepper gained a fifth step; at this width the labels are already
-       hidden, so the columns just have to match the new count. */
-    .activation-steps { grid-template-columns: repeat(5, 1fr); }
     .activation-agent { min-height: 68px; }
     .activation-facts { grid-template-columns: 1fr; gap: 8px; }
     .activation-log-wrap { grid-template-columns: 1fr; gap: 4px; }
