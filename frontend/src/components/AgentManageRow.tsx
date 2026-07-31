@@ -1,3 +1,4 @@
+import { sourceTranslate, type Translate, useI18n } from "../i18n";
 import type { AgentCatalogItem, AgentStatus, StatusResponse } from "../types/api";
 import { AgentIcon, agentTagline } from "./icons/agents";
 import { StatusBadge } from "./StatusBadge";
@@ -22,7 +23,7 @@ export function isBehind(installed: string, locked: string): boolean {
   return compareVersions(installed, locked) < 0;
 }
 
-export function versionNote(status: AgentStatus): { text: string; behind: boolean } | null {
+export function versionNote(status: AgentStatus, t: Translate = sourceTranslate): { text: string; behind: boolean } | null {
   if (!status.installed || !status.version) return null;
   if (!status.lockedVersion || status.version === status.lockedVersion) {
     // Being current is the normal case and needs no words: the bare version is
@@ -36,7 +37,7 @@ export function versionNote(status: AgentStatus): { text: string; behind: boolea
     // The arrow already says which way this goes.
     return { text: `${status.version} → ${status.lockedVersion}`, behind: true };
   }
-  return { text: `${status.version}（锁定 ${status.lockedVersion}）`, behind: false };
+  return { text: t("{version}（锁定 {lockedVersion}）", { version: status.version, lockedVersion: status.lockedVersion }), behind: false };
 }
 
 /**
@@ -50,10 +51,11 @@ export function versionNote(status: AgentStatus): { text: string; behind: boolea
 export function targetSummary(
   status: AgentStatus,
   providers: Providers,
+  t: Translate = sourceTranslate,
 ): { text: string; note: string } {
   const detected = status.detected;
   if (detected?.unreadable) {
-    return { text: "配置无法解析", note: detected.unreadable };
+    return { text: t("配置无法解析"), note: detected.unreadable };
   }
   const providerName = status.provider ? providers[status.provider]?.name || status.provider : "";
   // Ours, and the file agrees (or has nothing to add).
@@ -62,7 +64,7 @@ export function targetSummary(
       detected && detected.baseUrl && status.baseUrl && detected.baseUrl !== status.baseUrl;
     return {
       text: `${providerName} · ${status.model}`,
-      note: drifted ? `配置文件当前指向 ${detected!.baseUrl}` : "",
+      note: drifted ? t("配置文件当前指向 {url}", { url: detected!.baseUrl }) : "",
     };
   }
   // No record of our own, but the file says something.
@@ -70,10 +72,10 @@ export function targetSummary(
     const parts = [detected.baseUrl, detected.model].filter(Boolean);
     return {
       text: parts.join(" · "),
-      note: detected.managedByOneAgent ? "" : "检测到的配置，非 OneAgent 写入",
+      note: detected.managedByOneAgent ? "" : t("检测到的配置，非 OneAgent 写入"),
     };
   }
-  return { text: "未配置", note: "" };
+  return { text: t("未配置"), note: "" };
 }
 
 /**
@@ -92,16 +94,17 @@ export function AgentManageRow({
   providers: Providers;
   profileName: string;
 }) {
-  const version = versionNote(status);
-  const target = targetSummary(status, providers);
+  const { t } = useI18n();
+  const version = versionNote(status, t);
+  const target = targetSummary(status, providers, t);
   const providerName = status.provider
     ? providers[status.provider]?.name || status.provider
-    : status.detected?.baseUrl || "未记录";
-  const model = status.model || status.detected?.model || "未记录";
+    : status.detected?.baseUrl || t("未记录");
+  const model = status.model || status.detected?.model || t("未记录");
 
   return (
     <div className="agent-manage-row" data-testid={`agent-${agentId}`}>
-      <span className="agent-icon" title={agentTagline(agentId) || undefined}>
+      <span className="agent-icon" title={agentTagline(agentId, t) || undefined}>
         <AgentIcon agentId={agentId} size={18} />
       </span>
       <span className="agent-manage-identity">
@@ -109,13 +112,13 @@ export function AgentManageRow({
         {target.note ? <small className="agent-manage-note">{target.note}</small> : null}
       </span>
       <span className="agent-manage-fact"><small>Provider</small><span title={providerName}>{providerName}</span></span>
-      <span className="agent-manage-fact"><small>Profile</small><span title={status.profileId || undefined}>{profileName || "未绑定"}</span></span>
-      <span className="agent-manage-fact"><small>模型</small><span title={model}>{model}</span></span>
+      <span className="agent-manage-fact"><small>Profile</small><span title={status.profileId || undefined}>{profileName || t("未绑定")}</span></span>
+      <span className="agent-manage-fact"><small>{t("模型")}</small><span title={model}>{model}</span></span>
       <span className={`agent-manage-fact agent-manage-version${version?.behind ? " is-behind" : ""}`}>
-        <small>版本</small><span>{version?.text || "未知"}</span>
+        <small>{t("版本")}</small><span>{version?.text || t("未知")}</span>
       </span>
       <StatusBadge tone={status.installed ? "success" : "warning"}>
-        {status.installed ? "已安装" : "待安装"}
+        {status.installed ? t("已安装") : t("待安装")}
       </StatusBadge>
     </div>
   );

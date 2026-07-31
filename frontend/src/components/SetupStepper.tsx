@@ -1,12 +1,13 @@
 import { Check } from "lucide-react";
 import { useLocation } from "react-router-dom";
 
+import { type TranslationKey, useI18n } from "../i18n";
 import { useWizard } from "../state/WizardContext";
 
 // Single source of truth for the setup sequence: order, labels, and which
 // steps the existing-account mode skips. Pages no longer pass step numbers;
 // the current step is derived from the route.
-const steps = [
+const steps: Array<{ path: string; label: TranslationKey | "Agent" | "Provider"; skippedForExistingAccount: boolean }> = [
   { path: "/setup/agents", label: "Agent", skippedForExistingAccount: false },
   { path: "/setup/mode", label: "配置", skippedForExistingAccount: false },
   { path: "/setup/provider", label: "Provider", skippedForExistingAccount: true },
@@ -15,13 +16,14 @@ const steps = [
 ];
 
 export function SetupStepper() {
+  const { t } = useI18n();
   const { pathname } = useLocation();
   const { state } = useWizard();
   const skipsProvider = state.configMode === "existing-account";
   const current = steps.findIndex((step) => step.path === pathname) + 1;
 
   return (
-    <ol className="setup-stepper" aria-label="激活步骤">
+    <ol className="setup-stepper" aria-label={t("激活步骤")}>
       {steps.map((step, index) => {
         const number = index + 1;
         const skipped = skipsProvider && step.skippedForExistingAccount;
@@ -34,7 +36,7 @@ export function SetupStepper() {
             aria-current={active ? "step" : undefined}
           >
             <span className="stepper-marker">{complete ? <Check size={14} /> : number}</span>
-            <span className="stepper-label">{skipped ? "已跳过" : step.label}</span>
+            <span className="stepper-label">{skipped ? t("已跳过") : step.label === "Agent" || step.label === "Provider" ? step.label : t(step.label)}</span>
           </li>
         );
       })}

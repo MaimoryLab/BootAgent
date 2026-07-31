@@ -7,12 +7,14 @@ import { ConnectionStatus } from "../components/ConnectionStatus";
 import { PageScaffold } from "../components/PageScaffold";
 import { ProviderSegment } from "../components/ProviderSegment";
 import { SecureKeyField } from "../components/SecureKeyField";
+import { useI18n } from "../i18n";
 import { useWizard } from "../state/WizardContext";
 import { PROTOCOL_LABELS } from "../types/api";
 import type { ProtocolId, ProviderId } from "../types/api";
 
 export function ProviderKeyPage() {
   const navigate = useNavigate();
+  const { t } = useI18n();
   const { state, dispatch, secret } = useWizard();
   const providerMeta = state.status?.providers[state.provider];
   const apiBaseUrl = providerMeta?.base_url || "";
@@ -30,7 +32,7 @@ export function ProviderKeyPage() {
         if (active) secret.setApiKey(entry.api_key);
       })
       .catch((error) => {
-        if (active) dispatch({ type: "CONNECTION_FAILED", failure: describeError(error, "无法读取已保存的 API Key") });
+        if (active) dispatch({ type: "CONNECTION_FAILED", failure: describeError(error, t("无法读取已保存的 API Key")) });
       });
     return () => { active = false; };
   }, [dispatch, providerMeta?.has_key, secret.setApiKey, state.provider]);
@@ -70,7 +72,7 @@ export function ProviderKeyPage() {
       });
       dispatch({ type: "CONNECTION_RESULT", result });
     } catch (error) {
-      dispatch({ type: "CONNECTION_FAILED", failure: describeError(error, "连接测试失败") });
+      dispatch({ type: "CONNECTION_FAILED", failure: describeError(error, t("连接测试失败")) });
     }
   };
 
@@ -79,17 +81,17 @@ export function ProviderKeyPage() {
     try {
       await api.openRegister(state.provider, state.selectedAgentIds);
     } catch (error) {
-      dispatch({ type: "CONNECTION_FAILED", failure: describeError(error, "无法打开注册页面") });
+      dispatch({ type: "CONNECTION_FAILED", failure: describeError(error, t("无法打开注册页面")) });
     }
   };
 
   return (
     <PageScaffold
-      title="连接模型服务"
-      description="Key 不会进入日志、URL 或前端持久化状态。"
+      title={t("连接模型服务")}
+      description={t("Key 不会进入日志、URL 或前端持久化状态。")}
       stepper
       onBack={() => navigate("/setup/mode")}
-      primaryLabel="继续选择模型"
+      primaryLabel={t("继续选择模型")}
       onPrimary={() => navigate("/setup/model")}
       primaryDisabled={!canContinue || state.connectionState === "loading"}
       footerNote={endpoint ? <span className="endpoint-note"><Link2 size={14} />{endpoint}</span> : undefined}
@@ -110,22 +112,22 @@ export function ProviderKeyPage() {
           {providerMeta?.home ? (
             <button className="button button-secondary" type="button" onClick={() => void openRegistration()}>
               <ExternalLink size={15} />
-              注册并获取 Key
+              {t("注册并获取 Key")}
             </button>
           ) : null}
         </div>
 
         <div className="field-stack">
-          <label htmlFor="provider-model">自定义模型名称（可选）</label>
+          <label htmlFor="provider-model">{t("自定义模型名称（可选）")}</label>
           <input
             id="provider-model"
             className="text-field"
             value={state.model}
             onChange={(event) => dispatch({ type: "SET_MODEL", value: event.target.value })}
-            placeholder="例如 deepseek/deepseek-v3"
+            placeholder={t("例如 deepseek/deepseek-v3")}
             spellCheck={false}
           />
-          <small>填写后将用此模型测试连接；留空时自动选择。</small>
+          <small>{t("填写后将用此模型测试连接；留空时自动选择。")}</small>
         </div>
 
         <SecureKeyField value={secret.keyRef.current} onChange={secret.setApiKey} />
@@ -133,12 +135,12 @@ export function ProviderKeyPage() {
         <div className="connection-row">
           <button className="button button-secondary" type="button" onClick={() => void testConnection()} disabled={!canProbe || state.connectionState === "loading"}>
             <FlaskConical size={16} />
-            测试连接
+            {t("测试连接")}
           </button>
           <ConnectionStatus state={state.connectionState} result={state.connection} />
         </div>
         {canProbe && state.connectionState === "idle" && (
-          <small>连接测试通过后才能继续选择模型。</small>
+          <small>{t("连接测试通过后才能继续选择模型。")}</small>
         )}
       </div>
     </PageScaffold>

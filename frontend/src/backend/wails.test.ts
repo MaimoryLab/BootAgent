@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { InstallResponse, ModelsResponse, ProbeResponse, ProfileSummary, ProviderEntry, StatusResponse } from "../types/api";
+import { LOCALE_STORAGE_KEY } from "../i18n";
 
 const bridge = vi.hoisted(() => ({
   status: vi.fn(),
@@ -95,6 +96,7 @@ describe("Wails backend adapter", () => {
     expect(normalizeWailsError({ cause: '{"error_code":"TIMEOUT","message":"probe timed out","status":504,"retryable":true}' })).toMatchObject({
       message: "probe timed out", code: "TIMEOUT", status: 504, retryable: true,
     });
+    localStorage.setItem(LOCALE_STORAGE_KEY, "zh-CN");
     expect(normalizeWailsError(new Error("secret-key-value"))).toMatchObject({
       message: "无法调用本机 OneAgent 服务", code: "INTERNAL_ERROR", status: 500, retryable: true,
     });

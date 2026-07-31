@@ -18,6 +18,7 @@ import type {
   SaveProviderInput,
   StatusResponse,
 } from "../types/api";
+import { currentLocale, translate } from "../i18n";
 import { OneAgentApiError } from "./errors";
 
 export { OneAgentApiError, describeError } from "./errors";
@@ -62,7 +63,7 @@ export function normalizeWailsError(error: unknown): OneAgentApiError {
   const cause = causeOf(error);
   const known = Object.keys(cause).length > 0;
   return new OneAgentApiError(
-    known ? stringValue(cause.message, "OneAgent request failed") : "无法调用本机 OneAgent 服务",
+    known ? stringValue(cause.message, translate(currentLocale(), "OneAgent 请求失败")) : translate(currentLocale(), "无法调用本机 OneAgent 服务"),
     known ? stringValue(cause.error_code, "INTERNAL_ERROR") : "INTERNAL_ERROR",
     known ? cause.retryable === true : true,
     known ? numberValue(cause.status, 500) : 500,

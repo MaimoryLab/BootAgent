@@ -17,6 +17,8 @@
  */
 import { Bot } from "lucide-react";
 
+import { sourceTranslate, type Translate, type TranslationKey } from "../../i18n";
+
 import aiderMark from "./assets/aider.png";
 import claudeMark from "./assets/claude-code.svg";
 import codexMark from "./assets/codex.svg";
@@ -39,7 +41,7 @@ const MARKS: Record<string, { src: string; source: string }> = {
 };
 
 /** One-line positioning shown on hover; never a restatement of the name. */
-const TAGLINES: Record<string, string> = {
+const TAGLINES: Record<string, TranslationKey> = {
   codex: "OpenAI 的终端编码代理",
   "claude-code": "Anthropic 的终端编码代理",
   opencode: "开源终端编码代理",
@@ -52,8 +54,9 @@ const TAGLINES: Record<string, string> = {
 
 export const AGENT_ICON_IDS = Object.keys(MARKS);
 
-export function agentTagline(agentId: string): string {
-  return TAGLINES[agentId] ?? "";
+export function agentTagline(agentId: string, t: Translate = sourceTranslate): string {
+  const tagline = TAGLINES[agentId];
+  return tagline ? t(tagline) : "";
 }
 
 /** The provenance of an Agent's mark, for the reference notes and tests. */

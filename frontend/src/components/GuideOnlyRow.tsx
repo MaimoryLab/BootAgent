@@ -1,5 +1,6 @@
 import { ArrowUpRight } from "lucide-react";
 
+import { useI18n } from "../i18n";
 import type { AgentCatalogItem, AgentStatus } from "../types/api";
 import { AgentIcon, agentTagline } from "./icons/agents";
 import { StatusBadge } from "./StatusBadge";
@@ -25,23 +26,24 @@ export function GuideOnlyRow({
   catalog: AgentCatalogItem;
   status: AgentStatus | undefined;
 }) {
+  const { t } = useI18n();
   const detected = Boolean(status?.installed);
   return (
     <div className="agent-manage-row is-guide">
-      <span className="agent-icon" title={agentTagline(agentId) || undefined}>
+      <span className="agent-icon" title={agentTagline(agentId, t) || undefined}>
         <AgentIcon agentId={agentId} size={18} />
       </span>
       <span className="agent-manage-identity">
         <strong>{catalog.name}</strong>
         <span className="agent-manage-target">
-          {catalog.platformNote || "按官方方式安装与登录"}
+          {catalog.platformNote || t("按官方方式安装与登录")}
         </span>
       </span>
       <StatusBadge tone={detected ? "success" : "neutral"}>
-        {detected ? "已检测到" : "官方安装"}
+        {detected ? t("已检测到") : t("官方安装")}
       </StatusBadge>
       <span className="agent-manage-cta is-static">
-        官方文档
+        {t("官方文档")}
         <ArrowUpRight size={14} aria-hidden="true" />
       </span>
     </div>

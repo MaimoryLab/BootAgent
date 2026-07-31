@@ -1,6 +1,7 @@
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import type { PropsWithChildren, ReactNode } from "react";
 
+import { useI18n } from "../i18n";
 import { SetupStepper } from "./SetupStepper";
 
 interface PageScaffoldProps extends PropsWithChildren {
@@ -28,7 +29,7 @@ export function PageScaffold({
   description,
   stepper,
   footerNote,
-  backLabel = "返回",
+  backLabel,
   onBack,
   primaryLabel,
   onPrimary,
@@ -38,6 +39,7 @@ export function PageScaffold({
   bodyClassName = "",
   children,
 }: PageScaffoldProps) {
+  const { t } = useI18n();
   return (
     <section className="page-scaffold">
       <header className="page-header">
@@ -56,7 +58,7 @@ export function PageScaffold({
           {onBack ? (
             <button className="button button-secondary" type="button" onClick={onBack}>
               <ArrowLeft size={16} />
-              {backLabel}
+              {backLabel ?? t("返回")}
             </button>
           ) : null}
           {footerNote ? <div className="footer-note">{footerNote}</div> : null}

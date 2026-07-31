@@ -1,7 +1,10 @@
 import { Eye, EyeOff, KeyRound } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import { useI18n } from "../i18n";
+
 export function SecureKeyField({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  const { t } = useI18n();
   const [visible, setVisible] = useState(false);
   // The wizard keeps the key in a ref, not in state, so the parent gives no
   // re-render guarantee per keystroke; echo must come from local state.
@@ -22,13 +25,13 @@ export function SecureKeyField({ value, onChange }: { value: string; onChange: (
           }}
           autoComplete="off"
           spellCheck={false}
-          placeholder="粘贴你的 API Key"
+          placeholder={t("粘贴你的 API Key")}
         />
-        <button type="button" onClick={() => setVisible((current) => !current)} aria-label={visible ? "隐藏密钥" : "显示密钥"}>
+        <button type="button" onClick={() => setVisible((current) => !current)} aria-label={visible ? t("隐藏密钥") : t("显示密钥")}>
           {visible ? <EyeOff size={17} /> : <Eye size={17} />}
         </button>
       </div>
-      <small>密钥只发送到当前本机服务，并保存在本机私有配置中。</small>
+      <small>{t("密钥只发送到当前本机服务，并保存在本机私有配置中。")}</small>
     </div>
   );
 }

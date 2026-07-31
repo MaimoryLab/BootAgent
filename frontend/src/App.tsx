@@ -11,6 +11,7 @@ import { ProfilesPage } from "./pages/ProfilesPage";
 import { ProviderKeyPage } from "./pages/ProviderKeyPage";
 import { ProvidersPage } from "./pages/ProvidersPage";
 import { ReviewPage } from "./pages/ReviewPage";
+import { I18nProvider } from "./i18n";
 import { WizardProvider, useWizard } from "./state/WizardContext";
 
 function SetupGuard({ stage, children }: { stage: "mode" | "provider" | "model" | "review" | "activation"; children: React.ReactNode }) {
@@ -62,8 +63,10 @@ function WorkspaceRoutes() {
 
 export default function App() {
   return (
-    <WizardProvider>
-      <WorkspaceRoutes />
-    </WizardProvider>
+    <I18nProvider>
+      <WizardProvider>
+        <WorkspaceRoutes />
+      </WizardProvider>
+    </I18nProvider>
   );
 }

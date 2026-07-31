@@ -4,10 +4,12 @@ import { useNavigate } from "react-router-dom";
 
 import { PageScaffold } from "../components/PageScaffold";
 import { ReviewGroup, ReviewRow } from "../components/ReviewGroup";
+import { useI18n } from "../i18n";
 import { useWizard } from "../state/WizardContext";
 
 export function ReviewPage() {
   const navigate = useNavigate();
+  const { t } = useI18n();
   const { state, dispatch } = useWizard();
 
   const startActivation = () => {
@@ -26,32 +28,32 @@ export function ReviewPage() {
   );
   const automatic = selectedCatalog.filter((agent) => agent.configMode === "auto");
   const guideOnly = selectedCatalog.filter((agent) => agent.guideOnly);
-  const providerName = state.configMode === "provider" ? state.status?.providers[state.provider]?.name || state.provider : "已有账号 / 本机配置";
+  const providerName = state.configMode === "provider" ? state.status?.providers[state.provider]?.name || state.provider : t("已有账号 / 本机配置");
 
   return (
     <PageScaffold
-      title="确认激活"
-      description="核对安装、配置和备份范围。API Key 不会显示在此页。"
+      title={t("确认激活")}
+      description={t("核对安装、配置和备份范围。API Key 不会显示在此页。")}
       stepper
       onBack={() => navigate(state.configMode === "provider" ? "/setup/model" : "/setup/mode")}
-      primaryLabel="开始激活"
+      primaryLabel={t("开始激活")}
       onPrimary={startActivation}
-      footerNote={<span className="secure-note"><ShieldCheck size={15} />覆盖前会自动创建时间戳备份</span>}
+      footerNote={<span className="secure-note"><ShieldCheck size={15} />{t("覆盖前会自动创建时间戳备份")}</span>}
     >
       <div className="review-columns">
-        <ReviewGroup title="将处理">
+        <ReviewGroup title={t("将处理")}>
           {selectedCatalog.map((agent) => (
             <ReviewRow
               key={agent.id}
               label={agent.name}
-              value={state.status?.agents[agent.id]?.installed ? "检测并配置" : state.installMissingAgents && !agent.guideOnly ? "安装并配置" : agent.guideOnly ? "显示引导" : "只写配置"}
+              value={state.status?.agents[agent.id]?.installed ? t("检测并配置") : state.installMissingAgents && !agent.guideOnly ? t("安装并配置") : agent.guideOnly ? t("显示引导") : t("只写配置")}
             />
           ))}
         </ReviewGroup>
 
-        <ReviewGroup title="模型服务">
-          <ReviewRow label="配置方式" value={providerName} />
-          {state.configMode === "provider" ? <ReviewRow label="模型" value={state.model} /> : null}
+        <ReviewGroup title={t("模型服务")}>
+          <ReviewRow label={t("配置方式")} value={providerName} />
+          {state.configMode === "provider" ? <ReviewRow label={t("模型")} value={state.model} /> : null}
           {state.configMode === "provider" ? (
             <ReviewRow
               label="Base URL"
@@ -60,14 +62,14 @@ export function ReviewPage() {
           ) : null}
         </ReviewGroup>
 
-        <ReviewGroup title="本地写入">
+        <ReviewGroup title={t("本地写入")}>
           {state.configMode === "provider"
             ? automatic.map((agent) => (
-                <ReviewRow key={agent.id} label={agent.name} value={state.status?.paths[`${agent.id}_config`] || "由 Agent 官方配置合约决定"} />
+                <ReviewRow key={agent.id} label={agent.name} value={state.status?.paths[`${agent.id}_config`] || t("由 Agent 官方配置合约决定")} />
               ))
-            : <ReviewRow label="模型配置" value="跳过，不覆盖已有设置" muted />}
-          <ReviewRow label="环境摘要" value={state.status?.paths.profile || "~/.oneagent/profile.json"} />
-          {guideOnly.length ? <ReviewRow label="仅引导项目" value={`${guideOnly.length} 个，不写私有配置`} muted /> : null}
+            : <ReviewRow label={t("模型配置")} value={t("跳过，不覆盖已有设置")} muted />}
+          <ReviewRow label={t("环境摘要")} value={state.status?.paths.profile || "~/.oneagent/profile.json"} />
+          {guideOnly.length ? <ReviewRow label={t("仅引导项目")} value={t("{count} 个，不写私有配置", { count: guideOnly.length })} muted /> : null}
         </ReviewGroup>
       </div>
     </PageScaffold>

@@ -1,5 +1,14 @@
 import { expect, test } from "@playwright/test";
 
+test("language selection switches to English and persists", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("combobox", { name: "语言" }).selectOption("en");
+  await expect(page.getByRole("heading", { name: "Environment overview" })).toBeVisible();
+
+  await page.reload();
+  await expect(page.getByRole("combobox", { name: "Language" })).toHaveValue("en");
+});
+
 test("Profile management applies an environment and the overview stays read-only", async ({ page }) => {
   const bindingMethodIDs = new Set<number>();
   page.on("request", (request) => {

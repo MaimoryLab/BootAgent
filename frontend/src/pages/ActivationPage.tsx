@@ -5,11 +5,13 @@ import { api, describeError } from "../backend/api";
 import { AgentProgressRow } from "../components/AgentProgressRow";
 import { LogDisclosure } from "../components/LogDisclosure";
 import { PageScaffold } from "../components/PageScaffold";
+import { useI18n } from "../i18n";
 import { useWizard } from "../state/WizardContext";
 import type { InstallRequest } from "../types/api";
 
 export function ActivationPage() {
   const navigate = useNavigate();
+  const { t } = useI18n();
   const { state, dispatch, secret, refreshStatus } = useWizard();
   const started = useRef(false);
   const [retrying, setRetrying] = useState<string | null>(null);
@@ -53,9 +55,9 @@ export function ActivationPage() {
         await refreshStatus();
       }
     } catch (error) {
-      dispatch({ type: "ACTIVATION_FAILED", message: describeError(error, "激活失败").message });
+      dispatch({ type: "ACTIVATION_FAILED", message: describeError(error, t("激活失败")).message });
     }
-  }, [dispatch, refreshStatus, requestFor, secret, state.selectedAgentIds]);
+  }, [dispatch, refreshStatus, requestFor, secret, state.selectedAgentIds, t]);
 
   useEffect(() => api.onInstallOutput((output) => dispatch({ type: "ACTIVATION_OUTPUT", output })), [dispatch]);
 
@@ -87,7 +89,7 @@ export function ActivationPage() {
         await refreshStatus();
       }
     } catch (error) {
-      dispatch({ type: "ACTIVATION_FAILED", message: describeError(error, "重试失败").message });
+      dispatch({ type: "ACTIVATION_FAILED", message: describeError(error, t("重试失败")).message });
     } finally {
       setRetrying(null);
     }
@@ -96,12 +98,12 @@ export function ActivationPage() {
   const allDone = state.activationState === "success";
   return (
     <PageScaffold
-      title={state.activationState === "loading" ? "正在激活" : allDone ? "激活完成" : "需要处理部分问题"}
-      description={state.activationState === "loading" ? "安装请求同步执行，完成后将显示每个 Agent 的最终状态。" : "每个 Agent 的结果彼此独立，失败项可以单独重试。"}
+      title={state.activationState === "loading" ? t("正在激活") : allDone ? t("激活完成") : t("需要处理部分问题")}
+      description={state.activationState === "loading" ? t("安装请求同步执行，完成后将显示每个 Agent 的最终状态。") : t("每个 Agent 的结果彼此独立，失败项可以单独重试。")}
       onBack={state.activationState === "loading" ? undefined : () => navigate("/setup/review")}
-      primaryLabel={allDone ? "进入总览" : undefined}
+      primaryLabel={allDone ? t("进入总览") : undefined}
       onPrimary={allDone ? () => navigate("/overview") : undefined}
-      footerNote={state.activationState === "loading" ? "请保持此窗口打开" : undefined}
+      footerNote={state.activationState === "loading" ? t("请保持此窗口打开") : undefined}
     >
       <div className="progress-list">
         {state.selectedAgentIds.map((agentId) => {
@@ -124,7 +126,7 @@ export function ActivationPage() {
           the overview a user opens every day. */}
       {allDone && state.activationNext ? (
         <section className="next-command-section">
-          <h2>下一步命令</h2>
+          <h2>{t("下一步命令")}</h2>
           <pre>{state.activationNext}</pre>
         </section>
       ) : null}

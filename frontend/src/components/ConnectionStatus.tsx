@@ -1,14 +1,16 @@
 import { AlertCircle, CheckCircle2, LoaderCircle, Radio, ShieldAlert } from "lucide-react";
 
+import { useI18n } from "../i18n";
 import type { AsyncState } from "../state/wizardReducer";
 import type { ProbeResponse } from "../types/api";
 
 export function ConnectionStatus({ state, result }: { state: AsyncState; result: ProbeResponse | null }) {
+  const { t } = useI18n();
   if (state === "idle") {
     return (
       <div className="inline-status status-idle">
         <Radio size={17} />
-        尚未测试连接
+        {t("尚未测试连接")}
       </div>
     );
   }
@@ -16,7 +18,7 @@ export function ConnectionStatus({ state, result }: { state: AsyncState; result:
     return (
       <div className="inline-status status-loading" role="status">
         <LoaderCircle size={17} className="spin" />
-        正在验证端点和 Key
+        {t("正在验证端点和 Key")}
       </div>
     );
   }
@@ -32,7 +34,7 @@ export function ConnectionStatus({ state, result }: { state: AsyncState; result:
   return (
     <div className={`inline-status ${rejected ? "status-warning" : "status-error"}`} role="alert">
       {rejected ? <ShieldAlert size={17} /> : <AlertCircle size={17} />}
-      {result?.message || "连接失败"}
+      {result?.message || t("连接失败")}
     </div>
   );
 }

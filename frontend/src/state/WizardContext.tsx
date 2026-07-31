@@ -12,6 +12,7 @@ import {
 } from "react";
 
 import { api, describeError } from "../backend/api";
+import { useI18n } from "../i18n";
 import { initialWizardState, wizardReducer, type WizardAction, type WizardState } from "./wizardReducer";
 
 interface SecretStore {
@@ -30,6 +31,7 @@ interface WizardContextValue {
 const WizardContext = createContext<WizardContextValue | null>(null);
 
 export function WizardProvider({ children }: PropsWithChildren) {
+  const { t } = useI18n();
   const [state, dispatch] = useReducer(wizardReducer, initialWizardState);
   const keyRef = useRef("");
 
@@ -48,9 +50,9 @@ export function WizardProvider({ children }: PropsWithChildren) {
     try {
       dispatch({ type: "STATUS_LOADED", status: await api.status() });
     } catch (error) {
-      dispatch({ type: "STATUS_FAILED", message: describeError(error, "无法读取本机状态").message });
+      dispatch({ type: "STATUS_FAILED", message: describeError(error, t("无法读取本机状态")).message });
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void refreshStatus();

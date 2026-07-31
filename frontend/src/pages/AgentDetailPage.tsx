@@ -10,6 +10,7 @@ import { PageScaffold } from "../components/PageScaffold";
 import { ProviderSegment } from "../components/ProviderSegment";
 import { SecureKeyField } from "../components/SecureKeyField";
 import { targetSummary, versionNote } from "../components/AgentManageRow";
+import { useI18n } from "../i18n";
 import { useWizard } from "../state/WizardContext";
 import { PROTOCOL_LABELS } from "../types/api";
 import type { ProbeResponse, ProviderId } from "../types/api";
@@ -18,6 +19,7 @@ export function AgentDetailPage() {
   const { agentId = "" } = useParams();
   const [params] = useSearchParams();
   const navigate = useNavigate();
+  const { locale, t } = useI18n();
   const { state, refreshStatus } = useWizard();
   const status = state.status;
   const agent = status?.agents[agentId];
@@ -45,7 +47,7 @@ export function AgentDetailPage() {
         if (active) setApiKey(entry.api_key);
       })
       .catch((error) => {
-        if (active) setFailure(describeError(error, "无法读取已保存的 API Key").message);
+        if (active) setFailure(describeError(error, t("无法读取已保存的 API Key")).message);
       });
     return () => { active = false; };
   }, [provider, status?.providers]);
@@ -54,19 +56,19 @@ export function AgentDetailPage() {
     return (
       <PageScaffold
         title="Agent"
-        primaryLabel="返回总览"
+        primaryLabel={t("返回总览")}
         onPrimary={() => navigate("/overview")}
       >
         <div className="empty-overview">
-          <strong>找不到可配置的 Agent</strong>
-          <span>{agentId ? `${agentId} 不在可一键配置的范围内。` : "未指定 Agent。"}</span>
+          <strong>{t("找不到可配置的 Agent")}</strong>
+          <span>{agentId ? t("{id} 不在可一键配置的范围内。", { id: agentId }) : t("未指定 Agent。")}</span>
         </div>
       </PageScaffold>
     );
   }
 
-  const version = versionNote(agent);
-  const target = targetSummary(agent, status.providers);
+  const version = versionNote(agent, t);
+  const target = targetSummary(agent, status.providers, t);
   // A configuration OneAgent did not write is the case worth warning about:
   // applying replaces it, and the user may not know it is there. A backup is
   // taken either way, but saying so beforehand is the point.
@@ -99,7 +101,7 @@ export function AgentDetailPage() {
       setProbeState(result.ok ? "success" : "error");
     } catch (error) {
       setProbeState("error");
-      setFailure(describeError(error, "连接测试失败").message);
+      setFailure(describeError(error, t("连接测试失败")).message);
     }
   };
 
@@ -122,7 +124,7 @@ export function AgentDetailPage() {
       setProbe(null);
       void refreshStatus();
     } catch (error) {
-      setFailure(describeError(error, "应用配置失败").message);
+      setFailure(describeError(error, t("应用配置失败")).message);
     } finally {
       setApplying(false);
     }
@@ -131,10 +133,10 @@ export function AgentDetailPage() {
   return (
     <PageScaffold
       title={catalog.name}
-      description={agentTagline(agentId) || undefined}
-      backLabel="返回总览"
+      description={agentTagline(agentId, t) || undefined}
+      backLabel={t("返回总览")}
       onBack={() => navigate("/overview")}
-      primaryLabel={applying ? "应用中" : "应用"}
+      primaryLabel={applying ? t("应用中") : t("应用")}
       onPrimary={() => void apply()}
       primaryDisabled={!canApply}
     >
@@ -144,23 +146,23 @@ export function AgentDetailPage() {
         </span>
         <dl className="detail-facts">
           <div>
-            <dt>当前指向</dt>
+            <dt>{t("当前指向")}</dt>
             <dd>
               {target.text}
               {target.note ? <small className="detail-drift">{target.note}</small> : null}
             </dd>
           </div>
           <div>
-            <dt>版本</dt>
-            <dd className={version?.behind ? "is-behind" : ""}>{version?.text || "未安装"}</dd>
+            <dt>{t("版本")}</dt>
+            <dd className={version?.behind ? "is-behind" : ""}>{version?.text || t("未安装")}</dd>
           </div>
           <div>
-            <dt>配置文件</dt>
+            <dt>{t("配置文件")}</dt>
             <dd>{agent.config || "—"}</dd>
           </div>
           <div>
-            <dt>备份</dt>
-            <dd>{status.backups[agentId] ? "已有历史备份" : "暂无"}</dd>
+            <dt>{t("备份")}</dt>
+            <dd>{status.backups[agentId] ? t("已有历史备份") : t("暂无")}</dd>
           </div>
         </dl>
       </div>
@@ -168,12 +170,13 @@ export function AgentDetailPage() {
       <section className="detail-form">
         {willOverwrite ? (
           <div className="notice notice-warning">
-            <strong>这个 Agent 已有配置，不是 OneAgent 写入的</strong>
+            <strong>{t("这个 Agent 已有配置，不是 OneAgent 写入的")}</strong>
             <span>
-              当前指向 {willOverwrite.baseUrl || "未知端点"}
-              {willOverwrite.model ? ` · ${willOverwrite.model}` : ""}。应用后会被替换，原文件会先备份到同目录的
+              {t("当前指向 {target}。应用后会被替换，原文件会先备份到同目录的", {
+                target: [willOverwrite.baseUrl || t("未知端点"), willOverwrite.model].filter(Boolean).join(" · "),
+              })}
               {" "}
-              <code>*.backup-&lt;时间戳&gt;</code>。
+              <code>*.backup-&lt;{t("时间戳")}&gt;</code>{locale === "en" ? "." : "。"}
             </span>
           </div>
         ) : null}
@@ -204,17 +207,17 @@ export function AgentDetailPage() {
             disabled={!canProbe || probeState === "loading"}
           >
             <FlaskConical size={16} />
-            测试连接
+            {t("测试连接")}
           </button>
           <ConnectionStatus state={probeState} result={probe} />
         </div>
         {catalog.protocol ? (
-          <small className="detail-protocol">将测试 {PROTOCOL_LABELS[catalog.protocol]} 协议</small>
+          <small className="detail-protocol">{t("将测试 {protocol} 协议", { protocol: PROTOCOL_LABELS[catalog.protocol] })}</small>
         ) : null}
 
-        <AdvancedSection hint="可以指定具体模型。留空时由端点的模型列表自动选择，多数情况保持默认即可。">
+        <AdvancedSection hint={t("可以指定具体模型。留空时由端点的模型列表自动选择，多数情况保持默认即可。")}>
           <div className="field-stack">
-            <label htmlFor="detail-model">模型</label>
+            <label htmlFor="detail-model">{t("模型")}</label>
             <input
               id="detail-model"
               className="text-field"
@@ -223,18 +226,18 @@ export function AgentDetailPage() {
                 setModel(event.target.value);
                 resetVerdict();
               }}
-              placeholder="留空则由端点的模型列表自动选择"
+              placeholder={t("留空则由端点的模型列表自动选择")}
             />
           </div>
           {agentId === "claude-code" ? (
             <div className="field-stack">
-              <label htmlFor="detail-small-fast-model">快速小模型</label>
+              <label htmlFor="detail-small-fast-model">{t("快速小模型")}</label>
               <input
                 id="detail-small-fast-model"
                 className="text-field"
                 value={smallFastModel}
                 onChange={(event) => setSmallFastModel(event.target.value)}
-                placeholder="留空则与主模型相同"
+                placeholder={t("留空则与主模型相同")}
               />
             </div>
           ) : null}
@@ -243,7 +246,7 @@ export function AgentDetailPage() {
         {failure ? <p className="agent-manage-error">{failure}</p> : null}
         {applied ? (
           <div className="agent-manage-applied">
-            <strong>已写入配置</strong>
+            <strong>{t("已写入配置")}</strong>
             <span>{applied.restart}</span>
             {applied.next ? <pre>{applied.next}</pre> : null}
           </div>
