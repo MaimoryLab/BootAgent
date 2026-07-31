@@ -1,5 +1,5 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { render, screen } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
 
 import type { AgentCatalogItem, AgentStatus } from "../types/api";
 import { AgentManageRow, compareVersions, isBehind, targetSummary } from "./AgentManageRow";
@@ -27,6 +27,7 @@ function agentStatus(over: Partial<AgentStatus> = {}): AgentStatus {
     lockedVersion: "0.145.0",
     canInstall: true,
     provider: "ppio",
+    profileId: "team",
     model: "deepseek/deepseek-v3",
     baseUrl: "https://api.ppio.com/openai",
     updatedAt: "2026-07-27T00:00:00Z",
@@ -35,7 +36,7 @@ function agentStatus(over: Partial<AgentStatus> = {}): AgentStatus {
   };
 }
 
-function renderRow(over: Partial<AgentStatus> = {}, onOpen = vi.fn()) {
+function renderRow(over: Partial<AgentStatus> = {}, profileName = "团队 PPIO") {
   render(
     <AgentManageRow
       agentId="codex"
@@ -44,23 +45,24 @@ function renderRow(over: Partial<AgentStatus> = {}, onOpen = vi.fn()) {
       providers={{
         ppio: { name: "PPIO", home: "https://ppio.com/", base_url: "https://api.ppio.com/openai" },
       }}
-      onOpen={onOpen}
+      profileName={profileName}
     />,
   );
-  return onOpen;
 }
 
 describe("AgentManageRow", () => {
   it("shows what the Agent is pointed at", () => {
     renderRow();
     expect(screen.getByText("Codex")).toBeTruthy();
-    expect(screen.getByText(/PPIO/)).toBeTruthy();
+    expect(screen.getByText("PPIO", { selector: ".agent-manage-fact > span" })).toBeTruthy();
     expect(screen.getByText(/deepseek\/deepseek-v3/)).toBeTruthy();
+    expect(screen.getByText("团队 PPIO")).toBeTruthy();
   });
 
   it("distinguishes an unconfigured Agent from a configured one", () => {
-    renderRow({ configured: false, provider: null, model: null, baseUrl: null });
-    expect(screen.getByText("未配置")).toBeTruthy();
+    renderRow({ configured: false, provider: null, profileId: null, model: null, baseUrl: null }, "");
+    expect(screen.getAllByText("未记录")).toHaveLength(2);
+    expect(screen.getByText("未绑定")).toBeTruthy();
   });
 
   it("flags a version behind the locked one", () => {
@@ -90,14 +92,11 @@ describe("AgentManageRow", () => {
     expect(isBehind("2.1.220", "2.1.217")).toBe(false);
   });
 
-  it("delegates configuration instead of editing in place", () => {
-    // The form moved to /agents/:agentId. Keeping it here grew the list by a
-    // whole form's height and let several rows sit half-configured at once.
-    const onOpen = renderRow();
+  it("is informational rather than a configuration entry point", () => {
+    renderRow();
     expect(screen.queryByLabelText(/API Key/i)).toBeNull();
     expect(screen.queryByRole("button", { name: /测试连接/ })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: /Codex/ }));
-    expect(onOpen).toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: /Codex/ })).toBeNull();
   });
 });
 

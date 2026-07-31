@@ -60,7 +60,6 @@
   gap: 4px;
 }
 
-.sidebar-primary-action,
 .sidebar-link {
   min-height: 38px;
   padding: 0 10px;
@@ -72,17 +71,6 @@
   text-decoration: none;
   font-size: 13px;
   transition: background-color 140ms ease, color 140ms ease, transform 100ms ease;
-}
-
-.sidebar-primary-action {
-  margin-bottom: 12px;
-  color: #ffffff;
-  background: var(--blue);
-  font-weight: 600;
-}
-
-.sidebar-primary-action:hover {
-  background: var(--blue-hover);
 }
 
 .sidebar-link:hover,
@@ -869,7 +857,6 @@
   .brand-lockup { justify-content: center; padding-inline: 0; }
   .brand-lockup > div,
   .sidebar-link span,
-  .sidebar-primary-action,
   .sidebar-section-label { display: none; }
   .sidebar-link { justify-content: center; padding: 0; }
   .sidebar-link.is-active::before { left: -12px; }
@@ -897,15 +884,15 @@
 
 .agent-manage-list {
   display: grid;
-  gap: 8px;
+  gap: 0;
 }
 
-/* One clickable line. Hierarchy comes from spacing and a single divider, not
-   from stacking a border, a fill and a shadow on every row. */
+/* Static environment facts: one scan line per installed Agent. */
 .agent-manage-row {
   width: 100%;
   padding: 11px 13px;
-  display: flex;
+  display: grid;
+  grid-template-columns: 30px minmax(110px, 1.1fr) repeat(3, minmax(90px, 1fr)) minmax(72px, 0.75fr) auto;
   align-items: center;
   gap: 12px;
   border: 0;
@@ -913,16 +900,11 @@
   background: transparent;
   font: inherit;
   text-align: left;
-  cursor: pointer;
-  transition: background 120ms ease;
 }
 
 .agent-manage-row + .agent-manage-row {
   box-shadow: inset 0 1px 0 var(--border);
 }
-
-.agent-manage-row:hover { background: var(--surface-subtle); }
-.agent-manage-row:active { background: var(--surface-pressed); }
 
 .agent-manage-row > .agent-icon {
   flex-shrink: 0;
@@ -932,30 +914,31 @@
 }
 
 .agent-manage-row > .agent-manage-identity {
-  flex: 1;
   min-width: 0;
   display: grid;
   gap: 2px;
 }
 
-.agent-manage-version {
-  flex-shrink: 0;
-  color: var(--text-tertiary);
-  font-size: 11px;
-}
-
-.agent-manage-version.is-behind { color: var(--orange); }
-
-.agent-manage-cta {
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
+.agent-manage-fact {
+  min-width: 0;
+  display: grid;
   gap: 2px;
-  color: var(--text-secondary);
-  font-size: 11px;
 }
 
-.agent-manage-row:hover .agent-manage-cta { color: var(--blue); }
+.agent-manage-fact small {
+  color: var(--text-tertiary);
+  font-size: 10px;
+}
+
+.agent-manage-fact > span {
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-manage-version.is-behind > span { color: var(--orange); }
 
 .agent-manage-list {
   border-radius: var(--radius-panel);
@@ -1070,14 +1053,16 @@
   font-size: 11px;
 }
 
-/* Provider and template cards share one grid so the two pages read as siblings. */
-.provider-toolbar {
+/* Provider and template management use the same quiet editor rhythm. */
+.provider-toolbar,
+.profile-toolbar {
   margin-bottom: 12px;
   display: flex;
   justify-content: flex-end;
 }
 
-.provider-editor {
+.provider-editor,
+.profile-editor {
   margin-bottom: 14px;
   padding: 14px 0;
   display: grid;
@@ -1088,25 +1073,31 @@
 }
 
 .provider-editor > header,
-.provider-editor > footer {
+.provider-editor > footer,
+.profile-editor > header,
+.profile-editor > footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
 }
 
-.provider-editor > footer .button { min-width: 0; }
+.provider-editor > footer .button,
+.profile-editor > footer .button { min-width: 0; }
 
-.provider-editor-grid {
+.provider-editor-grid,
+.profile-editor-grid {
   min-width: 0;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
 }
 
-.provider-editor-grid > * { min-width: 0; }
+.provider-editor-grid > *,
+.profile-editor-grid > * { min-width: 0; }
 
-.provider-editor-wide { grid-column: 1 / -1; }
+.provider-editor-wide,
+.profile-editor-wide { grid-column: 1 / -1; }
 
 .icon-button {
   width: 30px;
@@ -1267,6 +1258,25 @@
 
 .profile-key.has-key { color: var(--green); }
 
+.profile-title {
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+}
+
+.profile-title small {
+  color: var(--text-tertiary);
+  font-size: 10px;
+}
+
+.profile-card-actions {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .profile-target {
   margin: 0;
   color: var(--text-secondary);
@@ -1277,6 +1287,29 @@
   margin: 0;
   color: var(--text-tertiary);
   font-size: 11px;
+}
+
+.profile-card footer {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.profile-key-hint {
+  margin: 5px 0 0;
+  color: var(--text-tertiary);
+  font-size: 11px;
+}
+
+.profile-agent-picker {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.profile-agent-picker legend {
+  margin-bottom: 7px;
+  font-size: 13px;
+  font-weight: 600;
 }
 
 /* Every interactive target clears the same minimum height, so a row, a button
@@ -1347,7 +1380,17 @@
 .agent-manage-cta.is-static { color: var(--text-tertiary); }
 
 @media (max-width: 600px) {
-  .provider-editor-grid { grid-template-columns: minmax(0, 1fr); }
-  .provider-editor-wide { grid-column: auto; }
+  .provider-editor-grid,
+  .profile-editor-grid { grid-template-columns: minmax(0, 1fr); }
+  .provider-editor-wide,
+  .profile-editor-wide { grid-column: auto; }
   .provider-card footer { align-items: flex-start; flex-direction: column; }
+
+  .agent-manage-row {
+    grid-template-columns: 30px minmax(0, 1fr) auto;
+    align-items: start;
+  }
+
+  .agent-manage-row > .status-badge { grid-column: 3; grid-row: 1; }
+  .agent-manage-fact { grid-column: 2 / 4; }
 }

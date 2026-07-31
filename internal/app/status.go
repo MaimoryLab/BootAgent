@@ -172,6 +172,7 @@ type AgentStatus struct {
 	LockedVersion *string         `json:"lockedVersion"`
 	CanInstall    bool            `json:"canInstall"`
 	Provider      *string         `json:"provider"`
+	ProfileID     *string         `json:"profileId"`
 	Model         *string         `json:"model"`
 	BaseURL       *string         `json:"baseUrl"`
 	UpdatedAt     *string         `json:"updatedAt"`
@@ -256,9 +257,10 @@ func (u *UseCases) GetStatus(ctx context.Context) (StatusResponse, error) {
 			version := agent.Package.Version
 			lockedVersion = &version
 		}
-		var boundProvider, boundModel, boundBaseURL, boundUpdatedAt *string
+		var boundProvider, boundProfileID, boundModel, boundBaseURL, boundUpdatedAt *string
 		if binding, ok := bindings[id]; ok {
 			boundProvider = nonEmptyPointer(binding.Provider)
+			boundProfileID = nonEmptyPointer(binding.ProfileRef)
 			boundModel = nonEmptyPointer(binding.Model)
 			boundBaseURL = nonEmptyPointer(binding.BaseURL)
 			boundUpdatedAt = nonEmptyPointer(binding.UpdatedAt)
@@ -280,6 +282,7 @@ func (u *UseCases) GetStatus(ctx context.Context) (StatusResponse, error) {
 			LockedVersion: lockedVersion,
 			CanInstall:    canInstall,
 			Provider:      boundProvider,
+			ProfileID:     boundProfileID,
 			Model:         boundModel,
 			BaseURL:       boundBaseURL,
 			UpdatedAt:     boundUpdatedAt,
@@ -406,10 +409,28 @@ func (u *UseCases) SaveProfile(ctx context.Context, options SaveProfileOptions) 
 		return ProfileSummary{}, err
 	}
 	if options.APIKey == "" {
-		options.APIKey = target.APIKey
+		preserveStoredKey := false
+		for _, item := range u.profiles.List() {
+			if item.ID == options.ID && item.Provider == options.Provider {
+				preserveStoredKey = true
+				break
+			}
+		}
+		if preserveStoredKey {
+			storedKey, readErr := u.profiles.ReadSecret(ctx, options.ID)
+			if readErr != nil {
+				return ProfileSummary{}, readErr
+			}
+			preserveStoredKey = storedKey != ""
+		}
+		if !preserveStoredKey {
+			options.APIKey = target.APIKey
+		}
 	}
-	if err := u.providers.SaveKey(ctx, options.Provider, options.APIKey); err != nil {
-		return ProfileSummary{}, err
+	if options.APIKey != "" {
+		if err := u.providers.SaveKey(ctx, options.Provider, options.APIKey); err != nil {
+			return ProfileSummary{}, err
+		}
 	}
 	stored, err := u.profiles.Save(ctx, profileStore.SaveRequest{
 		ID:         options.ID,

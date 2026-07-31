@@ -134,8 +134,38 @@ func TestInstallAgentsWritesAllManagedAdaptersAndPublishesProfileLast(t *testing
 		t.Fatal("API key leaked through install result")
 	}
 	active := core.profiles.LoadActive()
-	if active.Profile == nil || len(active.Profile.AgentIDs) != 5 {
+	if active.Profile == nil || active.ID != "default" || len(active.Profile.AgentIDs) != 5 {
 		t.Fatalf("active profile = %#v", active)
+	}
+	if binding, err := core.profiles.ReadAgentBinding("codex"); err != nil || binding == nil || binding.ProfileRef != "default" {
+		t.Fatalf("default profile binding = %#v, %v", binding, err)
+	}
+}
+
+func TestInstallAgentsAppliesNamedProfileWithItsSavedKey(t *testing.T) {
+	home := t.TempDir()
+	runner := &installAppRunner{paths: map[string]string{"codex": "/fake/codex"}}
+	core := installCore(t, home, runner, nil)
+	if _, err := core.SaveProfile(context.Background(), SaveProfileOptions{
+		ID: "team", Label: "Team", Provider: "ppio", APIKey: "profile-secret", Model: "model-a", AgentIDs: []string{"codex"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	options := installOptions("codex")
+	options.APIKey = ""
+	options.ProfileID = "team"
+	result, err := core.InstallAgents(context.Background(), options)
+	if err != nil || !result.OK {
+		t.Fatalf("named profile install = %#v, %v", result, err)
+	}
+	active := core.profiles.LoadActive()
+	binding, bindingErr := core.profiles.ReadAgentBinding("codex")
+	if active.ID != "team" || bindingErr != nil || binding == nil || binding.ProfileRef != "team" {
+		t.Fatalf("named profile state = active %#v, binding %#v, %v", active, binding, bindingErr)
+	}
+	env, err := os.ReadFile(filepath.Join(home, ".oneagent", "agents", "codex.env"))
+	if err != nil || !strings.Contains(string(env), "profile-secret") {
+		t.Fatalf("named profile credential was not applied: %q, %v", env, err)
 	}
 }
 

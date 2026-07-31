@@ -29,6 +29,7 @@ function statusWith(agents: Record<string, string | null>): StatusResponse {
           lockedVersion: "1.0.0",
           canInstall: true,
           provider,
+          profileId: null,
           model: provider ? "some-model" : null,
           baseUrl: null,
           updatedAt: null,

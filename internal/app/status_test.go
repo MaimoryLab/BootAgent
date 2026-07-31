@@ -185,6 +185,17 @@ func TestSaveProfileUseCaseWritesOnlyPublicSummary(t *testing.T) {
 	if summary.ID != "team" || !summary.HasKey || !reflect.DeepEqual(summary.AgentIDs, []string{"codex", "opencode"}) {
 		t.Fatalf("saved summary = %#v", summary)
 	}
+	if err := core.providers.SaveKey(context.Background(), "ppio", "new-provider-key"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := core.SaveProfile(context.Background(), SaveProfileOptions{
+		ID: "team", Label: "Renamed", Provider: "ppio", Model: "model-b", AgentIDs: []string{"codex"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if key, err := core.profiles.ReadSecret(context.Background(), "team"); err != nil || key != "sk-secret" {
+		t.Fatalf("blank profile edit replaced its saved key: %q, %v", key, err)
+	}
 	status, err := core.GetStatus(context.Background())
 	if err != nil || len(status.Profiles) != 1 || status.Profiles[0].ID != "team" {
 		t.Fatalf("status after save = %#v, err=%v", status, err)
@@ -211,7 +222,7 @@ func TestStatusProjectsAgentBindingsWithoutUnknownFields(t *testing.T) {
 		t.Fatal(err)
 	}
 	agent := status.Agents["codex"]
-	if agent.Provider == nil || *agent.Provider != "ppio" || agent.Model == nil || *agent.Model != "model-a" || agent.BaseURL == nil || *agent.BaseURL != "https://api.ppio.com/responses" || agent.UpdatedAt == nil || *agent.UpdatedAt != "updated" {
+	if agent.Provider == nil || *agent.Provider != "ppio" || agent.ProfileID == nil || *agent.ProfileID != "team" || agent.Model == nil || *agent.Model != "model-a" || agent.BaseURL == nil || *agent.BaseURL != "https://api.ppio.com/responses" || agent.UpdatedAt == nil || *agent.UpdatedAt != "updated" {
 		t.Fatalf("agent binding projection = %#v", agent)
 	}
 	wire, err := json.Marshal(status)

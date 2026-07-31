@@ -55,6 +55,7 @@ function renderPage() {
             lockedVersion: item.lockedVersion,
             canInstall: !item.guideOnly,
             provider: null,
+            profileId: null,
             model: null,
             baseUrl: null,
             updatedAt: null,

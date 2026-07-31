@@ -73,6 +73,11 @@ func TestSaveProfileIsolatesSecretAndPreservesHistory(t *testing.T) {
 	if updated.Label != "Team PPIO" || updated.CreatedAt != created || updated.Model == nil || *updated.Model != "model-b" || !updated.HasKey {
 		t.Fatalf("updated profile = %#v", updated)
 	}
+	if _, err := store.Save(context.Background(), SaveRequest{
+		ID: "ppio-deepseek", Provider: "novita", Model: "model-b", AgentIDs: []string{"codex"},
+	}); err == nil || oneerrors.As(err).Code != oneerrors.InvalidRequest {
+		t.Fatalf("provider change without a new key returned %v", err)
+	}
 	assertProfileMode(t, profilePath, 0o600)
 	assertProfileMode(t, secretPath, 0o600)
 }

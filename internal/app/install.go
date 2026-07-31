@@ -38,8 +38,8 @@ type InstallAgentsOptions struct {
 	Timeout        time.Duration
 	Registry       string
 	Output         process.OutputListener
-	// ProfileID is optional. It is used only as the binding's profile reference;
-	// the active profile store keeps its existing/default id semantics.
+	// ProfileID is optional. A configured install without one keeps the current
+	// profile ID, or uses "default" on the first run.
 	ProfileID string
 }
 
@@ -163,8 +163,29 @@ func (u *UseCases) validateInstall(ctx context.Context, manifest catalog.Manifes
 	if err != nil {
 		return options, err
 	}
+	profileID := strings.TrimSpace(options.ProfileID)
+	if profileID != "" {
+		if err := profileStore.ValidateID(profileID); err != nil {
+			return options, err
+		}
+		options.ProfileID = profileID
+	}
 	if options.APIKey == "" {
-		options.APIKey = target.APIKey
+		if profileID != "" {
+			options.APIKey, err = u.profiles.ReadSecret(ctx, profileID)
+			if err != nil {
+				return options, err
+			}
+		}
+		if options.APIKey == "" {
+			options.APIKey = target.APIKey
+		}
+	}
+	if options.Configure && options.ProfileID == "" {
+		options.ProfileID = u.profiles.LoadActive().ID
+		if options.ProfileID == "" {
+			options.ProfileID = "default"
+		}
 	}
 	profileAgents := append([]string(nil), options.ProfileAgents...)
 	if len(profileAgents) == 0 {
@@ -475,6 +496,7 @@ func (r *installRun) finish(ctx context.Context, baseURL string) InstallAgentsRe
 	probeOK := chosen == nil || chosen.OK
 	if !failed && probeOK && !r.options.CheckAgentOnly {
 		if _, err := r.core.profiles.WriteActive(ctx, profileStore.ActiveRequest{
+			ProfileID: r.options.ProfileID,
 			Agents:    r.options.ProfileAgents,
 			Configure: r.options.Configure,
 			Provider:  r.options.Provider,

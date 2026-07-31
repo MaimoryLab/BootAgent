@@ -1,5 +1,3 @@
-import { ChevronRight } from "lucide-react";
-
 import type { AgentCatalogItem, AgentStatus, StatusResponse } from "../types/api";
 import { AgentIcon, agentTagline } from "./icons/agents";
 import { StatusBadge } from "./StatusBadge";
@@ -79,49 +77,46 @@ export function targetSummary(
 }
 
 /**
- * One row in the overview: what this Agent points at, nothing editable.
- *
- * Configuration lives on /agents/:agentId. Editing inline used to grow the list
- * by the height of a whole form, let several rows sit half-configured at once,
- * and left no room for the file paths and backup state a detail view can show.
+ * One read-only row in the environment overview.
  */
 export function AgentManageRow({
   agentId,
   catalog,
   status,
   providers,
-  onOpen,
+  profileName,
 }: {
   agentId: string;
   catalog: AgentCatalogItem | undefined;
   status: AgentStatus;
   providers: Providers;
-  onOpen: () => void;
+  profileName: string;
 }) {
   const version = versionNote(status);
   const target = targetSummary(status, providers);
-  const configuredSomehow =
-    Boolean(status.provider) || Boolean(status.detected?.baseUrl) || Boolean(status.detected?.model);
-  const action = !status.installed ? "安装并配置" : configuredSomehow ? "改配置" : "配置";
+  const providerName = status.provider
+    ? providers[status.provider]?.name || status.provider
+    : status.detected?.baseUrl || "未记录";
+  const model = status.model || status.detected?.model || "未记录";
 
   return (
-    <button className="agent-manage-row" type="button" onClick={onOpen}>
+    <div className="agent-manage-row" data-testid={`agent-${agentId}`}>
       <span className="agent-icon" title={agentTagline(agentId) || undefined}>
         <AgentIcon agentId={agentId} size={18} />
       </span>
       <span className="agent-manage-identity">
         <strong>{catalog?.name || agentId}</strong>
-        <span className="agent-manage-target">{target.text}</span>
         {target.note ? <small className="agent-manage-note">{target.note}</small> : null}
       </span>
-      {version ? <span className={`agent-manage-version${version.behind ? " is-behind" : ""}`}>{version.text}</span> : null}
+      <span className="agent-manage-fact"><small>Provider</small><span title={providerName}>{providerName}</span></span>
+      <span className="agent-manage-fact"><small>Profile</small><span title={status.profileId || undefined}>{profileName || "未绑定"}</span></span>
+      <span className="agent-manage-fact"><small>模型</small><span title={model}>{model}</span></span>
+      <span className={`agent-manage-fact agent-manage-version${version?.behind ? " is-behind" : ""}`}>
+        <small>版本</small><span>{version?.text || "未知"}</span>
+      </span>
       <StatusBadge tone={status.installed ? "success" : "warning"}>
         {status.installed ? "已安装" : "待安装"}
       </StatusBadge>
-      <span className="agent-manage-cta">
-        {action}
-        <ChevronRight size={15} aria-hidden="true" />
-      </span>
-    </button>
+    </div>
   );
 }

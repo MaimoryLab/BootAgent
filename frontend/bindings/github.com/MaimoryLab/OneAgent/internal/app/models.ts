@@ -17,6 +17,7 @@ export interface AgentStatus {
     "lockedVersion": string | null;
     "canInstall": boolean;
     "provider": string | null;
+    "profileId": string | null;
     "model": string | null;
     "baseUrl": string | null;
     "updatedAt": string | null;

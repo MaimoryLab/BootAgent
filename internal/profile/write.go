@@ -26,6 +26,7 @@ type SaveRequest struct {
 }
 
 type ActiveRequest struct {
+	ProfileID string
 	Agents    []string
 	Configure bool
 	Provider  string
@@ -60,6 +61,9 @@ func (s Store) Save(ctx context.Context, request SaveRequest) (Profile, error) {
 		return Profile{}, err
 	}
 	existing := s.existing(request.ID)
+	if existing.ID != "" && existing.Provider != request.Provider && request.APIKey == "" {
+		return Profile{}, oneerrors.New(oneerrors.InvalidRequest, "API key is required when changing a Profile provider")
+	}
 	now := s.clock().UTC().Format(time.RFC3339)
 	label := strings.TrimSpace(request.Label)
 	if label == "" {
@@ -110,9 +114,17 @@ func (s Store) WriteActive(ctx context.Context, request ActiveRequest) (string, 
 	if currentResult.Profile != nil {
 		current = *currentResult.Profile
 	}
-	profileID := "default"
-	if current.ID != "" {
-		profileID = current.ID
+	profileID := strings.TrimSpace(request.ProfileID)
+	if profileID != "" {
+		if err := ValidateID(profileID); err != nil {
+			return "", err
+		}
+		current = s.existing(profileID)
+	} else {
+		profileID = "default"
+		if current.ID != "" {
+			profileID = current.ID
+		}
 	}
 	var baseURL *string
 	var model *string
