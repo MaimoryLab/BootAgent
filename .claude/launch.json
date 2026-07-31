@@ -7,6 +7,16 @@
       "runtimeArgs": ["scripts/gui.py", "--port", "8765", "--no-open"],
       "port": 8765,
       "url": "http://127.0.0.1:8765"
+    },
+    {
+      "name": "oneagent-site",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": [
+        "-c",
+        "cd site && SITE_URL=http://localhost:4322 npm run dev -- --port 4322"
+      ],
+      "port": 4322,
+      "url": "http://localhost:4322"
     }
   ]
 }

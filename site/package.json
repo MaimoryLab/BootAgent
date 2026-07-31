@@ -12,7 +12,8 @@
     "test:e2e": "playwright test",
     "preview": "astro preview",
     "validate": "node scripts/validate-build.mjs",
-    "test:all": "npm test && npm run build && npm run test:e2e"
+    "test:all": "npm test && npm run build && npm run test:dev-base && npm run test:e2e",
+    "test:dev-base": "npm run prepare:data && node scripts/verify-dev-base.mjs"
   },
   "dependencies": {
     "@astrojs/sitemap": "3.7.3",

@@ -21,18 +21,20 @@ const {
   image = "images/oneagent-overview.jpg",
   noindex = false,
 } = Astro.props;
-const canonical = new URL(Astro.url.pathname, Astro.site ?? Astro.url.origin);
+const canonicalOrigin = Astro.site ?? Astro.url.origin;
+const canonical = new URL(Astro.url.pathname, canonicalOrigin);
 // Only pages that exist in both languages get alternates; pointing hreflang at
 // an unbuilt path would advertise a 404 to crawlers.
 const route = routeWithoutLocale(Astro.url.pathname);
 const alternates = translatedRoutes.has(route)
   ? locales.map((code) => ({
       code,
-      href: new URL(localePath(code, route), Astro.site ?? Astro.url.origin).toString(),
+      href: new URL(localePath(code, route), canonicalOrigin).toString(),
     }))
   : [];
-const baseUrl = new URL(import.meta.env.BASE_URL, Astro.site ?? Astro.url.origin);
-const imageUrl = new URL(image.replace(/^\/+/, ""), baseUrl);
+const runtimeBaseUrl = new URL(import.meta.env.BASE_URL, Astro.url.origin);
+const canonicalBaseUrl = new URL(import.meta.env.BASE_URL, canonicalOrigin);
+const imageUrl = new URL(image.replace(/^\/+/, ""), canonicalBaseUrl);
 const preview = releaseIndexData.channels.find((channel) => channel.channel === "technical-preview-unsigned");
 const availableSystems = preview?.targets
   .filter((target) => target.status === "available")
@@ -76,7 +78,7 @@ const structuredData = {
       })();
     </script>
     {noindex && <meta name="robots" content="noindex" />}
-    <base href={baseUrl.toString()} />
+    <base href={runtimeBaseUrl.toString()} />
     <link rel="canonical" href={canonical} />
     {alternates.map((alternate) => (
       <link rel="alternate" hreflang={alternate.code} href={alternate.href} />
