@@ -218,6 +218,8 @@ class SiteCatalogTests(unittest.TestCase):
                                 "group": "auto",
                                 "config_mode": "auto",
                                 "config_adapter": "codex",
+                                "command": "managed",
+                                "config_path": ".managed/config.json",
                                 "rank": 2,
                                 "platforms": ["macos"],
                                 "package": {"version": "1.0.0", "source": "https://example.com", "license": "MIT"},
@@ -264,6 +266,8 @@ class SiteCatalogTests(unittest.TestCase):
         self.assertIsNone(guided["protocol"])
         managed = catalog["agents"][1]
         self.assertEqual(managed["protocol"], "responses")
+        self.assertEqual(managed["command"], "managed")
+        self.assertEqual(managed["configPath"], ".managed/config.json")
         self.assertTrue(managed["support"]["managedInstall"])
         self.assertTrue(managed["support"]["managedConfig"])
         self.assertEqual(catalog["providers"][0]["relationship"], "referral")

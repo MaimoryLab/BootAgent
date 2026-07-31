@@ -61,12 +61,22 @@ def build_site_catalog(lock_path: Path, providers_path: Path) -> dict[str, Any]:
         adapter = str(meta.get("config_adapter") or "")
         managed_install = config_mode == "auto" and package is not None
         managed_config = config_mode == "auto" and bool(adapter)
+        command_value = meta.get("command")
+        command = command_value.strip() if isinstance(command_value, str) and command_value.strip() else None
+        config_path_value = meta.get("config_path")
+        config_path = config_path_value.strip() if isinstance(config_path_value, str) and config_path_value.strip() else None
+        if config_mode == "auto" and command is None:
+            raise SiteCatalogError(f"Agent {agent_id}.command must be a non-empty string")
+        if managed_config and config_path is None:
+            raise SiteCatalogError(f"Agent {agent_id}.config_path must be a non-empty string")
         agents.append(
             {
                 "id": agent_id,
                 "name": str(meta.get("name") or agent_id),
                 "group": str(meta.get("group") or "other"),
                 "rank": int(meta.get("rank", 99)),
+                "command": command,
+                "configPath": config_path,
                 "platforms": [str(value) for value in meta.get("platforms", [])],
                 "lockedVersion": str(package.get("version")) if package and package.get("version") else None,
                 "source": str(package.get("source")) if package and package.get("source") else None,
@@ -117,7 +127,7 @@ def build_site_catalog(lock_path: Path, providers_path: Path) -> dict[str, Any]:
     providers.sort(key=lambda provider: (provider["order"], provider["name"]))
 
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "groups": AGENT_GROUPS,
         "agents": agents,
         "providers": providers,
