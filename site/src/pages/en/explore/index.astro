@@ -1,0 +1,21 @@
+---
+import CompatibilityExplorer from "../../../components/CompatibilityExplorer.astro";
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+---
+<BaseLayout
+  title="AI development environment Explorer — OneAgent"
+  description="Explore OneAgent agent compatibility by platform, install path, configuration mode, protocol, provider and illustrative environment state."
+>
+  <section class="page-hero">
+    <div class="shell page-hero-grid">
+      <div>
+        <p class="eyebrow">Agent × Provider × Protocol</p>
+        <h1 class="page-title">Move from a compatibility catalog to an explicit activation path.</h1>
+      </div>
+      <p class="lede">Capabilities come from the real repository catalog; machine state is explicitly illustrative. Filter combinations, inspect details and preserve the selection in a shareable URL.</p>
+    </div>
+  </section>
+  <section class="section section-compact">
+    <div class="shell"><CompatibilityExplorer /></div>
+  </section>
+</BaseLayout>

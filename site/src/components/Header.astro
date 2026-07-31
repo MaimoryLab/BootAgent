@@ -12,14 +12,15 @@ const href = (path: string) => localePath(bestLocaleFor(locale, path), path);
 const nav = [
   { path: "downloads/", label: t("nav.downloads") },
   { path: "quickstart/", label: t("nav.quickstart") },
-  { path: "agents/", label: t("nav.agents") },
-  { path: "providers/", label: t("nav.providers") },
+  { path: "explore/", label: t("nav.explorer") },
   { path: "security/", label: t("nav.security") },
 ];
 // Compared on the locale-stripped route so /en/agents/ marks the same item as
 // /agents/ rather than matching on a substring of the full path.
 const route = routeWithoutLocale(pathname);
-const active = (path: string) => route === path;
+const active = (path: string) =>
+  route === path ||
+  (path === "explore/" && (route === "agents/" || route.startsWith("agents/") || route === "providers/" || route.startsWith("providers/")));
 ---
 <header class="site-header">
   <div class="shell header-inner">
@@ -36,7 +37,7 @@ const active = (path: string) => route === path;
       <a class="header-link" href={href("enterprise/")}>{t("nav.enterprise")}</a>
       <LocaleSwitch />
       <ThemeToggle />
-      <a class="button button-small button-primary" href={href("downloads/")}>{t("cta.download")}</a>
+      <a class:list={["button", "button-small", route === "" ? "button-secondary" : "button-primary"]} href={href("downloads/")}>{t("cta.download")}</a>
       <details class="mobile-menu">
         <summary aria-label={t("nav.openMenu")}>{t("nav.menu")}</summary>
         <nav aria-label={t("nav.mobile")}>

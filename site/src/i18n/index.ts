@@ -43,7 +43,7 @@ export function localePath(locale: Locale, path = ""): string {
  * — which validate-build.mjs fails the build over. Add a route here in the same
  * change that adds its translation.
  */
-export const translatedRoutes = new Set(["", "downloads/", "quickstart/"]);
+export const translatedRoutes = new Set(["", "downloads/", "quickstart/", "explore/"]);
 
 /** Resolves a link to the current locale when translated, Chinese otherwise. */
 export function bestLocaleFor(locale: Locale, route: string): Locale {
