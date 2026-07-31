@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-test("the onboarding flow uses generated Wails bindings", async ({ page }) => {
+test("startup opens the overview and onboarding uses generated Wails bindings", async ({ page }) => {
   const bindingMethodIDs = new Set<number>();
   page.on("request", (request) => {
     const path = new URL(request.url()).pathname;
@@ -10,8 +10,8 @@ test("the onboarding flow uses generated Wails bindings", async ({ page }) => {
   });
 
   await page.goto("/");
-  await expect(page.getByRole("link", { name: "Start with OneAgent" })).toBeVisible();
-  await page.getByRole("link", { name: "Start with OneAgent" }).click();
+  await expect(page.getByRole("heading", { name: "环境总览" })).toBeVisible();
+  await page.getByRole("button", { name: "开始配置" }).click();
 
   await expect(page.getByRole("heading", { name: "选择 Agent" })).toBeVisible();
   await page.getByLabel("选择 Codex").check();
