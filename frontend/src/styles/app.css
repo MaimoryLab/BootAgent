@@ -1,20 +1,16 @@
 .desktop-stage {
-  width: 100vw;
-  height: 100vh;
-  padding: 18px;
+  width: 100%;
+  height: 100%;
 }
 
 .app-window {
   width: 100%;
   height: 100%;
-  min-height: 680px;
+  min-height: 0;
   display: grid;
   grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
   overflow: hidden;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-window);
   background: var(--window-bg);
-  box-shadow: var(--shadow-window);
 }
 
 .navigation-sidebar {
@@ -784,7 +780,7 @@
 .summary-item strong { overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
 
 .overview-section {
-  max-width: 900px;
+  width: 100%;
   margin-top: 26px;
 }
 
@@ -851,7 +847,6 @@
 
 @media (max-width: 1180px) {
   :root { --sidebar-width: 204px; }
-  .desktop-stage { padding: 12px; }
   .page-header { padding: 22px 30px 16px; }
   .page-body { padding: 20px 30px 28px; }
   .page-footer { padding: 0 30px; }
@@ -872,8 +867,6 @@
 }
 
 @media (max-height: 760px) {
-  .desktop-stage { padding: 8px; }
-  .app-window { min-height: 0; }
   .page-header { padding-top: 18px; padding-bottom: 13px; }
   .page-header h1 { font-size: 23px; }
   .setup-stepper { margin-top: 14px; }
@@ -997,7 +990,12 @@
 .detail-form {
   display: grid;
   gap: 12px;
-  max-width: 560px;
+  width: 100%;
+}
+
+.detail-form .provider-segment {
+  width: 100%;
+  max-width: none;
 }
 
 .detail-protocol {

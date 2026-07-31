@@ -50,8 +50,9 @@ test("serves its own stylesheet and Agent marks rather than 404ing on them", asy
   expect(missing, "every asset the page asks for must exist").toEqual([]);
   // A stylesheet that failed to load leaves the UA default, not this palette.
   await expect(page.locator("body")).toHaveCSS("background-color", "rgb(244, 243, 239)");
+  await page.waitForFunction(() => [...document.images].every((image) => image.complete));
   const brokenMarks = await page.evaluate(
-    () => document.images.length && [...document.images].filter((image) => !image.complete || image.naturalWidth === 0).length,
+    () => document.images.length && [...document.images].filter((image) => image.naturalWidth === 0).length,
   );
   expect(brokenMarks, "Agent marks must render").toBe(0);
 });
