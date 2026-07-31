@@ -1,11 +1,12 @@
 import { Eye, EyeOff, KeyRound } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export function SecureKeyField({ value, onChange }: { value: string; onChange: (value: string) => void }) {
   const [visible, setVisible] = useState(false);
   // The wizard keeps the key in a ref, not in state, so the parent gives no
   // re-render guarantee per keystroke; echo must come from local state.
   const [draft, setDraft] = useState(value);
+  useEffect(() => setDraft(value), [value]);
   return (
     <div className="field-stack">
       <label htmlFor="api-key">API Key</label>
@@ -27,7 +28,7 @@ export function SecureKeyField({ value, onChange }: { value: string; onChange: (
           {visible ? <EyeOff size={17} /> : <Eye size={17} />}
         </button>
       </div>
-      <small>密钥只发送到当前本机服务，并写入确认页列出的本地配置。</small>
+      <small>密钥只发送到当前本机服务，并保存在本机私有配置中。</small>
     </div>
   );
 }

@@ -34,7 +34,7 @@ Pure Go CLI --------------------^      Astro site ---- release metadata
 - `frontend/`：React 应用；发行包只携带构建后的静态资源。
 - `site/`：独立 Astro 公开站，不进入桌面包体。
 - `agents.lock.json`：Agent 版本、来源、配置适配器和许可证的唯一清单。
-- `providers.lock.json`：Provider 端点、fallback probe model 和公开站披露字段的唯一清单。
+- `providers.lock.json`：内置 Provider 端点、fallback probe model 和公开站披露字段清单；桌面端用户 Provider 保存在本机 `~/.oneagent/providers.json`。
 
 ## 快速启动
 
@@ -93,7 +93,7 @@ npm run test:e2e
 
 OpenClaw、Hermes、Cursor、Kiro、Gemini CLI、Cline、Continue、Qwen Code 和 Kilo VS Code 仅提供官方安装引导，不安装包、不写私有配置、不启动后台服务。
 
-支持 PPIO、Novita 和 Custom。配置后按 Agent 实际协议探测：Codex 使用 `/v1/responses`，Claude Code 使用 `/v1/messages`，其余自动配置 Agent 使用 `/v1/chat/completions`。协议不兼容时返回 `PROTOCOL_UNSUPPORTED`，不会先写入不可用配置。
+内置 PPIO、Novita，并支持在 Provider 页面增删改用户 Provider。配置后按 Agent 实际协议探测：Codex 使用 `/v1/responses`，Claude Code 使用 `/v1/messages`，其余自动配置 Agent 使用 `/v1/chat/completions`。协议不兼容时返回 `PROTOCOL_UNSUPPORTED`，不会先写入不可用配置。
 
 Aider 的安装命令由 Go 后端固定为 `uv tool install --force --python python3.12 --no-python-downloads ...`。这条路径只在选择 Aider 时执行；缺少 `uv` 或 Python 3.12 会返回 `PREREQUISITE_MISSING`。
 

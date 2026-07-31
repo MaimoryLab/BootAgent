@@ -1,5 +1,5 @@
 import { ExternalLink, FlaskConical, Link2 } from "lucide-react";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { api, describeError } from "../backend/api";
@@ -14,13 +14,26 @@ import type { ProtocolId, ProviderId } from "../types/api";
 export function ProviderKeyPage() {
   const navigate = useNavigate();
   const { state, dispatch, secret } = useWizard();
-  const providerMeta = state.provider === "custom" ? null : state.status?.providers[state.provider];
-  const apiBaseUrl = state.provider === "custom" ? state.customBaseUrl : providerMeta?.base_url || "";
-  const canProbe = state.hasApiKey && (state.provider !== "custom" || Boolean(state.customBaseUrl.trim()));
+  const providerMeta = state.status?.providers[state.provider];
+  const apiBaseUrl = providerMeta?.base_url || "";
+  const canProbe = state.hasApiKey;
   // Continuing requires a successful probe, not just a non-empty key: a wrong
   // key must not reach the model step. canProbe stays separate so the test
   // button remains clickable while the verdict is still outstanding.
   const canContinue = canProbe && state.connectionState === "success";
+
+  useEffect(() => {
+    if (!providerMeta?.has_key) return;
+    let active = true;
+    void api.getProvider(state.provider)
+      .then((entry) => {
+        if (active) secret.setApiKey(entry.api_key);
+      })
+      .catch((error) => {
+        if (active) dispatch({ type: "CONNECTION_FAILED", failure: describeError(error, "无法读取已保存的 API Key") });
+      });
+    return () => { active = false; };
+  }, [dispatch, providerMeta?.has_key, secret.setApiKey, state.provider]);
   // The selected Agents decide which protocols get tested; a model that serves
   // Chat Completions may still refuse Responses, so do not imply a single one.
   const protocols = useMemo(() => {
@@ -39,6 +52,7 @@ export function ProviderKeyPage() {
   }, [apiBaseUrl, protocols]);
 
   const changeProvider = (provider: ProviderId) => {
+    secret.clearApiKey();
     dispatch({ type: "SET_PROVIDER", value: provider });
   };
 
@@ -47,7 +61,7 @@ export function ProviderKeyPage() {
     try {
       const result = await api.probe({
         provider: state.provider,
-        apiBaseUrl: state.provider === "custom" ? state.customBaseUrl : "",
+        apiBaseUrl: "",
         apiKey: secret.keyRef.current,
         // A user-supplied ID lets providers without model discovery validate
         // the model that will actually be configured.
@@ -61,7 +75,7 @@ export function ProviderKeyPage() {
   };
 
   const openRegistration = async () => {
-    if (state.provider === "custom") return;
+    if (!providerMeta?.home) return;
     try {
       await api.openRegister(state.provider, state.selectedAgentIds);
     } catch (error) {
@@ -80,34 +94,26 @@ export function ProviderKeyPage() {
       primaryDisabled={!canContinue || state.connectionState === "loading"}
       footerNote={endpoint ? <span className="endpoint-note"><Link2 size={14} />{endpoint}</span> : undefined}
     >
-      <ProviderSegment value={state.provider} onChange={changeProvider} />
+      <ProviderSegment
+        value={state.provider}
+        providers={state.status?.providers ?? {}}
+        onAdd={() => navigate(`/providers/new?returnTo=${encodeURIComponent("/setup/provider")}`)}
+        onChange={changeProvider}
+      />
 
       <div className="provider-form">
-        {state.provider === "custom" ? (
-          <div className="field-stack">
-            <label htmlFor="custom-base-url">Base URL</label>
-            <input
-              id="custom-base-url"
-              className="text-field"
-              value={state.customBaseUrl}
-              onChange={(event) => dispatch({ type: "SET_CUSTOM_BASE", value: event.target.value })}
-              placeholder="https://models.example.com/openai"
-              inputMode="url"
-            />
-            <small>支持 HTTP/HTTPS，包括用户主动配置的本机地址；URL 不能包含账号或密码。</small>
+        <div className="provider-identity-row">
+          <div>
+            <strong>{providerMeta?.name}</strong>
+            <span>{providerMeta?.base_url}</span>
           </div>
-        ) : (
-          <div className="provider-identity-row">
-            <div>
-              <strong>{providerMeta?.name}</strong>
-              <span>{providerMeta?.base_url}</span>
-            </div>
+          {providerMeta?.home ? (
             <button className="button button-secondary" type="button" onClick={() => void openRegistration()}>
               <ExternalLink size={15} />
               注册并获取 Key
             </button>
-          </div>
-        )}
+          ) : null}
+        </div>
 
         <div className="field-stack">
           <label htmlFor="provider-model">自定义模型名称（可选）</label>

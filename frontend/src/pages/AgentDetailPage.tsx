@@ -1,5 +1,5 @@
 import { FlaskConical } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import { api, describeError } from "../backend/api";
@@ -23,8 +23,8 @@ export function AgentDetailPage() {
   const agent = status?.agents[agentId];
   const catalog = status?.catalog.find((item) => item.id === agentId);
 
-  const [provider, setProvider] = useState<ProviderId>((agent?.provider as ProviderId) || "ppio");
-  const [customBaseUrl, setCustomBaseUrl] = useState(agent?.provider === "custom" ? agent.baseUrl || "" : "");
+  const initialProvider = agent?.provider && status?.providers[agent.provider] ? agent.provider : "ppio";
+  const [provider, setProvider] = useState<ProviderId>(initialProvider);
   const [apiKey, setApiKey] = useState("");
   const [model, setModel] = useState(agent?.model || "");
   const [smallFastModel, setSmallFastModel] = useState("");
@@ -36,6 +36,19 @@ export function AgentDetailPage() {
   // SecureKeyField echoes from its own state by design, so clearing the value
   // cannot clear the field; remounting it does.
   const [keyFieldId, setKeyFieldId] = useState(0);
+
+  useEffect(() => {
+    if (!status?.providers[provider]?.has_key) return;
+    let active = true;
+    void api.getProvider(provider)
+      .then((entry) => {
+        if (active) setApiKey(entry.api_key);
+      })
+      .catch((error) => {
+        if (active) setFailure(describeError(error, "无法读取已保存的 API Key").message);
+      });
+    return () => { active = false; };
+  }, [provider, status?.providers]);
 
   if (!status || !agent || !catalog || catalog.configMode !== "auto") {
     return (
@@ -61,7 +74,7 @@ export function AgentDetailPage() {
     agent.detected && !agent.detected.managedByOneAgent && !agent.detected.unreadable
       ? agent.detected
       : null;
-  const canProbe = Boolean(apiKey) && (provider !== "custom" || Boolean(customBaseUrl.trim()));
+  const canProbe = Boolean(apiKey);
   const canApply = canProbe && probeState === "success" && !applying;
 
   const resetVerdict = () => {
@@ -77,7 +90,7 @@ export function AgentDetailPage() {
     try {
       const result = await api.probe({
         provider,
-        apiBaseUrl: provider === "custom" ? customBaseUrl : "",
+        apiBaseUrl: "",
         apiKey,
         model,
         agents: [agentId],
@@ -96,7 +109,7 @@ export function AgentDetailPage() {
     try {
       const result = await api.activateAgent(agentId, {
         provider,
-        apiBaseUrl: provider === "custom" ? customBaseUrl : "",
+        apiBaseUrl: "",
         apiKey,
         model,
         profileId: params.get("profile") || undefined,
@@ -166,27 +179,14 @@ export function AgentDetailPage() {
         ) : null}
         <ProviderSegment
           value={provider}
+          providers={status.providers}
+          onAdd={() => navigate(`/providers/new?returnTo=${encodeURIComponent(`/agents/${agentId}`)}`)}
           onChange={(next) => {
             setProvider(next);
+            setApiKey("");
             resetVerdict();
           }}
         />
-        {provider === "custom" ? (
-          <div className="field-stack">
-            <label htmlFor="detail-base-url">Base URL</label>
-            <input
-              id="detail-base-url"
-              className="text-field"
-              value={customBaseUrl}
-              onChange={(event) => {
-                setCustomBaseUrl(event.target.value);
-                resetVerdict();
-              }}
-              placeholder="https://models.example.com/openai"
-              inputMode="url"
-            />
-          </div>
-        ) : null}
         <SecureKeyField
           key={keyFieldId}
           value={apiKey}

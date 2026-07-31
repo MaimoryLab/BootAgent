@@ -105,6 +105,7 @@ function renderPage(agentId = "codex", override?: StatusResponse) {
     <MemoryRouter initialEntries={[`/agents/${agentId}`]}>
       <Routes>
         <Route path="/agents/:agentId" element={<AgentDetailPage />} />
+        <Route path="/providers/new" element={<div>新增页占位</div>} />
         <Route path="/overview" element={<div>总览占位</div>} />
       </Routes>
     </MemoryRouter>,
@@ -128,6 +129,20 @@ describe("AgentDetailPage", () => {
     // Constraint 1: a rejected key must not reach a config file.
     renderPage();
     expect(screen.getByRole("button", { name: /^应用/ }).hasAttribute("disabled")).toBe(true);
+  });
+
+  it("offers user Providers in the configuration menu", () => {
+    const withUserProvider = status();
+    withUserProvider.providers.acme = { name: "Acme", home: "", base_url: "https://api.acme.test", custom: true };
+    renderPage("codex", withUserProvider);
+    expect(screen.getByRole("option", { name: "Acme" })).toBeTruthy();
+    expect(screen.queryByRole("option", { name: "自定义端点" })).toBeNull();
+  });
+
+  it("opens the Provider creation page from the picker", () => {
+    renderPage();
+    fireEvent.click(screen.getByRole("button", { name: "新增 Provider" }));
+    expect(screen.getByText("新增页占位")).toBeTruthy();
   });
 
   it("drops a passing verdict when the key is edited afterwards", async () => {
@@ -264,5 +279,16 @@ describe("AgentDetailPage", () => {
     };
     renderPage("codex", ours);
     expect(screen.queryByText(/不是 OneAgent 写入/)).toBeNull();
+  });
+
+  it("shows the Provider key again when the page is reopened", async () => {
+    const saved = status();
+    saved.providers.ppio.has_key = true;
+    vi.spyOn(api, "getProvider").mockResolvedValue({
+      id: "ppio", name: "PPIO", home: "https://ppio.com/", base_url: "https://api.ppio.com/openai",
+      anthropic_base_url: "https://api.ppio.com/anthropic", api_key: "sk-persisted", built_in: true,
+    });
+    renderPage("codex", saved);
+    await waitFor(() => expect(screen.getByLabelText(/API Key/i)).toHaveValue("sk-persisted"));
   });
 });

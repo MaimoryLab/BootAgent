@@ -69,6 +69,8 @@ type Provider struct {
 	Home             string `json:"home"`
 	BaseURL          string `json:"base_url"`
 	AnthropicBaseURL string `json:"anthropic_base_url,omitempty"`
+	Custom           bool   `json:"custom,omitempty"`
+	HasKey           bool   `json:"has_key,omitempty"`
 	fallbackModel    string
 }
 

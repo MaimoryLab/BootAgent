@@ -1,26 +1,31 @@
-import type { ProviderId } from "../types/api";
+import { Plus } from "lucide-react";
 
-const providers: Array<{ id: ProviderId; label: string }> = [
-  { id: "ppio", label: "PPIO" },
-  { id: "novita", label: "Novita" },
-  { id: "custom", label: "自定义" },
-];
+import type { ProviderId, StatusResponse } from "../types/api";
 
-export function ProviderSegment({ value, onChange }: { value: ProviderId; onChange: (value: ProviderId) => void }) {
+export function ProviderSegment({
+  value,
+  providers,
+  onAdd,
+  onChange,
+}: {
+  value: ProviderId;
+  providers: StatusResponse["providers"];
+  onAdd: () => void;
+  onChange: (value: ProviderId) => void;
+}) {
   return (
-    <div className="provider-segment" role="radiogroup" aria-label="模型服务">
-      {providers.map((provider) => (
-        <button
-          key={provider.id}
-          type="button"
-          role="radio"
-          aria-checked={value === provider.id}
-          className={value === provider.id ? "is-selected" : ""}
-          onClick={() => onChange(provider.id)}
-        >
-          {provider.label}
+    <div className="provider-picker">
+      <label htmlFor="provider-select">模型服务</label>
+      <div className="provider-picker-control">
+        <select id="provider-select" value={value} onChange={(event) => onChange(event.target.value)}>
+          {Object.entries(providers)
+            .sort(([first], [second]) => first.localeCompare(second))
+            .map(([id, provider]) => <option key={id} value={id}>{provider.name}</option>)}
+        </select>
+        <button className="provider-add-button" type="button" onClick={onAdd} aria-label="新增 Provider" title="新增 Provider">
+          <Plus size={17} />
         </button>
-      ))}
+      </div>
     </div>
   );
 }

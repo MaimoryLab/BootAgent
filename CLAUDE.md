@@ -5,7 +5,7 @@
 ## 目录
 
 - `internal/app`：Status、Provider、Agent、Profile 用例和写入协调锁。
-- `internal/catalog`：嵌入的 `agents.lock.json`、`providers.lock.json` 与 Provider 目录。
+- `internal/catalog`：嵌入的 `agents.lock.json`、`providers.lock.json` 与内置 Provider 目录。
 - `internal/config`：TOML/JSON/JSONC 适配器、配置发现和 golden fixtures。
 - `internal/install`：锁定包安装、registry/integrity 校验和 Aider 外部前置条件。
 - `internal/profile`、`internal/securefs`：profile、secret、备份、权限和原子写。
@@ -15,7 +15,7 @@
 - `frontend/bindings`：Wails 生成物，禁止手工编辑。
 - `site`：独立 Astro 公开站。
 
-`providers.lock.json` 是 Provider 端点、fallback model 和公开站商业披露字段的唯一真源。
+`providers.lock.json` 是内置 Provider 端点、fallback model 和公开站商业披露字段的真源；用户 Provider 与内置覆盖保存在 `~/.oneagent/providers.json`。
 
 ## 本地命令
 
@@ -54,7 +54,7 @@ go run ./cmd/oneagent-provider-smoke --provider all --timeout 30s
 - `agents.lock.json` 是 Agent 元数据唯一真源。新增自动配置 Agent 时先补 lock，再添加对应 config adapter 和 Go 测试。
 - 子进程必须使用 argv 数组和受控环境，设置超时并保留可诊断但已脱敏的输出。
 - 写入顺序必须是私有目录、备份、同目录临时文件、收紧权限、原子替换；密钥备份无法收紧时删除并失败。
-- 不把 API Key 写入 profile、binding、日志、URL、React state、浏览器存储或测试附件。
+- 不把 API Key 写入普通 profile、状态摘要、日志、URL、全局 React state、浏览器存储或测试附件；仅 Provider 编辑/配置表单可通过本机 binding 按需读取私有存储中的 Key。
 - Provider 按 Agent 协议探测；`/v1/models` 不能替代 Responses、Anthropic Messages 或 Chat Completions 检查。
 - Wails 生产构建不能使用 `server` tag；浏览器 E2E 才能使用 server/e2e fake runner。
 - Linux 发行构建固定使用 `gtk3` tag，Wails Alpha 阶段只允许 `technical-preview-unsigned`。

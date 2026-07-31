@@ -159,6 +159,13 @@ func (u *UseCases) validateInstall(ctx context.Context, manifest catalog.Manifes
 	if strings.TrimSpace(options.Provider) == "" {
 		options.Provider = "ppio"
 	}
+	target, err := u.providers.Resolve(options.Provider, options.APIBaseURL)
+	if err != nil {
+		return options, err
+	}
+	if options.APIKey == "" {
+		options.APIKey = target.APIKey
+	}
 	profileAgents := append([]string(nil), options.ProfileAgents...)
 	if len(profileAgents) == 0 {
 		profileAgents = append([]string(nil), options.Agents...)
@@ -185,12 +192,12 @@ func (u *UseCases) validateInstall(ctx context.Context, manifest catalog.Manifes
 	}
 	if strings.TrimSpace(options.Model) == "" {
 		if options.SkipTest {
-			options.Model = provider.FallbackProbeModel(options.Provider)
+			options.Model = target.FallbackModel
 		} else {
 			if u.provider == nil {
 				return options, oneerrors.New(oneerrors.InternalError, "Model discovery is not configured", oneerrors.WithStatus(501))
 			}
-			model, err := u.provider.ResolveProbeModel(ctx, options.Provider, options.APIKey, "", options.APIBaseURL)
+			model, err := u.resolveProviderModel(ctx, target, options.APIKey, "")
 			if err != nil {
 				return options, err
 			}
@@ -207,14 +214,15 @@ func (u *UseCases) prepareInstallCredentials(ctx context.Context, options Instal
 	if options.APIKey == "" {
 		return "", "", oneerrors.New(oneerrors.InvalidRequest, "API key is required")
 	}
-	baseURL, err = provider.ProviderBase(options.Provider, options.APIBaseURL)
+	if err := u.providers.SaveKey(ctx, options.Provider, options.APIKey); err != nil {
+		return "", "", err
+	}
+	target, err := u.providers.Resolve(options.Provider, options.APIBaseURL)
 	if err != nil {
 		return "", "", err
 	}
-	providerName = "Custom"
-	if definition, found := catalog.ProviderByID(options.Provider); found {
-		providerName = definition.Name
-	}
+	baseURL = target.BaseURL
+	providerName = target.Name
 	wroteAny := false
 	for _, agentID := range autoAgents {
 		agent := manifest.Agents[agentID]
@@ -243,6 +251,10 @@ func (u *UseCases) probeInstallProtocols(ctx context.Context, options InstallAge
 	if !options.Configure || len(autoAgents) == 0 || options.SkipTest || options.CheckAgentOnly {
 		return probes, nil
 	}
+	target, err := u.providers.Resolve(options.Provider, options.APIBaseURL)
+	if err != nil {
+		return nil, err
+	}
 	protocols := make(map[string]bool)
 	for _, agentID := range autoAgents {
 		protocols[provider.ProtocolForAdapter(manifest.Agents[agentID].ConfigAdapter)] = true
@@ -256,7 +268,7 @@ func (u *UseCases) probeInstallProtocols(ctx context.Context, options InstallAge
 		if u.provider == nil {
 			return nil, oneerrors.New(oneerrors.InternalError, "Provider probing is not configured", oneerrors.WithStatus(501))
 		}
-		verdict, err := u.provider.Probe(ctx, protocolID, options.Provider, options.APIKey, options.Model, options.APIBaseURL)
+		verdict, err := u.provider.Probe(ctx, protocolID, "custom", options.APIKey, options.Model, target.BaseFor(protocolID))
 		if err != nil {
 			return nil, err
 		}
@@ -277,7 +289,11 @@ func (u *UseCases) sharpenInstallModelDiagnosis(ctx context.Context, probes map[
 	if !failing || u.provider == nil {
 		return
 	}
-	listing, err := u.provider.ListModels(ctx, options.Provider, options.APIKey, options.APIBaseURL)
+	target, err := u.providers.Resolve(options.Provider, options.APIBaseURL)
+	if err != nil {
+		return
+	}
+	listing, err := u.provider.ListModels(ctx, "custom", options.APIKey, target.BaseURL)
 	if err != nil || !listing.OK || len(listing.Models) == 0 {
 		return
 	}
@@ -386,10 +402,11 @@ func (r *installRun) configure(ctx context.Context, agentID string, agent catalo
 			failure := oneerrors.New(code, fmt.Sprintf("%s: %s", agent.Name, verdict.Message), oneerrors.WithRetryable(verdict.Retryable))
 			return failure
 		}
-		configBase, err := provider.ProviderConfigBase(r.options.Provider, r.options.APIBaseURL, protocolID)
+		target, err := r.core.providers.Resolve(r.options.Provider, r.options.APIBaseURL)
 		if err != nil {
 			return err
 		}
+		configBase := target.BaseFor(protocolID)
 		configPathValue = configPath(r.core.status.Home, r.core.status.Platform.OS, agent)
 		if configPathValue == "" {
 			return oneerrors.New(oneerrors.ConfigWriteFailed, fmt.Sprintf("Managed Agent %s has no configuration path", agentID))

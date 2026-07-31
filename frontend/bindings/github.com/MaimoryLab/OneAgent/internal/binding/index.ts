@@ -24,5 +24,8 @@ export type {
     OpenRegistrationResponse,
     ProbeRequest,
     ProbeResponse,
-    SaveProfileRequest
+    ProviderIDRequest,
+    ProviderMutationResponse,
+    SaveProfileRequest,
+    SaveProviderRequest
 } from "./models.js";

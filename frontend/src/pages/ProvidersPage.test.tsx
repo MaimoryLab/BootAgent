@@ -1,7 +1,8 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { api } from "../backend/api";
 import type { StatusResponse } from "../types/api";
 import { ProvidersPage } from "./ProvidersPage";
 
@@ -72,6 +73,8 @@ function renderPage(agents: Record<string, string | null>) {
 }
 
 describe("ProvidersPage", () => {
+  afterEach(() => vi.restoreAllMocks());
+
   it("lists each Provider with its endpoint", () => {
     renderPage({ codex: "ppio" });
     expect(screen.getByText("PPIO")).toBeTruthy();
@@ -94,10 +97,57 @@ describe("ProvidersPage", () => {
     expect(screen.getByTestId("provider-novita").textContent).toMatch(/暂无/);
   });
 
-  it("states that a custom endpoint is the user's responsibility", () => {
-    // ADR-003 puts protocol compatibility on the user for Custom; the UI has to
+  it("states that a user Provider is the user's responsibility", () => {
+    // ADR-003 puts protocol compatibility on the user; the UI has to
     // say it rather than leave it in a document.
     renderPage({ codex: "ppio" });
-    expect(screen.getByText(/自定义/)).toBeTruthy();
+    expect(screen.getByText(/用户 Provider/)).toBeTruthy();
+  });
+
+  it("loads the saved API key when editing and sends updates", async () => {
+    const entry = {
+      id: "ppio", name: "PPIO", home: "https://ppio.com/", base_url: "https://api.ppio.com/openai",
+      anthropic_base_url: "https://api.ppio.com/anthropic", api_key: "sk-saved", built_in: true,
+    };
+    vi.spyOn(api, "getProvider").mockResolvedValue(entry);
+    const save = vi.spyOn(api, "saveProvider").mockResolvedValue(entry);
+    renderPage({ codex: "ppio" });
+
+    fireEvent.click(screen.getByRole("button", { name: "编辑 PPIO" }));
+    await waitFor(() => expect(screen.getByLabelText("API Key")).toHaveValue("sk-saved"));
+    fireEvent.change(screen.getByLabelText("名称"), { target: { value: "PPIO Cloud" } });
+    fireEvent.click(screen.getByRole("button", { name: /^保存$/ }));
+
+    await waitFor(() => expect(save).toHaveBeenCalledWith(expect.objectContaining({ id: "ppio", name: "PPIO Cloud", api_key: "sk-saved" })));
+  });
+
+  it("adds a Provider from the management page", async () => {
+    const save = vi.spyOn(api, "saveProvider").mockResolvedValue({
+      id: "acme", name: "Acme", home: "", base_url: "https://api.acme.test",
+      anthropic_base_url: "", api_key: "sk-acme", built_in: false,
+    });
+    renderPage({ codex: null });
+    fireEvent.click(screen.getByRole("button", { name: "新增 Provider" }));
+    fireEvent.change(screen.getByLabelText("Provider ID"), { target: { value: "acme" } });
+    fireEvent.change(screen.getByLabelText("名称"), { target: { value: "Acme" } });
+    fireEvent.change(screen.getByLabelText("OpenAI 兼容 Base URL"), { target: { value: "https://api.acme.test" } });
+    fireEvent.change(screen.getByLabelText("API Key"), { target: { value: "sk-acme" } });
+    fireEvent.click(screen.getByRole("button", { name: /^保存$/ }));
+    await waitFor(() => expect(save).toHaveBeenCalledWith(expect.objectContaining({ id: "acme", base_url: "https://api.acme.test", api_key: "sk-acme" })));
+  });
+
+  it("deletes a user Provider", async () => {
+    renderPage({ codex: null });
+    if (!mockState.status) throw new Error("missing status");
+    mockState.status.providers.acme = { name: "Acme", home: "", base_url: "https://api.acme.test", custom: true };
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    const remove = vi.spyOn(api, "deleteProvider").mockResolvedValue();
+    render(
+      <MemoryRouter>
+        <ProvidersPage />
+      </MemoryRouter>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "删除 Acme" }));
+    await waitFor(() => expect(remove).toHaveBeenCalledWith("acme"));
   });
 });

@@ -32,4 +32,6 @@ export interface Provider {
     "home": string;
     "base_url": string;
     "anthropic_base_url"?: string;
+    "custom"?: boolean;
+    "has_key"?: boolean;
 }

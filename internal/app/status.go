@@ -40,6 +40,7 @@ type StatusOptions struct {
 type UseCases struct {
 	status      StatusOptions
 	provider    *provider.Client
+	providers   provider.Store
 	profiles    profileStore.Store
 	filesystem  securefs.Store
 	runner      process.Runner
@@ -104,6 +105,7 @@ func newUseCases(options StatusOptions, client *provider.Client, profiles profil
 	return &UseCases{
 		status:      options,
 		provider:    client,
+		providers:   provider.NewStore(options.Home, filesystem),
 		profiles:    profiles,
 		filesystem:  filesystem,
 		runner:      runner,
@@ -284,6 +286,10 @@ func (u *UseCases) GetStatus(ctx context.Context) (StatusResponse, error) {
 			Detected:      detected,
 		}
 	}
+	providers, err := u.providers.Public()
+	if err != nil {
+		return StatusResponse{}, err
+	}
 	profiles, activeProfile, environment, environmentError := u.profileStatus(ctx)
 	return StatusResponse{
 		APIVersion:       1,
@@ -292,7 +298,7 @@ func (u *UseCases) GetStatus(ctx context.Context) (StatusResponse, error) {
 		Agents:           statuses,
 		Catalog:          catalog.PublicCatalog(manifest, options.Platform.OS),
 		Groups:           catalog.Groups(),
-		Providers:        catalog.PublicProviders(),
+		Providers:        providers,
 		Mirrors:          catalog.Mirrors(),
 		Paths:            paths,
 		Backups:          backupState(options.Home, options.Platform.OS, manifest),
@@ -395,11 +401,21 @@ func (u *UseCases) SaveProfile(ctx context.Context, options SaveProfileOptions) 
 	}
 	u.writeMu.Lock()
 	defer u.writeMu.Unlock()
+	target, err := u.providers.Resolve(options.Provider, options.APIBaseURL)
+	if err != nil {
+		return ProfileSummary{}, err
+	}
+	if options.APIKey == "" {
+		options.APIKey = target.APIKey
+	}
+	if err := u.providers.SaveKey(ctx, options.Provider, options.APIKey); err != nil {
+		return ProfileSummary{}, err
+	}
 	stored, err := u.profiles.Save(ctx, profileStore.SaveRequest{
 		ID:         options.ID,
 		Label:      options.Label,
 		Provider:   options.Provider,
-		BaseURL:    options.APIBaseURL,
+		BaseURL:    target.BaseURL,
 		APIKey:     options.APIKey,
 		Model:      options.Model,
 		ConfigMode: options.ConfigMode,

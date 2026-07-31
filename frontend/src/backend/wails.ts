@@ -12,8 +12,10 @@ import type {
   ModelsResponse,
   OpenRegistrationResponse,
   ProbeResponse,
+  ProviderEntry,
   ProfileSummary,
   ProviderId,
+  SaveProviderInput,
   StatusResponse,
 } from "../types/api";
 import { OneAgentApiError } from "./errors";
@@ -92,6 +94,12 @@ export const wailsApi = {
       api_base_url: input.apiBaseUrl,
       api_key: input.apiKey,
     })) as Promise<ModelsResponse>,
+  getProvider: (id: string): Promise<ProviderEntry> =>
+    call(() => ProviderService.GetProvider({ id })) as Promise<ProviderEntry>,
+  saveProvider: (input: SaveProviderInput): Promise<ProviderEntry> =>
+    call(() => ProviderService.SaveProvider(input)) as Promise<ProviderEntry>,
+  deleteProvider: (id: string): Promise<void> =>
+    call(() => ProviderService.DeleteProvider({ id })).then(() => undefined),
   install: (input: InstallRequest): Promise<InstallResponse> =>
     call(() => AgentService.Install({
       agents: input.agents,
@@ -110,7 +118,7 @@ export const wailsApi = {
       registry: input.registry ?? "",
       timeout: input.timeout ?? 180,
     })) as Promise<InstallResponse>,
-  openRegister: (provider: Exclude<ProviderId, "custom">, agents: string[]): Promise<OpenRegistrationResponse> =>
+  openRegister: (provider: ProviderId, agents: string[]): Promise<OpenRegistrationResponse> =>
     call(() => ProviderService.OpenRegistration({ provider, agents: agents.length ? agents : null })) as Promise<OpenRegistrationResponse>,
   activateAgent: (
     agentId: string,

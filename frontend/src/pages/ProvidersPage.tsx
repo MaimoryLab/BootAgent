@@ -1,15 +1,86 @@
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, KeyRound, Pencil, Plus, Save, Trash2, X } from "lucide-react";
+import { useState, type FormEvent } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
+import { api, describeError } from "../backend/api";
 import { PageScaffold } from "../components/PageScaffold";
+import { SecureKeyField } from "../components/SecureKeyField";
 import { useWizard } from "../state/WizardContext";
+import type { ProviderEntry } from "../types/api";
 
-export function ProvidersPage() {
-  const { state } = useWizard();
+const emptyProvider: ProviderEntry = {
+  id: "",
+  name: "",
+  home: "",
+  base_url: "",
+  anthropic_base_url: "",
+  api_key: "",
+  built_in: false,
+};
+
+export function ProvidersPage({ create = false }: { create?: boolean }) {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const { state, refreshStatus } = useWizard();
   const status = state.status;
+  const [editor, setEditor] = useState<ProviderEntry | null>(create ? { ...emptyProvider } : null);
+  const [busy, setBusy] = useState(false);
+  const [failure, setFailure] = useState("");
+  const requestedReturn = searchParams.get("returnTo");
+  const returnTo = requestedReturn?.startsWith("/") && !requestedReturn.startsWith("//") ? requestedReturn : "/providers";
+
+  const closeEditor = () => {
+    if (create) navigate(returnTo);
+    else setEditor(null);
+  };
+
+  const edit = async (providerId: string) => {
+    setBusy(true);
+    setFailure("");
+    try {
+      setEditor(await api.getProvider(providerId));
+    } catch (error) {
+      setFailure(describeError(error, "无法读取 Provider").message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const save = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!editor) return;
+    setBusy(true);
+    setFailure("");
+    try {
+      await api.saveProvider(editor);
+      await refreshStatus();
+      if (create) navigate(returnTo);
+      else setEditor(null);
+    } catch (error) {
+      setFailure(describeError(error, "无法保存 Provider").message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const remove = async (providerId: string, name: string) => {
+    if (!window.confirm(`删除 Provider“${name}”？`)) return;
+    setBusy(true);
+    setFailure("");
+    try {
+      await api.deleteProvider(providerId);
+      if (editor?.id === providerId) setEditor(null);
+      await refreshStatus();
+    } catch (error) {
+      setFailure(describeError(error, "无法删除 Provider").message);
+    } finally {
+      setBusy(false);
+    }
+  };
 
   if (!status) {
     return (
-      <PageScaffold title="Provider">
+      <PageScaffold title={create ? "新增 Provider" : "Provider"}>
         <div className="loading-block"><span className="spinner" />正在读取环境状态</div>
       </PageScaffold>
     );
@@ -19,56 +90,117 @@ export function ProvidersPage() {
     status.catalog.find((item) => item.id === agentId)?.name || agentId;
 
   return (
-    <PageScaffold title="Provider" description="内置模型服务与当前指向它们的 Agent。">
-      <div className="provider-list">
+    <PageScaffold title={create ? "新增 Provider" : "Provider"} description="管理模型服务、端点与本机保存的 API Key。">
+      {!create ? (
+        <div className="provider-toolbar">
+          <button className="button button-secondary" type="button" onClick={() => { setEditor({ ...emptyProvider }); setFailure(""); }}>
+            <Plus size={15} />
+            新增 Provider
+          </button>
+        </div>
+      ) : null}
+
+      {editor ? (
+        <form className="provider-editor" onSubmit={(event) => void save(event)}>
+          <header>
+            <strong>{editor.id ? `编辑 ${editor.name || editor.id}` : "新增 Provider"}</strong>
+            <button className="icon-button" type="button" onClick={closeEditor} aria-label="关闭编辑" title="关闭编辑">
+              <X size={16} />
+            </button>
+          </header>
+          <div className="provider-editor-grid">
+            <div className="field-stack">
+              <label htmlFor="provider-id">Provider ID</label>
+              <input
+                id="provider-id"
+                value={editor.id}
+                onChange={(event) => setEditor({ ...editor, id: event.target.value })}
+                pattern="[a-z0-9][a-z0-9-]{0,63}"
+                placeholder="例如 siliconflow"
+                disabled={editor.built_in}
+                required
+              />
+            </div>
+            <div className="field-stack">
+              <label htmlFor="provider-name">名称</label>
+              <input id="provider-name" value={editor.name} onChange={(event) => setEditor({ ...editor, name: event.target.value })} required />
+            </div>
+            <div className="field-stack provider-editor-wide">
+              <label htmlFor="provider-base-url">OpenAI 兼容 Base URL</label>
+              <input id="provider-base-url" type="url" value={editor.base_url} onChange={(event) => setEditor({ ...editor, base_url: event.target.value })} placeholder="https://api.example.com/openai" required />
+            </div>
+            <div className="field-stack provider-editor-wide">
+              <label htmlFor="provider-anthropic-url">Anthropic 兼容 Base URL（可选）</label>
+              <input id="provider-anthropic-url" type="url" value={editor.anthropic_base_url} onChange={(event) => setEditor({ ...editor, anthropic_base_url: event.target.value })} placeholder="https://api.example.com/anthropic" />
+            </div>
+            <div className="field-stack provider-editor-wide">
+              <label htmlFor="provider-home">官网（可选）</label>
+              <input id="provider-home" type="url" value={editor.home} onChange={(event) => setEditor({ ...editor, home: event.target.value })} placeholder="https://example.com/" />
+            </div>
+            <div className="provider-editor-wide">
+              <SecureKeyField value={editor.api_key} onChange={(value) => setEditor({ ...editor, api_key: value })} />
+            </div>
+          </div>
+          <footer>
+            <button className="button button-secondary" type="button" onClick={closeEditor}>取消</button>
+            <button className="button button-primary" type="submit" disabled={busy}>
+              <Save size={15} />
+              {busy ? "保存中" : "保存"}
+            </button>
+          </footer>
+        </form>
+      ) : null}
+
+      {failure ? <p className="agent-manage-error">{failure}</p> : null}
+
+      {!create ? <div className="provider-list">
         {Object.entries(status.providers).map(([providerId, meta]) => {
-          // Reverse lookup from the per-Agent bindings: this is what answers
-          // "which Agents stop working if this endpoint does".
           const users = Object.entries(status.agents)
             .filter(([, agent]) => agent.provider === providerId)
             .map(([agentId]) => agentId);
           return (
             <article className="provider-card" key={providerId} data-testid={`provider-${providerId}`}>
               <header>
-                <strong>{meta.name}</strong>
-                <a className="provider-link" href={meta.home} target="_blank" rel="noreferrer">
-                  <ExternalLink size={13} aria-hidden="true" />
-                  官网
-                </a>
+                <span className="provider-title">
+                  <strong>{meta.name}</strong>
+                  {meta.custom ? <small>用户添加</small> : null}
+                </span>
+                <span className="provider-card-actions">
+                  {meta.home ? (
+                    <a className="provider-link" href={meta.home} target="_blank" rel="noreferrer">
+                      <ExternalLink size={13} aria-hidden="true" />官网
+                    </a>
+                  ) : null}
+                  <button className="icon-button" type="button" onClick={() => void edit(providerId)} aria-label={`编辑 ${meta.name}`} title="编辑">
+                    <Pencil size={14} />
+                  </button>
+                  {meta.custom ? (
+                    <button className="icon-button is-danger" type="button" onClick={() => void remove(providerId, meta.name)} aria-label={`删除 ${meta.name}`} title="删除">
+                      <Trash2 size={14} />
+                    </button>
+                  ) : null}
+                </span>
               </header>
               <dl className="provider-endpoints">
-                <div>
-                  <dt>OpenAI 兼容</dt>
-                  <dd>{meta.base_url}</dd>
-                </div>
-                {meta.anthropic_base_url ? (
-                  <div>
-                    <dt>Anthropic 兼容</dt>
-                    <dd>{meta.anthropic_base_url}</dd>
-                  </div>
-                ) : null}
+                <div><dt>OpenAI 兼容</dt><dd>{meta.base_url}</dd></div>
+                {meta.anthropic_base_url ? <div><dt>Anthropic 兼容</dt><dd>{meta.anthropic_base_url}</dd></div> : null}
               </dl>
               <footer>
                 {users.length ? (
                   <span className="provider-users">
-                    {users.map((agentId) => (
-                      <span className="provider-user-chip" key={agentId}>
-                        {nameOf(agentId)}
-                      </span>
-                    ))}
+                    {users.map((agentId) => <span className="provider-user-chip" key={agentId}>{nameOf(agentId)}</span>)}
                   </span>
-                ) : (
-                  <span className="provider-users is-empty">暂无 Agent 使用</span>
-                )}
+                ) : <span className="provider-users is-empty">暂无 Agent 使用</span>}
+                <span className={`provider-key-state${meta.has_key ? " has-key" : ""}`}>
+                  <KeyRound size={12} />{meta.has_key ? "已保存 Key" : "未保存 Key"}
+                </span>
               </footer>
             </article>
           );
         })}
-      </div>
+      </div> : null}
 
-      <p className="provider-note">
-        也可以为单个 Agent 填写自定义 Base URL。自定义端点的协议兼容性由你自己保证，OneAgent 不会为它降级或改写请求。
-      </p>
+      {!create ? <p className="provider-note">用户 Provider 的协议兼容性由你自己保证，OneAgent 不会为它降级或改写请求。</p> : null}
     </PageScaffold>
   );
 }

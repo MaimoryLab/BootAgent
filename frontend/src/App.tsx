@@ -52,6 +52,7 @@ function WorkspaceRoutes() {
         <Route path="/overview" element={<EnvironmentOverviewPage />} />
         <Route path="/agents/:agentId" element={<AgentDetailPage />} />
         <Route path="/providers" element={<ProvidersPage />} />
+        <Route path="/providers/new" element={<ProvidersPage create />} />
         <Route path="/profiles" element={<ProfilesPage />} />
         <Route path="*" element={<Navigate to="/setup/agents" replace />} />
       </Routes>

@@ -19,7 +19,6 @@ export interface WizardState {
   installMissingAgents: boolean;
   configMode: ConfigMode;
   provider: ProviderId;
-  customBaseUrl: string;
   hasApiKey: boolean;
   connection: ProbeResponse | null;
   connectionState: AsyncState;
@@ -45,7 +44,6 @@ export const initialWizardState: WizardState = {
   installMissingAgents: true,
   configMode: null,
   provider: "ppio",
-  customBaseUrl: "",
   hasApiKey: false,
   connection: null,
   connectionState: "idle",
@@ -69,7 +67,6 @@ export type WizardAction =
   | { type: "SET_INSTALL_MISSING"; value: boolean }
   | { type: "SET_CONFIG_MODE"; value: Exclude<ConfigMode, null> }
   | { type: "SET_PROVIDER"; value: ProviderId }
-  | { type: "SET_CUSTOM_BASE"; value: string }
   | { type: "SET_HAS_API_KEY"; value: boolean }
   | { type: "CONNECTION_LOADING" }
   | { type: "CONNECTION_RESULT"; result: ProbeResponse }
@@ -153,15 +150,6 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
         modelsState: "idle",
         modelsMessage: "",
         model: "",
-      };
-    case "SET_CUSTOM_BASE":
-      return {
-        ...state,
-        customBaseUrl: action.value,
-        connection: null,
-        connectionState: "idle",
-        models: [],
-        modelsState: "idle",
       };
     case "SET_HAS_API_KEY":
       // Any edit of the key invalidates the previous probe verdict. The reducer

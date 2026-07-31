@@ -49,12 +49,12 @@ func ProviderBase(providerID, customBase string) (string, error) {
 	if providerID == "custom" {
 		return ValidateBaseURL(customBase)
 	}
+	if customBase != "" {
+		return ValidateBaseURL(customBase)
+	}
 	meta, ok := catalog.ProviderByID(providerID)
 	if !ok {
 		return "", oneerrors.New(oneerrors.InvalidRequest, "Provider must be a configured Provider or custom")
-	}
-	if customBase != "" {
-		return ValidateBaseURL(customBase)
 	}
 	return meta.BaseURL, nil
 }

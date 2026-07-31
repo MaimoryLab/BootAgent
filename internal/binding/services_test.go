@@ -43,7 +43,7 @@ func TestServiceMethodAllowlist(t *testing.T) {
 		want    []string
 	}{
 		{&StatusService{}, []string{"GetStatus"}},
-		{&ProviderService{}, []string{"ListModels", "OpenRegistration", "Probe"}},
+		{&ProviderService{}, []string{"DeleteProvider", "GetProvider", "ListModels", "OpenRegistration", "Probe", "SaveProvider"}},
 		{&AgentService{}, []string{"Activate", "Install"}},
 		{&ProfileService{}, []string{"ListProfiles", "SaveProfile"}},
 	}
@@ -83,12 +83,12 @@ func TestStatusServiceRunsNativeSmokeHookAfterSuccess(t *testing.T) {
 	}
 }
 
-func TestOpenRegistrationUsesCatalogURLOnly(t *testing.T) {
+func TestOpenRegistrationUsesConfiguredProviderURL(t *testing.T) {
 	var opened string
-	service := &ProviderService{opener: func(value string) error {
+	service := NewProviderService(providerCore(t, nil), func(value string) error {
 		opened = value
 		return nil
-	}}
+	})
 	response, err := service.OpenRegistration(context.Background(), OpenRegistrationRequest{Provider: "ppio"})
 	if err != nil {
 		t.Fatal(err)
@@ -100,6 +100,38 @@ func TestOpenRegistrationUsesCatalogURLOnly(t *testing.T) {
 	_, err = service.OpenRegistration(context.Background(), OpenRegistrationRequest{Provider: "https://example.com"})
 	if err == nil || oneerrors.As(err).Code != oneerrors.InvalidRequest {
 		t.Fatalf("arbitrary URL was not rejected: %v", err)
+	}
+}
+
+func TestProviderServicePersistsCRUDAndReturnsKeyOnlyOnExplicitRead(t *testing.T) {
+	home := t.TempDir()
+	core := app.NewUseCases(app.StatusOptions{
+		Home: home, Platform: platform.For("linux", "amd64"),
+		Lookup: func(string) (string, bool) { return "", false },
+	})
+	service := NewProviderService(core, nil)
+	request := SaveProviderRequest{
+		ID: "acme", Name: "Acme", Home: "https://acme.test/",
+		BaseURL: "https://api.acme.test/openai", APIKey: "sk-provider",
+	}
+	if saved, err := service.SaveProvider(context.Background(), request); err != nil || saved.ID != "acme" {
+		t.Fatalf("saved Provider = %#v, err=%v", saved, err)
+	}
+	entry, err := service.GetProvider(context.Background(), ProviderIDRequest{ID: "acme"})
+	if err != nil || entry.APIKey != "sk-provider" {
+		t.Fatalf("read Provider = %#v, err=%v", entry, err)
+	}
+	status, err := core.GetStatus(context.Background())
+	wire, marshalErr := json.Marshal(status)
+	if err != nil || marshalErr != nil || strings.Contains(string(wire), "sk-provider") || !status.Providers["acme"].HasKey {
+		t.Fatalf("Provider status leaked key: %s, err=%v/%v", wire, err, marshalErr)
+	}
+	deleted, err := service.DeleteProvider(context.Background(), ProviderIDRequest{ID: "acme"})
+	if err != nil || !deleted.OK {
+		t.Fatalf("delete Provider = %#v, err=%v", deleted, err)
+	}
+	if _, err := service.GetProvider(context.Background(), ProviderIDRequest{ID: "acme"}); err == nil {
+		t.Fatal("deleted Provider was still available")
 	}
 }
 

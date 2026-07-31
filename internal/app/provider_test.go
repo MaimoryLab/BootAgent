@@ -99,3 +99,37 @@ func TestProviderUseCasesHonorCancellationBeforeNetwork(t *testing.T) {
 		t.Fatalf("cancelled call = %v, called=%v", err, called)
 	}
 }
+
+func TestSavedProviderDrivesStatusAndProbeWithoutResendingKey(t *testing.T) {
+	home := t.TempDir()
+	var request *http.Request
+	client := provider.NewClient(appProviderDoer(func(value *http.Request) (*http.Response, error) {
+		request = value
+		return appProviderResponse(http.StatusNoContent, ""), nil
+	}))
+	options := StatusOptions{
+		Home: home, Platform: platform.For("linux", "amd64"),
+		Lookup: func(string) (string, bool) { return "", false },
+	}
+	core := NewUseCasesWithProviderClient(options, client)
+	if _, err := core.SaveProvider(context.Background(), provider.Entry{
+		ID: "acme", Name: "Acme", BaseURL: "https://api.acme.test/openai", APIKey: "saved-key",
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	reloaded := NewUseCasesWithProviderClient(options, client)
+	status, err := reloaded.GetStatus(context.Background())
+	if err != nil || !status.Providers["acme"].Custom || !status.Providers["acme"].HasKey {
+		t.Fatalf("saved Provider status = %#v, err=%v", status.Providers["acme"], err)
+	}
+	result, err := reloaded.ProbeProvider(context.Background(), ProviderProbeOptions{
+		Provider: "acme", Model: "model-a", AgentIDs: []string{"opencode"},
+	})
+	if err != nil || !result.Primary.OK {
+		t.Fatalf("saved Provider probe = %#v, err=%v", result, err)
+	}
+	if request == nil || request.URL.Host != "api.acme.test" || request.Header.Get("Authorization") != "Bearer saved-key" {
+		t.Fatalf("saved Provider request = %#v", request)
+	}
+}

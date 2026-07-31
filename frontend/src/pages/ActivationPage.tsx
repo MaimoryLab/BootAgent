@@ -23,7 +23,7 @@ export function ActivationPage() {
       agents,
       profile_agents: profileAgents,
       provider: state.provider,
-      api_base_url: state.provider === "custom" ? state.customBaseUrl : "",
+      api_base_url: "",
       api_key: state.configMode === "provider" ? secret.keyRef.current : "",
       // SetupGuard guarantees a model in provider mode; existing-account mode
       // sends none and the backend does not write model config for it.
@@ -33,7 +33,7 @@ export function ActivationPage() {
       skip_test: state.configMode !== "provider",
       locked_version: true,
     }),
-    [secret.keyRef, state.configMode, state.customBaseUrl, state.installMissingAgents, state.model, state.provider],
+    [secret.keyRef, state.configMode, state.installMissingAgents, state.model, state.provider],
   );
 
   const activate = useCallback(async () => {

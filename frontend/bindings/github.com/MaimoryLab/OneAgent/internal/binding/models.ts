@@ -111,6 +111,14 @@ export interface ProbeResponse {
     "protocols"?: { [_ in string]?: ProbeResponse } | null;
 }
 
+export interface ProviderIDRequest {
+    "id": string;
+}
+
+export interface ProviderMutationResponse {
+    "ok": boolean;
+}
+
 export interface SaveProfileRequest {
     "id": string;
     "label": string;
@@ -120,4 +128,13 @@ export interface SaveProfileRequest {
     "model": string;
     "config_mode": string;
     "agent_ids": string[] | null;
+}
+
+export interface SaveProviderRequest {
+    "id": string;
+    "name": string;
+    "home": string;
+    "base_url": string;
+    "anthropic_base_url": string;
+    "api_key": string;
 }

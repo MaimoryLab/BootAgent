@@ -81,6 +81,10 @@ func (u *UseCases) ActivateAgent(ctx context.Context, options ActivateAgentOptio
 	if providerID == "" {
 		providerID = "ppio"
 	}
+	target, err := u.providers.Resolve(providerID, options.APIBaseURL)
+	if err != nil {
+		return ActivateAgentResult{}, err
+	}
 	apiKey := options.APIKey
 	profileID := strings.TrimSpace(options.ProfileID)
 	if apiKey == "" && profileID != "" {
@@ -90,36 +94,27 @@ func (u *UseCases) ActivateAgent(ctx context.Context, options ActivateAgentOptio
 		}
 	}
 	if apiKey == "" {
+		apiKey = target.APIKey
+	}
+	if apiKey == "" {
 		return ActivateAgentResult{}, oneerrors.New(oneerrors.InvalidRequest, "API key is required")
 	}
+	if err := u.providers.SaveKey(ctx, providerID, apiKey); err != nil {
+		return ActivateAgentResult{}, err
+	}
 
-	model := strings.TrimSpace(options.Model)
-	if model == "" {
-		if u.provider == nil {
-			return ActivateAgentResult{}, oneerrors.New(oneerrors.InternalError, "Model discovery is not configured", oneerrors.WithStatus(501))
-		}
-		model, err = u.provider.ResolveProbeModel(ctx, providerID, apiKey, "", options.APIBaseURL)
-		if err != nil {
-			return ActivateAgentResult{}, err
-		}
+	model, err := u.resolveProviderModel(ctx, target, apiKey, options.Model)
+	if err != nil {
+		return ActivateAgentResult{}, err
 	}
 	if model == "" {
 		return ActivateAgentResult{}, oneerrors.New(oneerrors.InvalidRequest, "model is required")
 	}
 
-	baseURL, err := provider.ProviderBase(providerID, options.APIBaseURL)
-	if err != nil {
-		return ActivateAgentResult{}, err
-	}
+	baseURL := target.BaseURL
 	protocol := provider.ProtocolForAdapter(agent.ConfigAdapter)
-	configBaseURL, err := provider.ProviderConfigBase(providerID, options.APIBaseURL, protocol)
-	if err != nil {
-		return ActivateAgentResult{}, err
-	}
-	providerName := "Custom"
-	if definition, found := catalog.ProviderByID(providerID); found {
-		providerName = definition.Name
-	}
+	configBaseURL := target.BaseFor(protocol)
+	providerName := target.Name
 	configPath := configPath(u.status.Home, u.status.Platform.OS, agent)
 	if configPath == "" {
 		return ActivateAgentResult{}, oneerrors.New(oneerrors.InvalidRequest, "Managed Agent has no configuration path")

@@ -7,7 +7,19 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import * as provider$0 from "../provider/models.js";
+
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import * as $models from "./models.js";
+
+export function DeleteProvider(request: $models.ProviderIDRequest): $CancellablePromise<$models.ProviderMutationResponse> {
+    return $Call.ByID(116920211, request);
+}
+
+export function GetProvider(request: $models.ProviderIDRequest): $CancellablePromise<provider$0.Entry> {
+    return $Call.ByID(36265922, request);
+}
 
 export function ListModels(request: $models.ModelsRequest): $CancellablePromise<$models.ModelsResponse> {
     return $Call.ByID(1201530915, request);
@@ -19,4 +31,8 @@ export function OpenRegistration(request: $models.OpenRegistrationRequest): $Can
 
 export function Probe(request: $models.ProbeRequest): $CancellablePromise<$models.ProbeResponse> {
     return $Call.ByID(2223638197, request);
+}
+
+export function SaveProvider(request: $models.SaveProviderRequest): $CancellablePromise<provider$0.Entry> {
+    return $Call.ByID(2790810113, request);
 }

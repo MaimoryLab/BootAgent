@@ -26,7 +26,7 @@ export function ReviewPage() {
   );
   const automatic = selectedCatalog.filter((agent) => agent.configMode === "auto");
   const guideOnly = selectedCatalog.filter((agent) => agent.guideOnly);
-  const providerName = state.configMode === "provider" ? state.status?.providers[state.provider]?.name || "自定义" : "已有账号 / 本机配置";
+  const providerName = state.configMode === "provider" ? state.status?.providers[state.provider]?.name || state.provider : "已有账号 / 本机配置";
 
   return (
     <PageScaffold
@@ -55,7 +55,7 @@ export function ReviewPage() {
           {state.configMode === "provider" ? (
             <ReviewRow
               label="Base URL"
-              value={state.provider === "custom" ? state.customBaseUrl : state.status?.providers[state.provider]?.base_url || ""}
+              value={state.status?.providers[state.provider]?.base_url || ""}
             />
           ) : null}
         </ReviewGroup>

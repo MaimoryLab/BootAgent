@@ -1,11 +1,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { InstallResponse, ModelsResponse, ProbeResponse, ProfileSummary, StatusResponse } from "../types/api";
+import type { InstallResponse, ModelsResponse, ProbeResponse, ProfileSummary, ProviderEntry, StatusResponse } from "../types/api";
 
 const bridge = vi.hoisted(() => ({
   status: vi.fn(),
   probe: vi.fn(),
   models: vi.fn(),
+  getProvider: vi.fn(),
+  saveProvider: vi.fn(),
+  deleteProvider: vi.fn(),
   install: vi.fn(),
   register: vi.fn(),
   activate: vi.fn(),
@@ -20,6 +23,9 @@ vi.mock("../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/provider
   Probe: bridge.probe,
   ListModels: bridge.models,
   OpenRegistration: bridge.register,
+  GetProvider: bridge.getProvider,
+  SaveProvider: bridge.saveProvider,
+  DeleteProvider: bridge.deleteProvider,
 }));
 vi.mock("../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/agentservice.js", () => ({
   Install: bridge.install,
@@ -47,6 +53,7 @@ describe("Wails backend adapter", () => {
     const models = { ...probe, models: ["model-a"] } satisfies ModelsResponse;
     const install = { ok: true, code: 0, results: [], log: "", next: "", probe: null } satisfies InstallResponse;
     const profile = { id: "team", label: "Team", provider: "ppio", baseUrl: null, model: "m", agentIds: ["codex"], activatedAt: null, hasKey: true } satisfies ProfileSummary;
+    const provider = { id: "acme", name: "Acme", home: "", base_url: "https://api.acme.test", anthropic_base_url: "", api_key: "secret", built_in: false } satisfies ProviderEntry;
 
     bridge.status.mockResolvedValue(status);
     bridge.probe.mockResolvedValue(probe);
@@ -56,10 +63,16 @@ describe("Wails backend adapter", () => {
     bridge.activate.mockResolvedValue({ ok: true, agent: "codex", config: "/c", provider: "ppio", model: "m", restart: "restart", next: "next" });
     bridge.profiles.mockResolvedValue([profile]);
     bridge.saveProfile.mockResolvedValue(profile);
+    bridge.getProvider.mockResolvedValue(provider);
+    bridge.saveProvider.mockResolvedValue(provider);
+    bridge.deleteProvider.mockResolvedValue({ ok: true });
 
     await expect(wailsApi.status()).resolves.toBe(status);
     await expect(wailsApi.probe({ provider: "custom", apiBaseUrl: "https://proxy.test/v1", apiKey: "secret", model: "m", agents: [] })).resolves.toBe(probe);
     await expect(wailsApi.models({ provider: "ppio", apiBaseUrl: "", apiKey: "secret" })).resolves.toBe(models);
+    await expect(wailsApi.getProvider("acme")).resolves.toBe(provider);
+    await expect(wailsApi.saveProvider({ id: "acme", name: "Acme", home: "", base_url: "https://api.acme.test", anthropic_base_url: "", api_key: "secret" })).resolves.toBe(provider);
+    await expect(wailsApi.deleteProvider("acme")).resolves.toBeUndefined();
     await expect(wailsApi.install({ agents: ["codex"], provider: "ppio", api_key: "secret", model: "m", configure: true, install_agent: false, skip_test: true })).resolves.toBe(install);
     await wailsApi.openRegister("ppio", []);
     await wailsApi.activateAgent("codex", { provider: "ppio", apiBaseUrl: "", apiKey: "secret", model: "m" });
@@ -67,6 +80,8 @@ describe("Wails backend adapter", () => {
     await expect(wailsApi.saveProfile({ id: "team", label: "Team", provider: "ppio", apiBaseUrl: "", apiKey: "secret", model: "m", configMode: "provider", agentIds: ["codex"] })).resolves.toBe(profile);
 
     expect(bridge.probe).toHaveBeenCalledWith({ provider: "custom", api_base_url: "https://proxy.test/v1", api_key: "secret", model: "m", agents: null });
+    expect(bridge.getProvider).toHaveBeenCalledWith({ id: "acme" });
+    expect(bridge.deleteProvider).toHaveBeenCalledWith({ id: "acme" });
     expect(bridge.install).toHaveBeenCalledWith(expect.objectContaining({ agents: ["codex"], profile_agents: null, timeout: 180, latest: false }));
     expect(bridge.register).toHaveBeenCalledWith({ provider: "ppio", agents: null });
     expect(bridge.activate).toHaveBeenCalledWith(expect.objectContaining({ agent_id: "codex", profile_id: "", small_fast_model: "" }));

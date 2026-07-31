@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/MaimoryLab/OneAgent/internal/app"
-	"github.com/MaimoryLab/OneAgent/internal/catalog"
 	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
 	"github.com/MaimoryLab/OneAgent/internal/process"
 	"github.com/MaimoryLab/OneAgent/internal/provider"
@@ -106,25 +105,64 @@ func (s *ProviderService) ListModels(ctx context.Context, request ModelsRequest)
 	return modelsResponse(result), nil
 }
 
+func (s *ProviderService) GetProvider(ctx context.Context, request ProviderIDRequest) (provider.Entry, error) {
+	if err := contextError(ctx); err != nil {
+		return provider.Entry{}, err
+	}
+	if s == nil || s.core == nil {
+		return provider.Entry{}, notReady("Provider service is not configured")
+	}
+	return s.core.GetProvider(ctx, request.ID)
+}
+
+func (s *ProviderService) SaveProvider(ctx context.Context, request SaveProviderRequest) (provider.Entry, error) {
+	if err := contextError(ctx); err != nil {
+		return provider.Entry{}, err
+	}
+	if s == nil || s.core == nil {
+		return provider.Entry{}, notReady("Provider service is not configured")
+	}
+	return s.core.SaveProvider(ctx, provider.Entry{
+		ID: request.ID, Name: request.Name, Home: request.Home,
+		BaseURL: request.BaseURL, AnthropicBaseURL: request.AnthropicBaseURL, APIKey: request.APIKey,
+	})
+}
+
+func (s *ProviderService) DeleteProvider(ctx context.Context, request ProviderIDRequest) (ProviderMutationResponse, error) {
+	if err := contextError(ctx); err != nil {
+		return ProviderMutationResponse{}, err
+	}
+	if s == nil || s.core == nil {
+		return ProviderMutationResponse{}, notReady("Provider service is not configured")
+	}
+	if err := s.core.DeleteProvider(ctx, request.ID); err != nil {
+		return ProviderMutationResponse{}, err
+	}
+	return ProviderMutationResponse{OK: true}, nil
+}
+
 func (s *ProviderService) OpenRegistration(ctx context.Context, request OpenRegistrationRequest) (OpenRegistrationResponse, error) {
 	if err := contextError(ctx); err != nil {
 		return OpenRegistrationResponse{}, err
 	}
-	provider, ok := catalog.ProviderByID(request.Provider)
-	if !ok {
-		return OpenRegistrationResponse{}, oneerrors.New(oneerrors.InvalidRequest, "Registration is only available for an allowlisted Provider")
+	if s == nil || s.core == nil {
+		return OpenRegistrationResponse{}, notReady("Provider service is not configured")
 	}
-	parsed, err := url.Parse(provider.Home)
+	entry, err := s.core.GetProvider(ctx, request.Provider)
+	if err != nil || entry.Home == "" {
+		return OpenRegistrationResponse{}, oneerrors.New(oneerrors.InvalidRequest, "Registration is only available for a Provider with a home URL")
+	}
+	parsed, err := url.Parse(entry.Home)
 	if err != nil || parsed.User != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" {
 		return OpenRegistrationResponse{}, oneerrors.New(oneerrors.InvalidRequest, "Provider registration URL is invalid")
 	}
 	if s == nil || s.opener == nil {
-		return OpenRegistrationResponse{OK: true, URL: provider.Home, Message: "Provider registration URL validated"}, nil
+		return OpenRegistrationResponse{OK: true, URL: entry.Home, Message: "Provider registration URL validated"}, nil
 	}
-	if err := s.opener(provider.Home); err != nil {
+	if err := s.opener(entry.Home); err != nil {
 		return OpenRegistrationResponse{}, oneerrors.New(oneerrors.InternalError, "Unable to open Provider registration", oneerrors.WithStatus(500), oneerrors.WithRetryable(true), oneerrors.WithCause(err))
 	}
-	return OpenRegistrationResponse{OK: true, URL: provider.Home, Message: "Provider registration opened"}, nil
+	return OpenRegistrationResponse{OK: true, URL: entry.Home, Message: "Provider registration opened"}, nil
 }
 
 type AgentService struct {
@@ -259,6 +297,23 @@ type ModelsRequest struct {
 type OpenRegistrationRequest struct {
 	Provider string   `json:"provider"`
 	Agents   []string `json:"agents"`
+}
+
+type ProviderIDRequest struct {
+	ID string `json:"id"`
+}
+
+type SaveProviderRequest struct {
+	ID               string `json:"id"`
+	Name             string `json:"name"`
+	Home             string `json:"home"`
+	BaseURL          string `json:"base_url"`
+	AnthropicBaseURL string `json:"anthropic_base_url"`
+	APIKey           string `json:"api_key"`
+}
+
+type ProviderMutationResponse struct {
+	OK bool `json:"ok"`
 }
 
 type OpenRegistrationResponse struct {

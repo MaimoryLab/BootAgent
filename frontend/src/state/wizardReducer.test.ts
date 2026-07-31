@@ -64,8 +64,6 @@ describe("wizardReducer", () => {
     expect(state.connection).toBeNull();
     expect(state.models).toEqual([]);
     expect(state.model).toBe("");
-    state = wizardReducer(state, { type: "SET_CUSTOM_BASE", value: "http://127.0.0.1:9000" });
-    expect(state.customBaseUrl).toContain("127.0.0.1");
     state = wizardReducer(state, { type: "SET_HAS_API_KEY", value: false });
     expect(state.connectionState).toBe("idle");
   });

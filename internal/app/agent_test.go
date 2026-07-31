@@ -57,6 +57,10 @@ func TestActivateAgentWritesPerAgentStateAndKeepsSecretsOutOfResult(t *testing.T
 	if err != nil || binding == nil || binding.Provider != "ppio" || binding.Model != "model-a" {
 		t.Fatalf("binding = %#v, err=%v", binding, err)
 	}
+	providerEntry, err := core.GetProvider(context.Background(), "ppio")
+	if err != nil || providerEntry.APIKey != "codex-secret" {
+		t.Fatalf("saved Provider key = %#v, err=%v", providerEntry, err)
+	}
 	wire, err := json.Marshal(result)
 	if err != nil || strings.Contains(string(wire), "codex-secret") || strings.Contains(string(wire), "api_key") {
 		t.Fatalf("activation result leaked secret material: %s (%v)", wire, err)

@@ -17,14 +17,14 @@ export function ModelSelectionPage() {
     try {
       const result = await api.models({
         provider: state.provider,
-        apiBaseUrl: state.provider === "custom" ? state.customBaseUrl : "",
+        apiBaseUrl: "",
         apiKey: secret.keyRef.current,
       });
       dispatch({ type: "MODELS_RESULT", result });
     } catch (error) {
       dispatch({ type: "MODELS_FAILED", message: describeError(error, "无法获取模型列表").message });
     }
-  }, [dispatch, secret.keyRef, state.customBaseUrl, state.provider]);
+  }, [dispatch, secret.keyRef, state.provider]);
 
   useEffect(() => {
     // SetupGuard has already verified the key; only model loading lives here.

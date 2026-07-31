@@ -25,4 +25,10 @@ describe("SecureKeyField", () => {
     await userEvent.click(screen.getByRole("button", { name: "隐藏密钥" }));
     expect(input).toHaveAttribute("type", "password");
   });
+
+  it("shows a key loaded after the field opens", () => {
+    const page = render(<SecureKeyField value="" onChange={() => {}} />);
+    page.rerender(<SecureKeyField value="sk-persisted" onChange={() => {}} />);
+    expect(screen.getByLabelText("API Key")).toHaveValue("sk-persisted");
+  });
 });
