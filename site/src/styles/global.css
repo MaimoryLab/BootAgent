@@ -164,6 +164,22 @@ button, select { color: inherit; }
 /* Nav links are inline boxes, so a scale would not apply — press reads through
    the surface instead. */
 .desktop-nav a:active, .header-link:active { background: var(--surface-pressed); transition-duration: 100ms; }
+/* Marks a link whose target has no translation in the current locale. Following
+   it changes language, which is a surprise worth naming before the click rather
+   than after it. Only ever rendered on an English page. */
+.lang-hint {
+  margin-left: 5px;
+  padding: 1px 5px;
+  display: inline-block;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  color: var(--ink-faint);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0;
+  vertical-align: 1px;
+  white-space: nowrap;
+}
 .header-actions { margin-left: auto; display: flex; align-items: center; gap: 7px; }
 .mobile-menu { display: none; position: relative; }
 .mobile-menu summary { list-style: none; cursor: pointer; padding: 7px 9px; font-size: 14px; font-weight: 650; }

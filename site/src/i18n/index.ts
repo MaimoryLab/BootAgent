@@ -50,6 +50,17 @@ export function bestLocaleFor(locale: Locale, route: string): Locale {
   return translatedRoutes.has(route) ? locale : defaultLocale;
 }
 
+/**
+ * True when following this link from `locale` lands on a different language.
+ *
+ * Untranslated routes fall back to Chinese, which is better than a 404 but is a
+ * surprise if nothing says so first. Callers use this to mark the link, so the
+ * language change is visible before the click rather than after it.
+ */
+export function switchesLanguage(locale: Locale, route: string): boolean {
+  return bestLocaleFor(locale, route) !== locale;
+}
+
 /** Strips base and locale, yielding the route shared across languages. */
 export function routeWithoutLocale(pathname: string): string {
   const segments = pathname.split("/").filter(Boolean).slice(baseSegments.length);

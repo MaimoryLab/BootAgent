@@ -1,6 +1,6 @@
 ---
 import BrandMark from "./BrandMark.astro";
-import { bestLocaleFor, localeFromPath, localePath } from "../i18n";
+import { bestLocaleFor, localeFromPath, localePath, switchesLanguage } from "../i18n";
 import { useTranslations } from "../i18n/ui";
 
 const year = new Date().getUTCFullYear();
@@ -9,6 +9,39 @@ const t = useTranslations(locale);
 const href = (path: string) => localePath(bestLocaleFor(locale, path), path);
 // The release index is a single published artifact, not a translated page.
 const releaseIndexHref = `${import.meta.env.BASE_URL}release-index.json`;
+/* Column links, grouped as rendered. A `path` is resolved per locale and gets a
+   hint when the target has no translation; an `href` is an absolute artifact URL
+   that is the same in every locale. */
+type FooterLink = { path: string; label: string } | { href: string; label: string };
+const columns: { heading: string; links: FooterLink[] }[] = [
+  {
+    heading: t("footer.start"),
+    links: [
+      { path: "downloads/", label: t("footer.downloadCenter") },
+      { path: "quickstart/", label: t("nav.quickstart") },
+      { path: "changelog/", label: t("nav.changelog") },
+    ],
+  },
+  {
+    heading: t("footer.capability"),
+    links: [
+      { path: "explore/", label: t("nav.explorer") },
+      { path: "agents/", label: t("footer.agentCatalog") },
+      { path: "providers/", label: t("footer.providerCatalog") },
+      { path: "enterprise/", label: t("nav.enterprise") },
+    ],
+  },
+  {
+    heading: t("footer.trust"),
+    links: [
+      { path: "security/", label: t("footer.securityPrivacy") },
+      { path: "support/", label: t("footer.supportFeedback") },
+      // A published artifact rather than a page: same URL in every locale, so it
+      // is exempt from the locale resolution and the hint.
+      { href: releaseIndexHref, label: t("footer.releaseIndex") },
+    ],
+  },
+];
 ---
 <footer class="site-footer">
   <div class="shell footer-grid">
@@ -20,25 +53,17 @@ const releaseIndexHref = `${import.meta.env.BASE_URL}release-index.json`;
       <p>{t("footer.tagline")}</p>
       <p class="footer-fine">{t("footer.boundary")}</p>
     </div>
-    <div>
-      <strong>{t("footer.start")}</strong>
-      <a href={href("downloads/")}>{t("footer.downloadCenter")}</a>
-      <a href={href("quickstart/")}>{t("nav.quickstart")}</a>
-      <a href={href("changelog/")}>{t("nav.changelog")}</a>
-    </div>
-    <div>
-      <strong>{t("footer.capability")}</strong>
-      <a href={href("explore/")}>{t("nav.explorer")}</a>
-      <a href={href("agents/")}>{t("footer.agentCatalog")}</a>
-      <a href={href("providers/")}>{t("footer.providerCatalog")}</a>
-      <a href={href("enterprise/")}>{t("nav.enterprise")}</a>
-    </div>
-    <div>
-      <strong>{t("footer.trust")}</strong>
-      <a href={href("security/")}>{t("footer.securityPrivacy")}</a>
-      <a href={href("support/")}>{t("footer.supportFeedback")}</a>
-      <a href={releaseIndexHref}>{t("footer.releaseIndex")}</a>
-    </div>
+    {columns.map((column) => (
+      <div>
+        <strong>{column.heading}</strong>
+        {column.links.map((link) => (
+          <a href={"path" in link ? href(link.path) : link.href}>
+            {link.label}
+            {"path" in link && switchesLanguage(locale, link.path) && <span class="lang-hint">{t("nav.chineseOnly")}</span>}
+          </a>
+        ))}
+      </div>
+    ))}
   </div>
   <div class="shell footer-bottom">
     <span>© {year} OneAgent</span>

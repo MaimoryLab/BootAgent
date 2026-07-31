@@ -1,7 +1,7 @@
 ---
 import AgentMark from "./AgentMark.astro";
 import catalogData from "../generated/catalog.json";
-import { bestLocaleFor, localeFromPath, localePath } from "../i18n";
+import { bestLocaleFor, localeFromPath, localePath, switchesLanguage } from "../i18n";
 import { DEMO_CUSTOM_MODEL_HINT, demoStateFor } from "../lib/demo-environment";
 import { recommendedCombination, type SiteCatalogV2 } from "../lib/explorer";
 
@@ -79,6 +79,7 @@ const copy = locale === "en"
       navItems: ["Activate", "Overview", "Providers", "Templates"],
       sidebarNote: "Configuration stays on this machine",
       footerIdle: "The demo never touches this device",
+      chineseOnly: "in Chinese",
     }
   : {
       label: "可操作的产品证据",
@@ -143,6 +144,7 @@ const copy = locale === "en"
       navItems: ["激活环境", "环境总览", "Provider", "配置模板"],
       sidebarNote: "配置只保存在本机",
       footerIdle: "演示不会访问这台设备",
+      chineseOnly: "仅中文",
     };
 ---
 <div class="product-shot activation-shell">
@@ -337,7 +339,10 @@ const copy = locale === "en"
               <div class="activation-result-actions">
                 <a class="button button-primary" href={href("downloads/")} data-ready-action hidden>{copy.download}</a>
                 <a class="button button-secondary" href={href("explore/")} data-explore-action>{copy.explore}</a>
-                <a class="button button-text" href={href("security/")} data-security-action hidden>{copy.security}</a>
+                <a class="button button-text" href={href("security/")} data-security-action hidden>
+                  {copy.security}
+                  {switchesLanguage(locale, "security/") && <span class="lang-hint">{copy.chineseOnly}</span>}
+                </a>
               </div>
             </div>
           </section>

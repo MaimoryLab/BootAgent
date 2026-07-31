@@ -459,6 +459,35 @@ test.describe("english locale", () => {
     }
   });
 
+  // An untranslated route falls back to Chinese rather than 404ing, which is the
+  // right call — but silently swapping the reader's language mid-navigation is
+  // not. Every link that does it has to say so before the click.
+  test("marks links that fall back to Chinese, and only on English pages", async ({ page }) => {
+    await page.goto("/en/");
+    const security = page.locator(".desktop-nav a").filter({ hasText: "Security" });
+    await expect(security).toContainText("in Chinese");
+    await expect(security).toHaveAttribute("href", "/security/");
+
+    // Every link leaving /en/ for an untranslated route carries the hint.
+    const unmarked = await page.evaluate(() => {
+      const translated = ["", "downloads/", "quickstart/", "explore/"];
+      return [...document.querySelectorAll("a[href^='/']")]
+        .filter((link) => {
+          const href = link.getAttribute("href") ?? "";
+          if (href.startsWith("/en/") || /\.(json|txt|webmanifest)$/.test(href)) return false;
+          const route = href.replace(/^\//, "");
+          return !translated.includes(route);
+        })
+        .filter((link) => !link.querySelector(".lang-hint"))
+        .map((link) => link.getAttribute("href"));
+    });
+    expect(unmarked, "these links change language without saying so").toEqual([]);
+
+    // The hint is about leaving English; a Chinese reader is already there.
+    await page.goto("/");
+    await expect(page.locator(".lang-hint")).toHaveCount(0);
+  });
+
   // Switching language has to keep the reader on the page they were reading;
   // dropping them on the home page is the usual failure here.
   test("language switch stays on the equivalent page", async ({ page, viewport }) => {

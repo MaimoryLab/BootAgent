@@ -2,7 +2,7 @@
 import BrandMark from "./BrandMark.astro";
 import ThemeToggle from "./ThemeToggle.astro";
 import LocaleSwitch from "./LocaleSwitch.astro";
-import { bestLocaleFor, localeFromPath, localePath, routeWithoutLocale } from "../i18n";
+import { bestLocaleFor, localeFromPath, localePath, routeWithoutLocale, switchesLanguage } from "../i18n";
 import { useTranslations } from "../i18n/ui";
 
 const pathname = Astro.url.pathname;
@@ -30,20 +30,29 @@ const active = (path: string) =>
     </a>
     <nav class="desktop-nav" aria-label={t("nav.primary")}>
       {nav.map((item) => (
-        <a href={href(item.path)} aria-current={active(item.path) ? "page" : undefined}>{item.label}</a>
+        <a href={href(item.path)} aria-current={active(item.path) ? "page" : undefined}>
+          {item.label}
+          {switchesLanguage(locale, item.path) && <span class="lang-hint">{t("nav.chineseOnly")}</span>}
+        </a>
       ))}
     </nav>
     <div class="header-actions">
-      <a class="header-link" href={href("enterprise/")}>{t("nav.enterprise")}</a>
+      <a class="header-link" href={href("enterprise/")}>
+        {t("nav.enterprise")}
+        {switchesLanguage(locale, "enterprise/") && <span class="lang-hint">{t("nav.chineseOnly")}</span>}
+      </a>
       <LocaleSwitch />
       <ThemeToggle />
       <a class:list={["button", "button-small", route === "" ? "button-secondary" : "button-primary"]} href={href("downloads/")}>{t("cta.download")}</a>
       <details class="mobile-menu">
         <summary aria-label={t("nav.openMenu")}>{t("nav.menu")}</summary>
         <nav aria-label={t("nav.mobile")}>
-          {nav.map((item) => <a href={href(item.path)}>{item.label}</a>)}
-          <a href={href("enterprise/")}>{t("nav.enterprise")}</a>
-          <a href={href("support/")}>{t("nav.support")}</a>
+          {[...nav, { path: "enterprise/", label: t("nav.enterprise") }, { path: "support/", label: t("nav.support") }].map((item) => (
+            <a href={href(item.path)}>
+              {item.label}
+              {switchesLanguage(locale, item.path) && <span class="lang-hint">{t("nav.chineseOnly")}</span>}
+            </a>
+          ))}
         </nav>
       </details>
     </div>

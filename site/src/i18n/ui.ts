@@ -23,6 +23,10 @@ const strings = {
     "nav.primary": "主导航",
     "nav.mobile": "移动端导航",
     "nav.openMenu": "打开导航菜单",
+    /* Only ever shown on an English page, where it warns that the target has no
+       translation yet. A Chinese reader never sees it, but the key exists in both
+       dictionaries so useTranslations stays exhaustive. */
+    "nav.chineseOnly": "仅中文",
     "nav.menu": "菜单",
     "cta.download": "下载预览版",
     "theme.toggle": "切换深色模式",
@@ -59,6 +63,7 @@ const strings = {
     "nav.primary": "Primary navigation",
     "nav.mobile": "Mobile navigation",
     "nav.openMenu": "Open navigation menu",
+    "nav.chineseOnly": "in Chinese",
     "nav.menu": "Menu",
     "cta.download": "Get the preview",
     "theme.toggle": "Toggle dark mode",

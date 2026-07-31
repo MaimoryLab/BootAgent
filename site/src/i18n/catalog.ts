@@ -25,7 +25,7 @@ const catalog = {
     } as Record<string, string>,
     groupLabels: {
       auto: "OneAgent 可管理",
-      gateway: "Gateway Agent",
+      gateway: "网关 Agent",
       platform: "官方账号 Agent",
       ide: "IDE 扩展",
     } as Record<string, string>,
