@@ -541,10 +541,33 @@ const copy = locale === "en"
     },
   } as const;
 
+  /* The unattended walkthrough. Selection steps get a beat long enough to read
+     the panel that just appeared; the two probe steps reuse the timings the
+     manual path already uses, so an autoplayed run and a clicked one look the
+     same rather than one feeling rushed. */
+  type AutoplayStep = { delay: number; run: (element: ActivationConsoleElement) => void };
+  const AUTOPLAY_SCRIPT: AutoplayStep[] = [
+    { delay: 420, run: (element) => element.start() },
+    { delay: 1500, run: (element) => element.selectAgent("claude-code") },
+    { delay: 900, run: (element) => element.selectMode("provider") },
+    { delay: 900, run: (element) => element.selectProvider("ppio") },
+    { delay: 900, run: (element) => element.verify() },
+    { delay: 1100, run: (element) => element.selectModel(element.models[0] ?? "", false) },
+    { delay: 900, run: (element) => element.confirm() },
+  ];
+
   class ActivationConsoleElement extends HTMLElement {
     state: ActivationState = initialActivationState();
     timer: number | null = null;
     abort = new AbortController();
+    /* Autoplay owns the state machine only until the visitor touches it. Both
+       flags are one-way: `autoplaying` suppresses the focus and scroll side
+       effects that would hijack the page, and `autoplayDone` makes takeover and
+       completion permanent so nothing re-arms behind the visitor's back. */
+    autoplaying = false;
+    autoplayDone = false;
+    autoplayTimer: number | null = null;
+    observer: IntersectionObserver | null = null;
 
     connectedCallback() {
       if (this.dataset.initialized === "true") return;
@@ -569,14 +592,88 @@ const copy = locale === "en"
       this.querySelector<HTMLButtonElement>("[data-verify]")?.addEventListener("click", () => this.verify(), { signal });
       this.querySelector<HTMLButtonElement>("[data-reset]")?.addEventListener("click", () => this.reset(), { signal });
       document.querySelectorAll<HTMLButtonElement>(`[data-activation-trigger="${this.id}"]`).forEach((button) => {
-        button.addEventListener("click", () => this.start(), { signal });
+        // The trigger sits in the hero, outside this element, so it misses the
+        // takeover listeners below. Pressing it is the clearest takeover there
+        // is: after autoplay has run it is the replay entry.
+        button.addEventListener("click", () => {
+          this.cancelAutoplay();
+          this.start();
+        }, { signal });
       });
+      /* Any of the three means the visitor is driving. They are captured on the
+         way down so takeover is recorded before the click handler above runs its
+         own step, and they cover the keyboard and screen-reader paths that never
+         produce a pointer event. */
+      for (const type of ["pointerdown", "keydown", "focusin"] as const) {
+        this.addEventListener(type, () => this.cancelAutoplay(), { signal, capture: true });
+      }
       this.render();
+      this.armAutoplay();
     }
 
     disconnectedCallback() {
       if (this.timer !== null) window.clearTimeout(this.timer);
+      if (this.autoplayTimer !== null) window.clearTimeout(this.autoplayTimer);
+      this.observer?.disconnect();
       this.abort.abort();
+    }
+
+    /* Autoplay waits for the console to be half on screen: running it on load
+       would finish before a visitor scrolling down ever saw it. Reduced motion
+       opts out entirely — advancing the interface on its own is motion, and the
+       manual trigger still works.  */
+    armAutoplay() {
+      if (this.reducedMotion || this.dataset.autoplay === "off") return;
+      if (typeof IntersectionObserver !== "function") return;
+      this.observer = new IntersectionObserver((entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          this.observer?.disconnect();
+          this.observer = null;
+          this.startAutoplay();
+        }
+      }, { threshold: 0.5 });
+      this.observer.observe(this);
+    }
+
+    startAutoplay() {
+      if (this.autoplayDone || this.state.phase !== "idle") return;
+      this.autoplaying = true;
+      this.dataset.autoplaying = "true";
+      this.queueAutoplay(0);
+    }
+
+    queueAutoplay(index: number) {
+      const step = AUTOPLAY_SCRIPT[index];
+      if (!step) return this.finishAutoplay();
+      this.autoplayTimer = window.setTimeout(() => {
+        this.autoplayTimer = null;
+        if (!this.autoplaying) return;
+        step.run(this);
+        // A step that lands somewhere the script did not plan for — a catalog
+        // change turning the combination into a gate — stops here rather than
+        // dispatching actions the reducer would reject.
+        if (!this.autoplaying) return;
+        this.queueAutoplay(index + 1);
+      }, step.delay);
+    }
+
+    /** Autoplay reached the end on its own: stop, and never re-arm. */
+    finishAutoplay() {
+      this.autoplaying = false;
+      this.autoplayDone = true;
+      delete this.dataset.autoplaying;
+    }
+
+    /** The visitor took over. Whatever step is showing is where it stays. */
+    cancelAutoplay() {
+      this.observer?.disconnect();
+      this.observer = null;
+      if (this.autoplayTimer !== null) window.clearTimeout(this.autoplayTimer);
+      this.autoplayTimer = null;
+      this.autoplaying = false;
+      this.autoplayDone = true;
+      delete this.dataset.autoplaying;
     }
 
     get locale() {
@@ -600,7 +697,10 @@ const copy = locale === "en"
       if (this.state.phase !== "idle") this.reset(false);
       this.dispatch({ type: "start" });
       this.replaceLog(this.copy.log.scanning);
-      this.scrollIntoView({ behavior: this.reducedMotion ? "auto" : "smooth", block: "center" });
+      // Autoplay only begins once the console is already half on screen, so
+      // scrolling it to centre would move the page out from under a reader who
+      // asked for nothing.
+      if (!this.autoplaying) this.scrollIntoView({ behavior: this.reducedMotion ? "auto" : "smooth", block: "center" });
       this.focusPanel("scanning");
       this.timer = window.setTimeout(() => {
         this.dispatch({ type: "scan-complete" });
@@ -779,7 +879,12 @@ const copy = locale === "en"
       log.scrollTop = log.scrollHeight;
     }
 
+    /* Moving focus is right when the visitor asked for the step — it carries a
+       keyboard user forward. During autoplay nobody asked, so taking focus would
+       pull it out of whatever they were reading or tabbing through. The panels
+       stay an aria-live region either way, so the steps are still announced. */
     focusPanel(name: string) {
+      if (this.autoplaying) return;
       window.requestAnimationFrame(() => this.querySelector<HTMLElement>(`[data-panel="${name}"]`)?.focus({ preventScroll: true }));
     }
 
@@ -1082,6 +1187,15 @@ const copy = locale === "en"
   /* The app keeps every label at 400 and signals the current step through the
      marker fill alone, so the row stays even rather than jumping as you advance. */
   .activation-steps li strong { font-size: 11px; font-weight: 400; }
+  /* The marker fill is the only signal that the step changed, so it is worth
+     easing rather than cutting — it is also what the eye tracks when nobody
+     clicked. Matches the panel's 240ms so the two read as one movement. */
+  @media not (prefers-reduced-motion: reduce) {
+    .activation-steps li { transition: color 240ms ease; }
+    .activation-step-marker {
+      transition: background-color 240ms ease, border-color 240ms ease, color 240ms ease;
+    }
+  }
   .activation-steps li.is-current { color: var(--ink); }
   .activation-steps li.is-current .activation-step-marker {
     border-color: var(--blue-deep);
@@ -1125,6 +1239,36 @@ const copy = locale === "en"
     outline: none;
   }
   .activation-panel:focus-visible { box-shadow: 0 0 0 3px var(--blue-soft); }
+  /* Steps replace each other by toggling [hidden], which is a hard cut. Fading
+     the arriving panel up from slightly below and slightly small reads as one
+     step advancing rather than two panels swapping — and the scale is 0.985, not
+     a slide: this is a product window, not a carousel.
+
+     @starting-style is what makes the entry animate at all: the panel goes from
+     display:none straight to its final state, so without a declared starting
+     value there is nothing to transition from.
+
+     Transform only, deliberately — no fade. Text mid-opacity fails the contrast
+     audit for as long as the transition runs, and this page already holds itself
+     to keeping copy readable while the hero entrance plays. Movement carries the
+     step change without ever rendering the panel's own text at low contrast.
+
+     Only the entry is animated. Transitioning `display` on the way out would
+     keep the outgoing panel in flow for the whole 240ms, and since the panels
+     are siblings in normal flow the console would double in height every step. */
+  @media not (prefers-reduced-motion: reduce) {
+    .activation-panel:not([hidden]) {
+      transition: transform 240ms ease;
+      transform: none;
+    }
+  }
+  @starting-style {
+    @media not (prefers-reduced-motion: reduce) {
+      .activation-panel:not([hidden]) {
+        transform: translateY(8px) scale(0.985);
+      }
+    }
+  }
   .activation-panel[data-panel="idle"], .activation-progress, .activation-result {
     display: grid;
     grid-template-columns: 92px minmax(0, 1fr);

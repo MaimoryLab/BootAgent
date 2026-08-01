@@ -26,7 +26,14 @@ test("home presents one activation entry without claiming a real scan", async ({
   await expect(page.getByRole("heading", { level: 1 })).toContainText("激活你的 AI 开发环境");
   await expect(page.locator(".hero-actions").getByRole("button", { name: "开始激活演示" })).toBeVisible();
   await expect(page.locator(".hero-actions").getByRole("link")).toHaveCount(0);
-  await expect(page.locator("#activation-console")).toHaveAttribute("data-phase", "idle");
+  /* The console used to sit at idle until clicked. It now plays itself once it
+     scrolls into view, so the successor guarantee is that the page drives the
+     demo — the button stays as the replay and takeover entry. Scrolled here
+     explicitly because whether the console starts on screen varies by viewport,
+     and this test is not the one about the trigger threshold. */
+  const console = page.locator("#activation-console");
+  await console.scrollIntoViewIfNeeded();
+  await expect(console).toHaveAttribute("data-autoplaying", "true");
   await expect(page.getByText("示例环境", { exact: true }).first()).toBeVisible();
   await expect(page.getByText("不访问设备", { exact: true })).toBeVisible();
   await expect(page.locator('input[type="password"], input[name*="key" i]')).toHaveCount(0);
@@ -161,6 +168,12 @@ test("activation demo keeps a complete event history under reduced motion", asyn
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");
   const console = page.locator("#activation-console");
+  /* Advancing the interface on its own is motion, so reduced motion means the
+     console waits to be asked. That is also what keeps the rest of this test
+     valid: nothing has moved off idle before the first click. */
+  await console.scrollIntoViewIfNeeded();
+  await expect(console).toHaveAttribute("data-phase", "idle");
+  await expect(console).not.toHaveAttribute("data-autoplaying", "true");
   await page.getByRole("button", { name: "开始激活演示" }).click();
   await expect(console).toHaveAttribute("data-phase", "agent");
   await expect(console.locator("[data-log] li")).toHaveCount(2);
@@ -177,6 +190,67 @@ test("activation demo keeps a complete event history under reduced motion", asyn
     element.getAnimations({ subtree: true }).filter((animation) => animation.playState === "running").length,
   );
   expect(animations).toBe(0);
+});
+
+/* The landing page has to show what activation looks like to someone who clicks
+   nothing at all — that is the whole reason autoplay exists. */
+test("activation demo plays itself through to Ready without a click", async ({ page }) => {
+  const fetches: string[] = [];
+  page.on("request", (request) => {
+    if (["fetch", "xhr"].includes(request.resourceType())) fetches.push(request.url());
+  });
+  await page.goto("/");
+  const console = page.locator("#activation-console");
+  await console.scrollIntoViewIfNeeded();
+
+  await expect(console).toHaveAttribute("data-phase", "ready");
+  await expect(console.getByRole("heading", { name: "示例环境已 Ready" })).toBeVisible();
+  // Reaching the end clears the flag, so the visitor is in charge from here.
+  await expect(console).not.toHaveAttribute("data-autoplaying", "true");
+  await expect(console.locator("[data-log]")).toContainText("示例环境可进入 Ready");
+  expect(fetches, "an unattended demo must not call anything either").toEqual([]);
+});
+
+// Autoplay is a demonstration, not a ride: the moment someone reaches for the
+// console it belongs to them, and it must not resume behind their back.
+test("interacting during autoplay stops it where it stands", async ({ page }) => {
+  await page.goto("/");
+  const console = page.locator("#activation-console");
+  await console.scrollIntoViewIfNeeded();
+  await expect(console).toHaveAttribute("data-autoplaying", "true");
+
+  /* Waits for a step that is a decision point. Taking over during `scanning`
+     would still land on `agent`, because the scan's own timer resolves it the
+     same way a clicked run does — leaving a spinner up forever would be the
+     worse behaviour. `agent` is the first step where the demo is genuinely
+     waiting on a choice, so it is where "stopped" is observable. */
+  await expect(console).toHaveAttribute("data-phase", "agent");
+  await console.locator("[data-log]").click();
+  await expect(console).not.toHaveAttribute("data-autoplaying", "true");
+  await page.waitForTimeout(2500);
+  expect(await console.getAttribute("data-phase"), "autoplay resumed after takeover").toBe("agent");
+
+  // Taken over, not broken: the trigger still replays from the top.
+  await page.getByRole("button", { name: "开始激活演示" }).click();
+  await expect(console).toHaveAttribute("data-phase", "agent");
+  await expect(console).not.toHaveAttribute("data-autoplaying", "true");
+});
+
+/* The failure this guards is specific and easy to reintroduce: every step calls
+   focusPanel, and if autoplay keeps doing that it steals focus from whatever the
+   visitor is reading or tabbing through — on a page they never interacted with. */
+test("autoplay never takes keyboard focus", async ({ page }) => {
+  await page.goto("/");
+  const console = page.locator("#activation-console");
+  await console.scrollIntoViewIfNeeded();
+
+  const insideConsole = () =>
+    page.evaluate(() => Boolean(document.querySelector("#activation-console")?.contains(document.activeElement)));
+  for (let sample = 0; sample < 12; sample += 1) {
+    expect(await insideConsole(), "autoplay moved focus into the console").toBe(false);
+    await page.waitForTimeout(250);
+  }
+  await expect(console).toHaveAttribute("data-phase", "ready");
 });
 
 test("Explorer restores shareable state and returns focus after the drawer closes", async ({ page }) => {
