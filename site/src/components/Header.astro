@@ -9,11 +9,13 @@ const pathname = Astro.url.pathname;
 const locale = localeFromPath(pathname);
 const t = useTranslations(locale);
 const href = (path: string) => localePath(bestLocaleFor(locale, path), path);
+/* The security and enterprise pages stay published and linked from the footer,
+   the release index and the demo's preview-gate result — they are just not
+   worth a top-level nav slot. */
 const nav = [
   { path: "downloads/", label: t("nav.downloads") },
   { path: "quickstart/", label: t("nav.quickstart") },
   { path: "explore/", label: t("nav.explorer") },
-  { path: "security/", label: t("nav.security") },
 ];
 // Compared on the locale-stripped route so /en/agents/ marks the same item as
 // /agents/ rather than matching on a substring of the full path.
@@ -37,17 +39,13 @@ const active = (path: string) =>
       ))}
     </nav>
     <div class="header-actions">
-      <a class="header-link" href={href("enterprise/")}>
-        {t("nav.enterprise")}
-        {switchesLanguage(locale, "enterprise/") && <span class="lang-hint">{t("nav.chineseOnly")}</span>}
-      </a>
       <LocaleSwitch />
       <ThemeToggle />
       <a class:list={["button", "button-small", route === "" ? "button-secondary" : "button-primary"]} href={href("downloads/")}>{t("cta.download")}</a>
       <details class="mobile-menu">
         <summary aria-label={t("nav.openMenu")}>{t("nav.menu")}</summary>
         <nav aria-label={t("nav.mobile")}>
-          {[...nav, { path: "enterprise/", label: t("nav.enterprise") }, { path: "support/", label: t("nav.support") }].map((item) => (
+          {[...nav, { path: "support/", label: t("nav.support") }].map((item) => (
             <a href={href(item.path)}>
               {item.label}
               {switchesLanguage(locale, item.path) && <span class="lang-hint">{t("nav.chineseOnly")}</span>}

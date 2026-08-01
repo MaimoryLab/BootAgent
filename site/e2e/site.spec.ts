@@ -232,6 +232,34 @@ test("download center recommends an available artifact but keeps manual choices"
   await expect(page.getByText("未签名、未公证", { exact: true })).toBeVisible();
 });
 
+/* Security and enterprise came out of the chrome, but the pages did not go
+   anywhere: release-index.json points at security/ for its release policy, at
+   security/#privacy for privacy and at security/#release-evidence for every
+   target's verification evidence. Dropping the pages would leave the published
+   release evidence pointing at nothing, so the two halves are asserted together. */
+test("security and enterprise leave the navigation but stay reachable", async ({ page }) => {
+  for (const path of ["/", "/en/"]) {
+    await page.goto(path);
+    await expect(page.locator(".site-header").getByRole("link", { name: /安全|Security/ })).toHaveCount(0);
+    await expect(page.locator(".site-header").getByRole("link", { name: /企业服务|Enterprise/ })).toHaveCount(0);
+    await expect(page.locator(".site-footer").getByRole("link", { name: /安全与隐私|Security & privacy/ })).toHaveCount(0);
+    await expect(page.locator(".site-footer").getByRole("link", { name: /企业服务|Enterprise/ })).toHaveCount(0);
+    // The footer's other two entries are the only route to them, so they stay.
+    await expect(page.locator(".site-footer").getByRole("link", { name: /支持与反馈|Support & feedback/ })).toBeVisible();
+    await expect(page.locator(".site-footer").getByRole("link", { name: /发行索引|Release index/ })).toBeVisible();
+  }
+
+  for (const path of ["/security/", "/en/security/", "/enterprise/"]) {
+    const response = await page.goto(path);
+    expect(response?.status(), `${path} must stay published`).toBe(200);
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  }
+  // The anchors release-index.json cites have to resolve, not just the page.
+  await page.goto("/security/");
+  await expect(page.locator("#privacy")).toBeAttached();
+  await expect(page.locator("#release-evidence")).toBeAttached();
+});
+
 // The picker is a real radio group rather than a styled listbox, so arrow keys
 // have to move the selection — that behaviour is the reason for the markup.
 test("platform picker is keyboard operable", async ({ page }) => {
@@ -473,12 +501,10 @@ test.describe("english locale", () => {
   // not. Every link that does it has to say so before the click.
   test("marks links that fall back to Chinese, and only on English pages", async ({ page }) => {
     await page.goto("/en/");
-    // Security is translated now, so it must stay in English and carry no hint.
-    const security = page.locator(".desktop-nav a").filter({ hasText: "Security" });
-    await expect(security).toHaveAttribute("href", "/en/security/");
-    await expect(security.locator(".lang-hint")).toHaveCount(0);
-    // Enterprise still has no translation, so it is the one that warns.
-    await expect(page.locator(".header-link").filter({ hasText: "Enterprise" })).toContainText("in Chinese");
+    /* Security and enterprise left the nav, so the specific links this used to
+       name are gone. The sweep below is the real guarantee and covers whatever
+       is in the nav now — including the CTA band's untranslated team-services
+       link, which is where the hint has to appear on this page. */
 
     // Every link leaving /en/ for an untranslated route carries the hint.
     const unmarked = await page.evaluate((translated) => {

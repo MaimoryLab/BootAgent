@@ -28,13 +28,11 @@ const columns: { heading: string; links: FooterLink[] }[] = [
       { path: "explore/", label: t("nav.explorer") },
       { path: "agents/", label: t("footer.agentCatalog") },
       { path: "providers/", label: t("footer.providerCatalog") },
-      { path: "enterprise/", label: t("nav.enterprise") },
     ],
   },
   {
     heading: t("footer.trust"),
     links: [
-      { path: "security/", label: t("footer.securityPrivacy") },
       { path: "support/", label: t("footer.supportFeedback") },
       // A published artifact rather than a page: same URL in every locale, so it
       // is exempt from the locale resolution and the hint.
