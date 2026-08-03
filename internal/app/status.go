@@ -235,8 +235,7 @@ func (u *UseCases) GetStatus(ctx context.Context) (StatusResponse, error) {
 	}
 	options := u.status
 	paths := map[string]string{
-		"env_file": filepath.Join(options.Home, ".oneagent", envFilename(options.Platform.OS)),
-		"profile":  filepath.Join(options.Home, ".oneagent", "profile.json"),
+		"profile": filepath.Join(options.Home, ".oneagent", "profile.json"),
 	}
 	capabilities := Capabilities{
 		CanInstall:        make(map[string]bool, len(manifest.Agents)),
@@ -528,13 +527,6 @@ func profileSummary(item profileStore.Profile) ProfileSummary {
 	}
 }
 
-func envFilename(osID string) string {
-	if osID == "windows" {
-		return "env.ps1"
-	}
-	return "env"
-}
-
 func configPath(home, osID string, agent catalog.Agent) string {
 	if agent.ConfigPath == "" {
 		return ""
@@ -565,8 +557,6 @@ func backupState(home, osID string, manifest catalog.Manifest) map[string]bool {
 		matches, err := filepath.Glob(path + ".backup-*")
 		result[id] = err == nil && len(matches) > 0
 	}
-	envMatches, err := filepath.Glob(filepath.Join(home, ".oneagent", "env.backup-*"))
-	result["env"] = err == nil && len(envMatches) > 0
 	profileMatches, err := filepath.Glob(filepath.Join(home, ".oneagent", "profile.json.backup-*"))
 	result["profile"] = err == nil && len(profileMatches) > 0
 	return result

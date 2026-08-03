@@ -168,10 +168,23 @@ func TestSaveProviderReappliesEveryAgentBoundToIt(t *testing.T) {
 		t.Fatalf("reapply outcome = %#v", result)
 	}
 	// Each Agent keeps its own model while picking up the new endpoint and key.
+	// Codex takes the key from auth.json and the endpoint from config.toml;
+	// OpenCode carries both in its own config.
+	credentialFiles := map[string][]string{
+		"codex":    {filepath.Join(home, ".codex", "auth.json"), filepath.Join(home, ".codex", "config.toml")},
+		"opencode": {filepath.Join(home, ".config", "opencode", "opencode.json")},
+	}
 	for _, agentID := range []string{"codex", "opencode"} {
-		envData, err := os.ReadFile(filepath.Join(home, ".oneagent", "agents", agentID+".env"))
-		if err != nil || !strings.Contains(string(envData), "rotated-key") || !strings.Contains(string(envData), "relay.ppio.test") {
-			t.Fatalf("%s env = %q, err=%v", agentID, envData, err)
+		applied := ""
+		for _, path := range credentialFiles[agentID] {
+			data, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatalf("%s config %s: %v", agentID, path, err)
+			}
+			applied += string(data)
+		}
+		if !strings.Contains(applied, "rotated-key") || !strings.Contains(applied, "relay.ppio.test") {
+			t.Fatalf("%s did not pick up the rotated Provider", agentID)
 		}
 		binding, err := core.profiles.ReadAgentBinding(agentID)
 		if err != nil || binding == nil || binding.Model != "model-"+agentID || !strings.Contains(binding.BaseURL, "relay.ppio.test") {

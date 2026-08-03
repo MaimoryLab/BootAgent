@@ -13,15 +13,15 @@ import (
 
 // LaunchAgentResult reports the shell line a new terminal window was given.
 // The line is public on purpose: it is what the user would have typed, and it
-// carries no credential — the key stays in the sourced env file.
+// carries no credential — the key stays in the Agent's own configuration.
 type LaunchAgentResult struct {
 	Agent   string `json:"agent"`
 	Command string `json:"command"`
 }
 
 // LaunchAgent opens a terminal window running one configured Agent. It reuses
-// nextStep, so the window gets the same command the activation screen tells
-// the user to run, including the env file that carries the credential.
+// nextStep, so the window gets the same command the activation screen tells the
+// user to run, including Aider's env file when that is what the Agent needs.
 func (u *UseCases) LaunchAgent(ctx context.Context, agentID string) (LaunchAgentResult, error) {
 	if u == nil {
 		return LaunchAgentResult{}, oneerrors.New(oneerrors.InternalError, "Agent service is not configured", oneerrors.WithStatus(501))
@@ -49,8 +49,8 @@ func (u *UseCases) LaunchAgent(ctx context.Context, agentID string) (LaunchAgent
 	}
 	line := nextStep(u.status.Platform.OS, agentID, agent, model)
 	if line == "" {
-		// Guide-only Agents have no managed env file; the bare command is still
-		// the right thing to run.
+		// Guide-only Agents have no managed configuration; the bare command is
+		// still the right thing to run.
 		line = agent.Command
 	}
 	launcher, ok := process.AsLauncher(u.runner)
@@ -101,7 +101,7 @@ func terminalArgv(osID, line string, look CommandLookup) ([]string, error) {
 			"-e", "tell application \"Terminal\" to activate",
 		}, nil
 	case "windows":
-		// -ExecutionPolicy Bypass because the line dot-sources OneAgent's own
+		// -ExecutionPolicy Bypass because Aider's line dot-sources OneAgent's own
 		// .ps1 env file, and loading a script file is exactly what the Windows
 		// client default of Restricted refuses. The flag is process-scoped: it
 		// needs no elevation and leaves no persistent state, unlike

@@ -5,9 +5,8 @@
 ### Codex
 
 - 首选官方安装源。
-- OneAgent 写入 `~/.codex/config.toml`。
-- Key 通过 `~/.oneagent/env` 或系统环境变量提供。
-- 修改配置后重新打开终端运行。
+- OneAgent 写入 `~/.codex/config.toml`，Key 写入同目录的 `~/.codex/auth.json`。
+- 不依赖环境变量；修改配置后重启 codex 即可。
 
 ### Claude Code
 
@@ -18,9 +17,9 @@
 
 ### OpenCode
 
-- 使用 OpenAI-compatible Provider。
+- 使用 OpenAI-compatible Provider，OneAgent 写入 `~/.config/opencode/opencode.json`。
 - Base URL 使用 `https://api.ppio.com/openai/v1` 形式。
-- API Key 使用环境变量引用，不写入 JSON 明文。
+- API Key 直接写入该文件的 `provider.oneagent.options.apiKey`，文件权限收紧到 0600，不依赖环境变量。
 
 ### Aider
 

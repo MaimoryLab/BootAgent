@@ -79,7 +79,7 @@
     },
     "opencode": {
       "installed": false,
-      "config": "${HOME}/.config/opencode/opencode.jsonc",
+      "config": "${HOME}/.config/opencode/opencode.json",
       "configured": false,
       "guideOnly": false,
       "version": null,
@@ -533,11 +533,10 @@
     }
   ],
   "paths": {
-    "env_file": "${HOME}/.oneagent/env",
     "profile": "${HOME}/.oneagent/profile.json",
     "codex_config": "${HOME}/.codex/config.toml",
     "claude-code_config": "${HOME}/.claude/settings.json",
-    "opencode_config": "${HOME}/.config/opencode/opencode.jsonc",
+    "opencode_config": "${HOME}/.config/opencode/opencode.json",
     "kilo-cli_config": "${HOME}/.config/kilo/kilo.jsonc",
     "aider_config": "${HOME}/.oneagent/aider.env"
   },
@@ -547,7 +546,6 @@
     "opencode": false,
     "kilo-cli": false,
     "aider": false,
-    "env": false,
     "profile": false
   },
   "profiles": [],

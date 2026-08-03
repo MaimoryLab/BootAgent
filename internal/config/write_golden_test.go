@@ -16,7 +16,7 @@ func TestJSONWritersMatchGoldenFiles(t *testing.T) {
 		existing string
 	}{
 		{"claude", filepath.Join(".claude", "settings.json"), `{"keep":true,"env":{"CUSTOM":"value","ANTHROPIC_MODEL":"old"},"other":true}`},
-		{"opencode", filepath.Join(".config", "opencode", "opencode.jsonc"), `{"keep":true,"provider":{"other":{"x":1}},"theme":"dark"}`},
+		{"opencode", filepath.Join(".config", "opencode", "opencode.json"), `{"keep":true,"provider":{"other":{"x":1}},"theme":"dark"}`},
 		{"kilo", filepath.Join(".config", "kilo", "kilo.jsonc"), `{"provider":{"other":{"x":1}},"keep":true}`},
 	}
 
@@ -51,9 +51,9 @@ func jsonWriterOutput(t *testing.T, kind, relative, existing string) []byte {
 	case "claude":
 		err = writer.WriteClaude(context.Background(), path, "https://api.ppio.com/anthropic", "sk-parity", "model-new", "")
 	case "opencode":
-		err = writer.WriteOpenAICompatible(context.Background(), path, "https://opencode.ai/config.json", "PPIO", "https://api.ppio.com/openai", "model-new", "opencode")
+		err = writer.WriteOpenAICompatible(context.Background(), path, "https://opencode.ai/config.json", "PPIO", "https://api.ppio.com/openai", "sk-parity", "model-new")
 	case "kilo":
-		err = writer.WriteOpenAICompatible(context.Background(), path, "https://app.kilo.ai/config.json", "PPIO", "https://api.ppio.com/openai", "model-new", "kilo-cli")
+		err = writer.WriteOpenAICompatible(context.Background(), path, "https://app.kilo.ai/config.json", "PPIO", "https://api.ppio.com/openai", "sk-parity", "model-new")
 	default:
 		t.Fatalf("unknown writer kind %q", kind)
 	}

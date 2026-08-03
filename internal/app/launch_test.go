@@ -9,6 +9,7 @@ import (
 	"time"
 	"unicode/utf16"
 
+	"github.com/MaimoryLab/OneAgent/internal/catalog"
 	"github.com/MaimoryLab/OneAgent/internal/platform"
 	"github.com/MaimoryLab/OneAgent/internal/process"
 )
@@ -46,7 +47,7 @@ func launchCore(t *testing.T, osID string, runner process.Runner) *UseCases {
 	})
 }
 
-func TestLaunchAgentSourcesTheEnvFileAndKeepsTheKeyOut(t *testing.T) {
+func TestLaunchAgentRunsTheConfiguredAgentAndKeepsTheKeyOut(t *testing.T) {
 	runner := &launchRunner{}
 	core := launchCore(t, "darwin", runner)
 	if _, err := core.ActivateAgent(context.Background(), ActivateAgentOptions{
@@ -62,9 +63,7 @@ func TestLaunchAgentSourcesTheEnvFileAndKeepsTheKeyOut(t *testing.T) {
 		t.Fatalf("started = %#v", runner.started)
 	}
 	argv := strings.Join(runner.started[0], " ")
-	// Without the sourced env file the window would run an unconfigured Agent,
-	// which is the whole failure this button exists to avoid.
-	if !strings.Contains(argv, "source ~/.oneagent/agents/codex.env") || !strings.Contains(argv, "codex") {
+	if !strings.Contains(argv, "codex") {
 		t.Fatalf("launch argv = %q", argv)
 	}
 	if strings.Contains(argv, "launch-secret") || strings.Contains(result.Command, "launch-secret") {
@@ -92,9 +91,9 @@ func TestLaunchAgentEncodesTheWindowsCommand(t *testing.T) {
 	if argv[0] != "powershell" || !slices.Contains(argv, "-NoExit") || !slices.Contains(argv, "-EncodedCommand") {
 		t.Fatalf("started = %#v", argv)
 	}
-	// The launch line dot-sources OneAgent's .ps1 env file, and loading a script
-	// file is what the Windows client default of Restricted refuses. Without the
-	// process-scoped bypass the window opens only to report that error.
+	// Aider's launch line dot-sources OneAgent's .ps1 env file, and loading a
+	// script file is what the Windows client default of Restricted refuses.
+	// Without the process-scoped bypass the window opens only to report that.
 	if index := slices.Index(argv, "-ExecutionPolicy"); index < 0 || argv[index+1] != "Bypass" {
 		t.Fatalf("windows launch has no execution policy bypass: %#v", argv)
 	}
@@ -115,10 +114,15 @@ func TestLaunchAgentEncodesTheWindowsCommand(t *testing.T) {
 	if !strings.Contains(decoded, "catch") || !strings.Contains(decoded, "Read-Host") {
 		t.Fatalf("windows script cannot report a failure: %q", decoded)
 	}
-	// A doubled backslash would make PowerShell dot-source a path that does not
-	// exist, so the Agent would start unconfigured even when the window survived.
-	if !strings.Contains(decoded, `. "$HOME\.oneagent\agents\codex.env.ps1"`) {
-		t.Fatalf("windows launch line = %q", decoded)
+	// Aider is the one Agent whose credential still lives in a sourced file. A
+	// doubled backslash would make PowerShell dot-source a path that does not
+	// exist, so it would start unconfigured even when the window survived.
+	manifest, err := catalog.LoadEmbedded()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if line := nextStep("windows", "aider", manifest.Agents["aider"], "model-a"); !strings.Contains(line, `. "$HOME\.oneagent\aider.ps1"`) {
+		t.Fatalf("Aider windows launch line = %q", line)
 	}
 }
 

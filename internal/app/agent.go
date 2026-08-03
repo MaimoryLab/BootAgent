@@ -3,7 +3,6 @@ package app
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -116,7 +115,6 @@ func (u *UseCases) activateAgentLocked(ctx context.Context, options ActivateAgen
 		return ActivateAgentResult{}, oneerrors.New(oneerrors.InvalidRequest, "model is required")
 	}
 
-	baseURL := target.BaseURL
 	protocol := provider.ProtocolForAdapter(agent.ConfigAdapter)
 	configBaseURL := target.BaseFor(protocol)
 	providerName := target.Name
@@ -125,26 +123,7 @@ func (u *UseCases) activateAgentLocked(ctx context.Context, options ActivateAgen
 		return ActivateAgentResult{}, oneerrors.New(oneerrors.InvalidRequest, "Managed Agent has no configuration path")
 	}
 
-	filesystem := u.filesystem
-	if needsAgentEnv(agent) {
-		envPath := agentEnvPath(u.status.Home, u.status.Platform.OS, agentID)
-		if err := configWriter.WriteAgentEnv(
-			ctx,
-			filesystem,
-			envPath,
-			u.status.Platform.OS,
-			agentID,
-			apiKey,
-			baseURL,
-			model,
-			options.SmallFastModel,
-			agent.EnvVars,
-		); err != nil {
-			return ActivateAgentResult{}, err
-		}
-	}
-
-	writer := configWriter.NewWriter(u.status.Home, u.status.Platform.OS, filesystem)
+	writer := configWriter.NewWriter(u.status.Home, u.status.Platform.OS, u.filesystem)
 	if err := writeManagedAgentConfig(ctx, writer, agentID, agent, configPath, providerName, configBaseURL, apiKey, model, options.SmallFastModel); err != nil {
 		return ActivateAgentResult{}, err
 	}
@@ -179,28 +158,16 @@ func contextError(ctx context.Context, message string) error {
 	return nil
 }
 
-func needsAgentEnv(agent catalog.Agent) bool {
-	return agent.CredentialDelivery == "oneagent_env" || agent.CredentialDelivery == "native_env"
-}
-
-func agentEnvPath(home, osID, agentID string) string {
-	suffix := ".env"
-	if osID == "windows" {
-		suffix = ".env.ps1"
-	}
-	return filepath.Join(home, ".oneagent", "agents", agentID+suffix)
-}
-
 func writeManagedAgentConfig(ctx context.Context, writer configWriter.Writer, agentID string, agent catalog.Agent, path, providerName, baseURL, apiKey, model, smallFastModel string) error {
 	switch agent.ConfigAdapter {
 	case "codex":
-		return writer.WriteCodex(ctx, path, providerName, baseURL, model)
+		return writer.WriteCodex(ctx, path, providerName, baseURL, apiKey, model)
 	case "claude-code":
 		return writer.WriteClaude(ctx, path, baseURL, apiKey, model, smallFastModel)
 	case "opencode":
-		return writer.WriteOpenAICompatible(ctx, path, "https://opencode.ai/config.json", providerName, baseURL, model, agentID)
+		return writer.WriteOpenAICompatible(ctx, path, "https://opencode.ai/config.json", providerName, baseURL, apiKey, model)
 	case "kilo-cli":
-		return writer.WriteOpenAICompatible(ctx, path, "https://app.kilo.ai/config.json", providerName, baseURL, model, agentID)
+		return writer.WriteOpenAICompatible(ctx, path, "https://app.kilo.ai/config.json", providerName, baseURL, apiKey, model)
 	case "aider":
 		return writer.WriteAider(ctx, path, baseURL, apiKey)
 	default:
@@ -214,9 +181,6 @@ func restartHint(agentID string, agent catalog.Agent) string {
 	}
 	if agentID == "aider" {
 		return "Restart " + agent.Command + " in a shell that sources ~/.oneagent/aider.env"
-	}
-	if needsAgentEnv(agent) {
-		return fmt.Sprintf("Quit any running %s process, then start it again in a shell that sources ~/.oneagent/agents/%s.env", agent.Command, agentID)
 	}
 	return fmt.Sprintf("Quit any running %s process, then start it again", agent.Command)
 }
@@ -235,13 +199,6 @@ func nextStep(osID, agentID string, agent catalog.Agent, model string) string {
 			source = `. "$HOME\.oneagent\aider.ps1"`
 		}
 		return fmt.Sprintf("%s %s %s --model openai/%s", source, joiner, agent.Command, model)
-	}
-	if needsAgentEnv(agent) {
-		source := fmt.Sprintf("source ~/.oneagent/agents/%s.env", agentID)
-		if osID == "windows" {
-			source = fmt.Sprintf(`. "$HOME\.oneagent\agents\%s.env.ps1"`, agentID)
-		}
-		return fmt.Sprintf("%s %s %s", source, joiner, agent.Command)
 	}
 	return agent.Command
 }

@@ -23,7 +23,6 @@ type Agent struct {
 	Command              string            `json:"command"`
 	ConfigMode           string            `json:"config_mode"`
 	ConfigAdapter        string            `json:"config_adapter"`
-	CredentialDelivery   string            `json:"credential_delivery"`
 	EnvVars              map[string]string `json:"env_vars"`
 	ConfigPath           string            `json:"config_path"`
 	WindowsConfigPath    string            `json:"windows_config_path"`

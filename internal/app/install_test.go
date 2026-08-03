@@ -123,7 +123,7 @@ func TestInstallAgentsWritesAllManagedAdaptersAndPublishesProfileLast(t *testing
 	for _, path := range []string{
 		filepath.Join(home, ".codex", "config.toml"),
 		filepath.Join(home, ".claude", "settings.json"),
-		filepath.Join(home, ".config", "opencode", "opencode.jsonc"),
+		filepath.Join(home, ".config", "opencode", "opencode.json"),
 		filepath.Join(home, ".config", "kilo", "kilo.jsonc"),
 		filepath.Join(home, ".oneagent", "aider.env"),
 		filepath.Join(home, ".oneagent", "profile.json"),
@@ -214,9 +214,9 @@ func TestInstallAgentsAppliesNamedProfileWithItsSavedKey(t *testing.T) {
 	if active.ID != "team" || bindingErr != nil || binding == nil || binding.ProfileRef != "team" {
 		t.Fatalf("named profile state = active %#v, binding %#v, %v", active, binding, bindingErr)
 	}
-	env, err := os.ReadFile(filepath.Join(home, ".oneagent", "agents", "codex.env"))
-	if err != nil || !strings.Contains(string(env), "profile-secret") {
-		t.Fatalf("named profile credential was not applied: %q, %v", env, err)
+	auth, err := os.ReadFile(filepath.Join(home, ".codex", "auth.json"))
+	if err != nil || !strings.Contains(string(auth), "profile-secret") {
+		t.Fatalf("named profile credential was not applied: %q, %v", auth, err)
 	}
 }
 

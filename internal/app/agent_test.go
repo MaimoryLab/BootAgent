@@ -37,17 +37,19 @@ func TestActivateAgentWritesPerAgentStateAndKeepsSecretsOutOfResult(t *testing.T
 	if result.AgentID != "codex" || result.Provider != "ppio" || result.Model != "model-a" {
 		t.Fatalf("activation result = %#v", result)
 	}
-	if !strings.Contains(result.Restart, "codex") || !strings.Contains(result.Next, "source ~/.oneagent/agents/codex.env") {
+	if !strings.Contains(result.Restart, "codex") || result.Next != "codex" {
 		t.Fatalf("activation hints = %#v", result)
 	}
 	if strings.Contains(result.Restart+result.Next, "codex-secret") {
 		t.Fatal("activation hints leaked the API key")
 	}
 
-	envPath := filepath.Join(home, ".oneagent", "agents", "codex.env")
-	envData, err := os.ReadFile(envPath)
-	if err != nil || !strings.Contains(string(envData), "codex-secret") || !strings.Contains(string(envData), "ONEAGENT_API_KEY_CODEX") {
-		t.Fatalf("Agent env = %q, err=%v", envData, err)
+	// Codex authenticates from auth.json beside config.toml, so no environment
+	// variable has to be exported before the command works.
+	authPath := filepath.Join(home, ".codex", "auth.json")
+	authData, err := os.ReadFile(authPath)
+	if err != nil || !strings.Contains(string(authData), "codex-secret") || !strings.Contains(string(authData), `"auth_mode": "apikey"`) {
+		t.Fatalf("Codex auth.json = %q, err=%v", authData, err)
 	}
 	configData, err := os.ReadFile(result.Config)
 	if err != nil || strings.Contains(string(configData), "codex-secret") || !strings.Contains(string(configData), `model_provider = "oneagent"`) {
@@ -74,12 +76,12 @@ func TestActivateAgentWritesPerAgentStateAndKeepsSecretsOutOfResult(t *testing.T
 	}); err != nil {
 		t.Fatal(err)
 	}
-	opencodeEnv, err := os.ReadFile(filepath.Join(home, ".oneagent", "agents", "opencode.env"))
-	if err != nil || !strings.Contains(string(opencodeEnv), "other-secret") || strings.Contains(string(opencodeEnv), "codex-secret") {
-		t.Fatalf("isolated OpenCode env = %q, err=%v", opencodeEnv, err)
+	opencodeConfig, err := os.ReadFile(filepath.Join(home, ".config", "opencode", "opencode.json"))
+	if err != nil || !strings.Contains(string(opencodeConfig), "other-secret") || strings.Contains(string(opencodeConfig), "codex-secret") {
+		t.Fatalf("isolated OpenCode config = %q, err=%v", opencodeConfig, err)
 	}
-	codexEnv, _ := os.ReadFile(envPath)
-	if strings.Contains(string(codexEnv), "other-secret") {
+	codexAuth, _ := os.ReadFile(authPath)
+	if strings.Contains(string(codexAuth), "other-secret") {
 		t.Fatal("activating OpenCode changed Codex credentials")
 	}
 }
@@ -117,9 +119,11 @@ func TestActivateAgentReusesProfileKeyAndDiscoversModel(t *testing.T) {
 	if err != nil || binding == nil || binding.ProfileRef != "team" {
 		t.Fatalf("profile-linked binding = %#v, err=%v", binding, err)
 	}
+	// The profile key is the credential OpenCode itself needs, so it belongs in
+	// its own private config; the check is that the profile is what supplied it.
 	configData, _ := os.ReadFile(result.Config)
-	if strings.Contains(string(configData), "stored-secret") {
-		t.Fatal("OpenCode config leaked the profile key")
+	if !strings.Contains(string(configData), "stored-secret") {
+		t.Fatalf("OpenCode config did not receive the profile key: %q", configData)
 	}
 }
 
@@ -169,7 +173,7 @@ func TestActivateAgentRejectsInvalidInputsAndDoesNotPublishFailedBinding(t *test
 		}
 	}
 
-	path := filepath.Join(home, ".config", "opencode", "opencode.jsonc")
+	path := filepath.Join(home, ".config", "opencode", "opencode.json")
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		t.Fatal(err)
 	}

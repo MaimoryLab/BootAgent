@@ -27,8 +27,14 @@ func TestWriteCodexPreservesUnmanagedTablesAndRoundTrips(t *testing.T) {
 		t.Fatal(err)
 	}
 	writer := testWriter(t, home, "linux")
-	if err := writer.WriteCodex(context.Background(), path, "PPIO", "https://api.ppio.com/openai", "model-a"); err != nil {
+	if err := writer.WriteCodex(context.Background(), path, "PPIO", "https://api.ppio.com/openai", "sk-codex-secret", "model-a"); err != nil {
 		t.Fatal(err)
+	}
+	// The key belongs in auth.json, not in the config Codex shares with unmanaged
+	// settings.
+	auth, err := os.ReadFile(filepath.Join(home, ".codex", "auth.json"))
+	if err != nil || !strings.Contains(string(auth), "sk-codex-secret") {
+		t.Fatalf("Codex auth.json = %q, err=%v", auth, err)
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -46,7 +52,7 @@ func TestWriteCodexPreservesUnmanagedTablesAndRoundTrips(t *testing.T) {
 		if err := os.WriteFile(path, []byte(invalid), 0o600); err != nil {
 			t.Fatal(err)
 		}
-		if err := writer.WriteCodex(context.Background(), path, "PPIO", "https://example.com", "m"); err == nil {
+		if err := writer.WriteCodex(context.Background(), path, "PPIO", "https://example.com", "sk-codex-secret", "m"); err == nil {
 			t.Fatalf("invalid Codex config unexpectedly succeeded: %q", invalid)
 		}
 		got, _ := os.ReadFile(path)
@@ -88,14 +94,14 @@ func TestWriteJSONAdaptersPreserveFieldsAndRejectJSONC(t *testing.T) {
 		t.Fatal("Claude config did not contain its required native credential")
 	}
 
-	openPath := filepath.Join(home, ".config", "opencode", "opencode.jsonc")
+	openPath := filepath.Join(home, ".config", "opencode", "opencode.json")
 	if err := os.MkdirAll(filepath.Dir(openPath), 0o700); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(openPath, []byte(`{"keep":true,"provider":{"other":{"x":1}}}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := writer.WriteOpenAICompatible(context.Background(), openPath, "https://opencode.ai/config.json", "PPIO", "https://api.ppio.com/openai", "model-a", "opencode"); err != nil {
+	if err := writer.WriteOpenAICompatible(context.Background(), openPath, "https://opencode.ai/config.json", "PPIO", "https://api.ppio.com/openai", "sk-opencode-secret", "model-a"); err != nil {
 		t.Fatal(err)
 	}
 	var open map[string]any
@@ -114,11 +120,20 @@ func TestWriteJSONAdaptersPreserveFieldsAndRejectJSONC(t *testing.T) {
 	if detected.BaseURL != "https://api.ppio.com/openai/v1" || detected.Model != "model-a" || !detected.ManagedByOneAgent {
 		t.Fatalf("OpenCode round-trip = %#v", detected)
 	}
+	// The Agent reads its own key from this file, so it must be there — and the
+	// file must not be world-readable.
+	if !strings.Contains(string(data), "sk-opencode-secret") {
+		t.Fatalf("OpenCode config lost its credential: %s", data)
+	}
+	info, err := os.Stat(openPath)
+	if err != nil || info.Mode().Perm() != 0o600 {
+		t.Fatalf("OpenCode config mode = %v, err=%v", info.Mode().Perm(), err)
+	}
 
 	if err := os.WriteFile(openPath, []byte("{\n // keep\n \"theme\": \"dark\"\n}\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := writer.WriteOpenAICompatible(context.Background(), openPath, "schema", "PPIO", "https://api.ppio.com/openai", "m", "opencode"); err == nil || !strings.Contains(err.Error(), "JSONC comments") {
+	if err := writer.WriteOpenAICompatible(context.Background(), openPath, "schema", "PPIO", "https://api.ppio.com/openai", "k", "m"); err == nil || !strings.Contains(err.Error(), "JSONC comments") {
 		t.Fatalf("JSONC write error = %v", err)
 	}
 }

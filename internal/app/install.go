@@ -3,7 +3,6 @@ package app
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 	"slices"
 	"sort"
 	"strings"
@@ -121,7 +120,7 @@ func (u *UseCases) InstallAgents(ctx context.Context, options InstallAgentsOptio
 		}
 	}
 
-	baseURL, providerName, err := u.prepareInstallCredentials(ctx, options, manifest, autoAgents)
+	baseURL, providerName, err := u.prepareInstallCredentials(ctx, options, autoAgents)
 	if err != nil {
 		return InstallAgentsResult{}, err
 	}
@@ -231,7 +230,7 @@ func (u *UseCases) validateInstall(ctx context.Context, manifest catalog.Manifes
 	return options, nil
 }
 
-func (u *UseCases) prepareInstallCredentials(ctx context.Context, options InstallAgentsOptions, manifest catalog.Manifest, autoAgents []string) (baseURL, providerName string, err error) {
+func (u *UseCases) prepareInstallCredentials(ctx context.Context, options InstallAgentsOptions, autoAgents []string) (baseURL, providerName string, err error) {
 	if !options.Configure || len(autoAgents) == 0 || options.CheckAgentOnly {
 		return "", "", nil
 	}
@@ -245,29 +244,7 @@ func (u *UseCases) prepareInstallCredentials(ctx context.Context, options Instal
 	if err != nil {
 		return "", "", err
 	}
-	baseURL = target.BaseURL
-	providerName = target.Name
-	wroteAny := false
-	for _, agentID := range autoAgents {
-		agent := manifest.Agents[agentID]
-		if !needsAgentEnv(agent) {
-			continue
-		}
-		path := agentEnvPath(u.status.Home, u.status.Platform.OS, agentID)
-		if err := configWriter.WriteAgentEnv(ctx, u.filesystem, path, u.status.Platform.OS, agentID, options.APIKey, baseURL, options.Model, options.SmallFastModel, agent.EnvVars); err != nil {
-			return "", "", err
-		}
-		wroteAny = true
-	}
-	if wroteAny {
-		// Keep the legacy shared file while configurations written by older
-		// versions may still reference ONEAGENT_API_KEY.
-		path := filepath.Join(u.status.Home, ".oneagent", envFilename(u.status.Platform.OS))
-		if err := configWriter.WriteSharedEnv(ctx, u.filesystem, path, u.status.Platform.OS, options.APIKey, baseURL); err != nil {
-			return "", "", err
-		}
-	}
-	return baseURL, providerName, nil
+	return target.BaseURL, target.Name, nil
 }
 
 func (u *UseCases) probeInstallProtocols(ctx context.Context, options InstallAgentsOptions, manifest catalog.Manifest, autoAgents []string) (map[string]provider.ProbeResult, error) {

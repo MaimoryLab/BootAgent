@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -25,7 +26,11 @@ func NewWriter(home, osID string, filesystem securefs.Store) Writer {
 	return Writer{Home: home, OS: osID, FS: filesystem}
 }
 
-func (w Writer) WriteCodex(ctx context.Context, path, providerName, baseURL, model string) error {
+// WriteCodex points Codex at the Provider. The credential goes into
+// ~/.codex/auth.json next to config.toml, and requires_openai_auth tells Codex
+// to authenticate the managed provider with it instead of an environment
+// variable.
+func (w Writer) WriteCodex(ctx context.Context, path, providerName, baseURL, apiKey, model string) error {
 	managed := strings.Join([]string{
 		"model_provider = \"oneagent\"",
 		"model = " + quoteTOML(model),
@@ -33,8 +38,8 @@ func (w Writer) WriteCodex(ctx context.Context, path, providerName, baseURL, mod
 		"[model_providers.oneagent]",
 		"name = " + quoteTOML(providerName),
 		"base_url = " + quoteTOML(baseURL),
-		"env_key = " + quoteTOML(agentEnvVar("codex")),
 		"wire_api = \"responses\"",
+		"requires_openai_auth = true",
 		"",
 	}, "\n")
 	existing, err := readText(path)
@@ -45,7 +50,26 @@ func (w Writer) WriteCodex(ctx context.Context, path, providerName, baseURL, mod
 	if err != nil {
 		return err
 	}
+	// The credential lands first: a config.toml pointing at a provider Codex
+	// cannot authenticate is worse than an unreferenced key.
+	if err := w.writeCodexAuth(ctx, filepath.Join(filepath.Dir(path), "auth.json"), apiKey); err != nil {
+		return err
+	}
 	return w.write(ctx, path, []byte(content), false)
+}
+
+// writeCodexAuth merges the key into auth.json, keeping any other login
+// material Codex stored there.
+func (w Writer) writeCodexAuth(ctx context.Context, path, apiKey string) error {
+	document, err := loadJSON(path)
+	if err != nil {
+		return err
+	}
+	document.Set("OPENAI_API_KEY", apiKey)
+	// A leftover "chatgpt" mode next to a fresh key makes Codex prefer its
+	// cached OAuth tokens and ignore the key entirely.
+	document.Set("auth_mode", "apikey")
+	return w.writeJSON(ctx, path, document, true)
 }
 
 func (w Writer) WriteClaude(ctx context.Context, path, baseURL, apiKey, model, smallFastModel string) error {
@@ -67,7 +91,9 @@ func (w Writer) WriteClaude(ctx context.Context, path, baseURL, apiKey, model, s
 	return w.writeJSON(ctx, path, document, true)
 }
 
-func (w Writer) WriteOpenAICompatible(ctx context.Context, path, schemaURL, providerName, baseURL, model, agentID string) error {
+// WriteOpenAICompatible writes the OpenCode/Kilo provider block, including the
+// literal key under options.apiKey so the Agent needs no environment variable.
+func (w Writer) WriteOpenAICompatible(ctx context.Context, path, schemaURL, providerName, baseURL, apiKey, model string) error {
 	document, err := loadJSON(path)
 	if err != nil {
 		return err
@@ -79,7 +105,7 @@ func (w Writer) WriteOpenAICompatible(ctx context.Context, path, schemaURL, prov
 	}
 	options := jsonorder.NewObject()
 	options.Set("baseURL", provider.OpenAIBaseURL(baseURL))
-	options.Set("apiKey", "{env:"+agentEnvVar(agentID)+"}")
+	options.Set("apiKey", apiKey)
 	models := jsonorder.NewObject()
 	modelEntry := jsonorder.NewObject()
 	modelEntry.Set("name", model)
@@ -91,7 +117,7 @@ func (w Writer) WriteOpenAICompatible(ctx context.Context, path, schemaURL, prov
 	oneagent.Set("models", models)
 	providers.Set("oneagent", oneagent)
 	document.Set("model", "oneagent/"+model)
-	return w.writeJSON(ctx, path, document, false)
+	return w.writeJSON(ctx, path, document, true)
 }
 
 func (w Writer) WriteAider(ctx context.Context, path, baseURL, apiKey string) error {
@@ -143,7 +169,9 @@ func loadJSON(path string) (*jsonorder.Object, error) {
 	}
 	value, err := jsonorder.Parse([]byte(text))
 	if err != nil {
-		if strings.HasSuffix(path, ".jsonc") && jsoncCommentPattern.MatchString(text) {
+		// OpenCode and Kilo parse their JSON with JSON5, so comments can appear in
+		// a plain .json file too; the extension does not decide this.
+		if jsoncCommentPattern.MatchString(text) {
 			return nil, configError("%s contains JSONC comments, which OneAgent cannot preserve when it rewrites the file", path)
 		}
 		return nil, configError("Existing JSON configuration is invalid: %s: %v", path, err)

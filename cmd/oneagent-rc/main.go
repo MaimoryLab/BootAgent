@@ -214,7 +214,9 @@ func checkAdoption(ctx context.Context, isolated isolation, agentIDs []string, t
 		env = appendEnv(env, "CI", "1")
 		env = appendEnv(env, "NO_COLOR", "1")
 		env = appendEnv(env, "TERM", "dumb")
-		env = appendEnv(env, "ONEAGENT_API_KEY_CODEX", key)
+		// No credential is exported: each Agent has to find its key in the
+		// configuration OneAgent wrote under the isolated home, which is the whole
+		// point of the adoption check.
 		commandArgs := append([]string{executable}, argv...)
 		commandResult, runErr := runWithEnv(ctx, env, timeout, commandArgs...)
 		output := compact(commandResult.Stdout + " " + commandResult.Stderr)

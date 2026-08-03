@@ -174,7 +174,7 @@ describe("AgentDetailPage", () => {
       provider: "ppio",
       model: "deepseek/deepseek-v3",
       restart: "Quit any running codex process, then start it again",
-      next: "source ~/.oneagent/agents/codex.env && codex",
+      next: "codex",
     });
 
     renderPage();
@@ -227,7 +227,7 @@ describe("AgentDetailPage", () => {
       provider: "ppio",
       model: "model-a",
       restart: "Quit any running claude process, then start it again",
-      next: "source ~/.oneagent/agents/claude-code.env && claude",
+      next: "claude",
     });
     // The spy persists across tests in this file; drop earlier calls so calls[0]
     // is this test's activation.

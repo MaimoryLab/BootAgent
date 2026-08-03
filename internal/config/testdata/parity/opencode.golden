@@ -9,7 +9,7 @@
       "name": "PPIO",
       "options": {
         "baseURL": "https://api.ppio.com/openai/v1",
-        "apiKey": "{env:ONEAGENT_API_KEY_OPENCODE}"
+        "apiKey": "sk-parity"
       },
       "models": {
         "model-new": {
