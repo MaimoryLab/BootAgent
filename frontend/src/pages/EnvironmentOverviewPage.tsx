@@ -68,8 +68,6 @@ export function EnvironmentOverviewPage() {
         </>
       }
     >
-      <RuntimeSection runtimes={status.runtimes ?? []} onInstalled={refreshStatus} />
-
       {installed.length ? (
         <section className="overview-section">
           <div className="section-heading">
@@ -101,6 +99,8 @@ export function EnvironmentOverviewPage() {
           </button>
         </div>
       )}
+
+      <RuntimeSection runtimes={status.runtimes ?? []} onInstalled={refreshStatus} />
     </PageScaffold>
   );
 }
