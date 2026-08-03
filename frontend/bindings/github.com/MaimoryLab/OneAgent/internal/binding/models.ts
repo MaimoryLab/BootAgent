@@ -63,6 +63,10 @@ export interface InstallResponse {
     "probes": { [_ in string]?: ProbeResponse } | null;
 }
 
+export interface InstallRuntimeRequest {
+    "runtime": string;
+}
+
 export interface ModelsRequest {
     "provider": string;
     "api_base_url": string;

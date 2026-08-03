@@ -4,7 +4,7 @@ go 1.26.5
 
 require (
 	github.com/pelletier/go-toml/v2 v2.4.3
-	github.com/wailsapp/wails/v3 v3.0.0-alpha2.119
+	github.com/wailsapp/wails/v3 v3.0.0-beta.2
 )
 
 require (

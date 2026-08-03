@@ -56,8 +56,11 @@ func newE2ERunner() *e2eRunner {
 }
 
 func (r *e2eRunner) LookPath(command string) (string, bool) {
-	if command == "npm" {
-		return "/oneagent-e2e/npm", true
+	// The browser build pretends Node is present and uv is not, so the runtime
+	// section renders one installed row and one installable row without any
+	// download happening.
+	if command == "npm" || command == "node" {
+		return "/oneagent-e2e/" + command, true
 	}
 	r.mu.RLock()
 	_, ok := r.installed[command]

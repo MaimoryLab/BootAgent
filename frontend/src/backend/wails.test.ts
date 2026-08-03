@@ -46,7 +46,8 @@ describe("Wails backend adapter", () => {
     const status = {
       apiVersion: 1,
       platform: { os: "linux", arch: "arm64", shell: "bash" },
-      capabilities: { canInstall: {}, supportedAgentIds: [] },
+      runtimes: [],
+      capabilities: { canInstall: {}, missingRuntime: {}, supportedAgentIds: [] },
       agents: {}, catalog: [], groups: [], providers: {}, mirrors: [], paths: {}, backups: {},
       profiles: [], activeProfile: null, environment: null, environmentError: null,
     } satisfies StatusResponse;

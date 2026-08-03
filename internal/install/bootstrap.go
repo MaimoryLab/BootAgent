@@ -1,0 +1,374 @@
+package install
+
+import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
+
+	"github.com/MaimoryLab/OneAgent/internal/catalog"
+	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
+	"github.com/MaimoryLab/OneAgent/internal/process"
+)
+
+// RuntimeDownloadTimeout bounds one runtime archive download. Node is roughly
+// 50 MB, so this is generous enough for a slow link but still terminates.
+const RuntimeDownloadTimeout = 10 * time.Minute
+
+// Doer is the narrow HTTP boundary so runtime downloads are testable without a
+// network. It matches internal/provider's client boundary on purpose.
+type Doer interface {
+	Do(*http.Request) (*http.Response, error)
+}
+
+// RuntimeState is the public projection of one managed runtime. It carries no
+// filesystem paths beyond the managed root so the UI cannot leak a private
+// directory layout it should not depend on.
+type RuntimeState struct {
+	ID             string `json:"id"`
+	Name           string `json:"name"`
+	Command        string `json:"command"`
+	Installed      bool   `json:"installed"`
+	Version        string `json:"version"`
+	LockedVersion  string `json:"lockedVersion"`
+	Managed        bool   `json:"managed"`
+	Supported      bool   `json:"supported"`
+	Note           string `json:"note"`
+	License        string `json:"license"`
+	LicenseURL     string `json:"licenseUrl"`
+	Source         string `json:"source"`
+	InstallPath    string `json:"installPath"`
+	RequiredByHint string `json:"requiredByHint,omitempty"`
+}
+
+// RuntimeRoot is the parent of every managed runtime tree.
+func RuntimeRoot(home string) string {
+	return filepath.Join(home, ".oneagent", "runtimes")
+}
+
+// runtimeDir is the versioned install directory. Keeping the version in the
+// path means a lock bump installs alongside the old tree instead of mutating a
+// directory a running Agent may be executing from.
+func runtimeDir(home, runtimeID, version string) string {
+	return filepath.Join(RuntimeRoot(home), runtimeID, "v"+version)
+}
+
+// ManagedBinDir returns the executable directory of an installed managed
+// runtime, or "" when this runtime is not installed under OneAgent's root.
+func ManagedBinDir(home string, runtimeID string, runtime catalog.Runtime, artifact catalog.RuntimeArtifact) string {
+	directory := runtimeDir(home, runtimeID, runtime.Version)
+	binDir := artifact.BinDir
+	if binDir == "" || binDir == "." {
+		binDir = ""
+	}
+	candidate := filepath.Join(directory, binDir)
+	if _, err := os.Stat(filepath.Join(candidate, ".oneagent-runtime-ok")); err != nil {
+		return ""
+	}
+	return candidate
+}
+
+// RuntimeStates reports every runtime in the lock file for the current
+// platform, including whether the command already resolves on this machine.
+func RuntimeStates(ctx context.Context, runtime Runtime, manifest catalog.RuntimeManifest) []RuntimeState {
+	key := catalog.RuntimeArtifactKey(runtime.Platform.OS, runtime.Platform.Arch)
+	states := make([]RuntimeState, 0, len(manifest.Runtimes))
+	for _, id := range manifest.RuntimeOrder {
+		entry := manifest.Runtimes[id]
+		artifact, supported := entry.Artifacts[key]
+		state := RuntimeState{
+			ID:            id,
+			Name:          entry.Name,
+			Command:       entry.ProbeCommand,
+			LockedVersion: entry.Version,
+			Supported:     supported,
+			Note:          entry.Note,
+			License:       entry.License,
+			LicenseURL:    entry.LicenseURL,
+			Source:        entry.Source,
+		}
+		if supported {
+			state.InstallPath = runtimeDir(runtime.Home, id, entry.Version)
+			state.Managed = ManagedBinDir(runtime.Home, id, entry, artifact) != ""
+		}
+		if executable, ok := lookRuntime(runtime, entry.ProbeCommand); ok {
+			state.Installed = true
+			state.Version = runtimeVersion(ctx, runtime, executable)
+		}
+		states = append(states, state)
+	}
+	return states
+}
+
+func lookRuntime(runtime Runtime, command string) (string, bool) {
+	if runtime.Runner == nil {
+		return "", false
+	}
+	executable, ok := runtime.Runner.LookPath(command)
+	if !ok || executable == "" {
+		return "", false
+	}
+	return executable, true
+}
+
+func runtimeVersion(ctx context.Context, runtime Runtime, executable string) string {
+	result, err := runtime.command(ctx, []string{executable, "--version"}, nil, VersionCommandTimeout)
+	if err != nil {
+		return ""
+	}
+	return VersionFromOutput(result.Stdout + "\n" + result.Stderr)
+}
+
+// RuntimeForCommand maps a package manager command to the runtime that
+// provides it, so a missing "npm" resolves to Node rather than to a runtime
+// named after the command.
+func RuntimeForCommand(manifest catalog.RuntimeManifest, command string) (string, catalog.Runtime, bool) {
+	for _, id := range manifest.RuntimeOrder {
+		entry := manifest.Runtimes[id]
+		for _, candidate := range entry.Commands {
+			if candidate == command {
+				return id, entry, true
+			}
+		}
+	}
+	return "", catalog.Runtime{}, false
+}
+
+// EnsureRuntime installs a locked runtime when its command is not already
+// resolvable, and returns the runtime with the executable directory prepended
+// to its PATH. An already-satisfied runtime is a no-op: the command resolving
+// on the host is enough, whether it came from OneAgent or the user's own
+// installation.
+func EnsureRuntime(ctx context.Context, runtime Runtime, client Doer, runtimeID string, entry catalog.Runtime) (Runtime, bool, error) {
+	if err := checkContext(ctx); err != nil {
+		return runtime, false, err
+	}
+	key := catalog.RuntimeArtifactKey(runtime.Platform.OS, runtime.Platform.Arch)
+	artifact, supported := entry.Artifacts[key]
+	if !supported {
+		return runtime, false, prerequisiteError(fmt.Sprintf("%s has no locked download for %s", entry.Name, key))
+	}
+	// A managed tree from an earlier run only needs to be put back on PATH.
+	if binDir := ManagedBinDir(runtime.Home, runtimeID, entry, artifact); binDir != "" {
+		return withPath(runtime, binDir), false, nil
+	}
+	if _, ok := lookRuntime(runtime, entry.ProbeCommand); ok {
+		return runtime, false, nil
+	}
+	binDir, err := installRuntime(ctx, runtime, client, runtimeID, entry, artifact)
+	if err != nil {
+		return runtime, false, err
+	}
+	return withPath(runtime, binDir), true, nil
+}
+
+// WithManagedPath returns a copy of the runtime whose environment and command
+// lookup both resolve binDir first. Callers that run npm or uv use it so a
+// runtime installed by OneAgent is found the same way a system one would be.
+func WithManagedPath(runtime Runtime, binDir string) Runtime {
+	return withPath(runtime, binDir)
+}
+
+// withPath returns a copy of the runtime whose environment resolves the managed
+// directory first. Env is cloned because Runtime is passed by value but its map
+// is shared.
+func withPath(runtime Runtime, binDir string) Runtime {
+	if binDir == "" {
+		return runtime
+	}
+	environment := cloneEnv(runtime.Env)
+	key := "PATH"
+	if runtime.Platform.OS == "windows" {
+		for name := range environment {
+			if strings.EqualFold(name, "PATH") {
+				key = name
+				break
+			}
+		}
+	}
+	current := environment[key]
+	if current == "" || !hasPathEntry(current, binDir) {
+		if current == "" {
+			environment[key] = binDir
+		} else {
+			environment[key] = binDir + string(os.PathListSeparator) + current
+		}
+	}
+	runtime.Env = environment
+	if osRunner, ok := runtime.Runner.(process.OSRunner); ok && osRunner.Lookup == nil {
+		osRunner.Env = environment
+		runtime.Runner = osRunner
+	}
+	return runtime
+}
+
+func hasPathEntry(search, directory string) bool {
+	for _, entry := range filepath.SplitList(search) {
+		if entry == directory {
+			return true
+		}
+	}
+	return false
+}
+
+func installRuntime(ctx context.Context, runtime Runtime, client Doer, runtimeID string, entry catalog.Runtime, artifact catalog.RuntimeArtifact) (string, error) {
+	target := runtimeDir(runtime.Home, runtimeID, entry.Version)
+	parent := filepath.Dir(target)
+	if err := os.MkdirAll(parent, 0o700); err != nil {
+		return "", runtimeError(fmt.Sprintf("Cannot create the runtime directory for %s", entry.Name), err)
+	}
+	if runtime.OnOutput != nil {
+		runtime.OnOutput(process.Output{Kind: "command", Args: []string{"oneagent", "install-runtime", runtimeID, entry.Version}})
+	}
+	archive, err := downloadArtifact(ctx, runtime, client, entry, artifact, parent)
+	if err != nil {
+		return "", err
+	}
+	defer os.Remove(archive)
+
+	// Extract beside the final directory so a partial or corrupt tree is never
+	// visible under the versioned path, then swap it in with one rename.
+	staging, err := os.MkdirTemp(parent, ".staging-")
+	if err != nil {
+		return "", runtimeError(fmt.Sprintf("Cannot stage the %s installation", entry.Name), err)
+	}
+	defer os.RemoveAll(staging)
+	if err := extract(archive, staging, artifact); err != nil {
+		return "", err
+	}
+	root := staging
+	if artifact.StripRoot {
+		if root, err = singleChild(staging); err != nil {
+			return "", runtimeError(fmt.Sprintf("The %s archive layout is unexpected", entry.Name), err)
+		}
+	}
+	binDir := root
+	if artifact.BinDir != "" && artifact.BinDir != "." {
+		binDir = filepath.Join(root, artifact.BinDir)
+	}
+	if _, err := os.Stat(binDir); err != nil {
+		return "", runtimeError(fmt.Sprintf("The %s archive has no %s directory", entry.Name, artifact.BinDir), err)
+	}
+	// The marker is written before the rename so it lands atomically with the
+	// tree. Its presence is what makes a directory count as a managed install.
+	if err := os.WriteFile(filepath.Join(binDir, ".oneagent-runtime-ok"), []byte(entry.Version+"\n"), 0o600); err != nil {
+		return "", runtimeError(fmt.Sprintf("Cannot finalize the %s installation", entry.Name), err)
+	}
+	if err := os.RemoveAll(target); err != nil {
+		return "", runtimeError(fmt.Sprintf("Cannot replace the existing %s directory", entry.Name), err)
+	}
+	if err := os.Rename(root, target); err != nil {
+		return "", runtimeError(fmt.Sprintf("Cannot publish the %s installation", entry.Name), err)
+	}
+	installed := target
+	if artifact.BinDir != "" && artifact.BinDir != "." {
+		installed = filepath.Join(target, artifact.BinDir)
+	}
+	return installed, nil
+}
+
+func downloadArtifact(ctx context.Context, runtime Runtime, client Doer, entry catalog.Runtime, artifact catalog.RuntimeArtifact, directory string) (string, error) {
+	if client == nil {
+		client = &http.Client{Timeout: RuntimeDownloadTimeout}
+	}
+	downloadCtx, cancel := context.WithTimeout(ctx, RuntimeDownloadTimeout)
+	defer cancel()
+
+	sources := []string{artifact.URL}
+	// A mirror is only a transport fallback. It must satisfy the same locked
+	// checksum, so a hostile mirror cannot substitute a different archive.
+	if artifact.MirrorURL != "" && preferMirror(runtime.Env) {
+		sources = []string{artifact.MirrorURL, artifact.URL}
+	} else if artifact.MirrorURL != "" {
+		sources = append(sources, artifact.MirrorURL)
+	}
+	var lastErr error
+	for _, source := range sources {
+		path, err := fetchTo(downloadCtx, client, source, artifact.SHA256, directory)
+		if err == nil {
+			return path, nil
+		}
+		lastErr = err
+	}
+	return "", runtimeError(fmt.Sprintf("Cannot download %s %s", entry.Name, entry.Version), lastErr)
+}
+
+// preferMirror honors an explicit mirror preference only. There is no locale or
+// IP sniffing: an unexpected default download host would be surprising.
+func preferMirror(environment map[string]string) bool {
+	value := strings.ToLower(strings.TrimSpace(environment["ONEAGENT_RUNTIME_MIRROR"]))
+	return value == "1" || value == "true" || value == "npmmirror"
+}
+
+func fetchTo(ctx context.Context, client Doer, source, expected, directory string) (string, error) {
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, source, nil)
+	if err != nil {
+		return "", err
+	}
+	response, err := client.Do(request)
+	if err != nil {
+		return "", err
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("download returned HTTP %d", response.StatusCode)
+	}
+	file, err := os.CreateTemp(directory, ".download-")
+	if err != nil {
+		return "", err
+	}
+	path := file.Name()
+	digest := sha256.New()
+	_, copyErr := io.Copy(io.MultiWriter(file, digest), response.Body)
+	closeErr := file.Close()
+	if copyErr != nil || closeErr != nil {
+		os.Remove(path)
+		if copyErr != nil {
+			return "", copyErr
+		}
+		return "", closeErr
+	}
+	if actual := hex.EncodeToString(digest.Sum(nil)); actual != expected {
+		os.Remove(path)
+		return "", fmt.Errorf("checksum mismatch: lock expects %s, download reports %s", expected, actual)
+	}
+	return path, nil
+}
+
+func extract(archive, destination string, artifact catalog.RuntimeArtifact) error {
+	switch artifact.Archive {
+	case "tar.gz":
+		return extractTarGz(archive, destination)
+	case "zip":
+		return extractZip(archive, destination)
+	default:
+		return prerequisiteError("Unsupported runtime archive format: " + artifact.Archive)
+	}
+}
+
+func singleChild(directory string) (string, error) {
+	entries, err := os.ReadDir(directory)
+	if err != nil {
+		return "", err
+	}
+	directories := make([]string, 0, 1)
+	for _, entry := range entries {
+		if entry.IsDir() {
+			directories = append(directories, entry.Name())
+		}
+	}
+	if len(directories) != 1 {
+		return "", fmt.Errorf("expected exactly one top-level directory, found %d", len(directories))
+	}
+	return filepath.Join(directory, directories[0]), nil
+}
+
+func runtimeError(message string, cause error) error {
+	return oneerrors.New(oneerrors.AgentInstallFailed, message, oneerrors.WithRetryable(true), oneerrors.WithCause(cause))
+}

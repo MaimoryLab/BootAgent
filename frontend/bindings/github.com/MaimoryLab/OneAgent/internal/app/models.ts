@@ -6,6 +6,9 @@
 import * as catalog$0 from "../catalog/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import * as install$0 from "../install/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import * as platform$0 from "../platform/models.js";
 
 export interface AgentStatus {
@@ -26,6 +29,14 @@ export interface AgentStatus {
 
 export interface Capabilities {
     "canInstall": { [_ in string]?: boolean } | null;
+
+    /**
+     * MissingRuntime names the runtime an Agent needs before it can be
+     * installed, keyed by Agent id. An entry means canInstall is false only
+     * because a bootstrappable runtime is absent, which the UI turns into a
+     * "install the runtime first" prompt rather than a dead end.
+     */
+    "missingRuntime": { [_ in string]?: string } | null;
     "supportedAgentIds": string[] | null;
 }
 
@@ -34,6 +45,19 @@ export interface DetectedConfig {
     "model": string;
     "managedByOneAgent": boolean;
     "unreadable": string | null;
+}
+
+/**
+ * InstallRuntimeResult reports what the bootstrap did. PathUpdated is separate
+ * from Installed because an already-downloaded runtime may still need its
+ * directory recorded on the login PATH.
+ */
+export interface InstallRuntimeResult {
+    "runtime": string;
+    "installed": boolean;
+    "version": string;
+    "pathUpdated": boolean;
+    "runtimes": RuntimeStatus[] | null;
 }
 
 /**
@@ -51,6 +75,11 @@ export interface ProfileSummary {
     "hasKey": boolean;
 }
 
+/**
+ * RuntimeStatus is the public projection of one bootstrappable runtime.
+ */
+export type RuntimeStatus = install$0.RuntimeState;
+
 export interface StatusResponse {
     "apiVersion": number;
     "platform": platform$0.Info;
@@ -64,6 +93,7 @@ export interface StatusResponse {
     "backups": { [_ in string]?: boolean } | null;
     "profiles": ProfileSummary[] | null;
     "activeProfile": string | null;
+    "runtimes": RuntimeStatus[] | null;
     "environment": any;
     "environmentError": string | null;
 }

@@ -26,6 +26,8 @@ export type AgentCatalogItem = Omit<CatalogModels.CatalogItem, "group" | "config
 
 export type AgentStatus = AppModels.AgentStatus;
 export type DetectedConfig = AppModels.DetectedConfig;
+export type RuntimeStatus = AppModels.RuntimeStatus;
+export type InstallRuntimeResult = Omit<AppModels.InstallRuntimeResult, "runtimes"> & { runtimes: RuntimeStatus[] };
 export type ActivateAgentResponse = BindingModels.ActivateResponse;
 export type OpenRegistrationResponse = BindingModels.OpenRegistrationResponse;
 export type ProviderEntry = ProviderModels.Entry;
@@ -34,13 +36,16 @@ export type ProfileSummary = Omit<AppModels.ProfileSummary, "agentIds"> & { agen
 
 export type StatusResponse = Omit<
   AppModels.StatusResponse,
-  "platform" | "capabilities" | "agents" | "catalog" | "groups" | "providers" | "mirrors" | "paths" | "backups" | "profiles"
+  "platform" | "capabilities" | "agents" | "catalog" | "groups" | "providers" | "mirrors" | "paths" | "backups" | "profiles" | "runtimes"
 > & {
   platform: Omit<PlatformModels.Info, "os"> & { os: PlatformId };
-  capabilities: Omit<AppModels.Capabilities, "canInstall" | "supportedAgentIds"> & {
+  capabilities: Omit<AppModels.Capabilities, "canInstall" | "missingRuntime" | "supportedAgentIds"> & {
     canInstall: Record<string, boolean>;
+    /** Agent id -> runtime id that must be installed before the Agent can be. */
+    missingRuntime: Record<string, string>;
     supportedAgentIds: string[];
   };
+  runtimes: RuntimeStatus[];
   agents: Record<string, AgentStatus>;
   catalog: AgentCatalogItem[];
   groups: Array<Omit<CatalogModels.Group, "id"> & { id: AgentGroupId }>;

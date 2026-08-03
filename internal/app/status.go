@@ -6,7 +6,6 @@ import (
 	"context"
 	"maps"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -16,6 +15,7 @@ import (
 	"github.com/MaimoryLab/OneAgent/internal/catalog"
 	configReader "github.com/MaimoryLab/OneAgent/internal/config"
 	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
+	"github.com/MaimoryLab/OneAgent/internal/install"
 	"github.com/MaimoryLab/OneAgent/internal/platform"
 	"github.com/MaimoryLab/OneAgent/internal/process"
 	profileStore "github.com/MaimoryLab/OneAgent/internal/profile"
@@ -45,7 +45,19 @@ type UseCases struct {
 	filesystem  securefs.Store
 	runner      process.Runner
 	environment map[string]string
-	writeMu     sync.Mutex
+	// httpDoer is only used for runtime archive downloads. It is injectable so
+	// bootstrap behavior is testable without reaching nodejs.org.
+	httpDoer install.Doer
+	writeMu  sync.Mutex
+}
+
+// SetRuntimeDownloader overrides the HTTP client used for runtime archive
+// downloads. It exists for tests and for hosts that must route downloads
+// through their own transport.
+func (u *UseCases) SetRuntimeDownloader(client install.Doer) {
+	if u != nil {
+		u.httpDoer = client
+	}
 }
 
 func NewUseCases(options StatusOptions) *UseCases {
@@ -69,12 +81,13 @@ func newUseCases(options StatusOptions, client *provider.Client, profiles profil
 	if options.Home == "" {
 		options.Home = platform.ResolveHome(nil, options.Platform.OS)
 	}
-	if options.Lookup == nil {
-		if options.Runner != nil {
-			options.Lookup = options.Runner.LookPath
-		} else {
-			options.Lookup = defaultLookup
-		}
+	// Lookup stays nil unless a caller injected one. A default here would resolve
+	// against the OneAgent process PATH, which disagrees with the environment
+	// installs and version probes actually run in: a managed runtime and any
+	// Agent CLI under the managed global prefix would be reported missing.
+	// runtimeCapability supplies the managed-PATH lookup instead.
+	if options.Lookup == nil && options.Runner != nil {
+		options.Lookup = options.Runner.LookPath
 	}
 	if client == nil {
 		client = provider.NewClient(nil)
@@ -127,20 +140,6 @@ func NewUseCasesFromEnvironment() *UseCases {
 	})
 }
 
-// LookupForCLI exposes only command presence to the compatibility command. It
-// does not expose the injected resolver or any environment values.
-func (u *UseCases) LookupForCLI(command string) (string, bool) {
-	if u == nil || u.status.Lookup == nil {
-		return "", false
-	}
-	return u.status.Lookup(command)
-}
-
-func defaultLookup(command string) (string, bool) {
-	path, err := exec.LookPath(command)
-	return path, err == nil
-}
-
 type StatusResponse struct {
 	APIVersion       int                         `json:"apiVersion"`
 	Platform         platform.Info               `json:"platform"`
@@ -154,13 +153,19 @@ type StatusResponse struct {
 	Backups          map[string]bool             `json:"backups"`
 	Profiles         []ProfileSummary            `json:"profiles"`
 	ActiveProfile    *string                     `json:"activeProfile"`
+	Runtimes         []RuntimeStatus             `json:"runtimes"`
 	Environment      any                         `json:"environment"`
 	EnvironmentError *string                     `json:"environmentError"`
 }
 
 type Capabilities struct {
-	CanInstall        map[string]bool `json:"canInstall"`
-	SupportedAgentIDs []string        `json:"supportedAgentIds"`
+	CanInstall map[string]bool `json:"canInstall"`
+	// MissingRuntime names the runtime an Agent needs before it can be
+	// installed, keyed by Agent id. An entry means canInstall is false only
+	// because a bootstrappable runtime is absent, which the UI turns into a
+	// "install the runtime first" prompt rather than a dead end.
+	MissingRuntime    map[string]string `json:"missingRuntime"`
+	SupportedAgentIDs []string          `json:"supportedAgentIds"`
 }
 
 type AgentStatus struct {
@@ -217,8 +222,15 @@ func (u *UseCases) GetStatus(ctx context.Context) (StatusResponse, error) {
 	}
 	capabilities := Capabilities{
 		CanInstall:        make(map[string]bool, len(manifest.Agents)),
+		MissingRuntime:    make(map[string]string, len(manifest.Agents)),
 		SupportedAgentIDs: make([]string, 0, len(manifest.Agents)),
 	}
+	// Runtime state is read once: it decides both the reported runtime list and
+	// whether a missing package manager is bootstrappable or a hard blocker. Its
+	// resolver is also how Agent commands are found, so a CLI installed into the
+	// managed global prefix reports as installed instead of missing.
+	runtimes, runtimeLookup := u.runtimeCapability(ctx)
+	agentLookup := runtimeLookup.lookup
 	statuses := make(map[string]AgentStatus, len(manifest.Agents))
 	bindings := u.profiles.ListAgentBindings()
 	for _, id := range catalog.AgentIDs(manifest) {
@@ -230,22 +242,21 @@ func (u *UseCases) GetStatus(ctx context.Context) (StatusResponse, error) {
 		installed := false
 		executable := ""
 		if agent.Command != "" {
-			executable, installed = options.Lookup(agent.Command)
+			executable, installed = agentLookup(agent.Command)
 		}
 		canInstall := false
 		if agent.Package != nil {
-			_, canInstall = options.Lookup(agent.Package.Manager)
-			switch agent.Package.Manager {
-			case "npm":
-				_, canInstall = options.Lookup("npm")
-			case "uv":
-				_, canInstall = options.Lookup("uv")
+			manager := agent.Package.Manager
+			canInstall = runtimeLookup.available(manager)
+			if !canInstall {
+				if runtimeID, bootstrappable := runtimeLookup.provider(manager); bootstrappable {
+					capabilities.MissingRuntime[id] = runtimeID
+				}
 			}
 		}
 		if options.Platform.OS == "windows" {
 			for _, prerequisite := range agent.WindowsPrerequisites {
-				_, present := options.Lookup(prerequisite)
-				canInstall = canInstall && present
+				canInstall = canInstall && runtimeLookup.present(prerequisite)
 			}
 		}
 		if contains(agent.Platforms, options.Platform.OS) {
@@ -307,6 +318,7 @@ func (u *UseCases) GetStatus(ctx context.Context) (StatusResponse, error) {
 		Backups:          backupState(options.Home, options.Platform.OS, manifest),
 		Profiles:         profiles,
 		ActiveProfile:    activeProfile,
+		Runtimes:         runtimes,
 		Environment:      environment,
 		EnvironmentError: environmentError,
 	}, nil

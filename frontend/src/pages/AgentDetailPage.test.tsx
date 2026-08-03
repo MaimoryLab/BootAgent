@@ -16,7 +16,8 @@ function status(): StatusResponse {
   return {
     apiVersion: 1,
     platform: { os: "macos", arch: "arm64", shell: "bash" },
-    capabilities: { canInstall: { codex: true }, supportedAgentIds: ["codex"] },
+    runtimes: [],
+    capabilities: { canInstall: { codex: true }, missingRuntime: {}, supportedAgentIds: ["codex"] },
     agents: {
       codex: {
         installed: true,
@@ -64,7 +65,8 @@ function claudeStatus(): StatusResponse {
   const base = status();
   return {
     ...base,
-    capabilities: { canInstall: { "claude-code": true }, supportedAgentIds: ["claude-code"] },
+    runtimes: [],
+    capabilities: { canInstall: { "claude-code": true }, missingRuntime: {}, supportedAgentIds: ["claude-code"] },
     agents: {
       "claude-code": {
         installed: true,

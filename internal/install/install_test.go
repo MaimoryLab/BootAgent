@@ -185,8 +185,17 @@ func TestInstallLockedAgentSupportsAiderRuntimeBoundary(t *testing.T) {
 	if err != nil || !result.Installed {
 		t.Fatalf("uv result = %#v, err=%v", result, err)
 	}
-	if !reflect.DeepEqual(runner.lastCall, []string{"/fake/uv", "tool", "install", "--force", "--python", "/fake/python", "--no-python-downloads", "aider-chat==0.86.2"}) {
+	// uv resolves the interpreter itself: OneAgent requests 3.12 and lets uv
+	// reuse a system Python or download a managed one into its own root.
+	if !reflect.DeepEqual(runner.lastCall, []string{"/fake/uv", "tool", "install", "--force", "--python", "3.12", "aider-chat==0.86.2"}) {
 		t.Fatalf("uv command = %#v", runner.lastCall)
+	}
+	installEnv := runner.envs[len(runner.envs)-1]
+	if !strings.HasSuffix(installEnv["UV_PYTHON_INSTALL_DIR"], "/.oneagent/runtimes/python") {
+		t.Fatalf("uv python install dir = %q", installEnv["UV_PYTHON_INSTALL_DIR"])
+	}
+	if !strings.HasSuffix(installEnv["UV_TOOL_BIN_DIR"], "/.oneagent/runtimes/global/bin") {
+		t.Fatalf("uv tool bin dir = %q", installEnv["UV_TOOL_BIN_DIR"])
 	}
 
 	pythonRunner := &fakeInstallRunner{paths: map[string]string{"python3": "/fake/python3"}}

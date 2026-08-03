@@ -19,6 +19,7 @@ type Services struct {
 	Provider *ProviderService
 	Agent    *AgentService
 	Profile  *ProfileService
+	Runtime  *RuntimeService
 }
 
 type ServicesOptions struct {
@@ -36,7 +37,46 @@ func NewServicesWithOptions(core *app.UseCases, opener BrowserOpener, options Se
 		Provider: NewProviderService(core, opener),
 		Agent:    &AgentService{core: core, onOutput: options.InstallOutput},
 		Profile:  NewProfileService(core),
+		Runtime:  &RuntimeService{core: core, onOutput: options.InstallOutput},
 	}
+}
+
+// RuntimeService exposes the Node.js and uv bootstrap. It reuses the install
+// output listener so the UI shows runtime downloads in the same log pane as
+// Agent installs.
+type RuntimeService struct {
+	core     *app.UseCases
+	onOutput process.OutputListener
+}
+
+func NewRuntimeService(core *app.UseCases) *RuntimeService {
+	return &RuntimeService{core: core}
+}
+
+func (s *RuntimeService) ListRuntimes(ctx context.Context) ([]app.RuntimeStatus, error) {
+	if err := contextError(ctx); err != nil {
+		return nil, err
+	}
+	if s == nil || s.core == nil {
+		return nil, notReady("Runtime service is not configured")
+	}
+	return s.core.RuntimeStatuses(ctx)
+}
+
+func (s *RuntimeService) InstallRuntime(ctx context.Context, request InstallRuntimeRequest) (app.InstallRuntimeResult, error) {
+	if err := contextError(ctx); err != nil {
+		return app.InstallRuntimeResult{}, err
+	}
+	if s == nil || s.core == nil {
+		return app.InstallRuntimeResult{}, notReady("Runtime service is not configured")
+	}
+	if strings.TrimSpace(request.Runtime) == "" {
+		return app.InstallRuntimeResult{}, oneerrors.New(oneerrors.InvalidRequest, "runtime is required")
+	}
+	return s.core.InstallRuntime(ctx, app.InstallRuntimeOptions{
+		RuntimeID: strings.TrimSpace(request.Runtime),
+		Output:    s.onOutput,
+	})
 }
 
 type StatusService struct {
@@ -301,6 +341,10 @@ type OpenRegistrationRequest struct {
 
 type ProviderIDRequest struct {
 	ID string `json:"id"`
+}
+
+type InstallRuntimeRequest struct {
+	Runtime string `json:"runtime"`
 }
 
 type SaveProviderRequest struct {

@@ -4,11 +4,13 @@
 import * as AgentService from "./agentservice.js";
 import * as ProfileService from "./profileservice.js";
 import * as ProviderService from "./providerservice.js";
+import * as RuntimeService from "./runtimeservice.js";
 import * as StatusService from "./statusservice.js";
 export {
     AgentService,
     ProfileService,
     ProviderService,
+    RuntimeService,
     StatusService
 };
 
@@ -18,6 +20,7 @@ export type {
     AgentInstallResult,
     InstallRequest,
     InstallResponse,
+    InstallRuntimeRequest,
     ModelsRequest,
     ModelsResponse,
     OpenRegistrationRequest,

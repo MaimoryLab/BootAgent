@@ -314,8 +314,13 @@ func buildBinaries(root string, target targetInfo, metadata string) (string, err
 	if err := copyFile(filepath.Join(root, "README.md"), filepath.Join(oneDir, "README.md")); err != nil {
 		return "", err
 	}
-	if err := copyFile(filepath.Join(root, "agents.lock.json"), filepath.Join(oneDir, "agents.lock.json")); err != nil {
-		return "", err
+	// Both locks ship so a reviewer can audit what the app would download —
+	// Agent packages and the runtimes that install them — without unpacking the
+	// binary.
+	for _, lock := range []string{"agents.lock.json", "runtimes.lock.json"} {
+		if err := copyFile(filepath.Join(root, lock), filepath.Join(oneDir, lock)); err != nil {
+			return "", err
+		}
 	}
 	if err := copyFile(filepath.Join(metadata, "THIRD_PARTY_NOTICES.md"), filepath.Join(oneDir, "THIRD_PARTY_NOTICES.md")); err != nil {
 		return "", err
@@ -608,6 +613,10 @@ func generateNotices(root, output string) error {
 	if err != nil {
 		return err
 	}
+	runtimes, err := catalog.LoadEmbeddedRuntimes()
+	if err != nil {
+		return err
+	}
 	var builder strings.Builder
 	builder.WriteString("# OneAgent Third-Party Notices\n\n")
 	builder.WriteString("OneAgent bundles the Go application and its built React assets. Agent packages are not bundled; they are installed from the listed upstream source only after user confirmation.\n\n")
@@ -623,12 +632,19 @@ func generateNotices(root, output string) error {
 		fmt.Fprintf(&builder, "| `%s` | `%s` | %s | %s |\n", item.Name, item.Version, item.License, item.LicenseFile)
 	}
 	builder.WriteString("\n## Agent Installation Targets (Not Bundled)\n\n| Agent | Locked package | License | Source | License reference |\n| --- | --- | --- | --- | --- |\n")
-	for id, agent := range manifest.Agents {
+	// Iterate in catalog order: a map walk would reorder the table on every run
+	// and change the notice file's own SHA-256.
+	for _, id := range catalog.AgentIDs(manifest) {
+		agent := manifest.Agents[id]
 		if agent.Package == nil {
 			continue
 		}
 		fmt.Fprintf(&builder, "| %s | `%s@%s` | %s | %s | %s |\n", agent.Name, agent.Package.Name, agent.Package.Version, agent.Package.License, agent.Package.Source, agent.Package.LicenseURL)
-		_ = id
+	}
+	builder.WriteString("\n## Runtime Bootstrap Targets (Not Bundled)\n\nOneAgent can download these runtimes on request to provide the package managers Agents are installed with. Each download is pinned to the version and SHA-256 in `runtimes.lock.json` and is verified before use.\n\n| Runtime | Locked version | License | Source | License reference |\n| --- | --- | --- | --- | --- |\n")
+	for _, id := range runtimes.RuntimeOrder {
+		entry := runtimes.Runtimes[id]
+		fmt.Fprintf(&builder, "| %s | `%s` | %s | %s | %s |\n", entry.Name, entry.Version, entry.License, entry.Source, entry.LicenseURL)
 	}
 	return os.WriteFile(filepath.Join(output, "THIRD_PARTY_NOTICES.md"), []byte(builder.String()), 0o644)
 }
@@ -957,6 +973,9 @@ func inspectArchive(file string) []string {
 		if strings.EqualFold(base, "agents.lock.json") {
 			required["agents.lock.json"] = true
 		}
+		if strings.EqualFold(base, "runtimes.lock.json") {
+			required["runtimes.lock.json"] = true
+		}
 		if strings.EqualFold(base, "THIRD_PARTY_NOTICES.md") {
 			required["THIRD_PARTY_NOTICES.md"] = true
 		}
@@ -990,7 +1009,7 @@ func inspectArchive(file string) []string {
 			}
 		}
 	}
-	for _, name := range []string{"agents.lock.json", "THIRD_PARTY_NOTICES.md"} {
+	for _, name := range []string{"agents.lock.json", "runtimes.lock.json", "THIRD_PARTY_NOTICES.md"} {
 		if !required[name] {
 			problems = append(problems, "missing "+name+" in "+filepath.Base(file))
 		}

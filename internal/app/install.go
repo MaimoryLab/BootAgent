@@ -369,7 +369,10 @@ func (r *installRun) step(ctx context.Context, agentID string) {
 }
 
 func (r *installRun) configure(ctx context.Context, agentID string, agent catalog.Agent) error {
-	runtime := install.NewRuntime(r.core.status.Home, r.core.status.Platform, r.core.runner, r.core.environment)
+	// The managed runtime directories go on PATH before anything is looked up,
+	// so an npm or uv installed by an earlier OneAgent run is found instead of
+	// being reported missing and downloaded again.
+	runtime := r.core.installRuntime(nil)
 	runtime.OnOutput = func(output process.Output) {
 		output.Text = install.Redact(output.Text, []string{r.options.APIKey})
 		for index, argument := range output.Args {
@@ -384,6 +387,14 @@ func (r *installRun) configure(ctx context.Context, agentID string, agent catalo
 		installed.LockedVersion = agent.Package.Version
 	}
 	if r.options.InstallAgent {
+		// Install the package manager this Agent needs before installing the
+		// Agent itself, otherwise a machine without Node or uv fails on a
+		// prerequisite the user cannot resolve from this screen.
+		bootstrapped, err := r.ensureAgentRuntime(ctx, agentID, agent, runtime)
+		if err != nil {
+			return err
+		}
+		runtime = bootstrapped
 		result, err := install.InstallLockedAgent(ctx, runtime, agentID, agent, install.Options{
 			EnforceLocked: r.options.LockedVersion,
 			Latest:        r.options.Latest,
@@ -457,6 +468,42 @@ func (r *installRun) configure(ctx context.Context, agentID string, agent catalo
 		r.nextSteps = append(r.nextSteps, next)
 	}
 	return nil
+}
+
+// ensureAgentRuntime installs the runtime that provides this Agent's package
+// manager when the command is not resolvable, and returns a runtime whose PATH
+// includes it. A manager already on the machine is left alone: OneAgent does
+// not replace a user's own Node or uv.
+func (r *installRun) ensureAgentRuntime(ctx context.Context, agentID string, agent catalog.Agent, runtime install.Runtime) (install.Runtime, error) {
+	if agent.Package == nil {
+		return runtime, nil
+	}
+	manager := agent.Package.Manager
+	if executable, present := runtime.Runner.LookPath(manager); present && executable != "" {
+		return runtime, nil
+	}
+	manifest, err := catalog.LoadEmbeddedRuntimes()
+	if err != nil {
+		return runtime, err
+	}
+	runtimeID, entry, known := install.RuntimeForCommand(manifest, manager)
+	if !known {
+		return runtime, nil
+	}
+	updated, installed, err := install.EnsureRuntime(ctx, runtime, r.core.httpDoer, runtimeID, entry)
+	if err != nil {
+		return runtime, err
+	}
+	if installed {
+		r.logs = append(r.logs, "## "+agentID+"\nruntime: installed "+entry.Name+" "+entry.Version)
+		// Record the new directory on the login PATH now rather than at the end
+		// of the run: a failure here must surface against the Agent that needed
+		// it, not silently leave the runtime off PATH for the next session.
+		if _, err := r.core.persistRuntimePath(ctx, updated, manifest); err != nil {
+			return updated, err
+		}
+	}
+	return updated, nil
 }
 
 func (r *installRun) fail(agentID string, err error) {

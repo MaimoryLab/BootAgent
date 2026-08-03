@@ -42,7 +42,8 @@ function renderPage() {
     status: {
       apiVersion: 1,
       platform: { os: "macos", arch: "arm64", shell: "bash" },
-      capabilities: { canInstall: {}, supportedAgentIds: [] },
+      runtimes: [],
+      capabilities: { canInstall: {}, missingRuntime: {}, supportedAgentIds: [] },
       agents: Object.fromEntries(
         CATALOG.map((item) => [
           item.id,

@@ -6,7 +6,8 @@ import { initialWizardState, wizardReducer, type WizardState } from "./wizardRed
 const status = {
   apiVersion: 1,
   platform: { os: "linux", arch: "x64", shell: "bash" },
-  capabilities: { canInstall: {}, supportedAgentIds: [] },
+  runtimes: [],
+  capabilities: { canInstall: {}, missingRuntime: {}, supportedAgentIds: [] },
   agents: {},
   catalog: [],
   groups: [],

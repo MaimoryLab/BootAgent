@@ -8,7 +8,7 @@ import "embed"
 // Keeping the embed at the module root lets internal packages use them without
 // maintaining a second hand-edited copy inside a package.
 //
-//go:embed agents.lock.json providers.lock.json
+//go:embed agents.lock.json providers.lock.json runtimes.lock.json
 var AgentLockManifest embed.FS
 
 // FrontendAssets is the asset tree consumed by the Wails shell. The checked-in
@@ -28,4 +28,10 @@ func EmbeddedAgentLock() ([]byte, error) {
 // catalog parser.
 func EmbeddedProviderLock() ([]byte, error) {
 	return AgentLockManifest.ReadFile("providers.lock.json")
+}
+
+// EmbeddedRuntimeLock returns a fresh copy of runtimes.lock.json, the pinned
+// Node.js and uv download contract used to bootstrap package managers.
+func EmbeddedRuntimeLock() ([]byte, error) {
+	return AgentLockManifest.ReadFile("runtimes.lock.json")
 }

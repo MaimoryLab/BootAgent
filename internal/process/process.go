@@ -11,6 +11,8 @@ import (
 	"maps"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"time"
@@ -60,12 +62,84 @@ func New(env map[string]string) OSRunner {
 	return OSRunner{Env: values}
 }
 
+// LookPath resolves a command against this runner's own PATH rather than the
+// OneAgent process PATH. That distinction is what makes a runtime installed
+// into a private directory usable: Run() passes r.Env to the child, so a lookup
+// against the parent process environment would report a managed npm or uv as
+// missing and the installer would keep asking to install it again.
 func (r OSRunner) LookPath(command string) (string, bool) {
 	if r.Lookup != nil {
 		return r.Lookup(command)
 	}
-	path, err := exec.LookPath(command)
-	return path, err == nil
+	search := r.Env["PATH"]
+	if search == "" {
+		search = r.Env["Path"] // Windows callers may carry the native casing.
+	}
+	if search == "" || search == os.Getenv("PATH") {
+		path, err := exec.LookPath(command)
+		return path, err == nil
+	}
+	return lookPathIn(search, command)
+}
+
+// lookPathIn mirrors exec.LookPath's directory walk against an explicit search
+// path. exec.LookPath itself always reads the process environment, so an
+// injected PATH cannot be honored through it.
+func lookPathIn(search, command string) (string, bool) {
+	if command == "" {
+		return "", false
+	}
+	if strings.ContainsAny(command, `/\`) {
+		if executable(command) {
+			return command, true
+		}
+		return "", false
+	}
+	for _, directory := range filepath.SplitList(search) {
+		if directory == "" {
+			directory = "."
+		}
+		for _, candidate := range commandNames(command) {
+			path := filepath.Join(directory, candidate)
+			if executable(path) {
+				return path, true
+			}
+		}
+	}
+	return "", false
+}
+
+// commandNames expands a bare command to the Windows executable extensions. On
+// other platforms the command name is used as given.
+func commandNames(command string) []string {
+	if runtime.GOOS != "windows" {
+		return []string{command}
+	}
+	if filepath.Ext(command) != "" {
+		return []string{command}
+	}
+	extensions := os.Getenv("PATHEXT")
+	if extensions == "" {
+		extensions = ".COM;.EXE;.BAT;.CMD"
+	}
+	names := make([]string, 0, 5)
+	for _, extension := range filepath.SplitList(extensions) {
+		if extension = strings.TrimSpace(extension); extension != "" {
+			names = append(names, command+strings.ToLower(extension))
+		}
+	}
+	return append(names, command)
+}
+
+func executable(path string) bool {
+	info, err := os.Stat(path)
+	if err != nil || info.IsDir() {
+		return false
+	}
+	if runtime.GOOS == "windows" {
+		return true
+	}
+	return info.Mode().Perm()&0o111 != 0
 }
 
 func (r OSRunner) Run(ctx context.Context, argv []string, overrides map[string]string, timeout time.Duration) (Result, error) {

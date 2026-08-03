@@ -5,9 +5,9 @@
 ## 目录
 
 - `internal/app`：Status、Provider、Agent、Profile 用例和写入协调锁。
-- `internal/catalog`：嵌入的 `agents.lock.json`、`providers.lock.json` 与内置 Provider 目录。
+- `internal/catalog`：嵌入的 `agents.lock.json`、`providers.lock.json`、`runtimes.lock.json` 与内置 Provider 目录。
 - `internal/config`：TOML/JSON/JSONC 适配器、配置发现和 golden fixtures。
-- `internal/install`：锁定包安装、registry/integrity 校验和 Aider 外部前置条件。
+- `internal/install`：锁定包安装、registry/integrity 校验、Node.js/uv 运行时引导（下载、校验、解压、写入 PATH）和 Aider 外部前置条件。
 - `internal/profile`、`internal/securefs`：profile、secret、备份、权限和原子写。
 - `cmd/oneagent`
 - `cmd/oneagent-release`：原生 Wails/Go/React 发布包、notice、manifest 和 SHA-256。
@@ -47,7 +47,7 @@ go run ./cmd/oneagent-rc adopted
 go run ./cmd/oneagent-provider-smoke --provider all --timeout 30s
 ```
 
-普通测试、Wails 构建、站点构建和发布工具不需要 Python。Aider 是外部上游例外：选择安装 Aider 时必须有本机 Python 3.12；OneAgent 不下载它，也不把它放进发行包。
+普通测试、Wails 构建、站点构建和发布工具不需要 Python。安装 Aider 需要 Python 3.12，但不再要求本机预装：uv 自己解析解释器，本机有匹配版本就复用，否则下载一份托管 CPython 到 `~/.oneagent/runtimes/python`。Python 仍然不进发行包。
 
 ## 代码边界
 

@@ -1412,6 +1412,84 @@
 .agent-manage-row.is-guide .agent-icon { opacity: 0.75; }
 .agent-manage-cta.is-static { color: var(--text-tertiary); }
 
+/* Runtime bootstrap: Node.js and uv rows, plus the selection-page prompt. */
+.runtime-list {
+  display: grid;
+  gap: 0;
+  border-radius: var(--radius-panel);
+  background: var(--window-bg);
+}
+
+.runtime-row {
+  padding: 11px 13px;
+  display: grid;
+  grid-template-columns: minmax(120px, 1.4fr) repeat(2, minmax(90px, 1fr)) minmax(72px, 0.7fr) auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.runtime-row + .runtime-row {
+  box-shadow: inset 0 1px 0 var(--border);
+}
+
+.runtime-identity,
+.runtime-fact {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.runtime-identity small,
+.runtime-fact small {
+  color: var(--text-tertiary);
+  font-size: 10px;
+}
+
+.runtime-fact > span {
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.runtime-action-placeholder {
+  display: block;
+  width: 1px;
+}
+
+.runtime-note {
+  margin: 0;
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+.runtime-prompt {
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.runtime-prompt-body {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.runtime-prompt-body > span {
+  color: var(--text-secondary);
+}
+
+.runtime-prompt-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.runtime-prompt-error {
+  color: var(--red);
+  font-size: 12px;
+}
+
 @media (max-width: 600px) {
   .provider-editor-grid,
   .profile-editor-grid { grid-template-columns: minmax(0, 1fr); }
@@ -1426,4 +1504,11 @@
 
   .agent-manage-row > .status-badge { grid-column: 3; grid-row: 1; }
   .agent-manage-fact { grid-column: 2 / 4; }
+
+  .runtime-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+  }
+
+  .runtime-fact { grid-column: 1 / 3; }
 }

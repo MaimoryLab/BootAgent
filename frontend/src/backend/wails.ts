@@ -3,18 +3,21 @@ import { Events } from "@wailsio/runtime";
 import * as AgentService from "../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/agentservice.js";
 import * as ProfileService from "../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/profileservice.js";
 import * as ProviderService from "../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/providerservice.js";
+import * as RuntimeService from "../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/runtimeservice.js";
 import * as StatusService from "../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/statusservice.js";
 import type {
   ActivateAgentResponse,
   InstallRequest,
   InstallOutput,
   InstallResponse,
+  InstallRuntimeResult,
   ModelsResponse,
   OpenRegistrationResponse,
   ProbeResponse,
   ProviderEntry,
   ProfileSummary,
   ProviderId,
+  RuntimeStatus,
   SaveProviderInput,
   StatusResponse,
 } from "../types/api";
@@ -134,6 +137,10 @@ export const wailsApi = {
       profile_id: input.profileId ?? "",
       small_fast_model: input.smallFastModel ?? "",
     })) as Promise<ActivateAgentResponse>,
+  listRuntimes: (): Promise<RuntimeStatus[]> =>
+    call(() => RuntimeService.ListRuntimes()).then((runtimes) => runtimes ?? []),
+  installRuntime: (runtime: string): Promise<InstallRuntimeResult> =>
+    call(() => RuntimeService.InstallRuntime({ runtime })) as Promise<InstallRuntimeResult>,
   listProfiles: (): Promise<ProfileSummary[]> => call(() => ProfileService.ListProfiles()) as Promise<ProfileSummary[]>,
   saveProfile: (input: {
     id: string;

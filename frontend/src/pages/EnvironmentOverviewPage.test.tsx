@@ -29,7 +29,8 @@ function status(): StatusResponse {
   return {
     apiVersion: 1,
     platform: { os: "macos", arch: "arm64", shell: "zsh" },
-    capabilities: { canInstall: {}, supportedAgentIds: [] },
+    runtimes: [],
+    capabilities: { canInstall: {}, missingRuntime: {}, supportedAgentIds: [] },
     agents: { codex: agent(true, "team"), opencode: agent(false, null) },
     catalog: [
       { id: "opencode", name: "OpenCode", group: "auto", configMode: "auto", guideOnly: false, lockedVersion: "1.0.0", protocol: "openai", platforms: ["macos"], platformNote: "", rank: 4 },

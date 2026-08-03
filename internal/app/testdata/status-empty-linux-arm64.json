@@ -37,7 +37,14 @@
       "continue",
       "qwen-code",
       "kilo-vscode"
-    ]
+    ],
+    "missingRuntime": {
+      "aider": "uv",
+      "claude-code": "node",
+      "codex": "node",
+      "kilo-cli": "node",
+      "opencode": "node"
+    }
   },
   "agents": {
     "codex": {
@@ -260,7 +267,11 @@
       "guideOnly": false,
       "lockedVersion": "0.145.0",
       "protocol": "responses",
-      "platforms": ["macos", "linux", "windows"],
+      "platforms": [
+        "macos",
+        "linux",
+        "windows"
+      ],
       "platformNote": "",
       "rank": 1
     },
@@ -272,7 +283,11 @@
       "guideOnly": false,
       "lockedVersion": "2.1.217",
       "protocol": "anthropic",
-      "platforms": ["macos", "linux", "windows"],
+      "platforms": [
+        "macos",
+        "linux",
+        "windows"
+      ],
       "platformNote": "",
       "rank": 2
     },
@@ -284,7 +299,11 @@
       "guideOnly": true,
       "lockedVersion": null,
       "protocol": null,
-      "platforms": ["macos", "linux", "windows"],
+      "platforms": [
+        "macos",
+        "linux",
+        "windows"
+      ],
       "platformNote": "",
       "rank": 3
     },
@@ -296,7 +315,11 @@
       "guideOnly": false,
       "lockedVersion": "1.18.4",
       "protocol": "openai",
-      "platforms": ["macos", "linux", "windows"],
+      "platforms": [
+        "macos",
+        "linux",
+        "windows"
+      ],
       "platformNote": "",
       "rank": 4
     },
@@ -308,7 +331,11 @@
       "guideOnly": true,
       "lockedVersion": null,
       "protocol": null,
-      "platforms": ["macos", "linux", "windows"],
+      "platforms": [
+        "macos",
+        "linux",
+        "windows"
+      ],
       "platformNote": "",
       "rank": 5
     },
@@ -320,7 +347,11 @@
       "guideOnly": true,
       "lockedVersion": null,
       "protocol": null,
-      "platforms": ["macos", "linux", "windows"],
+      "platforms": [
+        "macos",
+        "linux",
+        "windows"
+      ],
       "platformNote": "",
       "rank": 6
     },
@@ -332,7 +363,11 @@
       "guideOnly": true,
       "lockedVersion": null,
       "protocol": null,
-      "platforms": ["macos", "linux", "windows"],
+      "platforms": [
+        "macos",
+        "linux",
+        "windows"
+      ],
       "platformNote": "",
       "rank": 7
     },
@@ -344,7 +379,11 @@
       "guideOnly": false,
       "lockedVersion": "7.4.11",
       "protocol": "openai",
-      "platforms": ["macos", "linux", "windows"],
+      "platforms": [
+        "macos",
+        "linux",
+        "windows"
+      ],
       "platformNote": "",
       "rank": 8
     },
@@ -356,7 +395,11 @@
       "guideOnly": false,
       "lockedVersion": "0.86.2",
       "protocol": "openai",
-      "platforms": ["macos", "linux", "windows"],
+      "platforms": [
+        "macos",
+        "linux",
+        "windows"
+      ],
       "platformNote": "",
       "rank": 9
     },
@@ -368,7 +411,11 @@
       "guideOnly": true,
       "lockedVersion": null,
       "protocol": null,
-      "platforms": ["macos", "linux", "windows"],
+      "platforms": [
+        "macos",
+        "linux",
+        "windows"
+      ],
       "platformNote": "",
       "rank": 10
     },
@@ -380,7 +427,11 @@
       "guideOnly": true,
       "lockedVersion": null,
       "protocol": null,
-      "platforms": ["macos", "linux", "windows"],
+      "platforms": [
+        "macos",
+        "linux",
+        "windows"
+      ],
       "platformNote": "",
       "rank": 11
     },
@@ -392,7 +443,11 @@
       "guideOnly": true,
       "lockedVersion": null,
       "protocol": null,
-      "platforms": ["macos", "linux", "windows"],
+      "platforms": [
+        "macos",
+        "linux",
+        "windows"
+      ],
       "platformNote": "",
       "rank": 12
     },
@@ -404,7 +459,11 @@
       "guideOnly": true,
       "lockedVersion": null,
       "protocol": null,
-      "platforms": ["macos", "linux", "windows"],
+      "platforms": [
+        "macos",
+        "linux",
+        "windows"
+      ],
       "platformNote": "",
       "rank": 13
     },
@@ -416,16 +475,32 @@
       "guideOnly": true,
       "lockedVersion": null,
       "protocol": null,
-      "platforms": ["macos", "linux", "windows"],
+      "platforms": [
+        "macos",
+        "linux",
+        "windows"
+      ],
       "platformNote": "",
       "rank": 14
     }
   ],
   "groups": [
-    {"id": "auto", "name": "One-click configurable"},
-    {"id": "gateway", "name": "Gateway agents"},
-    {"id": "platform", "name": "Official account agents"},
-    {"id": "ide", "name": "IDE extensions"}
+    {
+      "id": "auto",
+      "name": "One-click configurable"
+    },
+    {
+      "id": "gateway",
+      "name": "Gateway agents"
+    },
+    {
+      "id": "platform",
+      "name": "Official account agents"
+    },
+    {
+      "id": "ide",
+      "name": "IDE extensions"
+    }
   ],
   "providers": {
     "ppio": {
@@ -478,5 +553,39 @@
   "profiles": [],
   "activeProfile": null,
   "environment": null,
-  "environmentError": null
+  "environmentError": null,
+  "runtimes": [
+    {
+      "id": "node",
+      "name": "Node.js",
+      "command": "npm",
+      "installed": false,
+      "version": "",
+      "lockedVersion": "24.18.1",
+      "managed": false,
+      "supported": true,
+      "note": "",
+      "license": "MIT",
+      "licenseUrl": "https://github.com/nodejs/node/blob/main/LICENSE",
+      "source": "https://nodejs.org/dist/",
+      "installPath": "${HOME}/.oneagent/runtimes/node/v24.18.1",
+      "requiredByHint": "Codex, Claude Code, OpenCode +1"
+    },
+    {
+      "id": "uv",
+      "name": "uv",
+      "command": "uv",
+      "installed": false,
+      "version": "",
+      "lockedVersion": "0.12.1",
+      "managed": false,
+      "supported": true,
+      "note": "uv manages its own CPython download for Aider; OneAgent does not fetch Python directly.",
+      "license": "MIT OR Apache-2.0",
+      "licenseUrl": "https://github.com/astral-sh/uv/blob/main/LICENSE-APACHE",
+      "source": "https://github.com/astral-sh/uv/releases",
+      "installPath": "${HOME}/.oneagent/runtimes/uv/v0.12.1",
+      "requiredByHint": "Aider"
+    }
+  ]
 }

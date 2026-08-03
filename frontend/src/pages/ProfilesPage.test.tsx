@@ -18,7 +18,8 @@ function statusWith(profiles: ProfileSummary[]): StatusResponse {
   return {
     apiVersion: 1,
     platform: { os: "macos", arch: "arm64", shell: "bash" },
-    capabilities: { canInstall: {}, supportedAgentIds: [] },
+    runtimes: [],
+    capabilities: { canInstall: {}, missingRuntime: {}, supportedAgentIds: [] },
     agents: {
       codex: {
         installed: true,

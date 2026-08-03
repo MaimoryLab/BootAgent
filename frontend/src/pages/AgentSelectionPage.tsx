@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 
 import { AgentRow } from "../components/AgentRow";
 import { PageScaffold } from "../components/PageScaffold";
+import { RuntimePrompt } from "../components/RuntimePrompt";
 import { useI18n } from "../i18n";
 import { splitByRank } from "../state/ranking";
 import type { AgentCatalogItem } from "../types/api";
@@ -12,7 +13,7 @@ import { useWizard } from "../state/WizardContext";
 export function AgentSelectionPage() {
   const navigate = useNavigate();
   const { t } = useI18n();
-  const { state, dispatch } = useWizard();
+  const { state, dispatch, refreshStatus } = useWizard();
   const [showMore, setShowMore] = useState(false);
   // Ranked, not grouped by catalog group. Leading with the "auto" group put Kilo
   // and Aider on the first screen and folded Cursor, OpenClaw and Hermes away.
@@ -81,6 +82,20 @@ export function AgentSelectionPage() {
               onChange={(event) => dispatch({ type: "SET_INSTALL_MISSING", value: event.target.checked })}
             />
           </label>
+
+          {/* Installing a selected Agent needs its package manager. Offering the
+              runtime here, before the wizard collects a key and a model, keeps the
+              activation run from failing on a prerequisite the user cannot fix
+              from the last step. */}
+          {state.installMissingAgents ? (
+            <RuntimePrompt
+              runtimes={state.status.runtimes ?? []}
+              missingRuntime={state.status.capabilities.missingRuntime ?? {}}
+              selectedAgentIds={state.selectedAgentIds}
+              agents={state.status.agents}
+              onInstalled={refreshStatus}
+            />
+          ) : null}
         </>
       ) : null}
     </PageScaffold>

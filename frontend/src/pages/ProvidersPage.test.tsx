@@ -16,7 +16,8 @@ function statusWith(agents: Record<string, string | null>): StatusResponse {
   return {
     apiVersion: 1,
     platform: { os: "macos", arch: "arm64", shell: "bash" },
-    capabilities: { canInstall: {}, supportedAgentIds: [] },
+    runtimes: [],
+    capabilities: { canInstall: {}, missingRuntime: {}, supportedAgentIds: [] },
     agents: Object.fromEntries(
       Object.entries(agents).map(([id, provider]) => [
         id,

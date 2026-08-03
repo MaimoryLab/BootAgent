@@ -2,6 +2,7 @@ import { PackageOpen, RefreshCw } from "lucide-react";
 
 import { AgentManageRow } from "../components/AgentManageRow";
 import { PageScaffold } from "../components/PageScaffold";
+import { RuntimeSection } from "../components/RuntimeSection";
 import { useI18n } from "../i18n";
 import { useWizard } from "../state/WizardContext";
 
@@ -51,6 +52,8 @@ export function EnvironmentOverviewPage() {
         </button>
       }
     >
+      <RuntimeSection runtimes={status.runtimes ?? []} onInstalled={refreshStatus} />
+
       {installed.length ? (
         <section className="overview-section">
           <div className="section-heading">

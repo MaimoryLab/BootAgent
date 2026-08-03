@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
@@ -58,6 +59,24 @@ func InstalledVersion(ctx context.Context, runtime Runtime, agent catalog.Agent)
 	return VersionFromOutput(result.Stdout + "\n" + result.Stderr)
 }
 
+// AiderPythonVersion is the interpreter Aider is pinned against. It is passed
+// to uv as a request, not as a path: uv reuses a matching system interpreter
+// when one exists and downloads a managed one when it does not.
+const AiderPythonVersion = "3.12"
+
+// managedNPM reports whether this npm came from OneAgent's runtime root.
+func managedNPM(runtime Runtime, npm string) bool {
+	if npm == "" {
+		return false
+	}
+	root := RuntimeRoot(runtime.Home)
+	relative, err := filepath.Rel(root, npm)
+	return err == nil && relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator))
+}
+
+// ResolveAiderPython312 reports an existing Python 3.12 when the host has one.
+// It is retained for the CLI's diagnostics; installation itself no longer needs
+// it because uv provisions the interpreter.
 func ResolveAiderPython312(ctx context.Context, runtime Runtime) (string, error) {
 	if err := checkContext(ctx); err != nil {
 		return "", err
@@ -190,6 +209,13 @@ func InstallLockedAgent(ctx context.Context, runtime Runtime, agentID string, ag
 		if !ok || npm == "" {
 			return Result{}, prerequisiteError(fmt.Sprintf("npm is required to install %s", agent.Name))
 		}
+		// A managed Node has no writable system prefix, and a system Node often
+		// needs sudo for -g. Directing global installs at OneAgent's own prefix
+		// makes both cases work without elevation and keeps the Agent CLIs on
+		// the same PATH entry the runtime bootstrap already records.
+		if managedNPM(runtime, npm) {
+			environment["npm_config_prefix"] = GlobalPrefix(runtime.Home)
+		}
 		spec := packageName
 		if !options.Latest {
 			spec += "@" + locked
@@ -206,15 +232,17 @@ func InstallLockedAgent(ctx context.Context, runtime Runtime, agentID string, ag
 		if !ok || uv == "" {
 			return Result{}, prerequisiteError("uv is required to install Aider")
 		}
-		aiderRuntime, runtimeErr := ResolveAiderPython312(ctx, runtime)
-		if runtimeErr != nil {
-			return Result{}, runtimeErr
-		}
 		spec := packageName
 		if !options.Latest {
 			spec += "==" + locked
 		}
-		argv = []string{uv, "tool", "install", "--force", "--python", aiderRuntime, "--no-python-downloads", spec}
+		// uv resolves Python itself. When a matching interpreter is already on
+		// the machine it is reused; otherwise uv downloads a managed CPython
+		// into OneAgent's runtime root, which is why a preinstalled Python 3.12
+		// is no longer a prerequisite for Aider.
+		environment["UV_PYTHON_INSTALL_DIR"] = filepath.Join(RuntimeRoot(runtime.Home), "python")
+		environment["UV_TOOL_BIN_DIR"] = GlobalBinDir(runtime.Home, runtime.Platform.OS)
+		argv = []string{uv, "tool", "install", "--force", "--python", AiderPythonVersion, spec}
 	default:
 		return Result{}, prerequisiteError(fmt.Sprintf("No allowlisted package manager for %s", agent.Name))
 	}
@@ -251,12 +279,12 @@ func requirePrerequisites(ctx context.Context, runtime Runtime, agent catalog.Ag
 	}
 	if packageInfo.Manager == "npm" {
 		if _, ok := runtime.Runner.LookPath("npm"); !ok {
-			return prerequisiteError(fmt.Sprintf("npm is required to install %s", agent.Name))
+			return prerequisiteError(fmt.Sprintf("npm is required to install %s. Install the Node.js runtime first.", agent.Name))
 		}
 	}
 	if packageInfo.Manager == "uv" {
 		if _, ok := runtime.Runner.LookPath("uv"); !ok {
-			return prerequisiteError("uv is required to install Aider")
+			return prerequisiteError("uv is required to install Aider. Install the uv runtime first.")
 		}
 	}
 	if runtime.Platform.OS == "windows" {
