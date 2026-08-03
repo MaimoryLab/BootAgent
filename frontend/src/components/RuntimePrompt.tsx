@@ -3,7 +3,9 @@ import { useMemo, useState } from "react";
 
 import { api, describeError } from "../backend/api";
 import { useI18n } from "../i18n";
+import { useTaskCenter } from "../state/TaskCenterContext";
 import type { AgentStatus, RuntimeStatus } from "../types/api";
+import { DownloadProgress } from "./DownloadProgress";
 
 interface RuntimePromptProps {
   runtimes: RuntimeStatus[];
@@ -21,6 +23,7 @@ interface RuntimePromptProps {
  */
 export function RuntimePrompt({ runtimes, missingRuntime, selectedAgentIds, agents, onInstalled }: RuntimePromptProps) {
   const { t } = useI18n();
+  const { resetProgress } = useTaskCenter();
   const [pending, setPending] = useState("");
   const [failure, setFailure] = useState("");
 
@@ -43,6 +46,8 @@ export function RuntimePrompt({ runtimes, missingRuntime, selectedAgentIds, agen
   const install = async (runtimeId: string) => {
     setPending(runtimeId);
     setFailure("");
+    // A retry must not open on the previous attempt's finished bar.
+    resetProgress(runtimeId);
     try {
       await api.installRuntime(runtimeId);
       await onInstalled();
@@ -75,6 +80,7 @@ export function RuntimePrompt({ runtimes, missingRuntime, selectedAgentIds, agen
             </button>
           ))}
         </div>
+        {pending ? <DownloadProgress runtimeId={pending} /> : null}
         {failure ? <span className="runtime-prompt-error">{failure}</span> : null}
       </div>
     </div>

@@ -21,15 +21,18 @@ const emptyProvider: ProviderEntry = {
 
 export function ProvidersPage({ create = false }: { create?: boolean }) {
   const navigate = useNavigate();
-  const { t } = useI18n();
+  const { locale, t } = useI18n();
   const [searchParams] = useSearchParams();
   const { state, refreshStatus } = useWizard();
   const status = state.status;
   const [editor, setEditor] = useState<ProviderEntry | null>(create ? { ...emptyProvider } : null);
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState("");
+  const [applied, setApplied] = useState("");
   const requestedReturn = searchParams.get("returnTo");
   const returnTo = requestedReturn?.startsWith("/") && !requestedReturn.startsWith("//") ? requestedReturn : "/providers";
+  const nameOf = (agentId: string) =>
+    status?.catalog.find((item) => item.id === agentId)?.name || agentId;
 
   const closeEditor = () => {
     if (create) navigate(returnTo);
@@ -39,6 +42,7 @@ export function ProvidersPage({ create = false }: { create?: boolean }) {
   const edit = async (providerId: string) => {
     setBusy(true);
     setFailure("");
+    setApplied("");
     try {
       setEditor(await api.getProvider(providerId));
     } catch (error) {
@@ -53,8 +57,23 @@ export function ProvidersPage({ create = false }: { create?: boolean }) {
     if (!editor) return;
     setBusy(true);
     setFailure("");
+    setApplied("");
     try {
-      await api.saveProvider(editor);
+      // Changing an endpoint or key rewrites every Agent already using this
+      // Provider, so the outcome has to be reported rather than silently applied.
+      const result = await api.saveProvider(editor);
+      const reapplied = result.reapplied ?? [];
+      const failures = Object.entries(result.failures ?? {});
+      if (failures.length) {
+        setFailure(t("{agents} 重新应用失败：{message}", {
+          agents: failures.map(([agentId]) => nameOf(agentId)).join(locale === "en" ? ", " : "、"),
+          message: failures[0][1] ?? "",
+        }));
+      } else if (reapplied.length) {
+        setApplied(t("已重新应用到 {agents}", {
+          agents: reapplied.map(nameOf).join(locale === "en" ? ", " : "、"),
+        }));
+      }
       await refreshStatus();
       if (create) navigate(returnTo);
       else setEditor(null);
@@ -69,6 +88,7 @@ export function ProvidersPage({ create = false }: { create?: boolean }) {
     if (!window.confirm(t("删除 Provider“{name}”？", { name }))) return;
     setBusy(true);
     setFailure("");
+    setApplied("");
     try {
       await api.deleteProvider(providerId);
       if (editor?.id === providerId) setEditor(null);
@@ -88,14 +108,11 @@ export function ProvidersPage({ create = false }: { create?: boolean }) {
     );
   }
 
-  const nameOf = (agentId: string) =>
-    status.catalog.find((item) => item.id === agentId)?.name || agentId;
-
   return (
     <PageScaffold title={create ? t("新增 Provider") : "Provider"} description={t("管理模型服务、端点与本机保存的 API Key。")}>
       {!create ? (
         <div className="provider-toolbar">
-          <button className="button button-secondary" type="button" onClick={() => { setEditor({ ...emptyProvider }); setFailure(""); }}>
+          <button className="button button-secondary" type="button" onClick={() => { setEditor({ ...emptyProvider }); setFailure(""); setApplied(""); }}>
             <Plus size={15} />
             {t("新增 Provider")}
           </button>
@@ -156,6 +173,7 @@ export function ProvidersPage({ create = false }: { create?: boolean }) {
       ) : null}
 
       {failure ? <p className="agent-manage-error">{failure}</p> : null}
+      {applied ? <div className="agent-manage-applied"><strong>{t("应用完成")}</strong><span>{applied}</span></div> : null}
 
       {!create ? <div className="provider-list">
         {Object.entries(status.providers).map(([providerId, meta]) => {

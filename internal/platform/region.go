@@ -18,7 +18,7 @@ func RegionCommand(osID string) []string {
 		// The UI culture, the format culture and the home region all matter, so
 		// read them together and let the parser decide.
 		return []string{
-			"powershell", "-NoProfile", "-NonInteractive", "-Command",
+			"powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command",
 			"[System.Globalization.CultureInfo]::CurrentUICulture.Name; (Get-Culture).Name; (Get-WinHomeLocation).HomeLocation",
 		}
 	default:

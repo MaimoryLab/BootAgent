@@ -3,7 +3,9 @@ import { useState } from "react";
 
 import { api, describeError } from "../backend/api";
 import { useI18n } from "../i18n";
+import { useTaskCenter } from "../state/TaskCenterContext";
 import type { RuntimeStatus } from "../types/api";
+import { DownloadProgress } from "./DownloadProgress";
 import { MirrorSetting } from "./MirrorSetting";
 import { StatusBadge } from "./StatusBadge";
 
@@ -15,6 +17,7 @@ interface RuntimeSectionProps {
 
 export function RuntimeSection({ runtimes, onInstalled }: RuntimeSectionProps) {
   const { t } = useI18n();
+  const { resetProgress } = useTaskCenter();
   const [pending, setPending] = useState("");
   const [failure, setFailure] = useState("");
 
@@ -25,6 +28,8 @@ export function RuntimeSection({ runtimes, onInstalled }: RuntimeSectionProps) {
   const install = async (runtimeId: string) => {
     setPending(runtimeId);
     setFailure("");
+    // A retry must not open on the previous attempt's finished bar.
+    resetProgress(runtimeId);
     try {
       await api.installRuntime(runtimeId);
       await onInstalled();
@@ -88,6 +93,7 @@ export function RuntimeSection({ runtimes, onInstalled }: RuntimeSectionProps) {
                 {pending === runtime.id ? t("安装中") : t("安装")}
               </button>
             )}
+            {pending === runtime.id ? <DownloadProgress runtimeId={runtime.id} /> : null}
           </div>
         ))}
       </div>

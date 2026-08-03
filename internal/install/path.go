@@ -182,7 +182,7 @@ if ($next -ne $current) {
   Write-Output 'updated'
 }`, powershellQuote(root), powershellList(dirs))
 
-	result, err := runtime.command(ctx, []string{powershell, "-NoProfile", "-NonInteractive", "-Command", script}, nil, VersionCommandTimeout)
+	result, err := runtime.command(ctx, []string{powershell, "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", script}, nil, VersionCommandTimeout)
 	if err != nil {
 		return false, runtimeError("Cannot record the runtime directories on PATH", err)
 	}

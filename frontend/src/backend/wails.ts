@@ -20,6 +20,7 @@ import type {
   ProviderId,
   RuntimeStatus,
   SaveProviderInput,
+  SaveProviderResult,
   Settings,
   StatusResponse,
 } from "../types/api";
@@ -35,7 +36,7 @@ export function onInstallOutput(listener: (output: InstallOutput) => void): () =
     const data = event.data;
     if (!data || typeof data !== "object") return;
     const kind = (data as { kind?: unknown }).kind;
-    if (kind === "command" || kind === "output") listener(data as InstallOutput);
+    if (kind === "command" || kind === "output" || kind === "progress") listener(data as InstallOutput);
   });
 }
 
@@ -102,8 +103,8 @@ export const wailsApi = {
     })) as Promise<ModelsResponse>,
   getProvider: (id: string): Promise<ProviderEntry> =>
     call(() => ProviderService.GetProvider({ id })) as Promise<ProviderEntry>,
-  saveProvider: (input: SaveProviderInput): Promise<ProviderEntry> =>
-    call(() => ProviderService.SaveProvider(input)) as Promise<ProviderEntry>,
+  saveProvider: (input: SaveProviderInput): Promise<SaveProviderResult> =>
+    call(() => ProviderService.SaveProvider(input)) as Promise<SaveProviderResult>,
   deleteProvider: (id: string): Promise<void> =>
     call(() => ProviderService.DeleteProvider({ id })).then(() => undefined),
   install: (input: InstallRequest): Promise<InstallResponse> =>

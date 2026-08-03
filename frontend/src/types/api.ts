@@ -34,6 +34,7 @@ export type LaunchAgentResponse = BindingModels.LaunchResponse;
 export type OpenRegistrationResponse = BindingModels.OpenRegistrationResponse;
 export type ProviderEntry = ProviderModels.Entry;
 export type SaveProviderInput = BindingModels.SaveProviderRequest;
+export type SaveProviderResult = AppModels.SaveProviderResult;
 export type ProfileSummary = Omit<AppModels.ProfileSummary, "agentIds"> & { agentIds: string[] };
 
 export type StatusResponse = Omit<
@@ -92,7 +93,9 @@ export type InstallResponse = Omit<BindingModels.InstallResponse, "results" | "p
 
 export type InstallOutput =
   | { kind: "command"; args: string[] }
-  | { kind: "output"; stream: "stdout" | "stderr"; text: string };
+  | { kind: "output"; stream: "stdout" | "stderr"; text: string }
+  /** total is 0 when the server sent no Content-Length. */
+  | { kind: "progress"; target: string; received: number; total: number };
 
 export type InstallRequest = Pick<
   BindingModels.InstallRequest,

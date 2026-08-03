@@ -113,7 +113,7 @@ describe("ProvidersPage", () => {
       anthropic_base_url: "https://api.ppio.com/anthropic", api_key: "sk-saved", built_in: true,
     };
     vi.spyOn(api, "getProvider").mockResolvedValue(entry);
-    const save = vi.spyOn(api, "saveProvider").mockResolvedValue(entry);
+    const save = vi.spyOn(api, "saveProvider").mockResolvedValue({ entry, reapplied: null, failures: null });
     renderPage({ codex: "ppio" });
 
     fireEvent.click(screen.getByRole("button", { name: "编辑 PPIO" }));
@@ -124,10 +124,52 @@ describe("ProvidersPage", () => {
     await waitFor(() => expect(save).toHaveBeenCalledWith(expect.objectContaining({ id: "ppio", name: "PPIO Cloud", api_key: "sk-saved" })));
   });
 
+  it("names the Agents rewritten after an endpoint or key edit", async () => {
+    // A Provider edit re-applies to every Agent bound to it, so the page has to
+    // say which ones changed rather than leaving it invisible.
+    const entry = {
+      id: "ppio", name: "PPIO", home: "", base_url: "https://api.ppio.com/openai",
+      anthropic_base_url: "", api_key: "sk-rotated", built_in: true,
+    };
+    vi.spyOn(api, "getProvider").mockResolvedValue(entry);
+    vi.spyOn(api, "saveProvider").mockResolvedValue({ entry, reapplied: ["codex", "claude-code"], failures: null });
+    renderPage({ codex: "ppio", "claude-code": "ppio" });
+
+    fireEvent.click(screen.getByRole("button", { name: "编辑 PPIO" }));
+    await waitFor(() => expect(screen.getByLabelText("API Key")).toBeTruthy());
+    fireEvent.change(screen.getByLabelText("API Key"), { target: { value: "sk-rotated" } });
+    fireEvent.click(screen.getByRole("button", { name: /^保存$/ }));
+
+    await waitFor(() => expect(screen.getByText(/已重新应用到.*Claude Code/)).toBeTruthy());
+  });
+
+  it("reports an Agent that could not be rewritten", async () => {
+    const entry = {
+      id: "ppio", name: "PPIO", home: "", base_url: "https://api.ppio.com/openai",
+      anthropic_base_url: "", api_key: "sk-rotated", built_in: true,
+    };
+    vi.spyOn(api, "getProvider").mockResolvedValue(entry);
+    vi.spyOn(api, "saveProvider").mockResolvedValue({
+      entry, reapplied: null, failures: { "claude-code": "model is required" },
+    });
+    renderPage({ "claude-code": "ppio" });
+
+    fireEvent.click(screen.getByRole("button", { name: "编辑 PPIO" }));
+    await waitFor(() => expect(screen.getByLabelText("API Key")).toBeTruthy());
+    fireEvent.change(screen.getByLabelText("API Key"), { target: { value: "sk-rotated" } });
+    fireEvent.click(screen.getByRole("button", { name: /^保存$/ }));
+
+    await waitFor(() => expect(screen.getByText(/Claude Code 重新应用失败：model is required/)).toBeTruthy());
+  });
+
   it("adds a Provider from the management page", async () => {
     const save = vi.spyOn(api, "saveProvider").mockResolvedValue({
-      id: "acme", name: "Acme", home: "", base_url: "https://api.acme.test",
-      anthropic_base_url: "", api_key: "sk-acme", built_in: false,
+      entry: {
+        id: "acme", name: "Acme", home: "", base_url: "https://api.acme.test",
+        anthropic_base_url: "", api_key: "sk-acme", built_in: false,
+      },
+      reapplied: null,
+      failures: null,
     });
     renderPage({ codex: null });
     fireEvent.click(screen.getByRole("button", { name: "新增 Provider" }));

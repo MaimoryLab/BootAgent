@@ -2,7 +2,9 @@ package app
 
 import (
 	"context"
+	"encoding/base64"
 	"strings"
+	"unicode/utf16"
 
 	"github.com/MaimoryLab/OneAgent/internal/catalog"
 	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
@@ -51,7 +53,7 @@ func (u *UseCases) LaunchAgent(ctx context.Context, agentID string) (LaunchAgent
 		// the right thing to run.
 		line = agent.Command
 	}
-	launcher, ok := u.runner.(process.Launcher)
+	launcher, ok := process.AsLauncher(u.runner)
 	if !ok {
 		return LaunchAgentResult{}, oneerrors.New(oneerrors.InternalError, "This build cannot open a terminal window", oneerrors.WithStatus(501))
 	}
@@ -99,9 +101,21 @@ func terminalArgv(osID, line string, look CommandLookup) ([]string, error) {
 			"-e", "tell application \"Terminal\" to activate",
 		}, nil
 	case "windows":
-		// No cmd /c start wrapper: PowerShell is started directly and, as a
-		// console application launched from a GUI process, gets its own window.
-		return []string{"powershell", "-NoExit", "-NoProfile", "-Command", line}, nil
+		// -ExecutionPolicy Bypass because the line dot-sources OneAgent's own
+		// .ps1 env file, and loading a script file is exactly what the Windows
+		// client default of Restricted refuses. The flag is process-scoped: it
+		// needs no elevation and leaves no persistent state, unlike
+		// Set-ExecutionPolicy. A policy pushed by group policy overrides it, which
+		// is why a failure is reported rather than assumed away.
+		//
+		// -EncodedCommand rather than -Command: the line carries quotes, a
+		// semicolon and a $HOME expansion, and it would otherwise have to survive
+		// Go's Windows argv quoting and then powershell.exe re-parsing the raw
+		// command line. Base64 UTF-16LE leaves nothing for either layer to mangle.
+		return []string{
+			"powershell", "-NoExit", "-NoProfile", "-ExecutionPolicy", "Bypass",
+			"-EncodedCommand", encodedCommand(windowsScript(line)),
+		}, nil
 	default:
 		// The trailing shell keeps the window open after the Agent exits, so a
 		// failure is readable instead of flashing past.
@@ -114,6 +128,29 @@ func terminalArgv(osID, line string, look CommandLookup) ([]string, error) {
 		}
 		return nil, oneerrors.New(oneerrors.PrerequisiteMissing, "No terminal emulator was found; install one of x-terminal-emulator, gnome-terminal, konsole, xfce4-terminal or xterm")
 	}
+}
+
+// windowsScript keeps a failure readable. -NoExit holds the window open after a
+// command that merely exits non-zero, but a terminating error inside the script
+// unwinds the host and closes the window before the message can be read, which
+// is exactly the flash the launch button showed. The catch turns that into a
+// printed error and a wait for a keypress. try/catch is not a new scope in
+// PowerShell, so the dot-sourced env file still lands in the session.
+func windowsScript(line string) string {
+	return "$ErrorActionPreference = 'Continue'\ntry {\n" + line +
+		"\n} catch {\n  Write-Host $_.Exception.Message -ForegroundColor Red\n" +
+		"  Read-Host 'Press Enter to close'\n}\n"
+}
+
+// encodedCommand renders a PowerShell command the way -EncodedCommand expects
+// it: base64 of the UTF-16LE bytes.
+func encodedCommand(line string) string {
+	units := utf16.Encode([]rune(line))
+	raw := make([]byte, 0, len(units)*2)
+	for _, unit := range units {
+		raw = append(raw, byte(unit), byte(unit>>8))
+	}
+	return base64.StdEncoding.EncodeToString(raw)
 }
 
 // appleScriptQuote renders a shell line as an AppleScript string literal.

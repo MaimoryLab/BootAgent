@@ -177,12 +177,12 @@ func (s *ProviderService) GetProvider(ctx context.Context, request ProviderIDReq
 	return s.core.GetProvider(ctx, request.ID)
 }
 
-func (s *ProviderService) SaveProvider(ctx context.Context, request SaveProviderRequest) (provider.Entry, error) {
+func (s *ProviderService) SaveProvider(ctx context.Context, request SaveProviderRequest) (app.SaveProviderResult, error) {
 	if err := contextError(ctx); err != nil {
-		return provider.Entry{}, err
+		return app.SaveProviderResult{}, err
 	}
 	if s == nil || s.core == nil {
-		return provider.Entry{}, notReady("Provider service is not configured")
+		return app.SaveProviderResult{}, notReady("Provider service is not configured")
 	}
 	return s.core.SaveProvider(ctx, provider.Entry{
 		ID: request.ID, Name: request.Name, Home: request.Home,

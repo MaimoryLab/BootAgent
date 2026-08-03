@@ -4,6 +4,8 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"reflect"
 	"sort"
 	"strings"
@@ -131,5 +133,71 @@ func TestSavedProviderDrivesStatusAndProbeWithoutResendingKey(t *testing.T) {
 	}
 	if request == nil || request.URL.Host != "api.acme.test" || request.Header.Get("Authorization") != "Bearer saved-key" {
 		t.Fatalf("saved Provider request = %#v", request)
+	}
+}
+
+func TestSaveProviderReappliesEveryAgentBoundToIt(t *testing.T) {
+	home := t.TempDir()
+	core := activationCore(t, home, provider.NewClient(nil), "linux")
+	for _, agentID := range []string{"codex", "opencode"} {
+		if _, err := core.ActivateAgent(context.Background(), ActivateAgentOptions{
+			AgentID: agentID, Provider: "ppio", APIKey: "first-key", Model: "model-" + agentID,
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// A second Provider must stay untouched: only Agents bound to the edited one
+	// get rewritten.
+	if _, err := core.ActivateAgent(context.Background(), ActivateAgentOptions{
+		AgentID: "claude-code", Provider: "novita", APIKey: "other-key", Model: "model-other",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	otherConfig, err := os.ReadFile(filepath.Join(home, ".claude", "settings.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := core.SaveProvider(context.Background(), provider.Entry{
+		ID: "ppio", Name: "PPIO", BaseURL: "https://relay.ppio.test/openai", APIKey: "rotated-key",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Failures) != 0 || !reflect.DeepEqual(result.Reapplied, []string{"codex", "opencode"}) {
+		t.Fatalf("reapply outcome = %#v", result)
+	}
+	// Each Agent keeps its own model while picking up the new endpoint and key.
+	for _, agentID := range []string{"codex", "opencode"} {
+		envData, err := os.ReadFile(filepath.Join(home, ".oneagent", "agents", agentID+".env"))
+		if err != nil || !strings.Contains(string(envData), "rotated-key") || !strings.Contains(string(envData), "relay.ppio.test") {
+			t.Fatalf("%s env = %q, err=%v", agentID, envData, err)
+		}
+		binding, err := core.profiles.ReadAgentBinding(agentID)
+		if err != nil || binding == nil || binding.Model != "model-"+agentID || !strings.Contains(binding.BaseURL, "relay.ppio.test") {
+			t.Fatalf("%s binding = %#v, err=%v", agentID, binding, err)
+		}
+	}
+	if after, err := os.ReadFile(filepath.Join(home, ".claude", "settings.json")); err != nil || string(after) != string(otherConfig) {
+		t.Fatalf("Agent on another Provider was rewritten: %q, err=%v", after, err)
+	}
+}
+
+func TestSaveProviderSkipsReapplyWhenOnlyMetadataChanges(t *testing.T) {
+	home := t.TempDir()
+	core := activationCore(t, home, provider.NewClient(nil), "linux")
+	if _, err := core.ActivateAgent(context.Background(), ActivateAgentOptions{
+		AgentID: "codex", Provider: "ppio", APIKey: "key", Model: "model-a",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	entry, err := core.GetProvider(context.Background(), "ppio")
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry.Name = "PPIO Cloud"
+	result, err := core.SaveProvider(context.Background(), entry)
+	if err != nil || len(result.Reapplied) != 0 || len(result.Failures) != 0 {
+		t.Fatalf("metadata-only save reapplied: %#v, err=%v", result, err)
 	}
 }

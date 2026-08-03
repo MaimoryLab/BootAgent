@@ -23,6 +23,14 @@ type ProviderProbeResult struct {
 	Protocols map[string]provider.ProbeResult
 }
 
+// SaveProviderResult reports which Agents were rewritten after the edit so the
+// UI can say so, and which ones could not be, keyed by Agent ID.
+type SaveProviderResult struct {
+	Entry     provider.Entry    `json:"entry"`
+	Reapplied []string          `json:"reapplied"`
+	Failures  map[string]string `json:"failures"`
+}
+
 func (u *UseCases) ProbeProvider(ctx context.Context, options ProviderProbeOptions) (ProviderProbeResult, error) {
 	if err := ctx.Err(); err != nil {
 		return ProviderProbeResult{}, oneerrors.New(oneerrors.Timeout, "Request was cancelled", oneerrors.WithRetryable(true), oneerrors.WithCause(err))
@@ -95,16 +103,69 @@ func (u *UseCases) GetProvider(ctx context.Context, providerID string) (provider
 	return u.providers.Get(providerID)
 }
 
-func (u *UseCases) SaveProvider(ctx context.Context, entry provider.Entry) (provider.Entry, error) {
+// SaveProvider persists the Provider and then rewrites the configuration of
+// every Agent already pointed at it, so an edited endpoint or key takes effect
+// without the user re-applying each Profile by hand. Reapply failures are
+// returned per Agent instead of failing the save: the Provider record is already
+// correct on disk, and reverting it would lose the edit.
+func (u *UseCases) SaveProvider(ctx context.Context, entry provider.Entry) (SaveProviderResult, error) {
 	if u == nil {
-		return provider.Entry{}, oneerrors.New(oneerrors.InternalError, "Provider service is not configured", oneerrors.WithStatus(501))
+		return SaveProviderResult{}, oneerrors.New(oneerrors.InternalError, "Provider service is not configured", oneerrors.WithStatus(501))
 	}
 	if err := contextError(ctx, "Provider request was cancelled"); err != nil {
-		return provider.Entry{}, err
+		return SaveProviderResult{}, err
 	}
 	u.writeMu.Lock()
 	defer u.writeMu.Unlock()
-	return u.providers.Save(ctx, entry)
+	before, _ := u.providers.Get(entry.ID)
+	saved, err := u.providers.Save(ctx, entry)
+	if err != nil {
+		return SaveProviderResult{}, err
+	}
+	result := SaveProviderResult{Entry: saved}
+	// Nothing an Agent config carries has changed, so there is nothing to rewrite.
+	if before.BaseFor(provider.ProtocolAnthropic) == saved.BaseFor(provider.ProtocolAnthropic) &&
+		before.BaseURL == saved.BaseURL && before.APIKey == saved.APIKey {
+		return result, nil
+	}
+	result.Reapplied, result.Failures = u.reapplyProviderLocked(ctx, saved)
+	return result, nil
+}
+
+// reapplyProviderLocked rewrites each configured Agent that points at this
+// Provider, keeping its own model and Profile reference. Callers must hold
+// writeMu.
+func (u *UseCases) reapplyProviderLocked(ctx context.Context, target provider.Entry) ([]string, map[string]string) {
+	var reapplied []string
+	var failures map[string]string
+	bindings := u.profiles.ListAgentBindings()
+	agentIDs := make([]string, 0, len(bindings))
+	for agentID := range bindings {
+		agentIDs = append(agentIDs, agentID)
+	}
+	sort.Strings(agentIDs)
+	for _, agentID := range agentIDs {
+		binding := bindings[agentID]
+		if binding.Provider != target.ID {
+			continue
+		}
+		// The Agent's own model stays authoritative; only the Provider changed.
+		if _, err := u.activateAgentLocked(ctx, ActivateAgentOptions{
+			AgentID:   agentID,
+			Provider:  target.ID,
+			APIKey:    target.APIKey,
+			Model:     binding.Model,
+			ProfileID: binding.ProfileRef,
+		}); err != nil {
+			if failures == nil {
+				failures = map[string]string{}
+			}
+			failures[agentID] = oneerrors.As(err).Message
+			continue
+		}
+		reapplied = append(reapplied, agentID)
+	}
+	return reapplied, failures
 }
 
 func (u *UseCases) DeleteProvider(ctx context.Context, providerID string) error {

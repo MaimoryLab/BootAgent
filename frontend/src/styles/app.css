@@ -1491,6 +1491,146 @@
   font-size: 12px;
 }
 
+.task-center {
+  margin-top: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--window-bg);
+  overflow: hidden;
+}
+
+.task-center-trigger {
+  width: 100%;
+  min-height: 34px;
+  padding: 0 9px;
+  border: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.task-center-trigger > span { flex: 1; }
+
+.task-center-trigger > svg:last-child {
+  color: var(--text-tertiary);
+  transition: transform 140ms ease;
+}
+
+.task-center.is-open .task-center-trigger > svg:last-child { transform: rotate(180deg); }
+
+/* A running download is the one thing worth noticing while the pane is shut. */
+.task-center-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--blue);
+}
+
+.task-center-body {
+  padding: 0 9px 8px;
+  display: grid;
+  gap: 6px;
+  box-shadow: inset 0 1px 0 var(--border-faint);
+}
+
+.task-center-feed {
+  /* Bounded so the feed scrolls instead of pushing the sidebar past the window. */
+  max-height: 190px;
+  margin: 8px 0 0;
+  padding: 7px;
+  border-radius: var(--radius-control);
+  background: var(--surface-subtle);
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 1.45;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.task-center-empty {
+  margin: 8px 0 0;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.task-center-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-tertiary);
+  font-size: 10px;
+}
+
+.task-center-actions > span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+
+.task-center-actions > button {
+  padding: 3px 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--window-bg);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.task-center-actions > button:disabled { opacity: 0.5; cursor: default; }
+
+.download-progress {
+  /* Spans the whole runtime row so the bar is not squeezed into one cell. */
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 4px;
+}
+
+.download-progress small {
+  color: var(--text-tertiary);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.download-progress-track {
+  height: 5px;
+  border-radius: 3px;
+  background: var(--surface-pressed);
+  overflow: hidden;
+}
+
+.download-progress-fill {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--blue);
+  transition: width 180ms ease;
+}
+
+/* No Content-Length: sweep instead of showing a percentage of an unknown total. */
+.download-progress-track.is-indeterminate .download-progress-fill {
+  width: 35%;
+  animation: download-sweep 1.1s ease-in-out infinite;
+}
+
+@keyframes download-sweep {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(286%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .download-progress-fill { transition: none; }
+  .download-progress-track.is-indeterminate .download-progress-fill { animation: none; width: 100%; opacity: 0.5; }
+}
+
 @media (max-width: 600px) {
   .provider-editor-grid,
   .profile-editor-grid { grid-template-columns: minmax(0, 1fr); }

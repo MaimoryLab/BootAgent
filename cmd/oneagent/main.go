@@ -255,8 +255,14 @@ func splitAgents(raw string) []string {
 func newCLIUseCases(home string) *app.UseCases {
 	info := platform.Current()
 	current := process.Current()
+	if home == "" {
+		home = platform.ResolveHome(current.Env, info.OS)
+	}
 	return app.NewUseCases(app.StatusOptions{
-		Home: home, Platform: info, Runner: current, Environment: current.Env,
+		Home: home, Platform: info, Environment: current.Env,
+		// The CLI prints to a terminal, but the same log makes a CI run or a
+		// support request reproducible without re-running with more verbosity.
+		Runner: process.LoggingRunner{Inner: current, Dir: app.CommandLogDir(home)},
 	})
 }
 

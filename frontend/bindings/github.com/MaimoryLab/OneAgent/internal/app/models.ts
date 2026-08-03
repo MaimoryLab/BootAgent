@@ -10,6 +10,9 @@ import * as install$0 from "../install/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
 import * as platform$0 from "../platform/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as provider$0 from "../provider/models.js";
 
 export interface AgentStatus {
     "installed": boolean;
@@ -79,6 +82,16 @@ export interface ProfileSummary {
  * RuntimeStatus is the public projection of one bootstrappable runtime.
  */
 export type RuntimeStatus = install$0.RuntimeState;
+
+/**
+ * SaveProviderResult reports which Agents were rewritten after the edit so the
+ * UI can say so, and which ones could not be, keyed by Agent ID.
+ */
+export interface SaveProviderResult {
+    "entry": provider$0.Entry;
+    "reapplied": string[] | null;
+    "failures": { [_ in string]?: string } | null;
+}
 
 /**
  * Settings holds machine-level preferences that are not part of a profile and

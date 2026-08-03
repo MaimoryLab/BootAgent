@@ -28,11 +28,21 @@ type Result struct {
 	Stderr   string
 }
 
+// Output is one entry in the live install feed. Kind selects which fields carry
+// meaning: "command" uses Args, "output" uses Stream and Text, and "progress"
+// uses Target, Received and Total.
 type Output struct {
 	Kind   string   `json:"kind"`
 	Args   []string `json:"args,omitempty"`
 	Stream string   `json:"stream,omitempty"`
 	Text   string   `json:"text,omitempty"`
+	// Target names what is being downloaded, so a listener can attribute a
+	// progress event to the row that asked for it.
+	Target   string `json:"target,omitempty"`
+	Received int64  `json:"received,omitempty"`
+	// Total is 0 when the server sends no Content-Length. A listener must then
+	// show indeterminate progress rather than dividing by zero.
+	Total int64 `json:"total,omitempty"`
 }
 
 // OutputListener receives each accepted chunk of a command's output.
@@ -68,6 +78,16 @@ type OSRunner struct {
 
 func Current() OSRunner {
 	return OSRunner{Env: environmentFromOS()}
+}
+
+// WithEnvironment returns a copy of this runner that resolves commands against
+// the given environment. An injected Lookup wins, so a test's resolver is not
+// replaced by a PATH change.
+func (r OSRunner) WithEnvironment(env map[string]string) Runner {
+	if r.Lookup == nil {
+		r.Env = env
+	}
+	return r
 }
 
 func New(env map[string]string) OSRunner {

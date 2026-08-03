@@ -114,7 +114,7 @@ func TestProviderServicePersistsCRUDAndReturnsKeyOnlyOnExplicitRead(t *testing.T
 		ID: "acme", Name: "Acme", Home: "https://acme.test/",
 		BaseURL: "https://api.acme.test/openai", APIKey: "sk-provider",
 	}
-	if saved, err := service.SaveProvider(context.Background(), request); err != nil || saved.ID != "acme" {
+	if saved, err := service.SaveProvider(context.Background(), request); err != nil || saved.Entry.ID != "acme" {
 		t.Fatalf("saved Provider = %#v, err=%v", saved, err)
 	}
 	entry, err := service.GetProvider(context.Background(), ProviderIDRequest{ID: "acme"})

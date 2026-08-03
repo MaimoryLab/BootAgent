@@ -12,6 +12,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/MaimoryLab/OneAgent/internal/catalog"
+	"github.com/MaimoryLab/OneAgent/internal/install"
 	"github.com/MaimoryLab/OneAgent/internal/platform"
 	"github.com/MaimoryLab/OneAgent/internal/process"
 	"github.com/MaimoryLab/OneAgent/internal/provider"
@@ -139,6 +141,55 @@ func TestInstallAgentsWritesAllManagedAdaptersAndPublishesProfileLast(t *testing
 	}
 	if binding, err := core.profiles.ReadAgentBinding("codex"); err != nil || binding == nil || binding.ProfileRef != "default" {
 		t.Fatalf("default profile binding = %#v, %v", binding, err)
+	}
+}
+
+// An npm install creates the managed global prefix, so the directory holding
+// the Agent CLI first exists at the end of the Agent install. Recording the
+// login PATH only after a runtime install left `node` resolvable in the user's
+// own terminal while `codex` was not on PATH at all.
+func TestInstallAgentsRecordsTheGlobalPrefixOnPath(t *testing.T) {
+	home := t.TempDir()
+	manifest, err := catalog.LoadEmbeddedRuntimes()
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry := manifest.Runtimes["node"]
+	artifact := entry.Artifacts[catalog.RuntimeArtifactKey("linux", "x64")]
+	nodeBin := filepath.Join(home, ".oneagent", "runtimes", "node", "v"+entry.Version, artifact.BinDir)
+	globalBin := install.GlobalBinDir(home, "linux")
+	for _, directory := range []string{nodeBin, globalBin} {
+		if err := os.MkdirAll(directory, 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(nodeBin, ".oneagent-runtime-ok"), []byte(entry.Version+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	// npm resolves, so no runtime bootstrap runs; codex does not, so the Agent
+	// install itself is what has to persist the PATH entry.
+	runner := &installAppRunner{paths: map[string]string{"npm": filepath.Join(nodeBin, "npm")}}
+	core := installCore(t, home, runner, nil)
+	options := installOptions("codex")
+	options.InstallAgent = true
+	options.Latest = true
+	if _, err := core.InstallAgents(context.Background(), options); err != nil {
+		t.Fatal(err)
+	}
+	profile, err := os.ReadFile(filepath.Join(home, ".profile"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(profile), "OneAgent managed runtimes") {
+		t.Fatalf("install did not record the runtime PATH block: %q", profile)
+	}
+	script, err := os.ReadFile(filepath.Join(home, ".oneagent", "runtimes", "runtime-path.sh"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(script), globalBin) {
+		t.Fatalf("PATH script omits the global prefix that holds codex: %q", script)
 	}
 }
 

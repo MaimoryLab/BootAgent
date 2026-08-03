@@ -2,6 +2,7 @@ import { Boxes, FolderCog, Gauge, Languages, Layers3 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
 import { type TranslationKey, useI18n } from "../i18n";
+import { TaskCenter } from "./TaskCenter";
 
 // Only real destinations belong here. /setup/* are wizard steps behind
 // SetupGuard: listing them made the sidebar look broken, because clicking one
@@ -48,6 +49,10 @@ export function NavigationSidebar() {
           <option value="en">EN</option>
         </select>
       </label>
+
+      {/* Last child, so the language picker's margin-top: auto pushes both to
+          the bottom of the sidebar as one group. */}
+      <TaskCenter />
     </aside>
   );
 }

@@ -103,6 +103,10 @@ func newUseCases(options StatusOptions, client *provider.Client, profiles profil
 		if options.Environment == nil {
 			options.Environment = current.Env
 		}
+		// Only the real runner is logged. A caller that injected a runner either
+		// is a test or has its own record, and writing a log from a test would
+		// put files in a temp home nobody reads.
+		runner = process.LoggingRunner{Inner: runner, Dir: CommandLogDir(options.Home)}
 	}
 	if options.Environment == nil {
 		options.Environment = map[string]string{}
@@ -128,6 +132,16 @@ func newUseCases(options StatusOptions, client *provider.Client, profiles profil
 		runner:      runner,
 		environment: cloneEnvironment(options.Environment),
 	}
+}
+
+// CommandLogDir holds one log file per day recording every subprocess OneAgent
+// runs. The desktop build is a GUI process with no console, so these files are
+// the only place a failing npm, uv or launch command can be read back from.
+func CommandLogDir(home string) string {
+	if home == "" {
+		return ""
+	}
+	return filepath.Join(home, ".oneagent", "logs")
 }
 
 func cloneEnvironment(source map[string]string) map[string]string {

@@ -408,6 +408,18 @@ func (r *installRun) configure(ctx context.Context, agentID string, agent catalo
 			return err
 		}
 		installed = result
+		if result.Installed {
+			// npm creates the managed global prefix during this install, so the
+			// directory holding the Agent CLI only exists now. Persisting after a
+			// runtime install alone records the runtime directory and stops there,
+			// which is why `node` resolved in the user's own terminal but `codex`
+			// did not.
+			if runtimes, err := catalog.LoadEmbeddedRuntimes(); err == nil {
+				if _, err := r.core.persistRuntimePath(ctx, runtime, runtimes); err != nil {
+					return err
+				}
+			}
+		}
 		if result.Registry != "" {
 			r.logs = append(r.logs, "## "+agentID+"\nregistry: "+result.Registry)
 		}

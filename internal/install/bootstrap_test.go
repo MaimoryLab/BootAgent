@@ -34,7 +34,14 @@ func (d *fakeDownloader) Do(request *http.Request) (*http.Response, error) {
 	if !ok {
 		return &http.Response{StatusCode: http.StatusNotFound, Body: io.NopCloser(strings.NewReader("")), Request: request}, nil
 	}
-	return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(bytes.NewReader(body)), Request: request}, nil
+	// ContentLength is what the progress bar divides by, so the fake sets it the
+	// way a real CDN does.
+	return &http.Response{
+		StatusCode:    http.StatusOK,
+		Body:          io.NopCloser(bytes.NewReader(body)),
+		ContentLength: int64(len(body)),
+		Request:       request,
+	}, nil
 }
 
 // tarball builds a node-shaped archive: a single root directory, a bin/ payload
@@ -149,6 +156,42 @@ func TestEnsureRuntimeInstallsVerifiesAndExposesOnPath(t *testing.T) {
 	}
 	if !hasPathEntry(again.Env["PATH"], binDir) {
 		t.Fatalf("second call lost the managed PATH entry: %q", again.Env["PATH"])
+	}
+}
+
+// The install prompt shows a bar, so a download must report its byte count and
+// finish reporting the whole archive. Without the final flush a fast download
+// would leave the bar stuck short of the end.
+func TestEnsureRuntimeReportsDownloadProgress(t *testing.T) {
+	home := t.TempDir()
+	archive := tarball(t, "node-v1.2.3-darwin-arm64")
+	downloader := &fakeDownloader{bodies: map[string][]byte{"https://example.test/node.tar.gz": archive}}
+	entry := catalog.Runtime{
+		Name: "Node.js", Version: "1.2.3", Commands: []string{"node", "npm"}, ProbeCommand: "npm",
+		Artifacts: map[string]catalog.RuntimeArtifact{
+			"macos-arm64": {URL: "https://example.test/node.tar.gz", SHA256: digestOf(archive), Archive: "tar.gz", StripRoot: true, BinDir: "bin"},
+		},
+	}
+	runtime := bootstrapRuntime(t, home, "darwin")
+	var progress []process.Output
+	runtime.OnOutput = func(output process.Output) {
+		if output.Kind == "progress" {
+			progress = append(progress, output)
+		}
+	}
+
+	if _, installed, err := EnsureRuntime(context.Background(), runtime, downloader, "node", entry, RuntimeOptions{}); err != nil || !installed {
+		t.Fatalf("install = %v, %v", installed, err)
+	}
+	if len(progress) == 0 {
+		t.Fatal("download reported no progress")
+	}
+	last := progress[len(progress)-1]
+	if last.Received != int64(len(archive)) || last.Total != int64(len(archive)) {
+		t.Fatalf("final progress = %d/%d, want %d/%d", last.Received, last.Total, len(archive), len(archive))
+	}
+	if last.Target != "node" {
+		t.Fatalf("progress target = %q, want the runtime id", last.Target)
 	}
 }
 

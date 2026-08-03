@@ -54,7 +54,12 @@ func (u *UseCases) ActivateAgent(ctx context.Context, options ActivateAgentOptio
 
 	u.writeMu.Lock()
 	defer u.writeMu.Unlock()
+	return u.activateAgentLocked(ctx, options)
+}
 
+// activateAgentLocked is ActivateAgent without the lock so callers that already
+// hold writeMu, such as a Provider edit re-applying its Agents, can reuse it.
+func (u *UseCases) activateAgentLocked(ctx context.Context, options ActivateAgentOptions) (ActivateAgentResult, error) {
 	manifest, err := catalog.LoadEmbedded()
 	if err != nil {
 		return ActivateAgentResult{}, err
@@ -227,14 +232,14 @@ func nextStep(osID, agentID string, agent catalog.Agent, model string) string {
 	if agentID == "aider" {
 		source := "source ~/.oneagent/aider.env"
 		if osID == "windows" {
-			source = `. "$HOME\\.oneagent\\aider.ps1"`
+			source = `. "$HOME\.oneagent\aider.ps1"`
 		}
 		return fmt.Sprintf("%s %s %s --model openai/%s", source, joiner, agent.Command, model)
 	}
 	if needsAgentEnv(agent) {
 		source := fmt.Sprintf("source ~/.oneagent/agents/%s.env", agentID)
 		if osID == "windows" {
-			source = fmt.Sprintf(`. "$HOME\\.oneagent\\agents\\%s.env.ps1"`, agentID)
+			source = fmt.Sprintf(`. "$HOME\.oneagent\agents\%s.env.ps1"`, agentID)
 		}
 		return fmt.Sprintf("%s %s %s", source, joiner, agent.Command)
 	}

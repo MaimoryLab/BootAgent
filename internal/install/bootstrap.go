@@ -209,9 +209,12 @@ func withPath(runtime Runtime, binDir string) Runtime {
 		}
 	}
 	runtime.Env = environment
-	if osRunner, ok := runtime.Runner.(process.OSRunner); ok && osRunner.Lookup == nil {
-		osRunner.Env = environment
-		runtime.Runner = osRunner
+	// Ask the runner to adopt the environment rather than type-asserting to
+	// OSRunner: the desktop wraps its runner in a logging decorator, and an
+	// assertion would silently skip the injection and report a managed npm as
+	// missing.
+	if setter, ok := runtime.Runner.(process.EnvSetter); ok {
+		runtime.Runner = setter.WithEnvironment(environment)
 	}
 	return runtime
 }
@@ -229,11 +232,14 @@ func installRuntime(ctx context.Context, runtime Runtime, client Doer, runtimeID
 	if runtime.OnOutput != nil {
 		runtime.OnOutput(process.Output{Kind: "command", Args: []string{"oneagent", "install-runtime", runtimeID, entry.Version}})
 	}
-	archive, err := downloadArtifact(ctx, client, entry, artifact, parent, options)
+	archive, err := downloadArtifact(ctx, client, entry, artifact, parent, options, progressReporter(runtime.OnOutput, runtimeID))
 	if err != nil {
 		return "", err
 	}
 	defer os.Remove(archive)
+	if runtime.OnOutput != nil {
+		runtime.OnOutput(process.Output{Kind: "output", Stream: "stdout", Text: fmt.Sprintf("Extracting %s %s\n", entry.Name, entry.Version)})
+	}
 
 	// Extract beside the final directory so a partial or corrupt tree is never
 	// visible under the versioned path, then swap it in with one rename.
@@ -276,7 +282,7 @@ func installRuntime(ctx context.Context, runtime Runtime, client Doer, runtimeID
 	return installed, nil
 }
 
-func downloadArtifact(ctx context.Context, client Doer, entry catalog.Runtime, artifact catalog.RuntimeArtifact, directory string, options RuntimeOptions) (string, error) {
+func downloadArtifact(ctx context.Context, client Doer, entry catalog.Runtime, artifact catalog.RuntimeArtifact, directory string, options RuntimeOptions, report progressFunc) (string, error) {
 	if client == nil {
 		client = &http.Client{Timeout: RuntimeDownloadTimeout}
 	}
@@ -285,7 +291,7 @@ func downloadArtifact(ctx context.Context, client Doer, entry catalog.Runtime, a
 
 	var lastErr error
 	for _, source := range downloadSources(artifact, options.PreferMirror) {
-		path, err := fetchTo(downloadCtx, client, source, artifact.SHA256, directory)
+		path, err := fetchTo(downloadCtx, client, source, artifact.SHA256, directory, report)
 		if err == nil {
 			return path, nil
 		}
@@ -308,7 +314,7 @@ func downloadSources(artifact catalog.RuntimeArtifact, preferMirror bool) []stri
 	return []string{artifact.URL, artifact.MirrorURL}
 }
 
-func fetchTo(ctx context.Context, client Doer, source, expected, directory string) (string, error) {
+func fetchTo(ctx context.Context, client Doer, source, expected, directory string, report progressFunc) (string, error) {
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, source, nil)
 	if err != nil {
 		return "", err
@@ -327,7 +333,19 @@ func fetchTo(ctx context.Context, client Doer, source, expected, directory strin
 	}
 	path := file.Name()
 	digest := sha256.New()
-	_, copyErr := io.Copy(io.MultiWriter(file, digest), response.Body)
+	// The counter sits in the same MultiWriter as the digest, so progress is
+	// reported from the bytes that are actually verified rather than from a
+	// separate read of the body.
+	writers := []io.Writer{file, digest}
+	if report != nil {
+		// A retry against the fallback host starts the bar over rather than
+		// resuming: the mirror's byte count says nothing about the official
+		// source's, and this download always restarts from zero.
+		counter := &progressWriter{total: response.ContentLength, report: report}
+		defer counter.flush()
+		writers = append(writers, counter)
+	}
+	_, copyErr := io.Copy(io.MultiWriter(writers...), response.Body)
 	closeErr := file.Close()
 	if copyErr != nil || closeErr != nil {
 		os.Remove(path)
@@ -341,6 +359,49 @@ func fetchTo(ctx context.Context, client Doer, source, expected, directory strin
 		return "", fmt.Errorf("checksum mismatch: lock expects %s, download reports %s", expected, actual)
 	}
 	return path, nil
+}
+
+// progressFunc reports how much of a download has been written so far. total is
+// 0 when the server sent no Content-Length.
+type progressFunc func(received, total int64)
+
+// progressReporter adapts the install output listener to a download progress
+// reporter, and returns nil when nobody is listening so the copy path stays
+// allocation-free for the CLI.
+func progressReporter(listener process.OutputListener, target string) progressFunc {
+	if listener == nil {
+		return nil
+	}
+	return func(received, total int64) {
+		listener(process.Output{Kind: "progress", Target: target, Received: received, Total: total})
+	}
+}
+
+// progressInterval is how often a running download reports. A 50 MB archive
+// arrives in ~1500 chunks, and reporting each one would push more events through
+// the Wails bridge than any UI can paint.
+const progressInterval = 200 * time.Millisecond
+
+type progressWriter struct {
+	received int64
+	total    int64
+	last     time.Time
+	report   progressFunc
+}
+
+func (w *progressWriter) Write(data []byte) (int, error) {
+	w.received += int64(len(data))
+	if time.Since(w.last) >= progressInterval {
+		w.last = time.Now()
+		w.report(w.received, w.total)
+	}
+	return len(data), nil
+}
+
+// flush emits the final count. Without it a download that finishes inside one
+// interval would leave the bar short of the end it actually reached.
+func (w *progressWriter) flush() {
+	w.report(w.received, w.total)
 }
 
 func extract(archive, destination string, artifact catalog.RuntimeArtifact) error {

@@ -7,6 +7,9 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import * as app$0 from "../app/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import * as provider$0 from "../provider/models.js";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -33,6 +36,6 @@ export function Probe(request: $models.ProbeRequest): $CancellablePromise<$model
     return $Call.ByID(2223638197, request);
 }
 
-export function SaveProvider(request: $models.SaveProviderRequest): $CancellablePromise<provider$0.Entry> {
+export function SaveProvider(request: $models.SaveProviderRequest): $CancellablePromise<app$0.SaveProviderResult> {
     return $Call.ByID(2790810113, request);
 }
