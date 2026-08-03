@@ -219,16 +219,36 @@ test("interacting during autoplay stops it where it stands", async ({ page }) =>
   await console.scrollIntoViewIfNeeded();
   await expect(console).toHaveAttribute("data-autoplaying", "true");
 
-  /* Waits for a step that is a decision point. Taking over during `scanning`
-     would still land on `agent`, because the scan's own timer resolves it the
-     same way a clicked run does — leaving a spinner up forever would be the
-     worse behaviour. `agent` is the first step where the demo is genuinely
-     waiting on a choice, so it is where "stopped" is observable. */
-  await expect(console).toHaveAttribute("data-phase", "agent");
+  /* Takes over at a step that is waiting on a choice, then asserts the phase
+     stops changing.
+   *
+   * `scanning` has to be excluded, and not because of timing: taking over mid-scan
+   * still lands on `agent`, since start()'s own 650ms timer resolves the scan the
+   * same way a clicked run would. Leaving a spinner up forever would be the worse
+   * behaviour, so that transition is correct — it just is not "autoplay resumed",
+   * which is what this test is about.
+   *
+   * Reading the phase and comparing it against itself, rather than waiting for one
+   * named step and asserting that name later, is what keeps this stable. The
+   * earlier version waited for `agent` and expected `agent` 2.5s on; but `agent`
+   * lasts only ~850ms (scan resolves into it near t=1070ms, the script leaves it
+   * at t=1920ms), so under the full suite's three-viewport load the click landed
+   * after the script had moved on and the assertion failed on a name mismatch. */
+  /* Waits for a step that is genuinely waiting on input. `idle` and `scanning`
+     both fail the "not scanning" test for different reasons — one has not started,
+     the other resolves on its own — so the wait is written as a positive match on
+     the steps where the demo is parked on a choice. Whichever one the script has
+     reached by click time is fine; the assertion below compares against it rather
+     than against a fixed name. */
+  await expect(console).toHaveAttribute("data-phase", /^(agent|mode|provider|model|review)$/);
   await console.locator("[data-log]").click();
   await expect(console).not.toHaveAttribute("data-autoplaying", "true");
+  const takenOverAt = await console.getAttribute("data-phase");
+  expect(takenOverAt, "takeover must be measured at a decision point").not.toBe("scanning");
+  // Longer than the widest gap in AUTOPLAY_SCRIPT (1500ms), so a resumed script
+  // would have advanced at least one step by the time this returns.
   await page.waitForTimeout(2500);
-  expect(await console.getAttribute("data-phase"), "autoplay resumed after takeover").toBe("agent");
+  expect(await console.getAttribute("data-phase"), "autoplay resumed after takeover").toBe(takenOverAt);
 
   // Taken over, not broken: the trigger still replays from the top.
   await page.getByRole("button", { name: "开始激活演示" }).click();
