@@ -13,6 +13,7 @@ import (
 	"os/exec"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -32,6 +33,12 @@ type Output struct {
 	Text   string   `json:"text,omitempty"`
 }
 
+// OutputListener receives each accepted chunk of a command's output.
+//
+// Calls are serialised: stdout and stderr are copied by separate goroutines, so
+// a listener would otherwise be entered concurrently, and every caller would
+// have to synchronise on its own. Implementations may append to a slice or write
+// to a channel without locking.
 type OutputListener func(Output)
 
 type StreamingRunner interface {
@@ -90,8 +97,9 @@ func (r OSRunner) RunWithOutput(ctx context.Context, argv []string, overrides ma
 	command.Env = mergeEnvironment(r.Env, overrides)
 	stdout := &boundedBuffer{limit: MaxOutputBytes}
 	stderr := &boundedBuffer{limit: MaxOutputBytes}
-	command.Stdout = &streamWriter{stream: "stdout", buffer: stdout, listener: listener}
-	command.Stderr = &streamWriter{stream: "stderr", buffer: stderr, listener: listener}
+	var streamLock sync.Mutex
+	command.Stdout = &streamWriter{stream: "stdout", buffer: stdout, listener: listener, mu: &streamLock}
+	command.Stderr = &streamWriter{stream: "stderr", buffer: stderr, listener: listener, mu: &streamLock}
 	err := command.Run()
 	result.Stdout = stdout.String()
 	result.Stderr = stderr.String()
@@ -118,9 +126,16 @@ type streamWriter struct {
 	stream   string
 	buffer   *boundedBuffer
 	listener OutputListener
+	// Shared by the stdout and stderr writers of one command, so a listener sees
+	// one chunk at a time. Each writer has its own buffer, but a lock per writer
+	// would not serialise anything — the two goroutines would take different
+	// locks and still enter the listener together.
+	mu *sync.Mutex
 }
 
 func (w *streamWriter) Write(data []byte) (int, error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
 	before := w.buffer.buffer.Len()
 	n, err := w.buffer.Write(data)
 	accepted := w.buffer.buffer.Len() - before
