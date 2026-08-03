@@ -56,15 +56,14 @@ go run -tags wails ./cmd/oneagent-desktop
 go build -o bin/oneagent ./cmd/oneagent
 ```
 
-Windows PowerShell：
+Windows CMD：
 
-```powershell
-go build -o bin\\oneagent.exe .\\cmd\\oneagent
-$env:ONEAGENT_API_KEY = $MyApiKey
-.\\scripts\\install.ps1 --agent codex --provider ppio --model your-model-id
+```cmd
+go build -o bin\oneagent.exe .\cmd\oneagent
+bin\oneagent.exe agent set codex --provider ppio --model your-model-id --api-key your-api-key
 ```
 
-日常使用优先通过 `ONEAGENT_API_KEY`、桌面粘贴或已保存 profile 传递凭据；`--api-key` 仅保留给受控脚本。 `--registry` 默认是官方 npm registry，镜像必须显式选择并使用 HTTPS。
+日常使用优先通过桌面粘贴或已保存 profile 传递凭据；`ONEAGENT_API_KEY` 和 `--api-key` 仅保留给受控脚本。 `--registry` 默认是官方 npm registry，镜像必须显式选择并使用 HTTPS。
 
 ### 公开站
 

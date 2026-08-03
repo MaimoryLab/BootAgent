@@ -98,7 +98,7 @@ func ReadAiderConfig(text string) Detected {
 	baseURL := ""
 	for line := range strings.SplitSeq(text, "\n") {
 		trimmed := strings.TrimSpace(line)
-		for _, prefix := range []string{"export OPENAI_API_BASE=", "$env:OPENAI_API_BASE ="} {
+		for _, prefix := range []string{"OPENAI_API_BASE=", "export OPENAI_API_BASE=", "$env:OPENAI_API_BASE ="} {
 			if !strings.HasPrefix(trimmed, prefix) {
 				continue
 			}

@@ -30,7 +30,7 @@ ADR-006 修订版让每个 Agent 读自己的环境变量：`~/.oneagent/agents/
 | Claude Code | `~/.claude/settings.json` 的 `env.ANTHROPIC_AUTH_TOKEN`（本来就是这样） |
 | OpenCode | `~/.config/opencode/opencode.json` 的 `provider.oneagent.options.apiKey` |
 | Kilo CLI | `~/.config/kilo/kilo.jsonc` 的同一位置 |
-| Aider | `~/.oneagent/aider.env`（Aider 只认环境变量，保持不变） |
+| Aider | `~/.oneagent/aider.env`（由 Aider 的 `--env-file` 直接加载） |
 
 配套改动：
 
@@ -38,7 +38,7 @@ ADR-006 修订版让每个 Agent 读自己的环境变量：`~/.oneagent/agents/
 - `auth.json` 先写、`config.toml` 后写。指向一个认证不了的 provider 比留一个暂时没人引用的 Key 更糟。写入复用 `securefs.AtomicWrite`，`auth.json` 按 secret 处理（0600 / Windows ACL，备份同样收紧权限）。
 - OpenCode / Kilo 的配置文件现在含明文 Key，因此按 secret 写入。
 - OpenCode 的路径从 `opencode.jsonc` 改为 `opencode.json`：Key 进了这个文件之后它是 OneAgent 的主要写入目标，`.json` 是 OpenCode 自己的默认名。JSONC 注释检测不再看扩展名（OpenCode 用 JSON5 解析，`.json` 里也可能有注释），检测到就拒写并保留原文件。
-- 删除：`internal/config/env.go`（`WriteAgentEnv` / `WriteSharedEnv` / `agentEnvVar`）、`agents.lock.json` 的 `credential_delivery` 字段、status 的 `paths.env_file` 与 `backups.env`、重启指引和 Launch 命令里的 `source` 前缀（Aider 除外）。
+- 删除：`internal/config/env.go`（`WriteAgentEnv` / `WriteSharedEnv` / `agentEnvVar`）、`agents.lock.json` 的 `credential_delivery` 字段、status 的 `paths.env_file` 与 `backups.env`、重启指引和 Launch 命令里的 `source` 前缀；Aider 改由 `--env-file` 加载唯一保留的环境文件。
 
 ## Alternatives Considered
 

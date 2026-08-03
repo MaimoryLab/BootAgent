@@ -180,7 +180,7 @@ func restartHint(agentID string, agent catalog.Agent) string {
 		return "Restart " + agentID
 	}
 	if agentID == "aider" {
-		return "Restart " + agent.Command + " in a shell that sources ~/.oneagent/aider.env"
+		return "Quit any running " + agent.Command + " process, then launch it again from OneAgent"
 	}
 	return fmt.Sprintf("Quit any running %s process, then start it again", agent.Command)
 }
@@ -189,16 +189,12 @@ func nextStep(osID, agentID string, agent catalog.Agent, model string) string {
 	if agent.ConfigMode != "auto" || agent.Command == "" {
 		return ""
 	}
-	joiner := "&&"
-	if osID == "windows" {
-		joiner = ";"
-	}
 	if agentID == "aider" {
-		source := "source ~/.oneagent/aider.env"
+		envFile := "~/.oneagent/aider.env"
 		if osID == "windows" {
-			source = `. "$HOME\.oneagent\aider.ps1"`
+			envFile = `"%USERPROFILE%\.oneagent\aider.env"`
 		}
-		return fmt.Sprintf("%s %s %s --model openai/%s", source, joiner, agent.Command, model)
+		return fmt.Sprintf("%s --env-file %s --model openai/%s", agent.Command, envFile, model)
 	}
 	return agent.Command
 }

@@ -26,7 +26,7 @@
 - 只有选择 Aider 安装时才使用 `uv tool` 和本机已有的 Python 3.12；其他 Agent 和 OneAgent 自身不需要 Python。
 - 缺少 `uv` 或 Python 3.12 时先完成 Aider 官方前置条件安装；OneAgent 不自动下载运行时。
 - 使用独立环境文件保存 PPIO 配置。
-- 启动前加载环境文件。
+- 启动时通过 `aider --env-file ~/.oneagent/aider.env` 由 Aider 自己加载，不需要在 shell 中 source。
 - 使用 `openai/<model>` 形式时，以 Aider 当前版本说明为准。
 
 ## Gateway 型 Agent

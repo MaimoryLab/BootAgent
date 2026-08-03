@@ -146,7 +146,7 @@ func TestWriteAiderQuotesSecretsOnUnixAndWindows(t *testing.T) {
 		t.Fatal(err)
 	}
 	data, _ := os.ReadFile(linuxPath)
-	if !strings.Contains(string(data), "OPENAI_API_BASE=https://api.example/openai/v1") || !strings.Contains(string(data), "'key'\\''quoted'") {
+	if !strings.Contains(string(data), "OPENAI_API_BASE=https://api.example/openai/v1") || !strings.Contains(string(data), `'key\'quoted'`) {
 		t.Fatalf("Unix Aider config = %q", data)
 	}
 	if detected := ReadAiderConfig(string(data)); detected.BaseURL != "https://api.example/openai/v1" {
@@ -156,12 +156,12 @@ func TestWriteAiderQuotesSecretsOnUnixAndWindows(t *testing.T) {
 	windowsHome := t.TempDir()
 	filesystem := securefs.New(securefs.Options{OS: "windows", Username: "tester", Run: func(context.Context, []string) error { return nil }})
 	windows := NewWriter(windowsHome, "windows", filesystem)
-	windowsPath := filepath.Join(windowsHome, ".oneagent", "aider.ps1")
+	windowsPath := filepath.Join(windowsHome, ".oneagent", "aider.env")
 	if err := windows.WriteAider(context.Background(), windowsPath, "https://api.example/openai", "key'quoted"); err != nil {
 		t.Fatal(err)
 	}
 	data, _ = os.ReadFile(windowsPath)
-	if !strings.Contains(string(data), "key''quoted") {
+	if !strings.Contains(string(data), `'key\'quoted'`) {
 		t.Fatalf("Windows Aider config = %q", data)
 	}
 }

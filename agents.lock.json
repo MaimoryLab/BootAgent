@@ -124,7 +124,6 @@
       "config_mode": "auto",
       "config_adapter": "aider",
       "config_path": ".oneagent/aider.env",
-      "windows_config_path": ".oneagent/aider.ps1",
       "package": {
         "manager": "uv",
         "name": "aider-chat",

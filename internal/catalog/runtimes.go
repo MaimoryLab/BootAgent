@@ -25,15 +25,16 @@ type RuntimeManifest struct {
 }
 
 type Runtime struct {
-	Name         string                     `json:"name"`
-	Version      string                     `json:"version"`
-	Commands     []string                   `json:"commands"`
-	ProbeCommand string                     `json:"probe_command"`
-	License      string                     `json:"license"`
-	LicenseURL   string                     `json:"license_url"`
-	Source       string                     `json:"source"`
-	Note         string                     `json:"note"`
-	Artifacts    map[string]RuntimeArtifact `json:"artifacts"`
+	Name           string                     `json:"name"`
+	Version        string                     `json:"version"`
+	Commands       []string                   `json:"commands"`
+	ProbeCommand   string                     `json:"probe_command"`
+	VersionCommand string                     `json:"version_command"`
+	License        string                     `json:"license"`
+	LicenseURL     string                     `json:"license_url"`
+	Source         string                     `json:"source"`
+	Note           string                     `json:"note"`
+	Artifacts      map[string]RuntimeArtifact `json:"artifacts"`
 }
 
 // RuntimeArtifact is one platform's archive. StripRoot reports whether the

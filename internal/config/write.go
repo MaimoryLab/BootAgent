@@ -122,14 +122,8 @@ func (w Writer) WriteOpenAICompatible(ctx context.Context, path, schemaURL, prov
 
 func (w Writer) WriteAider(ctx context.Context, path, baseURL, apiKey string) error {
 	base := provider.OpenAIBaseURL(baseURL)
-	var content string
-	if w.OS == "windows" {
-		content = "$env:OPENAI_API_BASE = '" + powershellQuote(base) + "'\n" +
-			"$env:OPENAI_API_KEY = '" + powershellQuote(apiKey) + "'\n"
-	} else {
-		content = "export OPENAI_API_BASE=" + shellQuote(base) + "\n" +
-			"export OPENAI_API_KEY=" + shellQuote(apiKey) + "\n"
-	}
+	content := "OPENAI_API_BASE=" + dotenvQuote(base) + "\n" +
+		"OPENAI_API_KEY=" + dotenvQuote(apiKey) + "\n"
 	return w.write(ctx, path, []byte(content), true)
 }
 
@@ -244,7 +238,7 @@ func quoteTOML(value string) string {
 	return strconv.Quote(value)
 }
 
-func shellQuote(value string) string {
+func dotenvQuote(value string) string {
 	if value != "" {
 		safe := true
 		for _, character := range value {
@@ -257,11 +251,8 @@ func shellQuote(value string) string {
 			return value
 		}
 	}
-	return "'" + strings.ReplaceAll(value, "'", "'\\''") + "'"
-}
-
-func powershellQuote(value string) string {
-	return strings.ReplaceAll(value, "'", "''")
+	escaped := strings.ReplaceAll(value, `\`, `\\`)
+	return "'" + strings.ReplaceAll(escaped, "'", `\'`) + "'"
 }
 
 func configError(format string, values ...any) error {

@@ -6,6 +6,7 @@
       "version": "24.18.1",
       "commands": ["node", "npm", "npx"],
       "probe_command": "npm",
+      "version_command": "node",
       "license": "MIT",
       "license_url": "https://github.com/nodejs/node/blob/main/LICENSE",
       "source": "https://nodejs.org/dist/",

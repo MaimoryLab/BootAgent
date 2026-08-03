@@ -98,9 +98,15 @@ func RuntimeStates(ctx context.Context, runtime Runtime, manifest catalog.Runtim
 			state.InstallPath = runtimeDir(runtime.Home, id, entry.Version)
 			state.Managed = ManagedBinDir(runtime.Home, id, entry, artifact) != ""
 		}
-		if executable, ok := lookRuntime(runtime, entry.ProbeCommand); ok {
+		if _, ok := lookRuntime(runtime, entry.ProbeCommand); ok {
 			state.Installed = true
-			state.Version = runtimeVersion(ctx, runtime, executable)
+			versionCommand := entry.VersionCommand
+			if versionCommand == "" {
+				versionCommand = entry.ProbeCommand
+			}
+			if versionExecutable, ok := lookRuntime(runtime, versionCommand); ok {
+				state.Version = runtimeVersion(ctx, runtime, versionExecutable)
+			}
 		}
 		states = append(states, state)
 	}

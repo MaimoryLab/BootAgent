@@ -142,6 +142,9 @@ func TestManagedRuntimeIsReusedRatherThanReinstalled(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(binDir, "npm"), []byte("#!/bin/sh\necho 11.0.0\n"), 0o700); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.WriteFile(filepath.Join(binDir, "node"), []byte("#!/bin/sh\necho v26.5.0\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
 
 	core := NewUseCases(StatusOptions{
 		Home:        home,
@@ -161,8 +164,8 @@ func TestManagedRuntimeIsReusedRatherThanReinstalled(t *testing.T) {
 		if !state.Managed || !state.Installed {
 			t.Fatalf("an existing managed tree was not detected: %#v", state)
 		}
-		if state.Version != "11.0.0" {
-			t.Fatalf("version probe ran outside the managed PATH: %#v", state)
+		if state.Version != "26.5.0" {
+			t.Fatalf("runtime version probe used the wrong command: %#v", state)
 		}
 	}
 
@@ -203,6 +206,9 @@ func TestStatusResolvesAgentsInTheManagedEnvironment(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(binDir, "npm"), []byte("#!/bin/sh\necho 11.0.0\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(binDir, "node"), []byte("#!/bin/sh\necho v26.5.0\n"), 0o700); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(globalBin, "codex"), []byte("#!/bin/sh\necho 0.9.9\n"), 0o700); err != nil {
