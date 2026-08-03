@@ -133,12 +133,6 @@ func (s Store) Save(ctx context.Context, entry Entry) (Entry, error) {
 	if err != nil {
 		return Entry{}, err
 	}
-	// The Provider editor only carries endpoints; a key reaches the store through
-	// SaveKey during activation. An empty key here means "unchanged", never
-	// "clear the saved one".
-	if entry.APIKey == "" {
-		entry.APIKey = file.Providers[entry.ID].APIKey
-	}
 	file.Providers[entry.ID] = storedProvider{
 		Name: entry.Name, Home: entry.Home, BaseURL: entry.BaseURL,
 		AnthropicBaseURL: entry.AnthropicBaseURL, APIKey: entry.APIKey,

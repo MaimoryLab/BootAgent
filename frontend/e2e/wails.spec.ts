@@ -23,12 +23,20 @@ test("Profile management applies an environment and the overview stays read-only
   await expect(page.getByText("尚未安装任何 Agent")).toBeVisible();
   await expect(page.getByRole("button", { name: /开始配置|新建配置/ })).toHaveCount(0);
 
+  // The key lives on the Provider now, so a Profile is only usable once its
+  // Provider has one.
+  await page.getByRole("link", { name: "Provider" }).click();
+  await page.getByRole("button", { name: "编辑 PPIO" }).click();
+  await page.getByLabel("API Key").fill("e2e-key");
+  await page.getByRole("button", { name: "保存", exact: true }).click();
+  await expect(page.getByTestId("provider-ppio")).toContainText("已保存 Key");
+
   await page.getByRole("link", { name: "配置模板" }).click();
   await page.getByRole("button", { name: "新增 Profile" }).click();
   await page.getByLabel("Profile ID").fill("team-ppio");
   await page.getByLabel("名称").fill("团队 PPIO");
   await page.getByLabel("模型", { exact: true }).fill("oneagent-e2e-model");
-  await page.getByLabel("API Key").fill("e2e-key");
+  await expect(page.getByLabel("API Key")).toHaveCount(0);
   await page.getByLabel("选择 Codex").check();
   await page.getByRole("button", { name: "保存 Profile" }).click();
 
@@ -41,7 +49,7 @@ test("Profile management applies an environment and the overview stays read-only
   await profile.getByRole("button", { name: "应用到 Agent" }).click();
   await expect(page.getByText(/已应用到 1 个 Agent/)).toBeVisible();
 
-  await page.getByRole("link", { name: "激活环境" }).click();
+  await page.getByRole("link", { name: "环境总览" }).click();
   await expect(page.getByRole("heading", { name: "环境总览" })).toBeVisible();
   const agent = page.getByTestId("agent-codex");
   await expect(agent).toContainText("PPIO");

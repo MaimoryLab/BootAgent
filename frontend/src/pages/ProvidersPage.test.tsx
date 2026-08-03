@@ -106,9 +106,8 @@ describe("ProvidersPage", () => {
     expect(screen.getByText(/用户 Provider/)).toBeTruthy();
   });
 
-  it("edits endpoints without ever holding the saved key", async () => {
-    // The key belongs to the Profile step; sending it back empty tells the store
-    // to keep what it has instead of clearing it.
+  it("loads the saved API key when editing and sends updates", async () => {
+    // This page owns the key, so the editor has to show and round-trip it.
     const entry = {
       id: "ppio", name: "PPIO", home: "https://ppio.com/", base_url: "https://api.ppio.com/openai",
       anthropic_base_url: "https://api.ppio.com/anthropic", api_key: "sk-saved", built_in: true,
@@ -118,26 +117,26 @@ describe("ProvidersPage", () => {
     renderPage({ codex: "ppio" });
 
     fireEvent.click(screen.getByRole("button", { name: "编辑 PPIO" }));
-    await waitFor(() => expect(screen.getByLabelText("名称")).toHaveValue("PPIO"));
-    expect(screen.queryByLabelText("API Key")).toBeNull();
+    await waitFor(() => expect(screen.getByLabelText("API Key")).toHaveValue("sk-saved"));
     fireEvent.change(screen.getByLabelText("名称"), { target: { value: "PPIO Cloud" } });
     fireEvent.click(screen.getByRole("button", { name: /^保存$/ }));
 
-    await waitFor(() => expect(save).toHaveBeenCalledWith(expect.objectContaining({ id: "ppio", name: "PPIO Cloud", api_key: "" })));
+    await waitFor(() => expect(save).toHaveBeenCalledWith(expect.objectContaining({ id: "ppio", name: "PPIO Cloud", api_key: "sk-saved" })));
   });
 
   it("adds a Provider from the management page", async () => {
     const save = vi.spyOn(api, "saveProvider").mockResolvedValue({
       id: "acme", name: "Acme", home: "", base_url: "https://api.acme.test",
-      anthropic_base_url: "", api_key: "", built_in: false,
+      anthropic_base_url: "", api_key: "sk-acme", built_in: false,
     });
     renderPage({ codex: null });
     fireEvent.click(screen.getByRole("button", { name: "新增 Provider" }));
     fireEvent.change(screen.getByLabelText("Provider ID"), { target: { value: "acme" } });
     fireEvent.change(screen.getByLabelText("名称"), { target: { value: "Acme" } });
     fireEvent.change(screen.getByLabelText("OpenAI 兼容 Base URL"), { target: { value: "https://api.acme.test" } });
+    fireEvent.change(screen.getByLabelText("API Key"), { target: { value: "sk-acme" } });
     fireEvent.click(screen.getByRole("button", { name: /^保存$/ }));
-    await waitFor(() => expect(save).toHaveBeenCalledWith(expect.objectContaining({ id: "acme", base_url: "https://api.acme.test" })));
+    await waitFor(() => expect(save).toHaveBeenCalledWith(expect.objectContaining({ id: "acme", base_url: "https://api.acme.test", api_key: "sk-acme" })));
   });
 
   it("deletes a user Provider", async () => {

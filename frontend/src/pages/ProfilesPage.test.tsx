@@ -93,11 +93,18 @@ describe("ProfilesPage", () => {
     refreshStatus.mockResolvedValue();
   });
 
-  it("lists public Profile details without returning the key", () => {
-    renderPage([profile()]);
+  it("lists public Profile details and reports the Provider's key state", () => {
+    mockState = { status: statusWith([profile()]), statusState: "success" };
+    if (!mockState.status) throw new Error("missing status");
+    mockState.status.providers.ppio.has_key = true;
+    render(
+      <MemoryRouter>
+        <ProfilesPage />
+      </MemoryRouter>,
+    );
     expect(screen.getByText("团队 PPIO")).toBeTruthy();
     expect(screen.getByText(/deepseek\/deepseek-v3/)).toBeTruthy();
-    expect(screen.getByText(/已保存密钥/)).toBeTruthy();
+    expect(screen.getByText(/Provider 已有 Key/)).toBeTruthy();
     expect(document.body.innerHTML).not.toMatch(/sk-[A-Za-z0-9]/);
   });
 
@@ -109,14 +116,16 @@ describe("ProfilesPage", () => {
     expect(screen.getByLabelText("Profile ID")).toBeTruthy();
   });
 
-  it("creates a Profile with Provider, model, key, and Agents", async () => {
+  it("creates a Profile without asking for a key", async () => {
+    // The Provider already holds the key; a second prompt here was the
+    // duplication this page dropped.
     const save = vi.spyOn(api, "saveProfile").mockResolvedValue(profile());
     renderPage([]);
     fireEvent.click(screen.getByRole("button", { name: "新增 Profile" }));
+    expect(screen.queryByLabelText("API Key")).toBeNull();
     fireEvent.change(screen.getByLabelText("Profile ID"), { target: { value: "team-ppio" } });
     fireEvent.change(screen.getByLabelText("名称"), { target: { value: "团队 PPIO" } });
     fireEvent.change(screen.getByLabelText("模型"), { target: { value: "deepseek/deepseek-v3" } });
-    fireEvent.change(screen.getByLabelText("API Key"), { target: { value: "sk-new" } });
     fireEvent.click(screen.getByLabelText("选择 Codex"));
     fireEvent.click(screen.getByRole("button", { name: "保存 Profile" }));
 
@@ -125,19 +134,19 @@ describe("ProfilesPage", () => {
       label: "团队 PPIO",
       provider: "ppio",
       apiBaseUrl: "",
-      apiKey: "sk-new",
+      apiKey: "",
       model: "deepseek/deepseek-v3",
       configMode: "provider",
       agentIds: ["codex"],
     }));
   });
 
-  it("edits metadata without asking the backend to replace a saved key", async () => {
+  it("points at the Provider page when its key is missing", async () => {
     const save = vi.spyOn(api, "saveProfile").mockResolvedValue(profile({ label: "团队默认" }));
     renderPage([profile()]);
     fireEvent.click(screen.getByRole("button", { name: "编辑 团队 PPIO" }));
     expect(screen.getByLabelText("Profile ID").hasAttribute("disabled")).toBe(true);
-    expect(screen.getByText(/留空将保留/)).toBeTruthy();
+    expect(screen.getByText(/这个 Provider 还没有 Key/)).toBeTruthy();
     fireEvent.change(screen.getByLabelText("名称"), { target: { value: "团队默认" } });
     fireEvent.click(screen.getByRole("button", { name: "保存 Profile" }));
 

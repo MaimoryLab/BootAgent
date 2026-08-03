@@ -7,7 +7,7 @@ import { type TranslationKey, useI18n } from "../i18n";
 // SetupGuard: listing them made the sidebar look broken, because clicking one
 // without a selected Agent bounced straight back to the first step.
 const navItems: Array<{ to: string; label: TranslationKey | "Provider"; icon: typeof Gauge }> = [
-  { to: "/overview", label: "激活环境", icon: Gauge },
+  { to: "/overview", label: "环境总览", icon: Gauge },
   { to: "/providers", label: "Provider", icon: Layers3 },
   { to: "/profiles", label: "配置模板", icon: FolderCog },
 ];

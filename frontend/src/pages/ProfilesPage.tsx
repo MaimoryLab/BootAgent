@@ -7,21 +7,19 @@ import { AgentRow } from "../components/AgentRow";
 import { MirrorSetting } from "../components/MirrorSetting";
 import { PageScaffold } from "../components/PageScaffold";
 import { ProviderSegment } from "../components/ProviderSegment";
-import { SecureKeyField } from "../components/SecureKeyField";
 import { useI18n } from "../i18n";
 import { useWizard } from "../state/WizardContext";
 import type { ProfileSummary, ProviderId } from "../types/api";
 
+// A Profile no longer carries its own key: the Provider it points at owns one,
+// and asking twice for the same secret was the bug worth deleting.
 interface ProfileDraft {
   id: string;
   label: string;
   provider: ProviderId;
   model: string;
   agentIds: string[];
-  apiKey: string;
-  hasKey: boolean;
   originalId: string;
-  originalProvider: ProviderId;
 }
 
 function editDraft(profile: ProfileSummary): ProfileDraft {
@@ -31,10 +29,7 @@ function editDraft(profile: ProfileSummary): ProfileDraft {
     provider: profile.provider,
     model: profile.model || "",
     agentIds: [...profile.agentIds],
-    apiKey: "",
-    hasKey: profile.hasKey,
     originalId: profile.id,
-    originalProvider: profile.provider,
   };
 }
 
@@ -61,13 +56,9 @@ export function ProfilesPage() {
   const configurableAgents = status.catalog.filter((agent) => agent.configMode === "auto");
   const nameOf = (agentId: string) =>
     status.catalog.find((item) => item.id === agentId)?.name || agentId;
-  const keepsSavedKey = Boolean(
-    editor?.hasKey && editor.originalProvider === editor.provider && !editor.apiKey,
-  );
   const providerHasKey = Boolean(editor && status.providers[editor.provider]?.has_key);
   const canSave = Boolean(
-    editor?.id.trim() && editor.label.trim() && editor.model.trim() && editor.agentIds.length
-      && (editor.apiKey || keepsSavedKey || providerHasKey),
+    editor?.id.trim() && editor.label.trim() && editor.model.trim() && editor.agentIds.length,
   );
 
   const openNew = () => {
@@ -78,10 +69,7 @@ export function ProfilesPage() {
       provider,
       model: "",
       agentIds: [],
-      apiKey: "",
-      hasKey: false,
       originalId: "",
-      originalProvider: provider,
     });
     setFailure("");
     setSuccess("");
@@ -99,7 +87,7 @@ export function ProfilesPage() {
         label: editor.label.trim(),
         provider: editor.provider,
         apiBaseUrl: "",
-        apiKey: editor.apiKey,
+        apiKey: "",
         model: editor.model.trim(),
         configMode: "provider",
         agentIds: editor.agentIds,
@@ -188,18 +176,24 @@ export function ProfilesPage() {
                 value={editor.provider}
                 providers={status.providers}
                 onAdd={() => navigate(`/providers/new?returnTo=${encodeURIComponent("/profiles")}`)}
-                onChange={(provider) => setEditor({ ...editor, provider, apiKey: "" })}
+                onChange={(provider) => setEditor({ ...editor, provider })}
               />
             </div>
             <div className="field-stack profile-editor-wide">
               <label htmlFor="profile-model">{t("模型")}</label>
               <input id="profile-model" value={editor.model} onChange={(event) => setEditor({ ...editor, model: event.target.value })} placeholder={t("例如 deepseek/deepseek-v3")} required />
             </div>
-            <div className="profile-editor-wide">
-              <SecureKeyField value={editor.apiKey} onChange={(apiKey) => setEditor({ ...editor, apiKey })} />
-              {keepsSavedKey ? <p className="profile-key-hint">{t("留空将保留这个 Profile 已保存的 Key。")}</p> : null}
-              {!keepsSavedKey && !editor.apiKey && providerHasKey ? <p className="profile-key-hint">{t("留空将使用 Provider 已保存的 Key。")}</p> : null}
-            </div>
+            {/* The key is the Provider's, so this only reports whether that
+                Provider has one and links to where it is set. */}
+            <p className="profile-key-hint profile-editor-wide">
+              {providerHasKey ? t("将使用 Provider 已保存的 Key。") : t("这个 Provider 还没有 Key，先到 Provider 页面填写。")}
+              {providerHasKey ? null : (
+                <>
+                  {" "}
+                  <button className="provider-link" type="button" onClick={() => navigate("/providers")}>{t("前往 Provider")}</button>
+                </>
+              )}
+            </p>
             <fieldset className="profile-agent-picker profile-editor-wide">
               <legend>{t("适用 Agent")}</legend>
               <div className="agent-list">
@@ -238,23 +232,25 @@ export function ProfilesPage() {
         <div className="empty-overview">
           <Layers size={26} />
           <strong>{t("还没有 Profile")}</strong>
-          <span>{t("新建一个 Profile，保存 Provider、模型、Key 和适用 Agent。")}</span>
+          <span>{t("新建一个 Profile，保存 Provider、模型和适用 Agent。")}</span>
         </div>
       ) : (
         <div className="profile-list">
           {profiles.map((profile) => {
             const canApply = Boolean(
               profile.model && profile.agentIds.length
-                && (profile.hasKey || status.providers[profile.provider]?.has_key),
+                && (status.providers[profile.provider]?.has_key || profile.hasKey),
             );
             return (
               <article className="profile-card" key={profile.id} data-testid={`profile-${profile.id}`}>
                 <header>
                   <span className="profile-title"><strong>{profile.label}</strong><small>{profile.id}</small></span>
                   <span className="profile-card-actions">
-                    <span className={`profile-key${profile.hasKey ? " has-key" : ""}`}>
+                    {/* The badge tracks the Provider now: a Profile without a
+                        keyed Provider cannot be applied, and that is what to show. */}
+                    <span className={`profile-key${status.providers[profile.provider]?.has_key ? " has-key" : ""}`}>
                       <KeyRound size={12} aria-hidden="true" />
-                      {profile.hasKey ? t("已保存密钥") : t("未保存密钥")}
+                      {status.providers[profile.provider]?.has_key ? t("Provider 已有 Key") : t("Provider 缺少 Key")}
                     </span>
                     <button className="icon-button" type="button" onClick={() => { setEditor(editDraft(profile)); setFailure(""); setSuccess(""); }} aria-label={t("编辑 {name}", { name: profile.label })} title={t("编辑")}>
                       <Pencil size={14} />
@@ -275,7 +271,7 @@ export function ProfilesPage() {
                     type="button"
                     onClick={() => void apply(profile)}
                     disabled={!canApply || Boolean(applying)}
-                    title={canApply ? t("安装缺失的 Agent 并应用此 Profile") : t("请先补全模型、Agent 和 Key")}
+                    title={canApply ? t("安装缺失的 Agent 并应用此 Profile") : t("请先补全模型和 Agent，并为 Provider 保存 Key")}
                   >
                     <Play size={14} />
                     {applying === profile.id ? t("应用中") : t("应用到 Agent")}
