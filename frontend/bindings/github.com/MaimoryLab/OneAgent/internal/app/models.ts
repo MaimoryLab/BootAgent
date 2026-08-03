@@ -102,12 +102,10 @@ export interface Settings {
     "schema_version": number;
 
     /**
-     * PreferMirror routes downloads through a mirror first: runtime archives
-     * through the mirror in runtimes.lock.json, and npm-managed Agents through
-     * the npmmirror registry. Both are verified against the same locked
-     * checksum/integrity as the official source, so this trades download host for
-     * speed without weakening verification. It does not affect uv, which has no
-     * registry override here.
+     * PreferMirror routes runtime archives through the mirror in
+     * runtimes.lock.json and npm-managed Agents through the npmmirror registry.
+     * Runtime archives keep their locked checksum verification; npm verifies
+     * packages using the selected registry's metadata. uv is unaffected.
      */
     "prefer_mirror": boolean;
 

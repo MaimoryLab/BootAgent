@@ -36,9 +36,6 @@ func (r *fakeInstallRunner) Run(_ context.Context, argv []string, env map[string
 	if r.run != nil {
 		return r.run(argv, env)
 	}
-	if strings.Contains(strings.Join(argv, " "), "dist.integrity") {
-		return r.integrityResult(argv), nil
-	}
 	if containsArg(argv, "--version") {
 		version := r.version
 		if version == "" {
@@ -47,24 +44,6 @@ func (r *fakeInstallRunner) Run(_ context.Context, argv []string, env map[string
 		return process.Result{Args: runnerArgs, ExitCode: 0, Stdout: "tool " + version}, nil
 	}
 	return r.installResult(argv), nil
-}
-
-func (r *fakeInstallRunner) integrityResult(argv []string) process.Result {
-	name := ""
-	if len(argv) > 2 {
-		spec := argv[2]
-		if index := strings.LastIndex(spec, "@"); index > 0 {
-			spec = spec[:index]
-		}
-		name = spec
-	}
-	for _, id := range catalog.AgentIDs(mustManifest()) {
-		agent := mustManifest().Agents[id]
-		if agent.Package != nil && agent.Package.Name == name && agent.Package.Integrity != nil {
-			return process.Result{Args: append([]string(nil), argv...), ExitCode: 0, Stdout: *agent.Package.Integrity + "\n"}
-		}
-	}
-	return process.Result{Args: append([]string(nil), argv...), ExitCode: 0}
 }
 
 func (r *fakeInstallRunner) installResult(argv []string) process.Result {
@@ -130,58 +109,49 @@ func TestResolveRegistryValidatesHTTPSAndMirrors(t *testing.T) {
 	}
 }
 
-func TestInstallLockedNPMUsesPinnedIntegrityAndMirrorEnvironment(t *testing.T) {
+func TestInstallAgentDefaultsToLatestAndSupportsExactVersion(t *testing.T) {
 	manifest := mustManifest()
 	agent := manifest.Agents["codex"]
 	runner := &fakeInstallRunner{paths: map[string]string{"npm": "/fake/npm"}}
 	runtime := runtimeForInstall(runner, "linux", map[string]string{"PATH": "/bin"})
-	result, err := InstallLockedAgent(context.Background(), runtime, "codex", agent, Options{EnforceLocked: true, Registry: "npmmirror"})
+	result, err := InstallAgent(context.Background(), runtime, agent, Options{Registry: "npmmirror"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !result.Installed || result.Version != agent.Package.Version || result.Registry != "https://registry.npmmirror.com/" {
+	if !result.Installed || result.Version != "" || result.Registry != "https://registry.npmmirror.com/" {
 		t.Fatalf("install result = %#v", result)
 	}
-	if len(runner.envs) != 2 || runner.envs[0]["npm_config_registry"] != "" || runner.envs[1]["npm_config_registry"] != "https://registry.npmmirror.com/" {
+	if len(runner.envs) != 1 || runner.envs[0]["npm_config_registry"] != "https://registry.npmmirror.com/" {
 		t.Fatalf("runner environments = %#v", runner.envs)
 	}
-	if !reflect.DeepEqual(runner.lastCall, []string{"/fake/npm", "install", "-g", "@openai/codex@0.145.0"}) {
+	if !reflect.DeepEqual(runner.lastCall, []string{"/fake/npm", "install", "-g", "@openai/codex"}) {
 		t.Fatalf("last command = %#v", runner.lastCall)
 	}
-}
 
-func TestInstallLockedAgentShortCircuitsAndSupportsLatest(t *testing.T) {
-	manifest := mustManifest()
-	agent := manifest.Agents["codex"]
-	runner := &fakeInstallRunner{paths: map[string]string{"npm": "/fake/npm", "codex": "/fake/codex"}, version: agent.Package.Version}
-	runtime := runtimeForInstall(runner, "linux", nil)
-	result, err := InstallLockedAgent(context.Background(), runtime, "codex", agent, Options{EnforceLocked: true})
-	if err != nil || result.Installed || result.Version != agent.Package.Version || len(runner.calls) != 1 {
-		t.Fatalf("unlocked version result = %#v, err=%v, calls=%#v", result, err, runner.calls)
-	}
-	runner = &fakeInstallRunner{paths: map[string]string{"npm": "/fake/npm", "codex": "/fake/codex"}}
+	runner = &fakeInstallRunner{paths: map[string]string{"npm": "/fake/npm", "codex": "/fake/codex"}, version: "1.0.0"}
 	runtime.Runner = runner
-	result, err = InstallLockedAgent(context.Background(), runtime, "codex", agent, Options{EnforceLocked: false})
-	if err != nil || result.Installed || result.Version != "0.0.1" {
-		t.Fatalf("non-enforced result = %#v, err=%v", result, err)
+	result, err = InstallAgent(context.Background(), runtime, agent, Options{Version: "1.2.3"})
+	if err != nil || !result.Installed || result.Version != "1.2.3" || len(runner.calls) != 2 {
+		t.Fatalf("exact version result = %#v, err=%v", result, err)
 	}
-	runner = &fakeInstallRunner{paths: map[string]string{"npm": "/fake/npm"}}
+	if !reflect.DeepEqual(runner.lastCall, []string{"/fake/npm", "install", "-g", "@openai/codex@1.2.3"}) {
+		t.Fatalf("exact version command = %#v", runner.lastCall)
+	}
+
+	runner = &fakeInstallRunner{paths: map[string]string{"npm": "/fake/npm", "codex": "/fake/codex"}, version: "1.2.3"}
 	runtime.Runner = runner
-	result, err = InstallLockedAgent(context.Background(), runtime, "codex", agent, Options{EnforceLocked: true, Latest: true})
-	if err != nil || !result.Installed || result.Version != "" {
-		t.Fatalf("latest result = %#v, err=%v", result, err)
-	}
-	if !reflect.DeepEqual(runner.lastCall, []string{"/fake/npm", "install", "-g", "@openai/codex"}) {
-		t.Fatalf("latest command = %#v", runner.lastCall)
+	result, err = InstallAgent(context.Background(), runtime, agent, Options{})
+	if err != nil || result.Installed || result.Version != "1.2.3" || len(runner.calls) != 1 {
+		t.Fatalf("existing version result = %#v, err=%v, calls=%#v", result, err, runner.calls)
 	}
 }
 
-func TestInstallLockedAgentSupportsAiderRuntimeBoundary(t *testing.T) {
+func TestInstallAgentSupportsAiderRuntimeBoundary(t *testing.T) {
 	manifest := mustManifest()
 	agent := manifest.Agents["aider"]
 	runner := &fakeInstallRunner{paths: map[string]string{"uv": "/fake/uv", "python3.12": "/fake/python"}}
 	runtime := runtimeForInstall(runner, "linux", nil)
-	result, err := InstallLockedAgent(context.Background(), runtime, "aider", agent, Options{EnforceLocked: true})
+	result, err := InstallAgent(context.Background(), runtime, agent, Options{Version: "0.86.2"})
 	if err != nil || !result.Installed {
 		t.Fatalf("uv result = %#v, err=%v", result, err)
 	}
@@ -221,7 +191,7 @@ func TestInstallPrerequisitesAndFailuresAreStableAndRedacted(t *testing.T) {
 	manifest := mustManifest()
 	agent := manifest.Agents["codex"]
 	missing := &fakeInstallRunner{paths: map[string]string{}}
-	_, err := InstallLockedAgent(context.Background(), runtimeForInstall(missing, "linux", nil), "codex", agent, Options{EnforceLocked: true})
+	_, err := InstallAgent(context.Background(), runtimeForInstall(missing, "linux", nil), agent, Options{})
 	if err == nil || oneerrors.As(err).Code != oneerrors.PrerequisiteMissing || !strings.Contains(err.Error(), "npm") {
 		t.Fatalf("missing npm error = %v", err)
 	}
@@ -229,31 +199,25 @@ func TestInstallPrerequisitesAndFailuresAreStableAndRedacted(t *testing.T) {
 	secret := "install-secret"
 	failing := &fakeInstallRunner{paths: map[string]string{"npm": "/fake/npm"}}
 	failing.run = func(argv []string, _ map[string]string) (process.Result, error) {
-		if strings.Contains(strings.Join(argv, " "), "dist.integrity") {
-			return failing.integrityResult(argv), nil
-		}
 		return process.Result{Args: argv, ExitCode: 9, Stderr: "failed with " + secret}, nil
 	}
 	runtime := runtimeForInstall(failing, "linux", map[string]string{"API_KEY": secret})
-	_, err = InstallLockedAgent(context.Background(), runtime, "codex", agent, Options{EnforceLocked: true})
+	_, err = InstallAgent(context.Background(), runtime, agent, Options{})
 	if err == nil || oneerrors.As(err).Code != oneerrors.AgentInstallFailed || strings.Contains(err.Error(), secret) || !strings.Contains(err.Error(), "[redacted]") {
 		t.Fatalf("redacted install failure = %v", err)
 	}
 
 	timed := &fakeInstallRunner{paths: map[string]string{"npm": "/fake/npm"}}
 	timed.run = func(argv []string, _ map[string]string) (process.Result, error) {
-		if strings.Contains(strings.Join(argv, " "), "dist.integrity") {
-			return timed.integrityResult(argv), nil
-		}
 		return process.Result{Args: argv, ExitCode: -1}, context.DeadlineExceeded
 	}
-	_, err = InstallLockedAgent(context.Background(), runtimeForInstall(timed, "linux", nil), "codex", agent, Options{EnforceLocked: true})
+	_, err = InstallAgent(context.Background(), runtimeForInstall(timed, "linux", nil), agent, Options{})
 	if err == nil || oneerrors.As(err).Code != oneerrors.Timeout {
 		t.Fatalf("timeout install error = %v", err)
 	}
 
-	if err := VerifyNPMIntegrity(context.Background(), runtime, "/fake/npm", "pkg@1", "sha512-expected", "https://registry.example/", time.Second); err == nil {
-		t.Fatal("mismatched integrity unexpectedly succeeded")
+	if _, err = InstallAgent(context.Background(), runtime, agent, Options{Version: "1.2.3@other"}); err == nil || oneerrors.As(err).Code != oneerrors.InvalidRequest {
+		t.Fatalf("invalid version error = %v", err)
 	}
 }
 

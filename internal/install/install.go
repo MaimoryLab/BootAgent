@@ -17,20 +17,21 @@ import (
 )
 
 type Options struct {
-	EnforceLocked bool
-	Latest        bool
-	Timeout       time.Duration
-	Registry      string
+	Version  string
+	Timeout  time.Duration
+	Registry string
 }
 
 type Result struct {
-	Installed     bool
-	Version       string
-	LockedVersion string
-	Registry      string
+	Installed bool
+	Version   string
+	Registry  string
 }
 
-var versionPattern = regexp.MustCompile(`(^|[^0-9])([0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.+-]+)?)`)
+var (
+	versionPattern        = regexp.MustCompile(`(^|[^0-9])([0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.+-]+)?)`)
+	packageVersionPattern = regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z][0-9A-Za-z.+-]*)?$`)
+)
 
 func VersionFromOutput(text string) string {
 	match := versionPattern.FindStringSubmatch(text)
@@ -144,37 +145,27 @@ func ResolveRegistry(value string) (string, error) {
 	return strings.TrimRight(value, "/") + "/", nil
 }
 
-func VerifyNPMIntegrity(ctx context.Context, runtime Runtime, npm, spec, expected, registry string, timeout time.Duration) error {
-	if expected == "" {
-		return nil
-	}
-	result, err := runtime.command(ctx, []string{npm, "view", spec, "dist.integrity", "--registry=" + registry}, nil, runtime.timeout(timeout))
-	if err != nil {
-		if isContextError(err) {
-			return oneerrors.New(oneerrors.AgentInstallFailed, "Timed out reading the checksum for "+spec, oneerrors.WithRetryable(true), oneerrors.WithCause(err))
-		}
-		return oneerrors.New(oneerrors.AgentInstallFailed, "Cannot read the checksum for "+spec, oneerrors.WithRetryable(true), oneerrors.WithCause(err))
-	}
-	if result.ExitCode != 0 {
-		return oneerrors.New(oneerrors.AgentInstallFailed, fmt.Sprintf("%s is not available on %s", spec, registry), oneerrors.WithRetryable(true))
-	}
-	reported := strings.TrimSpace(result.Stdout)
-	if reported != expected {
-		return oneerrors.New(oneerrors.AgentInstallFailed, fmt.Sprintf("Checksum mismatch for %s on %s: manifest expects %s, registry reports %s", spec, registry, expected, valueOrNone(reported)))
+// ValidateVersion accepts only exact versions shared by the supported package managers.
+func ValidateVersion(version string) error {
+	if version != "" && !packageVersionPattern.MatchString(version) {
+		return oneerrors.New(oneerrors.InvalidRequest, "Agent version must be an exact version such as 1.2.3")
 	}
 	return nil
 }
 
-func InstallLockedAgent(ctx context.Context, runtime Runtime, agentID string, agent catalog.Agent, options Options) (Result, error) {
+func InstallAgent(ctx context.Context, runtime Runtime, agent catalog.Agent, options Options) (Result, error) {
 	if err := checkContext(ctx); err != nil {
 		return Result{}, err
 	}
 	if agent.Package == nil {
 		return Result{}, prerequisiteError(fmt.Sprintf("%s has no package installation contract", agent.Name))
 	}
+	version := strings.TrimSpace(options.Version)
+	if err := ValidateVersion(version); err != nil {
+		return Result{}, err
+	}
 	packageInfo := *agent.Package
-	locked := packageInfo.Version
-	result := Result{LockedVersion: locked}
+	result := Result{}
 	var executable string
 	if agent.Command != "" && runtime.Runner != nil {
 		executable, _ = runtime.Runner.LookPath(agent.Command)
@@ -182,11 +173,7 @@ func InstallLockedAgent(ctx context.Context, runtime Runtime, agentID string, ag
 	current := ""
 	if executable != "" {
 		current = InstalledVersion(ctx, runtime, agent)
-		if !options.EnforceLocked {
-			result.Version = current
-			return result, nil
-		}
-		if current == locked {
+		if version == "" || current == version {
 			result.Version = current
 			return result, nil
 		}
@@ -217,11 +204,8 @@ func InstallLockedAgent(ctx context.Context, runtime Runtime, agentID string, ag
 			environment["npm_config_prefix"] = GlobalPrefix(runtime.Home)
 		}
 		spec := packageName
-		if !options.Latest {
-			spec += "@" + locked
-			if err := VerifyNPMIntegrity(ctx, runtime, npm, spec, pointerValue(packageInfo.Integrity), registry, options.Timeout); err != nil {
-				return Result{}, err
-			}
+		if version != "" {
+			spec += "@" + version
 		}
 		if registry != officialRegistry() {
 			environment["npm_config_registry"] = registry
@@ -233,8 +217,8 @@ func InstallLockedAgent(ctx context.Context, runtime Runtime, agentID string, ag
 			return Result{}, prerequisiteError("uv is required to install Aider")
 		}
 		spec := packageName
-		if !options.Latest {
-			spec += "==" + locked
+		if version != "" {
+			spec += "==" + version
 		}
 		// uv resolves Python itself. When a matching interpreter is already on
 		// the machine it is reused; otherwise uv downloads a managed CPython
@@ -262,8 +246,9 @@ func InstallLockedAgent(ctx context.Context, runtime Runtime, agentID string, ag
 		return Result{}, oneerrors.New(oneerrors.AgentInstallFailed, message, oneerrors.WithRetryable(true))
 	}
 	result.Installed = true
-	if !options.Latest {
-		result.Version = locked
+	result.Version = version
+	if result.Version == "" {
+		result.Version = InstalledVersion(ctx, runtime, agent)
 	}
 	result.Registry = registry
 	return result, nil
@@ -363,20 +348,6 @@ func timeoutError(message string, cause error) error {
 
 func prerequisiteError(message string) error {
 	return oneerrors.New(oneerrors.PrerequisiteMissing, message)
-}
-
-func pointerValue(value *string) string {
-	if value == nil {
-		return ""
-	}
-	return *value
-}
-
-func valueOrNone(value string) string {
-	if value == "" {
-		return "(none)"
-	}
-	return value
 }
 
 func officialRegistry() string {

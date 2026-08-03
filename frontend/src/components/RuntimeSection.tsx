@@ -1,10 +1,11 @@
-import { Boxes, Download, RefreshCw } from "lucide-react";
+import { Download, RefreshCw } from "lucide-react";
 import { useState } from "react";
 
 import { api, describeError } from "../backend/api";
 import { useI18n } from "../i18n";
 import { useTaskCenter } from "../state/TaskCenterContext";
 import type { RuntimeStatus } from "../types/api";
+import { AdvancedSection } from "./AdvancedSection";
 import { DownloadProgress } from "./DownloadProgress";
 import { MirrorSetting } from "./MirrorSetting";
 import { StatusBadge } from "./StatusBadge";
@@ -40,19 +41,11 @@ export function RuntimeSection({ runtimes, onInstalled }: RuntimeSectionProps) {
     }
   };
 
-  return (
-    <section className="overview-section">
-      <div className="section-heading">
-        <div>
-          <h2>{t("运行时")}</h2>
-          <p>
-            {missing.length
-              ? t("缺少 {count} 个运行时，安装后即可自动安装对应 Agent。", { count: missing.length })
-              : t("Agent 安装所需的运行时都已就绪。")}
-          </p>
-        </div>
-        <Boxes size={19} aria-hidden="true" />
-      </div>
+  const summary = missing.length
+    ? t("缺少 {count} 个运行时，安装后即可自动安装对应 Agent。", { count: missing.length })
+    : t("Agent 安装所需的运行时都已就绪。");
+  const body = (
+    <>
       {failure ? <div className="notice notice-error">{failure}</div> : null}
       <div className="runtime-list">
         {supported.map((runtime) => (
@@ -103,6 +96,14 @@ export function RuntimeSection({ runtimes, onInstalled }: RuntimeSectionProps) {
         </p>
       ) : null}
       <MirrorSetting label={t("下载源")} />
+    </>
+  );
+
+  return (
+    <section className="overview-section">
+      <AdvancedSection label={t("运行时")} hint={summary}>
+        {body}
+      </AdvancedSection>
     </section>
   );
 }

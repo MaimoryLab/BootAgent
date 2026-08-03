@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
@@ -317,9 +316,8 @@ func (r *countingRunner) Run(ctx context.Context, argv []string, env map[string]
 }
 
 // The same preference has to reach npm, not just the runtime download. The fake
-// runner records every argv, so the assertion is the registry npm was actually
-// pointed at. That first call is the locked dist.integrity check, which is what
-// makes the mirror safe: it is verified against agents.lock.json before install.
+// runner records every environment, so the assertion is the registry npm was
+// actually pointed at.
 func TestStoredMirrorPreferenceReachesTheNPMInstall(t *testing.T) {
 	for _, testCase := range []struct {
 		name     string
@@ -335,8 +333,7 @@ func TestStoredMirrorPreferenceReachesTheNPMInstall(t *testing.T) {
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			home := t.TempDir()
-			// codex is absent so the install actually runs instead of short-circuiting
-			// on an already-locked version.
+			// codex is absent so the install actually runs instead of short-circuiting.
 			runner := &installAppRunner{paths: map[string]string{"npm": "/fake/npm"}}
 			core := installCore(t, home, runner, installAppDoer(func(*http.Request) (*http.Response, error) {
 				return installAppResponse(http.StatusNoContent, ""), nil
@@ -346,17 +343,14 @@ func TestStoredMirrorPreferenceReachesTheNPMInstall(t *testing.T) {
 			}
 			options := installOptions("codex")
 			options.InstallAgent = true
-			options.LockedVersion = true
 			options.Registry = testCase.request
 			if _, err := core.InstallAgents(context.Background(), options); err != nil {
 				t.Fatal(err)
 			}
-			var got string
-			for _, argv := range runner.calls {
-				for _, argument := range argv {
-					if after, ok := strings.CutPrefix(argument, "--registry="); ok {
-						got = after
-					}
+			got := "https://registry.npmjs.org/"
+			for _, environment := range runner.envs {
+				if registry := environment["npm_config_registry"]; registry != "" {
+					got = registry
 				}
 			}
 			if got != testCase.registry {

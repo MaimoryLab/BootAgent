@@ -14,10 +14,9 @@ import (
 	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
 )
 
-// RuntimeManifest is the pinned download contract for the package managers
-// OneAgent can bootstrap. It is a lock file for the same reason agents.lock.json
-// is: runtime code must never invent a download URL or accept an unpinned
-// checksum.
+// RuntimeManifest is the pinned download contract for package managers that
+// OneAgent bootstraps itself. Unlike Agent packages resolved by npm or uv, these
+// archives need an immutable URL and checksum before OneAgent extracts them.
 type RuntimeManifest struct {
 	SchemaVersion int                `json:"schema_version"`
 	Runtimes      map[string]Runtime `json:"runtimes"`

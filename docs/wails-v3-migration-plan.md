@@ -27,7 +27,7 @@ catalog / provider / install / config / profile / securefs / process
 
 cmd/oneagent                 headless CLI
 cmd/oneagent-release         native package + manifest/checks
-cmd/oneagent-rc              locked Agent RC checks
+cmd/oneagent-rc              latest Agent RC checks
 cmd/oneagent-provider-smoke  Provider protocol RC checks
 site/                        independent Astro release site
 ```
@@ -73,7 +73,7 @@ site/                        independent Astro release site
 | 本地 GUI | `cmd/oneagent-desktop` + Wails |
 | headless CLI | `cmd/oneagent` |
 | release/build/check/notices | `cmd/oneagent-release` |
-| locked Agent RC | `cmd/oneagent-rc verify-agents` |
+| latest Agent RC | `cmd/oneagent-rc verify-agents` |
 | Provider RC | `cmd/oneagent-provider-smoke` |
 | config adoption RC | `cmd/oneagent-rc adopted` |
 | resource staging | `go:embed` / Wails assets |

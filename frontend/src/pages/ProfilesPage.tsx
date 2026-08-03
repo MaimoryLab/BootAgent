@@ -112,7 +112,6 @@ export function ProfilesPage() {
         profile_id: profile.id,
         configure: true,
         install_agent: true,
-        locked_version: true,
         skip_test: false,
       });
       if (!result.ok) {

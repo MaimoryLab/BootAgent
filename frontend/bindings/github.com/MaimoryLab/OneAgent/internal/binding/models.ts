@@ -47,8 +47,7 @@ export interface InstallRequest {
     "profile_label": string;
     "configure": boolean;
     "install_agent": boolean;
-    "locked_version": boolean;
-    "latest": boolean;
+    "agent_version": string;
     "skip_test": boolean;
     "registry": string;
     "timeout": number;

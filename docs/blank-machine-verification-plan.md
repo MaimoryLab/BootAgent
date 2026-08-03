@@ -15,7 +15,7 @@
 ## 关键断言
 
 - npm prefix 必须排在 PATH 首位，不能由开发机全局 Agent 假通过。
-- 安装后每个 Agent 的版本必须等于 `agents.lock.json`。
+- 默认安装后每个 Agent 都必须报告有效版本；显式指定版本时必须与请求一致。
 - 配置文件和 secret 文件使用预期的 `0700/0600` 权限。
 - 真实用户 HOME 在测试前后快照必须完全一致。
 - API Key 不出现在 profile、CLI JSON、日志或测试附件。

@@ -34,7 +34,6 @@ export function ActivationPage() {
       configure: true,
       install_agent: state.installMissingAgents,
       skip_test: false,
-      locked_version: true,
     }),
     [secret.keyRef, state.installMissingAgents, state.model, state.profileId, state.profileLabel, state.provider],
   );

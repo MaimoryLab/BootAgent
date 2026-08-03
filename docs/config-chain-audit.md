@@ -22,7 +22,7 @@ Wails service or cmd/oneagent
 
 ## 已修复的风险
 
-- Agent 命令、配置路径、版本、平台和 package manager 从 lock manifest 读取。
+- Agent 命令、配置路径、平台、package manager 和包名从 catalog manifest 读取；版本默认由包管理器解析。
 - 配置适配器只在 Go 中按 adapter 分派，格式差异不伪装成数据配置。
 - 每个 Agent 的凭据交付方式由 `credential_delivery` 和 `env_vars` 声明。
 - Claude Code 的 native env 与配置文件同步写入，避免出现配置显示完成但运行时未登录。

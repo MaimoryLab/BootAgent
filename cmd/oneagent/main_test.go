@@ -82,7 +82,7 @@ func TestHelpMatchesTheCLIContract(t *testing.T) {
 		help := stdout.String()
 		for _, flagName := range []string{
 			"--register-url URL", "--agent AGENT", "--check-agent-only",
-			"--locked-version", "--latest", "--registry REGISTRY", "--skip-test",
+			"--agent-version VERSION", "--registry REGISTRY", "--skip-test",
 		} {
 			if !strings.Contains(help, flagName) {
 				t.Fatalf("%v help is missing %q", args, flagName)
@@ -130,15 +130,15 @@ func TestInstallHonoursACancelledContext(t *testing.T) {
 	}
 }
 
-func TestFlatCLIRejectsEmptyAgentListAndConflictingVersionModes(t *testing.T) {
+func TestFlatCLIRejectsEmptyAgentListAndInvalidVersion(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	if code := run([]string{"--agent", ",", "--check-agent-only"}, &stdout, &stderr); code != 2 || !strings.Contains(stderr.String(), "At least one Agent") {
 		t.Fatalf("empty agents exit=%d stderr=%q", code, stderr.String())
 	}
 	stdout.Reset()
 	stderr.Reset()
-	if code := run([]string{"--check-agent-only", "--latest", "--locked-version", "--json"}, &stdout, &stderr); code != 2 {
-		t.Fatalf("conflicting modes exit=%d output=%q", code, stdout.String())
+	if code := run([]string{"--check-agent-only", "--agent-version", "1.2.3@other", "--json"}, &stdout, &stderr); code != 2 {
+		t.Fatalf("invalid version exit=%d output=%q", code, stdout.String())
 	}
 	var payload map[string]any
 	if err := json.Unmarshal(stdout.Bytes(), &payload); err != nil || payload["error_code"] != "INVALID_REQUEST" {

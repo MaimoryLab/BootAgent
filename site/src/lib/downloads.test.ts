@@ -20,7 +20,6 @@ const channel: ReleaseChannel = {
       verification: { native_build: true, cleanroom: "verified", evidence: "security/" },
       python: "3.12.13",
       built_at: "2026-07-26T10:14:28Z",
-      agent_versions: {},
       artifacts: [
         {
           file: "OneAgent.zip",
@@ -41,7 +40,6 @@ const channel: ReleaseChannel = {
       verification: { native_build: false, cleanroom: "not-recorded", evidence: null },
       python: null,
       built_at: null,
-      agent_versions: {},
       artifacts: [],
     },
   ],

@@ -21,7 +21,7 @@ const { agentDescriptions, groupLabels, agentFallbackDescription } = useCatalogL
         {catalog.agents.map((agent: any) => (
           <a class="agent-row" href={`agents/${agent.id}/`}>
             <AgentMark id={agent.id} name={agent.name} />
-            <div><strong>{agent.name}</strong><span class="agent-meta">{groupLabels[agent.group] ?? agent.group}{agent.lockedVersion ? ` · ${agent.lockedVersion}` : ""}</span></div>
+            <div><strong>{agent.name}</strong><span class="agent-meta">{groupLabels[agent.group] ?? agent.group}</span></div>
             <span class="agent-meta">{agentDescriptions[agent.id] ?? agentFallbackDescription}</span>
             <div class="agent-status">
               {agent.support.managedInstall ? <span class="chip chip-green">管理安装</span> : <span class="chip">官方引导</span>}

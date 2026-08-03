@@ -161,8 +161,7 @@ type installCLIFlags struct {
 	SkipTest       bool
 	NoOpen         bool
 	JSON           bool
-	Locked         bool
-	Latest         bool
+	AgentVersion   string
 	Registry       string
 	Home           string
 	Timeout        int
@@ -185,16 +184,12 @@ func runInstall(args []string, stdout, stderr io.Writer) int {
 	flags.BoolVar(&options.SkipTest, "skip-test", false, "skip Provider probes")
 	flags.BoolVar(&options.NoOpen, "no-open", false, "do not open registration URL")
 	flags.BoolVar(&options.JSON, "json", false, "write JSON")
-	flags.BoolVar(&options.Locked, "locked-version", false, "enforce locked versions")
-	flags.BoolVar(&options.Latest, "latest", false, "install latest version")
+	flags.StringVar(&options.AgentVersion, "agent-version", "", "install an exact Agent version")
 	flags.StringVar(&options.Registry, "registry", "", "package registry mirror or HTTPS URL")
 	flags.StringVar(&options.Home, "home", "", "override the home directory")
 	flags.IntVar(&options.Timeout, "timeout", 180, "operation timeout in seconds")
 	if err := flags.Parse(args); err != nil {
 		return oneerrors.ExitCodes[oneerrors.InvalidRequest]
-	}
-	if options.Locked && options.Latest {
-		return writeError(stdout, stderr, oneerrors.New(oneerrors.InvalidRequest, "--locked-version and --latest cannot be used together"), options.JSON, "")
 	}
 	key, err := resolveCLIKey(options, stderr)
 	if err != nil {
@@ -215,8 +210,8 @@ func runInstall(args []string, stdout, stderr io.Writer) int {
 		APIKey: key, Model: options.Model, SmallFastModel: options.SmallFastModel,
 		Configure: !options.CheckOnly, InstallAgent: options.InstallAgent,
 		CheckAgentOnly: options.CheckOnly, SkipTest: options.SkipTest,
-		LockedVersion: options.Locked, Latest: options.Latest,
-		Timeout: time.Duration(options.Timeout) * time.Second, Registry: options.Registry,
+		AgentVersion: options.AgentVersion,
+		Timeout:      time.Duration(options.Timeout) * time.Second, Registry: options.Registry,
 	})
 	if err != nil {
 		if code, ok := interruptExitCode(ctx); ok {
@@ -384,7 +379,7 @@ func printUsage(stdout io.Writer) {
 		"                [--model MODEL] [--small-fast-model MODEL]",
 		"                [--register-url URL] [--channel CHANNEL] [--install-agent]",
 		"                [--check-agent-only] [--skip-test] [--no-open] [--json]",
-		"                [--locked-version] [--latest] [--registry REGISTRY]",
+		"                [--agent-version VERSION] [--registry REGISTRY]",
 		"                [--timeout SECONDS]",
 		"       oneagent status [--json]",
 		"       oneagent agent list [--json]",
@@ -412,8 +407,8 @@ func printUsage(stdout io.Writer) {
 		"  --skip-test           Skip Provider probes",
 		"  --no-open             Do not open the registration URL",
 		"  --json                Write a JSON result",
-		"  --locked-version      Enforce the version in agents.lock.json",
-		"  --latest              Install the latest version instead of the locked one",
+		"  --agent-version VERSION",
+		"                        Install this exact Agent version; defaults to latest",
 		"  --registry REGISTRY   Package registry: a mirror id (official, npmmirror) or",
 		"                        an https:// URL. Overrides the saved mirror preference;",
 		"                        without it the preference decides, defaulting to official.",

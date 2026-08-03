@@ -38,7 +38,7 @@ var mirrors = []Mirror{
 		Name:     "npmmirror（阿里云）",
 		Registry: "https://registry.npmmirror.com/",
 		Upstream: officialNPMRegistry,
-		Note:     "官方源的公开只读镜像，包体与校验值均与官方一致；官方源不可达时可用。",
+		Note:     "npm 官方源的公开只读镜像；官方源不可达时可用。",
 	},
 }
 
@@ -96,11 +96,6 @@ func Mirrors() []Mirror {
 func PublicCatalog(manifest Manifest, platformID string) []CatalogItem {
 	items := make([]CatalogItem, 0, len(manifest.Agents))
 	for id, agent := range manifest.Agents {
-		var lockedVersion *string
-		if agent.Package != nil {
-			version := agent.Package.Version
-			lockedVersion = &version
-		}
 		var protocol *string
 		if agent.ConfigMode == "auto" {
 			value := ProtocolForAdapter(agent.ConfigAdapter)
@@ -116,7 +111,7 @@ func PublicCatalog(manifest Manifest, platformID string) []CatalogItem {
 			Group:         agent.Group,
 			ConfigMode:    agent.ConfigMode,
 			GuideOnly:     agent.ConfigMode == "guide",
-			LockedVersion: lockedVersion,
+			LockedVersion: nil,
 			Protocol:      protocol,
 			Platforms:     append([]string(nil), agent.Platforms...),
 			PlatformNote:  platformNote,

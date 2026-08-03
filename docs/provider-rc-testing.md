@@ -51,5 +51,5 @@ go run ./cmd/oneagent-provider-smoke --provider all --timeout 30s
 - `ONEAGENT_PPIO_API_KEY` 和 `ONEAGENT_NOVITA_API_KEY` 存放在受保护 CI Secret。
 - 两个 Provider 分别配置 OpenAI、Anthropic、Responses 三个模型变量。
 - `/v1/models`、Chat Completions、Responses 和 Anthropic Messages 全部成功。
-- 随后的真实 Agent 安装、PATH、锁定版本和无密钥配置采用检查全部通过。
+- 随后的真实 Agent 最新版本安装、PATH 和无密钥配置采用检查全部通过。
 - 任一协议不支持时，明确阻止对应 Agent/Provider 组合，不使用其他协议或临时端点绕过门禁。

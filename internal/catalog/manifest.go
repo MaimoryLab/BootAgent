@@ -159,14 +159,11 @@ func validatePackage(agentID string, pkg Package) error {
 	if pkg.Manager != "npm" && pkg.Manager != "uv" {
 		return invalidManifest(agentID, "package manager is not allowlisted")
 	}
-	if pkg.Name == "" || pkg.Version == "" || pkg.Version == "latest" || pkg.License == "" {
+	if pkg.Name == "" || pkg.License == "" {
 		return invalidManifest(agentID, "package metadata is incomplete")
 	}
 	if !httpsURL(pkg.Source) || !httpsURL(pkg.LicenseURL) {
 		return invalidManifest(agentID, "package source and license URL must use HTTPS")
-	}
-	if pkg.Manager == "npm" && (pkg.Integrity == nil || !strings.HasPrefix(*pkg.Integrity, "sha512-")) {
-		return invalidManifest(agentID, "npm package integrity must use sha512")
 	}
 	return nil
 }
@@ -192,10 +189,6 @@ func cloneManifest(source Manifest) Manifest {
 		copyAgent.WindowsPrerequisites = append([]string(nil), agent.WindowsPrerequisites...)
 		if agent.Package != nil {
 			copyPackage := *agent.Package
-			if agent.Package.Integrity != nil {
-				integrity := *agent.Package.Integrity
-				copyPackage.Integrity = &integrity
-			}
 			copyAgent.Package = &copyPackage
 		}
 		result.Agents[id] = copyAgent

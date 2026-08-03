@@ -32,8 +32,7 @@ type InstallAgentsOptions struct {
 	InstallAgent   bool
 	CheckAgentOnly bool
 	SkipTest       bool
-	LockedVersion  bool
-	Latest         bool
+	AgentVersion   string
 	Timeout        time.Duration
 	Registry       string
 	Output         process.OutputListener
@@ -150,8 +149,9 @@ func (u *UseCases) InstallAgents(ctx context.Context, options InstallAgentsOptio
 // validateInstall rejects an unusable request before credentials or config are
 // written. Model resolution happens here so every later step uses one value.
 func (u *UseCases) validateInstall(ctx context.Context, manifest catalog.Manifest, options InstallAgentsOptions) (InstallAgentsOptions, error) {
-	if options.LockedVersion && options.Latest {
-		return options, oneerrors.New(oneerrors.InvalidRequest, "locked_version and latest cannot be enabled together")
+	options.AgentVersion = strings.TrimSpace(options.AgentVersion)
+	if err := install.ValidateVersion(options.AgentVersion); err != nil {
+		return options, err
 	}
 	if options.Timeout <= 0 {
 		return options, oneerrors.New(oneerrors.InvalidRequest, "timeout must be greater than zero")
@@ -367,9 +367,6 @@ func (r *installRun) configure(ctx context.Context, agentID string, agent catalo
 		}
 	}
 	installed := install.Result{Version: install.InstalledVersion(ctx, runtime, agent)}
-	if agent.Package != nil {
-		installed.LockedVersion = agent.Package.Version
-	}
 	if r.options.InstallAgent {
 		// Install the package manager this Agent needs before installing the
 		// Agent itself, otherwise a machine without Node or uv fails on a
@@ -379,11 +376,10 @@ func (r *installRun) configure(ctx context.Context, agentID string, agent catalo
 			return err
 		}
 		runtime = bootstrapped
-		result, err := install.InstallLockedAgent(ctx, runtime, agentID, agent, install.Options{
-			EnforceLocked: r.options.LockedVersion,
-			Latest:        r.options.Latest,
-			Timeout:       r.options.Timeout,
-			Registry:      r.options.Registry,
+		result, err := install.InstallAgent(ctx, runtime, agent, install.Options{
+			Version:  r.options.AgentVersion,
+			Timeout:  r.options.Timeout,
+			Registry: r.options.Registry,
 		})
 		if err != nil {
 			return err
@@ -569,15 +565,14 @@ func (r *installRun) finish(ctx context.Context, baseURL string) InstallAgentsRe
 
 func installResultFor(agentID, status, path string, installed install.Result, checkOnly bool) AgentInstallResult {
 	return AgentInstallResult{
-		Agent:         agentID,
-		Status:        status,
-		Config:        path,
-		Installed:     installed.Installed,
-		Version:       installed.Version,
-		LockedVersion: installed.LockedVersion,
-		Registry:      installed.Registry,
-		Retryable:     false,
-		checkOnly:     checkOnly,
+		Agent:     agentID,
+		Status:    status,
+		Config:    path,
+		Installed: installed.Installed,
+		Version:   installed.Version,
+		Registry:  installed.Registry,
+		Retryable: false,
+		checkOnly: checkOnly,
 	}
 }
 
@@ -587,9 +582,9 @@ func officialInstallCommand(agent catalog.Agent) string {
 	}
 	switch agent.Package.Manager {
 	case "npm":
-		return "npm install -g " + agent.Package.Name + "@" + agent.Package.Version
+		return "npm install -g " + agent.Package.Name
 	case "uv":
-		return "uv tool install --force --python python3.12 --no-python-downloads " + agent.Package.Name + "==" + agent.Package.Version
+		return "uv tool install --force --python " + install.AiderPythonVersion + " " + agent.Package.Name
 	default:
 		manager := agent.Package.Manager
 		if manager == "" {

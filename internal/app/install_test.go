@@ -21,22 +21,22 @@ import (
 
 func TestInstallResultWirePreservesFieldPresence(t *testing.T) {
 	configured, err := json.Marshal(AgentInstallResult{
-		Agent: "codex", Status: "configured", Config: "", Installed: false, LockedVersion: "0.145.0",
+		Agent: "codex", Status: "configured", Config: "", Installed: false,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got, want := string(configured), `{"agent":"codex","status":"configured","config":"","installed":false,"version":null,"lockedVersion":"0.145.0","retryable":false}`; got != want {
+	if got, want := string(configured), `{"agent":"codex","status":"configured","config":"","installed":false,"version":null,"lockedVersion":null,"retryable":false}`; got != want {
 		t.Fatalf("configured wire = %s, want %s", got, want)
 	}
 
 	checkOnly, err := json.Marshal(AgentInstallResult{
-		Agent: "codex", Status: "skipped", Installed: false, Version: "1.0.0", LockedVersion: "0.145.0", checkOnly: true,
+		Agent: "codex", Status: "skipped", Installed: false, Version: "1.0.0", checkOnly: true,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got, want := string(checkOnly), `{"agent":"codex","status":"skipped","installed":false,"version":"1.0.0","lockedVersion":"0.145.0","retryable":false}`; got != want {
+	if got, want := string(checkOnly), `{"agent":"codex","status":"skipped","installed":false,"version":"1.0.0","lockedVersion":null,"retryable":false}`; got != want {
 		t.Fatalf("check-only wire = %s, want %s", got, want)
 	}
 
@@ -65,9 +65,6 @@ func (r *installAppRunner) Run(_ context.Context, argv []string, env map[string]
 	copyEnv := make(map[string]string, len(env))
 	maps.Copy(copyEnv, env)
 	r.envs = append(r.envs, copyEnv)
-	if strings.Contains(strings.Join(argv, " "), "dist.integrity") {
-		return process.Result{Args: argv, ExitCode: 0, Stdout: "sha512-test\n"}, nil
-	}
 	if len(argv) > 1 && argv[1] == "--version" {
 		return process.Result{Args: argv, ExitCode: 0, Stdout: "tool 1.0.0"}, nil
 	}
@@ -173,7 +170,6 @@ func TestInstallAgentsRecordsTheGlobalPrefixOnPath(t *testing.T) {
 	core := installCore(t, home, runner, nil)
 	options := installOptions("codex")
 	options.InstallAgent = true
-	options.Latest = true
 	if _, err := core.InstallAgents(context.Background(), options); err != nil {
 		t.Fatal(err)
 	}
@@ -225,8 +221,8 @@ func TestInstallAgentsRefusesInvalidRequestBeforeWriting(t *testing.T) {
 	runner := &installAppRunner{paths: map[string]string{"codex": "/fake/codex"}}
 	core := installCore(t, home, runner, nil)
 	options := installOptions("codex")
-	options.LockedVersion = true
-	options.Latest = true
+	options.InstallAgent = true
+	options.AgentVersion = "1.2.3@other"
 	if _, err := core.InstallAgents(context.Background(), options); err == nil {
 		t.Fatal("invalid request unexpectedly succeeded")
 	}

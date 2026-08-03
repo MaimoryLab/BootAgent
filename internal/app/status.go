@@ -162,25 +162,25 @@ func NewUseCasesFromEnvironment() *UseCases {
 }
 
 type StatusResponse struct {
-	APIVersion       int                         `json:"apiVersion"`
-	Platform         platform.Info               `json:"platform"`
-	Capabilities     Capabilities                `json:"capabilities"`
-	Agents           map[string]AgentStatus      `json:"agents"`
-	Catalog          []catalog.CatalogItem       `json:"catalog"`
-	Groups           []catalog.Group             `json:"groups"`
-	Providers        map[string]catalog.Provider `json:"providers"`
-	Mirrors          []catalog.Mirror            `json:"mirrors"`
-	Paths            map[string]string           `json:"paths"`
-	Backups          map[string]bool             `json:"backups"`
-	Profiles         []ProfileSummary            `json:"profiles"`
-	ActiveProfile    *string                     `json:"activeProfile"`
+	APIVersion    int                         `json:"apiVersion"`
+	Platform      platform.Info               `json:"platform"`
+	Capabilities  Capabilities                `json:"capabilities"`
+	Agents        map[string]AgentStatus      `json:"agents"`
+	Catalog       []catalog.CatalogItem       `json:"catalog"`
+	Groups        []catalog.Group             `json:"groups"`
+	Providers     map[string]catalog.Provider `json:"providers"`
+	Mirrors       []catalog.Mirror            `json:"mirrors"`
+	Paths         map[string]string           `json:"paths"`
+	Backups       map[string]bool             `json:"backups"`
+	Profiles      []ProfileSummary            `json:"profiles"`
+	ActiveProfile *string                     `json:"activeProfile"`
 	// FirstRun reports that ~/.oneagent does not exist yet, which is the signal
 	// the UI uses to open onboarding instead of the overview. Agent detection is
 	// not a substitute: an Agent installed before OneAgent would suppress it.
-	FirstRun bool `json:"firstRun"`
-	Runtimes         []RuntimeStatus             `json:"runtimes"`
-	Environment      any                         `json:"environment"`
-	EnvironmentError *string                     `json:"environmentError"`
+	FirstRun         bool            `json:"firstRun"`
+	Runtimes         []RuntimeStatus `json:"runtimes"`
+	Environment      any             `json:"environment"`
+	EnvironmentError *string         `json:"environmentError"`
 }
 
 type Capabilities struct {
@@ -287,11 +287,6 @@ func (u *UseCases) GetStatus(ctx context.Context) (StatusResponse, error) {
 			capabilities.SupportedAgentIDs = append(capabilities.SupportedAgentIDs, id)
 		}
 		capabilities.CanInstall[id] = canInstall
-		var lockedVersion *string
-		if agent.Package != nil {
-			version := agent.Package.Version
-			lockedVersion = &version
-		}
 		var boundProvider, boundProfileID, boundModel, boundBaseURL, boundUpdatedAt *string
 		if binding, ok := bindings[id]; ok {
 			boundProvider = nonEmptyPointer(binding.Provider)
@@ -314,7 +309,7 @@ func (u *UseCases) GetStatus(ctx context.Context) (StatusResponse, error) {
 			GuideOnly:     agent.ConfigMode == "guide",
 			Config:        configPath,
 			Version:       installedVersion,
-			LockedVersion: lockedVersion,
+			LockedVersion: nil,
 			CanInstall:    canInstall,
 			Provider:      boundProvider,
 			ProfileID:     boundProfileID,

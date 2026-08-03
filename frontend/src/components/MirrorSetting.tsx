@@ -77,8 +77,8 @@ export function MirrorSetting({ label }: { label?: string }) {
           <strong>{t("优先使用国内镜像")}</strong>
           <small>
             {fromRegion
-              ? t("已根据系统语言/地区自动开启。运行时和 npm 安装的 Agent 都会校验与官方源相同的锁定校验值。")
-              : t("同时作用于运行时下载和 npm 安装的 Agent，校验值与官方源一致；运行时下载失败会自动回退。Aider（uv）不受影响。")}
+              ? t("已根据系统语言/地区自动开启。运行时仍校验固定哈希，npm 使用镜像 registry 的包元数据。")
+              : t("同时作用于运行时下载和 npm 安装的 Agent；运行时仍校验固定哈希并在下载失败时回退。Aider（uv）不受影响。")}
           </small>
         </span>
         <input

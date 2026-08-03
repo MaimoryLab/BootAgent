@@ -13,8 +13,6 @@
       "package": {
         "manager": "npm",
         "name": "@openai/codex",
-        "version": "0.145.0",
-        "integrity": "sha512-/PSPSFujjjmiyVFvG2yu/grOFhsWdokTH8t2KGWhXSo/M5n/dIDsnbsnO82/7bLtIoDuzQf7ATBUMWqPWQINlQ==",
         "source": "https://github.com/openai/codex",
         "license": "Apache-2.0",
         "license_url": "https://github.com/openai/codex/blob/main/LICENSE"
@@ -45,8 +43,6 @@
       "package": {
         "manager": "npm",
         "name": "@anthropic-ai/claude-code",
-        "version": "2.1.217",
-        "integrity": "sha512-EIcc3GmI7x+qPlKCjpcLIjCh7YOaCFbOqKfL4BmwZS6QmtduVNT5E98oyr8n2cxsgeWVbnQ0mSVljTw5C/kFtA==",
         "source": "https://github.com/anthropics/claude-code",
         "license": "Proprietary",
         "license_url": "https://github.com/anthropics/claude-code/blob/main/LICENSE.md"
@@ -74,8 +70,6 @@
       "package": {
         "manager": "npm",
         "name": "opencode-ai",
-        "version": "1.18.4",
-        "integrity": "sha512-B8pFAs1g158ZU+C6eSiJz/5ZhG7Vr2mH7Z7ruYEHLElAlX9tehrRTnzTTgjSxHY2vwZ/5VplwR3odFU+Dai8jg==",
         "source": "https://github.com/anomalyco/opencode",
         "license": "MIT",
         "license_url": "https://github.com/anomalyco/opencode/blob/dev/LICENSE"
@@ -101,8 +95,6 @@
       "package": {
         "manager": "npm",
         "name": "@kilocode/cli",
-        "version": "7.4.11",
-        "integrity": "sha512-v9w0Zv7SYkHbd8D2HK1qjJOnQACg9kOfjl3tRjErytnCWuALS5yRmmVP4ekXsR++3+SePMeGX6HOa5H6lWdfeQ==",
         "source": "https://github.com/Kilo-Org/kilocode",
         "license": "MIT",
         "license_url": "https://github.com/Kilo-Org/kilocode/blob/main/LICENSE"
@@ -127,8 +119,6 @@
       "package": {
         "manager": "uv",
         "name": "aider-chat",
-        "version": "0.86.2",
-        "integrity": null,
         "source": "https://github.com/Aider-AI/aider",
         "license": "Apache-2.0",
         "license_url": "https://github.com/Aider-AI/aider/blob/main/LICENSE.txt"

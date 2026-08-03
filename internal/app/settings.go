@@ -24,12 +24,10 @@ const regionProbeTimeout = 3 * time.Second
 // the desktop app and the CLI need it and it must outlive one request.
 type Settings struct {
 	SchemaVersion int `json:"schema_version"`
-	// PreferMirror routes downloads through a mirror first: runtime archives
-	// through the mirror in runtimes.lock.json, and npm-managed Agents through
-	// the npmmirror registry. Both are verified against the same locked
-	// checksum/integrity as the official source, so this trades download host for
-	// speed without weakening verification. It does not affect uv, which has no
-	// registry override here.
+	// PreferMirror routes runtime archives through the mirror in
+	// runtimes.lock.json and npm-managed Agents through the npmmirror registry.
+	// Runtime archives keep their locked checksum verification; npm verifies
+	// packages using the selected registry's metadata. uv is unaffected.
 	PreferMirror bool `json:"prefer_mirror"`
 	// MirrorFromRegion reports that PreferMirror above is a region-derived
 	// default rather than the user's own choice. The UI uses it to explain why

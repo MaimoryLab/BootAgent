@@ -264,8 +264,7 @@ func (s *AgentService) Install(ctx context.Context, request InstallRequest) (Ins
 		InstallAgent:   request.InstallAgent,
 		CheckAgentOnly: false,
 		SkipTest:       request.SkipTest,
-		LockedVersion:  request.LockedVersion,
-		Latest:         request.Latest,
+		AgentVersion:   request.AgentVersion,
 		Timeout:        timeout,
 		Registry:       request.Registry,
 		Output:         s.onOutput,
@@ -433,8 +432,7 @@ type InstallRequest struct {
 	ProfileLabel   string   `json:"profile_label"`
 	Configure      bool     `json:"configure"`
 	InstallAgent   bool     `json:"install_agent"`
-	LockedVersion  bool     `json:"locked_version"`
-	Latest         bool     `json:"latest"`
+	AgentVersion   string   `json:"agent_version"`
 	SkipTest       bool     `json:"skip_test"`
 	Registry       string   `json:"registry"`
 	Timeout        int      `json:"timeout"`

@@ -137,7 +137,7 @@ func verifyAgents(root string, args []string, adopted bool) error {
 	ctx := context.Background()
 	installArgs := []string{
 		"--agent", strings.Join(agentIDs, ","),
-		"--install-agent", "--locked-version", "--check-agent-only", "--json",
+		"--install-agent", "--check-agent-only", "--json",
 		"--home", isolated.home,
 	}
 	if *registry != "" {
@@ -148,14 +148,14 @@ func verifyAgents(root string, args []string, adopted bool) error {
 		return err
 	}
 	if result.ExitCode != 0 {
-		return fmt.Errorf("locked Agent installation failed: %s", compact(result.Stdout+" "+result.Stderr))
+		return fmt.Errorf("Agent installation failed: %s", compact(result.Stdout+" "+result.Stderr))
 	}
 	var payload installPayload
 	if err := json.Unmarshal([]byte(result.Stdout), &payload); err != nil {
 		return fmt.Errorf("decode OneAgent install result: %w", err)
 	}
 	if !payload.OK {
-		return fmt.Errorf("locked Agent installation reported failure: %s", compact(payload.Log))
+		return fmt.Errorf("Agent installation reported failure: %s", compact(payload.Log))
 	}
 	byID := make(map[string]installResult, len(payload.Results))
 	for _, item := range payload.Results {
@@ -175,8 +175,8 @@ func verifyAgents(root string, args []string, adopted bool) error {
 		if err != nil {
 			return fmt.Errorf("read %s version: %w", id, err)
 		}
-		if versionValue != agent.Package.Version {
-			return fmt.Errorf("%s reports %s, lock requires %s", id, versionValue, agent.Package.Version)
+		if versionValue == "" {
+			return fmt.Errorf("%s did not report an installed version", id)
 		}
 		fmt.Printf("%s: %s\n", id, versionValue)
 	}

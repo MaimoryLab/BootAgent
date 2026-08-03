@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -58,6 +58,7 @@ describe("RuntimeSection", () => {
 
   it("reports installed runtimes with their version and offers no install button", () => {
     render(<RuntimeSection runtimes={[runtime({ installed: true, version: "24.18.1", managed: true })]} onInstalled={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "运行时" }));
     expect(screen.getByText("Node.js")).toBeTruthy();
     expect(screen.getByText("版本 24.18.1")).toBeTruthy();
     expect(screen.getByText("已安装")).toBeTruthy();
@@ -68,6 +69,7 @@ describe("RuntimeSection", () => {
     installRuntime.mockResolvedValue({ runtime: "node", installed: true, version: "24.18.1", pathUpdated: true, runtimes: [] });
     const onInstalled = vi.fn();
     render(<RuntimeSection runtimes={[runtime()]} onInstalled={onInstalled} />);
+    fireEvent.click(screen.getByRole("button", { name: "运行时" }));
     expect(screen.getByText("未安装")).toBeTruthy();
 
     await userEvent.click(screen.getByRole("button", { name: "安装" }));
@@ -81,6 +83,7 @@ describe("RuntimeSection", () => {
     });
     const onInstalled = vi.fn();
     render(<RuntimeSection runtimes={[runtime()]} onInstalled={onInstalled} />);
+    fireEvent.click(screen.getByRole("button", { name: "运行时" }));
 
     await userEvent.click(screen.getByRole("button", { name: "安装" }));
     await waitFor(() => expect(screen.getByText("校验和不匹配")).toBeTruthy());
@@ -90,6 +93,16 @@ describe("RuntimeSection", () => {
   it("hides runtimes with no locked download for this platform", () => {
     render(<RuntimeSection runtimes={[runtime({ supported: false })]} onInstalled={vi.fn()} />);
     expect(screen.queryByText("Node.js")).toBeNull();
+  });
+
+  it("starts collapsed for secondary overview details", async () => {
+    render(<RuntimeSection runtimes={[runtime()]} onInstalled={vi.fn()} />);
+    const trigger = screen.getByRole("button", { name: "运行时" });
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText("Node.js")).toBeNull();
+
+    await userEvent.click(trigger);
+    expect(screen.getByText("Node.js")).toBeTruthy();
   });
 });
 

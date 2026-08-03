@@ -1,6 +1,6 @@
-// Package catalog parses the embedded Agent and Provider lock files and
-// projects them for the desktop shell and the CLI. The lock files are the
-// hand-edited sources, so runtime code does not invent catalog URLs or models.
+// Package catalog parses the embedded Agent and Provider catalog files and
+// projects them for the desktop shell and the CLI. These hand-edited files keep
+// runtime code from inventing package names, URLs, or models.
 package catalog
 
 type Manifest struct {
@@ -36,13 +36,11 @@ type Agent struct {
 }
 
 type Package struct {
-	Manager    string  `json:"manager"`
-	Name       string  `json:"name"`
-	Version    string  `json:"version"`
-	Integrity  *string `json:"integrity"`
-	Source     string  `json:"source"`
-	License    string  `json:"license"`
-	LicenseURL string  `json:"license_url"`
+	Manager    string `json:"manager"`
+	Name       string `json:"name"`
+	Source     string `json:"source"`
+	License    string `json:"license"`
+	LicenseURL string `json:"license_url"`
 }
 
 type CatalogItem struct {

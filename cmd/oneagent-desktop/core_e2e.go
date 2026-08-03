@@ -49,7 +49,7 @@ func newE2ERunner() *e2eRunner {
 	runner.agents = manifest.Agents
 	for id, agent := range manifest.Agents {
 		if agent.Package != nil {
-			runner.byPackage[agent.Package.Name+"@"+agent.Package.Version] = id
+			runner.byPackage[agent.Package.Name] = id
 		}
 	}
 	return runner
@@ -80,19 +80,11 @@ func (r *e2eRunner) Run(_ context.Context, argv []string, _ map[string]string, _
 		result.Stdout = "zh_CN\n"
 		return result, nil
 	}
-	if len(argv) >= 4 && argv[1] == "view" && argv[3] == "dist.integrity" {
-		if id, ok := r.byPackage[argv[2]]; ok && r.agents[id].Package != nil && r.agents[id].Package.Integrity != nil {
-			result.Stdout = *r.agents[id].Package.Integrity + "\n"
-			return result, nil
-		}
-		result.ExitCode = 1
-		return result, nil
-	}
 	if len(argv) >= 4 && argv[1] == "install" && argv[2] == "-g" {
 		if id, ok := r.byPackage[argv[3]]; ok {
 			agent := r.agents[id]
 			r.mu.Lock()
-			r.installed[agent.Command] = agent.Package.Version
+			r.installed[agent.Command] = "1.0.0"
 			r.mu.Unlock()
 		}
 		return result, nil

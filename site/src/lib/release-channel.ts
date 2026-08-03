@@ -55,7 +55,6 @@ export interface ReleaseTarget {
   };
   python: string | null;
   built_at: string | null;
-  agent_versions: Record<string, string>;
   artifacts: ReleaseArtifact[];
 }
 
@@ -132,7 +131,6 @@ export async function getPreviewChannel(): Promise<ReleaseChannel | null> {
       verification: { native_build: false, cleanroom: "not-recorded", evidence: "security/#release-evidence" },
       python: null,
       built_at: release.published_at,
-      agent_versions: {},
       artifacts,
     };
   });

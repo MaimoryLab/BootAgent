@@ -8,7 +8,7 @@
 - React 已切换到生成的 Wails bindings；桌面生产路径不使用 HTTP API。
 - 配置写入使用 Go golden fixtures，直接锁定 JSON/TOML 输出，不启动第二套 runtime。
 - `cmd/oneagent-release` 生成原生 Wails/Go 包、源码 ZIP、manifest、SHA-256 和第三方 notices。
-- `cmd/oneagent-rc` 覆盖隔离 npm prefix、真实锁定版本、PATH 解析和无密钥配置采用。
+- `cmd/oneagent-rc` 覆盖隔离 npm prefix、真实最新版本、PATH 解析和无密钥配置采用。
 - `cmd/oneagent-provider-smoke` 覆盖 models、Chat Completions、Responses、Anthropic Messages。
 - Docker/macOS cleanroom、Go race、React/site 构建和 Wails binding diff 均有独立入口。
 
@@ -26,7 +26,7 @@ go run ./cmd/oneagent-release check release
 
 ## 设计结论
 
-- `agents.lock.json` 是 Agent 元数据唯一真源；Go catalog 不复制版本和来源。
+- `agents.lock.json` 是 Agent 元数据唯一真源；Go catalog 不复制包名和来源，版本由包管理器解析。
 - shell wrapper 只定位已构建的 CLI，不按需构建、不调用解释器。
 - source map、远程资源、secret、Agent 二进制和任何语言 runtime 都不能进入发行 ZIP。
 - Wails Alpha 阶段只发布 `technical-preview-unsigned`；Stable 签名/公证另行验收。

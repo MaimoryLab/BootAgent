@@ -57,7 +57,7 @@ export function AgentSelectionPage() {
             <div className="section-heading">
               <div>
                 <h2>{t("常用 Agent")}</h2>
-                <p>{t("可一键配置的使用锁定版本完成初始化，仅引导的只显示官方步骤。")}</p>
+                <p>{t("可一键配置的默认安装最新版本，仅引导的只显示官方步骤。")}</p>
                 {/* Guide-only rows stay selectable: install_many answers them
                     with a guide-only result and writes nothing. */}
               </div>

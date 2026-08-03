@@ -49,17 +49,16 @@ type artifactInfo struct {
 }
 
 type releaseManifest struct {
-	SchemaVersion   int               `json:"schema_version"`
-	OneAgentVersion string            `json:"oneagent_version"`
-	Channel         string            `json:"channel"`
-	Unsigned        bool              `json:"unsigned"`
-	Platform        string            `json:"platform"`
-	Arch            string            `json:"arch"`
-	Toolchain       toolchainInfo     `json:"toolchain"`
-	SystemWebView   string            `json:"system_webview"`
-	BuiltAt         string            `json:"built_at"`
-	AgentVersions   map[string]string `json:"agent_versions"`
-	Artifacts       []artifactInfo    `json:"artifacts"`
+	SchemaVersion   int            `json:"schema_version"`
+	OneAgentVersion string         `json:"oneagent_version"`
+	Channel         string         `json:"channel"`
+	Unsigned        bool           `json:"unsigned"`
+	Platform        string         `json:"platform"`
+	Arch            string         `json:"arch"`
+	Toolchain       toolchainInfo  `json:"toolchain"`
+	SystemWebView   string         `json:"system_webview"`
+	BuiltAt         string         `json:"built_at"`
+	Artifacts       []artifactInfo `json:"artifacts"`
 }
 
 type packageLock struct {
@@ -340,10 +339,6 @@ func runCommand(dir, executable string, args ...string) error {
 }
 
 func makeManifest(root string, target targetInfo, channel string, files []string) (releaseManifest, error) {
-	lock, err := catalog.LoadEmbedded()
-	if err != nil {
-		return releaseManifest{}, err
-	}
 	frontendVersion := "unknown"
 	if data, readErr := os.ReadFile(filepath.Join(root, "frontend", "package.json")); readErr == nil {
 		var packageJSON struct {
@@ -354,12 +349,6 @@ func makeManifest(root string, target targetInfo, channel string, files []string
 		}
 	}
 	tools := readToolVersions(filepath.Join(root, "build", "tool-versions.env"))
-	agentVersions := make(map[string]string)
-	for id, agent := range lock.Agents {
-		if agent.Package != nil {
-			agentVersions[id] = agent.Package.Version
-		}
-	}
 	artifacts := make([]artifactInfo, 0, len(files))
 	for _, file := range files {
 		info, err := os.Stat(file)
@@ -378,7 +367,7 @@ func makeManifest(root string, target targetInfo, channel string, files []string
 		Unsigned: true, Platform: target.OS, Arch: target.Arch,
 		Toolchain:     toolchainInfo{Go: runtime.Version(), Wails: tools["WAILS_VERSION"], Frontend: frontendVersion},
 		SystemWebView: webViewRequirement(target.OS), BuiltAt: time.Now().UTC().Format(time.RFC3339),
-		AgentVersions: agentVersions, Artifacts: artifacts,
+		Artifacts: artifacts,
 	}, nil
 }
 
@@ -631,7 +620,7 @@ func generateNotices(root, output string) error {
 	for _, item := range frontendPackages {
 		fmt.Fprintf(&builder, "| `%s` | `%s` | %s | %s |\n", item.Name, item.Version, item.License, item.LicenseFile)
 	}
-	builder.WriteString("\n## Agent Installation Targets (Not Bundled)\n\n| Agent | Locked package | License | Source | License reference |\n| --- | --- | --- | --- | --- |\n")
+	builder.WriteString("\n## Agent Installation Targets (Not Bundled)\n\n| Agent | Package | License | Source | License reference |\n| --- | --- | --- | --- | --- |\n")
 	// Iterate in catalog order: a map walk would reorder the table on every run
 	// and change the notice file's own SHA-256.
 	for _, id := range catalog.AgentIDs(manifest) {
@@ -639,7 +628,7 @@ func generateNotices(root, output string) error {
 		if agent.Package == nil {
 			continue
 		}
-		fmt.Fprintf(&builder, "| %s | `%s@%s` | %s | %s | %s |\n", agent.Name, agent.Package.Name, agent.Package.Version, agent.Package.License, agent.Package.Source, agent.Package.LicenseURL)
+		fmt.Fprintf(&builder, "| %s | `%s` | %s | %s | %s |\n", agent.Name, agent.Package.Name, agent.Package.License, agent.Package.Source, agent.Package.LicenseURL)
 	}
 	builder.WriteString("\n## Runtime Bootstrap Targets (Not Bundled)\n\nOneAgent can download these runtimes on request to provide the package managers Agents are installed with. Each download is pinned to the version and SHA-256 in `runtimes.lock.json` and is verified before use.\n\n| Runtime | Locked version | License | Source | License reference |\n| --- | --- | --- | --- | --- |\n")
 	for _, id := range runtimes.RuntimeOrder {
@@ -844,7 +833,6 @@ func validateManifest(file string) []string {
 	if len(manifest.Artifacts) == 0 {
 		return append(problems, "artifact list is missing: "+filepath.Base(file))
 	}
-	expectedVersions := manifest.AgentVersions
 	for _, artifact := range manifest.Artifacts {
 		if filepath.Base(artifact.File) != artifact.File {
 			problems = append(problems, "artifact filename contains a path: "+artifact.File)
@@ -865,10 +853,8 @@ func validateManifest(file string) []string {
 		if !strings.Contains(artifact.File, "-source.zip") && !strings.Contains(artifact.File, manifest.Channel) {
 			problems = append(problems, "artifact channel mismatch: "+artifact.File)
 		}
-		if versions := archiveAgentVersions(artifactPath); versions == nil {
-			problems = append(problems, "lock manifest is missing or invalid: "+artifact.File)
-		} else if !mapsEqual(versions, expectedVersions) {
-			problems = append(problems, "locked Agent versions mismatch: "+artifact.File)
+		if !archiveHasValidAgentCatalog(artifactPath) {
+			problems = append(problems, "Agent catalog is missing or invalid: "+artifact.File)
 		}
 	}
 	suffix := strings.TrimSuffix(strings.TrimPrefix(filepath.Base(file), "release-manifest-"), ".json")
@@ -904,55 +890,36 @@ func artifactNames(artifacts []artifactInfo) []string {
 	return names
 }
 
-func archiveAgentVersions(file string) map[string]string {
+func archiveHasValidAgentCatalog(file string) bool {
 	archive, err := zip.OpenReader(file)
 	if err != nil {
-		return nil
-	}
-	defer archive.Close()
-	var matches []*zip.File
-	for _, entry := range archive.File {
-		if path.Base(entry.Name) == "agents.lock.json" {
-			matches = append(matches, entry)
-		}
-	}
-	if len(matches) != 1 {
-		return nil
-	}
-	reader, err := matches[0].Open()
-	if err != nil {
-		return nil
-	}
-	defer reader.Close()
-	var manifest struct {
-		Agents map[string]struct {
-			Package *struct {
-				Version string `json:"version"`
-			} `json:"package"`
-		} `json:"agents"`
-	}
-	if json.NewDecoder(reader).Decode(&manifest) != nil {
-		return nil
-	}
-	result := map[string]string{}
-	for id, agent := range manifest.Agents {
-		if agent.Package != nil {
-			result[id] = agent.Package.Version
-		}
-	}
-	return result
-}
-
-func mapsEqual(left, right map[string]string) bool {
-	if len(left) != len(right) {
 		return false
 	}
-	for key, value := range left {
-		if right[key] != value {
+	defer archive.Close()
+	var match *zip.File
+	for _, entry := range archive.File {
+		if path.Base(entry.Name) != "agents.lock.json" {
+			continue
+		}
+		if match != nil {
 			return false
 		}
+		match = entry
 	}
-	return true
+	if match == nil {
+		return false
+	}
+	reader, err := match.Open()
+	if err != nil {
+		return false
+	}
+	defer reader.Close()
+	data, err := io.ReadAll(reader)
+	if err != nil {
+		return false
+	}
+	_, err = catalog.Parse(data)
+	return err == nil
 }
 
 func inspectArchive(file string) []string {

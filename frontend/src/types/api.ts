@@ -105,8 +105,7 @@ export type InstallRequest = Pick<
   provider: ProviderId;
   api_base_url?: string;
   small_fast_model?: string;
-  locked_version?: boolean;
-  latest?: boolean;
+  agent_version?: string;
   profile_agents?: string[];
   registry?: string;
   profile_id?: string;

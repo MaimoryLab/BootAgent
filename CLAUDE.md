@@ -7,7 +7,7 @@
 - `internal/app`：Status、Provider、Agent、Profile 用例和写入协调锁。
 - `internal/catalog`：嵌入的 `agents.lock.json`、`providers.lock.json`、`runtimes.lock.json` 与内置 Provider 目录。
 - `internal/config`：TOML/JSON/JSONC 适配器、配置发现和 golden fixtures。
-- `internal/install`：锁定包安装、registry/integrity 校验、Node.js/uv 运行时引导（下载、校验、解压、写入 PATH）和 Aider 外部前置条件。
+- `internal/install`：默认最新、可选精确版本的 Agent 包安装，registry 选择、Node.js/uv 运行时引导（下载、校验、解压、写入 PATH）和 Aider Python 管理边界。
 - `internal/profile`、`internal/securefs`：profile、secret、备份、权限和原子写。
 - `cmd/oneagent`
 - `cmd/oneagent-release`：原生 Wails/Go/React 发布包、notice、manifest 和 SHA-256。
@@ -51,7 +51,7 @@ go run ./cmd/oneagent-provider-smoke --provider all --timeout 30s
 
 ## 代码边界
 
-- `agents.lock.json` 是 Agent 元数据唯一真源。新增自动配置 Agent 时先补 lock，再添加对应 config adapter 和 Go 测试。
+- `agents.lock.json` 是 Agent 元数据唯一真源，但不保存 Agent 版本或包哈希。新增自动配置 Agent 时先补包名和元数据，再添加对应 config adapter 和 Go 测试。
 - 子进程必须使用 argv 数组和受控环境，设置超时并保留可诊断但已脱敏的输出。
 - 写入顺序必须是私有目录、备份、同目录临时文件、收紧权限、原子替换；密钥备份无法收紧时删除并失败。
 - 不把 API Key 写入普通 profile、状态摘要、日志、URL、全局 React state、浏览器存储或测试附件；仅 Provider 编辑/配置表单可通过本机 binding 按需读取私有存储中的 Key。
