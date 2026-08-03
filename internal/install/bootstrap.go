@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -131,10 +132,8 @@ func runtimeVersion(ctx context.Context, runtime Runtime, executable string) str
 func RuntimeForCommand(manifest catalog.RuntimeManifest, command string) (string, catalog.Runtime, bool) {
 	for _, id := range manifest.RuntimeOrder {
 		entry := manifest.Runtimes[id]
-		for _, candidate := range entry.Commands {
-			if candidate == command {
-				return id, entry, true
-			}
+		if slices.Contains(entry.Commands, command) {
+			return id, entry, true
 		}
 	}
 	return "", catalog.Runtime{}, false
@@ -218,12 +217,7 @@ func withPath(runtime Runtime, binDir string) Runtime {
 }
 
 func hasPathEntry(search, directory string) bool {
-	for _, entry := range filepath.SplitList(search) {
-		if entry == directory {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(filepath.SplitList(search), directory)
 }
 
 func installRuntime(ctx context.Context, runtime Runtime, client Doer, runtimeID string, entry catalog.Runtime, artifact catalog.RuntimeArtifact, options RuntimeOptions) (string, error) {

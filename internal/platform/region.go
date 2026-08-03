@@ -46,7 +46,7 @@ func LocaleFromEnvironment(env map[string]string) string {
 // faster from there, so defaulting them to it would be a guess that helps
 // nobody. They can still turn the setting on.
 func IsChineseLocale(value string) bool {
-	for _, field := range strings.Fields(strings.TrimSpace(value)) {
+	for field := range strings.FieldsSeq(strings.TrimSpace(value)) {
 		token := strings.ToLower(field)
 		// Drop the codeset and modifier from "zh_CN.UTF-8" or "zh_CN@pinyin".
 		if index := strings.IndexAny(token, ".@"); index >= 0 {

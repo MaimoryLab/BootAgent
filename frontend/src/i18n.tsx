@@ -195,7 +195,7 @@ const english = {
   "无法保存 Provider": "Could not save provider",
   "删除 Provider“{name}”？": "Delete provider \"{name}\"?",
   "无法删除 Provider": "Could not delete provider",
-  "管理模型服务、端点与本机保存的 API Key。": "Manage model providers, endpoints, and locally saved API keys.",
+  "管理模型服务与端点；API Key 在配置模板里填写。": "Manage model providers and endpoints; API keys are entered on a profile.",
   "编辑 {name}": "Edit {name}",
   "用户添加": "User added",
   "官网": "Website",

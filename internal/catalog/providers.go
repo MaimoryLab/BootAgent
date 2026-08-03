@@ -3,6 +3,7 @@ package catalog
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"os"
 	"strings"
 
@@ -121,9 +122,7 @@ func invalidProvider(providerID, message string) error {
 func cloneProviderManifest(source ProviderManifest) ProviderManifest {
 	result := source
 	result.Providers = make(map[string]Provider, len(source.Providers))
-	for id, provider := range source.Providers {
-		result.Providers[id] = provider
-	}
+	maps.Copy(result.Providers, source.Providers)
 	return result
 }
 

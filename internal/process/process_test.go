@@ -26,7 +26,7 @@ func TestProcessHelper(t *testing.T) {
 	// active at the same time. Real installs look like this — npm reports progress
 	// on stderr while printing results on stdout.
 	if os.Getenv("ONEAGENT_PROCESS_BOTH_STREAMS") == "1" {
-		for index := 0; index < 50; index++ {
+		for range 50 {
 			os.Stdout.WriteString("o")
 			os.Stderr.WriteString("e")
 		}

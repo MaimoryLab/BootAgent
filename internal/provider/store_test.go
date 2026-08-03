@@ -32,6 +32,17 @@ func TestStorePersistsCRUDAndPrivateKey(t *testing.T) {
 	if err != nil || got.APIKey != want.APIKey || got.BaseURL != want.BaseURL || got.BuiltIn {
 		t.Fatalf("reloaded Provider = %#v, err=%v", got, err)
 	}
+	// The Provider editor no longer sends a key, so an endpoint-only save must
+	// leave the stored one alone.
+	got.APIKey = ""
+	got.Name = "Acme Two"
+	if _, err := reloaded.Save(context.Background(), got); err != nil {
+		t.Fatal(err)
+	}
+	if after, err := reloaded.Get("acme"); err != nil || after.APIKey != want.APIKey || after.Name != "Acme Two" {
+		t.Fatalf("after endpoint-only save = %#v, err=%v", after, err)
+	}
+
 	public, err := reloaded.Public()
 	if err != nil || !public["acme"].Custom || !public["acme"].HasKey {
 		t.Fatalf("public Providers = %#v, err=%v", public, err)

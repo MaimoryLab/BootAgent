@@ -3,6 +3,7 @@ package catalog
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net/url"
 	"regexp"
 	"sort"
@@ -174,9 +175,7 @@ func cloneRuntimeManifest(source RuntimeManifest) RuntimeManifest {
 		copied := runtime
 		copied.Commands = append([]string(nil), runtime.Commands...)
 		copied.Artifacts = make(map[string]RuntimeArtifact, len(runtime.Artifacts))
-		for key, artifact := range runtime.Artifacts {
-			copied.Artifacts[key] = artifact
-		}
+		maps.Copy(copied.Artifacts, runtime.Artifacts)
 		result.Runtimes[id] = copied
 	}
 	return result

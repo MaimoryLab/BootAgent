@@ -1,10 +1,11 @@
 import { ExternalLink, KeyRound, Pencil, Plus, Save, Trash2, X } from "lucide-react";
+// SecureKeyField deliberately absent: the key is entered once during setup or on
+// the Profile, and lives in the Provider store from there.
 import { useState, type FormEvent } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { api, describeError } from "../backend/api";
 import { PageScaffold } from "../components/PageScaffold";
-import { SecureKeyField } from "../components/SecureKeyField";
 import { useI18n } from "../i18n";
 import { useWizard } from "../state/WizardContext";
 import type { ProviderEntry } from "../types/api";
@@ -40,7 +41,9 @@ export function ProvidersPage({ create = false }: { create?: boolean }) {
     setBusy(true);
     setFailure("");
     try {
-      setEditor(await api.getProvider(providerId));
+      // The key stays in the store: the editor never holds it, so saving cannot
+      // echo it back through the frontend.
+      setEditor({ ...(await api.getProvider(providerId)), api_key: "" });
     } catch (error) {
       setFailure(describeError(error, t("无法读取 Provider")).message);
     } finally {
@@ -92,7 +95,7 @@ export function ProvidersPage({ create = false }: { create?: boolean }) {
     status.catalog.find((item) => item.id === agentId)?.name || agentId;
 
   return (
-    <PageScaffold title={create ? t("新增 Provider") : "Provider"} description={t("管理模型服务、端点与本机保存的 API Key。")}>
+    <PageScaffold title={create ? t("新增 Provider") : "Provider"} description={t("管理模型服务与端点；API Key 在配置模板里填写。")}>
       {!create ? (
         <div className="provider-toolbar">
           <button className="button button-secondary" type="button" onClick={() => { setEditor({ ...emptyProvider }); setFailure(""); }}>
@@ -138,9 +141,6 @@ export function ProvidersPage({ create = false }: { create?: boolean }) {
             <div className="field-stack provider-editor-wide">
               <label htmlFor="provider-home">{t("官网（可选）")}</label>
               <input id="provider-home" type="url" value={editor.home} onChange={(event) => setEditor({ ...editor, home: event.target.value })} placeholder="https://example.com/" />
-            </div>
-            <div className="provider-editor-wide">
-              <SecureKeyField value={editor.api_key} onChange={(value) => setEditor({ ...editor, api_key: value })} />
             </div>
           </div>
           <footer>

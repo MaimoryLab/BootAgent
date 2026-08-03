@@ -125,7 +125,7 @@ func TestStoredMirrorPreferenceReachesTheDownload(t *testing.T) {
 		{"mirror when stored", true, nil, artifact.MirrorURL},
 		// A per-request override exists so a future retry button can switch host
 		// without changing the saved preference.
-		{"request overrides the setting", true, boolPointer(false), artifact.URL},
+		{"request overrides the setting", true, new(false), artifact.URL},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			home := t.TempDir()
@@ -147,7 +147,8 @@ func TestStoredMirrorPreferenceReachesTheDownload(t *testing.T) {
 	}
 }
 
-func boolPointer(value bool) *bool { return &value }
+//go:fix inline
+func boolPointer(value bool) *bool { return new(value) }
 
 // A first run on a machine set to Chinese should not have to discover the mirror
 // on its own: the official hosts are consistently slow from there.
