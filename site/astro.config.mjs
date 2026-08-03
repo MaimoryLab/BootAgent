@@ -9,6 +9,13 @@ export default defineConfig({
   site,
   base,
   output: "static",
+  // Chinese stays unprefixed so every published URL keeps working; English is
+  // additive under /en/.
+  i18n: {
+    defaultLocale: "zh-CN",
+    locales: ["zh-CN", "en"],
+    routing: { prefixDefaultLocale: false },
+  },
   integrations: [sitemap()],
   build: {
     assets: "_assets",
