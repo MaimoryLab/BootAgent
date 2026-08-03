@@ -19,6 +19,7 @@ import type {
   ProviderId,
   RuntimeStatus,
   SaveProviderInput,
+  Settings,
   StatusResponse,
 } from "../types/api";
 import { currentLocale, translate } from "../i18n";
@@ -141,6 +142,9 @@ export const wailsApi = {
     call(() => RuntimeService.ListRuntimes()).then((runtimes) => runtimes ?? []),
   installRuntime: (runtime: string): Promise<InstallRuntimeResult> =>
     call(() => RuntimeService.InstallRuntime({ runtime })) as Promise<InstallRuntimeResult>,
+  getSettings: (): Promise<Settings> => call(() => RuntimeService.GetSettings()) as Promise<Settings>,
+  saveSettings: (settings: Settings): Promise<Settings> =>
+    call(() => RuntimeService.SaveSettings(settings)) as Promise<Settings>,
   listProfiles: (): Promise<ProfileSummary[]> => call(() => ProfileService.ListProfiles()) as Promise<ProfileSummary[]>,
   saveProfile: (input: {
     id: string;

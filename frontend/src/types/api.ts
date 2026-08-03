@@ -28,6 +28,7 @@ export type AgentStatus = AppModels.AgentStatus;
 export type DetectedConfig = AppModels.DetectedConfig;
 export type RuntimeStatus = AppModels.RuntimeStatus;
 export type InstallRuntimeResult = Omit<AppModels.InstallRuntimeResult, "runtimes"> & { runtimes: RuntimeStatus[] };
+export type Settings = AppModels.Settings;
 export type ActivateAgentResponse = BindingModels.ActivateResponse;
 export type OpenRegistrationResponse = BindingModels.OpenRegistrationResponse;
 export type ProviderEntry = ProviderModels.Entry;

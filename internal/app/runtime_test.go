@@ -21,10 +21,14 @@ import (
 type archiveDoer struct {
 	bodies map[string][]byte
 	hits   int
+	// order records the URLs in the sequence they were requested, which is how
+	// the mirror preference is asserted.
+	order []string
 }
 
 func (d *archiveDoer) Do(request *http.Request) (*http.Response, error) {
 	d.hits++
+	d.order = append(d.order, request.URL.String())
 	body, ok := d.bodies[request.URL.String()]
 	if !ok {
 		return &http.Response{StatusCode: http.StatusNotFound, Body: io.NopCloser(strings.NewReader("")), Request: request}, nil
@@ -164,7 +168,7 @@ func TestManagedRuntimeIsReusedRatherThanReinstalled(t *testing.T) {
 
 	// EnsureRuntime must return the existing tree without downloading.
 	runtime := install.NewRuntime(home, platform.For("darwin", "arm64"), process.New(map[string]string{"HOME": home, "PATH": filepath.Join(home, "empty")}), map[string]string{"HOME": home})
-	updated, installed, err := install.EnsureRuntime(context.Background(), runtime, core.httpDoer, "node", entry)
+	updated, installed, err := install.EnsureRuntime(context.Background(), runtime, core.httpDoer, "node", entry, install.RuntimeOptions{})
 	if err != nil || installed {
 		t.Fatalf("existing tree triggered a download: %v, %v", installed, err)
 	}

@@ -409,7 +409,8 @@ func printUsage(stdout io.Writer) {
 		"  --locked-version      Enforce the version in agents.lock.json",
 		"  --latest              Install the latest version instead of the locked one",
 		"  --registry REGISTRY   Package registry: a mirror id (official, npmmirror) or",
-		"                        an https:// URL. Defaults to the official registry.",
+		"                        an https:// URL. Overrides the saved mirror preference;",
+		"                        without it the preference decides, defaulting to official.",
 		"  --timeout SECONDS     Operation timeout in seconds; defaults to 180",
 	}
 	_, _ = fmt.Fprintln(stdout, strings.Join(lines, "\n"))

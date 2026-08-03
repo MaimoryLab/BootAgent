@@ -80,6 +80,34 @@ export interface ProfileSummary {
  */
 export type RuntimeStatus = install$0.RuntimeState;
 
+/**
+ * Settings holds machine-level preferences that are not part of a profile and
+ * not secret. It is deliberately tiny: a preference belongs here only when both
+ * the desktop app and the CLI need it and it must outlive one request.
+ */
+export interface Settings {
+    "schema_version": number;
+
+    /**
+     * PreferMirror routes downloads through a mirror first: runtime archives
+     * through the mirror in runtimes.lock.json, and npm-managed Agents through
+     * the npmmirror registry. Both are verified against the same locked
+     * checksum/integrity as the official source, so this trades download host for
+     * speed without weakening verification. It does not affect uv, which has no
+     * registry override here.
+     */
+    "prefer_mirror": boolean;
+
+    /**
+     * MirrorFromRegion reports that PreferMirror above is a region-derived
+     * default rather than the user's own choice. The UI uses it to explain why
+     * the box is already ticked. It is never persisted: it is recomputed from the
+     * machine each read, and storing it would let a stale answer outlive the
+     * setting that produced it.
+     */
+    "mirror_from_region": boolean;
+}
+
 export interface StatusResponse {
     "apiVersion": number;
     "platform": platform$0.Info;

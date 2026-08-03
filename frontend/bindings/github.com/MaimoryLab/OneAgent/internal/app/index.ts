@@ -8,5 +8,6 @@ export type {
     InstallRuntimeResult,
     ProfileSummary,
     RuntimeStatus,
+    Settings,
     StatusResponse
 } from "./models.js";

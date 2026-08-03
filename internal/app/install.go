@@ -206,8 +206,11 @@ func (u *UseCases) validateInstall(ctx context.Context, manifest catalog.Manifes
 			return options, oneerrors.New(oneerrors.InvalidRequest, "Unknown Agent: "+id)
 		}
 	}
-	// Validate the registry even when all commands are already installed. This
-	// prevents an invalid setting from being silently accepted on a no-op run.
+	// Apply the stored mirror preference before validating, so one code path
+	// covers the explicit --registry, the preference, and the official default.
+	// Validate even when all commands are already installed: this prevents an
+	// invalid setting from being silently accepted on a no-op run.
+	options.Registry = u.packageRegistry(ctx, options.Registry)
 	if _, err := install.ResolveRegistry(options.Registry); err != nil {
 		return options, err
 	}
@@ -490,7 +493,10 @@ func (r *installRun) ensureAgentRuntime(ctx context.Context, agentID string, age
 	if !known {
 		return runtime, nil
 	}
-	updated, installed, err := install.EnsureRuntime(ctx, runtime, r.core.httpDoer, runtimeID, entry)
+	// The download preference is machine-level, so an install triggered by
+	// activating an Agent honors it exactly as the runtime list does.
+	options := install.RuntimeOptions{PreferMirror: r.core.preferMirror(ctx)}
+	updated, installed, err := install.EnsureRuntime(ctx, runtime, r.core.httpDoer, runtimeID, entry, options)
 	if err != nil {
 		return runtime, err
 	}

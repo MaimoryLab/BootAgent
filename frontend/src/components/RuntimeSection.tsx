@@ -4,6 +4,7 @@ import { useState } from "react";
 import { api, describeError } from "../backend/api";
 import { useI18n } from "../i18n";
 import type { RuntimeStatus } from "../types/api";
+import { MirrorSetting } from "./MirrorSetting";
 import { StatusBadge } from "./StatusBadge";
 
 interface RuntimeSectionProps {
@@ -95,6 +96,7 @@ export function RuntimeSection({ runtimes, onInstalled }: RuntimeSectionProps) {
           {t("运行时会安装到 ~/.oneagent/runtimes，并写入登录 PATH，不需要管理员权限。")}
         </p>
       ) : null}
+      <MirrorSetting label={t("下载源")} />
     </section>
   );
 }

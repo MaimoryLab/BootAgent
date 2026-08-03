@@ -115,7 +115,7 @@ func TestEnsureRuntimeInstallsVerifiesAndExposesOnPath(t *testing.T) {
 	}
 	runtime := bootstrapRuntime(t, home, "darwin")
 
-	updated, installed, err := EnsureRuntime(context.Background(), runtime, downloader, "node", entry)
+	updated, installed, err := EnsureRuntime(context.Background(), runtime, downloader, "node", entry, RuntimeOptions{})
 	if err != nil || !installed {
 		t.Fatalf("install = %v, %v", installed, err)
 	}
@@ -140,7 +140,7 @@ func TestEnsureRuntimeInstallsVerifiesAndExposesOnPath(t *testing.T) {
 
 	// A second call is a no-op that only re-exposes the existing tree.
 	before := len(downloader.hits)
-	again, installedAgain, err := EnsureRuntime(context.Background(), bootstrapRuntime(t, home, "darwin"), downloader, "node", entry)
+	again, installedAgain, err := EnsureRuntime(context.Background(), bootstrapRuntime(t, home, "darwin"), downloader, "node", entry, RuntimeOptions{})
 	if err != nil || installedAgain {
 		t.Fatalf("second install = %v, %v", installedAgain, err)
 	}
@@ -162,7 +162,7 @@ func TestEnsureRuntimeRejectsChecksumMismatchAndKeepsNothing(t *testing.T) {
 			"macos-arm64": {URL: "https://example.test/node.tar.gz", SHA256: strings.Repeat("a", 64), Archive: "tar.gz", StripRoot: true, BinDir: "bin"},
 		},
 	}
-	_, _, err := EnsureRuntime(context.Background(), bootstrapRuntime(t, home, "darwin"), downloader, "node", entry)
+	_, _, err := EnsureRuntime(context.Background(), bootstrapRuntime(t, home, "darwin"), downloader, "node", entry, RuntimeOptions{})
 	if err == nil || oneerrors.As(err).Code != oneerrors.AgentInstallFailed {
 		t.Fatalf("checksum mismatch error = %v", err)
 	}
@@ -181,7 +181,7 @@ func TestEnsureRuntimeSupportsFlatZipAndSkipsExistingCommand(t *testing.T) {
 			"windows-arm64": {URL: "https://example.test/uv.zip", SHA256: digestOf(archive), Archive: "zip", StripRoot: false, BinDir: "."},
 		},
 	}
-	updated, installed, err := EnsureRuntime(context.Background(), bootstrapRuntime(t, home, "windows"), downloader, "uv", entry)
+	updated, installed, err := EnsureRuntime(context.Background(), bootstrapRuntime(t, home, "windows"), downloader, "uv", entry, RuntimeOptions{})
 	if err != nil || !installed {
 		t.Fatalf("zip install = %v, %v", installed, err)
 	}
@@ -195,9 +195,102 @@ func TestEnsureRuntimeSupportsFlatZipAndSkipsExistingCommand(t *testing.T) {
 	// A host that already provides the command is left untouched: OneAgent does
 	// not replace a user's own installation.
 	existing := Runtime{Home: t.TempDir(), Platform: platform.For("windows", "arm64"), Env: map[string]string{}, Runner: &fakeInstallRunner{paths: map[string]string{"uv": "C:\\tools\\uv.exe"}}}
-	_, installedAgain, err := EnsureRuntime(context.Background(), existing, downloader, "uv", entry)
+	_, installedAgain, err := EnsureRuntime(context.Background(), existing, downloader, "uv", entry, RuntimeOptions{})
 	if err != nil || installedAgain {
 		t.Fatalf("existing uv should not be reinstalled: %v, %v", installedAgain, err)
+	}
+}
+
+// The mirror preference chooses a host, never the verification. Whichever host
+// is tried first, the other stays available and both are held to the locked
+// checksum, so a stale mirror degrades to a slower download rather than to a
+// wrong install.
+func TestMirrorPreferenceOnlyReordersHostsAndStillVerifies(t *testing.T) {
+	archive := tarball(t, "node-v1.2.3-darwin-arm64")
+	artifact := catalog.RuntimeArtifact{
+		URL: "https://official.test/node.tar.gz", MirrorURL: "https://mirror.test/node.tar.gz",
+		SHA256: digestOf(archive), Archive: "tar.gz", StripRoot: true, BinDir: "bin",
+	}
+	entry := catalog.Runtime{
+		Name: "Node.js", Version: "1.2.3", Commands: []string{"npm"}, ProbeCommand: "npm",
+		Artifacts: map[string]catalog.RuntimeArtifact{"macos-arm64": artifact},
+	}
+
+	for _, testCase := range []struct {
+		name    string
+		options RuntimeOptions
+		first   string
+	}{
+		{"official first by default", RuntimeOptions{}, artifact.URL},
+		{"mirror first when preferred", RuntimeOptions{PreferMirror: true}, artifact.MirrorURL},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			// Only the expected first host serves the body, so the recorded hit
+			// order proves which one was actually reached first.
+			downloader := &fakeDownloader{bodies: map[string][]byte{testCase.first: archive}}
+			_, installed, err := EnsureRuntime(context.Background(), bootstrapRuntime(t, t.TempDir(), "darwin"), downloader, "node", entry, testCase.options)
+			if err != nil || !installed {
+				t.Fatalf("install = %v, %v", installed, err)
+			}
+			if len(downloader.hits) != 1 || downloader.hits[0] != testCase.first {
+				t.Fatalf("hit order = %v, want %s first", downloader.hits, testCase.first)
+			}
+		})
+	}
+
+	// A mirror serving the wrong bytes must not install; the official source
+	// still satisfies the request.
+	t.Run("a bad mirror falls back instead of installing", func(t *testing.T) {
+		downloader := &fakeDownloader{bodies: map[string][]byte{
+			artifact.MirrorURL: []byte("not the locked archive"),
+			artifact.URL:       archive,
+		}}
+		home := t.TempDir()
+		_, installed, err := EnsureRuntime(context.Background(), bootstrapRuntime(t, home, "darwin"), downloader, "node", entry, RuntimeOptions{PreferMirror: true})
+		if err != nil || !installed {
+			t.Fatalf("install = %v, %v", installed, err)
+		}
+		if len(downloader.hits) != 2 || downloader.hits[0] != artifact.MirrorURL || downloader.hits[1] != artifact.URL {
+			t.Fatalf("hit order = %v, want the mirror then the official source", downloader.hits)
+		}
+		// The installed tree came from the verified archive, not the mirror body.
+		if _, statErr := os.Stat(filepath.Join(RuntimeRoot(home), "node", "v1.2.3", "bin", "node")); statErr != nil {
+			t.Fatalf("verified archive was not the one installed: %v", statErr)
+		}
+	})
+
+	// Without a mirror the preference is inert rather than an error.
+	t.Run("no mirror in the lock", func(t *testing.T) {
+		bare := artifact
+		bare.MirrorURL = ""
+		noMirror := catalog.Runtime{
+			Name: "Node.js", Version: "1.2.3", Commands: []string{"npm"}, ProbeCommand: "npm",
+			Artifacts: map[string]catalog.RuntimeArtifact{"macos-arm64": bare},
+		}
+		downloader := &fakeDownloader{bodies: map[string][]byte{bare.URL: archive}}
+		_, installed, err := EnsureRuntime(context.Background(), bootstrapRuntime(t, t.TempDir(), "darwin"), downloader, "node", noMirror, RuntimeOptions{PreferMirror: true})
+		if err != nil || !installed {
+			t.Fatalf("install without a mirror = %v, %v", installed, err)
+		}
+		if len(downloader.hits) != 1 || downloader.hits[0] != bare.URL {
+			t.Fatalf("hit order = %v", downloader.hits)
+		}
+	})
+}
+
+// Every locked artifact must carry a mirror, otherwise the preference silently
+// does nothing for whichever platform was missed.
+func TestEveryLockedArtifactHasAMirror(t *testing.T) {
+	manifest, err := catalog.LoadEmbeddedRuntimes()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range manifest.RuntimeOrder {
+		for key, artifact := range manifest.Runtimes[id].Artifacts {
+			if artifact.MirrorURL == "" {
+				t.Errorf("%s %s has no mirror_url", id, key)
+			}
+		}
 	}
 }
 

@@ -19,16 +19,19 @@ type InstallRuntimeOptions struct {
 	RuntimeID string
 	Timeout   time.Duration
 	Output    process.OutputListener
+	// PreferMirror overrides the stored setting for this request only. Nil means
+	// use the setting, which is what the UI sends.
+	PreferMirror *bool
 }
 
 // InstallRuntimeResult reports what the bootstrap did. PathUpdated is separate
 // from Installed because an already-downloaded runtime may still need its
 // directory recorded on the login PATH.
 type InstallRuntimeResult struct {
-	Runtime     string        `json:"runtime"`
-	Installed   bool          `json:"installed"`
-	Version     string        `json:"version"`
-	PathUpdated bool          `json:"pathUpdated"`
+	Runtime     string          `json:"runtime"`
+	Installed   bool            `json:"installed"`
+	Version     string          `json:"version"`
+	PathUpdated bool            `json:"pathUpdated"`
 	Runtimes    []RuntimeStatus `json:"runtimes"`
 }
 
@@ -72,8 +75,12 @@ func (u *UseCases) InstallRuntime(ctx context.Context, options InstallRuntimeOpt
 	u.writeMu.Lock()
 	defer u.writeMu.Unlock()
 
+	preferMirror := u.preferMirror(ctx)
+	if options.PreferMirror != nil {
+		preferMirror = *options.PreferMirror
+	}
 	runtime := u.installRuntime(options.Output)
-	updated, installed, err := install.EnsureRuntime(ctx, runtime, u.httpDoer, options.RuntimeID, entry)
+	updated, installed, err := install.EnsureRuntime(ctx, runtime, u.httpDoer, options.RuntimeID, entry, install.RuntimeOptions{PreferMirror: preferMirror})
 	if err != nil {
 		return InstallRuntimeResult{}, err
 	}

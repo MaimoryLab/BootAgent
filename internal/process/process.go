@@ -168,6 +168,7 @@ func (r OSRunner) RunWithOutput(ctx context.Context, argv []string, overrides ma
 		defer cancel()
 	}
 	command := exec.CommandContext(runContext, argv[0], argv[1:]...)
+	HideWindow(command)
 	command.Env = mergeEnvironment(r.Env, overrides)
 	stdout := &boundedBuffer{limit: MaxOutputBytes}
 	stderr := &boundedBuffer{limit: MaxOutputBytes}

@@ -49,6 +49,10 @@ type UseCases struct {
 	// bootstrap behavior is testable without reaching nodejs.org.
 	httpDoer install.Doer
 	writeMu  sync.Mutex
+	// The region behind the default download host cannot change without the user
+	// changing a system setting, so it is probed once per process.
+	regionOnce      sync.Once
+	regionIsChinese bool
 }
 
 // SetRuntimeDownloader overrides the HTTP client used for runtime archive

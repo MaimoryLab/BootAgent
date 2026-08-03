@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 
 import { api, describeError } from "../backend/api";
 import { AgentRow } from "../components/AgentRow";
+import { MirrorSetting } from "../components/MirrorSetting";
 import { PageScaffold } from "../components/PageScaffold";
 import { ProviderSegment } from "../components/ProviderSegment";
 import { SecureKeyField } from "../components/SecureKeyField";
@@ -151,6 +152,10 @@ export function ProfilesPage() {
           {t("新增 Profile")}
         </button>
       </div>
+
+      {/* Applying a Profile installs the missing Agents in its list, so the
+          download host belongs on this page too, not only under the runtimes. */}
+      <MirrorSetting label={t("Agent 安装源")} />
 
       {editor ? (
         <form className="profile-editor" onSubmit={(event) => void save(event)}>

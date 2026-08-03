@@ -73,6 +73,13 @@ func (r *e2eRunner) LookPath(command string) (string, bool) {
 
 func (r *e2eRunner) Run(_ context.Context, argv []string, _ map[string]string, _ time.Duration) (process.Result, error) {
 	result := process.Result{Args: append([]string(nil), argv...), ExitCode: 0}
+	// The region probe is answered explicitly so the browser build renders the
+	// same download defaults on every machine. Without this it would depend on
+	// whichever locale the developer's own system reports.
+	if len(argv) >= 2 && argv[0] == "defaults" && argv[1] == "read" {
+		result.Stdout = "zh_CN\n"
+		return result, nil
+	}
 	if len(argv) >= 4 && argv[1] == "view" && argv[3] == "dist.integrity" {
 		if id, ok := r.byPackage[argv[2]]; ok && r.agents[id].Package != nil && r.agents[id].Package.Integrity != nil {
 			result.Stdout = *r.agents[id].Package.Integrity + "\n"

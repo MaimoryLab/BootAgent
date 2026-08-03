@@ -140,12 +140,21 @@ func RuntimeForCommand(manifest catalog.RuntimeManifest, command string) (string
 	return "", catalog.Runtime{}, false
 }
 
+// RuntimeOptions carries per-install choices. It is a struct rather than extra
+// parameters so adding a choice does not churn every call site, and so a caller
+// reads as PreferMirror rather than as a bare true.
+type RuntimeOptions struct {
+	// PreferMirror tries the locked mirror before the official source. The
+	// checksum gate is identical either way, so this only chooses a host.
+	PreferMirror bool
+}
+
 // EnsureRuntime installs a locked runtime when its command is not already
 // resolvable, and returns the runtime with the executable directory prepended
 // to its PATH. An already-satisfied runtime is a no-op: the command resolving
 // on the host is enough, whether it came from OneAgent or the user's own
 // installation.
-func EnsureRuntime(ctx context.Context, runtime Runtime, client Doer, runtimeID string, entry catalog.Runtime) (Runtime, bool, error) {
+func EnsureRuntime(ctx context.Context, runtime Runtime, client Doer, runtimeID string, entry catalog.Runtime, options RuntimeOptions) (Runtime, bool, error) {
 	if err := checkContext(ctx); err != nil {
 		return runtime, false, err
 	}
@@ -161,7 +170,7 @@ func EnsureRuntime(ctx context.Context, runtime Runtime, client Doer, runtimeID 
 	if _, ok := lookRuntime(runtime, entry.ProbeCommand); ok {
 		return runtime, false, nil
 	}
-	binDir, err := installRuntime(ctx, runtime, client, runtimeID, entry, artifact)
+	binDir, err := installRuntime(ctx, runtime, client, runtimeID, entry, artifact, options)
 	if err != nil {
 		return runtime, false, err
 	}
@@ -217,7 +226,7 @@ func hasPathEntry(search, directory string) bool {
 	return false
 }
 
-func installRuntime(ctx context.Context, runtime Runtime, client Doer, runtimeID string, entry catalog.Runtime, artifact catalog.RuntimeArtifact) (string, error) {
+func installRuntime(ctx context.Context, runtime Runtime, client Doer, runtimeID string, entry catalog.Runtime, artifact catalog.RuntimeArtifact, options RuntimeOptions) (string, error) {
 	target := runtimeDir(runtime.Home, runtimeID, entry.Version)
 	parent := filepath.Dir(target)
 	if err := os.MkdirAll(parent, 0o700); err != nil {
@@ -226,7 +235,7 @@ func installRuntime(ctx context.Context, runtime Runtime, client Doer, runtimeID
 	if runtime.OnOutput != nil {
 		runtime.OnOutput(process.Output{Kind: "command", Args: []string{"oneagent", "install-runtime", runtimeID, entry.Version}})
 	}
-	archive, err := downloadArtifact(ctx, runtime, client, entry, artifact, parent)
+	archive, err := downloadArtifact(ctx, client, entry, artifact, parent, options)
 	if err != nil {
 		return "", err
 	}
@@ -273,23 +282,15 @@ func installRuntime(ctx context.Context, runtime Runtime, client Doer, runtimeID
 	return installed, nil
 }
 
-func downloadArtifact(ctx context.Context, runtime Runtime, client Doer, entry catalog.Runtime, artifact catalog.RuntimeArtifact, directory string) (string, error) {
+func downloadArtifact(ctx context.Context, client Doer, entry catalog.Runtime, artifact catalog.RuntimeArtifact, directory string, options RuntimeOptions) (string, error) {
 	if client == nil {
 		client = &http.Client{Timeout: RuntimeDownloadTimeout}
 	}
 	downloadCtx, cancel := context.WithTimeout(ctx, RuntimeDownloadTimeout)
 	defer cancel()
 
-	sources := []string{artifact.URL}
-	// A mirror is only a transport fallback. It must satisfy the same locked
-	// checksum, so a hostile mirror cannot substitute a different archive.
-	if artifact.MirrorURL != "" && preferMirror(runtime.Env) {
-		sources = []string{artifact.MirrorURL, artifact.URL}
-	} else if artifact.MirrorURL != "" {
-		sources = append(sources, artifact.MirrorURL)
-	}
 	var lastErr error
-	for _, source := range sources {
+	for _, source := range downloadSources(artifact, options.PreferMirror) {
 		path, err := fetchTo(downloadCtx, client, source, artifact.SHA256, directory)
 		if err == nil {
 			return path, nil
@@ -299,11 +300,18 @@ func downloadArtifact(ctx context.Context, runtime Runtime, client Doer, entry c
 	return "", runtimeError(fmt.Sprintf("Cannot download %s %s", entry.Name, entry.Version), lastErr)
 }
 
-// preferMirror honors an explicit mirror preference only. There is no locale or
-// IP sniffing: an unexpected default download host would be surprising.
-func preferMirror(environment map[string]string) bool {
-	value := strings.ToLower(strings.TrimSpace(environment["ONEAGENT_RUNTIME_MIRROR"]))
-	return value == "1" || value == "true" || value == "npmmirror"
+// downloadSources orders the hosts to try. Whichever comes first, the other
+// remains a fallback and both must satisfy the same locked checksum, so a
+// hostile or stale mirror cannot substitute a different archive — it can only
+// fail and hand the download back to the official source.
+func downloadSources(artifact catalog.RuntimeArtifact, preferMirror bool) []string {
+	if artifact.MirrorURL == "" {
+		return []string{artifact.URL}
+	}
+	if preferMirror {
+		return []string{artifact.MirrorURL, artifact.URL}
+	}
+	return []string{artifact.URL, artifact.MirrorURL}
 }
 
 func fetchTo(ctx context.Context, client Doer, source, expected, directory string) (string, error) {

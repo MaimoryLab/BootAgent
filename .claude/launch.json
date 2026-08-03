@@ -4,8 +4,21 @@
     {
       "name": "oneagent-frontend",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["--prefix", "frontend", "run", "dev"],
+      "runtimeArgs": [
+        "--prefix",
+        "frontend",
+        "run",
+        "dev"
+      ],
       "port": 5173
+    },
+    {
+      "name": "oneagent-desktop-server",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "./frontend/e2e/wails-server.mjs"
+      ],
+      "port": 34123
     }
   ]
 }

@@ -72,6 +72,7 @@
       "artifacts": {
         "macos-arm64": {
           "url": "https://github.com/astral-sh/uv/releases/download/0.12.1/uv-aarch64-apple-darwin.tar.gz",
+          "mirror_url": "https://mirrors.ustc.edu.cn/github-release/astral-sh/uv/0.12.1/uv-aarch64-apple-darwin.tar.gz",
           "sha256": "77d2906988e8074fd43f2f329ec452ebbf9b0c257ba1c66451c71de70a6baf42",
           "archive": "tar.gz",
           "strip_root": true,
@@ -79,6 +80,7 @@
         },
         "macos-x64": {
           "url": "https://github.com/astral-sh/uv/releases/download/0.12.1/uv-x86_64-apple-darwin.tar.gz",
+          "mirror_url": "https://mirrors.ustc.edu.cn/github-release/astral-sh/uv/0.12.1/uv-x86_64-apple-darwin.tar.gz",
           "sha256": "69d9f9a00337f25a50dcb13882052da08b8469bac11091c98c5694c3c6721467",
           "archive": "tar.gz",
           "strip_root": true,
@@ -86,6 +88,7 @@
         },
         "windows-x64": {
           "url": "https://github.com/astral-sh/uv/releases/download/0.12.1/uv-x86_64-pc-windows-msvc.zip",
+          "mirror_url": "https://mirrors.ustc.edu.cn/github-release/astral-sh/uv/0.12.1/uv-x86_64-pc-windows-msvc.zip",
           "sha256": "8fcb0cb46e1229065e344758980924e569bef5882ef45f46fada8fb24e06b74a",
           "archive": "zip",
           "strip_root": false,
@@ -93,6 +96,7 @@
         },
         "windows-arm64": {
           "url": "https://github.com/astral-sh/uv/releases/download/0.12.1/uv-aarch64-pc-windows-msvc.zip",
+          "mirror_url": "https://mirrors.ustc.edu.cn/github-release/astral-sh/uv/0.12.1/uv-aarch64-pc-windows-msvc.zip",
           "sha256": "9bc7c18e616230fa2dc6fb24bc3afde18a95c2b5c9433de747e9502c66041568",
           "archive": "zip",
           "strip_root": false,
@@ -100,6 +104,7 @@
         },
         "linux-x64": {
           "url": "https://github.com/astral-sh/uv/releases/download/0.12.1/uv-x86_64-unknown-linux-gnu.tar.gz",
+          "mirror_url": "https://mirrors.ustc.edu.cn/github-release/astral-sh/uv/0.12.1/uv-x86_64-unknown-linux-gnu.tar.gz",
           "sha256": "90b2f223fb69d19db49e117da601f64978593417988530aa733d456141b4bcbb",
           "archive": "tar.gz",
           "strip_root": true,
@@ -107,6 +112,7 @@
         },
         "linux-arm64": {
           "url": "https://github.com/astral-sh/uv/releases/download/0.12.1/uv-aarch64-unknown-linux-gnu.tar.gz",
+          "mirror_url": "https://mirrors.ustc.edu.cn/github-release/astral-sh/uv/0.12.1/uv-aarch64-unknown-linux-gnu.tar.gz",
           "sha256": "769d373e146692c639b5fbaae33b331c297a32e03d30448772051902df52bbf4",
           "archive": "tar.gz",
           "strip_root": true,

@@ -16,6 +16,7 @@ import (
 	"time"
 
 	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
+	"github.com/MaimoryLab/OneAgent/internal/process"
 )
 
 // CommandRunner is injectable so Windows ACL behavior can be tested without
@@ -268,6 +269,7 @@ func runCommand(ctx context.Context, argv []string) error {
 		return fmt.Errorf("empty command")
 	}
 	command := exec.CommandContext(ctx, argv[0], argv[1:]...)
+	process.HideWindow(command)
 	command.Stdout = io.Discard
 	command.Stderr = io.Discard
 	return command.Run()

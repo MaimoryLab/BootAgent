@@ -79,6 +79,28 @@ func (s *RuntimeService) InstallRuntime(ctx context.Context, request InstallRunt
 	})
 }
 
+// GetSettings reads the machine-level download preferences.
+func (s *RuntimeService) GetSettings(ctx context.Context) (app.Settings, error) {
+	if err := contextError(ctx); err != nil {
+		return app.Settings{}, err
+	}
+	if s == nil || s.core == nil {
+		return app.Settings{}, notReady("Runtime service is not configured")
+	}
+	return s.core.Settings(ctx)
+}
+
+// SaveSettings persists the download preferences and returns what was stored.
+func (s *RuntimeService) SaveSettings(ctx context.Context, request app.Settings) (app.Settings, error) {
+	if err := contextError(ctx); err != nil {
+		return app.Settings{}, err
+	}
+	if s == nil || s.core == nil {
+		return app.Settings{}, notReady("Runtime service is not configured")
+	}
+	return s.core.SaveSettings(ctx, request)
+}
+
 type StatusService struct {
 	core           *app.UseCases
 	afterGetStatus func()
