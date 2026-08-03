@@ -3,9 +3,9 @@
   "configurations": [
     {
       "name": "oneagent-frontend",
-      "runtimeExecutable": "npm",
+      "runtimeExecutable": "pnpm",
       "runtimeArgs": [
-        "--prefix",
+        "--dir",
         "frontend",
         "run",
         "dev"
@@ -22,11 +22,18 @@
     },
     {
       "name": "oneagent-site",
-      "runtimeExecutable": "sh",
+      "runtimeExecutable": "pnpm",
       "runtimeArgs": [
-        "-c",
-        "cd /Users/ppio/Documents/OneAgent/site && SITE_URL=http://localhost:4322 npm run dev -- --port 4322"
+        "--dir",
+        "site",
+        "run",
+        "dev",
+        "--port",
+        "4322"
       ],
+      "env": {
+        "SITE_URL": "http://localhost:4322"
+      },
       "port": 4322,
       "url": "http://localhost:4322"
     }

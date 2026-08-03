@@ -1,5 +1,4 @@
 import { wailsApi } from "./wails";
-import { OneAgentApiError, describeError } from "./errors";
 
 /**
  * The single page-facing backend surface.
@@ -13,4 +12,4 @@ export type BackendApi = typeof wailsApi;
 
 export const api: BackendApi = wailsApi;
 
-export { OneAgentApiError, describeError };
+export { describeError } from "./errors";

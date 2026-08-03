@@ -6,7 +6,7 @@ OneAgent 不重新分发 Agent 包，也不捆绑 Node.js、系统 WebView、Git
 
 ## 当前状态
 
-当前版本为 `0.3.0-dev`，Wails 仍处于 Alpha，因此发布渠道只能是 `technical-preview-unsigned`。Python 迁移已经完成：受版本控制的旧实现、测试、PyInstaller/wheel 打包链路均已删除；普通构建、测试、运行和发布只需要 Go、Node（构建前端）及目标平台 WebView。Aider 是唯一例外：只有用户选择安装 Aider 时，才要求本机已有 Python 3.12，OneAgent 不会下载或管理它。
+当前版本为 `0.3.0-dev`，Wails 仍处于 Alpha，因此发布渠道只能是 `technical-preview-unsigned`。Python 迁移已经完成：受版本控制的旧实现、测试、PyInstaller/wheel 打包链路均已删除；普通构建、测试、运行和发布只需要 Go、Node、pnpm 11.17.0（构建前端）及目标平台 WebView。Aider 是唯一例外：只有用户选择安装 Aider 时，才要求本机已有 Python 3.12，OneAgent 不会下载或管理它。
 
 ## 架构
 
@@ -42,8 +42,8 @@ Pure Go CLI --------------------^      Astro site ---- release metadata
 
 ```bash
 cd frontend
-npm ci
-npm run build
+pnpm install --frozen-lockfile
+pnpm run build
 cd ..
 go run -tags wails ./cmd/oneagent-desktop
 ```
@@ -69,11 +69,11 @@ bin\oneagent.exe agent set codex --provider ppio --model your-model-id --api-key
 
 ```bash
 cd site
-npm ci
-npm test
-npm run build
-npx playwright install chromium
-npm run test:e2e
+pnpm install --frozen-lockfile
+pnpm test
+pnpm run build
+pnpm exec playwright install chromium
+pnpm run test:e2e
 ```
 
 站点只读取 GitHub Release、`agents.lock.json` 和 `providers.lock.json`，不读取本地 `release/`，也不依赖桌面构建环境。
@@ -113,11 +113,11 @@ React/Wails 测试：
 
 ```bash
 cd frontend
-npm ci
-npm run test:coverage
-npm run build
-npx playwright install chromium
-npm run test:e2e
+pnpm install --frozen-lockfile
+pnpm run test:coverage
+pnpm run build
+pnpm exec playwright install chromium
+pnpm run test:e2e
 cd ..
 task test:native
 ```

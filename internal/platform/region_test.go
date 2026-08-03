@@ -1,14 +1,20 @@
 package platform
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestIsChineseLocaleAcceptsWhatEachPlatformReports(t *testing.T) {
 	for _, value := range []string{
 		"zh_CN.UTF-8",   // POSIX LANG
+		"en_CN.UTF-8",   // English UI, China region
 		"zh_CN",         // macOS AppleLocale
+		"en-CN",         // BCP-47 locale with an English UI
 		"zh-Hans-CN",    // macOS AppleLanguages
 		"zh-CN",         // .NET culture name
 		"CN",            // Get-WinHomeLocation
+		"45",            // Windows GeoId for mainland China
 		"zh_CN@pinyin",  // locale with a modifier
 		"zh-Hant-CN",    // unusual, but still the mainland region
 		"en-US\nzh-CN",  // PowerShell prints several lines
@@ -69,5 +75,8 @@ func TestRegionCommandExistsOnlyWhereTheEnvironmentIsInsufficient(t *testing.T) 
 	}
 	if command := RegionCommand("windows"); len(command) == 0 || command[0] != "powershell" {
 		t.Fatalf("windows lookup = %v", command)
+	}
+	if command := RegionCommand("windows"); !strings.Contains(command[len(command)-1], ".GeoId") {
+		t.Fatalf("windows lookup must read GeoId, got %v", command)
 	}
 }

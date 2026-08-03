@@ -2,15 +2,16 @@
   "name": "oneagent-public-site",
   "private": true,
   "type": "module",
+  "packageManager": "pnpm@11.17.0",
   "scripts": {
     "dev": "astro dev",
-    "build": "npm run check && astro build && npm run validate",
+    "build": "pnpm run check && astro build && pnpm run validate",
     "check": "astro check",
     "test": "vitest run",
     "test:e2e": "playwright test",
     "preview": "astro preview",
     "validate": "node scripts/validate-build.mjs",
-    "test:all": "npm test && npm run build && npm run test:e2e"
+    "test:all": "pnpm test && pnpm run build && pnpm run test:e2e"
   },
   "dependencies": {
     "@astrojs/sitemap": "3.7.3",

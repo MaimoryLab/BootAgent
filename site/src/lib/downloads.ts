@@ -11,7 +11,7 @@ export interface ReleaseTarget {
   checksumUrl: string | null;
 }
 
-export interface GitHubReleaseAsset {
+interface GitHubReleaseAsset {
   name: string;
   size: number;
   digest?: string | null;
@@ -44,7 +44,7 @@ const releasesUrl = `https://api.github.com/repos/${repository}/releases?per_pag
 export const releasesPageUrl = `https://github.com/${repository}/releases`;
 let releasesRequest: Promise<GitHubRelease[]> | undefined;
 
-export function getPublishedReleases(): Promise<GitHubRelease[]> {
+function getPublishedReleases(): Promise<GitHubRelease[]> {
   releasesRequest ??= fetch(releasesUrl, {
     headers: {
       Accept: "application/vnd.github+json",
@@ -108,18 +108,6 @@ export function detectTargetFromUserAgent(userAgent: string): DetectedTarget | n
     return { platform: "linux", arch: /arm64|aarch64/.test(normalized) ? "arm64" : "x64" };
   }
   return null;
-}
-
-export function getRecommendedTarget(targets: ReleaseTarget[], detected: DetectedTarget | null): ReleaseTarget | null {
-  if (detected) {
-    const exact = detected.arch
-      ? targets.find((target) => target.platform === detected.platform && target.arch === detected.arch)
-      : null;
-    if (exact) return exact;
-    const samePlatform = targets.find((target) => target.platform === detected.platform);
-    if (samePlatform) return samePlatform;
-  }
-  return targets[0] ?? null;
 }
 
 export function formatBytes(bytes: number): string {

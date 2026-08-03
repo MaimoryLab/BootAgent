@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"maps"
-	"os"
 	"strings"
 
 	oneagent "github.com/MaimoryLab/OneAgent"
@@ -38,18 +37,6 @@ func LoadEmbeddedProviders() (ProviderManifest, error) {
 		return ProviderManifest{}, oneerrors.New(
 			oneerrors.InvalidRequest,
 			"Cannot load embedded Provider lock manifest",
-			oneerrors.WithCause(err),
-		)
-	}
-	return ParseProviders(data)
-}
-
-func LoadProviders(path string) (ProviderManifest, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return ProviderManifest{}, oneerrors.New(
-			oneerrors.InvalidRequest,
-			fmt.Sprintf("Cannot load Provider lock manifest: %v", err),
 			oneerrors.WithCause(err),
 		)
 	}

@@ -395,9 +395,6 @@ func parseSecret(content, osID string) string {
 }
 
 func requestContext(ctx context.Context) error {
-	if ctx == nil {
-		return nil
-	}
 	if err := ctx.Err(); err != nil {
 		return oneerrors.New(oneerrors.Timeout, "Profile request was cancelled", oneerrors.WithRetryable(true), oneerrors.WithCause(err))
 	}

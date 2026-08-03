@@ -44,12 +44,6 @@ func NewRuntime(home string, info platform.Info, runner process.Runner, env map[
 	return Runtime{Home: home, Platform: info, Env: cloneEnv(env), Runner: runner}
 }
 
-func CurrentRuntime() Runtime {
-	info := platform.Current()
-	current := process.Current()
-	return NewRuntime(platform.ResolveHome(current.Env, info.OS), info, current, current.Env)
-}
-
 func (r Runtime) command(ctx context.Context, argv []string, env map[string]string, timeout time.Duration) (process.Result, error) {
 	if r.Runner == nil {
 		return process.Result{Args: append([]string(nil), argv...), ExitCode: -1}, fmt.Errorf("process runner is not configured")

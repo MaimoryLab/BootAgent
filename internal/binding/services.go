@@ -27,10 +27,6 @@ type ServicesOptions struct {
 	InstallOutput  process.OutputListener
 }
 
-func NewServices(core *app.UseCases, opener BrowserOpener) *Services {
-	return NewServicesWithOptions(core, opener, ServicesOptions{})
-}
-
 func NewServicesWithOptions(core *app.UseCases, opener BrowserOpener, options ServicesOptions) *Services {
 	return &Services{
 		Status:   &StatusService{core: core, afterGetStatus: options.AfterGetStatus},
@@ -42,15 +38,11 @@ func NewServicesWithOptions(core *app.UseCases, opener BrowserOpener, options Se
 }
 
 // RuntimeService exposes the Node.js and uv bootstrap. It reuses the install
-// output listener so the UI shows runtime downloads in the same log pane as
-// Agent installs.
+// output listener so the UI can render runtime byte progress alongside Agent
+// install output; runtime bootstrap does not emit a fake command line.
 type RuntimeService struct {
 	core     *app.UseCases
 	onOutput process.OutputListener
-}
-
-func NewRuntimeService(core *app.UseCases) *RuntimeService {
-	return &RuntimeService{core: core}
 }
 
 func (s *RuntimeService) ListRuntimes(ctx context.Context) ([]app.RuntimeStatus, error) {

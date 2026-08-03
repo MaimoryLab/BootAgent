@@ -149,9 +149,6 @@ func (u *UseCases) activateAgentLocked(ctx context.Context, options ActivateAgen
 }
 
 func contextError(ctx context.Context, message string) error {
-	if ctx == nil {
-		return nil
-	}
 	if err := ctx.Err(); err != nil {
 		return oneerrors.New(oneerrors.Timeout, message, oneerrors.WithRetryable(true), oneerrors.WithCause(err))
 	}

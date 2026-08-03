@@ -4,8 +4,8 @@ import type * as CatalogModels from "../../bindings/github.com/MaimoryLab/OneAge
 import type * as PlatformModels from "../../bindings/github.com/MaimoryLab/OneAgent/internal/platform/models.js";
 import type * as ProviderModels from "../../bindings/github.com/MaimoryLab/OneAgent/internal/provider/models.js";
 
-export type PlatformId = "macos" | "windows" | "linux";
-export type AgentGroupId = "auto" | "gateway" | "platform" | "ide";
+type PlatformId = "macos" | "windows" | "linux";
+type AgentGroupId = "auto" | "gateway" | "platform" | "ide";
 export type ProviderId = string;
 export type ProtocolId = "openai" | "anthropic" | "responses";
 
@@ -25,7 +25,6 @@ export type AgentCatalogItem = Omit<CatalogModels.CatalogItem, "group" | "config
 };
 
 export type AgentStatus = AppModels.AgentStatus;
-export type DetectedConfig = AppModels.DetectedConfig;
 export type RuntimeStatus = AppModels.RuntimeStatus;
 export type InstallRuntimeResult = Omit<AppModels.InstallRuntimeResult, "runtimes"> & { runtimes: RuntimeStatus[] };
 export type Settings = AppModels.Settings;
@@ -68,7 +67,7 @@ export type ModelsResponse = Omit<BindingModels.ModelsResponse, "models" | "prot
   models: string[];
 };
 
-export type AgentResultStatus = "configured" | "guide-only" | "installed" | "skipped" | "failed";
+type AgentResultStatus = "configured" | "guide-only" | "installed" | "skipped" | "failed";
 
 export type AgentInstallResult = Omit<
   BindingModels.AgentInstallResult,

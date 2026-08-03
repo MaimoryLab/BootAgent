@@ -92,9 +92,6 @@ func (u *UseCases) SaveSettings(ctx context.Context, settings Settings) (Setting
 	if u == nil {
 		return Settings{}, nil
 	}
-	if ctx == nil {
-		ctx = context.Background()
-	}
 	if err := contextError(ctx, "Settings request was cancelled"); err != nil {
 		return Settings{}, err
 	}
@@ -177,13 +174,16 @@ func (u *UseCases) detectChineseRegion(ctx context.Context) (bool, bool) {
 	if platform.IsChineseLocale(platform.LocaleFromEnvironment(u.environment)) {
 		return true, true
 	}
+	// The production Windows desktop reads this through Win32 before opening the
+	// window. Avoiding a cold PowerShell process is what makes the first settings
+	// read both fast and reliable.
+	if platform.IsChineseLocale(u.status.SystemRegion) {
+		return true, true
+	}
 	argv := platform.RegionCommand(u.status.Platform.OS)
 	if len(argv) == 0 || u.runner == nil {
 		// Nothing further to ask: on Linux the environment was the whole answer.
 		return false, true
-	}
-	if ctx == nil {
-		ctx = context.Background()
 	}
 	// The probe only picks a download host, so it must not inherit a caller's
 	// cancellation: a status poll from a view the user navigated away from would

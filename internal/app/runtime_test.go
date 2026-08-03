@@ -41,7 +41,7 @@ func TestRuntimeStatusesReportLockedVersionsAndRequirements(t *testing.T) {
 	core := NewUseCases(StatusOptions{
 		Home:     home,
 		Platform: platform.For("darwin", "arm64"),
-		Lookup:   func(command string) (string, bool) { return "", false },
+		Lookup:   func(_ string) (string, bool) { return "", false },
 	})
 	states, err := core.RuntimeStatuses(context.Background())
 	if err != nil {

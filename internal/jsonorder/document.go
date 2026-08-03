@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"sort"
 	"strings"
 )
 
@@ -347,14 +346,6 @@ func writeString(out io.Writer, value string) error {
 	builder.WriteByte('"')
 	_, err := io.WriteString(out, builder.String())
 	return err
-}
-
-// SortedKeys returns a sorted copy for diagnostics without changing output
-// order.
-func SortedKeys(object *Object) []string {
-	keys := object.Keys()
-	sort.Strings(keys)
-	return keys
 }
 
 func describe(value any) string {

@@ -124,7 +124,7 @@ func TestInstallAgentDefaultsToLatestAndSupportsExactVersion(t *testing.T) {
 	if len(runner.envs) != 1 || runner.envs[0]["npm_config_registry"] != "https://registry.npmmirror.com/" {
 		t.Fatalf("runner environments = %#v", runner.envs)
 	}
-	if !reflect.DeepEqual(runner.lastCall, []string{"/fake/npm", "install", "-g", "@openai/codex"}) {
+	if !reflect.DeepEqual(runner.lastCall, []string{"/fake/npm", "install", "-g", "--registry=https://registry.npmmirror.com/", "@openai/codex"}) {
 		t.Fatalf("last command = %#v", runner.lastCall)
 	}
 

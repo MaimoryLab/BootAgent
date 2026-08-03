@@ -55,6 +55,7 @@ export function RuntimePrompt({ runtimes, missingRuntime, selectedAgentIds, agen
       setFailure(describeError(error, t("运行时安装失败")).message);
     } finally {
       setPending("");
+      resetProgress(runtimeId);
     }
   };
 
@@ -80,7 +81,7 @@ export function RuntimePrompt({ runtimes, missingRuntime, selectedAgentIds, agen
             </button>
           ))}
         </div>
-        {pending ? <DownloadProgress runtimeId={pending} /> : null}
+        {pending ? <DownloadProgress runtimeId={pending} pending /> : null}
         {failure ? <span className="runtime-prompt-error">{failure}</span> : null}
       </div>
     </div>

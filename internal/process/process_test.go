@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-func TestProcessHelper(t *testing.T) {
+func TestProcessHelper(_ *testing.T) {
 	if os.Getenv("ONEAGENT_PROCESS_HELPER") != "1" {
 		return
 	}

@@ -90,6 +90,17 @@ describe("DownloadProgress", () => {
     emit = null;
   });
 
+  it("can show an indeterminate bar before the first byte event", () => {
+    render(
+      <TaskCenterProvider>
+        <DownloadProgress runtimeId="node" pending />
+      </TaskCenterProvider>,
+    );
+    const bar = screen.getByRole("progressbar");
+    expect(bar.className).toContain("is-indeterminate");
+    expect(screen.getByText(/已下载 0\.0 MB/)).toBeTruthy();
+  });
+
   it("renders nothing until the download reports bytes, then tracks the percentage", () => {
     render(
       <TaskCenterProvider>

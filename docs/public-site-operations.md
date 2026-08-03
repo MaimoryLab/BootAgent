@@ -23,20 +23,20 @@
 
 ```bash
 cd site
-npm ci
-npm test
-npm run build
-npx playwright install chromium
-npm run test:e2e
+pnpm install --frozen-lockfile
+pnpm test
+pnpm run build
+pnpm exec playwright install chromium
+pnpm run test:e2e
 ```
 
 模拟 GitHub Pages 子路径部署：
 
 ```bash
-SITE_URL=https://example.com BASE_PATH=/OneAgent npm run build
+SITE_URL=https://example.com BASE_PATH=/OneAgent pnpm run build
 ```
 
-该子路径产物的绝对 `<base href>` 只适用于配置的 origin。恢复本地预览时重新运行普通 `npm run build`。
+该子路径产物的绝对 `<base href>` 只适用于配置的 origin。恢复本地预览时重新运行普通 `pnpm run build`。
 
 ## 发布顺序
 

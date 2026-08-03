@@ -235,17 +235,14 @@ func installRuntime(ctx context.Context, runtime Runtime, client Doer, runtimeID
 	if err := os.MkdirAll(parent, 0o700); err != nil {
 		return "", runtimeError(fmt.Sprintf("Cannot create the runtime directory for %s", entry.Name), err)
 	}
-	if runtime.OnOutput != nil {
-		runtime.OnOutput(process.Output{Kind: "command", Args: []string{"oneagent", "install-runtime", runtimeID, entry.Version}})
-	}
+	// Runtime bootstrap is an internal download, not a child command. The UI
+	// renders its progress events as a card; emitting a made-up command here
+	// makes the log look as if a second CLI process was started.
 	archive, err := downloadArtifact(ctx, client, entry, artifact, parent, options, progressReporter(runtime.OnOutput, runtimeID))
 	if err != nil {
 		return "", err
 	}
 	defer os.Remove(archive)
-	if runtime.OnOutput != nil {
-		runtime.OnOutput(process.Output{Kind: "output", Stream: "stdout", Text: fmt.Sprintf("Extracting %s %s\n", entry.Name, entry.Version)})
-	}
 
 	// Extract beside the final directory so a partial or corrupt tree is never
 	// visible under the versioned path, then swap it in with one rename.

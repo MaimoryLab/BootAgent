@@ -1,6 +1,6 @@
 import { compatibilityFor, type Compatibility, type SiteCatalogV2 } from "./explorer";
 
-export type ActivationPhase =
+type ActivationPhase =
   | "idle"
   | "scanning"
   | "agent"
@@ -57,7 +57,7 @@ export function initialActivationState(): ActivationState {
   };
 }
 
-export type BaseUrlRejection =
+type BaseUrlRejection =
   | "required"
   | "control-characters"
   | "scheme"

@@ -23,7 +23,7 @@ tasks:
       - sh: pnpm --version
         msg: "pnpm not found. Install it first: https://pnpm.io/installation"
     cmds:
-      - pnpm install
+      - pnpm install --frozen-lockfile
 
   build:frontend:
     summary: Build the React frontend (tsc --noEmit runs as part of the build script)

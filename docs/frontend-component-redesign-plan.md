@@ -14,10 +14,10 @@
 
 ```bash
 cd frontend
-npm ci
-npm run test:coverage
-npm run build
-npm run test:e2e
+pnpm install --frozen-lockfile
+pnpm run test:coverage
+pnpm run build
+pnpm run test:e2e
 cd ..
 go run ./cmd/oneagent-release build --channel technical-preview-unsigned --skip-frontend
 go run ./cmd/oneagent-release check release

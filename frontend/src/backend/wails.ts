@@ -27,8 +27,6 @@ import type {
 import { currentLocale, translate } from "../i18n";
 import { OneAgentApiError } from "./errors";
 
-export { OneAgentApiError, describeError } from "./errors";
-
 export const INSTALL_OUTPUT_EVENT = "oneagent:install-output";
 
 export function onInstallOutput(listener: (output: InstallOutput) => void): () => void {
@@ -171,5 +169,3 @@ export const wailsApi = {
       agent_ids: input.agentIds,
     })) as Promise<ProfileSummary>,
 };
-
-export type WailsApi = typeof wailsApi;

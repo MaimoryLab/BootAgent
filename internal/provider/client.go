@@ -340,38 +340,38 @@ func classifyHTTPModels(status int) ModelsResult {
 }
 
 func transportResult(err error) ProbeResult {
-	code, retryable := transportCode(err)
+	code := transportCode(err)
 	return ProbeResult{
 		Status:    unsupportedStatus,
 		Message:   fmt.Sprintf("Cannot reach endpoint: %s", err),
-		ErrorCode: new(code),
-		Retryable: retryable,
+		ErrorCode: &code,
+		Retryable: true,
 	}
 }
 
 func transportModelsResult(err error) ModelsResult {
-	code, retryable := transportCode(err)
+	code := transportCode(err)
 	return ModelsResult{
 		Status:    unsupportedStatus,
 		Message:   fmt.Sprintf("Cannot reach endpoint: %s", err),
-		ErrorCode: new(code),
-		Retryable: retryable,
+		ErrorCode: &code,
+		Retryable: true,
 		Models:    []string{},
 	}
 }
 
-func transportCode(err error) (string, bool) {
+func transportCode(err error) string {
 	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
-		return oneerrors.Timeout, true
+		return oneerrors.Timeout
 	}
 	var networkError net.Error
 	if errors.As(err, &networkError) && networkError.Timeout() {
-		return oneerrors.Timeout, true
+		return oneerrors.Timeout
 	}
 	if strings.Contains(strings.ToLower(err.Error()), "timed out") {
-		return oneerrors.Timeout, true
+		return oneerrors.Timeout
 	}
-	return oneerrors.ProviderUnreachable, true
+	return oneerrors.ProviderUnreachable
 }
 
 func modelsFailure(message string) ModelsResult {

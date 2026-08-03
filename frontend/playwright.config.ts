@@ -11,7 +11,7 @@ export default defineConfig({
     trace: "retain-on-failure",
   },
   webServer: {
-    command: "npm run build && node ./e2e/wails-server.mjs",
+    command: "pnpm run build && node ./e2e/wails-server.mjs",
     url: `http://127.0.0.1:${port}/health`,
     timeout: 120_000,
     reuseExistingServer: false,

@@ -61,12 +61,11 @@ type releaseManifest struct {
 	Artifacts       []artifactInfo `json:"artifacts"`
 }
 
-type packageLock struct {
-	Packages map[string]struct {
-		Version string `json:"version"`
-		License any    `json:"license"`
-		Dev     bool   `json:"dev"`
-	} `json:"packages"`
+type pnpmLicensePackage struct {
+	Name     string   `json:"name"`
+	Versions []string `json:"versions"`
+	Paths    []string `json:"paths"`
+	License  string   `json:"license"`
 }
 
 type moduleInfo struct {
@@ -224,11 +223,11 @@ func currentTarget() targetInfo {
 func ensureFrontend(root string, skip bool) error {
 	dist := filepath.Join(root, "frontend", "dist")
 	if !skip {
-		npm, err := exec.LookPath("npm")
+		pnpm, err := exec.LookPath("pnpm")
 		if err != nil {
-			return errors.New("npm is required to build the React frontend")
+			return errors.New("pnpm is required to build the React frontend")
 		}
-		if err := runCommand(root, npm, "run", "build"); err != nil {
+		if err := runCommand(filepath.Join(root, "frontend"), pnpm, "run", "build"); err != nil {
 			return fmt.Errorf("build frontend: %w", err)
 		}
 	}
@@ -541,7 +540,7 @@ func addZipFile(writer *zip.Writer, file, name string) error {
 	}
 	header.Name = filepath.ToSlash(name)
 	header.Method = zip.Deflate
-	header.SetModTime(time.Date(1980, 1, 1, 0, 0, 0, 0, time.UTC))
+	header.Modified = time.Date(1980, 1, 1, 0, 0, 0, 0, time.UTC)
 	entry, err := writer.CreateHeader(header)
 	if err != nil {
 		return err
@@ -679,73 +678,49 @@ func goPackages(root string) ([]noticeItem, error) {
 }
 
 func frontendPackages(root, licenseDir string) ([]noticeItem, error) {
-	data, err := os.ReadFile(filepath.Join(root, "frontend", "package-lock.json"))
+	command := exec.Command("pnpm", "licenses", "list", "--json", "--prod")
+	command.Dir = filepath.Join(root, "frontend")
+	data, err := command.Output()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("list frontend packages: %w", err)
 	}
-	var lock packageLock
-	if err := json.Unmarshal(data, &lock); err != nil {
-		return nil, fmt.Errorf("read frontend lock: %w", err)
-	}
-	items := []noticeItem{}
-	for relative, metadata := range lock.Packages {
-		if !strings.HasPrefix(relative, "node_modules/") || metadata.Dev || metadata.Version == "" {
-			continue
-		}
-		name := strings.TrimPrefix(relative, "node_modules/")
-		license := licenseValue(metadata.License)
-		licenseFile := ""
-		packageDir := filepath.Join(root, "frontend", relative)
-		if packageData, readErr := os.ReadFile(filepath.Join(packageDir, "package.json")); readErr == nil {
-			var packageJSON struct {
-				Name    string `json:"name"`
-				License any    `json:"license"`
-			}
-			if json.Unmarshal(packageData, &packageJSON) == nil {
-				if packageJSON.Name != "" {
-					name = packageJSON.Name
-				}
-				if packageJSON.License != nil {
-					license = licenseValue(packageJSON.License)
-				}
-			}
-		}
-		if copied := copyLicense(packageDir, licenseDir, "npm-"+name+"-"+metadata.Version); copied != "" {
-			licenseFile = copied
-		}
-		if license == "" {
-			license = "see package metadata"
-		}
-		if licenseFile == "" {
-			licenseFile = "not provided by package"
-		}
-		items = append(items, noticeItem{Name: name, Version: metadata.Version, License: license, LicenseFile: licenseFile})
-	}
-	sort.Slice(items, func(i, j int) bool { return items[i].Name < items[j].Name })
-	return items, nil
+	return parseFrontendPackages(data, licenseDir)
 }
 
-func licenseValue(value any) string {
-	switch typed := value.(type) {
-	case string:
-		return typed
-	case map[string]any:
-		if name, ok := typed["type"].(string); ok {
-			return name
-		}
-		if name, ok := typed["name"].(string); ok {
-			return name
-		}
-	case []any:
-		parts := make([]string, 0, len(typed))
-		for _, item := range typed {
-			if value := licenseValue(item); value != "" {
-				parts = append(parts, value)
+func parseFrontendPackages(data []byte, licenseDir string) ([]noticeItem, error) {
+	var groups map[string][]pnpmLicensePackage
+	if err := json.Unmarshal(data, &groups); err != nil {
+		return nil, fmt.Errorf("read pnpm license list: %w", err)
+	}
+	items := []noticeItem{}
+	for groupLicense, packages := range groups {
+		for _, pkg := range packages {
+			for index, packageVersion := range pkg.Versions {
+				packageDir := ""
+				if index < len(pkg.Paths) {
+					packageDir = pkg.Paths[index]
+				} else if len(pkg.Paths) > 0 {
+					packageDir = pkg.Paths[0]
+				}
+				license := pkg.License
+				if license == "" {
+					license = groupLicense
+				}
+				licenseFile := copyLicense(packageDir, licenseDir, "frontend-"+pkg.Name+"-"+packageVersion)
+				if license == "" {
+					license = "see package metadata"
+				}
+				if licenseFile == "" {
+					licenseFile = "not provided by package"
+				}
+				items = append(items, noticeItem{Name: pkg.Name, Version: packageVersion, License: license, LicenseFile: licenseFile})
 			}
 		}
-		return strings.Join(parts, ", ")
 	}
-	return ""
+	sort.Slice(items, func(i, j int) bool {
+		return items[i].Name < items[j].Name || items[i].Name == items[j].Name && items[i].Version < items[j].Version
+	})
+	return items, nil
 }
 
 func copyLicense(source, destination, label string) string {
@@ -934,7 +909,7 @@ func inspectArchive(file string) []string {
 		name := filepath.ToSlash(entry.Name)
 		base := strings.ToLower(path.Base(name))
 		parts := strings.Split(name, "/")
-		if strings.HasPrefix(name, "/") || slicesContain(parts, "..") {
+		if strings.HasPrefix(name, "/") || slices.Contains(parts, "..") {
 			problems = append(problems, "unsafe archive path in "+filepath.Base(file)+": "+name)
 		}
 		if strings.EqualFold(base, "agents.lock.json") {
@@ -958,7 +933,7 @@ func inspectArchive(file string) []string {
 		if strings.HasSuffix(lowerName, ".map") {
 			problems = append(problems, "source map in "+filepath.Base(file)+": "+name)
 		}
-		if slicesContain([]string{"codex", "codex.exe", "claude", "claude.exe", "opencode", "opencode.exe", "kilo", "kilo.exe", "aider", "aider.exe"}, base) {
+		if slices.Contains([]string{"codex", "codex.exe", "claude", "claude.exe", "opencode", "opencode.exe", "kilo", "kilo.exe", "aider", "aider.exe"}, base) {
 			problems = append(problems, "Agent binary in "+filepath.Base(file)+": "+name)
 		}
 		if !entry.FileInfo().IsDir() && isTextArchiveFile(lowerName) {
@@ -991,8 +966,4 @@ func isTextArchiveFile(name string) bool {
 		}
 	}
 	return false
-}
-
-func slicesContain(values []string, target string) bool {
-	return slices.Contains(values, target)
 }

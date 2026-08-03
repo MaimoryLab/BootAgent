@@ -6,21 +6,26 @@ function megabytes(bytes: number): string {
 }
 
 /**
- * The download bar for one runtime, shown inside the installing prompt.
+ * The download bar for one runtime, shown inside an install surface.
  *
- * Renders nothing until the first progress event arrives, so the button label
- * carries the "installing" state on its own until there are real bytes to show.
+ * A pending caller can render it before the first progress event, which keeps
+ * an internal runtime download visible without inventing a command log line.
  * A download whose server sent no Content-Length gets an indeterminate bar
  * rather than a percentage computed from a zero total.
  */
-export function DownloadProgress({ runtimeId }: { runtimeId: string }) {
+export function DownloadProgress({ runtimeId, pending = false }: { runtimeId: string; pending?: boolean }) {
   const { t } = useI18n();
   const { progress } = useTaskCenter();
   const current = progress[runtimeId];
-  if (!current) return null;
+  // A caller that already knows a download is in flight can show the bar before
+  // the first 200ms progress event arrives. The default remains lazy for
+  // ambient rows that should render nothing until there is real activity.
+  if (!current && !pending) return null;
 
-  const known = current.total > 0;
-  const percent = known ? Math.min(100, Math.round((current.received / current.total) * 100)) : 0;
+  const received = current?.received ?? 0;
+  const total = current?.total ?? 0;
+  const known = total > 0;
+  const percent = known ? Math.min(100, Math.round((received / total) * 100)) : 0;
   return (
     <div className="download-progress">
       <div
@@ -36,11 +41,11 @@ export function DownloadProgress({ runtimeId }: { runtimeId: string }) {
       <small>
         {known
           ? t("已下载 {done} MB / {total} MB（{percent}%）", {
-              done: megabytes(current.received),
-              total: megabytes(current.total),
+              done: megabytes(received),
+              total: megabytes(total),
               percent,
             })
-          : t("已下载 {done} MB", { done: megabytes(current.received) })}
+          : t("已下载 {done} MB", { done: megabytes(received) })}
       </small>
     </div>
   );

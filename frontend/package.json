@@ -3,9 +3,10 @@
   "private": true,
   "version": "0.2.0-dev",
   "type": "module",
+  "packageManager": "pnpm@11.17.0",
   "scripts": {
     "dev": "vite",
-    "build": "npm run typecheck && vite build",
+    "build": "pnpm run typecheck && vite build",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",

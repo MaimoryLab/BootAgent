@@ -86,10 +86,10 @@ go test ./...
 go test -race ./...
 
 cd frontend
-npm ci
-npm run test:coverage
-npm run build
-npm run test:e2e
+pnpm install --frozen-lockfile
+pnpm run test:coverage
+pnpm run build
+pnpm run test:e2e
 cd ..
 
 go build -o bin/oneagent ./cmd/oneagent

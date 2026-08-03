@@ -1,7 +1,7 @@
-export const platformIds = ["macos", "linux", "windows"] as const;
+const platformIds = ["macos", "linux", "windows"] as const;
 export type PlatformId = (typeof platformIds)[number];
 
-export const protocolIds = ["openai", "anthropic", "responses"] as const;
+const protocolIds = ["openai", "anthropic", "responses"] as const;
 export type ProtocolId = (typeof protocolIds)[number];
 
 export type ProviderProtocolStatus =
@@ -10,7 +10,7 @@ export type ProviderProtocolStatus =
   | "verified"
   | "unsupported";
 
-export interface SiteAgentSupport {
+interface SiteAgentSupport {
   managedInstall: boolean;
   officialInstallGuide: boolean;
   managedConfig: boolean;
@@ -33,7 +33,7 @@ export interface SiteAgent {
   support: SiteAgentSupport;
 }
 
-export interface SiteProviderProtocol {
+interface SiteProviderProtocol {
   id: ProtocolId;
   status: ProviderProtocolStatus;
 }
@@ -49,7 +49,7 @@ export interface SiteProvider {
   order: number;
 }
 
-export interface SiteAgentGroup {
+interface SiteAgentGroup {
   id: string;
   name: string;
 }
@@ -75,7 +75,7 @@ export interface ExplorerSearchState {
   protocol: ProtocolId | null;
 }
 
-export function protocolStatusFor(provider: SiteProvider, protocol: ProtocolId | null): ProviderProtocolStatus {
+function protocolStatusFor(provider: SiteProvider, protocol: ProtocolId | null): ProviderProtocolStatus {
   if (!protocol) return "unsupported";
   return provider.protocols.find((entry) => entry.id === protocol)?.status ?? "unsupported";
 }

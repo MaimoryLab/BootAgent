@@ -17,7 +17,7 @@ export default defineConfig({
     trace: "retain-on-failure",
   },
   webServer: {
-    command: "npm run build && python3.12 -m http.server 4321 --bind 127.0.0.1 --directory dist",
+    command: "pnpm run build && pnpm run preview --host 127.0.0.1 --port 4321",
     url: "http://127.0.0.1:4321",
     reuseExistingServer: process.env.CI !== "true",
   },

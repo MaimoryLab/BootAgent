@@ -173,20 +173,23 @@ func TestEnsureRuntimeReportsDownloadProgress(t *testing.T) {
 		},
 	}
 	runtime := bootstrapRuntime(t, home, "darwin")
-	var progress []process.Output
+	var outputs []process.Output
 	runtime.OnOutput = func(output process.Output) {
-		if output.Kind == "progress" {
-			progress = append(progress, output)
-		}
+		outputs = append(outputs, output)
 	}
 
 	if _, installed, err := EnsureRuntime(context.Background(), runtime, downloader, "node", entry, RuntimeOptions{}); err != nil || !installed {
 		t.Fatalf("install = %v, %v", installed, err)
 	}
-	if len(progress) == 0 {
+	if len(outputs) == 0 {
 		t.Fatal("download reported no progress")
 	}
-	last := progress[len(progress)-1]
+	for _, output := range outputs {
+		if output.Kind != "progress" {
+			t.Fatalf("runtime download emitted %q output; only progress belongs in the UI", output.Kind)
+		}
+	}
+	last := outputs[len(outputs)-1]
 	if last.Received != int64(len(archive)) || last.Total != int64(len(archive)) {
 		t.Fatalf("final progress = %d/%d, want %d/%d", last.Received, last.Total, len(archive), len(archive))
 	}

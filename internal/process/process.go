@@ -203,9 +203,6 @@ func (r OSRunner) RunWithOutput(ctx context.Context, argv []string, overrides ma
 	if len(argv) == 0 || strings.TrimSpace(argv[0]) == "" {
 		return result, fmt.Errorf("process argv must not be empty")
 	}
-	if ctx == nil {
-		ctx = context.Background()
-	}
 	runContext := ctx
 	var cancel context.CancelFunc
 	if timeout > 0 {

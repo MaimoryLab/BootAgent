@@ -23,7 +23,7 @@ import {
 
 export type { DetectedTarget };
 
-export type TargetStatus = "available" | "verification-pending" | "planned" | "withdrawn";
+type TargetStatus = "available" | "verification-pending" | "planned" | "withdrawn";
 
 export interface DownloadLink {
   id: string;
@@ -79,7 +79,7 @@ const plannedTargets: Array<{ id: string; platform: string; platformLabel: strin
   { id: "linux-x64", platform: "linux", platformLabel: "Linux", arch: "x64", archLabel: "Intel / AMD 64-bit" },
 ];
 
-export const previewChannelId = "technical-preview-unsigned";
+const previewChannelId = "technical-preview-unsigned";
 
 /* The tag carries the channel. A prerelease tag, or one saying so in its name,
    is the unsigned technical preview; anything else is a signed stable build.
@@ -144,9 +144,6 @@ export async function getPreviewChannel(): Promise<ReleaseChannel | null> {
     targets,
   };
 }
-/* Named for the channel it takes, because downloads.ts exports a
-   getRecommendedTarget over a bare asset list. Same intent, different input, and
-   one importing both would otherwise get whichever the bundler resolved last. */
 export function recommendedTargetIn(channel: ReleaseChannel, detected: DetectedTarget | null): ReleaseTarget | null {
   if (detected) {
     const exact = detected.arch

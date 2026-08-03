@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"maps"
 	"net/url"
-	"os"
 	"regexp"
 	"sort"
 	"strings"
@@ -25,18 +24,6 @@ func LoadEmbedded() (Manifest, error) {
 		return Manifest{}, oneerrors.New(
 			oneerrors.InvalidRequest,
 			"Cannot load embedded Agent lock manifest",
-			oneerrors.WithCause(err),
-		)
-	}
-	return Parse(data)
-}
-
-func Load(path string) (Manifest, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return Manifest{}, oneerrors.New(
-			oneerrors.InvalidRequest,
-			fmt.Sprintf("Cannot load Agent lock manifest: %v", err),
 			oneerrors.WithCause(err),
 		)
 	}

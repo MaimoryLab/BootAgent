@@ -18,7 +18,7 @@ const { agentDescriptions, groupLabels, agentFallbackDescription } = useCatalogL
     <div class="shell">
       <div class="notice notice-info" style="margin-bottom:34px"><span class="notice-mark">i</span><div><strong>guide-only 仍然是有效流程</strong><p>它表示 OneAgent 返回官方安装或配置指引并在 Review 中保留结果，而不是一个不可选择的禁用项。</p></div></div>
       <div class="agent-list reveal">
-        {catalog.agents.map((agent: any) => (
+        {catalog.agents.map((agent) => (
           <a class="agent-row" href={`agents/${agent.id}/`}>
             <AgentMark id={agent.id} name={agent.name} />
             <div><strong>{agent.name}</strong><span class="agent-meta">{groupLabels[agent.group] ?? agent.group}</span></div>

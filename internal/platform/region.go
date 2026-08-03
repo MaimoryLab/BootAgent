@@ -15,11 +15,12 @@ func RegionCommand(osID string) []string {
 		// is English but the region is China.
 		return []string{"defaults", "read", "-g", "AppleLocale"}
 	case "windows":
-		// The UI culture, the format culture and the home region all matter, so
-		// read them together and let the parser decide.
+		// The UI culture, the format culture and the home region all matter. The
+		// home-location object exposes GeoId (not HomeLocation), so read that
+		// stable property and a culture-derived region code as fallbacks.
 		return []string{
 			"powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command",
-			"[System.Globalization.CultureInfo]::CurrentUICulture.Name; (Get-Culture).Name; (Get-WinHomeLocation).HomeLocation",
+			"[System.Globalization.CultureInfo]::CurrentUICulture.Name; (Get-Culture).Name; [System.Globalization.RegionInfo]::CurrentRegion.TwoLetterISORegionName; try { (Get-WinHomeLocation).GeoId } catch {}",
 		}
 	default:
 		return nil
@@ -38,8 +39,10 @@ func LocaleFromEnvironment(env map[string]string) string {
 }
 
 // IsChineseLocale recognizes the locale, language-tag and region spellings the
-// three platforms report: "zh_CN.UTF-8" from a POSIX environment, "zh-Hans-CN"
-// from macOS, "zh-CN" and a bare "CN" from PowerShell.
+// three platforms report: "zh_CN.UTF-8" and "en_CN.UTF-8" from POSIX/macOS,
+// "zh-Hans-CN" from macOS, "zh-CN" and a bare "CN" from PowerShell. The
+// language is deliberately irrelevant: an English UI with China selected as
+// its system region is still the China case this default is meant to cover.
 //
 // It deliberately matches mainland China only. Hong Kong, Macau and Taiwan use
 // zh as well, but the mirror hosts are mainland CDNs that are not necessarily
@@ -54,12 +57,15 @@ func IsChineseLocale(value string) bool {
 		}
 		token = strings.ReplaceAll(token, "_", "-")
 		switch token {
-		// Get-WinHomeLocation reports a region name rather than a locale.
-		case "cn", "chn", "china":
+		// Get-WinHomeLocation reports China's GeoId as 45 when the cmdlet does
+		// not also expose a culture-formatted region name.
+		case "45", "cn", "chn", "china":
 			return true
 		}
-		// zh-CN, and zh-Hans-CN and friends: Simplified Chinese for the mainland.
-		if token == "zh-cn" || (strings.HasPrefix(token, "zh-") && strings.HasSuffix(token, "-cn")) {
+		// A locale can use any UI language with a mainland region, for example
+		// en-CN when the user keeps an English macOS UI. Restrict this to a final
+		// region token so values such as "cn_something_else" do not match.
+		if strings.HasSuffix(token, "-cn") || strings.HasSuffix(token, "-chn") || strings.HasSuffix(token, "-china") {
 			return true
 		}
 	}

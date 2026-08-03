@@ -81,7 +81,7 @@ func (r *e2eRunner) Run(_ context.Context, argv []string, _ map[string]string, _
 		return result, nil
 	}
 	if len(argv) >= 4 && argv[1] == "install" && argv[2] == "-g" {
-		if id, ok := r.byPackage[argv[3]]; ok {
+		if id, ok := r.byPackage[argv[len(argv)-1]]; ok {
 			agent := r.agents[id]
 			r.mu.Lock()
 			r.installed[agent.Command] = "1.0.0"

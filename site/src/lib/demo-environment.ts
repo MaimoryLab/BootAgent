@@ -1,7 +1,7 @@
 import type { SiteAgent, SiteCatalogV2 } from "./explorer";
 
-export type DemoStatus = "ready" | "attention" | "guide-only" | "not-installed";
-export type DemoVersion = "locked" | "behind" | null;
+type DemoStatus = "ready" | "attention" | "guide-only" | "not-installed";
+type DemoVersion = "locked" | "behind" | null;
 
 export interface DemoAgentState {
   installed: boolean;
@@ -23,7 +23,7 @@ export const DEMO_AGENT_STATES: Readonly<Record<string, DemoAgentState>> = {
    fallback_probe_model from oneagent/catalog.py — including the fact that the
    same DeepSeek build is published under a different id per provider, which is
    why the product cannot share one constant. */
-export const DEMO_MODELS: Readonly<Record<string, readonly string[]>> = {
+const DEMO_MODELS: Readonly<Record<string, readonly string[]>> = {
   ppio: ["deepseek/deepseek-v3", "qwen/qwen3-coder-480b", "moonshotai/kimi-k2"],
   novita: ["deepseek/deepseek_v3", "qwen/qwen3-235b-a22b", "meta-llama/llama-4-maverick"],
 };

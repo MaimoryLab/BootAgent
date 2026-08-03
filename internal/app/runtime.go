@@ -54,9 +54,6 @@ func (u *UseCases) InstallRuntime(ctx context.Context, options InstallRuntimeOpt
 	if u == nil {
 		return InstallRuntimeResult{}, oneerrors.New(oneerrors.InternalError, "Runtime service is not configured", oneerrors.WithStatus(501))
 	}
-	if ctx == nil {
-		ctx = context.Background()
-	}
 	if err := contextError(ctx, "Runtime installation request was cancelled"); err != nil {
 		return InstallRuntimeResult{}, err
 	}

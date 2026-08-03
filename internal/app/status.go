@@ -29,6 +29,9 @@ type StatusOptions struct {
 	Home     string
 	Platform platform.Info
 	Lookup   CommandLookup
+	// SystemRegion is populated from the native Windows APIs by the desktop
+	// constructor. Tests and non-Windows builds leave it empty.
+	SystemRegion string
 	// FileSystem is optional and exists for tests or platform-specific hosts
 	// that need to inject ACL behavior. Production callers use the default
 	// securefs implementation for the selected platform.
@@ -75,10 +78,6 @@ func NewUseCases(options StatusOptions) *UseCases {
 // can be verified with fake transports.
 func NewUseCasesWithProviderClient(options StatusOptions, client *provider.Client) *UseCases {
 	return newUseCases(options, client, profileStore.Store{})
-}
-
-func NewUseCasesWithDependencies(options StatusOptions, client *provider.Client, profiles profileStore.Store) *UseCases {
-	return newUseCases(options, client, profiles)
 }
 
 func newUseCases(options StatusOptions, client *provider.Client, profiles profileStore.Store) *UseCases {
@@ -155,9 +154,11 @@ func cloneEnvironment(source map[string]string) map[string]string {
 
 func NewUseCasesFromEnvironment() *UseCases {
 	info := platform.Current()
+	region, _ := platform.SystemRegion()
 	return NewUseCases(StatusOptions{
-		Home:     platform.ResolveHome(nil, info.OS),
-		Platform: info,
+		Home:         platform.ResolveHome(nil, info.OS),
+		Platform:     info,
+		SystemRegion: region,
 	})
 }
 
@@ -406,9 +407,6 @@ func (u *UseCases) ListProfiles(ctx context.Context) ([]ProfileSummary, error) {
 func (u *UseCases) ListAgentBindings(ctx context.Context) (map[string]profileStore.AgentBinding, error) {
 	if u == nil {
 		return nil, oneerrors.New(oneerrors.InternalError, "Agent service is not configured", oneerrors.WithStatus(501))
-	}
-	if ctx == nil {
-		ctx = context.Background()
 	}
 	if err := contextError(ctx, "Agent listing request was cancelled"); err != nil {
 		return nil, err

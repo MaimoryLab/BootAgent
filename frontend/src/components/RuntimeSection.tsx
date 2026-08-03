@@ -38,6 +38,7 @@ export function RuntimeSection({ runtimes, onInstalled }: RuntimeSectionProps) {
       setFailure(describeError(error, t("运行时安装失败")).message);
     } finally {
       setPending("");
+      resetProgress(runtimeId);
     }
   };
 
@@ -86,7 +87,7 @@ export function RuntimeSection({ runtimes, onInstalled }: RuntimeSectionProps) {
                 {pending === runtime.id ? t("安装中") : t("安装")}
               </button>
             )}
-            {pending === runtime.id ? <DownloadProgress runtimeId={runtime.id} /> : null}
+            {pending === runtime.id ? <DownloadProgress runtimeId={runtime.id} pending /> : null}
           </div>
         ))}
       </div>

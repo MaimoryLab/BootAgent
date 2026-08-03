@@ -89,7 +89,7 @@ func TestTemporarySecurityFailureLeavesNoPublishedReplacement(t *testing.T) {
 	store := New(Options{
 		OS:  "linux",
 		Now: fixedClock,
-		Secure: func(path string, directory bool) error {
+		Secure: func(_ string, directory bool) error {
 			if !directory {
 				callCount++
 				if callCount == 1 {

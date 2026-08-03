@@ -30,7 +30,7 @@
 ## 启动桌面应用
 
 ```bash
-cd frontend && npm ci && npm run build
+cd frontend && pnpm install --frozen-lockfile && pnpm run build
 cd ..
 go run -tags wails ./cmd/oneagent-desktop
 ```

@@ -93,9 +93,6 @@ func (u *UseCases) InstallAgents(ctx context.Context, options InstallAgentsOptio
 	if u == nil {
 		return InstallAgentsResult{}, oneerrors.New(oneerrors.InternalError, "Agent service is not configured", oneerrors.WithStatus(501))
 	}
-	if ctx == nil {
-		ctx = context.Background()
-	}
 	if err := contextError(ctx, "Agent installation request was cancelled"); err != nil {
 		return InstallAgentsResult{}, err
 	}
@@ -371,7 +368,7 @@ func (r *installRun) configure(ctx context.Context, agentID string, agent catalo
 		// Install the package manager this Agent needs before installing the
 		// Agent itself, otherwise a machine without Node or uv fails on a
 		// prerequisite the user cannot resolve from this screen.
-		bootstrapped, err := r.ensureAgentRuntime(ctx, agentID, agent, runtime)
+		bootstrapped, err := r.ensureAgentRuntime(ctx, agent, runtime)
 		if err != nil {
 			return err
 		}
@@ -466,7 +463,7 @@ func (r *installRun) configure(ctx context.Context, agentID string, agent catalo
 // manager when the command is not resolvable, and returns a runtime whose PATH
 // includes it. A manager already on the machine is left alone: OneAgent does
 // not replace a user's own Node or uv.
-func (r *installRun) ensureAgentRuntime(ctx context.Context, agentID string, agent catalog.Agent, runtime install.Runtime) (install.Runtime, error) {
+func (r *installRun) ensureAgentRuntime(ctx context.Context, agent catalog.Agent, runtime install.Runtime) (install.Runtime, error) {
 	if agent.Package == nil {
 		return runtime, nil
 	}
@@ -490,7 +487,6 @@ func (r *installRun) ensureAgentRuntime(ctx context.Context, agentID string, age
 		return runtime, err
 	}
 	if installed {
-		r.logs = append(r.logs, "## "+agentID+"\nruntime: installed "+entry.Name+" "+entry.Version)
 		// Record the new directory on the login PATH now rather than at the end
 		// of the run: a failure here must surface against the Agent that needed
 		// it, not silently leave the runtime off PATH for the next session.
@@ -599,8 +595,8 @@ func chooseInstallProbe(probes map[string]provider.ProbeResult) *provider.ProbeR
 	for _, protocolID := range sortedProbeIDs(probes) {
 		verdict := probes[protocolID]
 		if chosen == nil || (!verdict.OK && chosen.OK) {
-			copy := verdict
-			chosen = &copy
+			candidate := verdict
+			chosen = &candidate
 		}
 	}
 	return chosen

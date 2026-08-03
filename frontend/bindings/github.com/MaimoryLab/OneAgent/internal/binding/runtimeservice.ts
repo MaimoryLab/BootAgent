@@ -3,8 +3,8 @@
 
 /**
  * RuntimeService exposes the Node.js and uv bootstrap. It reuses the install
- * output listener so the UI shows runtime downloads in the same log pane as
- * Agent installs.
+ * output listener so the UI can render runtime byte progress alongside Agent
+ * install output; runtime bootstrap does not emit a fake command line.
  * @module
  */
 

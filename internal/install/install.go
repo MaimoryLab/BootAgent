@@ -179,7 +179,7 @@ func InstallAgent(ctx context.Context, runtime Runtime, agent catalog.Agent, opt
 		}
 	}
 
-	if err := requirePrerequisites(ctx, runtime, agent); err != nil {
+	if err := requirePrerequisites(runtime, agent); err != nil {
 		return Result{}, err
 	}
 	registry, err := ResolveRegistry(options.Registry)
@@ -207,10 +207,15 @@ func InstallAgent(ctx context.Context, runtime Runtime, agent catalog.Agent, opt
 		if version != "" {
 			spec += "@" + version
 		}
+		argv = []string{npm, "install", "-g"}
 		if registry != officialRegistry() {
+			// Keep the environment override for npm-compatible wrappers, but put
+			// the registry in argv too. Windows may resolve npm through a .cmd
+			// shim whose environment handling differs from a native executable.
 			environment["npm_config_registry"] = registry
+			argv = append(argv, "--registry="+registry)
 		}
-		argv = []string{npm, "install", "-g", spec}
+		argv = append(argv, spec)
 	case "uv":
 		uv, ok := runtime.Runner.LookPath("uv")
 		if !ok || uv == "" {
@@ -254,7 +259,7 @@ func InstallAgent(ctx context.Context, runtime Runtime, agent catalog.Agent, opt
 	return result, nil
 }
 
-func requirePrerequisites(ctx context.Context, runtime Runtime, agent catalog.Agent) error {
+func requirePrerequisites(runtime Runtime, agent catalog.Agent) error {
 	if runtime.Runner == nil {
 		return prerequisiteError("A process runner is required for Agent installation")
 	}
@@ -333,9 +338,6 @@ func isContextError(err error) bool {
 }
 
 func checkContext(ctx context.Context) error {
-	if ctx == nil {
-		return nil
-	}
 	if err := ctx.Err(); err != nil {
 		return timeoutError("Agent installation request was cancelled", err)
 	}

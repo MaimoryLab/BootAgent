@@ -26,10 +26,10 @@ go vet ./...
 go build -o bin/oneagent ./cmd/oneagent
 
 cd frontend
-npm ci
-npm run test
-npm run build
-npm run test:e2e
+pnpm install --frozen-lockfile
+pnpm run test
+pnpm run build
+pnpm run test:e2e
 ```
 
 构建和检查发行包：

@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -146,9 +147,6 @@ func TestStoredMirrorPreferenceReachesTheDownload(t *testing.T) {
 	}
 }
 
-//go:fix inline
-func boolPointer(value bool) *bool { return new(value) }
-
 // A first run on a machine set to Chinese should not have to discover the mirror
 // on its own: the official hosts are consistently slow from there.
 func TestAChineseMachineDefaultsToTheMirror(t *testing.T) {
@@ -171,6 +169,40 @@ func TestAChineseMachineDefaultsToTheMirror(t *testing.T) {
 	}
 	if other.PreferMirror || other.MirrorFromRegion {
 		t.Fatalf("a non-Chinese locale took the mirror: %#v", other)
+	}
+}
+
+func TestNativeWindowsRegionDefaultsToTheMirrorWithoutPowerShell(t *testing.T) {
+	home := t.TempDir()
+	environment := map[string]string{"USERPROFILE": home, "PATH": filepath.Join(home, "empty")}
+	runner := &scriptedRegionRunner{}
+	core := NewUseCases(StatusOptions{
+		Home: home, Platform: platform.For("windows", "amd64"),
+		Environment: environment, Runner: runner, SystemRegion: "en-US\n45\n",
+	})
+	settings, err := core.Settings(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !settings.PreferMirror || !settings.MirrorFromRegion {
+		t.Fatalf("Windows China region did not enable the mirror: %#v", settings)
+	}
+	if runner.runs != 0 {
+		t.Fatalf("native Windows region still spawned PowerShell %d time(s)", runner.runs)
+	}
+
+	manifest, err := catalog.LoadEmbeddedRuntimes()
+	if err != nil {
+		t.Fatal(err)
+	}
+	artifact := manifest.Runtimes["uv"].Artifacts[catalog.RuntimeArtifactKey("windows", "x64")]
+	downloader := &archiveDoer{bodies: map[string][]byte{}}
+	core.SetRuntimeDownloader(downloader)
+	if _, err := core.InstallRuntime(context.Background(), InstallRuntimeOptions{RuntimeID: "uv"}); err == nil {
+		t.Fatal("a downloader serving nothing produced a successful install")
+	}
+	if len(downloader.order) == 0 || downloader.order[0] != artifact.MirrorURL {
+		t.Fatalf("first Windows runtime host = %v, want mirror %s", downloader.order, artifact.MirrorURL)
 	}
 }
 
@@ -355,6 +387,18 @@ func TestStoredMirrorPreferenceReachesTheNPMInstall(t *testing.T) {
 			}
 			if got != testCase.registry {
 				t.Fatalf("npm registry = %q, want %q", got, testCase.registry)
+			}
+			if testCase.registry == "https://registry.npmmirror.com/" {
+				found := false
+				for _, call := range runner.calls {
+					if strings.Contains(strings.Join(call, " "), "--registry=https://registry.npmmirror.com/") {
+						found = true
+						break
+					}
+				}
+				if !found {
+					t.Fatalf("npm argv omitted the mirror registry: %#v", runner.calls)
+				}
 			}
 		})
 	}

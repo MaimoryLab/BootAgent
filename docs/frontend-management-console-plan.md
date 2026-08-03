@@ -14,9 +14,9 @@
 
 ```bash
 cd frontend
-npm run test:coverage
-npm run build
-npm run test:e2e
+pnpm run test:coverage
+pnpm run build
+pnpm run test:e2e
 cd ..
 go test ./internal/app ./internal/profile ./internal/binding
 ```

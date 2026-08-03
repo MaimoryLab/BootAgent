@@ -6,11 +6,13 @@ import { platformLabels, protocolLabels } from "../../lib/content";
 import { localeFromPath } from "../../i18n";
 import { useCatalogLabels } from "../../i18n/catalog";
 import { supportLabels } from "../../lib/downloads";
+import type { SiteAgent } from "../../lib/explorer";
 
 export function getStaticPaths() {
-  return catalog.agents.map((agent: any) => ({ params: { id: agent.id }, props: { agent } }));
+  return catalog.agents.map((agent) => ({ params: { id: agent.id }, props: { agent } }));
 }
-const { agent } = Astro.props as any;
+interface Props { agent: SiteAgent }
+const { agent } = Astro.props;
 const labels = supportLabels(agent.support);
 const { agentDescriptions, groupLabels } = useCatalogLabels(localeFromPath(Astro.url.pathname));
 ---
@@ -31,7 +33,7 @@ const { agentDescriptions, groupLabels } = useCatalogLabels(localeFromPath(Astro
         <div class="detail-cell"><span>安装支持</span><strong>{agent.support.managedInstall ? "OneAgent 可管理安装" : "按官方方式安装"}</strong><p>{agent.support.managedInstall ? "使用清单中的官方包名，默认解析最新版本。" : "选择后返回官方指引，不捆绑第三方二进制。"}</p></div>
         <div class="detail-cell"><span>配置支持</span><strong>{agent.support.managedConfig ? "OneAgent 可管理配置" : "由 Agent 官方流程管理"}</strong><p>底层配置文件不同本身不构成新增 UI 字段的理由。</p></div>
         <div class="detail-cell"><span>推理协议</span><strong>{agent.protocol ? protocolLabels[agent.protocol] : "不由 OneAgent 代配协议"}</strong><p>连接测试按 Agent 的真实协议执行，不只依赖模型列表。</p></div>
-        <div class="detail-cell"><span>平台</span><strong>{agent.platforms.map((id: string) => platformLabels[id] ?? id).join(" · ")}</strong><p>具体产物是否公开仍取决于平台原生发行门禁。</p></div>
+        <div class="detail-cell"><span>平台</span><strong>{agent.platforms.map((id) => platformLabels[id] ?? id).join(" · ")}</strong><p>具体产物是否公开仍取决于平台原生发行门禁。</p></div>
       </div>
       <div class="section-compact wide-narrow">
         <div class="agent-status" style="margin-bottom:26px">{labels.map((label) => <span class="chip">{label}</span>)}</div>

@@ -13,6 +13,7 @@ const bridge = vi.hoisted(() => ({
   install: vi.fn(),
   register: vi.fn(),
   activate: vi.fn(),
+  launch: vi.fn(),
   profiles: vi.fn(),
   saveProfile: vi.fn(),
   eventsOn: vi.fn(),
@@ -31,6 +32,7 @@ vi.mock("../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/provider
 vi.mock("../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/agentservice.js", () => ({
   Install: bridge.install,
   Activate: bridge.activate,
+  Launch: bridge.launch,
 }));
 vi.mock("../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/profileservice.js", () => ({
   ListProfiles: bridge.profiles,
@@ -63,6 +65,7 @@ describe("Wails backend adapter", () => {
     bridge.install.mockResolvedValue(install);
     bridge.register.mockResolvedValue({ ok: true, url: "https://ppio.com/", message: "opened" });
     bridge.activate.mockResolvedValue({ ok: true, agent: "codex", config: "/c", provider: "ppio", model: "m", restart: "restart", next: "next" });
+    bridge.launch.mockResolvedValue({ ok: true, agent: "codex", command: "codex" });
     bridge.profiles.mockResolvedValue([profile]);
     bridge.saveProfile.mockResolvedValue(profile);
     bridge.getProvider.mockResolvedValue(provider);
@@ -78,6 +81,7 @@ describe("Wails backend adapter", () => {
     await expect(wailsApi.install({ agents: ["codex"], provider: "ppio", api_key: "secret", model: "m", configure: true, install_agent: false, skip_test: true })).resolves.toBe(install);
     await wailsApi.openRegister("ppio", []);
     await wailsApi.activateAgent("codex", { provider: "ppio", apiBaseUrl: "", apiKey: "secret", model: "m" });
+    await wailsApi.launchAgent("codex");
     await expect(wailsApi.listProfiles()).resolves.toEqual([profile]);
     await expect(wailsApi.saveProfile({ id: "team", label: "Team", provider: "ppio", apiBaseUrl: "", apiKey: "secret", model: "m", configMode: "provider", agentIds: ["codex"] })).resolves.toBe(profile);
 
@@ -87,6 +91,7 @@ describe("Wails backend adapter", () => {
     expect(bridge.install).toHaveBeenCalledWith(expect.objectContaining({ agents: ["codex"], profile_agents: null, timeout: 180, agent_version: "" }));
     expect(bridge.register).toHaveBeenCalledWith({ provider: "ppio", agents: null });
     expect(bridge.activate).toHaveBeenCalledWith(expect.objectContaining({ agent_id: "codex", profile_id: "", small_fast_model: "" }));
+    expect(bridge.launch).toHaveBeenCalledWith({ agent_id: "codex" });
     expect(bridge.saveProfile).toHaveBeenCalledWith(expect.objectContaining({ api_base_url: "", api_key: "secret", agent_ids: ["codex"] }));
   });
 

@@ -757,6 +757,43 @@
 
 .progress-list { width: 100%; }
 
+.runtime-download-card {
+  width: 100%;
+  margin-bottom: 12px;
+  padding: 13px 14px;
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  background: var(--window-bg);
+}
+
+.runtime-download-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  color: var(--blue);
+}
+
+.runtime-download-heading > div {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.runtime-download-heading strong {
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.runtime-download-heading span {
+  color: var(--text-secondary);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.runtime-download-card .download-progress { grid-column: auto; }
+
 .progress-row {
   min-height: 70px;
   padding: 12px 14px;

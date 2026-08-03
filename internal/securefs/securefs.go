@@ -310,9 +310,6 @@ func copyFile(source, destination string, mode os.FileMode) error {
 }
 
 func checkContext(ctx context.Context) error {
-	if ctx == nil {
-		return nil
-	}
 	if err := ctx.Err(); err != nil {
 		return oneerrors.New(oneerrors.Timeout, "Filesystem request was cancelled", oneerrors.WithRetryable(true), oneerrors.WithCause(err))
 	}
