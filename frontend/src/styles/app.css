@@ -925,7 +925,7 @@
   width: 100%;
   padding: 11px 13px;
   display: grid;
-  grid-template-columns: 30px minmax(110px, 1.1fr) repeat(3, minmax(90px, 1fr)) minmax(72px, 0.75fr) auto;
+  grid-template-columns: 30px minmax(110px, 1.1fr) repeat(3, minmax(90px, 1fr)) minmax(72px, 0.75fr) auto auto;
   align-items: center;
   gap: 12px;
   border: 0;
@@ -972,6 +972,7 @@
 }
 
 .agent-manage-version.is-behind > span { color: var(--orange); }
+.agent-manage-note.is-error { color: var(--red); }
 
 .agent-manage-list {
   border-radius: var(--radius-panel);
@@ -1504,6 +1505,8 @@
 
   .agent-manage-row > .status-badge { grid-column: 3; grid-row: 1; }
   .agent-manage-fact { grid-column: 2 / 4; }
+  .agent-manage-row > .button,
+  .agent-manage-row > .runtime-action-placeholder { grid-column: 2 / 4; }
 
   .runtime-row {
     grid-template-columns: minmax(0, 1fr) auto;

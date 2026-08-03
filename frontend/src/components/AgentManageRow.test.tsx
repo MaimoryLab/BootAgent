@@ -1,8 +1,25 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { OneAgentApiError } from "../backend/errors";
 import type { AgentCatalogItem, AgentStatus } from "../types/api";
 import { AgentManageRow, compareVersions, isBehind, targetSummary } from "./AgentManageRow";
+
+const launchAgent = vi.fn();
+
+vi.mock("../backend/api", async () => {
+  const errors = await import("../backend/errors");
+  return {
+    api: { launchAgent: (agentId: string) => launchAgent(agentId) },
+    describeError: errors.describeError,
+  };
+});
+
+beforeEach(() => {
+  launchAgent.mockReset();
+  launchAgent.mockResolvedValue({ ok: true, agent: "codex", command: "codex" });
+});
 
 const catalogAgent: AgentCatalogItem = {
   id: "codex",
@@ -97,6 +114,24 @@ describe("AgentManageRow", () => {
     expect(screen.queryByLabelText(/API Key/i)).toBeNull();
     expect(screen.queryByRole("button", { name: /测试连接/ })).toBeNull();
     expect(screen.queryByRole("button", { name: /Codex/ })).toBeNull();
+  });
+
+  it("launches the Agent it belongs to", async () => {
+    renderRow();
+    await userEvent.click(screen.getByRole("button", { name: /启动/ }));
+    await waitFor(() => expect(launchAgent).toHaveBeenCalledWith("codex"));
+  });
+
+  it("offers no launch for an Agent that is not installed", () => {
+    renderRow({ installed: false, version: null });
+    expect(screen.queryByRole("button", { name: /启动/ })).toBeNull();
+  });
+
+  it("reports a launch failure in the row instead of failing silently", async () => {
+    launchAgent.mockRejectedValue(new OneAgentApiError("没有可用的终端", "PREREQUISITE_MISSING", false, 500));
+    renderRow();
+    await userEvent.click(screen.getByRole("button", { name: /启动/ }));
+    expect(await screen.findByText("没有可用的终端")).toBeTruthy();
   });
 });
 

@@ -305,6 +305,22 @@ func (s *AgentService) Activate(ctx context.Context, request ActivateRequest) (A
 	}, nil
 }
 
+// Launch opens a terminal window running one Agent with its OneAgent
+// configuration already sourced.
+func (s *AgentService) Launch(ctx context.Context, request LaunchRequest) (LaunchResponse, error) {
+	if err := contextError(ctx); err != nil {
+		return LaunchResponse{}, err
+	}
+	if s == nil || s.core == nil {
+		return LaunchResponse{}, notReady("Agent launch is not configured")
+	}
+	result, err := s.core.LaunchAgent(ctx, strings.TrimSpace(request.AgentID))
+	if err != nil {
+		return LaunchResponse{}, err
+	}
+	return LaunchResponse{OK: true, Agent: result.Agent, Command: result.Command}, nil
+}
+
 type ProfileService struct {
 	core *app.UseCases
 }
@@ -464,6 +480,16 @@ type ActivateResponse struct {
 	Model    string `json:"model"`
 	Restart  string `json:"restart"`
 	Next     string `json:"next"`
+}
+
+type LaunchRequest struct {
+	AgentID string `json:"agent_id"`
+}
+
+type LaunchResponse struct {
+	OK      bool   `json:"ok"`
+	Agent   string `json:"agent"`
+	Command string `json:"command"`
 }
 
 type SaveProfileRequest struct {

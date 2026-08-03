@@ -1,0 +1,105 @@
+package app
+
+import (
+	"context"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/MaimoryLab/OneAgent/internal/platform"
+	"github.com/MaimoryLab/OneAgent/internal/process"
+)
+
+// launchRunner records the detached argv instead of opening a window.
+type launchRunner struct {
+	paths   map[string]string
+	started [][]string
+	envs    []map[string]string
+}
+
+func (r *launchRunner) LookPath(command string) (string, bool) {
+	path, ok := r.paths[command]
+	return path, ok
+}
+
+func (r *launchRunner) Run(context.Context, []string, map[string]string, time.Duration) (process.Result, error) {
+	return process.Result{}, nil
+}
+
+func (r *launchRunner) Start(argv []string, env map[string]string) error {
+	r.started = append(r.started, append([]string(nil), argv...))
+	r.envs = append(r.envs, env)
+	return nil
+}
+
+func launchCore(t *testing.T, osID string, runner process.Runner) *UseCases {
+	t.Helper()
+	return NewUseCases(StatusOptions{
+		Home:        t.TempDir(),
+		Platform:    platform.For(osID, "amd64"),
+		Runner:      runner,
+		Lookup:      runner.LookPath,
+		Environment: map[string]string{"PATH": "/usr/bin"},
+	})
+}
+
+func TestLaunchAgentSourcesTheEnvFileAndKeepsTheKeyOut(t *testing.T) {
+	runner := &launchRunner{}
+	core := launchCore(t, "darwin", runner)
+	if _, err := core.ActivateAgent(context.Background(), ActivateAgentOptions{
+		AgentID: "codex", Provider: "ppio", APIKey: "launch-secret", Model: "model-a",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	result, err := core.LaunchAgent(context.Background(), "codex")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(runner.started) != 1 || runner.started[0][0] != "osascript" {
+		t.Fatalf("started = %#v", runner.started)
+	}
+	argv := strings.Join(runner.started[0], " ")
+	// Without the sourced env file the window would run an unconfigured Agent,
+	// which is the whole failure this button exists to avoid.
+	if !strings.Contains(argv, "source ~/.oneagent/agents/codex.env") || !strings.Contains(argv, "codex") {
+		t.Fatalf("launch argv = %q", argv)
+	}
+	if strings.Contains(argv, "launch-secret") || strings.Contains(result.Command, "launch-secret") {
+		t.Fatal("launch leaked the API key into argv")
+	}
+	// The window inherits the managed PATH so an Agent installed into the
+	// managed global prefix resolves there, not just in a fresh login shell.
+	if _, ok := runner.envs[0]["PATH"]; !ok {
+		t.Fatalf("launch env = %#v", runner.envs[0])
+	}
+}
+
+func TestLaunchAgentUsesAnAvailableLinuxTerminal(t *testing.T) {
+	runner := &launchRunner{paths: map[string]string{"konsole": "/usr/bin/konsole"}}
+	core := launchCore(t, "linux", runner)
+	if _, err := core.LaunchAgent(context.Background(), "codex"); err != nil {
+		t.Fatal(err)
+	}
+	if runner.started[0][0] != "konsole" {
+		t.Fatalf("started = %#v", runner.started)
+	}
+
+	bare := &launchRunner{}
+	if _, err := launchCore(t, "linux", bare).LaunchAgent(context.Background(), "codex"); err == nil {
+		t.Fatal("expected a prerequisite error when no terminal emulator exists")
+	}
+}
+
+func TestLaunchAgentRejectsUnknownAndCommandlessAgents(t *testing.T) {
+	core := launchCore(t, "darwin", &launchRunner{})
+	if _, err := core.LaunchAgent(context.Background(), "../etc/passwd"); err == nil {
+		t.Fatal("expected an invalid ID to be rejected")
+	}
+	if _, err := core.LaunchAgent(context.Background(), "nope"); err == nil {
+		t.Fatal("expected an unknown Agent to be rejected")
+	}
+	// cline is IDE-only and has no command; launching it would be a no-op window.
+	if _, err := core.LaunchAgent(context.Background(), "cline"); err == nil {
+		t.Fatal("expected a commandless Agent to be rejected")
+	}
+}

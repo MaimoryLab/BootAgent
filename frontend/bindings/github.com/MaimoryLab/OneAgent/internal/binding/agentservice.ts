@@ -16,3 +16,11 @@ export function Activate(request: $models.ActivateRequest): $CancellablePromise<
 export function Install(request: $models.InstallRequest): $CancellablePromise<$models.InstallResponse> {
     return $Call.ByID(3913480362, request);
 }
+
+/**
+ * Launch opens a terminal window running one Agent with its OneAgent
+ * configuration already sourced.
+ */
+export function Launch(request: $models.LaunchRequest): $CancellablePromise<$models.LaunchResponse> {
+    return $Call.ByID(1510250212, request);
+}

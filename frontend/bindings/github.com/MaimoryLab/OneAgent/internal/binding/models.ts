@@ -67,6 +67,16 @@ export interface InstallRuntimeRequest {
     "runtime": string;
 }
 
+export interface LaunchRequest {
+    "agent_id": string;
+}
+
+export interface LaunchResponse {
+    "ok": boolean;
+    "agent": string;
+    "command": string;
+}
+
 export interface ModelsRequest {
     "provider": string;
     "api_base_url": string;

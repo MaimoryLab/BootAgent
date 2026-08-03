@@ -1,3 +1,7 @@
+import { Play, RefreshCw } from "lucide-react";
+import { useState } from "react";
+
+import { api, describeError } from "../backend/api";
 import { sourceTranslate, type Translate, useI18n } from "../i18n";
 import type { AgentCatalogItem, AgentStatus, StatusResponse } from "../types/api";
 import { AgentIcon, agentTagline } from "./icons/agents";
@@ -95,12 +99,30 @@ export function AgentManageRow({
   profileName: string;
 }) {
   const { t } = useI18n();
+  const [launching, setLaunching] = useState(false);
+  const [failure, setFailure] = useState("");
   const version = versionNote(status, t);
   const target = targetSummary(status, providers, t);
   const providerName = status.provider
     ? providers[status.provider]?.name || status.provider
     : status.detected?.baseUrl || t("未记录");
   const model = status.model || status.detected?.model || t("未记录");
+
+  // installed is true only when the Agent's command resolved on the managed
+  // PATH, so it is already the precise "there is something to launch" signal.
+  const canLaunch = status.installed;
+
+  const launch = async () => {
+    setLaunching(true);
+    setFailure("");
+    try {
+      await api.launchAgent(agentId);
+    } catch (error) {
+      setFailure(describeError(error, t("无法启动 Agent")).message);
+    } finally {
+      setLaunching(false);
+    }
+  };
 
   return (
     <div className="agent-manage-row" data-testid={`agent-${agentId}`}>
@@ -109,6 +131,7 @@ export function AgentManageRow({
       </span>
       <span className="agent-manage-identity">
         <strong>{catalog?.name || agentId}</strong>
+        {failure ? <small className="agent-manage-note is-error">{failure}</small> : null}
         {target.note ? <small className="agent-manage-note">{target.note}</small> : null}
       </span>
       <span className="agent-manage-fact"><small>Provider</small><span title={providerName}>{providerName}</span></span>
@@ -120,6 +143,20 @@ export function AgentManageRow({
       <StatusBadge tone={status.installed ? "success" : "warning"}>
         {status.installed ? t("已安装") : t("待安装")}
       </StatusBadge>
+      {canLaunch ? (
+        <button
+          className="button button-secondary"
+          type="button"
+          onClick={() => void launch()}
+          disabled={launching}
+          title={t("在新终端窗口中启动，并载入 OneAgent 写入的配置")}
+        >
+          {launching ? <RefreshCw size={15} className="spin" /> : <Play size={15} />}
+          {t("启动")}
+        </button>
+      ) : (
+        <span className="runtime-action-placeholder" aria-hidden="true" />
+      )}
     </div>
   );
 }

@@ -11,6 +11,7 @@ import type {
   InstallOutput,
   InstallResponse,
   InstallRuntimeResult,
+  LaunchAgentResponse,
   ModelsResponse,
   OpenRegistrationResponse,
   ProbeResponse,
@@ -138,6 +139,8 @@ export const wailsApi = {
       profile_id: input.profileId ?? "",
       small_fast_model: input.smallFastModel ?? "",
     })) as Promise<ActivateAgentResponse>,
+  launchAgent: (agentId: string): Promise<LaunchAgentResponse> =>
+    call(() => AgentService.Launch({ agent_id: agentId })) as Promise<LaunchAgentResponse>,
   listRuntimes: (): Promise<RuntimeStatus[]> =>
     call(() => RuntimeService.ListRuntimes()).then((runtimes) => runtimes ?? []),
   installRuntime: (runtime: string): Promise<InstallRuntimeResult> =>

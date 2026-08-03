@@ -21,6 +21,8 @@ export type {
     InstallRequest,
     InstallResponse,
     InstallRuntimeRequest,
+    LaunchRequest,
+    LaunchResponse,
     ModelsRequest,
     ModelsResponse,
     OpenRegistrationRequest,

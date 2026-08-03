@@ -44,7 +44,7 @@ func TestServiceMethodAllowlist(t *testing.T) {
 	}{
 		{&StatusService{}, []string{"GetStatus"}},
 		{&ProviderService{}, []string{"DeleteProvider", "GetProvider", "ListModels", "OpenRegistration", "Probe", "SaveProvider"}},
-		{&AgentService{}, []string{"Activate", "Install"}},
+		{&AgentService{}, []string{"Activate", "Install", "Launch"}},
 		{&ProfileService{}, []string{"ListProfiles", "SaveProfile"}},
 	}
 	for _, test := range tests {

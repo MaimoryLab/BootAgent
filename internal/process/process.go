@@ -54,6 +54,13 @@ type Runner interface {
 	Run(context.Context, []string, map[string]string, time.Duration) (Result, error)
 }
 
+// Launcher starts a detached child and does not wait for it. Run() is the wrong
+// shape for a terminal window: the window outlives the request that opened it,
+// and its output belongs to the user, not to a log pane.
+type Launcher interface {
+	Start(argv []string, overrides map[string]string) error
+}
+
 type OSRunner struct {
 	Env    map[string]string
 	Lookup func(string) (string, bool)
@@ -151,6 +158,24 @@ func executable(path string) bool {
 
 func (r OSRunner) Run(ctx context.Context, argv []string, overrides map[string]string, timeout time.Duration) (Result, error) {
 	return r.RunWithOutput(ctx, argv, overrides, timeout, nil)
+}
+
+// Start launches a detached child with this runner's environment and returns as
+// soon as it is running. The child keeps its own console: a terminal window is
+// the point, so HideWindow is deliberately not applied here.
+func (r OSRunner) Start(argv []string, overrides map[string]string) error {
+	if len(argv) == 0 || strings.TrimSpace(argv[0]) == "" {
+		return fmt.Errorf("process argv must not be empty")
+	}
+	command := exec.Command(argv[0], argv[1:]...)
+	command.Env = mergeEnvironment(r.Env, overrides)
+	if err := command.Start(); err != nil {
+		return err
+	}
+	// Nothing waits on this child, so reap it in the background rather than
+	// leaving a zombie for the lifetime of the desktop process.
+	go func() { _ = command.Wait() }()
+	return nil
 }
 
 func (r OSRunner) RunWithOutput(ctx context.Context, argv []string, overrides map[string]string, timeout time.Duration, listener OutputListener) (Result, error) {
