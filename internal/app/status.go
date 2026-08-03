@@ -244,6 +244,11 @@ func (u *UseCases) GetStatus(ctx context.Context) (StatusResponse, error) {
 	options := u.status
 	paths := map[string]string{
 		"profile": filepath.Join(options.Home, ".oneagent", "profile.json"),
+		// The Task Center points users at this directory when a command fails.
+		// It has to come from here rather than being spelled out in the UI: a
+		// hardcoded "~/.oneagent/logs" names a path that does not exist on
+		// Windows, where this resolves to C:\Users\<name>\.oneagent\logs.
+		"logs": CommandLogDir(options.Home),
 	}
 	capabilities := Capabilities{
 		CanInstall:        make(map[string]bool, len(manifest.Agents)),

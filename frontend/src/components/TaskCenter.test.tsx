@@ -83,6 +83,35 @@ describe("TaskCenter", () => {
     expect(screen.queryByText("boom")).toBeNull();
     expect(screen.getByText(/暂无任务日志/)).toBeTruthy();
   });
+
+  it("shows the backend's own log directory, not a Unix path", async () => {
+    // The label used to hardcode "~/.oneagent/logs", which names a directory
+    // that does not exist on Windows.
+    const user = userEvent.setup();
+    // Braces, not a bare attribute string: JSX string literals do not process
+    // backslash escapes, so logDir="C:\\Users" would pass two backslashes.
+    const windowsDir = "C:\\Users\\u\\.oneagent\\logs";
+    render(
+      <TaskCenterProvider>
+        <TaskCenter logDir={windowsDir} />
+      </TaskCenterProvider>,
+    );
+    await user.click(screen.getByRole("button", { name: /任务中心/ }));
+    expect(screen.getByText(`完整日志：${windowsDir}`)).toBeTruthy();
+    expect(screen.queryByText(/~\/\.oneagent/)).toBeNull();
+  });
+
+  it("drops the path from the label when the backend reported none", async () => {
+    const user = userEvent.setup();
+    render(
+      <TaskCenterProvider>
+        <TaskCenter />
+      </TaskCenterProvider>,
+    );
+    await user.click(screen.getByRole("button", { name: /任务中心/ }));
+    // "完整日志：" with nothing after it would read as a missing value.
+    expect(screen.getByText("完整日志")).toBeTruthy();
+  });
 });
 
 describe("DownloadProgress", () => {

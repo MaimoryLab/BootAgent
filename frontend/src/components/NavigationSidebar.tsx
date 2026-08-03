@@ -2,6 +2,7 @@ import { Boxes, FolderCog, Gauge, Languages, Layers3 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
 import { type TranslationKey, useI18n } from "../i18n";
+import { useWizard } from "../state/WizardContext";
 import { TaskCenter } from "./TaskCenter";
 
 // Only real destinations belong here. /setup/* are wizard steps behind
@@ -15,6 +16,7 @@ const navItems: Array<{ to: string; label: TranslationKey | "Provider"; icon: ty
 
 export function NavigationSidebar() {
   const { locale, setLocale, t } = useI18n();
+  const { state } = useWizard();
   return (
     <aside className="navigation-sidebar">
       <div className="brand-lockup">
@@ -52,7 +54,7 @@ export function NavigationSidebar() {
 
       {/* Last child, so the language picker's margin-top: auto pushes both to
           the bottom of the sidebar as one group. */}
-      <TaskCenter />
+      <TaskCenter logDir={state.status?.paths.logs || ""} />
     </aside>
   );
 }
