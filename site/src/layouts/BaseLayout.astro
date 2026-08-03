@@ -1,7 +1,9 @@
 ---
 import Header from "../components/Header.astro";
 import Footer from "../components/Footer.astro";
-import { getLatestRelease, releaseTargets } from "../lib/downloads";
+import { defaultLocale, htmlLang, localeFromPath, localePath, locales, ogLocale, routeWithoutLocale, translatedRoutes } from "../i18n";
+import { useTranslations } from "../i18n/ui";
+import { getPreviewChannel } from "../lib/release-channel";
 import "../styles/global.css";
 
 interface Props {
@@ -11,31 +13,46 @@ interface Props {
   noindex?: boolean;
 }
 
+const locale = localeFromPath(Astro.url.pathname);
+const t = useTranslations(locale);
 const {
-  title = "OneAgent — 可信的本地 Agent 管家",
-  description = "用一个可信的本地流程，激活你自己的 Agent、账号和 Provider。",
+  title = t("site.title"),
+  description = t("site.description"),
   image = "images/oneagent-overview.jpg",
   noindex = false,
 } = Astro.props;
-const canonical = new URL(Astro.url.pathname, Astro.site ?? Astro.url.origin);
-const baseUrl = new URL(import.meta.env.BASE_URL, Astro.site ?? Astro.url.origin);
-const imageUrl = new URL(image.replace(/^\/+/, ""), baseUrl);
-const release = await getLatestRelease();
-const availableSystems = release ? releaseTargets(release).map((target) => `${target.platformLabel} ${target.archLabel}`) : [];
+const canonicalOrigin = Astro.site ?? Astro.url.origin;
+const canonical = new URL(Astro.url.pathname, canonicalOrigin);
+// Only pages that exist in both languages get alternates; pointing hreflang at
+// an unbuilt path would advertise a 404 to crawlers.
+const route = routeWithoutLocale(Astro.url.pathname);
+const alternates = translatedRoutes.has(route)
+  ? locales.map((code) => ({
+      code,
+      href: new URL(localePath(code, route), canonicalOrigin).toString(),
+    }))
+  : [];
+const runtimeBaseUrl = new URL(import.meta.env.BASE_URL, Astro.url.origin);
+const canonicalBaseUrl = new URL(import.meta.env.BASE_URL, canonicalOrigin);
+const imageUrl = new URL(image.replace(/^\/+/, ""), canonicalBaseUrl);
+const preview = await getPreviewChannel();
+const availableSystems = preview?.targets
+  .filter((target) => target.status === "available")
+  .map((target) => `${target.platformLabel} ${target.archLabel}`) ?? [];
 const structuredData = {
   "@context": "https://schema.org",
   "@type": "SoftwareApplication",
   name: "OneAgent",
   applicationCategory: "DeveloperApplication",
   operatingSystem: availableSystems.join(", ") || "No public build",
-  softwareVersion: release?.tag_name,
+  softwareVersion: preview?.version,
   url: canonical,
   description,
   offers: { "@type": "Offer", price: "0", priceCurrency: "CNY" },
 };
 ---
 <!doctype html>
-<html lang="zh-CN">
+<html lang={htmlLang[locale]}>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -44,13 +61,40 @@ const structuredData = {
       content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-src 'none'; worker-src 'none'"
     />
     <meta name="description" content={description} />
-    <meta name="theme-color" content="#f4f3ef" />
+    <meta name="theme-color" content="#ececef" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0f1418" media="(prefers-color-scheme: dark)" />
+    {/* Runs before first paint and before the stylesheet, so the resolved theme
+        is on <html> by the time anything is drawn. Deferring this to the module
+        script would paint the light palette first and flash. */}
+    <script is:inline>
+      (function () {
+        try {
+          var stored = window.localStorage.getItem("oneagent-theme");
+          var dark = stored ? stored === "dark" : window.matchMedia("(prefers-color-scheme: dark)").matches;
+          if (dark) document.documentElement.classList.add("theme-dark");
+        } catch (error) {
+          /* Private mode can throw on localStorage; the light default is fine. */
+        }
+      })();
+    </script>
     {noindex && <meta name="robots" content="noindex" />}
-    <base href={baseUrl.toString()} />
+    <base href={runtimeBaseUrl.toString()} />
     <link rel="canonical" href={canonical} />
+    {alternates.map((alternate) => (
+      <link rel="alternate" hreflang={alternate.code} href={alternate.href} />
+    ))}
+    {alternates.length > 0 && (
+      <link
+        rel="alternate"
+        hreflang="x-default"
+        href={alternates.find((alternate) => alternate.code === defaultLocale)!.href}
+      />
+    )}
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="manifest" href="site.webmanifest" />
+    <link rel="alternate" type="text/plain" href="llms.txt" title="llms.txt" />
     <meta property="og:type" content="website" />
-    <meta property="og:locale" content="zh_CN" />
+    <meta property="og:locale" content={ogLocale[locale]} />
     <meta property="og:site_name" content="OneAgent" />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
@@ -61,7 +105,7 @@ const structuredData = {
     <script type="application/ld+json" is:inline set:html={JSON.stringify(structuredData)} />
   </head>
   <body>
-    <a class="skip-link" href="#main">跳到主要内容</a>
+    <a class="skip-link" href="#main">{t("skip.main")}</a>
     <Header />
     <main id="main"><slot /></main>
     <Footer />

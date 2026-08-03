@@ -1,12 +1,15 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
-import { catalog, type SiteProvider } from "../../lib/catalog";
-import { protocolLabels, protocolStatusLabels } from "../../lib/content";
+import { catalog } from "../../lib/catalog";
+import { protocolLabels } from "../../lib/content";
+import { localeFromPath } from "../../i18n";
+import { useCatalogLabels } from "../../i18n/catalog";
 
 export function getStaticPaths() {
-  return catalog.providers.map((provider) => ({ params: { id: provider.id }, props: { provider } }));
+  return catalog.providers.map((provider: any) => ({ params: { id: provider.id }, props: { provider } }));
 }
-const { provider } = Astro.props as { provider: SiteProvider };
+const { provider } = Astro.props as any;
+const { protocolStatusLabels } = useCatalogLabels(localeFromPath(Astro.url.pathname));
 ---
 <BaseLayout title={`${provider.name} Provider — OneAgent`} description={`${provider.name} 在 OneAgent 中的公开协议接入和商业关系披露。`}>
   <header class="page-hero">
@@ -18,7 +21,7 @@ const { provider } = Astro.props as { provider: SiteProvider };
   <section class="section-compact">
     <div class="wide-narrow">
       <div class="detail-grid">
-        {provider.protocols.map((protocol) => (
+        {provider.protocols.map((protocol: any) => (
           <div class="detail-cell"><span>{protocolLabels[protocol.id] ?? protocol.id}</span><strong>{protocolStatusLabels[protocol.status] ?? protocol.status}</strong><p>{protocol.status === "release-candidate-required" ? "实现路径已存在，但真实 Provider Key 与对应模型仍须在 Release Candidate 中验收。" : "OneAgent 已实现该协议的连接与配置路径；模型本身仍需支持该协议。"}</p></div>
         ))}
         <div class="detail-cell"><span>API Key</span><strong>使用用户自己的账号</strong><p>OneAgent 不创建共享 Key，也不把请求转发到自己的网关。</p></div>

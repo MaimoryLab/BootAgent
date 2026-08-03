@@ -1,48 +1,85 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
-import { getLatestRelease, releaseTargets, releasesPageUrl } from "../../lib/downloads";
-const release = await getLatestRelease();
-const target = release ? releaseTargets(release)[0] : null;
+import { getPreviewChannel } from "../../lib/release-channel";
+const preview = await getPreviewChannel();
+const publishedTarget = preview?.targets.find((target) => target.status === "available") ?? null;
+const publishedArtifact = publishedTarget?.artifacts.find((artifact) => artifact.kind === "binary") ?? null;
 ---
 <BaseLayout title="安全、隐私与发行完整性 — OneAgent" description="OneAgent 的本地执行、密钥处理、配置备份、同包分发和未签名预览版边界。">
   <header class="page-hero">
     <div class="shell page-hero-grid">
-      <div><nav class="breadcrumb" aria-label="面包屑"><a href="">首页</a> / 安全与隐私</nav><p class="eyebrow">Trust is inspectable</p><h1 class="page-title">信任来自可以核对的边界。</h1></div>
-      <div class="page-hero-aside"><strong>默认不采集应用遥测</strong>OneAgent 不需要云端账号，不建立模型流量中转，也不把 API Key 发送给 OneAgent 服务。</div>
+      <div><nav class="breadcrumb" aria-label="面包屑"><a href="">首页</a> / 安全与隐私</nav><p class="eyebrow">Trust is inspectable</p><h1 class="page-title">每一条边界都可以自己核对。</h1></div>
+      <div class="page-hero-aside"><strong>没有云端账号，没有流量中转</strong>你的 Key 直接到你选的 Provider，配置和备份留在本机。默认不采集应用遥测。</div>
     </div>
   </header>
   <section class="section-compact">
-    <div class="shell content-grid">
+    <div class="shell content-grid reveal">
       <article class="prose">
-        <h2 id="local">本地执行</h2>
-        <p>Launcher 在本机回环地址上提供界面与 API。配置、备份和状态保存在用户设备；本地服务不作为公网控制面。</p>
-        <h2 id="privacy">API Key 与隐私</h2>
-        <p>API Key 只写入目标 Agent 工作所需的本地配置或 OneAgent 环境文件。Key 不进入 OneAgent profile、日志、截图、网页分析事件或命令行参数。</p>
-        <p>典型写入位置包括 <code>~/.codex/config.toml</code>、<code>~/.claude/settings.json</code>、<code>~/.config/opencode/opencode.jsonc</code>、<code>~/.config/kilo/kilo.jsonc</code> 和 <code>~/.oneagent/</code>。具体路径取决于 Agent 与操作系统，写入前后均由 Launcher 展示。</p>
-        <h2 id="backups">权限与备份</h2>
-        <p>OneAgent 在修改既有配置前创建备份，并把配置目录和包含密钥的文件限制为当前用户可访问。cleanroom 会检查真实用户目录没有被测试流程修改。</p>
-        <h2 id="distribution">同包分发</h2>
-        <p>公开站只链接 GitHub Release 中的原始资产，不复制或重新打包下载文件。版本、发布日期、大小与校验摘要均来自 GitHub Release。</p>
-        <p>OneAgent 不重新分发第三方 Agent 二进制。Agent 应来自官方安装源、经过书面授权的镜像或用户手动安装。</p>
+        <h2 id="local">数据留在你的设备</h2>
+        <p>界面与 API 都跑在本机回环地址上。配置、备份和状态写在你的设备里。</p>
+        <p>本地服务不对外提供控制面。</p>
+
+        <h2 id="privacy">Key 只去它该去的地方</h2>
+        <p>API Key 只写进目标 Agent 工作所需的那一个文件：它自己的配置，或 OneAgent 的环境文件。</p>
+        <p>Key 不会出现在 OneAgent profile、日志、截图、网页分析事件或命令行参数里。</p>
+        <p>写入位置随 Agent 与操作系统而定，常见的是这几个：</p>
+        <ul>
+          <li><code>~/.codex/config.toml</code></li>
+          <li><code>~/.claude/settings.json</code></li>
+          <li><code>~/.config/opencode/opencode.jsonc</code></li>
+          <li><code>~/.config/kilo/kilo.jsonc</code></li>
+          <li><code>~/.oneagent/</code></li>
+        </ul>
+        <p>每次写入前后，Launcher 都会把实际路径列出来。</p>
+
+        <h2 id="backups">改动之前先备份</h2>
+        <p>修改既有配置前，OneAgent 先创建一份带时间戳的备份。</p>
+        <p>配置目录和含密钥的文件只对当前用户开放。cleanroom 会复核真实用户目录未被测试流程改动。</p>
+
+        <h2 id="distribution">每个渠道都是同一个包</h2>
+        <p>官网、GitHub Release、网盘、企业云盘分发的是完全相同的官方构建。同一版本，文件内容与 SHA-256 一致。</p>
+        <p>渠道不重新打包，不追加推广内容，不二次签名。</p>
+        <p>第三方 Agent 二进制不由 OneAgent 转发。它们来自官方安装源、书面授权的镜像，或你手动安装。</p>
+
         <h2 id="release-evidence">当前发行证据</h2>
-        {release ? (
+        {publishedTarget && publishedArtifact ? (
           <>
-            <div class="notice notice-success"><span class="notice-mark">✓</span><div><strong>GitHub Release 已发布</strong><p>{release.tag_name} 的版本信息和下载资产由 GitHub Release 提供。</p></div></div>
+            <p>下面这些值来自 GitHub Releases 已发布的产物元数据，你可以对着发行页逐条核对。</p>
             <ul>
-              <li>Release：<a href={release.html_url}>{release.name || release.tag_name}</a></li>
-              <li>类型：{release.prerelease ? "预发布版" : "正式版"}</li>
-              {target?.sha256 && <li>首个公开资产 SHA-256：<code>{target.sha256}</code></li>}
+              <li>渠道：<code>technical-preview-unsigned</code></li>
+              <li>版本：<code>{preview?.version}</code></li>
+              <li>平台：{publishedTarget.platformLabel} {publishedTarget.archLabel}</li>
+              <li>SHA-256：<code>{publishedArtifact.sha256}</code></li>
+              <li>签名与公证：尚未完成，因此不是 Stable。</li>
             </ul>
+            {/* 构建来源不在发行元数据里。原生构建与 cleanroom 复核由发布流程执行并记录在
+                仓库中，这个页面只声明它能证明的部分：已发布产物的摘要。 */}
+            <p class="prose-fine">原生构建与 cleanroom 复核的结论记录在发布流程里，不由这个页面代为断言。</p>
           </>
         ) : (
-          <div class="notice notice-warning"><span class="notice-mark">!</span><div><strong>尚无已发布版本</strong><p>当前没有可作为版本事实源的 GitHub Release。<a href={releasesPageUrl}>查看 Releases</a></p></div></div>
+          <p>当前渠道还没有已发布的产物，因此这里没有可核对的摘要。</p>
         )}
-        <h2 id="stable">Stable 门禁</h2>
-        <p>macOS 需要 Developer ID 签名、公证和 stapled ticket；Windows 需要有效 Authenticode；每个平台还必须有原生构建与 cleanroom 证据。平台可以独立进入 Stable，不用等待所有平台同时完成。</p>
-        <h2 id="excluded">明确排除</h2>
-        <ul><li>VPN、代理节点或绕过网络限制的指导；</li><li>共享 API Key、统一模型网关、模型/API 转售；</li><li>未授权 Agent 二进制和渠道定制包；</li><li>把未签名预览版描述为 Stable 或安全认证版本。</li></ul>
+
+        <div class="prose-aside">
+          <h2 id="stable">Stable 门禁</h2>
+          <p>每个平台各自达标后独立进入 Stable，不必等其他平台。</p>
+          <ul>
+            <li>macOS：Developer ID 签名、公证、stapled ticket</li>
+            <li>Windows：有效的 Authenticode 签名</li>
+            <li>所有平台：原生构建与 cleanroom 证据</li>
+          </ul>
+
+          <h2 id="excluded">明确排除</h2>
+          <p>这些不在产品范围内，也不会作为功能加进来：</p>
+          <ul>
+            <li>VPN、代理节点，或绕过网络限制的指导</li>
+            <li>共享 API Key、统一模型网关、模型或 API 转售</li>
+            <li>未授权的 Agent 二进制与渠道定制包</li>
+            <li>把未签名预览版说成 Stable 或安全认证版本</li>
+          </ul>
+        </div>
       </article>
-      <nav class="side-index" aria-label="本页目录"><a href="#local">本地执行</a><a href="#privacy">Key 与隐私</a><a href="#backups">权限与备份</a><a href="#distribution">同包分发</a><a href="#release-evidence">发行证据</a><a href="#stable">Stable 门禁</a><a href="#excluded">明确排除</a></nav>
+      <nav class="side-index" aria-label="本页目录"><a href="#local">数据位置</a><a href="#privacy">Key 去哪</a><a href="#backups">备份</a><a href="#distribution">同包分发</a><a href="#release-evidence">发行证据</a><a href="#stable">Stable 门禁</a><a href="#excluded">明确排除</a></nav>
     </div>
   </section>
 </BaseLayout>

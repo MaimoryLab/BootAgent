@@ -1,38 +1,56 @@
 ---
 import BrandMark from "./BrandMark.astro";
+import ThemeToggle from "./ThemeToggle.astro";
+import LocaleSwitch from "./LocaleSwitch.astro";
+import { bestLocaleFor, localeFromPath, localePath, routeWithoutLocale, switchesLanguage } from "../i18n";
+import { useTranslations } from "../i18n/ui";
 
 const pathname = Astro.url.pathname;
-const basePath = import.meta.env.BASE_URL;
-const withBase = (path: string) => `${basePath}${path.replace(/^\/+/, "")}`;
+const locale = localeFromPath(pathname);
+const t = useTranslations(locale);
+const href = (path: string) => localePath(bestLocaleFor(locale, path), path);
+/* The security and enterprise pages stay published and linked from the footer,
+   the release index and the demo's preview-gate result — they are just not
+   worth a top-level nav slot. */
 const nav = [
-  { path: "downloads/", label: "下载" },
-  { path: "quickstart/", label: "快速开始" },
-  { path: "agents/", label: "Agent" },
-  { path: "providers/", label: "Provider" },
-  { path: "security/", label: "安全" },
+  { path: "downloads/", label: t("nav.downloads") },
+  { path: "quickstart/", label: t("nav.quickstart") },
+  { path: "explore/", label: t("nav.explorer") },
 ];
-const active = (path: string) => pathname.includes(`/${path}`);
+// Compared on the locale-stripped route so /en/agents/ marks the same item as
+// /agents/ rather than matching on a substring of the full path.
+const route = routeWithoutLocale(pathname);
+const active = (path: string) =>
+  route === path ||
+  (path === "explore/" && (route === "agents/" || route.startsWith("agents/") || route === "providers/" || route.startsWith("providers/")));
 ---
 <header class="site-header">
   <div class="shell header-inner">
-    <a class="wordmark" href={withBase("")} aria-label="OneAgent 首页">
+    <a class="wordmark" href={href("")} aria-label={t("nav.home")}>
       <span class="wordmark-mark"><BrandMark size={24} /></span>
       <span>OneAgent</span>
     </a>
-    <nav class="desktop-nav" aria-label="主导航">
+    <nav class="desktop-nav" aria-label={t("nav.primary")}>
       {nav.map((item) => (
-        <a href={withBase(item.path)} aria-current={active(item.path) ? "page" : undefined}>{item.label}</a>
+        <a href={href(item.path)} aria-current={active(item.path) ? "page" : undefined}>
+          {item.label}
+          {switchesLanguage(locale, item.path) && <span class="lang-hint">{t("nav.chineseOnly")}</span>}
+        </a>
       ))}
     </nav>
     <div class="header-actions">
-      <a class="header-link" href={withBase("enterprise/")}>企业服务</a>
-      <a class="button button-small button-primary" href={withBase("downloads/")}>下载预览版</a>
+      <LocaleSwitch />
+      <ThemeToggle />
+      <a class:list={["button", "button-small", route === "" ? "button-secondary" : "button-primary"]} href={href("downloads/")}>{t("cta.download")}</a>
       <details class="mobile-menu">
-        <summary aria-label="打开导航菜单">菜单</summary>
-        <nav aria-label="移动端导航">
-          {nav.map((item) => <a href={withBase(item.path)}>{item.label}</a>)}
-          <a href={withBase("enterprise/")}>企业服务</a>
-          <a href={withBase("support/")}>支持</a>
+        <summary aria-label={t("nav.openMenu")}>{t("nav.menu")}</summary>
+        <nav aria-label={t("nav.mobile")}>
+          {[...nav, { path: "support/", label: t("nav.support") }].map((item) => (
+            <a href={href(item.path)}>
+              {item.label}
+              {switchesLanguage(locale, item.path) && <span class="lang-hint">{t("nav.chineseOnly")}</span>}
+            </a>
+          ))}
         </nav>
       </details>
     </div>

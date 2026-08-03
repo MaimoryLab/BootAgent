@@ -1,0 +1,10 @@
+{
+  "name": "OneAgent",
+  "short_name": "OneAgent",
+  "description": "A trustworthy local AI development environment activator.",
+  "start_url": "./",
+  "display": "browser",
+  "background_color": "#ececef",
+  "theme_color": "#ececef",
+  "icons": [{ "src": "favicon.svg", "type": "image/svg+xml", "sizes": "any" }]
+}

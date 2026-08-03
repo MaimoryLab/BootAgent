@@ -2,7 +2,10 @@
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import AgentMark from "../../components/AgentMark.astro";
 import { catalog } from "../../lib/catalog";
-import { agentDescriptions, groupLabels, protocolLabels } from "../../lib/content";
+import { protocolLabels } from "../../lib/content";
+import { localeFromPath } from "../../i18n";
+import { useCatalogLabels } from "../../i18n/catalog";
+const { agentDescriptions, groupLabels, agentFallbackDescription } = useCatalogLabels(localeFromPath(Astro.url.pathname));
 ---
 <BaseLayout title="Agent 兼容目录 — OneAgent" description="按安装、配置、协议和平台分别查看 OneAgent 对各 Agent 的真实支持范围。">
   <header class="page-hero">
@@ -14,12 +17,12 @@ import { agentDescriptions, groupLabels, protocolLabels } from "../../lib/conten
   <section class="section-compact">
     <div class="shell">
       <div class="notice notice-info" style="margin-bottom:34px"><span class="notice-mark">i</span><div><strong>guide-only 仍然是有效流程</strong><p>它表示 OneAgent 返回官方安装或配置指引并在 Review 中保留结果，而不是一个不可选择的禁用项。</p></div></div>
-      <div class="agent-list">
-        {catalog.agents.map((agent) => (
+      <div class="agent-list reveal">
+        {catalog.agents.map((agent: any) => (
           <a class="agent-row" href={`agents/${agent.id}/`}>
             <AgentMark id={agent.id} name={agent.name} />
             <div><strong>{agent.name}</strong><span class="agent-meta">{groupLabels[agent.group] ?? agent.group}{agent.lockedVersion ? ` · ${agent.lockedVersion}` : ""}</span></div>
-            <span class="agent-meta">{agentDescriptions[agent.id] ?? "按项目公开能力提供安装或配置支持。"}</span>
+            <span class="agent-meta">{agentDescriptions[agent.id] ?? agentFallbackDescription}</span>
             <div class="agent-status">
               {agent.support.managedInstall ? <span class="chip chip-green">管理安装</span> : <span class="chip">官方引导</span>}
               {agent.support.managedConfig ? <span class="chip chip-blue">管理配置</span> : <span class="chip">官方配置</span>}

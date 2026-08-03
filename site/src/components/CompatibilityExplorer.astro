@@ -1,0 +1,609 @@
+---
+import AgentMark from "./AgentMark.astro";
+import { catalog } from "../lib/catalog";
+import { localeFromPath, localePath } from "../i18n";
+import { useCatalogLabels } from "../i18n/catalog";
+import { protocolLabels } from "../lib/content";
+import { demoStateFor } from "../lib/demo-environment";
+import { compatibilityFor, type Compatibility } from "../lib/explorer";
+
+const locale = localeFromPath(Astro.url.pathname);
+const { agentDescriptions, groupLabels, agentFallbackDescription } = useCatalogLabels(locale);
+const technicalHref = (agentId: string) => localePath("zh-CN", `agents/${agentId}/`);
+const providerHref = (providerId: string) => localePath("zh-CN", `providers/${providerId}/`);
+const copy = locale === "en"
+  ? {
+      filters: "Explorer filters",
+      platform: "Platform",
+      setup: "Install path",
+      config: "Configuration",
+      protocol: "Protocol",
+      provider: "Provider",
+      demo: "Demo state",
+      all: "All",
+      managedInstall: "Managed install",
+      officialGuide: "Official guide",
+      managedConfig: "Managed config",
+      officialConfig: "Official config",
+      ready: "Ready",
+      attention: "Needs attention",
+      notInstalled: "Not installed",
+      clear: "Clear filters",
+      results: "agents shown",
+      noResults: "No agent matches this combination.",
+      noResultsBody: "Clear a filter or choose a provider that implements the selected protocol.",
+      sample: "Demo state",
+      locked: "Locked",
+      officialRelease: "Official release",
+      open: "Open details for",
+      close: "Close details",
+      overview: "Environment example",
+      installState: "Example install state",
+      configState: "Example config state",
+      lockedVersion: "Catalog version",
+      configPath: "Configuration path",
+      command: "Launch command",
+      backup: "Example backup",
+      backupYes: "Available",
+      backupNo: "None yet",
+      installed: "Installed",
+      configured: "Configured",
+      needsSetup: "Needs setup",
+      providerCompatibility: "Provider compatibility",
+      capability: "Activation boundary",
+      managedBoundary: "OneAgent can manage this agent's configuration and backs up an existing file before a managed write.",
+      guideBoundary: "This agent stays in its official install, sign-in or extension flow. OneAgent does not write private configuration for it.",
+      technical: "Technical reference (Chinese)",
+      source: "Upstream source",
+      providerReference: "Provider reference (Chinese)",
+      illustrative: "Illustrative machine state; catalog capabilities are real.",
+      compatibility: {
+        verified: "Verified",
+        supported: "Implementation supported",
+        "preview-gate": "Release candidate required",
+        unsupported: "Unsupported",
+      } as Record<Compatibility, string>,
+    }
+  : {
+      filters: "配置筛选",
+      platform: "平台",
+      setup: "安装路径",
+      config: "配置方式",
+      protocol: "协议",
+      provider: "Provider",
+      demo: "示例状态",
+      all: "全部",
+      managedInstall: "托管安装",
+      officialGuide: "官方引导",
+      managedConfig: "托管配置",
+      officialConfig: "官方配置",
+      ready: "Ready",
+      attention: "需处理",
+      notInstalled: "未安装",
+      clear: "清除筛选",
+      results: "个 Agent",
+      noResults: "没有 Agent 匹配这组条件。",
+      noResultsBody: "清除一个筛选，或选择实现了目标协议的 Provider。",
+      sample: "示例状态",
+      locked: "锁定",
+      officialRelease: "官方发行",
+      open: "打开详情：",
+      close: "关闭详情",
+      overview: "环境示例",
+      installState: "示例安装状态",
+      configState: "示例配置状态",
+      lockedVersion: "目录版本",
+      configPath: "配置位置",
+      command: "启动命令",
+      backup: "示例备份",
+      backupYes: "已有",
+      backupNo: "暂无",
+      installed: "已安装",
+      configured: "已配置",
+      needsSetup: "待配置",
+      providerCompatibility: "Provider 兼容性",
+      capability: "激活边界",
+      managedBoundary: "OneAgent 可以管理这个 Agent 的配置，并会在托管写入前备份已有文件。",
+      guideBoundary: "这个 Agent 保留官方安装、登录或扩展内流程；OneAgent 不写入它的私有配置。",
+      technical: "技术详情",
+      source: "上游源码",
+      providerReference: "Provider 详情",
+      illustrative: "机器状态属于示例；目录能力来自真实数据。",
+      compatibility: {
+        verified: "已验证",
+        supported: "实现支持",
+        "preview-gate": "需发布候选验证",
+        unsupported: "不支持",
+      } as Record<Compatibility, string>,
+    };
+
+const demoLabel = (status: string) => status === "ready"
+  ? copy.ready
+  : status === "attention"
+    ? copy.attention
+    : status === "guide-only"
+      ? copy.officialGuide
+      : copy.notInstalled;
+---
+<compatibility-explorer data-locale={locale}>
+  <section class="explorer-toolbar" aria-label={copy.filters}>
+    <label class="explorer-filter">
+      <span>{copy.platform}</span>
+      <select data-filter="platform">
+        <option value="">{copy.all}</option>
+        <option value="macos">macOS</option>
+        <option value="linux">Linux</option>
+        <option value="windows">Windows</option>
+      </select>
+    </label>
+    <label class="explorer-filter">
+      <span>{copy.setup}</span>
+      <select data-filter="setup">
+        <option value="">{copy.all}</option>
+        <option value="managed">{copy.managedInstall}</option>
+        <option value="guide">{copy.officialGuide}</option>
+      </select>
+    </label>
+    <label class="explorer-filter">
+      <span>{copy.config}</span>
+      <select data-filter="config">
+        <option value="">{copy.all}</option>
+        <option value="managed">{copy.managedConfig}</option>
+        <option value="official">{copy.officialConfig}</option>
+      </select>
+    </label>
+    <label class="explorer-filter">
+      <span>{copy.protocol}</span>
+      <select data-filter="protocol">
+        <option value="">{copy.all}</option>
+        <option value="openai">{protocolLabels.openai}</option>
+        <option value="anthropic">{protocolLabels.anthropic}</option>
+        <option value="responses">{protocolLabels.responses}</option>
+      </select>
+    </label>
+    <label class="explorer-filter">
+      <span>{copy.provider}</span>
+      <select data-filter="provider">
+        <option value="">{copy.all}</option>
+        {catalog.providers.map((provider) => <option value={provider.id}>{provider.name}</option>)}
+      </select>
+    </label>
+    <label class="explorer-filter">
+      <span>{copy.demo}</span>
+      <select data-filter="demo">
+        <option value="">{copy.all}</option>
+        <option value="ready">{copy.ready}</option>
+        <option value="attention">{copy.attention}</option>
+        <option value="guide-only">{copy.officialGuide}</option>
+        <option value="not-installed">{copy.notInstalled}</option>
+      </select>
+    </label>
+    <button class="button button-secondary explorer-clear" type="button" data-clear-filters>{copy.clear}</button>
+  </section>
+
+  <div class="explorer-result-line" aria-live="polite">
+    <strong data-result-count>{catalog.agents.length}</strong>
+    <span>{copy.results}</span>
+    <span aria-hidden="true">·</span>
+    <span>{copy.illustrative}</span>
+  </div>
+
+  <div class="explorer-grid" data-explorer-grid>
+    {catalog.agents.map((agent) => {
+      const demo = demoStateFor(agent);
+      const providers = catalog.providers
+        .filter((provider) => compatibilityFor(agent, provider) !== "unsupported")
+        .map((provider) => provider.id);
+      return (
+        <button
+          type="button"
+          class="explorer-card"
+          data-agent-card
+          data-agent-id={agent.id}
+          data-platforms={agent.platforms.join(" ")}
+          data-setup={agent.support.managedInstall ? "managed" : "guide"}
+          data-config={agent.support.managedConfig ? "managed" : "official"}
+          data-protocol={agent.protocol ?? ""}
+          data-providers={providers.join(" ")}
+          data-demo-status={demo.status}
+          aria-label={`${copy.open} ${agent.name}`}
+        >
+          <span class="explorer-card-head">
+            <AgentMark id={agent.id} name={agent.name} size={34} />
+            <span><strong>{agent.name}</strong><small>{groupLabels[agent.group] ?? agent.group}</small></span>
+            <span class:list={["explorer-demo-state", `is-${demo.status}`]}>{demoLabel(demo.status)}</span>
+          </span>
+          <span class="explorer-description">{agentDescriptions[agent.id] ?? agentFallbackDescription}</span>
+          <span class="explorer-chips">
+            <span class:list={["chip", agent.support.managedInstall && "chip-green"]}>{agent.support.managedInstall ? copy.managedInstall : copy.officialGuide}</span>
+            <span class:list={["chip", agent.support.managedConfig && "chip-blue"]}>{agent.support.managedConfig ? copy.managedConfig : copy.officialConfig}</span>
+            {agent.protocol && <span class="chip">{protocolLabels[agent.protocol]}</span>}
+          </span>
+          <span class="explorer-card-foot">
+            <span>{agent.lockedVersion ? `${copy.locked} ${agent.lockedVersion}` : copy.officialRelease}</span>
+            <span aria-hidden="true">↗</span>
+          </span>
+        </button>
+      );
+    })}
+  </div>
+
+  <div class="explorer-empty" data-explorer-empty hidden>
+    <strong>{copy.noResults}</strong>
+    <p>{copy.noResultsBody}</p>
+  </div>
+
+  <div hidden data-detail-templates>
+    {catalog.agents.map((agent) => {
+      const demo = demoStateFor(agent);
+      const version = demo.version === "locked"
+        ? agent.lockedVersion
+        : demo.version === "behind" && agent.lockedVersion
+          ? `< ${agent.lockedVersion}`
+          : agent.lockedVersion;
+      return (
+        <template data-agent-template={agent.id}>
+          <article class="drawer-content">
+            <header class="drawer-head">
+              <AgentMark id={agent.id} name={agent.name} size={44} />
+              <div>
+                <span class="activation-state-label">{copy.sample}</span>
+                <h2 id="explorer-drawer-title">{agent.name}</h2>
+                <p>{agentDescriptions[agent.id] ?? agentFallbackDescription}</p>
+              </div>
+              <span class:list={["explorer-demo-state", `is-${demo.status}`]}>{demoLabel(demo.status)}</span>
+            </header>
+
+            <section class="drawer-section">
+              <h3>{copy.overview}</h3>
+              <dl class="drawer-facts">
+                <div><dt>{copy.installState}</dt><dd>{demo.installed ? copy.installed : copy.notInstalled}</dd></div>
+                <div><dt>{copy.configState}</dt><dd>{demo.configured ? copy.configured : agent.support.officialInstallGuide ? copy.officialGuide : copy.needsSetup}</dd></div>
+                <div><dt>{copy.lockedVersion}</dt><dd>{version ?? copy.officialRelease}</dd></div>
+                <div><dt>{copy.backup}</dt><dd>{demo.hasBackup ? copy.backupYes : copy.backupNo}</dd></div>
+                <div><dt>{copy.configPath}</dt><dd><code>{agent.configPath ?? "—"}</code></dd></div>
+                <div><dt>{copy.command}</dt><dd><code>{agent.command ?? "—"}</code></dd></div>
+              </dl>
+            </section>
+
+            <section class="drawer-section">
+              <h3>{copy.providerCompatibility}</h3>
+              <div class="drawer-provider-list">
+                {catalog.providers.map((provider) => {
+                  const compatibility = compatibilityFor(agent, provider);
+                  return (
+                    <a href={providerHref(provider.id)} aria-label={`${provider.name} — ${copy.providerReference}`}>
+                      <span><strong>{provider.name}</strong><small>{agent.protocol ? protocolLabels[agent.protocol] : copy.officialGuide}{locale === "en" ? " · Chinese reference" : ""}</small></span>
+                      <span class:list={["drawer-compatibility", `is-${compatibility}`]}>{copy.compatibility[compatibility]}</span>
+                    </a>
+                  );
+                })}
+              </div>
+            </section>
+
+            <section class="drawer-section drawer-boundary">
+              <h3>{copy.capability}</h3>
+              <p>{agent.support.managedConfig ? copy.managedBoundary : copy.guideBoundary}</p>
+            </section>
+
+            <footer class="drawer-actions">
+              <a class="button button-primary" href={technicalHref(agent.id)}>{copy.technical}</a>
+              {agent.source && <a class="button button-secondary" href={agent.source} rel="noreferrer">{copy.source}</a>}
+            </footer>
+          </article>
+        </template>
+      );
+    })}
+  </div>
+
+  <dialog class="explorer-drawer" data-explorer-drawer aria-labelledby="explorer-drawer-title">
+    <div class="drawer-shell">
+      <button class="drawer-close" type="button" data-close-drawer aria-label={copy.close}>×</button>
+      <div data-drawer-slot></div>
+    </div>
+  </dialog>
+</compatibility-explorer>
+
+<script>
+  import { catalog } from "../lib/catalog";
+  import {
+    parseExplorerSearch,
+    serializeExplorerSearch,
+    type ExplorerSearchState,
+  } from "../lib/explorer";
+
+
+  class CompatibilityExplorerElement extends HTMLElement {
+    abort = new AbortController();
+    selectedAgent: string | null = null;
+    lastTrigger: HTMLElement | null = null;
+    suppressCloseUrl = false;
+
+    connectedCallback() {
+      if (this.dataset.initialized === "true") return;
+      this.dataset.initialized = "true";
+      const signal = this.abort.signal;
+      this.querySelectorAll<HTMLSelectElement>("[data-filter]").forEach((control) => {
+        control.addEventListener("change", () => this.filtersChanged(), { signal });
+      });
+      this.querySelector<HTMLButtonElement>("[data-clear-filters]")?.addEventListener("click", () => this.clearFilters(), { signal });
+      this.querySelectorAll<HTMLButtonElement>("[data-agent-card]").forEach((card) => {
+        card.addEventListener("click", () => this.openAgent(card.dataset.agentId || "", card), { signal });
+      });
+      this.querySelector<HTMLButtonElement>("[data-close-drawer]")?.addEventListener("click", () => this.drawer?.close(), { signal });
+      this.drawer?.addEventListener("close", () => this.drawerClosed(), { signal });
+      window.addEventListener("popstate", () => this.applyUrl(), { signal });
+      this.applyUrl();
+    }
+
+    disconnectedCallback() {
+      this.abort.abort();
+    }
+
+    get drawer() {
+      return this.querySelector<HTMLDialogElement>("[data-explorer-drawer]");
+    }
+
+    get locale() {
+      return this.dataset.locale === "en" ? "en" : "zh-CN";
+    }
+
+    control(name: string) {
+      return this.querySelector<HTMLSelectElement>(`[data-filter="${name}"]`);
+    }
+
+    applyUrl() {
+      const state = parseExplorerSearch(window.location.search, catalog);
+      this.setControl("platform", state.platform ?? "");
+      this.setControl("protocol", state.protocol ?? "");
+      this.setControl("provider", state.provider ?? "");
+      this.selectedAgent = state.agent;
+      this.filterCards();
+      if (state.agent) this.openAgent(state.agent, null, false);
+      else if (this.drawer?.open) {
+        this.suppressCloseUrl = true;
+        this.drawer.close();
+      }
+    }
+
+    setControl(name: string, value: string) {
+      const control = this.control(name);
+      if (control) control.value = value;
+    }
+
+    currentSearch(agent = this.selectedAgent): ExplorerSearchState {
+      return {
+        agent,
+        provider: this.control("provider")?.value || null,
+        platform: (this.control("platform")?.value || null) as ExplorerSearchState["platform"],
+        protocol: (this.control("protocol")?.value || null) as ExplorerSearchState["protocol"],
+      };
+    }
+
+    filtersChanged() {
+      const sanitized = parseExplorerSearch(`?${serializeExplorerSearch(this.currentSearch())}`, catalog);
+      this.selectedAgent = sanitized.agent;
+      this.setControl("platform", sanitized.platform ?? "");
+      this.setControl("protocol", sanitized.protocol ?? "");
+      this.setControl("provider", sanitized.provider ?? "");
+      this.writeUrl(sanitized);
+      this.filterCards();
+    }
+
+    clearFilters() {
+      this.querySelectorAll<HTMLSelectElement>("[data-filter]").forEach((control) => {
+        control.value = "";
+      });
+      this.selectedAgent = null;
+      if (this.drawer?.open) this.drawer.close();
+      this.writeUrl(this.currentSearch(null));
+      this.filterCards();
+      this.control("platform")?.focus();
+    }
+
+    filterCards() {
+      const platform = this.control("platform")?.value || "";
+      const setup = this.control("setup")?.value || "";
+      const config = this.control("config")?.value || "";
+      const protocol = this.control("protocol")?.value || "";
+      const provider = this.control("provider")?.value || "";
+      const demo = this.control("demo")?.value || "";
+      let visible = 0;
+
+      this.querySelectorAll<HTMLButtonElement>("[data-agent-card]").forEach((card) => {
+        const matches = (!platform || (card.dataset.platforms || "").split(" ").includes(platform))
+          && (!setup || card.dataset.setup === setup)
+          && (!config || card.dataset.config === config)
+          && (!protocol || card.dataset.protocol === protocol)
+          && (!provider || (card.dataset.providers || "").split(" ").includes(provider))
+          && (!demo || card.dataset.demoStatus === demo);
+        card.hidden = !matches;
+        card.classList.toggle("is-selected", card.dataset.agentId === this.selectedAgent);
+        if (matches) visible += 1;
+      });
+
+      const count = this.querySelector<HTMLElement>("[data-result-count]");
+      if (count) count.textContent = String(visible);
+      const empty = this.querySelector<HTMLElement>("[data-explorer-empty]");
+      if (empty) empty.hidden = visible !== 0;
+    }
+
+    openAgent(agentId: string, trigger: HTMLElement | null, updateUrl = true) {
+      const agent = catalog.agents.find((candidate) => candidate.id === agentId);
+      const template = this.querySelector<HTMLTemplateElement>(`template[data-agent-template="${agentId}"]`);
+      const slot = this.querySelector<HTMLElement>("[data-drawer-slot]");
+      if (!agent || !template || !slot || !this.drawer) return;
+
+      const sanitized = parseExplorerSearch(`?${serializeExplorerSearch(this.currentSearch(agentId))}`, catalog);
+      this.selectedAgent = agentId;
+      this.setControl("platform", sanitized.platform ?? "");
+      this.setControl("protocol", sanitized.protocol ?? "");
+      this.setControl("provider", sanitized.provider ?? "");
+      slot.replaceChildren(template.content.cloneNode(true));
+      this.lastTrigger = trigger;
+      this.filterCards();
+      if (!this.drawer.open) this.drawer.showModal();
+      this.querySelector<HTMLButtonElement>("[data-close-drawer]")?.focus();
+      if (updateUrl) this.writeUrl({ ...sanitized, agent: agentId });
+    }
+
+    drawerClosed() {
+      if (this.suppressCloseUrl) {
+        this.suppressCloseUrl = false;
+        return;
+      }
+      this.selectedAgent = null;
+      this.filterCards();
+      this.writeUrl(this.currentSearch(null));
+      this.lastTrigger?.focus();
+      this.lastTrigger = null;
+    }
+
+    writeUrl(state: ExplorerSearchState) {
+      const query = serializeExplorerSearch(state);
+      const next = `${window.location.pathname}${query ? `?${query}` : ""}`;
+      window.history.replaceState({}, "", next);
+    }
+  }
+
+  if (!customElements.get("compatibility-explorer")) {
+    customElements.define("compatibility-explorer", CompatibilityExplorerElement);
+  }
+</script>
+
+<style>
+  compatibility-explorer { display: block; }
+  .explorer-toolbar {
+    padding: 18px;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+    gap: 12px;
+    align-items: end;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-panel);
+    background: var(--surface);
+    box-shadow: var(--shadow-lift);
+  }
+  .explorer-filter { min-width: 0; display: grid; gap: 7px; }
+  .explorer-filter > span { color: var(--ink-faint); font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+  .explorer-filter select {
+    width: 100%;
+    min-height: 42px;
+    padding: 0 34px 0 11px;
+    color: var(--ink);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-control);
+    background: var(--paper-strong);
+    font: 600 13px/1 system-ui, sans-serif;
+  }
+  .explorer-clear { grid-column: 4; grid-row: 1 / span 2; align-self: stretch; }
+  .explorer-result-line { margin: 24px 0 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 7px; color: var(--ink-faint); font-size: 13px; }
+  .explorer-result-line strong { color: var(--ink); font-size: 16px; }
+  .explorer-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+  .explorer-card {
+    min-width: 0;
+    min-height: 254px;
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    text-align: left;
+    color: var(--ink);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-panel);
+    background: var(--surface);
+    cursor: pointer;
+  }
+  .explorer-card:hover, .explorer-card.is-selected { border-color: var(--blue); box-shadow: var(--shadow-lift); }
+  .explorer-card-head { display: grid; grid-template-columns: 38px minmax(0, 1fr) auto; align-items: center; gap: 11px; }
+  .explorer-card-head > span:nth-child(2) { min-width: 0; display: grid; gap: 3px; }
+  .explorer-card-head strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 16px; }
+  .explorer-card-head small { color: var(--ink-faint); font-size: 11px; }
+  .explorer-demo-state { padding: 5px 7px; border-radius: 999px; color: var(--ink-soft); background: var(--surface-muted); font-size: 9px; font-weight: 750; white-space: nowrap; }
+  .explorer-demo-state.is-ready { color: var(--green); background: var(--green-soft); }
+  .explorer-demo-state.is-attention, .explorer-demo-state.is-guide-only { color: var(--orange); background: var(--orange-soft); }
+  .explorer-description { margin-top: 18px; color: var(--ink-soft); font-size: 13px; line-height: 1.5; }
+  .explorer-chips { margin-top: 16px; display: flex; flex-wrap: wrap; gap: 6px; }
+  .explorer-card-foot { margin-top: auto; padding-top: 18px; display: flex; justify-content: space-between; gap: 12px; color: var(--ink-faint); font: 600 11px/1.3 ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .explorer-empty { padding: 64px 24px; text-align: center; border: 1px dashed var(--line-strong); border-radius: var(--radius-panel); }
+  .explorer-empty strong { font-size: 20px; }
+  .explorer-empty p { margin: 8px 0 0; color: var(--ink-soft); }
+  .explorer-drawer {
+    width: min(580px, 100%);
+    height: 100%;
+    max-width: none;
+    max-height: none;
+    margin: 0 0 0 auto;
+    padding: 0;
+    overflow: hidden;
+    color: var(--ink);
+    border: 0;
+    border-left: 1px solid var(--line-strong);
+    background: var(--surface);
+    box-shadow: -24px 0 70px rgba(0, 0, 0, .22);
+  }
+  .explorer-drawer::backdrop { background: rgba(8, 13, 17, .52); backdrop-filter: blur(3px); }
+  .drawer-shell { height: 100%; position: relative; overflow: auto; }
+  .drawer-close {
+    width: 38px;
+    height: 38px;
+    position: sticky;
+    top: 14px;
+    float: right;
+    margin: 14px 16px -52px 0;
+    z-index: 2;
+    border: 1px solid var(--line);
+    border-radius: 50%;
+    color: var(--ink);
+    background: color-mix(in srgb, var(--surface) 88%, transparent);
+    backdrop-filter: blur(12px);
+    font-size: 24px;
+    cursor: pointer;
+  }
+  .drawer-content { padding: 54px 34px 36px; }
+  .drawer-head { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; align-items: start; gap: 14px; }
+  .drawer-head h2 { margin: 5px 0 0; font-size: 30px; line-height: 1.1; }
+  .drawer-head p { margin: 10px 0 0; color: var(--ink-soft); font-size: 14px; line-height: 1.5; }
+  .drawer-section { margin-top: 34px; padding-top: 24px; border-top: 1px solid var(--line); }
+  .drawer-section h3 { margin: 0 0 15px; font-size: 17px; }
+  .drawer-facts { margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; border: 1px solid var(--line); background: var(--line); }
+  .drawer-facts div { min-width: 0; padding: 13px; background: var(--paper-strong); }
+  .drawer-facts dt { color: var(--ink-faint); font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+  .drawer-facts dd { margin: 6px 0 0; overflow-wrap: anywhere; font-size: 13px; }
+  .drawer-facts code { font-size: 11px; }
+  .drawer-provider-list { display: grid; border-top: 1px solid var(--line); }
+  .drawer-provider-list a { padding: 13px 2px; display: flex; align-items: center; justify-content: space-between; gap: 16px; border-bottom: 1px solid var(--line); }
+  .drawer-provider-list a > span:first-child { display: grid; gap: 3px; }
+  .drawer-provider-list strong { font-size: 13px; }
+  .drawer-provider-list small { color: var(--ink-faint); font-size: 10px; }
+  .drawer-compatibility { font-size: 10px; font-weight: 750; }
+  .drawer-compatibility.is-verified, .drawer-compatibility.is-supported { color: var(--green); }
+  .drawer-compatibility.is-preview-gate { color: var(--orange); }
+  .drawer-compatibility.is-unsupported { color: var(--red); }
+  .drawer-boundary { padding: 18px; border: 1px solid var(--line); border-radius: var(--radius-panel); background: var(--paper-strong); }
+  .drawer-boundary p { margin: 0; color: var(--ink-soft); font-size: 13px; line-height: 1.55; }
+  .drawer-actions { margin-top: 28px; display: flex; flex-wrap: wrap; gap: 9px; }
+
+  @media not (prefers-reduced-motion: reduce) {
+    .explorer-card { transition: transform var(--dur-micro) var(--ease-apple), border-color var(--dur-micro) var(--ease-apple), box-shadow var(--dur-micro) var(--ease-apple); }
+    .explorer-card:hover { transform: translateY(-2px); }
+    .explorer-drawer[open] { animation: drawer-in 260ms var(--ease-enter) both; }
+  }
+  @keyframes drawer-in { from { transform: translateX(28px); } }
+
+  @media (max-width: 980px) {
+    .explorer-toolbar { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .explorer-clear { grid-column: auto; grid-row: auto; }
+    .explorer-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (max-width: 680px) {
+    .explorer-toolbar { grid-template-columns: 1fr 1fr; padding: 14px; }
+    .explorer-clear { grid-column: 1 / -1; }
+    .explorer-grid { grid-template-columns: 1fr; }
+    .explorer-card { min-height: 228px; }
+    .explorer-drawer { width: 100%; border-left: 0; }
+    .drawer-content { padding: 56px 18px 28px; }
+    .drawer-head { grid-template-columns: 48px minmax(0, 1fr); }
+    .drawer-head > .explorer-demo-state { grid-column: 2; justify-self: start; }
+    .drawer-facts { grid-template-columns: 1fr; }
+  }
+</style>

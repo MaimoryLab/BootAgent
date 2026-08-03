@@ -1,26 +1,19 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
-import { formatDate, getPublishedReleases, releasesPageUrl } from "../../lib/downloads";
-const releases = await getPublishedReleases();
-const latest = releases[0] ?? null;
 ---
 <BaseLayout title="更新日志 — OneAgent" description="OneAgent 的版本变化、发行状态和已知限制。">
   <header class="page-hero">
     <div class="shell page-hero-grid">
       <div><nav class="breadcrumb" aria-label="面包屑"><a href="">首页</a> / 更新日志</nav><p class="eyebrow">Release notes</p><h1 class="page-title">只记录已经发生的变化。</h1></div>
-      <div class="page-hero-aside"><strong>{latest?.tag_name ?? "尚未发布"}</strong>版本与发布日期仅以 GitHub Release 为准。</div>
+      <div class="page-hero-aside"><strong>0.2.0-dev</strong>当前仍是开发中的未签名技术预览版；以下记录不是 Stable 发布承诺。</div>
     </div>
   </header>
   <section class="section-compact">
-    <div class="wide-narrow timeline">
-      {releases.length ? releases.map((release) => (
-        <article class="timeline-item">
-          <div class="timeline-date">{formatDate(release.published_at)}<br />{release.tag_name}</div>
-          <div><span class:list={["chip", release.prerelease ? "chip-blue" : "chip-green"]}>{release.prerelease ? "预发布" : "正式发布"}</span><h2>{release.name || release.tag_name}</h2><p><a class="button button-text" href={release.html_url}>查看发行说明 →</a></p></div>
-        </article>
-      )) : (
-        <article class="timeline-item"><div class="timeline-date">GitHub Releases</div><div><h2>尚无已发布版本</h2><p>开发分支和本地构建不作为公开版本记录。</p><a class="button button-text" href={releasesPageUrl}>查看 GitHub Releases →</a></div></article>
-      )}
+    <div class="wide-narrow timeline reveal">
+      <article class="timeline-item"><div class="timeline-date">2026-07-28<br />0.2.0-dev</div><div><span class="chip chip-blue">开发中</span><h2>可信分发站与发行事实层</h2><ul><li>新增由平台 manifest、SHA256SUMS 和渠道配置生成的公开发行索引。</li><li>macOS arm64 产物完成精确 SHA-256 对应的原生 cleanroom 复核。</li><li>新增独立公开网站，不改变本地 Launcher 打包与运行方式。</li></ul></div></article>
+      <article class="timeline-item"><div class="timeline-date">2026-07-28<br />af14f3e</div><div><h2>选择页排序与总览一致</h2><ul><li>按 rank 划分首屏 Agent，避免使用 group 代替用户认知排序。</li><li>guide-only Agent 继续可选择并在 Review 中返回引导结果。</li></ul></div></article>
+      <article class="timeline-item"><div class="timeline-date">2026-07-27<br />1cf37bf</div><div><h2>记录 CC Switch 表单研究的正确边界</h2><ul><li>确认共享编排器与专属字段区块并存，而不是每个 Agent 完全复制一套表单。</li><li>暂缓按底层配置格式拆分 OneAgent 表单，只响应真实用户选择。</li></ul></div></article>
+      <article class="timeline-item"><div class="timeline-date">2026-07-27<br />30d2eae</div><div><h2>使用各 Agent 已发布的标识</h2><ul><li>图标用于识别，不把第三方标识改造成 OneAgent 品牌资产。</li><li>来源与许可记录保留在项目中。</li></ul></div></article>
     </div>
   </section>
 </BaseLayout>

@@ -1,0 +1,90 @@
+---
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { localePath } from "../../../i18n";
+import { getPreviewChannel } from "../../../lib/release-channel";
+const preview = await getPreviewChannel();
+const publishedTarget = preview?.targets.find((target) => target.status === "available") ?? null;
+const publishedArtifact = publishedTarget?.artifacts.find((artifact) => artifact.kind === "binary") ?? null;
+/* The heading ids are shared with the Chinese page on purpose: release-index.json
+   points privacy_policy at security/#privacy and every target's evidence link at
+   security/#release-evidence, and those anchors have to resolve in both locales. */
+---
+<BaseLayout
+  title="Security, privacy and release integrity — OneAgent"
+  description="How OneAgent runs locally, where API keys go, how configuration is backed up, why every channel ships the same build, and what the unsigned preview does not claim."
+>
+  <header class="page-hero">
+    <div class="shell page-hero-grid">
+      <div><nav class="breadcrumb" aria-label="Breadcrumb"><a href={localePath("en", "")}>Home</a> / Security</nav><p class="eyebrow">Trust is inspectable</p><h1 class="page-title">Every boundary here is one you can check yourself.</h1></div>
+      <div class="page-hero-aside"><strong>No cloud account, no traffic relay</strong>Your key goes straight to the provider you picked. Configuration and backups stay on your machine. No application telemetry is collected by default.</div>
+    </div>
+  </header>
+  <section class="section-compact">
+    <div class="shell content-grid reveal">
+      <article class="prose">
+        <h2 id="local">Your data stays on your device</h2>
+        <p>The interface and the API both run on a loopback address. Configuration, backups and state are written on your machine.</p>
+        <p>The local service is not a control plane for anything outside it.</p>
+
+        <h2 id="privacy">A key only goes where it has to</h2>
+        <p>An API key is written to the one file the target agent needs to work: its own configuration, or OneAgent's environment file.</p>
+        <p>Keys never appear in the OneAgent profile, logs, screenshots, web analytics events, or command-line arguments.</p>
+        <p>Where it lands depends on the agent and the operating system. These are the common ones:</p>
+        <ul>
+          <li><code>~/.codex/config.toml</code></li>
+          <li><code>~/.claude/settings.json</code></li>
+          <li><code>~/.config/opencode/opencode.jsonc</code></li>
+          <li><code>~/.config/kilo/kilo.jsonc</code></li>
+          <li><code>~/.oneagent/</code></li>
+        </ul>
+        <p>The launcher lists the real paths before and after every write.</p>
+
+        <h2 id="backups">A backup comes before any change</h2>
+        <p>Before modifying existing configuration, OneAgent writes a timestamped backup.</p>
+        <p>Configuration directories and files holding a key are readable only by the current user. The cleanroom check confirms the real user directory was untouched by the test run.</p>
+
+        <h2 id="distribution">Every channel ships the same package</h2>
+        <p>This site, GitHub Releases, a file host and an internal drive all distribute the identical official build. For a given version, the contents and the SHA-256 match.</p>
+        <p>Channels do not repackage, append promotional content, or re-sign.</p>
+        <p>Third-party agent binaries are not redistributed by OneAgent. They come from the official installer, a mirror with written permission, or your own manual install.</p>
+
+        <h2 id="release-evidence">Current release evidence</h2>
+        {publishedTarget && publishedArtifact ? (
+          <>
+            <p>These values come from the published release metadata on GitHub Releases, so you can check each one against the release page itself.</p>
+            <ul>
+              <li>Channel: <code>technical-preview-unsigned</code></li>
+              <li>Version: <code>{preview?.version}</code></li>
+              <li>Platform: {publishedTarget.platformLabel} {publishedTarget.archLabel}</li>
+              <li>SHA-256: <code>{publishedArtifact.sha256}</code></li>
+              <li>Signing and notarisation: not yet complete, so this is not stable.</li>
+            </ul>
+            <p class="prose-fine">Whether the build was native, and whether a cleanroom run passed, is recorded by the release process — this page does not assert it on the release process's behalf.</p>
+          </>
+        ) : (
+          <p>No artifact has been published on this channel yet, so there is no digest here to check.</p>
+        )}
+
+        <div class="prose-aside">
+          <h2 id="stable">The stable gate</h2>
+          <p>Each platform reaches stable on its own once it qualifies, without waiting for the others.</p>
+          <ul>
+            <li>macOS: Developer ID signature, notarisation, stapled ticket</li>
+            <li>Windows: a valid Authenticode signature</li>
+            <li>Every platform: a native build and cleanroom evidence</li>
+          </ul>
+
+          <h2 id="excluded">Explicitly out of scope</h2>
+          <p>These are not part of the product, and will not be added as features:</p>
+          <ul>
+            <li>VPNs, proxy nodes, or instructions for getting around network restrictions</li>
+            <li>Shared API keys, a unified model gateway, reselling models or API access</li>
+            <li>Unauthorised agent binaries and channel-customised packages</li>
+            <li>Describing an unsigned preview as stable or as security-certified</li>
+          </ul>
+        </div>
+      </article>
+      <nav class="side-index" aria-label="On this page"><a href="#local">Where data lives</a><a href="#privacy">Where keys go</a><a href="#backups">Backups</a><a href="#distribution">One package</a><a href="#release-evidence">Release evidence</a><a href="#stable">Stable gate</a><a href="#excluded">Out of scope</a></nav>
+    </div>
+  </section>
+</BaseLayout>

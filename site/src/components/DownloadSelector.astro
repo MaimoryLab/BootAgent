@@ -1,83 +1,203 @@
 ---
-import {
-  formatBytes,
-  formatDate,
-  getLatestRelease,
-  releaseTargets,
-  releasesPageUrl,
-} from "../lib/downloads";
+import { bestLocaleFor, localeFromPath, localePath } from "../i18n";
+import { formatBytes, formatDate } from "../lib/downloads";
+import { binaryArtifact, getPreviewChannel, primaryDownload } from "../lib/release-channel";
 
-const release = await getLatestRelease();
-const targets = release ? releaseTargets(release) : [];
-const defaultTarget = targets[0] ?? null;
+/* Everything below reads off a channel: the platform picker, the checksum, the
+   size. With no release published there is nothing to pick between, so the
+   component renders a single "not published yet" notice instead of four empty
+   panels that look like a broken page. */
+const channel = await getPreviewChannel();
+const defaultTarget = channel?.targets.find((target) => target.status === "available") ?? channel?.targets[0] ?? null;
+const locale = localeFromPath(Astro.url.pathname);
+const href = (path: string) => localePath(bestLocaleFor(locale, path), path);
+const c = locale === "en"
+  ? {
+      legend: "Choose platform and architecture",
+      available: "Available",
+      pending: "Verifying",
+      detected: "Showing the platform that is currently downloadable; you can switch at any time.",
+      notStableTitle: "This is not stable",
+      notStableBody: "The current package is unsigned and unnotarised. OneAgent does not document ways around your operating system's security policy.",
+      verified: "Verified and downloadable",
+      version: "Version",
+      channelLabel: "Release channel",
+      size: "File size",
+      built: "Build date",
+      signing: "Signing status",
+      unsigned: "Unsigned, unnotarised",
+      verification: "Verification",
+      verificationValue: "Native build + cleanroom passed",
+      download: (platform: string) => `Download the ${platform} preview`,
+      quickstart: "Read the quickstart",
+      sameBuildTitle: "You get the verified official build",
+      sameBuildBody: "This site, GitHub Releases and any mirror must serve the identical SHA-256. Repackaging is not permitted.",
+      checksumTitle: "macOS verification command",
+      copy: "Copy",
+      copied: "Copied",
+      cleanroomNote: "The cleanroom evidence applies to this file's exact SHA-256; any change to the package requires re-verification.",
+      unavailableTitle: "This platform has no public release yet",
+      unavailableBody: "The build workflow is in place, but until the native build, cleanroom evidence and release metadata are all present there is no empty download button and no CI artifact described as generally available.",
+      progress: "See release progress",
+      channelValue: "Unsigned technical preview",
+      fallbackPlatform: "current platform",
+      detectExact: "Detected as {full}. You can still switch manually.",
+      detectArchOnly: "Detected as {name} {arch}, but there is no exact build for that architecture here — do not run a build for a mismatched architecture.",
+      detectPlatformOnly: "Detected as {name}, but the browser cannot reliably tell the chip architecture. Confirm the option before downloading.",
+    }
+  : {
+      legend: "选择平台与架构",
+      available: "可下载",
+      pending: "验证中",
+      detected: "已优先显示当前可下载的平台；你可以随时手动切换。",
+      notStableTitle: "这不是 Stable",
+      notStableBody: "当前包未签名、未公证。OneAgent 不提供绕过操作系统安全策略的说明。",
+      verified: "已验证可下载",
+      version: "版本",
+      channelLabel: "发行渠道",
+      size: "文件大小",
+      built: "构建日期",
+      signing: "签名状态",
+      unsigned: "未签名、未公证",
+      verification: "验证状态",
+      verificationValue: "原生构建 + cleanroom 通过",
+      download: (platform: string) => `下载 ${platform} 预览版`,
+      quickstart: "查看快速开始",
+      sameBuildTitle: "下载即得到被校验的官方同包产物",
+      sameBuildBody: "任何官网、GitHub Release 或镜像渠道都必须保持相同 SHA-256，禁止二次打包。",
+      checksumTitle: "macOS 校验命令",
+      copy: "复制",
+      copied: "已复制",
+      cleanroomNote: "cleanroom 证据只对应此文件的精确 SHA-256；包体变化后必须重新验证。",
+      unavailableTitle: "这个平台尚未公开发行",
+      unavailableBody: "构建工作流已经保留，但在原生构建、cleanroom 证据和发行元数据齐备前，不提供空下载按钮，也不把 CI 产物描述为正式可用。",
+      progress: "查看发行进度",
+      channelValue: "未签名技术预览版",
+      fallbackPlatform: "当前平台",
+      detectExact: "已识别为 {full}；你仍可手动切换。",
+      detectArchOnly: "已识别为 {name} {arch}，当前目录没有完全匹配的构建；请勿运行架构不匹配的包。",
+      detectPlatformOnly: "已识别为 {name}，但浏览器无法可靠判断芯片架构；请确认选项后下载。",
+    };
 ---
+{!channel || !defaultTarget ? (
+  <div class="notice notice-warning">
+    <span class="notice-mark">!</span>
+    <div>
+      <strong>{c.unavailableTitle}</strong>
+      <p>{c.unavailableBody}</p>
+    </div>
+  </div>
+) : (
 <div class="download-layout" data-download-selector>
-  {release && defaultTarget ? (
-    <>
-      <aside class="platform-control">
-        <label for="platform-target">选择平台与架构</label>
-        <select id="platform-target" data-platform-select>
-          {targets.map((target) => (
-            <option value={target.id} selected={target.id === defaultTarget.id}>
-              {target.platformLabel} · {target.archLabel}
-            </option>
-          ))}
-        </select>
-        <p class="detected-note" data-detected-note>已优先显示当前可下载的平台；你可以随时手动切换。</p>
-        {release.prerelease && (
-          <div class="notice notice-warning" style="margin-top:22px">
-            <span class="notice-mark">!</span>
-            <div><strong>这是预发布版本</strong><p>签名与公证状态请以该 GitHub Release 的说明为准。</p></div>
-          </div>
-        )}
-      </aside>
-
+  <aside class="platform-control">
+    <fieldset class="platform-picker" data-platform-picker>
+      <legend>{c.legend}</legend>
+      {channel.targets.map((target) => (
+        <label class="platform-option">
+          <input
+            type="radio"
+            name="platform-target"
+            value={target.id}
+            checked={target.id === defaultTarget.id}
+            data-platform-radio
+          />
+          <span class="platform-option-body">
+            <span class="platform-option-name">{target.platformLabel}</span>
+            <span class="platform-option-arch">{target.archLabel}</span>
+          </span>
+          {target.status === "available"
+            ? <span class="chip chip-green">{c.available}</span>
+            : <span class="chip chip-orange">{c.pending}</span>}
+        </label>
+      ))}
+    </fieldset>
+    <p
+      class="detected-note"
+      data-detected-note
+      data-detect-exact={c.detectExact}
+      data-detect-arch={c.detectArchOnly}
+      data-detect-platform={c.detectPlatformOnly}
+      data-fallback={c.fallbackPlatform}
+    >{c.detected}</p>
+    <div class="notice notice-warning" style="margin-top:22px">
+      <span class="notice-mark">!</span>
       <div>
-        {targets.map((target) => (
-          <section class:list={["release-panel", { "is-active": target.id === defaultTarget.id }]} data-release-panel={target.id} aria-hidden={target.id === defaultTarget.id ? "false" : "true"}>
-            <div class="release-head">
-              <div><h2>{target.platformLabel}</h2><p>{target.archLabel}</p></div>
-              <span class="chip chip-green">GitHub Release</span>
+        <strong>{c.notStableTitle}</strong>
+        <p>{c.notStableBody}</p>
+      </div>
+    </div>
+  </aside>
+
+  <div>
+    {channel.targets.map((target) => {
+      const artifact = binaryArtifact(target);
+      const download = artifact ? primaryDownload(artifact) : null;
+      return (
+        <section class:list={["release-panel", { "is-active": target.id === defaultTarget.id }]} data-release-panel={target.id} aria-hidden={target.id === defaultTarget.id ? "false" : "true"}>
+          <div class="release-head">
+            <div>
+              <h2>{target.platformLabel}</h2>
+              <p>{target.archLabel}</p>
             </div>
-            <dl class="release-meta-grid">
-              <div><dt>版本</dt><dd>{release.tag_name}</dd></div>
-              <div><dt>发行类型</dt><dd>{release.prerelease ? "预发布版" : "正式版"}</dd></div>
-              <div><dt>文件大小</dt><dd>{formatBytes(target.bytes)}</dd></div>
-              <div><dt>发布日期</dt><dd>{formatDate(release.published_at)}</dd></div>
-            </dl>
-            <div class="download-action">
-              <a class="button button-primary" href={target.downloadUrl}>下载 {target.platformLabel} 版本</a>
-              <a class="button button-secondary" href={release.html_url}>查看 GitHub Release</a>
-            </div>
-            {target.sha256 ? (
-              <div class="hash-block">
-                <p><strong>GitHub SHA-256</strong></p>
-                <div class="hash-row">
-                  <code class="hash-value">{target.sha256}</code>
-                  <button class="copy-button" type="button" data-copy={target.sha256}>复制</button>
+            {target.status === "available" ? <span class="chip chip-green">{c.verified}</span> : <span class="chip chip-orange">{c.pending}</span>}
+          </div>
+
+          {target.status === "available" && artifact && download ? (
+            <>
+              <dl class="release-meta-grid">
+                <div><dt>{c.version}</dt><dd>{channel.version}</dd></div>
+                <div><dt>{c.channelLabel}</dt><dd>{c.channelValue}</dd></div>
+                <div><dt>{c.size}</dt><dd>{formatBytes(artifact.bytes)}</dd></div>
+                <div><dt>{c.built}</dt><dd>{formatDate(target.built_at)}</dd></div>
+                <div><dt>{c.signing}</dt><dd>{c.unsigned}</dd></div>
+                <div><dt>{c.verification}</dt><dd>{c.verificationValue}</dd></div>
+              </dl>
+              <div class="download-action">
+                <a class="button button-primary" href={download.url} download>{c.download(target.platformLabel)}</a>
+                <a class="button button-secondary" href={href("quickstart/")}>{c.quickstart}</a>
+              </div>
+              <div class="notice notice-info">
+                <span class="notice-mark">i</span>
+                <div>
+                  <strong>{c.sameBuildTitle}</strong>
+                  <p>{c.sameBuildBody}</p>
                 </div>
               </div>
-            ) : target.checksumUrl ? (
-              <div class="notice notice-info"><span class="notice-mark">i</span><div><strong>校验和由 Release 提供</strong><p><a href={target.checksumUrl}>查看 SHA256SUMS</a></p></div></div>
-            ) : null}
-          </section>
-        ))}
-      </div>
-    </>
-  ) : (
-    <section class="unavailable-panel" style="grid-column:1/-1">
-      <h2>尚无已发布版本</h2>
-      <p>下载页只展示 GitHub Release 中实际存在的版本和资产，不使用开发配置或本地构建结果补位。</p>
-      <a class="button button-secondary" href={releasesPageUrl}>查看 GitHub Releases</a>
-    </section>
-  )}
+              <div class="hash-block">
+                <p><strong>SHA-256</strong></p>
+                <div class="hash-row">
+                  {/* Both this and the command below scroll horizontally on narrow
+                      screens, so they need to be reachable without a pointer
+                      (WCAG 2.1.1). The label names which value has focus. */}
+                  <code class="hash-value" tabindex="0" role="group" aria-label="SHA-256">{artifact.sha256}</code>
+                  <button class="copy-button" type="button" data-copy={artifact.sha256} data-copy-label={c.copy} data-copied-label={c.copied}>{c.copy}</button>
+                </div>
+              </div>
+              <div class="hash-block">
+                <p><strong>{c.checksumTitle}</strong></p>
+                <pre class="code-block" tabindex="0" role="group" aria-label={c.checksumTitle}><code>shasum -a 256 {artifact.file}</code></pre>
+              </div>
+              <p class="hero-note">{c.cleanroomNote}</p>
+            </>
+          ) : (
+            <div class="unavailable-panel">
+              <h3>{c.unavailableTitle}</h3>
+              <p>{c.unavailableBody}</p>
+              <a class="button button-secondary" href={href("changelog/")}>{c.progress}</a>
+            </div>
+          )}
+        </section>
+      );
+    })}
+  </div>
 </div>
+)}
 
 <script>
   import { detectTargetFromUserAgent } from "../lib/downloads";
 
   const root = document.querySelector<HTMLElement>("[data-download-selector]");
-  const select = root?.querySelector<HTMLSelectElement>("[data-platform-select]");
+  const radios = root ? Array.from(root.querySelectorAll<HTMLInputElement>("[data-platform-radio]")) : [];
   const note = root?.querySelector<HTMLElement>("[data-detected-note]");
   const panels = root ? Array.from(root.querySelectorAll<HTMLElement>("[data-release-panel]")) : [];
 
@@ -89,37 +209,61 @@ const defaultTarget = targets[0] ?? null;
     });
   };
 
-  if (select) {
+  // The detection notes are localised templates passed from the server through
+  // data attributes, so an English reader never sees the Chinese fallback that a
+  // hardcoded string would leave behind. {full}/{name}/{arch} are filled client-
+  // side because the platform name only exists in the rendered DOM.
+  const tplExact = note?.dataset.detectExact ?? "";
+  const tplArch = note?.dataset.detectArch ?? "";
+  const tplPlatform = note?.dataset.detectPlatform ?? "";
+  const fallbackPlatform = note?.dataset.fallback ?? "";
+  const fill = (template: string, vars: Record<string, string>) =>
+    template.replace(/\{(\w+)\}/g, (_, key: string) => vars[key] ?? "");
+
+  const labelFor = (radio: HTMLInputElement) => {
+    const name = radio.parentElement?.querySelector(".platform-option-name")?.textContent?.trim() ?? fallbackPlatform;
+    const arch = radio.parentElement?.querySelector(".platform-option-arch")?.textContent?.trim() ?? "";
+    return { name, full: arch ? `${name} · ${arch}` : name };
+  };
+
+  if (radios.length) {
     const detected = detectTargetFromUserAgent(navigator.userAgent);
     if (detected) {
-      const exact = Array.from(select.options).find((option) => option.value === `${detected.platform}-${detected.arch}`);
-      const samePlatform = Array.from(select.options).find((option) => option.value.startsWith(`${detected.platform}-`));
-      const option = exact ?? samePlatform;
-      if (option) {
-        select.value = option.value;
-        show(option.value);
+      const exact = radios.find((radio) => radio.value === `${detected.platform}-${detected.arch}`);
+      const samePlatform = radios.find((radio) => radio.value.startsWith(`${detected.platform}-`));
+      const match = exact ?? samePlatform;
+      if (match) {
+        match.checked = true;
+        show(match.value);
         if (note) {
-          const selectedLabel = option.textContent?.trim() ?? "当前平台";
-          const platformLabel = selectedLabel.split("·", 1)[0]?.trim() ?? selectedLabel;
-          if (exact) note.textContent = `已识别为 ${selectedLabel}；你仍可手动切换。`;
+          const { name, full } = labelFor(match);
+          if (exact) note.textContent = fill(tplExact, { full, name });
           else if (detected.arch) {
             const architecture = detected.arch === "arm64" ? "ARM64" : "x64";
-            note.textContent = `已识别为 ${platformLabel} ${architecture}，当前目录没有完全匹配的构建；请勿运行架构不匹配的包。`;
+            note.textContent = fill(tplArch, { name, arch: architecture });
           } else {
-            note.textContent = `已识别为 ${platformLabel}，但浏览器无法可靠判断芯片架构；请确认选项后下载。`;
+            note.textContent = fill(tplPlatform, { name });
           }
         }
       }
     }
-    select.addEventListener("change", () => show(select.value));
+    // Radio groups fire change on the newly selected input, and arrow-key
+    // navigation moves selection too, so one listener per input covers both
+    // pointer and keyboard without any roving-tabindex bookkeeping.
+    radios.forEach((radio) => {
+      radio.addEventListener("change", () => {
+        if (radio.checked) show(radio.value);
+      });
+    });
   }
 
   root?.querySelectorAll<HTMLButtonElement>("[data-copy]").forEach((button) => {
     button.addEventListener("click", async () => {
       const value = button.dataset.copy ?? "";
       await navigator.clipboard.writeText(value);
-      button.textContent = "已复制";
-      window.setTimeout(() => { button.textContent = "复制"; }, 1500);
+      const idle = button.dataset.copyLabel ?? button.textContent ?? "";
+      button.textContent = button.dataset.copiedLabel ?? idle;
+      window.setTimeout(() => { button.textContent = idle; }, 1500);
     });
   });
 </script>

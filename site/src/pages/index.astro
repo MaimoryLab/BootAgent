@@ -1,102 +1,88 @@
 ---
-import BaseLayout from "../layouts/BaseLayout.astro";
+import ActivationConsole from "../components/ActivationConsole.astro";
 import AgentMark from "../components/AgentMark.astro";
+import HeroParticles from "../components/HeroParticles.astro";
+import BaseLayout from "../layouts/BaseLayout.astro";
 import { catalog } from "../lib/catalog";
-import { agentDescriptions, groupLabels, protocolLabels } from "../lib/content";
-import { getLatestRelease, releaseTargets } from "../lib/downloads";
+import { localePath } from "../i18n";
+import { useCatalogLabels } from "../i18n/catalog";
+import { protocolLabels } from "../lib/content";
+import { getPreviewChannel } from "../lib/release-channel";
 
-const release = await getLatestRelease();
-const targets = release ? releaseTargets(release) : [];
+/* null means the release feed had nothing to show — an unpublished fork, or a
+   build that ran without network. The note still has to say what channel this
+   is, because that claim is about the product and does not depend on any
+   particular release existing. */
+const preview = await getPreviewChannel();
+const available = preview?.targets.find((target) => target.status === "available");
 const primaryAgents = catalog.agents.slice(0, 6);
-const available = targets[0];
+const { agentDescriptions, groupLabels, agentFallbackDescription } = useCatalogLabels("zh-CN");
+const href = (path: string) => localePath("zh-CN", path);
 ---
 <BaseLayout>
   <section class="hero">
+    <HeroParticles />
     <div class="shell hero-copy">
       <div>
         <p class="eyebrow">Local-first · Bring your own key</p>
         <h1 class="display">一个入口，<br /><em>激活你的 AI 开发环境。</em></h1>
       </div>
       <div class="hero-side">
-        <p class="lede">OneAgent 检测、安装并初始化常用 Agent。账号、Provider 和 API Key 始终属于你，配置留在本机。</p>
+        <p class="lede">从 Agent 到 Provider，再到真实协议验证。下面这个示例流程可以直接点，真正的扫描、写入与备份都在本地 OneAgent 里完成。</p>
         <div class="hero-actions">
-          <a class="button button-primary" href="downloads/">下载 OneAgent</a>
-          <a class="button button-secondary" href="quickstart/">查看快速开始</a>
+          <button class="button button-primary" type="button" data-activation-trigger="activation-console" aria-controls="activation-console">开始激活演示</button>
         </div>
-        <p class="hero-note">
-          {release
-            ? `${release.tag_name} · ${release.prerelease ? "GitHub 预发布版" : "GitHub 正式版"}${available ? ` · 当前开放 ${available.platformLabel} ${available.archLabel}` : ""}`
-            : "尚无已发布版本 · 版本信息以 GitHub Release 为准"}
-        </p>
+        <p class="hero-note">{preview?.version ? `${preview.version} · ` : ""}未签名技术预览版{available ? ` · 当前开放 ${available.platformLabel} ${available.archLabel}` : ""}</p>
       </div>
     </div>
-    <figure class="product-shot">
-      <img src="images/oneagent-overview.jpg" width="1215" height="690" alt="OneAgent 环境总览，显示 Codex、Claude Code、Cursor、OpenCode、OpenClaw 与 Hermes 的状态" />
-    </figure>
-  </section>
-
-  <section class="trust-strip" aria-label="产品边界">
-    <div class="shell trust-grid">
-      <div class="trust-item"><strong>本地执行</strong><span>配置与备份留在用户设备</span></div>
-      <div class="trust-item"><strong>自己的 Key</strong><span>不提供共享 Key 或统一网关</span></div>
-      <div class="trust-item"><strong>同包分发</strong><span>所有渠道保持相同 SHA-256</span></div>
-      <div class="trust-item"><strong>诚实标注</strong><span>未签名预览版不冒充 Stable</span></div>
-    </div>
+    <ActivationConsole />
   </section>
 
   <section class="section">
-    <div class="shell">
+    <div class="shell reveal">
       <div class="section-heading">
-        <div><p class="eyebrow">First success path</p><h2 class="section-title">从下载到首次成功，只保留必要步骤。</h2></div>
-        <p>不要求注册 OneAgent 账号，不要求把 Key 交给新的中间服务，也不会在安装包里捆绑第三方 Agent。</p>
+        <div><p class="eyebrow">One activation path</p><h2 class="section-title">检测、连接、验证，每一步都能解释。</h2></div>
+        <p>配置、备份与凭证都留在本机。任何写入之前，先验证这个 Agent 真正需要的那个协议。</p>
       </div>
       <div class="steps">
-        <article class="step"><h3>选择 Agent</h3><p>优先展示常用工具，同时保留只能按官方方式安装的 Agent。</p></article>
-        <article class="step"><h3>连接 Provider</h3><p>使用你自己的 Provider 账号与 Key，并在写入配置前验证对应协议。</p></article>
-        <article class="step"><h3>完成并复核</h3><p>查看实际写入位置、备份和下一步命令；失败时得到明确错误而非静默降级。</p></article>
+        <article class="step"><h3>识别环境</h3><p>已安装、待配置、只能走官方流程——三种状态分开列出，而不是压成一个勾。</p></article>
+        <article class="step"><h3>连接 Provider</h3><p>按 Agent 所需协议筛选 Provider，也可以填你自己的端点。兼容等级逐项标明。</p></article>
+        <article class="step"><h3>验证并复核</h3><p>验证通过后，给出 Ready 状态、写入位置、备份情况和下一条命令。</p></article>
       </div>
     </div>
   </section>
 
   <section class="section section-muted">
-    <div class="shell">
+    <div class="shell reveal">
       <div class="section-heading">
-        <div><p class="eyebrow">Compatibility, stated precisely</p><h2 class="section-title">“支持”不是一个模糊的勾。</h2></div>
-        <p>安装、配置和协议分别标注。仅引导的 Agent 仍然可以进入流程，但不会被描述成 OneAgent 自动管理。</p>
+        <div><p class="eyebrow">Compatibility catalog</p><h2 class="section-title">真实目录，不用一张静态兼容表糊弄你。</h2></div>
+        <p>{catalog.agents.length} 个 Agent、{catalog.providers.length} 个公开 Provider，以及 OpenAI Responses、Anthropic Messages 与 Chat Completions 的独立兼容状态。</p>
       </div>
       <div class="agent-list">
         {primaryAgents.map((agent) => (
-          <a class="agent-row" href={`agents/${agent.id}/`}>
+          <a class="agent-row" href={href(`explore/?agent=${agent.id}`)}>
             <AgentMark id={agent.id} name={agent.name} />
             <div><strong>{agent.name}</strong><span class="agent-meta">{groupLabels[agent.group] ?? agent.group}</span></div>
-            <span class="agent-meta">{agentDescriptions[agent.id] ?? "按项目公开能力提供安装或配置支持。"}</span>
+            <span class="agent-meta">{agentDescriptions[agent.id] ?? agentFallbackDescription}</span>
             <div class="agent-status">
-              {agent.support.managedInstall ? <span class="chip chip-green">管理安装</span> : <span class="chip">官方引导</span>}
-              {agent.support.managedConfig ? <span class="chip chip-blue">管理配置</span> : <span class="chip">官方配置</span>}
+              {agent.support.managedInstall ? <span class="chip chip-green">托管安装</span> : <span class="chip">官方引导</span>}
+              {agent.support.managedConfig ? <span class="chip chip-blue">托管配置</span> : <span class="chip">官方配置</span>}
               {agent.protocol && <span class="chip">{protocolLabels[agent.protocol]}</span>}
             </div>
           </a>
         ))}
       </div>
-      <div style="margin-top:28px"><a class="button button-secondary" href="agents/">查看全部 {catalog.agents.length} 个 Agent</a></div>
-    </div>
-  </section>
-
-  <section class="section">
-    <div class="shell split-callout">
-      <span class="callout-index">01 / TRUST</span>
-      <div class="callout-body">
-        <h2>分发不是把一个 ZIP 放到更多地方，而是让每个地方都能证明它是同一个 ZIP。</h2>
-        <p>每个公开产物都带版本、平台、架构、大小和 SHA-256。官网、GitHub Release、网盘或企业云盘只能分发完全相同的官方构建。</p>
-        <a class="button button-secondary" href="security/">查看安全与发行政策</a>
-      </div>
+      <div class="section-actions"><a class="button button-secondary" href={href("explore/")}>打开完整配置目录</a></div>
     </div>
   </section>
 
   <section class="cta-band">
-    <div class="shell cta-grid">
-      <div><h2>先让一个人的环境可靠，再把它标准化到整个团队。</h2><p>团队启用、环境基线、内部镜像与商业支持，不接管企业 API Key。</p></div>
-      <a class="button button-secondary" href="enterprise/">了解企业服务</a>
+    <div class="shell cta-grid reveal">
+      <div><h2>先在示例里看清流程，再在本机真正激活。</h2><p>下载 OneAgent 完成本地检测、配置备份与协议验证；团队基线和内部交付仍然不接管 API Key。</p></div>
+      <div class="cta-actions">
+        <a class="button button-primary" href={href("downloads/")}>下载 OneAgent</a>
+        <a class="button button-secondary" href={href("enterprise/")}>了解团队服务</a>
+      </div>
     </div>
   </section>
 </BaseLayout>

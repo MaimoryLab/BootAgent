@@ -15,9 +15,14 @@ const extensions: Record<string, string> = {
   "kilo-cli": "svg",
   aider: "png",
 };
+/* These two marks ship as fill="currentColor". Loaded through <img> the keyword
+   has no page to inherit from and falls back to black, which disappears on a
+   dark ground — so they get inverted there while the marks carrying their own
+   brand colours are left alone. */
+const monochrome = new Set(["codex", "opencode"]);
 const extension = extensions[id];
 const imageSource = extension ? `${import.meta.env.BASE_URL}images/agents/${id}.${extension}` : null;
 ---
 <span class="agent-mark-wrap" style={`--mark-size:${size}px`} aria-hidden="true">
-  {imageSource ? <img src={imageSource} alt="" width={size} height={size} loading="lazy" /> : <span class="agent-fallback">{name.slice(0, 1)}</span>}
+  {imageSource ? <img src={imageSource} alt="" width={size} height={size} loading="lazy" data-monochrome={monochrome.has(id) ? "" : undefined} /> : <span class="agent-fallback">{name.slice(0, 1)}</span>}
 </span>
