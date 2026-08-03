@@ -110,5 +110,6 @@ export type InstallRequest = Pick<
   profile_agents?: string[];
   registry?: string;
   profile_id?: string;
+  profile_label?: string;
   timeout?: number;
 };

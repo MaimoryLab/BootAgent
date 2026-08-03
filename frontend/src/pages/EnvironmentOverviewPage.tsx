@@ -1,4 +1,5 @@
-import { PackageOpen, RefreshCw } from "lucide-react";
+import { PackageOpen, Plus, RefreshCw } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 import { AgentManageRow } from "../components/AgentManageRow";
 import { PageScaffold } from "../components/PageScaffold";
@@ -8,8 +9,15 @@ import { useWizard } from "../state/WizardContext";
 
 export function EnvironmentOverviewPage() {
   const { t } = useI18n();
-  const { state, refreshStatus } = useWizard();
+  const navigate = useNavigate();
+  const { state, dispatch, refreshStatus } = useWizard();
   const status = state.status;
+  // A fresh run each time: without the reset, the second install would inherit
+  // the first one's Agent, model and log.
+  const startSetup = () => {
+    dispatch({ type: "START_SETUP" });
+    navigate("/setup/agents");
+  };
 
   if (state.statusState === "loading" && !status) {
     return (
@@ -41,15 +49,23 @@ export function EnvironmentOverviewPage() {
       title={t("环境总览")}
       description={t("本机已安装 Agent 及其当前 Provider、Profile 与模型。")}
       secondaryAction={
-        <button
-          className="button button-secondary"
-          type="button"
-          onClick={() => void refreshStatus()}
-          disabled={state.statusState === "loading"}
-        >
-          <RefreshCw size={15} className={state.statusState === "loading" ? "spin" : ""} />
-          {t("刷新状态")}
-        </button>
+        <>
+          <button
+            className="button button-secondary"
+            type="button"
+            onClick={() => void refreshStatus()}
+            disabled={state.statusState === "loading"}
+          >
+            <RefreshCw size={15} className={state.statusState === "loading" ? "spin" : ""} />
+            {t("刷新状态")}
+          </button>
+          {installed.length ? (
+            <button className="button button-secondary" type="button" onClick={startSetup}>
+              <Plus size={15} />
+              {t("安装 Agent")}
+            </button>
+          ) : null}
+        </>
       }
     >
       <RuntimeSection runtimes={status.runtimes ?? []} onInstalled={refreshStatus} />
@@ -78,7 +94,11 @@ export function EnvironmentOverviewPage() {
         <div className="empty-overview">
           <PackageOpen size={28} />
           <strong>{t("尚未安装任何 Agent")}</strong>
-          <span>{t("在配置模板中创建 Profile 并应用后，已安装的 Agent 会显示在这里。")}</span>
+          <span>{t("按引导安装第一个 Agent，OneAgent 会写入模型服务配置。")}</span>
+          <button className="button button-primary" type="button" onClick={startSetup}>
+            <Plus size={16} />
+            {t("安装 Agent")}
+          </button>
         </div>
       )}
     </PageScaffold>

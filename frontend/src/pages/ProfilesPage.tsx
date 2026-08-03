@@ -36,7 +36,7 @@ function editDraft(profile: ProfileSummary): ProfileDraft {
 export function ProfilesPage() {
   const navigate = useNavigate();
   const { locale, t } = useI18n();
-  const { state, refreshStatus } = useWizard();
+  const { state, dispatch, refreshStatus } = useWizard();
   const status = state.status;
   const [editor, setEditor] = useState<ProfileDraft | null>(null);
   const [busy, setBusy] = useState(false);
@@ -61,18 +61,13 @@ export function ProfilesPage() {
     editor?.id.trim() && editor.label.trim() && editor.model.trim() && editor.agentIds.length,
   );
 
-  const openNew = () => {
-    const provider = status.providers.ppio ? "ppio" : Object.keys(status.providers)[0] || "";
-    setEditor({
-      id: "",
-      label: "",
-      provider,
-      model: "",
-      agentIds: [],
-      originalId: "",
-    });
-    setFailure("");
-    setSuccess("");
+  // Creating a Profile goes through onboarding: it collects the Agent, key,
+  // model and name in order, tests the connection, and the install writes the
+  // Profile itself. The old inline form asked for the same fields without ever
+  // verifying them.
+  const startSetup = () => {
+    dispatch({ type: "START_SETUP" });
+    navigate("/setup/agents");
   };
 
   const save = async (event: FormEvent) => {
@@ -135,7 +130,7 @@ export function ProfilesPage() {
   return (
     <PageScaffold title={t("配置模板")} description={t("在这里创建 Profile，再将它应用到所选 Agent。")}>
       <div className="profile-toolbar">
-        <button className="button button-secondary" type="button" onClick={openNew}>
+        <button className="button button-secondary" type="button" onClick={startSetup}>
           <Plus size={15} />
           {t("新增 Profile")}
         </button>
@@ -148,7 +143,7 @@ export function ProfilesPage() {
       {editor ? (
         <form className="profile-editor" onSubmit={(event) => void save(event)}>
           <header>
-            <strong>{editor.originalId ? t("编辑 {name}", { name: editor.label || editor.id }) : t("新增 Profile")}</strong>
+            <strong>{t("编辑 {name}", { name: editor.label || editor.id })}</strong>
             <button className="icon-button" type="button" onClick={() => setEditor(null)} aria-label={t("关闭编辑")} title={t("关闭编辑")}>
               <X size={16} />
             </button>
@@ -232,7 +227,7 @@ export function ProfilesPage() {
         <div className="empty-overview">
           <Layers size={26} />
           <strong>{t("还没有 Profile")}</strong>
-          <span>{t("新建一个 Profile，保存 Provider、模型和适用 Agent。")}</span>
+          <span>{t("走一遍安装引导，它会保存 Provider、模型和适用 Agent。")}</span>
         </div>
       ) : (
         <div className="profile-list">

@@ -376,3 +376,25 @@ func normalizeFixtureHome(value any, home string) any {
 	}
 	return value
 }
+
+func TestStatusReportsFirstRunUntilOneAgentDirExists(t *testing.T) {
+	home := t.TempDir()
+	core := NewUseCases(StatusOptions{Home: home, Platform: platform.For("linux", "amd64"), Lookup: func(string) (string, bool) { return "", false }})
+	status, err := core.GetStatus(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !status.FirstRun {
+		t.Fatal("a home without ~/.oneagent must report firstRun")
+	}
+	if err := os.MkdirAll(filepath.Join(home, ".oneagent"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	status, err = core.GetStatus(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if status.FirstRun {
+		t.Fatal("firstRun must clear once ~/.oneagent exists")
+	}
+}

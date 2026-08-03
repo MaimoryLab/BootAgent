@@ -2,41 +2,36 @@ import { Check } from "lucide-react";
 import { useLocation } from "react-router-dom";
 
 import { type TranslationKey, useI18n } from "../i18n";
-import { useWizard } from "../state/WizardContext";
 
-// Single source of truth for the setup sequence: order, labels, and which
-// steps the existing-account mode skips. Pages no longer pass step numbers;
-// the current step is derived from the route.
-const steps: Array<{ path: string; label: TranslationKey | "Agent" | "Provider"; skippedForExistingAccount: boolean }> = [
-  { path: "/setup/agents", label: "Agent", skippedForExistingAccount: false },
-  { path: "/setup/mode", label: "配置", skippedForExistingAccount: false },
-  { path: "/setup/provider", label: "Provider", skippedForExistingAccount: true },
-  { path: "/setup/model", label: "模型", skippedForExistingAccount: true },
-  { path: "/setup/review", label: "确认", skippedForExistingAccount: false },
+// Single source of truth for the onboarding sequence: order and labels. Pages
+// no longer pass step numbers; the current step is derived from the route.
+const steps: Array<{ path: string; label: TranslationKey | "Agent" | "Provider" }> = [
+  { path: "/setup/agents", label: "Agent" },
+  { path: "/setup/provider", label: "Provider" },
+  { path: "/setup/model", label: "模型" },
+  { path: "/setup/review", label: "确认" },
+  { path: "/setup/activation", label: "安装" },
 ];
 
 export function SetupStepper() {
   const { t } = useI18n();
   const { pathname } = useLocation();
-  const { state } = useWizard();
-  const skipsProvider = state.configMode === "existing-account";
   const current = steps.findIndex((step) => step.path === pathname) + 1;
 
   return (
     <ol className="setup-stepper" aria-label={t("激活步骤")}>
       {steps.map((step, index) => {
         const number = index + 1;
-        const skipped = skipsProvider && step.skippedForExistingAccount;
-        const complete = number < current && !skipped;
+        const complete = number < current;
         const active = number === current;
         return (
           <li
             key={step.label}
-            className={`stepper-item${active ? " is-active" : ""}${complete ? " is-complete" : ""}${skipped ? " is-skipped" : ""}`}
+            className={`stepper-item${active ? " is-active" : ""}${complete ? " is-complete" : ""}`}
             aria-current={active ? "step" : undefined}
           >
             <span className="stepper-marker">{complete ? <Check size={14} /> : number}</span>
-            <span className="stepper-label">{skipped ? t("已跳过") : step.label === "Agent" || step.label === "Provider" ? step.label : t(step.label)}</span>
+            <span className="stepper-label">{step.label === "Agent" || step.label === "Provider" ? step.label : t(step.label)}</span>
           </li>
         );
       })}

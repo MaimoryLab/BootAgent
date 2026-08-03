@@ -117,6 +117,7 @@ export const wailsApi = {
       model: input.model,
       small_fast_model: input.small_fast_model ?? "",
       profile_id: input.profile_id ?? "",
+      profile_label: input.profile_label ?? "",
       configure: input.configure,
       install_agent: input.install_agent,
       locked_version: input.locked_version ?? false,

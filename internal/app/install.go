@@ -40,6 +40,10 @@ type InstallAgentsOptions struct {
 	// ProfileID is optional. A configured install without one keeps the current
 	// profile ID, or uses "default" on the first run.
 	ProfileID string
+	// ProfileLabel is optional and only used when the install creates the
+	// profile named by ProfileID. An existing profile keeps its own label, so a
+	// re-run cannot silently rename what the user already named.
+	ProfileLabel string
 }
 
 // InstallOptions is retained as a convenient compatibility name for callers
@@ -539,6 +543,7 @@ func (r *installRun) finish(ctx context.Context, baseURL string) InstallAgentsRe
 	if !failed && probeOK && !r.options.CheckAgentOnly {
 		if _, err := r.core.profiles.WriteActive(ctx, profileStore.ActiveRequest{
 			ProfileID: r.options.ProfileID,
+			Label:     r.options.ProfileLabel,
 			Agents:    r.options.ProfileAgents,
 			Configure: r.options.Configure,
 			Provider:  r.options.Provider,

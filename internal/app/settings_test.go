@@ -245,6 +245,67 @@ func TestTheRegionProbeRunsOnlyOnce(t *testing.T) {
 	}
 }
 
+// A probe that could not answer must not be remembered. Settings is read on
+// every status poll, so the first read can easily arrive with a context the UI
+// has already cancelled; caching that "no" would cost every download for the
+// rest of the session its mirror, on exactly the machines that need it.
+func TestAFailedRegionProbeIsRetriedRatherThanCached(t *testing.T) {
+	home := t.TempDir()
+	environment := map[string]string{"HOME": home, "PATH": filepath.Join(home, "empty")}
+	// macOS asks a subprocess, so the answer depends on the probe rather than on
+	// the environment alone.
+	runner := &scriptedRegionRunner{answer: "zh_CN\n"}
+	core := NewUseCases(StatusOptions{
+		Home: home, Platform: platform.For("darwin", "arm64"),
+		Environment: environment, Runner: runner,
+	})
+
+	cancelled, cancel := context.WithCancel(context.Background())
+	cancel()
+	if first, err := core.Settings(cancelled); err != nil || first.PreferMirror {
+		t.Fatalf("a failing probe defaulted to the mirror: %#v, %v", first, err)
+	}
+
+	// The machine is willing to answer now, and the answer is China.
+	runner.fail = false
+	second, err := core.Settings(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !second.PreferMirror || !second.MirrorFromRegion {
+		t.Fatalf("the retried probe did not take the mirror: %#v", second)
+	}
+	// And the successful answer is still cached, so status polling stays cheap.
+	if _, err := core.Settings(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if runner.runs != 2 {
+		t.Fatalf("probe ran %d times, want 2: the retry, then a cache hit", runner.runs)
+	}
+}
+
+// scriptedRegionRunner fails until told otherwise, which is how a cancelled or
+// hung locale lookup looks to Settings.
+type scriptedRegionRunner struct {
+	process.Runner
+	answer string
+	fail   bool
+	runs   int
+}
+
+func (r *scriptedRegionRunner) Run(context.Context, []string, map[string]string, time.Duration) (process.Result, error) {
+	r.runs++
+	if r.runs == 1 {
+		return process.Result{ExitCode: 1}, context.Canceled
+	}
+	if r.fail {
+		return process.Result{ExitCode: 1}, nil
+	}
+	return process.Result{ExitCode: 0, Stdout: r.answer}, nil
+}
+
+func (r *scriptedRegionRunner) LookPath(string) (string, bool) { return "", false }
+
 type countingRunner struct {
 	process.Runner
 	runs int

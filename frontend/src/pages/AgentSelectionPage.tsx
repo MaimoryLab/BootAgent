@@ -29,21 +29,24 @@ export function AgentSelectionPage() {
           agent={agent}
           status={state.status?.agents[agent.id]}
           selected={state.selectedAgentIds.includes(agent.id)}
-          onToggle={() => dispatch({ type: "TOGGLE_AGENT", agentId: agent.id })}
+          onToggle={() => dispatch({ type: "SELECT_AGENT", agentId: agent.id })}
+          single
         />
       ))}
     </div>
   );
+  const selectedAgent = state.selectedAgentIds[0] ?? "";
+  const selectedName = state.status?.catalog.find((item) => item.id === selectedAgent)?.name ?? selectedAgent;
 
   return (
     <PageScaffold
       title={t("选择 Agent")}
-      description={t("选择要检测、安装或配置的开发工具，可以同时处理多个。")}
+      description={t("选择这次要安装并配置的开发工具，每次安装一个。")}
       stepper
       primaryLabel={t("继续")}
-      onPrimary={() => navigate("/setup/mode")}
-      primaryDisabled={!state.selectedAgentIds.length || state.statusState === "loading"}
-      footerNote={state.selectedAgentIds.length ? t("已选择 {count} 个 Agent", { count: state.selectedAgentIds.length }) : t("至少选择一个 Agent")}
+      onPrimary={() => navigate("/setup/provider")}
+      primaryDisabled={!selectedAgent || state.statusState === "loading"}
+      footerNote={selectedAgent ? selectedName : t("选择一个 Agent")}
       bodyClassName="agent-selection-body"
     >
       {state.statusState === "loading" ? <div className="loading-block"><span className="spinner" />{t("正在检测本机环境")}</div> : null}
@@ -55,6 +58,8 @@ export function AgentSelectionPage() {
               <div>
                 <h2>{t("常用 Agent")}</h2>
                 <p>{t("可一键配置的使用锁定版本完成初始化，仅引导的只显示官方步骤。")}</p>
+                {/* Guide-only rows stay selectable: install_many answers them
+                    with a guide-only result and writes nothing. */}
               </div>
               <PackageCheck size={19} aria-hidden="true" />
             </div>

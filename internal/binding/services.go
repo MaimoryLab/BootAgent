@@ -259,6 +259,7 @@ func (s *AgentService) Install(ctx context.Context, request InstallRequest) (Ins
 		Model:          request.Model,
 		SmallFastModel: request.SmallFastModel,
 		ProfileID:      request.ProfileID,
+		ProfileLabel:   request.ProfileLabel,
 		Configure:      request.Configure,
 		InstallAgent:   request.InstallAgent,
 		CheckAgentOnly: false,
@@ -429,6 +430,7 @@ type InstallRequest struct {
 	Model          string   `json:"model"`
 	SmallFastModel string   `json:"small_fast_model"`
 	ProfileID      string   `json:"profile_id"`
+	ProfileLabel   string   `json:"profile_label"`
 	Configure      bool     `json:"configure"`
 	InstallAgent   bool     `json:"install_agent"`
 	LockedVersion  bool     `json:"locked_version"`

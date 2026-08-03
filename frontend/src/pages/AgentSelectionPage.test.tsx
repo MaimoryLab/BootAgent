@@ -1,12 +1,14 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 
 import type { AgentCatalogItem, StatusResponse } from "../types/api";
 import { AgentSelectionPage } from "./AgentSelectionPage";
 
+const dispatch = vi.fn();
+
 vi.mock("../state/WizardContext", () => ({
-  useWizard: () => ({ state: mockState, dispatch: vi.fn(), refreshStatus: vi.fn() }),
+  useWizard: () => ({ state: mockState, dispatch, refreshStatus: vi.fn() }),
 }));
 
 let mockState: {
@@ -38,6 +40,7 @@ const CATALOG: AgentCatalogItem[] = [
 }));
 
 function renderPage() {
+  dispatch.mockClear();
   mockState = {
     status: {
       apiVersion: 1,
@@ -73,6 +76,7 @@ function renderPage() {
       environmentError: null,
       profiles: [],
       activeProfile: null,
+      firstRun: false,
     } as unknown as StatusResponse,
     statusState: "success",
     statusError: "",
@@ -91,7 +95,7 @@ describe("AgentSelectionPage", () => {
     // Grouping by catalog group put Kilo (rank 8) and Aider (9) on the first
     // screen while Cursor (3) and OpenClaw (5) sat inside a disclosure.
     renderPage();
-    const names = screen.getAllByRole("checkbox").map((box) => box.getAttribute("aria-label"));
+    const names = screen.getAllByRole("radio").map((box) => box.getAttribute("aria-label"));
     expect(names).toEqual([
       "选择 Codex",
       "选择 Claude Code",
@@ -122,6 +126,17 @@ describe("AgentSelectionPage", () => {
     renderPage();
     expect(screen.getByRole("heading", { name: "常用 Agent" })).toBeTruthy();
     expect(screen.queryByRole("heading", { name: "可一键配置" })).toBeNull();
+  });
+
+  it("offers one Agent per run and blocks the step until one is chosen", () => {
+    // Onboarding configures a single Agent end to end: radios, not checkboxes,
+    // and SELECT_AGENT replaces rather than accumulates.
+    renderPage();
+    expect(screen.getAllByRole("radio")[0]?.getAttribute("type")).toBe("radio");
+    expect(screen.queryAllByRole("checkbox").map((box) => box.getAttribute("aria-label"))).not.toContain("选择 Codex");
+    expect(screen.getByRole("button", { name: /继续/ }).hasAttribute("disabled")).toBe(true);
+    fireEvent.click(screen.getByLabelText("选择 Codex"));
+    expect(dispatch).toHaveBeenCalledWith({ type: "SELECT_AGENT", agentId: "codex" });
   });
 
   it("counts the Agents left behind the disclosure", () => {

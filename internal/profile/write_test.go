@@ -201,3 +201,39 @@ func assertProfileMode(t *testing.T, path string, want os.FileMode) {
 		t.Fatalf("%s mode = %o, want %o", path, got, want)
 	}
 }
+
+func TestWriteActiveLabelsNewProfilesAndKeepsExistingNames(t *testing.T) {
+	store := testStore(t, t.TempDir(), "linux")
+	base := ActiveRequest{
+		ProfileID: "codex-ppio", Agents: []string{"codex"}, Configure: true,
+		Provider: "ppio", Model: "model-a", APIKey: "sk-a",
+	}
+	labelled := base
+	labelled.Label = "Codex · PPIO"
+	if _, err := store.WriteActive(context.Background(), labelled); err != nil {
+		t.Fatal(err)
+	}
+	active := store.LoadActive()
+	if active.Profile == nil || active.Profile.Label != "Codex · PPIO" {
+		t.Fatalf("onboarding label was not stored: %#v", active.Profile)
+	}
+	// A re-run must not rename what the user already named, even when the
+	// request carries a different generated default.
+	renamed := base
+	renamed.Label = "Something Else"
+	if _, err := store.WriteActive(context.Background(), renamed); err != nil {
+		t.Fatal(err)
+	}
+	if active = store.LoadActive(); active.Profile.Label != "Codex · PPIO" {
+		t.Fatalf("existing label was overwritten: %q", active.Profile.Label)
+	}
+	// Without a label the id remains the fallback, as before.
+	if _, err := store.WriteActive(context.Background(), ActiveRequest{
+		ProfileID: "plain", Agents: []string{"codex"}, Configure: true, Provider: "ppio", Model: "model-a",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if active = store.LoadActive(); active.Profile.Label != "plain" {
+		t.Fatalf("unlabelled profile = %q", active.Profile.Label)
+	}
+}

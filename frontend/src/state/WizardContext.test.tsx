@@ -22,6 +22,7 @@ const status = {
   environmentError: null,
   profiles: [],
   activeProfile: null,
+  firstRun: false,
 } satisfies StatusResponse;
 
 const wrapper = ({ children }: PropsWithChildren) => <WizardProvider>{children}</WizardProvider>;

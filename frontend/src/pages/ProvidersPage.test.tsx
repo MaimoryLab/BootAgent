@@ -62,6 +62,7 @@ function statusWith(agents: Record<string, string | null>): StatusResponse {
     environmentError: null,
     profiles: [],
     activeProfile: null,
+    firstRun: false,
   };
 }
 

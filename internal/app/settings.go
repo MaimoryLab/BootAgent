@@ -151,34 +151,53 @@ func (u *UseCases) packageRegistry(ctx context.Context, requested string) string
 const packageMirrorID = "npmmirror"
 
 // looksChinese reports whether this machine's language or region points at
-// mainland China. The answer is cached for the process lifetime: it cannot
-// change without the user changing a system setting, and Settings is read on
-// every status poll, which must not spawn a subprocess each time.
+// mainland China. The answer cannot change without the user
+// changing a system setting, so a successful answer is cached for the process
+// lifetime: Settings is read on every status poll, which must not spawn a
+// subprocess each time. A failed probe is not cached — a cancelled status poll
+// would otherwise pin "not China" for the whole session and silently cost every
+// later download its mirror.
 func (u *UseCases) looksChinese(ctx context.Context) bool {
-	u.regionOnce.Do(func() {
-		u.regionIsChinese = u.detectChineseRegion(ctx)
-	})
-	return u.regionIsChinese
+	u.regionMu.Lock()
+	defer u.regionMu.Unlock()
+	if u.regionKnown {
+		return u.regionIsChinese
+	}
+	chinese, answered := u.detectChineseRegion(ctx)
+	if answered {
+		u.regionKnown = true
+		u.regionIsChinese = chinese
+	}
+	return chinese
 }
 
-func (u *UseCases) detectChineseRegion(ctx context.Context) bool {
+// detectChineseRegion reports the region and whether the machine actually
+// answered. A probe that failed reports (false, false) so the caller can retry
+// rather than remember it.
+func (u *UseCases) detectChineseRegion(ctx context.Context) (bool, bool) {
 	// The environment is free to read and, on Linux, authoritative.
 	if platform.IsChineseLocale(platform.LocaleFromEnvironment(u.environment)) {
-		return true
+		return true, true
 	}
 	argv := platform.RegionCommand(u.status.Platform.OS)
 	if len(argv) == 0 || u.runner == nil {
-		return false
+		// Nothing further to ask: on Linux the environment was the whole answer.
+		return false, true
 	}
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	result, err := u.runner.Run(ctx, argv, nil, regionProbeTimeout)
+	// The probe only picks a download host, so it must not inherit a caller's
+	// cancellation: a status poll from a view the user navigated away from would
+	// otherwise decide the mirror question for the rest of the session.
+	probeCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), regionProbeTimeout)
+	defer cancel()
+	result, err := u.runner.Run(probeCtx, argv, nil, regionProbeTimeout)
 	if err != nil || result.ExitCode != 0 {
-		// A machine that will not answer is treated as "not China": the official
-		// source is the safer default to guess wrong about, since it is where the
-		// artifacts actually come from.
-		return false
+		// A machine that will not answer is treated as "not China" for this call:
+		// the official source is the safer default to guess wrong about, since it
+		// is where the artifacts actually come from.
+		return false, false
 	}
-	return platform.IsChineseLocale(result.Stdout)
+	return platform.IsChineseLocale(result.Stdout), true
 }

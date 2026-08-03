@@ -1,12 +1,27 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 
 import type { StatusResponse } from "../types/api";
 import { EnvironmentOverviewPage } from "./EnvironmentOverviewPage";
 
+const dispatch = vi.fn();
+
 vi.mock("../state/WizardContext", () => ({
-  useWizard: () => ({ state: mockState, refreshStatus: vi.fn() }),
+  useWizard: () => ({ state: mockState, dispatch, refreshStatus: vi.fn() }),
 }));
+
+function renderPage() {
+  dispatch.mockClear();
+  render(
+    <MemoryRouter initialEntries={["/overview"]}>
+      <Routes>
+        <Route path="/overview" element={<EnvironmentOverviewPage />} />
+        <Route path="/setup/agents" element={<h1>onboarding</h1>} />
+      </Routes>
+    </MemoryRouter>,
+  );
+}
 
 let mockState: { status: StatusResponse | null; statusState: string; statusError: string };
 
@@ -43,6 +58,7 @@ function status(): StatusResponse {
     backups: {},
     profiles: [{ id: "team", label: "团队默认", provider: "ppio", baseUrl: null, model: "model-a", agentIds: ["codex"], activatedAt: null, hasKey: true }],
     activeProfile: "team",
+    firstRun: false,
     environment: null,
     environmentError: null,
   };
@@ -51,20 +67,24 @@ function status(): StatusResponse {
 describe("EnvironmentOverviewPage", () => {
   it("shows only installed Agents with their Provider and Profile", () => {
     mockState = { status: status(), statusState: "success", statusError: "" };
-    render(<EnvironmentOverviewPage />);
+    renderPage();
     expect(screen.getByText("Codex")).toBeTruthy();
     expect(screen.queryByText("OpenCode")).toBeNull();
     expect(screen.getByText("PPIO")).toBeTruthy();
     expect(screen.getByText("团队默认")).toBeTruthy();
-    expect(screen.queryByRole("button", { name: /配置|安装/ })).toBeNull();
   });
 
-  it("keeps an empty environment informational", () => {
+  it("offers onboarding as the way out of an empty environment", async () => {
+    // With nothing installed the page has nothing to manage, so the empty state
+    // has to lead somewhere instead of just describing the problem.
     const empty = status();
     empty.agents.codex.installed = false;
     mockState = { status: empty, statusState: "success", statusError: "" };
-    render(<EnvironmentOverviewPage />);
+    renderPage();
     expect(screen.getByText("尚未安装任何 Agent")).toBeTruthy();
-    expect(screen.queryByRole("button", { name: /开始|新建/ })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "安装 Agent" }));
+    expect(await screen.findByRole("heading", { name: "onboarding" })).toBeTruthy();
+    // A second run must not inherit the previous Agent, model or log.
+    expect(dispatch).toHaveBeenCalledWith({ type: "START_SETUP" });
   });
 });

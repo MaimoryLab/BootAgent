@@ -8,20 +8,30 @@ import type {
   InstallOutput,
 } from "../types/api";
 
-export type ConfigMode = "provider" | "existing-account" | null;
 export type AsyncState = "idle" | "loading" | "success" | "error";
 
 export interface WizardState {
   status: StatusResponse | null;
   statusState: AsyncState;
   statusError: string;
+  /** Onboarding installs exactly one Agent; the array shape stays because the
+   *  install API and the activation page are both multi-Agent. */
   selectedAgentIds: string[];
   installMissingAgents: boolean;
-  configMode: ConfigMode;
   provider: ProviderId;
+  /** Profile id/label written by the confirm step. Empty means "derive from
+   *  Agent and Provider". */
+  profileId: string;
+  profileLabel: string;
   hasApiKey: boolean;
   connection: ProbeResponse | null;
   connectionState: AsyncState;
+  /** A probe with this key succeeded. Separate from connectionState because the
+   *  model steps sits *after* the provider gate: choosing a model re-opens the
+   *  verdict for display, but it does not make the key unverified, and treating
+   *  it that way sent the user backwards out of the model step. Cleared only
+   *  when the key or the Provider changes. */
+  keyVerified: boolean;
   models: string[];
   modelsState: AsyncState;
   modelsMessage: string;
@@ -42,11 +52,13 @@ export const initialWizardState: WizardState = {
   statusError: "",
   selectedAgentIds: [],
   installMissingAgents: true,
-  configMode: null,
   provider: "ppio",
+  profileId: "",
+  profileLabel: "",
   hasApiKey: false,
   connection: null,
   connectionState: "idle",
+  keyVerified: false,
   models: [],
   modelsState: "idle",
   modelsMessage: "",
@@ -63,10 +75,12 @@ export type WizardAction =
   | { type: "STATUS_LOADING" }
   | { type: "STATUS_LOADED"; status: StatusResponse }
   | { type: "STATUS_FAILED"; message: string }
-  | { type: "TOGGLE_AGENT"; agentId: string }
+  | { type: "SELECT_AGENT"; agentId: string }
   | { type: "SET_INSTALL_MISSING"; value: boolean }
-  | { type: "SET_CONFIG_MODE"; value: Exclude<ConfigMode, null> }
   | { type: "SET_PROVIDER"; value: ProviderId }
+  | { type: "SET_PROFILE_ID"; value: string }
+  | { type: "SET_PROFILE_LABEL"; value: string }
+  | { type: "START_SETUP"; profileId?: string; profileLabel?: string }
   | { type: "SET_HAS_API_KEY"; value: boolean }
   | { type: "CONNECTION_LOADING" }
   | { type: "CONNECTION_RESULT"; result: ProbeResponse }
@@ -123,25 +137,27 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
       return { ...state, status: action.status, statusState: "success", statusError: "" };
     case "STATUS_FAILED":
       return { ...state, statusState: "error", statusError: action.message };
-    case "TOGGLE_AGENT":
-      return {
-        ...state,
-        selectedAgentIds: state.selectedAgentIds.includes(action.agentId)
-          ? state.selectedAgentIds.filter((id) => id !== action.agentId)
-          : [...state.selectedAgentIds, action.agentId],
-      };
+    case "SELECT_AGENT":
+      // Single select, and re-clicking the current row keeps it selected: the
+      // step cannot continue with nothing chosen, so a toggle-off would only
+      // ever produce a dead end.
+      return { ...state, selectedAgentIds: [action.agentId] };
     case "SET_INSTALL_MISSING":
       return { ...state, installMissingAgents: action.value };
-    case "SET_CONFIG_MODE":
+    case "SET_PROFILE_ID":
+      return { ...state, profileId: action.value };
+    case "SET_PROFILE_LABEL":
+      return { ...state, profileLabel: action.value };
+    case "START_SETUP":
+      // Entering onboarding from the overview or the Profile page must not
+      // inherit a previous run's Agent, model or install log.
       return {
-        ...state,
-        configMode: action.value,
-        connection: null,
-        connectionState: "idle",
-        models: [],
-        modelsState: "idle",
-        modelsMessage: "",
-        model: action.value === "existing-account" ? "" : state.model,
+        ...initialWizardState,
+        status: state.status,
+        statusState: state.statusState,
+        statusError: state.statusError,
+        profileId: action.profileId ?? "",
+        profileLabel: action.profileLabel ?? "",
       };
     case "SET_PROVIDER":
       return {
@@ -149,6 +165,7 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
         provider: action.value,
         connection: null,
         connectionState: "idle",
+        keyVerified: false,
         models: [],
         modelsState: "idle",
         modelsMessage: "",
@@ -164,6 +181,7 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
         hasApiKey: action.value,
         connection: null,
         connectionState: "idle",
+        keyVerified: false,
       };
     case "CONNECTION_LOADING":
       return { ...state, connectionState: "loading", connection: null };
@@ -172,6 +190,7 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
         ...state,
         connection: action.result,
         connectionState: action.result.ok ? "success" : "error",
+        keyVerified: state.keyVerified || action.result.ok,
       };
     case "CONNECTION_FAILED":
       return {

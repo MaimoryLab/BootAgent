@@ -6,7 +6,7 @@ import { I18nProvider, LOCALE_STORAGE_KEY, translate, useI18n } from "./i18n";
 
 describe("i18n", () => {
   it("translates placeholders and persists language changes", () => {
-    expect(translate("en", "已选择 {count} 个 Agent", { count: 2 })).toBe("Selected: 2");
+    expect(translate("en", "更多 Agent（{count}）", { count: 2 })).toBe("More agents (2)");
     localStorage.setItem(LOCALE_STORAGE_KEY, "en");
     const wrapper = ({ children }: PropsWithChildren) => <I18nProvider>{children}</I18nProvider>;
     const { result } = renderHook(() => useI18n(), { wrapper });

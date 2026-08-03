@@ -58,6 +58,7 @@ function status(): StatusResponse {
     environmentError: null,
     profiles: [],
     activeProfile: null,
+    firstRun: false,
   };
 }
 

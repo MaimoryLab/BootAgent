@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { api } from "../backend/api";
@@ -7,9 +7,10 @@ import type { ProfileSummary, StatusResponse } from "../types/api";
 import { ProfilesPage } from "./ProfilesPage";
 
 const refreshStatus = vi.fn<() => Promise<void>>();
+const dispatch = vi.fn();
 
 vi.mock("../state/WizardContext", () => ({
-  useWizard: () => ({ state: mockState, dispatch: vi.fn(), refreshStatus }),
+  useWizard: () => ({ state: mockState, dispatch, refreshStatus }),
 }));
 
 let mockState: { status: StatusResponse | null; statusState: string };
@@ -60,6 +61,7 @@ function statusWith(profiles: ProfileSummary[]): StatusResponse {
     environmentError: null,
     profiles,
     activeProfile: null,
+    firstRun: false,
   };
 }
 
@@ -79,9 +81,13 @@ function profile(over: Partial<ProfileSummary> = {}): ProfileSummary {
 
 function renderPage(profiles: ProfileSummary[]) {
   mockState = { status: statusWith(profiles), statusState: "success" };
+  dispatch.mockClear();
   render(
-    <MemoryRouter>
-      <ProfilesPage />
+    <MemoryRouter initialEntries={["/profiles"]}>
+      <Routes>
+        <Route path="/profiles" element={<ProfilesPage />} />
+        <Route path="/setup/agents" element={<h1>onboarding</h1>} />
+      </Routes>
     </MemoryRouter>,
   );
 }
@@ -108,37 +114,19 @@ describe("ProfilesPage", () => {
     expect(document.body.innerHTML).not.toMatch(/sk-[A-Za-z0-9]/);
   });
 
-  it("starts Profile creation from the template manager", () => {
+  it("sends Profile creation through onboarding instead of an inline form", async () => {
+    // The old form collected a Provider, model and Agent list without ever
+    // testing the key. Onboarding collects the same fields in order, probes the
+    // connection, and the install writes the Profile.
+    const save = vi.spyOn(api, "saveProfile");
     renderPage([]);
     expect(screen.getByText(/还没有 Profile/)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "新增 Profile" }));
-    expect(screen.getByRole("heading", { name: "配置模板" })).toBeTruthy();
-    expect(screen.getByLabelText("Profile ID")).toBeTruthy();
-  });
 
-  it("creates a Profile without asking for a key", async () => {
-    // The Provider already holds the key; a second prompt here was the
-    // duplication this page dropped.
-    const save = vi.spyOn(api, "saveProfile").mockResolvedValue(profile());
-    renderPage([]);
-    fireEvent.click(screen.getByRole("button", { name: "新增 Profile" }));
-    expect(screen.queryByLabelText("API Key")).toBeNull();
-    fireEvent.change(screen.getByLabelText("Profile ID"), { target: { value: "team-ppio" } });
-    fireEvent.change(screen.getByLabelText("名称"), { target: { value: "团队 PPIO" } });
-    fireEvent.change(screen.getByLabelText("模型"), { target: { value: "deepseek/deepseek-v3" } });
-    fireEvent.click(screen.getByLabelText("选择 Codex"));
-    fireEvent.click(screen.getByRole("button", { name: "保存 Profile" }));
-
-    await waitFor(() => expect(save).toHaveBeenCalledWith({
-      id: "team-ppio",
-      label: "团队 PPIO",
-      provider: "ppio",
-      apiBaseUrl: "",
-      apiKey: "",
-      model: "deepseek/deepseek-v3",
-      configMode: "provider",
-      agentIds: ["codex"],
-    }));
+    expect(await screen.findByRole("heading", { name: "onboarding" })).toBeTruthy();
+    // A stale run's Agent and model must not be inherited by the new Profile.
+    expect(dispatch).toHaveBeenCalledWith({ type: "START_SETUP" });
+    expect(save).not.toHaveBeenCalled();
   });
 
   it("points at the Provider page when its key is missing", async () => {

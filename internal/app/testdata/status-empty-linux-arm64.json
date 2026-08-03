@@ -585,5 +585,6 @@
       "installPath": "${HOME}/.oneagent/runtimes/uv/v0.12.1",
       "requiredByHint": "Aider"
     }
-  ]
+  ],
+  "firstRun": true
 }

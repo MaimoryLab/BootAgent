@@ -22,7 +22,7 @@ export function ProviderKeyPage() {
   // Continuing requires a successful probe, not just a non-empty key: a wrong
   // key must not reach the model step. canProbe stays separate so the test
   // button remains clickable while the verdict is still outstanding.
-  const canContinue = canProbe && state.connectionState === "success";
+  const canContinue = canProbe && state.keyVerified;
 
   useEffect(() => {
     if (!providerMeta?.has_key) return;
@@ -90,7 +90,7 @@ export function ProviderKeyPage() {
       title={t("连接模型服务")}
       description={t("Key 不会进入日志、URL 或前端持久化状态。")}
       stepper
-      onBack={() => navigate("/setup/mode")}
+      onBack={() => navigate("/setup/agents")}
       primaryLabel={t("继续选择模型")}
       onPrimary={() => navigate("/setup/model")}
       primaryDisabled={!canContinue || state.connectionState === "loading"}

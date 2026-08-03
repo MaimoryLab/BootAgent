@@ -50,8 +50,11 @@ type UseCases struct {
 	httpDoer install.Doer
 	writeMu  sync.Mutex
 	// The region behind the default download host cannot change without the user
-	// changing a system setting, so it is probed once per process.
-	regionOnce      sync.Once
+	// changing a system setting, so a successful probe is remembered for the
+	// process. regionKnown is separate from the answer so a probe that failed is
+	// retried instead of pinning "not China" for the session.
+	regionMu        sync.Mutex
+	regionKnown     bool
 	regionIsChinese bool
 }
 
@@ -171,6 +174,10 @@ type StatusResponse struct {
 	Backups          map[string]bool             `json:"backups"`
 	Profiles         []ProfileSummary            `json:"profiles"`
 	ActiveProfile    *string                     `json:"activeProfile"`
+	// FirstRun reports that ~/.oneagent does not exist yet, which is the signal
+	// the UI uses to open onboarding instead of the overview. Agent detection is
+	// not a substitute: an Agent installed before OneAgent would suppress it.
+	FirstRun bool `json:"firstRun"`
 	Runtimes         []RuntimeStatus             `json:"runtimes"`
 	Environment      any                         `json:"environment"`
 	EnvironmentError *string                     `json:"environmentError"`
@@ -338,6 +345,7 @@ func (u *UseCases) GetStatus(ctx context.Context) (StatusResponse, error) {
 		Runtimes:         runtimes,
 		Environment:      environment,
 		EnvironmentError: environmentError,
+		FirstRun:         !fileExists(filepath.Join(options.Home, ".oneagent")),
 	}, nil
 }
 

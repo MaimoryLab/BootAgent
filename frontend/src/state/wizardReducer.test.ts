@@ -19,6 +19,7 @@ const status = {
   environmentError: null,
   profiles: [],
   activeProfile: null,
+  firstRun: false,
 } satisfies StatusResponse;
 
 const successProbe = {
@@ -40,13 +41,36 @@ describe("wizardReducer", () => {
     expect(state.statusError).toBe("offline");
   });
 
-  it("toggles agents without duplicates", () => {
-    let state = wizardReducer(initialWizardState, { type: "TOGGLE_AGENT", agentId: "codex" });
+  it("selects exactly one Agent and cannot be emptied by re-selecting", () => {
+    // Onboarding installs one Agent per run, and every step after this one
+    // requires a selection: a toggle-off would only produce a dead end.
+    let state = wizardReducer(initialWizardState, { type: "SELECT_AGENT", agentId: "codex" });
     expect(state.selectedAgentIds).toEqual(["codex"]);
-    state = wizardReducer(state, { type: "TOGGLE_AGENT", agentId: "opencode" });
-    expect(state.selectedAgentIds).toEqual(["codex", "opencode"]);
-    state = wizardReducer(state, { type: "TOGGLE_AGENT", agentId: "codex" });
+    state = wizardReducer(state, { type: "SELECT_AGENT", agentId: "opencode" });
     expect(state.selectedAgentIds).toEqual(["opencode"]);
+    state = wizardReducer(state, { type: "SELECT_AGENT", agentId: "opencode" });
+    expect(state.selectedAgentIds).toEqual(["opencode"]);
+  });
+
+  it("clears a previous run when setup restarts but keeps the status snapshot", () => {
+    // Entering onboarding again from the overview or the Profile page must not
+    // inherit the last run's Agent, model or install log.
+    const used: WizardState = {
+      ...initialWizardState,
+      status: status,
+      statusState: "success",
+      selectedAgentIds: ["codex"],
+      model: "model-a",
+      activationLog: "old log",
+      activationState: "success",
+    };
+    const restarted = wizardReducer(used, { type: "START_SETUP", profileLabel: "Team PPIO" });
+    expect(restarted.selectedAgentIds).toEqual([]);
+    expect(restarted.model).toBe("");
+    expect(restarted.activationLog).toBe("");
+    expect(restarted.activationState).toBe("idle");
+    expect(restarted.status).toBe(status);
+    expect(restarted.profileLabel).toBe("Team PPIO");
   });
 
   it("keeps secrets out of state and resets dependent provider state", () => {
@@ -79,26 +103,34 @@ describe("wizardReducer", () => {
       hasApiKey: true,
       connection: successProbe,
       connectionState: "success" as const,
+      keyVerified: true,
     };
     const edited = wizardReducer(probed, { type: "SET_HAS_API_KEY", value: true });
     expect(edited.hasApiKey).toBe(true);
     expect(edited.connectionState).toBe("idle");
     expect(edited.connection).toBeNull();
+    expect(edited.keyVerified).toBe(false);
     const cleared = wizardReducer(probed, { type: "SET_HAS_API_KEY", value: false });
     expect(cleared.connectionState).toBe("idle");
     expect(cleared.connection).toBeNull();
+    expect(cleared.keyVerified).toBe(false);
     const changedModel = wizardReducer(probed, { type: "SET_MODEL", value: "vendor-model" });
     expect(changedModel.connectionState).toBe("idle");
     expect(changedModel.connection).toBeNull();
+    // ...but the key itself is still known-good. The model step comes after the
+    // provider gate, so treating a model pick as "key unverified" bounced the
+    // user out of the step they had just reached.
+    expect(changedModel.keyVerified).toBe(true);
+    // Switching Provider does invalidate it: the same key proves nothing
+    // about a different endpoint.
+    expect(wizardReducer(probed, { type: "SET_PROVIDER", value: "novita" }).keyVerified).toBe(false);
   });
 
-  it("marks skipped configuration steps and clears model selection", () => {
-    const providerState = wizardReducer(initialWizardState, { type: "SET_CONFIG_MODE", value: "provider" });
-    expect(providerState.configMode).toBe("provider");
-    const existing = wizardReducer({ ...providerState, model: "model-a" }, { type: "SET_CONFIG_MODE", value: "existing-account" });
-    expect(existing.configMode).toBe("existing-account");
-    expect(existing.model).toBe("");
-    expect(wizardReducer(existing, { type: "SET_INSTALL_MISSING", value: false }).installMissingAgents).toBe(false);
+  it("records the install toggle and the profile name", () => {
+    const state = wizardReducer(initialWizardState, { type: "SET_INSTALL_MISSING", value: false });
+    expect(state.installMissingAgents).toBe(false);
+    expect(wizardReducer(state, { type: "SET_PROFILE_LABEL", value: "Team PPIO" }).profileLabel).toBe("Team PPIO");
+    expect(wizardReducer(state, { type: "SET_PROFILE_ID", value: "codex-ppio" }).profileId).toBe("codex-ppio");
   });
 
   it("maps connection states", () => {

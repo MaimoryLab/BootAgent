@@ -27,6 +27,9 @@ type SaveRequest struct {
 
 type ActiveRequest struct {
 	ProfileID string
+	// Label names a profile this request creates. An existing profile keeps its
+	// stored label so a re-activation never renames it behind the user's back.
+	Label     string
 	Agents    []string
 	Configure bool
 	Provider  string
@@ -158,7 +161,7 @@ func (s Store) WriteActive(ctx context.Context, request ActiveRequest) (string, 
 	stored := storedProfile{
 		SchemaVersion: 2,
 		ID:            profileID,
-		Label:         valueOr(current.Label, profileID),
+		Label:         valueOr(current.Label, valueOr(strings.TrimSpace(request.Label), profileID)),
 		Provider:      providerID,
 		BaseURL:       baseURL,
 		Model:         model,

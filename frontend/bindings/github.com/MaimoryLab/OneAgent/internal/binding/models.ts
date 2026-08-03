@@ -44,6 +44,7 @@ export interface InstallRequest {
     "model": string;
     "small_fast_model": string;
     "profile_id": string;
+    "profile_label": string;
     "configure": boolean;
     "install_agent": boolean;
     "locked_version": boolean;

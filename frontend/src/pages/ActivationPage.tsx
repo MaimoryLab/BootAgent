@@ -26,16 +26,17 @@ export function ActivationPage() {
       profile_agents: profileAgents,
       provider: state.provider,
       api_base_url: "",
-      api_key: state.configMode === "provider" ? secret.keyRef.current : "",
-      // SetupGuard guarantees a model in provider mode; existing-account mode
-      // sends none and the backend does not write model config for it.
+      api_key: secret.keyRef.current,
+      // SetupGuard guarantees a model before this page can render.
       model: state.model,
-      configure: state.configMode === "provider",
+      profile_id: state.profileId,
+      profile_label: state.profileLabel,
+      configure: true,
       install_agent: state.installMissingAgents,
-      skip_test: state.configMode !== "provider",
+      skip_test: false,
       locked_version: true,
     }),
-    [secret.keyRef, state.configMode, state.installMissingAgents, state.model, state.provider],
+    [secret.keyRef, state.installMissingAgents, state.model, state.profileId, state.profileLabel, state.provider],
   );
 
   const activate = useCallback(async () => {
@@ -98,8 +99,9 @@ export function ActivationPage() {
   const allDone = state.activationState === "success";
   return (
     <PageScaffold
-      title={state.activationState === "loading" ? t("正在激活") : allDone ? t("激活完成") : t("需要处理部分问题")}
+      title={state.activationState === "loading" ? t("正在安装") : allDone ? t("安装完成") : t("需要处理部分问题")}
       description={state.activationState === "loading" ? t("安装请求同步执行，完成后将显示每个 Agent 的最终状态。") : t("每个 Agent 的结果彼此独立，失败项可以单独重试。")}
+      stepper
       onBack={state.activationState === "loading" ? undefined : () => navigate("/setup/review")}
       primaryLabel={allDone ? t("进入总览") : undefined}
       onPrimary={allDone ? () => navigate("/overview") : undefined}

@@ -49,7 +49,7 @@ describe("Wails backend adapter", () => {
       runtimes: [],
       capabilities: { canInstall: {}, missingRuntime: {}, supportedAgentIds: [] },
       agents: {}, catalog: [], groups: [], providers: {}, mirrors: [], paths: {}, backups: {},
-      profiles: [], activeProfile: null, environment: null, environmentError: null,
+      profiles: [], activeProfile: null, environment: null, environmentError: null, firstRun: false,
     } satisfies StatusResponse;
     const probe = { ok: true, reachable: true, status: 204, message: "ok", error_code: null, retryable: false } satisfies ProbeResponse;
     const models = { ...probe, models: ["model-a"] } satisfies ModelsResponse;

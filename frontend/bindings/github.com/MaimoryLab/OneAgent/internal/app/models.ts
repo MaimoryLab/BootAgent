@@ -134,6 +134,13 @@ export interface StatusResponse {
     "backups": { [_ in string]?: boolean } | null;
     "profiles": ProfileSummary[] | null;
     "activeProfile": string | null;
+
+    /**
+     * FirstRun reports that ~/.oneagent does not exist yet, which is the signal
+     * the UI uses to open onboarding instead of the overview. Agent detection is
+     * not a substitute: an Agent installed before OneAgent would suppress it.
+     */
+    "firstRun": boolean;
     "runtimes": RuntimeStatus[] | null;
     "environment": any;
     "environmentError": string | null;
