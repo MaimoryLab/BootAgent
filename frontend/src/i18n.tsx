@@ -1,7 +1,7 @@
 import { createContext, type PropsWithChildren, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 
 const english = {
-  "AI 开发环境": "AI development environment",
+  "Agent 管家": "Agent Manager",
   "主导航": "Main navigation",
   "工作区": "Workspace",
   "激活环境": "Environment",

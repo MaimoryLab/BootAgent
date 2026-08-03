@@ -22,7 +22,7 @@ export function NavigationSidebar() {
         </span>
         <div>
           <strong>OneAgent</strong>
-          <span>{t("AI 开发环境")}</span>
+          <span>{t("Agent 管家")}</span>
         </div>
       </div>
 
