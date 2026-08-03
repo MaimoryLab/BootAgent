@@ -1,5 +1,11 @@
 node_modules/
-dist/
+# The bundle is ignored but dist/.keep is not: manifest_embed.go carries a
+# `go:embed all:frontend/dist`, which does not compile when the directory is
+# absent, so a fresh clone could not `go build` or `go vet` before Vite had run.
+# Listed per-entry rather than as `dist/` because excluding the directory itself
+# stops git descending into it, which would make the exception unreachable.
+dist/*
+!dist/.keep
 coverage/
 test-results/
 playwright-report/

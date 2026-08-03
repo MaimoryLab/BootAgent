@@ -1,0 +1,1485 @@
+---
+import AgentMark from "./AgentMark.astro";
+import { catalog } from "../lib/catalog";
+import { bestLocaleFor, localeFromPath, localePath, switchesLanguage } from "../i18n";
+import { DEMO_CUSTOM_MODEL_HINT, demoStateFor } from "../lib/demo-environment";
+import { recommendedCombination } from "../lib/explorer";
+
+interface Props {
+  id?: string;
+}
+
+const { id = "activation-console" } = Astro.props;
+const locale = localeFromPath(Astro.url.pathname);
+const featuredAgents = catalog.agents.slice(0, 4);
+const recommendation = recommendedCombination(catalog);
+const href = (path: string) => localePath(bestLocaleFor(locale, path), path);
+const copy = locale === "en"
+  ? {
+      label: "Interactive product evidence",
+      sample: "Demo environment",
+      title: "Activation console",
+      subtitle: "A guided example. This page never scans your device or asks for an API key.",
+      idleTitle: "Ready when you are.",
+      idleBody: "Start from the hero action. OneAgent will walk through an example environment without touching this computer.",
+      scanningTitle: "Scanning the example environment",
+      scanningBody: "Reading a deterministic demo scenario — not your browser, files or local services.",
+      agentTitle: "Choose an agent",
+      agentBody: "Capabilities and locked versions come from the repository catalog. Machine state is explicitly illustrative.",
+      providerTitle: "Choose a provider",
+      providerBody: "Compatibility is calculated from the protocol registry. A preview gate never becomes Ready.",
+      verify: "Verify sample connection",
+      verifyingTitle: "Verifying the sample protocol",
+      verifyingBody: "No credential is submitted. The outcome follows the selected catalog compatibility level.",
+      resultLabel: "Example outcome",
+      reset: "Reset demo",
+      download: "Download OneAgent",
+      explore: "Open full Explorer",
+      security: "Release policy",
+      installed: "Installed",
+      notInstalled: "Not installed",
+      configured: "Configured",
+      needsSetup: "Needs setup",
+      officialGuide: "Official guide",
+      recommended: "Recommended path",
+      locked: "Locked",
+      noLockedVersion: "Official release",
+      command: "Launch",
+      managed: "Managed config",
+      guide: "Official setup",
+      facts: ["No device access", "No API key field", "Registry-derived compatibility"],
+      steps: ["Agent", "Setup", "Provider", "Model", "Confirm"],
+      modeTitle: "How should this agent be configured?",
+      modeBody: "OneAgent can point the agent at a model service, or leave an account you already use in place.",
+      modeProvider: "Configure a model service",
+      modeProviderHint: "Choose a provider or your own endpoint, then verify the protocol before anything is written.",
+      modeExisting: "Keep an existing account or config",
+      modeExistingHint: "Already signed in, or already configured? The provider and model steps are skipped.",
+      customName: "Custom endpoint",
+      customVerdict: "Your own OpenAI-compatible URL",
+      customLabel: "Base URL",
+      customPlaceholder: "https://api.example.com/openai",
+      customHint: "Any OpenAI-compatible endpoint. Validated the same way the app validates it.",
+      register: "Need a key? Open PPIO",
+      registerNote: "Opens ppio.com in a new tab. OneAgent has no account of its own.",
+      urlRequired: "Enter a base URL.",
+      urlScheme: "Must start with http:// or https://",
+      urlCredentials: "Remove the username or password from the URL.",
+      urlControl: "Remove control characters from the URL.",
+      urlOk: "Endpoint accepted",
+      modelTitle: "Choose a model",
+      modelBody: "The app reads this list from the endpoint itself. Pick one, or type an id if discovery comes back empty.",
+      modelManual: "Discovery empty? Enter an id",
+      modelManualLabel: "Model id",
+      confirm: "Confirm activation",
+      skipped: "Skipped",
+      /* The real window's sidebar is a workspace nav, not a progress list — the
+         stepper lives in the page header. These are its actual four entries. */
+      navItems: ["Activate", "Overview", "Providers", "Templates"],
+      sidebarNote: "Configuration stays on this machine",
+      footerIdle: "The demo never touches this device",
+      chineseOnly: "in Chinese",
+    }
+  : {
+      label: "可操作的产品证据",
+      sample: "示例环境",
+      title: "激活控制台",
+      subtitle: "这是引导演示。页面不会扫描你的设备，也不会要求输入 API Key。",
+      idleTitle: "等待你启动演示。",
+      idleBody: "从首屏主按钮开始，OneAgent 将演示一次完整激活路径，但不会访问这台电脑。",
+      scanningTitle: "正在扫描示例环境",
+      scanningBody: "读取确定性的演示场景，不读取浏览器、本机文件或本地服务。",
+      agentTitle: "选择一个 Agent",
+      agentBody: "能力与锁定版本来自仓库目录；安装和配置状态明确属于示例。",
+      providerTitle: "选择一个 Provider",
+      providerBody: "兼容结果来自协议注册表；预览门禁不会被升级成 Ready。",
+      verify: "验证示例连接",
+      verifyingTitle: "正在验证示例协议",
+      verifyingBody: "不会提交任何凭证；结果严格跟随所选组合的兼容等级。",
+      resultLabel: "示例结果",
+      reset: "重置演示",
+      download: "下载 OneAgent",
+      explore: "打开完整配置目录",
+      security: "发行政策",
+      installed: "已安装",
+      notInstalled: "未安装",
+      configured: "已配置",
+      needsSetup: "待配置",
+      officialGuide: "官方引导",
+      recommended: "推荐路径",
+      locked: "锁定版本",
+      noLockedVersion: "官方发行",
+      command: "启动命令",
+      managed: "托管配置",
+      guide: "官方设置",
+      facts: ["不访问设备", "不提供 Key 输入框", "兼容结论来自注册表"],
+      steps: ["Agent", "配置", "Provider", "模型", "确认"],
+      modeTitle: "这个 Agent 怎么配置？",
+      modeBody: "可以由 OneAgent 指向某个模型服务，也可以保留你已经在用的账号。",
+      modeProvider: "配置模型服务",
+      modeProviderHint: "选择 Provider 或你自己的端点，写入前先验证协议。",
+      modeExisting: "使用已有账号或配置",
+      modeExistingHint: "已经登录、或已经配置好？Provider 与模型两步会跳过。",
+      customName: "自定义端点",
+      customVerdict: "你自己的 OpenAI 兼容地址",
+      customLabel: "Base URL",
+      customPlaceholder: "https://api.example.com/openai",
+      customHint: "任何 OpenAI 兼容端点。校验规则与应用内一致。",
+      register: "还没有 Key？打开 PPIO",
+      registerNote: "在新标签页打开 ppio.com。OneAgent 自身没有账号体系。",
+      urlRequired: "请填写 Base URL。",
+      urlScheme: "需要以 http:// 或 https:// 开头。",
+      urlCredentials: "请从地址中去掉用户名或密码。",
+      urlControl: "请去掉地址中的控制字符。",
+      urlOk: "端点可用",
+      modelTitle: "选择模型",
+      modelBody: "应用会从端点自身读取这个列表。选一个，或在发现结果为空时手动输入 ID。",
+      modelManual: "列表为空？手动输入 ID",
+      modelManualLabel: "模型 ID",
+      confirm: "确认激活",
+      skipped: "已跳过",
+      /* The real window's sidebar is a workspace nav, not a progress list — the
+         stepper lives in the page header. These are its actual four entries. */
+      navItems: ["激活环境", "环境总览", "Provider", "配置模板"],
+      sidebarNote: "配置只保存在本机",
+      footerIdle: "演示不会访问这台设备",
+      chineseOnly: "仅中文",
+    };
+---
+<div class="product-shot activation-shell">
+  <activation-console id={id} data-locale={locale} data-phase="idle">
+    <div class="activation-window" tabindex="-1" data-console-window>
+      <header class="activation-topbar">
+        <div>
+          <span class="activation-kicker">{copy.label}</span>
+          <strong>{copy.title}</strong>
+        </div>
+        <span class="activation-sample"><span aria-hidden="true"></span>{copy.sample}</span>
+      </header>
+
+      <div class="activation-body">
+        <aside class="activation-rail" aria-label={locale === "en" ? "Workspace" : "工作区"}>
+          <div class="activation-rail-brand">
+            <span class="activation-monogram" aria-hidden="true">OA</span>
+            <div><strong>OneAgent</strong><span>{copy.sample}</span></div>
+          </div>
+          {/* Presentational: the real sidebar navigates a workspace, but nothing
+              here is navigable, so these are not links or buttons. */}
+          <div class="activation-nav" aria-hidden="true">
+            {copy.navItems.map((item, index) => (
+              <span class:list={["activation-nav-item", { "is-active": index === 0 }]}>{item}</span>
+            ))}
+          </div>
+          <p class="activation-rail-note">{copy.sidebarNote}</p>
+        </aside>
+
+        <div class="activation-main">
+          <div class="activation-heading">
+            <div>
+              <span class="activation-state-label" data-state-label>{copy.sample}</span>
+              <h2>{copy.title}</h2>
+              <p class="activation-subtitle">{copy.subtitle}</p>
+            </div>
+            <span class="activation-status" data-status><span aria-hidden="true"></span><b>Idle</b></span>
+          </div>
+          <ol class="activation-steps">
+            {copy.steps.map((step, index) => (
+              <li data-step={index + 1}>
+                <span class="activation-step-marker">{index + 1}</span>
+                <strong>{step}</strong>
+              </li>
+            ))}
+          </ol>
+
+          <section class="activation-panel" data-panel="idle" tabindex="-1">
+            <div class="activation-empty-mark" aria-hidden="true"><span></span><span></span><span></span></div>
+            <div>
+              <h3>{copy.idleTitle}</h3>
+              <p>{copy.idleBody}</p>
+            </div>
+          </section>
+
+          <section class="activation-panel activation-progress" data-panel="scanning" tabindex="-1" hidden>
+            <div class="activation-scan" aria-hidden="true"><span></span></div>
+            <div>
+              <h3>{copy.scanningTitle}</h3>
+              <p>{copy.scanningBody}</p>
+            </div>
+          </section>
+
+          <section class="activation-panel activation-choice-panel" data-panel="agent" tabindex="-1" hidden>
+            <div class="activation-panel-copy">
+              <h3>{copy.agentTitle}</h3>
+              <p>{copy.agentBody}</p>
+            </div>
+            <div class="activation-agent-grid" role="group" aria-label={copy.agentTitle}>
+              {featuredAgents.map((agent) => {
+                const demo = demoStateFor(agent);
+                return (
+                  <button
+                    type="button"
+                    class="activation-agent"
+                    data-agent-id={agent.id}
+                    aria-pressed="false"
+                  >
+                    <AgentMark id={agent.id} name={agent.name} size={28} />
+                    <span class="activation-agent-copy">
+                      <strong>{agent.name}</strong>
+                      <small>
+                        {demo.installed ? copy.installed : copy.notInstalled}
+                        {agent.lockedVersion ? ` · ${copy.locked} ${agent.lockedVersion}` : ` · ${copy.noLockedVersion}`}
+                      </small>
+                    </span>
+                    <span class:list={["activation-agent-state", `is-${demo.status}`]}>
+                      {agent.support.officialInstallGuide ? copy.officialGuide : demo.configured ? copy.configured : copy.needsSetup}
+                    </span>
+                    {recommendation?.agentId === agent.id && <span class="activation-recommended">{copy.recommended}</span>}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
+          <section class="activation-panel activation-choice-panel" data-panel="mode" tabindex="-1" hidden>
+            <div class="activation-panel-copy">
+              <h3>{copy.modeTitle}</h3>
+              <p>{copy.modeBody}</p>
+            </div>
+            <div class="activation-mode-grid" role="group" aria-label={copy.modeTitle}>
+              <button type="button" class="activation-mode" data-mode="provider" aria-pressed="false">
+                <strong>{copy.modeProvider}</strong>
+                <small>{copy.modeProviderHint}</small>
+              </button>
+              <button type="button" class="activation-mode" data-mode="existing-account" aria-pressed="false">
+                <strong>{copy.modeExisting}</strong>
+                <small>{copy.modeExistingHint}</small>
+              </button>
+            </div>
+          </section>
+
+          <section class="activation-panel activation-choice-panel" data-panel="provider" tabindex="-1" hidden>
+            <div class="activation-panel-copy">
+              <h3>{copy.providerTitle}</h3>
+              <p>{copy.providerBody}</p>
+            </div>
+            <div class="activation-selection-line">
+              <span data-selected-agent>—</span>
+              <span aria-hidden="true">→</span>
+              <span data-selected-protocol>—</span>
+            </div>
+            <div class="activation-provider-grid" role="group" aria-label={copy.providerTitle}>
+              {catalog.providers.map((provider) => (
+                <button type="button" class="activation-provider" data-provider-id={provider.id} aria-pressed="false">
+                  <span><strong>{provider.name}</strong><small data-provider-verdict>—</small></span>
+                  <span class="activation-provider-arrow" aria-hidden="true">↗</span>
+                </button>
+              ))}
+              <button type="button" class="activation-provider is-custom" data-provider-id="custom" aria-pressed="false">
+                <span><strong>{copy.customName}</strong><small>{copy.customVerdict}</small></span>
+                <span class="activation-provider-arrow" aria-hidden="true">+</span>
+              </button>
+            </div>
+            <div class="activation-custom" data-custom-field hidden>
+              <label for={`${id}-base-url`}>{copy.customLabel}</label>
+              <input
+                id={`${id}-base-url`}
+                type="url"
+                inputmode="url"
+                autocomplete="off"
+                spellcheck="false"
+                placeholder={copy.customPlaceholder}
+                data-custom-input
+                aria-describedby={`${id}-base-url-hint`}
+              />
+              <p class="activation-custom-hint" id={`${id}-base-url-hint`} data-custom-hint data-idle={copy.customHint} data-kind="idle">{copy.customHint}</p>
+              <a class="activation-register" href="https://ppio.com/" target="_blank" rel="noopener noreferrer">
+                {copy.register}
+                <small>{copy.registerNote}</small>
+              </a>
+            </div>
+          </section>
+
+          <section class="activation-panel activation-choice-panel" data-panel="model" tabindex="-1" hidden>
+            <div class="activation-panel-copy">
+              <h3>{copy.modelTitle}</h3>
+              <p>{copy.modelBody}</p>
+            </div>
+            <div class="activation-model-grid" role="group" aria-label={copy.modelTitle} data-model-grid></div>
+            <details class="activation-manual">
+              <summary>{copy.modelManual}</summary>
+              <label for={`${id}-model-id`}>{copy.modelManualLabel}</label>
+              <input
+                id={`${id}-model-id`}
+                type="text"
+                autocomplete="off"
+                spellcheck="false"
+                placeholder={DEMO_CUSTOM_MODEL_HINT}
+                data-model-input
+              />
+            </details>
+          </section>
+
+          <section class="activation-panel activation-progress" data-panel="verifying" tabindex="-1" hidden>
+            <div class="activation-scan is-verify" aria-hidden="true"><span></span></div>
+            <div>
+              <h3>{copy.verifyingTitle}</h3>
+              <p>{copy.verifyingBody}</p>
+              <div class="activation-verifying-pair"><strong data-verifying-agent>—</strong><span>×</span><strong data-verifying-provider>—</strong></div>
+            </div>
+          </section>
+
+          <section class="activation-panel activation-result" data-panel="result" tabindex="-1" hidden>
+            <div class="activation-result-icon" aria-hidden="true" data-result-icon><svg viewBox="0 0 32 32"><path data-result-path d="M7 17l6 6L26 9"></path></svg></div>
+            <div>
+              <span class="activation-state-label">{copy.resultLabel}</span>
+              <h3 data-result-title>—</h3>
+              <p data-result-body>—</p>
+              <div class="activation-result-meta"><strong data-result-agent>—</strong><span>→</span><strong data-result-provider>—</strong></div>
+              <div class="activation-result-actions">
+                <a class="button button-primary" href={href("downloads/")} data-ready-action hidden>{copy.download}</a>
+                <a class="button button-secondary" href={href("explore/")} data-explore-action>{copy.explore}</a>
+                <a class="button button-text" href={href("security/")} data-security-action hidden>
+                  {copy.security}
+                  {switchesLanguage(locale, "security/") && <span class="lang-hint">{copy.chineseOnly}</span>}
+                </a>
+              </div>
+            </div>
+          </section>
+
+          <div class="activation-log-wrap">
+            <span>{locale === "en" ? "EVENT LOG" : "事件日志"}</span>
+            <ol class="activation-log" data-log aria-live="polite" aria-relevant="additions" tabindex="0" aria-label={locale === "en" ? "Activation demo event log" : "激活演示事件日志"}>
+              <li>{locale === "en" ? "Demo idle. No device access requested." : "演示待机，未请求设备访问。"}</li>
+            </ol>
+          </div>
+        </div>
+
+        {/* The real window keeps its primary action in a fixed footer bar rather
+            than inside the scrolling body, so the next step is always in the same
+            place. The note on the left is where the app puts its own context. */}
+        <footer class="activation-footer">
+          <p class="activation-footer-note" data-footer-note>{copy.footerIdle}</p>
+          <div class="activation-footer-actions">
+            <button class="activation-reset" type="button" data-reset hidden>{copy.reset}</button>
+            <button class="button button-small button-primary" type="button" data-verify hidden disabled>{copy.verify}</button>
+            <button class="button button-small button-primary" type="button" data-confirm hidden disabled>{copy.confirm}</button>
+          </div>
+        </footer>
+      </div>
+
+      <footer class="activation-facts">
+        {copy.facts.map((fact) => <span><i aria-hidden="true"></i>{fact}</span>)}
+      </footer>
+    </div>
+  </activation-console>
+</div>
+
+<script>
+  import { catalog } from "../lib/catalog";
+  import {
+    CUSTOM_PROVIDER_ID,
+    activationReducer,
+    initialActivationState,
+    validateDemoBaseUrl,
+    type ActivationState,
+    type ConfigMode,
+  } from "../lib/activation";
+  import { demoModelsFor } from "../lib/demo-environment";
+  import { compatibilityFor, recommendedCombination } from "../lib/explorer";
+
+
+  const messages = {
+    "zh-CN": {
+      status: {
+        idle: "待机",
+        scanning: "扫描示例",
+        agent: "选择 Agent",
+        mode: "配置方式",
+        provider: "选择 Provider",
+        model: "选择模型",
+        verifying: "验证示例",
+        ready: "Ready",
+        "guide-only": "官方引导",
+        "preview-gate": "预览门禁",
+        unsupported: "不兼容",
+        error: "演示错误",
+      },
+      log: {
+        scanning: "开始扫描示例环境；未访问本机。",
+        scanned: "示例扫描完成，可以选择 Agent。",
+        agent: (name: string) => `已选择 ${name}。`,
+        guide: (name: string) => `${name} 需要使用官方设置流程。`,
+        modeProvider: "将由 OneAgent 配置模型服务。",
+        modeExisting: "沿用已有账号或配置；Provider 与模型步骤已跳过。",
+        provider: (name: string, verdict: string) => `已选择 ${name}：${verdict}。`,
+        custom: "已选择自定义端点；地址通过与应用一致的校验后才能验证。",
+        customRejected: (reason: string) => `端点未通过校验：${reason}`,
+        customAccepted: (url: string) => `端点校验通过：${url}`,
+        verifying: "开始验证示例连接；未提交任何凭证。",
+        verified: "示例协议验证完成，可以选择模型。",
+        models: (count: number) => `端点返回 ${count} 个示例模型。`,
+        model: (id: string) => `已选择模型 ${id}。`,
+        ready: "示例环境可进入 Ready。",
+        preview: "连接路径可演示，但公开状态仍要求发布候选验证。",
+        unsupported: "所选 Provider 不支持该 Agent 所需协议。",
+        error: "演示状态无效，请重置后重试。",
+      },
+      compatibility: {
+        verified: "注册表已验证",
+        supported: "实现支持",
+        "preview-gate": "需要发布候选验证",
+        unsupported: "协议不兼容",
+      },
+      result: {
+        ready: ["示例环境已 Ready", "所选组合可按当前实现路径完成配置与协议验证。真实激活将在本地 OneAgent 中完成。"],
+        existing: ["保留现有账号", "OneAgent 只把这个 Agent 标记为已就绪，不改动它现有的登录状态，也不写入新的凭证。"],
+        guide: ["转入官方设置", "这个 Agent 不由 OneAgent 写入私有配置。请按官方方式安装或登录，再回到 OneAgent 查看环境。"],
+        preview: ["仍需通过发布门禁", "示例连接可以继续，但该协议组合仍标记为需要发布候选验证，因此不会被宣称为 Ready。"],
+        unsupported: ["协议组合不兼容", "请返回并选择支持该 Agent 协议的 Provider。OneAgent 不会静默降级到其他协议。"],
+        error: ["演示无法继续", "状态不完整或目录发生变化。请重置演示后重新选择。"],
+      },
+      protocol: { openai: "Chat Completions", anthropic: "Anthropic Messages", responses: "OpenAI Responses" },
+      url: {
+        required: "请填写 Base URL。",
+        scheme: "需要以 http:// 或 https:// 开头。",
+        credentials: "请从地址中去掉用户名或密码。",
+        "control-characters": "请去掉地址中的控制字符。",
+        ok: "端点可用",
+      },
+      skipped: "已跳过",
+      /* The app puts step context in the footer bar next to the action. */
+      footer: {
+        idle: "演示不会访问这台设备",
+        scanning: "正在读取示例环境",
+        agent: "从上面选一个 Agent",
+        mode: "选择配置方式",
+        provider: "选择 Provider 或填入你自己的端点",
+        model: "选择一个模型后确认",
+        verifying: "正在验证，未提交凭证",
+        ready: "示例流程已完成",
+        "guide-only": "这个 Agent 走官方流程",
+        "preview-gate": "组合可演示，但未通过发布门禁",
+        unsupported: "请换一个支持该协议的 Provider",
+        error: "请重置演示后重试",
+      },
+    },
+    en: {
+      status: {
+        idle: "Idle",
+        scanning: "Scanning demo",
+        agent: "Choose agent",
+        mode: "Setup",
+        provider: "Choose provider",
+        model: "Choose model",
+        verifying: "Verifying demo",
+        ready: "Ready",
+        "guide-only": "Official guide",
+        "preview-gate": "Preview gate",
+        unsupported: "Unsupported",
+        error: "Demo error",
+      },
+      log: {
+        scanning: "Started scanning the example environment; no device access requested.",
+        scanned: "Example scan complete. Choose an agent.",
+        agent: (name: string) => `Selected ${name}.`,
+        guide: (name: string) => `${name} uses its official setup flow.`,
+        modeProvider: "OneAgent will configure a model service.",
+        modeExisting: "Keeping the existing account or config; provider and model steps skipped.",
+        provider: (name: string, verdict: string) => `Selected ${name}: ${verdict}.`,
+        custom: "Selected a custom endpoint. The URL is validated the same way the app validates it.",
+        customRejected: (reason: string) => `Endpoint rejected: ${reason}`,
+        customAccepted: (url: string) => `Endpoint accepted: ${url}`,
+        verifying: "Started sample verification; no credential was submitted.",
+        verified: "Sample protocol verification completed. Choose a model.",
+        models: (count: number) => `The endpoint returned ${count} example models.`,
+        model: (id: string) => `Selected model ${id}.`,
+        ready: "The example environment may reach Ready.",
+        preview: "The path can be demonstrated, but the public status still requires release-candidate verification.",
+        unsupported: "The selected provider does not support the protocol this agent requires.",
+        error: "The demo state is invalid. Reset and try again.",
+      },
+      compatibility: {
+        verified: "Registry verified",
+        supported: "Implementation supported",
+        "preview-gate": "Release candidate required",
+        unsupported: "Protocol incompatible",
+      },
+      result: {
+        ready: ["Example environment is Ready", "This combination can follow the current configuration and protocol-verification path. Real activation happens in the local OneAgent app."],
+        existing: ["Existing account kept", "OneAgent marks this agent ready without touching its current sign-in or writing a new credential."],
+        guide: ["Continue with official setup", "OneAgent does not write private configuration for this agent. Install or sign in through the official flow, then return to review the environment."],
+        preview: ["A release gate remains", "The sample path can continue, but this protocol combination still requires release-candidate verification and is not presented as Ready."],
+        unsupported: ["Protocol combination unsupported", "Go back and choose a provider that supports the agent protocol. OneAgent never silently falls back to another protocol."],
+        error: ["The demo cannot continue", "The selection is incomplete or the catalog changed. Reset the demo and choose again."],
+      },
+      protocol: { openai: "Chat Completions", anthropic: "Anthropic Messages", responses: "OpenAI Responses" },
+      url: {
+        required: "Enter a base URL.",
+        scheme: "Must start with http:// or https://",
+        credentials: "Remove the username or password from the URL.",
+        "control-characters": "Remove control characters from the URL.",
+        ok: "Endpoint accepted",
+      },
+      skipped: "Skipped",
+      /* The app puts step context in the footer bar next to the action. */
+      footer: {
+        idle: "The demo never touches this device",
+        scanning: "Reading the example environment",
+        agent: "Choose an agent above",
+        mode: "Choose how to configure it",
+        provider: "Choose a provider, or enter your own endpoint",
+        model: "Choose a model, then confirm",
+        verifying: "Verifying — no credential submitted",
+        ready: "The example flow is complete",
+        "guide-only": "This agent uses its official flow",
+        "preview-gate": "Demonstrable, but the release gate remains",
+        unsupported: "Choose a provider that supports this protocol",
+        error: "Reset the demo and try again",
+      },
+    },
+  } as const;
+
+  /* The unattended walkthrough. Selection steps get a beat long enough to read
+     the panel that just appeared; the two probe steps reuse the timings the
+     manual path already uses, so an autoplayed run and a clicked one look the
+     same rather than one feeling rushed. */
+  type AutoplayStep = { delay: number; run: (element: ActivationConsoleElement) => void };
+  const AUTOPLAY_SCRIPT: AutoplayStep[] = [
+    { delay: 420, run: (element) => element.start() },
+    { delay: 1500, run: (element) => element.selectAgent("claude-code") },
+    { delay: 900, run: (element) => element.selectMode("provider") },
+    { delay: 900, run: (element) => element.selectProvider("ppio") },
+    { delay: 900, run: (element) => element.verify() },
+    { delay: 1100, run: (element) => element.selectModel(element.models[0] ?? "", false) },
+    { delay: 900, run: (element) => element.confirm() },
+  ];
+
+  class ActivationConsoleElement extends HTMLElement {
+    state: ActivationState = initialActivationState();
+    timer: number | null = null;
+    abort = new AbortController();
+    /* Autoplay owns the state machine only until the visitor touches it. Both
+       flags are one-way: `autoplaying` suppresses the focus and scroll side
+       effects that would hijack the page, and `autoplayDone` makes takeover and
+       completion permanent so nothing re-arms behind the visitor's back. */
+    autoplaying = false;
+    autoplayDone = false;
+    autoplayTimer: number | null = null;
+    observer: IntersectionObserver | null = null;
+
+    connectedCallback() {
+      if (this.dataset.initialized === "true") return;
+      this.dataset.initialized = "true";
+      const signal = this.abort.signal;
+      this.querySelectorAll<HTMLButtonElement>("[data-agent-id]").forEach((button) => {
+        button.addEventListener("click", () => this.selectAgent(button.dataset.agentId || ""), { signal });
+      });
+      this.querySelectorAll<HTMLButtonElement>("[data-mode]").forEach((button) => {
+        button.addEventListener("click", () => this.selectMode(button.dataset.mode as ConfigMode), { signal });
+      });
+      this.querySelectorAll<HTMLButtonElement>("[data-provider-id]").forEach((button) => {
+        button.addEventListener("click", () => this.selectProvider(button.dataset.providerId || ""), { signal });
+      });
+      this.querySelector<HTMLInputElement>("[data-custom-input]")?.addEventListener("input", (event) => {
+        this.setCustomBaseUrl((event.currentTarget as HTMLInputElement).value);
+      }, { signal });
+      this.querySelector<HTMLInputElement>("[data-model-input]")?.addEventListener("input", (event) => {
+        this.selectModel((event.currentTarget as HTMLInputElement).value.trim(), false);
+      }, { signal });
+      this.querySelector<HTMLButtonElement>("[data-confirm]")?.addEventListener("click", () => this.confirm(), { signal });
+      this.querySelector<HTMLButtonElement>("[data-verify]")?.addEventListener("click", () => this.verify(), { signal });
+      this.querySelector<HTMLButtonElement>("[data-reset]")?.addEventListener("click", () => this.reset(), { signal });
+      document.querySelectorAll<HTMLButtonElement>(`[data-activation-trigger="${this.id}"]`).forEach((button) => {
+        // The trigger sits in the hero, outside this element, so it misses the
+        // takeover listeners below. Pressing it is the clearest takeover there
+        // is: after autoplay has run it is the replay entry.
+        button.addEventListener("click", () => {
+          this.cancelAutoplay();
+          this.start();
+        }, { signal });
+      });
+      /* Any of the three means the visitor is driving. They are captured on the
+         way down so takeover is recorded before the click handler above runs its
+         own step, and they cover the keyboard and screen-reader paths that never
+         produce a pointer event. */
+      for (const type of ["pointerdown", "keydown", "focusin"] as const) {
+        this.addEventListener(type, () => this.cancelAutoplay(), { signal, capture: true });
+      }
+      this.render();
+      this.armAutoplay();
+    }
+
+    disconnectedCallback() {
+      if (this.timer !== null) window.clearTimeout(this.timer);
+      if (this.autoplayTimer !== null) window.clearTimeout(this.autoplayTimer);
+      this.observer?.disconnect();
+      this.abort.abort();
+    }
+
+    /* Autoplay waits for the console to be half on screen: running it on load
+       would finish before a visitor scrolling down ever saw it. Reduced motion
+       opts out entirely — advancing the interface on its own is motion, and the
+       manual trigger still works.  */
+    armAutoplay() {
+      if (this.reducedMotion || this.dataset.autoplay === "off") return;
+      if (typeof IntersectionObserver !== "function") return;
+      this.observer = new IntersectionObserver((entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          this.observer?.disconnect();
+          this.observer = null;
+          this.startAutoplay();
+        }
+      }, { threshold: 0.5 });
+      this.observer.observe(this);
+    }
+
+    startAutoplay() {
+      if (this.autoplayDone || this.state.phase !== "idle") return;
+      this.autoplaying = true;
+      this.dataset.autoplaying = "true";
+      this.queueAutoplay(0);
+    }
+
+    queueAutoplay(index: number) {
+      const step = AUTOPLAY_SCRIPT[index];
+      if (!step) return this.finishAutoplay();
+      this.autoplayTimer = window.setTimeout(() => {
+        this.autoplayTimer = null;
+        if (!this.autoplaying) return;
+        step.run(this);
+        // A step that lands somewhere the script did not plan for — a catalog
+        // change turning the combination into a gate — stops here rather than
+        // dispatching actions the reducer would reject.
+        if (!this.autoplaying) return;
+        this.queueAutoplay(index + 1);
+      }, step.delay);
+    }
+
+    /** Autoplay reached the end on its own: stop, and never re-arm. */
+    finishAutoplay() {
+      this.autoplaying = false;
+      this.autoplayDone = true;
+      delete this.dataset.autoplaying;
+    }
+
+    /** The visitor took over. Whatever step is showing is where it stays. */
+    cancelAutoplay() {
+      this.observer?.disconnect();
+      this.observer = null;
+      if (this.autoplayTimer !== null) window.clearTimeout(this.autoplayTimer);
+      this.autoplayTimer = null;
+      this.autoplaying = false;
+      this.autoplayDone = true;
+      delete this.dataset.autoplaying;
+    }
+
+    get locale() {
+      return this.dataset.locale === "en" ? "en" : "zh-CN";
+    }
+
+    get copy() {
+      return messages[this.locale];
+    }
+
+    get reducedMotion() {
+      return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    }
+
+    dispatch(action: Parameters<typeof activationReducer>[1]) {
+      this.state = activationReducer(this.state, action, catalog);
+      this.render();
+    }
+
+    start() {
+      if (this.state.phase !== "idle") this.reset(false);
+      this.dispatch({ type: "start" });
+      this.replaceLog(this.copy.log.scanning);
+      // Autoplay only begins once the console is already half on screen, so
+      // scrolling it to centre would move the page out from under a reader who
+      // asked for nothing.
+      if (!this.autoplaying) this.scrollIntoView({ behavior: this.reducedMotion ? "auto" : "smooth", block: "center" });
+      this.focusPanel("scanning");
+      this.timer = window.setTimeout(() => {
+        this.dispatch({ type: "scan-complete" });
+        this.appendLog(this.copy.log.scanned);
+        this.focusPanel("agent");
+      }, this.reducedMotion ? 0 : 650);
+    }
+
+    reset(focus = true) {
+      if (this.timer !== null) window.clearTimeout(this.timer);
+      this.timer = null;
+      this.dispatch({ type: "reset" });
+      this.replaceLog(this.locale === "en" ? "Demo idle. No device access requested." : "演示待机，未请求设备访问。");
+      if (focus) this.focusPanel("idle");
+    }
+
+    selectAgent(agentId: string) {
+      const agent = catalog.agents.find((candidate) => candidate.id === agentId);
+      if (!agent) return this.fail();
+      this.dispatch({ type: "select-agent", agentId });
+      this.appendLog(this.copy.log.agent(agent.name));
+      if (this.state.phase === "guide-only") {
+        this.appendLog(this.copy.log.guide(agent.name));
+        this.focusPanel("result");
+      } else {
+        this.updateProviders(agentId);
+        this.focusPanel("mode");
+      }
+    }
+
+    selectMode(mode: ConfigMode) {
+      if (mode !== "provider" && mode !== "existing-account") return this.fail();
+      this.dispatch({ type: "select-mode", mode });
+      if (this.state.phase === "ready") {
+        this.appendLog(this.copy.log.modeExisting);
+        this.focusPanel("result");
+        return;
+      }
+      this.appendLog(this.copy.log.modeProvider);
+      this.focusPanel("provider");
+    }
+
+    selectProvider(providerId: string) {
+      if (providerId === CUSTOM_PROVIDER_ID) {
+        this.dispatch({ type: "select-provider", providerId });
+        this.appendLog(this.copy.log.custom);
+        this.querySelector<HTMLInputElement>("[data-custom-input]")?.focus();
+        return;
+      }
+      const provider = catalog.providers.find((candidate) => candidate.id === providerId);
+      if (!provider) return this.fail();
+      this.dispatch({ type: "select-provider", providerId });
+      const verdict = this.state.compatibility ? this.copy.compatibility[this.state.compatibility] : this.copy.compatibility.unsupported;
+      this.appendLog(this.copy.log.provider(provider.name, verdict));
+      if (this.state.phase === "unsupported") {
+        this.appendLog(this.copy.log.unsupported);
+        this.focusPanel("result");
+      }
+    }
+
+    setCustomBaseUrl(value: string) {
+      this.dispatch({ type: "set-custom-base-url", value });
+    }
+
+    selectModel(model: string, fromList = true) {
+      if (!model) return;
+      this.dispatch({ type: "select-model", model });
+      if (this.state.model === model) this.appendLog(this.copy.log.model(model));
+      if (fromList) this.querySelector<HTMLButtonElement>("[data-confirm]")?.focus();
+    }
+
+    confirm() {
+      this.dispatch({ type: "confirm" });
+      if (this.state.phase !== "ready") return;
+      this.appendLog(this.copy.log.ready);
+      this.focusPanel("result");
+    }
+
+    verify() {
+      const before = this.state.phase;
+      this.dispatch({ type: "verify" });
+      if (this.state.phase === "error") return this.fail(false);
+      // A rejected endpoint leaves the phase untouched rather than erroring, the
+      // same non-event as the product's disabled probe button.
+      if (this.state.phase === before) return;
+      this.appendLog(this.copy.log.verifying);
+      this.focusPanel("verifying");
+      this.timer = window.setTimeout(() => {
+        this.dispatch({ type: "verify-complete" });
+        if (this.state.phase === "model") {
+          this.appendLog(this.copy.log.verified);
+          this.renderModels();
+          this.appendLog(this.copy.log.models(this.models.length));
+          this.focusPanel("model");
+          return;
+        }
+        if (this.state.phase === "preview-gate") this.appendLog(this.copy.log.preview);
+        this.focusPanel("result");
+      }, this.reducedMotion ? 0 : 700);
+    }
+
+    get models() {
+      return this.state.providerId === CUSTOM_PROVIDER_ID ? [] : demoModelsFor(this.state.providerId);
+    }
+
+    footerNoteFor(phase: ActivationState["phase"]) {
+      return this.copy.footer[phase];
+    }
+
+    customHost() {
+      const check = validateDemoBaseUrl(this.state.customBaseUrl);
+      if (!check.ok) return "";
+      try {
+        return new URL(check.value).host;
+      } catch {
+        return "";
+      }
+    }
+
+    renderModels() {
+      const grid = this.querySelector<HTMLElement>("[data-model-grid]");
+      if (!grid) return;
+      grid.replaceChildren();
+      for (const model of this.models) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "activation-model";
+        button.dataset.model = model;
+        button.setAttribute("aria-pressed", "false");
+        button.textContent = model;
+        button.addEventListener("click", () => this.selectModel(model), { signal: this.abort.signal });
+        grid.append(button);
+      }
+      // A custom endpoint publishes no list, so the manual entry is the path
+      // rather than a fallback — open it instead of showing an empty group.
+      const manual = this.querySelector<HTMLDetailsElement>(".activation-manual");
+      if (manual) manual.open = this.models.length === 0;
+      grid.hidden = this.models.length === 0;
+    }
+
+    fail(dispatch = true) {
+      if (dispatch) this.dispatch({ type: "fail" });
+      this.appendLog(this.copy.log.error);
+      this.focusPanel("result");
+    }
+
+    updateProviders(agentId: string) {
+      const agent = catalog.agents.find((candidate) => candidate.id === agentId);
+      if (!agent) return;
+      const recommendation = recommendedCombination(catalog);
+      this.querySelectorAll<HTMLButtonElement>("[data-provider-id]").forEach((button) => {
+        const provider = catalog.providers.find((candidate) => candidate.id === button.dataset.providerId);
+        if (!provider) return;
+        const compatibility = compatibilityFor(agent, provider);
+        button.dataset.compatibility = compatibility;
+        button.classList.toggle("is-recommended", recommendation?.agentId === agent.id && recommendation.providerId === provider.id);
+        const verdict = button.querySelector<HTMLElement>("[data-provider-verdict]");
+        if (verdict) verdict.textContent = this.copy.compatibility[compatibility];
+        button.setAttribute("aria-label", `${provider.name}: ${this.copy.compatibility[compatibility]}`);
+      });
+    }
+
+    replaceLog(message: string) {
+      const log = this.querySelector<HTMLOListElement>("[data-log]");
+      if (!log) return;
+      log.replaceChildren();
+      this.appendLog(message);
+    }
+
+    appendLog(message: string) {
+      const log = this.querySelector<HTMLOListElement>("[data-log]");
+      if (!log) return;
+      const item = document.createElement("li");
+      item.textContent = message;
+      log.append(item);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    /* Moving focus is right when the visitor asked for the step — it carries a
+       keyboard user forward. During autoplay nobody asked, so taking focus would
+       pull it out of whatever they were reading or tabbing through. The panels
+       stay an aria-live region either way, so the steps are still announced. */
+    focusPanel(name: string) {
+      if (this.autoplaying) return;
+      window.requestAnimationFrame(() => this.querySelector<HTMLElement>(`[data-panel="${name}"]`)?.focus({ preventScroll: true }));
+    }
+
+    render() {
+      const phase = this.state.phase;
+      this.dataset.phase = phase;
+      const panel = ["idle", "scanning", "agent", "mode", "provider", "model", "verifying"].includes(phase) ? phase : "result";
+      this.querySelectorAll<HTMLElement>("[data-panel]").forEach((element) => {
+        element.hidden = element.dataset.panel !== panel;
+      });
+
+      const status = this.querySelector<HTMLElement>("[data-status]");
+      if (status) {
+        status.dataset.kind = phase;
+        const label = status.querySelector("b");
+        if (label) label.textContent = this.copy.status[phase];
+      }
+      const reset = this.querySelector<HTMLButtonElement>("[data-reset]");
+      if (reset) reset.hidden = phase === "idle";
+
+      /* Steps mirror the product's stepper: Agent, Setup, Provider, Model, Confirm.
+         Choosing an existing account skips 3 and 4, so those are marked skipped
+         rather than done — the product labels them the same way. */
+      const stepOf: Partial<Record<typeof phase, number>> = {
+        idle: 0,
+        scanning: 1,
+        agent: 1,
+        "guide-only": 1,
+        mode: 2,
+        provider: 3,
+        verifying: 3,
+        unsupported: 3,
+        "preview-gate": 3,
+        model: 4,
+        ready: 5,
+      };
+      const current = stepOf[phase] ?? 5;
+      const skipped = this.state.configMode === "existing-account";
+      this.querySelectorAll<HTMLElement>("[data-step]").forEach((step) => {
+        const index = Number(step.dataset.step || 0);
+        const isSkipped = skipped && (index === 3 || index === 4);
+        step.classList.toggle("is-current", index === current && !isSkipped);
+        step.classList.toggle("is-done", !isSkipped && (current > index || phase === "ready"));
+        step.classList.toggle("is-skipped", isSkipped);
+        if (index === current && !isSkipped) step.setAttribute("aria-current", "step");
+        else step.removeAttribute("aria-current");
+      });
+
+      this.querySelectorAll<HTMLButtonElement>("[data-agent-id]").forEach((button) => {
+        button.setAttribute("aria-pressed", String(button.dataset.agentId === this.state.agentId));
+      });
+      this.querySelectorAll<HTMLButtonElement>("[data-provider-id]").forEach((button) => {
+        button.setAttribute("aria-pressed", String(button.dataset.providerId === this.state.providerId));
+      });
+
+      const agent = catalog.agents.find((candidate) => candidate.id === this.state.agentId) ?? null;
+      const provider = catalog.providers.find((candidate) => candidate.id === this.state.providerId) ?? null;
+      this.querySelectorAll<HTMLElement>("[data-selected-agent], [data-verifying-agent], [data-result-agent]").forEach((element) => {
+        element.textContent = agent?.name ?? "—";
+      });
+      /* A custom endpoint has no catalog name, so it shows the host the visitor
+         typed — the specific thing they chose. An existing account has no
+         provider at all, which is the point, so it says so. */
+      const providerLabel = provider?.name
+        ?? (this.state.providerId === CUSTOM_PROVIDER_ID
+          ? this.customHost() || this.copy.status.provider
+          : this.state.configMode === "existing-account"
+            ? this.copy.skipped
+            : "—");
+      this.querySelectorAll<HTMLElement>("[data-verifying-provider], [data-result-provider]").forEach((element) => {
+        element.textContent = providerLabel;
+      });
+      const selectedProtocol = this.querySelector<HTMLElement>("[data-selected-protocol]");
+      if (selectedProtocol) selectedProtocol.textContent = agent?.protocol ? this.copy.protocol[agent.protocol] : "—";
+
+      this.querySelectorAll<HTMLButtonElement>("[data-mode]").forEach((button) => {
+        button.setAttribute("aria-pressed", String(button.dataset.mode === this.state.configMode));
+      });
+      this.querySelectorAll<HTMLButtonElement>("[data-model]").forEach((button) => {
+        button.setAttribute("aria-pressed", String(button.dataset.model === this.state.model));
+      });
+
+      const isCustom = this.state.providerId === CUSTOM_PROVIDER_ID;
+      const customField = this.querySelector<HTMLElement>("[data-custom-field]");
+      if (customField) customField.hidden = !isCustom;
+      const check = isCustom ? validateDemoBaseUrl(this.state.customBaseUrl) : null;
+      const customHint = this.querySelector<HTMLElement>("[data-custom-hint]");
+      const customInput = this.querySelector<HTMLInputElement>("[data-custom-input]");
+      if (customHint && customInput && check) {
+        // An empty field is the resting state, not an error to shout about.
+        const untouched = this.state.customBaseUrl === "";
+        customHint.textContent = untouched
+          ? customHint.dataset.idle || customHint.textContent
+          : check.ok
+            ? this.copy.url.ok
+            : this.copy.url[check.reason];
+        customHint.dataset.kind = untouched ? "idle" : check.ok ? "ok" : "error";
+        customInput.setAttribute("aria-invalid", String(!untouched && !check.ok));
+      }
+
+      /* Both primary actions live in the footer bar, so each is shown only on the
+         step it belongs to rather than moved between panels. */
+      const verify = this.querySelector<HTMLButtonElement>("[data-verify]");
+      if (verify) {
+        verify.hidden = phase !== "provider";
+        verify.disabled =
+          !this.state.providerId ||
+          this.state.compatibility === "unsupported" ||
+          (isCustom && !(check && check.ok));
+      }
+      const confirm = this.querySelector<HTMLButtonElement>("[data-confirm]");
+      if (confirm) {
+        confirm.hidden = phase !== "model";
+        confirm.disabled = !this.state.model;
+      }
+      const footerNote = this.querySelector<HTMLElement>("[data-footer-note]");
+      if (footerNote) footerNote.textContent = this.footerNoteFor(phase);
+
+      if (panel === "result") this.renderResult(phase);
+    }
+
+    renderResult(phase: ActivationState["phase"]) {
+      const title = this.querySelector<HTMLElement>("[data-result-title]");
+      const body = this.querySelector<HTMLElement>("[data-result-body]");
+      const icon = this.querySelector<HTMLElement>("[data-result-icon]");
+      const readyAction = this.querySelector<HTMLElement>("[data-ready-action]");
+      const securityAction = this.querySelector<HTMLElement>("[data-security-action]");
+      if (!title || !body || !icon || !readyAction || !securityAction) return;
+
+      const result = phase === "ready"
+        ? this.state.configMode === "existing-account"
+          ? this.copy.result.existing
+          : this.copy.result.ready
+        : phase === "guide-only"
+          ? this.copy.result.guide
+          : phase === "preview-gate"
+            ? this.copy.result.preview
+            : phase === "unsupported"
+              ? this.copy.result.unsupported
+              : this.copy.result.error;
+      title.textContent = result[0];
+      body.textContent = result[1];
+      const path = icon.querySelector<SVGPathElement>("[data-result-path]");
+      if (path) {
+        path.setAttribute(
+          "d",
+          phase === "ready"
+            ? "M7 17l6 6L26 9"
+            : phase === "guide-only"
+              ? "M8 24L24 8M13 8h11v11"
+              : phase === "preview-gate"
+                ? "M16 7v12M16 24v1"
+                : "M9 9l14 14M23 9L9 23",
+        );
+      }
+      icon.dataset.kind = phase;
+      readyAction.hidden = phase !== "ready";
+      securityAction.hidden = phase !== "preview-gate";
+    }
+  }
+
+  if (!customElements.get("activation-console")) {
+    customElements.define("activation-console", ActivationConsoleElement);
+  }
+</script>
+
+<style>
+  activation-console { display: block; }
+  .activation-shell { position: relative; z-index: 1; }
+  /* Geometry and colour measured off the running app (frontend/src/styles):
+     12px window radius, 52px title bar, 232px sidebar, 68px footer, and the
+     --shadow-window value verbatim. The app is light-only, so these use this
+     page's tokens rather than its hex values — that is the one difference. */
+  .activation-window {
+    overflow: hidden;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-window);
+    background: var(--surface);
+    color: var(--ink);
+    box-shadow: 0 22px 55px rgba(42, 42, 46, .16), 0 2px 8px rgba(42, 42, 46, .08);
+  }
+  .activation-topbar {
+    min-height: 52px;
+    padding: 0 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    border-bottom: 1px solid var(--line);
+    background: var(--surface-muted);
+  }
+  .activation-topbar > div { display: grid; gap: 2px; }
+  .activation-topbar strong { font-size: 14px; }
+  .activation-kicker, .activation-state-label {
+    color: var(--ink-faint);
+    font: 700 10px/1.2 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+  }
+  .activation-sample, .activation-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--ink-soft);
+    font-size: 12px;
+    font-weight: 650;
+  }
+  .activation-sample > span, .activation-status > span {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--orange);
+    box-shadow: 0 0 0 4px var(--orange-soft);
+  }
+  /* Two columns, two rows: the sidebar and body share the first row, and the
+     footer spans both so the primary action stays put while the body scrolls —
+     the same shape as the app's 232px/auto + content/68px grid. */
+  .activation-body {
+    min-height: 560px;
+    display: grid;
+    grid-template-columns: 232px minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto;
+  }
+  .activation-rail {
+    padding: 22px 12px 16px;
+    display: flex;
+    flex-direction: column;
+    color: var(--ink);
+    background: var(--surface-muted);
+    border-right: 1px solid var(--line);
+  }
+  /* Static labels, not controls — the demo has nowhere to navigate to. */
+  .activation-nav { display: grid; gap: 4px; }
+  .activation-nav-item {
+    min-height: 38px;
+    padding: 0 10px;
+    display: flex;
+    align-items: center;
+    border-radius: var(--radius-control);
+    color: var(--ink-soft);
+    font-size: 13px;
+  }
+  .activation-nav-item.is-active { background: var(--blue-deep); color: var(--on-accent); font-weight: 600; }
+  .activation-rail-note { margin-top: auto; padding: 12px 10px 0; color: var(--ink-faint); font-size: 11px; }
+  .activation-footer {
+    min-height: 68px;
+    padding: 0 42px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    grid-column: 1 / -1;
+    border-top: 1px solid var(--line);
+    background: var(--surface-muted);
+  }
+  .activation-footer-note { color: var(--ink-soft); font-size: 13px; }
+  .activation-footer-actions { display: flex; align-items: center; gap: 12px; }
+  .activation-rail-brand { padding: 0 10px 18px; display: flex; align-items: center; gap: 11px; }
+  .activation-rail-brand > div { display: grid; gap: 2px; }
+  .activation-rail-brand strong { font-size: 13px; }
+  /* Scoped to the subtitle rather than every span, so it cannot reach the
+     monogram — that one carries white on the accent fill and a broader
+     selector here would win on specificity and make it unreadable. */
+  .activation-rail-brand > div span { color: var(--ink-faint); font-size: 11px; }
+  .activation-monogram {
+    width: 26px;
+    height: 26px;
+    display: grid;
+    place-items: center;
+    border-radius: 7px;
+    color: var(--on-accent);
+    background: var(--blue-deep);
+    font: 750 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+    letter-spacing: .04em;
+  }
+  /* The app's stepper: a horizontal row in the page header, each step a 27px
+     numbered circle above an 11px label. Nothing is a card and nothing is dark. */
+  .activation-steps {
+    margin: 22px 0 0;
+    padding: 0;
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 124px);
+    justify-content: start;
+    list-style: none;
+  }
+  .activation-steps li { display: grid; gap: 5px; justify-items: start; color: var(--ink-faint); font-size: 11px; }
+  .activation-step-marker {
+    width: 27px;
+    height: 27px;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--line-strong);
+    border-radius: 50%;
+    color: var(--ink-soft);
+    background: var(--surface);
+    font-size: 13px;
+    font-weight: 600;
+  }
+  /* The app keeps every label at 400 and signals the current step through the
+     marker fill alone, so the row stays even rather than jumping as you advance. */
+  .activation-steps li strong { font-size: 11px; font-weight: 400; }
+  /* The marker fill is the only signal that the step changed, so it is worth
+     easing rather than cutting — it is also what the eye tracks when nobody
+     clicked. Matches the panel's 240ms so the two read as one movement. */
+  @media not (prefers-reduced-motion: reduce) {
+    .activation-steps li { transition: color 240ms ease; }
+    .activation-step-marker {
+      transition: background-color 240ms ease, border-color 240ms ease, color 240ms ease;
+    }
+  }
+  .activation-steps li.is-current { color: var(--ink); }
+  .activation-steps li.is-current .activation-step-marker {
+    border-color: var(--blue-deep);
+    background: var(--blue-deep);
+    color: var(--on-accent);
+  }
+  .activation-steps li.is-done .activation-step-marker {
+    border-color: var(--green);
+    color: var(--green);
+    background: var(--green-soft);
+  }
+  .activation-reset {
+    padding: 8px 2px;
+    border: 0;
+    color: var(--ink-soft);
+    background: transparent;
+    font: 600 12px/1.2 inherit;
+    cursor: pointer;
+  }
+  .activation-reset:hover { color: var(--ink); }
+  /* 42px gutters and a header/body split, matching the app's page-scaffold. */
+  .activation-main { min-width: 0; padding: 26px 42px 24px; display: flex; flex-direction: column; }
+  .activation-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; }
+  .activation-heading > div { display: grid; gap: 6px; }
+  .activation-heading h2 { margin: 0; font-size: 24px; line-height: 1.15; letter-spacing: -.01em; }
+  .activation-status { padding: 8px 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface-muted); }
+  .activation-status > span { width: 7px; height: 7px; background: var(--ink-faint); box-shadow: none; }
+  .activation-status[data-kind="ready"] > span { background: var(--green); box-shadow: 0 0 0 4px var(--green-soft); }
+  .activation-status[data-kind="preview-gate"] > span,
+  .activation-status[data-kind="guide-only"] > span { background: var(--orange); box-shadow: 0 0 0 4px var(--orange-soft); }
+  .activation-status[data-kind="unsupported"] > span,
+  .activation-status[data-kind="error"] > span { background: var(--red); box-shadow: 0 0 0 4px var(--red-soft); }
+  .activation-subtitle { margin: 10px 0 0; max-width: 720px; color: var(--ink-soft); font-size: 13px; line-height: 1.5; }
+  .activation-panel {
+    min-height: 272px;
+    margin-top: 24px;
+    padding: 24px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-panel);
+    background: var(--paper-strong);
+    outline: none;
+  }
+  .activation-panel:focus-visible { box-shadow: 0 0 0 3px var(--blue-soft); }
+  /* Steps replace each other by toggling [hidden], which is a hard cut. Fading
+     the arriving panel up from slightly below and slightly small reads as one
+     step advancing rather than two panels swapping — and the scale is 0.985, not
+     a slide: this is a product window, not a carousel.
+
+     @starting-style is what makes the entry animate at all: the panel goes from
+     display:none straight to its final state, so without a declared starting
+     value there is nothing to transition from.
+
+     Transform only, deliberately — no fade. Text mid-opacity fails the contrast
+     audit for as long as the transition runs, and this page already holds itself
+     to keeping copy readable while the hero entrance plays. Movement carries the
+     step change without ever rendering the panel's own text at low contrast.
+
+     Only the entry is animated. Transitioning `display` on the way out would
+     keep the outgoing panel in flow for the whole 240ms, and since the panels
+     are siblings in normal flow the console would double in height every step. */
+  @media not (prefers-reduced-motion: reduce) {
+    .activation-panel:not([hidden]) {
+      transition: transform 240ms ease;
+      transform: none;
+    }
+  }
+  @starting-style {
+    @media not (prefers-reduced-motion: reduce) {
+      .activation-panel:not([hidden]) {
+        transform: translateY(8px) scale(0.985);
+      }
+    }
+  }
+  .activation-panel[data-panel="idle"], .activation-progress, .activation-result {
+    display: grid;
+    grid-template-columns: 92px minmax(0, 1fr);
+    align-items: center;
+    gap: 28px;
+  }
+  .activation-panel h3 { margin: 0; font-size: 22px; line-height: 1.18; }
+  .activation-panel p { margin: 9px 0 0; max-width: 640px; color: var(--ink-soft); font-size: 14px; line-height: 1.55; }
+  .activation-empty-mark { width: 84px; height: 84px; position: relative; display: grid; place-items: center; }
+  .activation-empty-mark::before, .activation-empty-mark::after, .activation-empty-mark span {
+    content: "";
+    position: absolute;
+    border-radius: 50%;
+    border: 1px solid var(--line-strong);
+  }
+  .activation-empty-mark::before { inset: 0; }
+  .activation-empty-mark::after { inset: 16px; border-color: var(--blue); }
+  .activation-empty-mark span:nth-child(1) { width: 8px; height: 8px; border: 0; background: var(--blue); }
+  .activation-empty-mark span:nth-child(2) { inset: 7px; border-style: dashed; }
+  .activation-empty-mark span:nth-child(3) { width: 42px; height: 1px; border: 0; border-radius: 0; background: var(--line-strong); transform: rotate(-35deg); }
+  .activation-scan { width: 84px; height: 84px; position: relative; border: 1px solid var(--line-strong); border-radius: 50%; }
+  .activation-scan::before, .activation-scan::after { content: ""; position: absolute; inset: 13px; border: 1px solid var(--line); border-radius: 50%; }
+  .activation-scan::after { inset: 29px; background: var(--blue); border: 0; box-shadow: 0 0 0 8px var(--blue-soft); }
+  .activation-scan span { position: absolute; inset: -1px; border-top: 2px solid var(--blue); border-right: 2px solid transparent; border-radius: 50%; animation: activation-spin 1s linear infinite; }
+  .activation-scan.is-verify::after { background: var(--green); box-shadow: 0 0 0 8px var(--green-soft); }
+  .activation-panel-copy { margin-bottom: 18px; }
+  .activation-choice-panel { padding: 20px; }
+  .activation-agent-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .activation-agent {
+    min-width: 0;
+    min-height: 74px;
+    padding: 11px 12px;
+    position: relative;
+    display: grid;
+    grid-template-columns: 30px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    text-align: left;
+    color: var(--ink);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--surface);
+    cursor: pointer;
+  }
+  .activation-agent:hover, .activation-agent[aria-pressed="true"] { border-color: var(--blue); background: var(--blue-soft); }
+  .activation-agent-copy { min-width: 0; display: grid; gap: 3px; }
+  .activation-agent-copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+  .activation-agent-copy small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-faint); font-size: 10px; }
+  .activation-agent-state { padding: 5px 7px; border-radius: 999px; color: var(--ink-soft); background: var(--surface-muted); font-size: 9px; font-weight: 700; white-space: nowrap; }
+  .activation-agent-state.is-ready { color: var(--green); background: var(--green-soft); }
+  .activation-agent-state.is-attention, .activation-agent-state.is-guide-only { color: var(--orange); background: var(--orange-soft); }
+  .activation-recommended { position: absolute; top: -7px; right: 9px; padding: 2px 6px; border-radius: 999px; color: var(--on-accent); background: var(--blue-deep); font-size: 8px; font-weight: 750; }
+  .activation-selection-line, .activation-verifying-pair, .activation-result-meta {
+    margin: 14px 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--ink-soft);
+    font: 650 12px/1.3 ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  .activation-selection-line span:first-child { color: var(--ink); }
+  .activation-provider-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .activation-provider {
+    min-height: 66px;
+    padding: 11px 13px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    color: var(--ink);
+    text-align: left;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--surface);
+    cursor: pointer;
+  }
+  .activation-provider > span:first-child { min-width: 0; display: grid; gap: 4px; }
+  .activation-provider strong { font-size: 13px; }
+  .activation-provider small { color: var(--ink-faint); font-size: 10px; }
+  .activation-provider:hover, .activation-provider[aria-pressed="true"] { border-color: var(--blue); background: var(--blue-soft); }
+  .activation-provider[data-compatibility="preview-gate"] small { color: var(--orange); }
+  .activation-provider[data-compatibility="unsupported"] small { color: var(--red); }
+  .activation-provider.is-recommended::after { content: "★"; color: var(--blue); font-size: 10px; }
+  .activation-provider-arrow { color: var(--ink-faint); }
+  .activation-mode-grid { display: grid; gap: 10px; }
+  .activation-mode {
+    padding: 13px 15px;
+    display: grid;
+    gap: 5px;
+    color: var(--ink);
+    text-align: left;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--surface);
+    cursor: pointer;
+  }
+  .activation-mode strong { font-size: 13px; }
+  .activation-mode small { color: var(--ink-faint); font-size: 11px; line-height: 1.45; }
+  .activation-mode:hover, .activation-mode[aria-pressed="true"] { border-color: var(--blue); background: var(--blue-soft); }
+
+  /* The custom endpoint is the one place the demo takes typed input, so it gets
+     a real label and a live verdict rather than a placeholder-only field. */
+  .activation-custom { margin-top: 12px; display: grid; gap: 6px; }
+  .activation-custom label { font-size: 11px; font-weight: 600; color: var(--ink-soft); }
+  .activation-custom input {
+    padding: 9px 11px;
+    color: var(--ink);
+    border: 1px solid var(--line-strong);
+    border-radius: 10px;
+    background: var(--surface);
+    font: 500 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  .activation-custom input:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
+  .activation-custom-hint { font-size: 11px; color: var(--ink-faint); }
+  .activation-custom-hint[data-kind="ok"] { color: var(--green); }
+  .activation-custom-hint[data-kind="error"] { color: var(--red); }
+  .activation-register { display: grid; gap: 2px; font-size: 11px; color: var(--blue); }
+  .activation-register small { color: var(--ink-faint); }
+
+  .activation-model-grid { display: grid; gap: 8px; }
+  .activation-model {
+    padding: 10px 12px;
+    color: var(--ink);
+    text-align: left;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--surface);
+    cursor: pointer;
+    font: 500 12px/1.3 ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  .activation-model:hover, .activation-model[aria-pressed="true"] { border-color: var(--blue); background: var(--blue-soft); }
+  .activation-manual { margin-top: 12px; display: grid; gap: 6px; font-size: 11px; }
+  .activation-manual summary { color: var(--ink-soft); cursor: pointer; }
+  .activation-manual label { font-weight: 600; color: var(--ink-soft); }
+  .activation-manual input {
+    padding: 8px 11px;
+    color: var(--ink);
+    border: 1px solid var(--line-strong);
+    border-radius: 10px;
+    background: var(--surface);
+    font: 500 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  .activation-manual input:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
+  .activation-steps li.is-skipped { opacity: 0.55; }
+  .activation-steps li.is-skipped strong::after { content: " ·"; }
+  .activation-verify { margin-top: 14px; }
+  .activation-verifying-pair strong, .activation-result-meta strong { color: var(--ink); }
+  .activation-result-icon {
+    width: 78px;
+    height: 78px;
+    display: grid;
+    place-items: center;
+    border-radius: 22px;
+    color: var(--green);
+    background: var(--green-soft);
+    font-size: 34px;
+    font-weight: 650;
+  }
+  .activation-result-icon svg { width: 36px; height: 36px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+  .activation-result-icon[data-kind="preview-gate"], .activation-result-icon[data-kind="guide-only"] { color: var(--orange); background: var(--orange-soft); }
+  .activation-result-icon[data-kind="unsupported"], .activation-result-icon[data-kind="error"] { color: var(--red); background: var(--red-soft); }
+  .activation-result-actions { margin-top: 18px; display: flex; flex-wrap: wrap; align-items: center; gap: 9px; }
+  .activation-log-wrap { min-height: 62px; margin-top: 16px; display: grid; grid-template-columns: 82px 1fr; gap: 12px; }
+  .activation-log-wrap > span { padding-top: 4px; color: var(--ink-faint); font: 700 9px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .1em; }
+  .activation-log { max-height: 58px; margin: 0; padding: 0; overflow: auto; list-style: none; color: var(--ink-soft); font: 11px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .activation-log li::before { content: "> "; color: var(--blue); }
+  .activation-facts { min-height: 48px; padding: 10px 18px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; border-top: 1px solid var(--line); background: var(--paper-strong); }
+  .activation-facts span { display: flex; align-items: center; gap: 8px; color: var(--ink-soft); font-size: 11px; }
+  .activation-facts i {
+    width: 10px;
+    height: 6px;
+    display: inline-block;
+    border-left: 2px solid var(--green);
+    border-bottom: 2px solid var(--green);
+    transform: rotate(-45deg) translateY(-1px);
+  }
+
+  @media not (prefers-reduced-motion: reduce) {
+    .activation-agent, .activation-provider { transition: transform var(--dur-micro) var(--ease-apple), border-color var(--dur-micro) var(--ease-apple), background-color var(--dur-micro) var(--ease-apple); }
+    .activation-agent:hover, .activation-provider:hover { transform: translateY(-1px); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .activation-scan span { animation: none; border: 2px solid var(--blue); }
+  }
+  @keyframes activation-spin { to { transform: rotate(360deg); } }
+
+  /* The sidebar is the first thing to go: it is workspace chrome, and the demo
+     never navigates. The stepper stays, since it is the actual progress. */
+  @media (max-width: 820px) {
+    .activation-body { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) auto; }
+    .activation-rail { display: none; }
+    .activation-footer { padding: 0 20px; }
+  }
+  @media (max-width: 680px) {
+    .activation-shell { width: min(100% - 28px, 1180px); }
+    .activation-topbar { padding: 10px 12px; }
+    .activation-kicker { display: none; }
+    .activation-body { min-height: 0; }
+    .activation-main { padding: 20px 14px 16px; }
+    .activation-heading h2 { font-size: 20px; }
+    .activation-subtitle { font-size: 12px; }
+    /* Labels drop out and the circles compress to a row of five markers. */
+    .activation-steps { margin-top: 16px; grid-auto-columns: minmax(0, 1fr); }
+    .activation-steps li strong { display: none; }
+    .activation-footer { min-height: 60px; padding: 0 14px; gap: 10px; }
+    .activation-footer-note { font-size: 11px; }
+    .activation-panel { min-height: 250px; margin-top: 18px; padding: 18px; }
+    .activation-panel[data-panel="idle"], .activation-progress, .activation-result { grid-template-columns: 1fr; gap: 16px; }
+    .activation-empty-mark, .activation-scan { width: 62px; height: 62px; }
+    .activation-panel h3 { font-size: 19px; }
+    .activation-agent-grid, .activation-provider-grid { grid-template-columns: 1fr; }
+    .activation-agent { min-height: 68px; }
+    .activation-facts { grid-template-columns: 1fr; gap: 8px; }
+    .activation-log-wrap { grid-template-columns: 1fr; gap: 4px; }
+  }
+</style>

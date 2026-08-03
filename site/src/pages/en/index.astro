@@ -1,0 +1,84 @@
+---
+import ActivationConsole from "../../components/ActivationConsole.astro";
+import AgentMark from "../../components/AgentMark.astro";
+import HeroParticles from "../../components/HeroParticles.astro";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { catalog } from "../../lib/catalog";
+import { localePath } from "../../i18n";
+import { useCatalogLabels } from "../../i18n/catalog";
+import { protocolLabels } from "../../lib/content";
+import { getPreviewChannel } from "../../lib/release-channel";
+
+const preview = await getPreviewChannel();
+const available = preview?.targets.find((target) => target.status === "available");
+const primaryAgents = catalog.agents.slice(0, 6);
+const { agentDescriptions, groupLabels, agentFallbackDescription } = useCatalogLabels("en");
+const href = (path: string) => localePath("en", path);
+---
+<BaseLayout>
+  <section class="hero">
+    <HeroParticles />
+    <div class="shell hero-copy">
+      <div>
+        <p class="eyebrow">Local-first · Bring your own key</p>
+        <h1 class="display">One entry point,<br /><em>your whole AI dev environment.</em></h1>
+      </div>
+      <div class="hero-side">
+        <p class="lede">Move from agent to provider to protocol verification in one path. The demo below is live — real scanning, writes and backups happen in local OneAgent.</p>
+        <div class="hero-actions">
+          <button class="button button-primary" type="button" data-activation-trigger="activation-console" aria-controls="activation-console">Start activation demo</button>
+        </div>
+        <p class="hero-note">{preview?.version ? `${preview.version} · ` : ""}unsigned technical preview{available ? ` · currently ${available.platformLabel} ${available.archLabel}` : ""}</p>
+      </div>
+    </div>
+    <ActivationConsole />
+  </section>
+
+  <section class="section">
+    <div class="shell reveal">
+      <div class="section-heading">
+        <div><p class="eyebrow">One activation path</p><h2 class="section-title">Detect, connect and verify — with every step explained.</h2></div>
+        <p>Configuration, backups and credentials stay on your machine. The protocol an agent actually needs is verified before anything is written.</p>
+      </div>
+      <div class="steps">
+        <article class="step"><h3>Read the environment</h3><p>Installed, needs setup, official flow only — three states listed separately rather than flattened into one checkmark.</p></article>
+        <article class="step"><h3>Connect a provider</h3><p>Filter by the protocol an agent needs, or point it at your own endpoint. Every compatibility level is named.</p></article>
+        <article class="step"><h3>Verify and review</h3><p>Once verification passes: Ready state, the paths written, the backups taken, and the next command to run.</p></article>
+      </div>
+    </div>
+  </section>
+
+  <section class="section section-muted">
+    <div class="shell reveal">
+      <div class="section-heading">
+        <div><p class="eyebrow">Compatibility Explorer</p><h2 class="section-title">A real catalog, not a static compatibility poster.</h2></div>
+        <p>{catalog.agents.length} agents, {catalog.providers.length} public providers, and independent compatibility for OpenAI Responses, Anthropic Messages and Chat Completions.</p>
+      </div>
+      <div class="agent-list">
+        {primaryAgents.map((agent) => (
+          <a class="agent-row" href={href(`explore/?agent=${agent.id}`)}>
+            <AgentMark id={agent.id} name={agent.name} />
+            <div><strong>{agent.name}</strong><span class="agent-meta">{groupLabels[agent.group] ?? agent.group}</span></div>
+            <span class="agent-meta">{agentDescriptions[agent.id] ?? agentFallbackDescription}</span>
+            <div class="agent-status">
+              {agent.support.managedInstall ? <span class="chip chip-green">Managed install</span> : <span class="chip">Official guide</span>}
+              {agent.support.managedConfig ? <span class="chip chip-blue">Managed config</span> : <span class="chip">Official config</span>}
+              {agent.protocol && <span class="chip">{protocolLabels[agent.protocol]}</span>}
+            </div>
+          </a>
+        ))}
+      </div>
+      <div class="section-actions"><a class="button button-secondary" href={href("explore/")}>Open full Explorer</a></div>
+    </div>
+  </section>
+
+  <section class="cta-band">
+    <div class="shell cta-grid reveal">
+      <div><h2>Understand the flow in the demo, then activate it locally.</h2><p>Download OneAgent for local detection, configuration backups and protocol verification. Team baselines and internal delivery still never take custody of API keys.</p></div>
+      <div class="cta-actions">
+        <a class="button button-primary" href={href("downloads/")}>Download OneAgent</a>
+        <a class="button button-secondary" href={localePath("zh-CN", "enterprise/")}>Explore team services<span class="lang-hint">in Chinese</span></a>
+      </div>
+    </div>
+  </section>
+</BaseLayout>

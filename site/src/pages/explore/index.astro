@@ -1,0 +1,21 @@
+---
+import CompatibilityExplorer from "../../components/CompatibilityExplorer.astro";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+---
+<BaseLayout
+  title="AI 开发环境配置 — OneAgent"
+  description="按平台、安装方式、配置方式、协议、Provider 与示例状态探索 OneAgent 的 Agent 兼容能力。"
+>
+  <section class="page-hero">
+    <div class="shell page-hero-grid">
+      <div>
+        <p class="eyebrow">Agent × Provider × Protocol</p>
+        <h1 class="page-title">从兼容目录，走到明确的激活路径。</h1>
+      </div>
+      <p class="lede">能力来自真实仓库目录；机器状态明确属于示例。筛选组合、打开详情，并把选择作为可分享 URL 保留下来。</p>
+    </div>
+  </section>
+  <section class="section section-compact">
+    <div class="shell"><CompatibilityExplorer /></div>
+  </section>
+</BaseLayout>

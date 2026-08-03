@@ -1,39 +1,69 @@
 ---
 import BrandMark from "./BrandMark.astro";
+import { bestLocaleFor, localeFromPath, localePath, switchesLanguage } from "../i18n";
+import { useTranslations } from "../i18n/ui";
 import { releasesPageUrl } from "../lib/downloads";
+
 const year = new Date().getUTCFullYear();
+const locale = localeFromPath(Astro.url.pathname);
+const t = useTranslations(locale);
+const href = (path: string) => localePath(bestLocaleFor(locale, path), path);
+/* Column links, grouped as rendered. A `path` is resolved per locale and gets a
+   hint when the target has no translation; an `href` is an absolute artifact URL
+   that is the same in every locale. */
+type FooterLink = { path: string; label: string } | { href: string; label: string };
+const columns: { heading: string; links: FooterLink[] }[] = [
+  {
+    heading: t("footer.start"),
+    links: [
+      { path: "downloads/", label: t("footer.downloadCenter") },
+      { path: "quickstart/", label: t("nav.quickstart") },
+      { path: "changelog/", label: t("nav.changelog") },
+    ],
+  },
+  {
+    heading: t("footer.capability"),
+    links: [
+      { path: "explore/", label: t("nav.explorer") },
+      { path: "agents/", label: t("footer.agentCatalog") },
+      { path: "providers/", label: t("footer.providerCatalog") },
+    ],
+  },
+  {
+    heading: t("footer.trust"),
+    links: [
+      { path: "support/", label: t("footer.supportFeedback") },
+      // A published artifact rather than a page: same URL in every locale, so it
+      // is exempt from the locale resolution and the hint.
+      { href: releasesPageUrl, label: t("footer.releaseIndex") },
+    ],
+  },
+];
 ---
 <footer class="site-footer">
   <div class="shell footer-grid">
     <div class="footer-brand">
-      <a class="wordmark" href="">
+      <a class="wordmark" href={href("")}>
         <span class="wordmark-mark"><BrandMark size={22} /></span>
         <span>OneAgent</span>
       </a>
-      <p>可信的本地 Agent 管家</p>
-      <p class="footer-fine">不提供共享 Key，不代理模型请求，不重新分发第三方 Agent。</p>
+      <p>{t("footer.tagline")}</p>
+      <p class="footer-fine">{t("footer.boundary")}</p>
     </div>
-    <div>
-      <strong>开始</strong>
-      <a href="downloads/">下载中心</a>
-      <a href="quickstart/">快速开始</a>
-      <a href="changelog/">更新日志</a>
-    </div>
-    <div>
-      <strong>能力</strong>
-      <a href="agents/">Agent 兼容目录</a>
-      <a href="providers/">Provider 目录</a>
-      <a href="enterprise/">企业服务</a>
-    </div>
-    <div>
-      <strong>信任</strong>
-      <a href="security/">安全与隐私</a>
-      <a href="support/">支持与反馈</a>
-      <a href={releasesPageUrl}>GitHub Releases</a>
-    </div>
+    {columns.map((column) => (
+      <div>
+        <strong>{column.heading}</strong>
+        {column.links.map((link) => (
+          <a href={"path" in link ? href(link.path) : link.href}>
+            {link.label}
+            {"path" in link && switchesLanguage(locale, link.path) && <span class="lang-hint">{t("nav.chineseOnly")}</span>}
+          </a>
+        ))}
+      </div>
+    ))}
   </div>
   <div class="shell footer-bottom">
     <span>© {year} OneAgent</span>
-    <span>版本与下载以 GitHub Releases 为准</span>
+    <span>{t("footer.channel")}</span>
   </div>
 </footer>

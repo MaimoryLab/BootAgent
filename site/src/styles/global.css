@@ -1,29 +1,94 @@
+/* Stays `light` so native controls match the light tokens below; .theme-dark
+   flips it to `dark` for itself. */
 :root {
   color-scheme: light;
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
   font-synthesis: none;
+  font-optical-sizing: auto;
   text-rendering: optimizeLegibility;
-  --paper: #f4f3ef;
-  --paper-strong: #eceae4;
+
+  /* Palette mirrors the desktop client's tokens.css so the site and the app
+     a user downloads read as one product. */
+  --paper: #ececef;
+  --paper-strong: #ededf0;
   --surface: #ffffff;
-  --surface-muted: #faf9f6;
-  --ink: #191918;
-  --ink-soft: #5e5d59;
-  --ink-faint: #6b6963;
-  --line: rgba(32, 32, 29, 0.14);
-  --line-strong: rgba(32, 32, 29, 0.24);
-  --blue: #1f5edc;
-  --blue-deep: #174fc4;
-  --blue-soft: #eaf1ff;
-  --green: #247340;
-  --green-soft: #e8f4eb;
-  --orange: #9b520c;
-  --orange-soft: #fff0df;
-  --red: #b4232d;
-  --red-soft: #fff0f0;
-  --radius-control: 7px;
-  --radius-panel: 12px;
-  --shadow-float: 0 32px 80px rgba(26, 30, 40, 0.14), 0 4px 18px rgba(26, 30, 40, 0.08);
+  --surface-muted: #f7f7f9;
+  --surface-pressed: #ededf0;
+  --ink: #1d1d1f;
+  /* Darkened from tokens.css's #6e6e73 / #8e8e93 / #006ee6: those clear AA on
+     the app's white window but not on this page's #ececef ground. */
+  --ink-soft: #636368;
+  --ink-faint: #68686d;
+  --line: rgba(60, 60, 67, 0.18);
+  --line-strong: rgba(60, 60, 67, 0.28);
+  --blue: #007aff;
+  --blue-deep: #0062cc;
+  /* Opaque on purpose: a translucent tint resolves against whatever section
+     background sits behind it, so the chip's contrast drifted per page. */
+  --blue-soft: #e8f0fb;
+  --green: #1c722f;
+  --green-soft: #e9f7ec;
+  --orange: #b25000;
+  --orange-soft: #fff3e7;
+  --red: #d70015;
+  --red-soft: #fff0f1;
+  --radius-control: 6px;
+  --radius-panel: 8px;
+  --radius-window: 12px;
+  --shadow-float: 0 22px 55px rgba(42, 42, 46, 0.16), 0 2px 8px rgba(42, 42, 46, 0.08);
+  --shadow-lift: 0 8px 24px rgba(42, 42, 46, 0.08);
+
+  /* Colours that used to be written inline. Naming them is what lets the dark
+     scheme reach them — a literal in a rule body cannot follow the theme. */
+  --on-accent: #ffffff;
+  --accent-pressed: #00539f;
+  --code-ink: #292b2f;
+  --code-bg: #e8e7e3;
+  --cta-ink: #ffffff;
+  --cta-ink-soft: rgba(255, 255, 255, 0.66);
+  --cta-bg: #1b1d22;
+  --cta-line: rgba(255, 255, 255, 0.32);
+  --selection-bg: #cfdfff;
+  --focus-ring: rgba(36, 103, 242, 0.33);
+  --chip-blue-line: rgba(0, 98, 204, 0.2);
+  --chip-green-line: rgba(28, 114, 47, 0.2);
+  --chip-orange-line: rgba(178, 80, 0, 0.2);
+  --chip-red-line: rgba(215, 0, 21, 0.2);
+  --particle: 0, 98, 204;
+
+  /* Type scale measured off apple.com's compiled marketing stylesheet. The
+     tracking curve is not monotonic: 40px is the 0em neutral point, larger
+     sizes go negative and 21-32px go positive. */
+  --fs-hero: clamp(48px, 7.2vw, 80px);
+  --fs-h1: clamp(40px, 5.6vw, 64px);
+  --fs-h2: clamp(32px, 4.2vw, 48px);
+  --fs-h3: clamp(28px, 3vw, 40px);
+  --fs-h4: clamp(24px, 2.2vw, 32px);
+  --fs-intro: clamp(19px, 1.6vw, 21px);
+  --fs-body: 17px;
+  --fs-caption: 14px;
+  --ls-hero: -0.015em;
+  --ls-h1: -0.009em;
+  --ls-h2: -0.003em;
+  --ls-h3: 0em;
+  --ls-h4: 0.004em;
+  --ls-intro: 0.011em;
+  --lh-hero: 1.05;
+  --lh-h1: 1.0625;
+  --lh-h2: 1.0834;
+  --lh-body: 1.47;
+
+  --measure-text: 734px;
+  --measure-wide: 1068px;
+  --space-section: clamp(80px, 10vw, 160px);
+  --space-block: clamp(32px, 4vw, 64px);
+
+  --ease-apple: cubic-bezier(0.66, 0, 0.1, 1);
+  --ease-enter: cubic-bezier(0, 0, 0.5, 1);
+  --dur-micro: 0.2s;
+  --dur-base: 0.344s;
+  --dur-slow: 0.4s;
+  --blur-material: 20px;
 }
 
 * { box-sizing: border-box; }
@@ -33,26 +98,20 @@ body {
   min-width: 320px;
   color: var(--ink);
   background: var(--paper);
-  font-size: 16px;
-  line-height: 1.6;
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+  letter-spacing: 0;
   -webkit-font-smoothing: antialiased;
 }
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  background-image: radial-gradient(rgba(25, 25, 24, 0.055) 0.55px, transparent 0.55px);
-  background-size: 9px 9px;
-  opacity: 0.34;
-}
 img { display: block; max-width: 100%; height: auto; }
+[hidden] { display: none !important; }
 a { color: inherit; text-decoration: none; }
 button, input, select { font: inherit; }
 button, select { color: inherit; }
-::selection { color: var(--ink); background: #cfdfff; }
+::selection { color: var(--ink); background: var(--selection-bg); }
 
+/* .product-shot is kept on this same measure wherever it changes, so the
+   preview frame stays aligned with the copy above it. */
 .shell { width: min(1180px, calc(100% - 48px)); margin-inline: auto; }
 .narrow { width: min(780px, calc(100% - 48px)); margin-inline: auto; }
 .wide-narrow { width: min(960px, calc(100% - 48px)); margin-inline: auto; }
@@ -63,7 +122,7 @@ button, select { color: inherit; }
   top: 12px;
   z-index: 100;
   padding: 9px 13px;
-  color: #fff;
+  color: var(--on-accent);
   background: var(--blue-deep);
   border-radius: var(--radius-control);
   transform: translateY(-140%);
@@ -75,11 +134,13 @@ button, select { color: inherit; }
   top: 0;
   z-index: 50;
   border-bottom: 1px solid var(--line);
-  background: color-mix(in srgb, var(--paper) 88%, transparent);
-  backdrop-filter: blur(18px) saturate(120%);
+  background: color-mix(in srgb, var(--paper) 82%, transparent);
+  backdrop-filter: blur(var(--blur-material)) saturate(180%);
 }
 .header-inner { min-height: 68px; display: flex; align-items: center; gap: 34px; }
-.wordmark { display: inline-flex; align-items: center; gap: 10px; font-weight: 720; letter-spacing: -0.02em; }
+.wordmark { display: inline-flex; align-items: center; gap: 10px; font-weight: 650; letter-spacing: -0.01em; }
+.wordmark-mark { transition: border-color var(--dur-micro) var(--ease-apple), background-color var(--dur-micro) var(--ease-apple); }
+.wordmark:hover .wordmark-mark { border-color: var(--blue); background: var(--blue-soft); }
 .wordmark-mark {
   width: 34px;
   height: 34px;
@@ -97,8 +158,28 @@ button, select { color: inherit; }
   border-radius: var(--radius-control);
   font-size: 14px;
   font-weight: 560;
+  transition: color var(--dur-micro) var(--ease-apple), background-color var(--dur-micro) var(--ease-apple);
 }
-.desktop-nav a:hover, .desktop-nav a[aria-current="page"], .header-link:hover { color: var(--ink); background: rgba(255,255,255,.62); }
+.desktop-nav a:hover, .desktop-nav a[aria-current="page"], .header-link:hover { color: var(--ink); background: var(--surface); }
+/* Nav links are inline boxes, so a scale would not apply — press reads through
+   the surface instead. */
+.desktop-nav a:active, .header-link:active { background: var(--surface-pressed); transition-duration: 100ms; }
+/* Marks a link whose target has no translation in the current locale. Following
+   it changes language, which is a surprise worth naming before the click rather
+   than after it. Only ever rendered on an English page. */
+.lang-hint {
+  margin-left: 5px;
+  padding: 1px 5px;
+  display: inline-block;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  color: var(--ink-faint);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0;
+  vertical-align: 1px;
+  white-space: nowrap;
+}
 .header-actions { margin-left: auto; display: flex; align-items: center; gap: 7px; }
 .mobile-menu { display: none; position: relative; }
 .mobile-menu summary { list-style: none; cursor: pointer; padding: 7px 9px; font-size: 14px; font-weight: 650; }
@@ -115,8 +196,9 @@ button, select { color: inherit; }
   box-shadow: var(--shadow-float);
   border-radius: var(--radius-panel);
 }
-.mobile-menu nav a { padding: 10px 12px; border-radius: 7px; }
+.mobile-menu nav a { padding: 10px 12px; border-radius: var(--radius-control); transition: background-color var(--dur-micro) var(--ease-apple); }
 .mobile-menu nav a:hover { background: var(--surface-muted); }
+.mobile-menu nav a:active { background: var(--surface-pressed); transition-duration: 100ms; }
 
 .button {
   min-height: 44px;
@@ -127,59 +209,80 @@ button, select { color: inherit; }
   gap: 9px;
   border: 1px solid transparent;
   border-radius: var(--radius-control);
-  font-size: 14px;
-  font-weight: 680;
+  font-size: var(--fs-caption);
+  font-weight: 600;
   line-height: 1;
   cursor: pointer;
-  transition: transform 140ms ease, background-color 140ms ease, border-color 140ms ease, color 140ms ease;
+  transition: transform var(--dur-micro) var(--ease-apple), background-color var(--dur-micro) var(--ease-apple), border-color var(--dur-micro) var(--ease-apple), color var(--dur-micro) var(--ease-apple);
 }
 .button:hover { transform: translateY(-1px); }
-.button:active { transform: translateY(0); }
-.button-primary { color: #fff; background: var(--blue); border-color: var(--blue); }
-.button-primary:hover { background: var(--blue-deep); border-color: var(--blue-deep); }
+/* Feedback belongs on the press, not the release, and it has to be fast enough
+   not to read as lag. */
+.button:active { transform: scale(0.97); transition-duration: 100ms; }
+/* --blue is Apple's system blue, but white on it is only 4.02:1 at this text
+   size; --blue-deep carries the fill so the label clears AA. */
+.button-primary { color: var(--on-accent); background: var(--blue-deep); border-color: var(--blue-deep); }
+.button-primary:hover { background: var(--accent-pressed); border-color: var(--accent-pressed); }
 .button-secondary { color: var(--ink); background: var(--surface); border-color: var(--line-strong); }
 .button-secondary:hover { background: var(--surface-muted); }
 .button-small { min-height: 36px; padding-inline: 13px; font-size: 13px; }
 .button-text { min-height: auto; padding: 2px 0; color: var(--blue-deep); border: 0; }
+/* Overrides .button's lift: a text link sliding sideways reads as "go here",
+   where a vertical hop reads as a button. */
+.button-text:hover { transform: translateX(3px); }
 .button[aria-disabled="true"] { color: var(--ink-faint); background: var(--paper-strong); border-color: var(--line); cursor: not-allowed; transform: none; }
 
-.eyebrow { margin: 0 0 14px; color: var(--blue-deep); font-size: 12px; font-weight: 760; letter-spacing: .12em; text-transform: uppercase; }
+.eyebrow { margin: 0 0 14px; color: var(--blue-deep); font-size: 12px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
 .display {
   margin: 0;
-  max-width: 810px;
-  font-size: clamp(46px, 6.4vw, 82px);
-  line-height: .98;
-  letter-spacing: -0.063em;
-  font-weight: 760;
+  max-width: 900px;
+  font-size: var(--fs-hero);
+  line-height: var(--lh-hero);
+  letter-spacing: var(--ls-hero);
+  font-weight: 600;
 }
 .display em { color: var(--blue); font-style: normal; }
-.page-title { margin: 0; font-size: clamp(39px, 5vw, 62px); line-height: 1.04; letter-spacing: -.05em; font-weight: 750; }
-.section-title { margin: 0; max-width: 720px; font-size: clamp(31px, 4vw, 48px); line-height: 1.08; letter-spacing: -.042em; font-weight: 735; }
-.card-title { margin: 0; font-size: 20px; line-height: 1.25; letter-spacing: -.025em; }
-.lede { margin: 24px 0 0; max-width: 680px; color: var(--ink-soft); font-size: clamp(18px, 2.2vw, 23px); line-height: 1.55; letter-spacing: -.018em; }
+.page-title { margin: 0; font-size: var(--fs-h1); line-height: var(--lh-h1); letter-spacing: var(--ls-h1); font-weight: 600; }
+.section-title { margin: 0; max-width: var(--measure-text); font-size: var(--fs-h2); line-height: var(--lh-h2); letter-spacing: var(--ls-h2); font-weight: 600; }
+.card-title { margin: 0; font-size: 21px; line-height: 1.25; letter-spacing: .011em; font-weight: 600; }
+.lede { margin: 24px 0 0; max-width: var(--measure-text); color: var(--ink-soft); font-size: var(--fs-intro); line-height: 1.42; letter-spacing: var(--ls-intro); }
 .prose { color: var(--ink-soft); }
-.prose h2, .prose h3 { color: var(--ink); letter-spacing: -.025em; }
-.prose h2 { margin-top: 64px; font-size: 30px; }
-.prose h3 { margin-top: 36px; font-size: 20px; }
-.prose p, .prose li { max-width: 72ch; }
-.prose a { color: var(--blue-deep); text-decoration: underline; text-underline-offset: 3px; }
-.prose code, code.inline { padding: 2px 5px; overflow-wrap: anywhere; border: 1px solid var(--line); border-radius: 4px; background: rgba(255,255,255,.7); color: var(--ink); font: 0.88em ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+.prose h2, .prose h3 { color: var(--ink); font-weight: 600; }
+.prose h2 { margin-top: 64px; font-size: var(--fs-h4); letter-spacing: var(--ls-h4); }
+.prose h3 { margin-top: 36px; font-size: 21px; letter-spacing: .011em; }
+.prose p, .prose li { max-width: var(--measure-text); }
+/* :not(.button) keeps this from overriding .button-primary's white text —
+   both selectors are 0-2-0 and this one used to win on order alone. */
+.prose a:not(.button) { color: var(--blue-deep); text-decoration: underline; text-underline-offset: 3px; }
+.prose code, code.inline { padding: 2px 5px; overflow-wrap: anywhere; border: 1px solid var(--line); border-radius: 4px; background: var(--surface); color: var(--ink); font: 0.88em ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+/* Reference material that belongs on the page but should not compete with it:
+   the boundary and gating facts a reader consults rather than reads through.
+   Kept at full contrast — only the heading scale and leading step down. */
+.prose-aside { margin-top: 72px; padding-top: 8px; border-top: 1px solid var(--line-strong); }
+.prose-aside h2 { margin-top: 40px; font-size: 19px; letter-spacing: .006em; }
+.prose-aside p, .prose-aside li { font-size: 15px; }
 
-.hero { padding: 104px 0 0; overflow: hidden; }
-.hero-copy { display: grid; grid-template-columns: minmax(0, 1.02fr) minmax(360px, .76fr); align-items: end; gap: 72px; }
+/* position + overflow:hidden keep the absolutely positioned particle canvas
+   from widening the document — e2e asserts scrollWidth <= clientWidth. */
+.hero { position: relative; padding: 104px 0 var(--space-block); overflow: hidden; }
+.hero-copy { position: relative; z-index: 1; display: grid; grid-template-columns: minmax(0, 1.02fr) minmax(360px, .76fr); align-items: end; gap: 72px; }
 .hero-side { padding-bottom: 5px; }
 .hero-actions { margin-top: 34px; display: flex; flex-wrap: wrap; gap: 10px; }
 .hero-note { margin: 18px 0 0; color: var(--ink-faint); font-size: 13px; }
+/* Shares .shell's measure so the frame's edges line up with the copy above it
+   and the trust strip below. It used to be 1215px against the shell's 1180px,
+   which read as a misalignment rather than as a deliberately wider layer. */
 .product-shot {
-  width: min(1215px, calc(100% - 48px));
+  width: min(1180px, calc(100% - 48px));
   margin: 74px auto 0;
   padding: 9px;
-  background: rgba(255,255,255,.62);
-  border: 1px solid var(--line-strong);
-  border-radius: 17px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-window);
   box-shadow: var(--shadow-float);
 }
-.product-shot img { width: 100%; border-radius: 10px; }
+/* The activation console owns its internal layout while this shared frame keeps
+   its edges aligned with the hero copy in every locale. */
 
 .trust-strip { padding: 34px 0 0; }
 .trust-grid { display: grid; grid-template-columns: repeat(4, 1fr); border-block: 1px solid var(--line); }
@@ -188,66 +291,92 @@ button, select { color: inherit; }
 .trust-item strong { display: block; margin-bottom: 3px; font-size: 14px; }
 .trust-item span { color: var(--ink-soft); font-size: 13px; }
 
-.section { padding: 120px 0; }
-.section-compact { padding: 82px 0; }
-.section-muted { background: rgba(255,255,255,.46); border-block: 1px solid var(--line); }
+.section { padding: var(--space-section) 0; }
+.section-compact { padding: calc(var(--space-section) * 0.62) 0; }
+.section-muted { background: var(--surface-muted); border-block: 1px solid var(--line); }
 .section-heading { display: flex; align-items: end; justify-content: space-between; gap: 34px; margin-bottom: 52px; }
 .section-heading p { max-width: 450px; margin: 0; color: var(--ink-soft); }
 
 .steps { counter-reset: step; display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; border-top: 1px solid var(--line-strong); }
 .step { counter-increment: step; padding: 30px 32px 0 0; min-height: 210px; border-bottom: 1px solid var(--line); }
 .step + .step { padding-left: 32px; border-left: 1px solid var(--line); }
-.step::before { content: "0" counter(step); display: block; margin-bottom: 52px; color: var(--blue); font: 650 13px ui-monospace, SFMono-Regular, Menlo, monospace; }
-.step h3 { margin: 0 0 9px; font-size: 20px; letter-spacing: -.025em; }
-.step p { margin: 0; color: var(--ink-soft); font-size: 14px; }
+.step::before { content: "0" counter(step); display: block; margin-bottom: 52px; color: var(--blue-deep); font: 650 13px ui-monospace, SFMono-Regular, Menlo, monospace; }
+.step h3 { margin: 0 0 9px; font-size: 21px; letter-spacing: .011em; font-weight: 600; }
+.step p { margin: 0; color: var(--ink-soft); font-size: var(--fs-caption); }
 
 .agent-list { display: grid; border-top: 1px solid var(--line-strong); }
-.agent-row { min-height: 86px; padding: 18px 8px; display: grid; grid-template-columns: 42px minmax(160px, 1fr) minmax(240px, 1.4fr) auto; align-items: center; gap: 16px; border-bottom: 1px solid var(--line); transition: background-color 140ms ease; }
-.agent-row:hover { background: rgba(255,255,255,.48); }
+.agent-row { min-height: 86px; padding: 18px 8px; display: grid; grid-template-columns: 42px minmax(160px, 1fr) minmax(240px, 1.4fr) auto; align-items: center; gap: 16px; border-bottom: 1px solid var(--line); transition: background-color var(--dur-micro) var(--ease-apple), box-shadow var(--dur-micro) var(--ease-apple); }
+.agent-row:hover { background: var(--surface); box-shadow: inset 3px 0 0 var(--blue); }
+.agent-row:active { background: var(--surface-pressed); transition-duration: 100ms; }
 .agent-row strong { display: block; letter-spacing: -.015em; }
 .agent-meta { color: var(--ink-soft); font-size: 13px; }
 .agent-status { display: flex; flex-wrap: wrap; gap: 6px; }
 .agent-mark-wrap { width: 34px; height: 34px; display: grid; place-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
 .agent-mark-wrap img { width: var(--mark-size); height: var(--mark-size); object-fit: contain; }
-.agent-fallback { font-size: 13px; font-weight: 720; }
+.agent-fallback { font-size: 13px; font-weight: 650; }
 
-.chip { min-height: 26px; padding: 3px 8px; display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--line); border-radius: 999px; color: var(--ink-soft); background: rgba(255,255,255,.68); font-size: 11px; font-weight: 650; white-space: nowrap; }
-.chip-blue { color: var(--blue-deep); background: var(--blue-soft); border-color: rgba(36,103,242,.18); }
-.chip-green { color: var(--green); background: var(--green-soft); border-color: rgba(36,115,64,.17); }
-.chip-orange { color: var(--orange); background: var(--orange-soft); border-color: rgba(155,82,12,.17); }
-.chip-red { color: var(--red); background: var(--red-soft); border-color: rgba(180,35,45,.17); }
+.chip { min-height: 26px; padding: 3px 8px; display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--line); border-radius: 999px; color: var(--ink-soft); background: var(--surface); font-size: 11px; font-weight: 600; white-space: nowrap; }
+.chip-blue { color: var(--blue-deep); background: var(--blue-soft); border-color: var(--chip-blue-line); }
+.chip-green { color: var(--green); background: var(--green-soft); border-color: var(--chip-green-line); }
+.chip-orange { color: var(--orange); background: var(--orange-soft); border-color: var(--chip-orange-line); }
+.chip-red { color: var(--red); background: var(--red-soft); border-color: var(--chip-red-line); }
 
 .split-callout { display: grid; grid-template-columns: .78fr 1.22fr; gap: 72px; align-items: start; }
-.callout-index { color: var(--blue); font: 650 13px ui-monospace, SFMono-Regular, Menlo, monospace; }
+.callout-index { color: var(--blue-deep); font: 650 13px ui-monospace, SFMono-Regular, Menlo, monospace; }
 .callout-body { padding-top: 1px; }
-.callout-body h2 { margin: 0 0 20px; font-size: clamp(32px,4vw,50px); line-height: 1.08; letter-spacing: -.045em; }
-.callout-body p { max-width: 650px; color: var(--ink-soft); font-size: 18px; }
+.callout-body h2 { margin: 0 0 20px; font-size: var(--fs-h2); line-height: var(--lh-h2); letter-spacing: var(--ls-h2); font-weight: 600; }
+.callout-body p { max-width: var(--measure-text); color: var(--ink-soft); font-size: var(--fs-intro); letter-spacing: var(--ls-intro); }
 
 .page-hero { padding: 92px 0 66px; border-bottom: 1px solid var(--line); }
 .page-hero-grid { display: grid; grid-template-columns: 1fr .55fr; gap: 70px; align-items: end; }
 .page-hero-aside { padding-bottom: 5px; color: var(--ink-soft); }
 .page-hero-aside strong { display: block; margin-bottom: 8px; color: var(--ink); }
 .breadcrumb { margin-bottom: 24px; color: var(--ink-faint); font-size: 13px; }
+.breadcrumb a { transition: color var(--dur-micro) var(--ease-apple); }
 .breadcrumb a:hover { color: var(--ink); }
 
-.notice { padding: 17px 18px; display: flex; gap: 12px; align-items: flex-start; border: 1px solid var(--line); background: rgba(255,255,255,.62); font-size: 14px; }
+.notice { padding: 17px 18px; display: flex; gap: 12px; align-items: flex-start; border: 1px solid var(--line); border-radius: var(--radius-panel); background: var(--surface); font-size: var(--fs-caption); }
 .notice strong { display: block; color: var(--ink); }
 .notice p { margin: 2px 0 0; color: var(--ink-soft); }
-.notice-warning { background: var(--orange-soft); border-color: rgba(155,82,12,.22); }
-.notice-info { background: var(--blue-soft); border-color: rgba(36,103,242,.2); }
-.notice-success { background: var(--green-soft); border-color: rgba(36,115,64,.2); }
-.notice-mark { flex: 0 0 auto; width: 22px; height: 22px; display: grid; place-items: center; border: 1px solid currentColor; border-radius: 50%; font-size: 12px; font-weight: 760; }
+.notice-warning { background: var(--orange-soft); border-color: var(--chip-orange-line); }
+.notice-info { background: var(--blue-soft); border-color: var(--chip-blue-line); }
+.notice-success { background: var(--green-soft); border-color: var(--chip-green-line); }
+.notice-mark { flex: 0 0 auto; width: 22px; height: 22px; display: grid; place-items: center; border: 1px solid currentColor; border-radius: 50%; font-size: 12px; font-weight: 650; }
 
 .download-layout { display: grid; grid-template-columns: 260px minmax(0,1fr); gap: 54px; align-items: start; }
 .download-layout > * { min-width: 0; }
 .platform-control { position: sticky; top: 98px; }
-.platform-control label { display: block; margin-bottom: 8px; font-size: 13px; font-weight: 680; }
-.platform-control select { width: 100%; min-height: 44px; padding: 0 36px 0 12px; border: 1px solid var(--line-strong); border-radius: var(--radius-control); background: var(--surface); }
+.platform-picker { margin: 0; padding: 0; border: 0; display: grid; gap: 8px; }
+.platform-picker legend { padding: 0; margin-bottom: 10px; font-size: 13px; font-weight: 600; }
+.platform-option {
+  padding: 12px 13px;
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 11px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+  cursor: pointer;
+  transition: border-color var(--dur-micro) var(--ease-apple), background-color var(--dur-micro) var(--ease-apple);
+}
+.platform-option:hover { border-color: var(--line-strong); }
+.platform-option:active { background: var(--surface-pressed); transition-duration: 100ms; }
+/* Keeping the real radio (rather than hiding it behind a drawn circle) is what
+   gives this arrow-key navigation, form semantics and focus for free. */
+.platform-option input { width: 16px; height: 16px; margin: 0; accent-color: var(--blue-deep); }
+.platform-option:has(input:checked) { border-color: var(--blue-deep); background: var(--blue-soft); }
+/* The ring belongs on the card, not the 16px dot inside it. */
+.platform-option:has(input:focus-visible) { outline: 3px solid var(--focus-ring); outline-offset: 3px; }
+.platform-option input:focus-visible { outline: none; }
+.platform-option-body { display: grid; gap: 1px; min-width: 0; }
+.platform-option-name { font-size: 14px; font-weight: 600; }
+.platform-option-arch { color: var(--ink-soft); font-size: 12px; }
 .detected-note { margin: 10px 0 0; color: var(--ink-faint); font-size: 12px; }
 .release-panel { display: none; }
 .release-panel.is-active { display: block; }
 .release-head { display: flex; justify-content: space-between; align-items: start; gap: 24px; padding-bottom: 26px; border-bottom: 1px solid var(--line-strong); }
-.release-head h2 { margin: 0 0 6px; font-size: 30px; letter-spacing: -.035em; }
+.release-head h2 { margin: 0 0 6px; font-size: 28px; letter-spacing: .004em; font-weight: 600; }
 .release-head p { margin: 0; color: var(--ink-soft); }
 .release-meta-grid { display: grid; grid-template-columns: repeat(2, 1fr); margin: 0; }
 .release-meta-grid div { padding: 22px 0; border-bottom: 1px solid var(--line); }
@@ -257,8 +386,8 @@ button, select { color: inherit; }
 .download-action { margin: 28px 0; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .hash-block { margin-top: 24px; }
 .hash-row { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 8px; }
-.hash-value, .code-block { margin: 0; padding: 14px 15px; overflow-x: auto; color: #292b2f; background: #e8e7e3; border: 1px solid var(--line); border-radius: 7px; font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
-.copy-button { padding: 0 12px; border: 1px solid var(--line-strong); border-radius: 7px; background: var(--surface); cursor: pointer; font-size: 12px; font-weight: 650; }
+.hash-value, .code-block { margin: 0; padding: 14px 15px; overflow-x: auto; color: var(--code-ink); background: var(--code-bg); border: 1px solid var(--line); border-radius: var(--radius-control); font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+.copy-button { padding: 0 12px; border: 1px solid var(--line-strong); border-radius: var(--radius-control); background: var(--surface); cursor: pointer; font-size: 12px; font-weight: 600; transition: background-color var(--dur-micro) var(--ease-apple); }
 .copy-button:hover { background: var(--surface-muted); }
 .unavailable-panel { padding: 38px 0; }
 .unavailable-panel h3 { margin: 0 0 7px; font-size: 23px; }
@@ -267,8 +396,10 @@ button, select { color: inherit; }
 .content-grid { display: grid; grid-template-columns: minmax(0,1fr) 280px; gap: 68px; align-items: start; }
 .content-grid > * { min-width: 0; }
 .side-index { position: sticky; top: 98px; border-top: 1px solid var(--line-strong); }
-.side-index a { padding: 11px 0; display: block; color: var(--ink-soft); border-bottom: 1px solid var(--line); font-size: 13px; }
-.side-index a:hover { color: var(--ink); }
+/* translate rather than padding so the hover stays on the compositor instead of
+   reflowing the sticky column on every pointer move. */
+.side-index a { padding: 11px 0; display: block; color: var(--ink-soft); border-bottom: 1px solid var(--line); font-size: 13px; transition: color var(--dur-micro) var(--ease-apple), transform var(--dur-micro) var(--ease-apple); }
+.side-index a:hover { color: var(--ink); transform: translateX(4px); }
 
 .detail-grid { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid var(--line-strong); }
 .detail-cell { min-height: 142px; padding: 26px 28px 28px 0; border-bottom: 1px solid var(--line); }
@@ -278,8 +409,9 @@ button, select { color: inherit; }
 .detail-cell p { margin: 7px 0 0; color: var(--ink-soft); font-size: 13px; }
 
 .provider-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; }
-.provider-card { min-height: 250px; padding: 28px; display: flex; flex-direction: column; background: rgba(255,255,255,.72); border: 1px solid var(--line); }
-.provider-card h2 { margin: 0; font-size: 27px; letter-spacing: -.035em; }
+.provider-card { min-height: 250px; padding: 28px; display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-panel); transition: border-color var(--dur-micro) var(--ease-apple), box-shadow var(--dur-micro) var(--ease-apple), transform var(--dur-micro) var(--ease-apple); }
+.provider-card:hover { border-color: var(--line-strong); box-shadow: var(--shadow-lift); transform: translateY(-2px); }
+.provider-card h2 { margin: 0; font-size: 28px; letter-spacing: .004em; font-weight: 600; }
 .provider-card p { color: var(--ink-soft); }
 .provider-card .agent-status { margin-top: 14px; }
 .provider-card .button-text { margin-top: auto; align-self: flex-start; }
@@ -293,22 +425,23 @@ button, select { color: inherit; }
 .service-grid { display: grid; grid-template-columns: repeat(3,1fr); border-top: 1px solid var(--line-strong); }
 .service { padding: 30px 30px 34px 0; border-bottom: 1px solid var(--line); }
 .service + .service { padding-left: 30px; border-left: 1px solid var(--line); }
-.service-number { color: var(--blue); font: 650 12px ui-monospace, SFMono-Regular, Menlo, monospace; }
-.service h2 { margin: 58px 0 10px; font-size: 24px; letter-spacing: -.03em; }
-.service p, .service li { color: var(--ink-soft); font-size: 14px; }
+.service-number { color: var(--blue-deep); font: 650 12px ui-monospace, SFMono-Regular, Menlo, monospace; }
+.service h2 { margin: 58px 0 10px; font-size: var(--fs-h4); letter-spacing: var(--ls-h4); font-weight: 600; }
+.service p, .service li { color: var(--ink-soft); font-size: var(--fs-caption); }
 .service ul { padding-left: 18px; }
 
-.cta-band { padding: 76px 0; color: #fff; background: #1b1d22; }
+.cta-band { padding: 76px 0; color: var(--cta-ink); background: var(--cta-bg); }
 .cta-grid { display: grid; grid-template-columns: 1fr auto; gap: 40px; align-items: center; }
-.cta-band h2 { margin: 0; max-width: 700px; font-size: clamp(34px,4.5vw,56px); line-height: 1.08; letter-spacing: -.045em; }
-.cta-band p { margin: 15px 0 0; color: rgba(255,255,255,.66); }
-.cta-band .button-secondary { border-color: rgba(255,255,255,.32); }
+.cta-band h2 { margin: 0; max-width: var(--measure-text); font-size: var(--fs-h2); line-height: var(--lh-h2); letter-spacing: var(--ls-h2); font-weight: 600; }
+.cta-band p { margin: 15px 0 0; color: var(--cta-ink-soft); }
+.cta-band .button-secondary { border-color: var(--cta-line); }
 
 .site-footer { padding: 70px 0 24px; border-top: 1px solid var(--line); background: var(--paper-strong); }
 .footer-grid { display: grid; grid-template-columns: 2fr repeat(3,1fr); gap: 50px; }
 .footer-grid > div:not(.footer-brand) { display: grid; align-content: start; gap: 8px; }
 .footer-grid strong { margin-bottom: 6px; font-size: 13px; }
 .footer-grid a:not(.wordmark), .footer-grid p { color: var(--ink-soft); font-size: 13px; }
+.footer-grid a { transition: color var(--dur-micro) var(--ease-apple); }
 .footer-grid a:hover { color: var(--ink); }
 .footer-brand p { max-width: 330px; margin: 17px 0 0; }
 .footer-brand .footer-fine { color: var(--ink-faint); }
@@ -334,13 +467,12 @@ button, select { color: inherit; }
 }
 
 @media (max-width: 680px) {
-  .shell, .narrow, .wide-narrow { width: min(100% - 28px, 1180px); }
+  .shell, .narrow, .wide-narrow, .product-shot { width: min(100% - 28px, 1180px); }
   .site-header .button { display: none; }
   .header-inner { min-height: 60px; gap: 12px; }
   .hero { padding-top: 58px; }
   .display { font-size: clamp(43px, 14vw, 63px); }
-  .product-shot { width: calc(100% - 14px); margin-top: 50px; padding: 5px; border-radius: 12px; }
-  .product-shot img { border-radius: 8px; }
+  .product-shot { margin-top: 50px; padding: 5px; border-radius: var(--radius-panel); }
   .trust-grid { grid-template-columns: 1fr; }
   .trust-item, .trust-item + .trust-item, .trust-item:nth-child(3) { padding: 18px 0; border-left: 0; border-top: 1px solid var(--line); }
   .trust-item:first-child { border-top: 0; }
@@ -366,8 +498,190 @@ button, select { color: inherit; }
   .footer-bottom { display: grid; }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+/* Scroll-driven reveal. Browsers without animation-timeline (Firefox as of
+   2026-07) never enter the @supports block, so .reveal stays at its static
+   painted state rather than needing a JS fallback.
+
+   Deliberately transform-only: fading text through partial opacity drops its
+   effective contrast below AA for the whole scroll range, and a reader who
+   stops mid-entry is left with unreadable copy. */
+@supports (animation-timeline: view()) {
+  @media not (prefers-reduced-motion: reduce) {
+    .reveal {
+      animation: reveal-in linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 55%;
+      will-change: transform;
+    }
+  }
+}
+@keyframes reveal-in {
+  from { transform: translateY(22px); }
 }
 
-:focus-visible { outline: 3px solid rgba(36,103,242,.33); outline-offset: 3px; }
+/* First-paint entrance for the hero, staggered in reading order.
+
+   Uses --ease-enter, not --ease-apple: the latter is a slow-in/fast-out curve
+   meant for elements leaving or for state changes, and on an entrance it holds
+   the element almost still before snapping — legible as "something moved" but
+   not as a direction. An entrance needs its speed at the start.
+
+   No opacity, deliberately. Fading in is the obvious way to make an entrance
+   read as "arriving", but measured mid-flight it puts the primary button at
+   1.37:1 and the h1 at 1.5:1 — even when the ramp is confined to the first
+   quarter, that window is long enough to be read and short enough to be
+   missed in review. Distance and curve carry the motion instead. */
+@media not (prefers-reduced-motion: reduce) {
+  .hero .eyebrow,
+  .hero .display,
+  .hero .lede,
+  .hero .hero-actions,
+  .hero .hero-note,
+  .product-shot {
+    animation: hero-rise 620ms var(--ease-enter) both;
+  }
+  .hero .display { animation-delay: 70ms; }
+  .hero .lede { animation-delay: 160ms; }
+  .hero .hero-actions { animation-delay: 230ms; }
+  .hero .hero-note { animation-delay: 290ms; }
+  .product-shot { animation-delay: 360ms; }
+}
+
+@keyframes hero-rise {
+  from { transform: translateY(var(--hero-rise-from, 40px)); }
+}
+
+/* Measured at 375px, the tightest gap between two staggered lines is 14px
+   (eyebrow→h1) and buttons→release-note is 18px. Any travel past that lets one
+   line cross into the next mid-flight and obscure it, and a travel under it is
+   too small to perceive — there is no distance that is both safe and visible
+   once the hero stacks. So narrow screens animate the block as a whole: the
+   lines keep their relative positions, so nothing can overlap. */
+@media (max-width: 680px) {
+  .hero .eyebrow,
+  .hero .display,
+  .hero .lede,
+  .hero .hero-actions,
+  .hero .hero-note { animation: none; }
+  .hero-copy { animation: hero-rise 520ms var(--ease-enter) both; }
+  .product-shot { animation-delay: 180ms; }
+}
+
+/* Cross-document view transitions, replacing the white flash between pages.
+   This is the native MPA path, not Astro's <ClientRouter />: it ships no
+   client-side router, leaves every existing script untouched, and degrades to
+   the current full-page load where unsupported (Firefox as of 2026-07). */
+@view-transition { navigation: auto; }
+
+/* The chrome is identical on every page, so naming it lets the browser hold it
+   still while only the main content crossfades — without these it would fade
+   out and back in on every navigation. */
+.site-header { view-transition-name: site-header; }
+.site-footer { view-transition-name: site-footer; }
+
+@media not (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root) {
+    animation: vt-out var(--dur-micro) var(--ease-apple) both;
+  }
+  ::view-transition-new(root) {
+    animation: vt-in var(--dur-base) var(--ease-apple) both;
+  }
+}
+
+/* Held to a small translate: a page-level slide that travels far enough to
+   notice also reads as sluggish on every single click. */
+@keyframes vt-out {
+  to { opacity: 0; transform: translateY(-6px); }
+}
+@keyframes vt-in {
+  from { opacity: 0; transform: translateY(10px); }
+}
+
+/* Dark scheme. Every value here was measured against its own surface rather
+   than derived by inverting the light palette: Apple's #007aff drops to 4.28:1
+   on a dark card and fails, so the accent is lifted to #3d9bff for text while
+   the button keeps the darker fill that white sits on at 5.80:1.
+
+   Declared before the prefers-contrast block below, whose :root override is
+   written in light-scheme literals and would otherwise win on order. */
+.theme-dark {
+  color-scheme: dark;
+
+  --paper: #0f1418;
+  --paper-strong: #0b0f12;
+  --surface: #161c21;
+  --surface-muted: #1b2228;
+  --surface-pressed: #212a31;
+  --ink: #f5f6f7;
+  --ink-soft: #adb3b9;
+  --ink-faint: #9aa1a8;
+  --line: rgba(233, 238, 243, 0.16);
+  --line-strong: rgba(233, 238, 243, 0.28);
+
+  --blue: #3d9bff;
+  --blue-deep: #6bb4ff;
+  --blue-soft: #14283c;
+  --green: #5fd07f;
+  --green-soft: #12291b;
+  --orange: #f0a95c;
+  --orange-soft: #301f0f;
+  --red: #ff8a8f;
+  --red-soft: #331619;
+
+  --shadow-float: 0 22px 55px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.4);
+  --shadow-lift: 0 8px 24px rgba(0, 0, 0, 0.45);
+
+  /* The accent is light here, so anything sitting on it needs dark ink — white
+     on #6bb4ff is 2.19:1. This covers the primary button and the skip link. */
+  --on-accent: #08131f;
+  --accent-pressed: #82c1ff;
+  --code-ink: #d4d8dc;
+  --code-bg: #12181d;
+  --cta-ink: #f5f6f7;
+  --cta-ink-soft: rgba(245, 246, 247, 0.7);
+  --cta-bg: #05080a;
+  --cta-line: rgba(245, 246, 247, 0.32);
+  --selection-bg: #1d3a5c;
+  --focus-ring: rgba(107, 180, 255, 0.45);
+  --chip-blue-line: rgba(107, 180, 255, 0.28);
+  --chip-green-line: rgba(95, 208, 127, 0.28);
+  --chip-orange-line: rgba(240, 169, 92, 0.28);
+  --chip-red-line: rgba(255, 138, 143, 0.28);
+  --particle: 107, 180, 255;
+}
+
+/* The Codex and OpenCode marks declare fill="currentColor", but an <img> has no
+   inheriting context, so they render black and vanish here. Inverting is safe
+   because both are single-shape glyphs — the marks with real brand colours are
+   not flagged and stay untouched. See AgentMark.astro. */
+.theme-dark .agent-mark-wrap img[data-monochrome] { filter: invert(1); }
+
+/* System preference is not read here on purpose. The inline script in
+   BaseLayout resolves stored choice + system preference into a single
+   .theme-dark class, so there is one source of truth instead of a CSS query and
+   a script that can disagree mid-session. */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation: none !important; transition: none !important; }
+}
+
+/* Translucent chrome has to become a real surface when the reader has asked for
+   less transparency, and gain a defined edge when they ask for more contrast. */
+@media (prefers-reduced-transparency: reduce) {
+  .site-header { background: var(--surface); backdrop-filter: none; }
+}
+
+@media (prefers-contrast: more) {
+  :root { --line: rgba(60, 60, 67, 0.5); --line-strong: rgba(60, 60, 67, 0.7); --ink-soft: #4a4a4f; --ink-faint: #4a4a4f; }
+  .site-header { background: var(--surface); backdrop-filter: none; }
+  .chip { border-color: var(--line-strong); }
+}
+
+:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 3px; }
+
+/* Homepage activation entry refinements. */
+.section-actions { margin-top: 28px; }
+.cta-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; }
+@media (max-width: 680px) {
+  .cta-actions { margin-top: 28px; justify-content: flex-start; }
+}

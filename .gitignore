@@ -1,5 +1,10 @@
 .DS_Store
-dist/
+# Anchored to the repository root. Written as a bare `dist/` it matched at any
+# depth, and because excluding a directory stops git from descending into it, the
+# `!frontend/dist/.keep` exception two lines down could never take effect — so
+# the .keep that manifest_embed.go's `go:embed all:frontend/dist` needs was
+# silently absent from every clone.
+/dist/
 release/
 # oneagent-release 的中间产物：notice、license 副本和打包暂存目录
 build/metadata/

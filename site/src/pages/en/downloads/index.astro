@@ -1,0 +1,38 @@
+---
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import DownloadSelector from "../../../components/DownloadSelector.astro";
+import { localePath } from "../../../i18n";
+---
+<BaseLayout
+  title="Download OneAgent — unsigned technical preview"
+  description="Download the OneAgent technical preview, published with a manifest, SHA-256 and native cleanroom evidence."
+>
+  <header class="page-hero">
+    <div class="shell page-hero-grid">
+      <div>
+        <nav class="breadcrumb" aria-label="Breadcrumb"><a href={localePath("en", "")}>Home</a> / Downloads</nav>
+        <p class="eyebrow">Download center</p>
+        <h1 class="page-title">Pick your platform and get started.</h1>
+      </div>
+      <div class="page-hero-aside">
+        <strong>No OneAgent account required</strong>
+        Every artifact carries its version, size, build date and SHA-256, so you can check it before you download.
+      </div>
+    </div>
+  </header>
+  <section class="section-compact">
+    <div class="shell"><DownloadSelector /></div>
+  </section>
+  <section class="section section-muted">
+    <div class="narrow prose">
+      <p class="eyebrow">Integrity</p>
+      <h2 class="section-title">The SHA-256 on this page is here so you can check it yourself.</h2>
+      <p>A distribution channel is a mirror. For a given version, the file on this site, on GitHub Releases, on a file host and on an internal drive all carry the identical SHA-256.</p>
+      <p>Channels do not append promotional files, swap the install script, or re-sign the build.</p>
+      <p>If the value you compute does not match the page, do not run the file. Send the download URL, the filename and the hash you actually got to the support page.</p>
+      <h3>This is a technical preview</h3>
+      <p>macOS Developer ID notarisation and Windows Authenticode are not done yet, so it is not called stable. Each platform enters stable on its own once signing, notarisation and native verification are complete.</p>
+      <p>Until then, OneAgent does not document ways around your operating system's security policy.</p>
+    </div>
+  </section>
+</BaseLayout>
