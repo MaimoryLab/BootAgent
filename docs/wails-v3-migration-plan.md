@@ -32,6 +32,10 @@ cmd/oneagent-provider-smoke  Provider protocol RC checks
 site/                        independent Astro release site
 ```
 
+（`site/` 于 2026-08-04 迁出到
+[MaimoryLab/OneAgent-site](https://github.com/MaimoryLab/OneAgent-site)。上面的布局是本文
+验收当时的事实，保留原样。）
+
 生产桌面构建不使用 `server` tag，不监听业务端口。浏览器 E2E 才使用 Wails server/e2e runner。
 
 ## 3. 已完成的交付
