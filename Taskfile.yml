@@ -8,7 +8,7 @@ vars:
   # cross-compile (only windows supports cross-compilation, see build/*/Taskfile.yml).
   GOOS: '{{.GOOS | default OS}}'
   WAILS_MODULE: github.com/wailsapp/wails/v3
-  WAILS_VERSION: v3.0.0-beta.2
+  WAILS_VERSION: v3.0.0-beta.3
   # Pinned Wails CLI (see build/tool-versions.env); never rely on a global wails3.
   WAILS3: go run {{.WAILS_MODULE}}/cmd/wails3@{{.WAILS_VERSION}}
 
