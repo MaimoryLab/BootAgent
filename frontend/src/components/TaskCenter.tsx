@@ -9,9 +9,14 @@ import { useTaskCenter } from "../state/TaskCenterContext";
  *
  * Installs run without a console, so this is where a user sees what a command
  * is doing while it runs. Internal downloads use their install row rather than
- * a command-shaped log line. The durable copy is in ~/.oneagent/logs/<date>.log.
+ * a command-shaped log line.
+ *
+ * @param logDir Absolute directory the backend reports as `paths.logs`, holding
+ * one file per day. Passed in rather than read from context so this stays
+ * renderable on its own; on Windows it is C:\Users\<name>\.oneagent\logs, which
+ * a literal "~/.oneagent/logs" misreports.
  */
-export function TaskCenter() {
+export function TaskCenter({ logDir = "" }: { logDir?: string }) {
   const { t } = useI18n();
   const { log, progress, clear } = useTaskCenter();
   const [open, setOpen] = useState(false);
@@ -49,7 +54,9 @@ export function TaskCenter() {
             <p className="task-center-empty">{t("暂无任务日志，安装 Agent 时会显示在这里。下载进度会显示在对应安装区域。")}</p>
           )}
           <div className="task-center-actions">
-            <span>{t("完整日志：~/.oneagent/logs")}</span>
+            <span title={logDir || undefined}>
+              {logDir ? t("完整日志：{dir}").replace("{dir}", logDir) : t("完整日志")}
+            </span>
             <button type="button" onClick={clear} disabled={!lines.length}>
               <Trash2 size={14} aria-hidden="true" />
               {t("清空")}

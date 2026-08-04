@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { OneAgentApiError } from "../backend/errors";
 import type { RuntimeStatus } from "../types/api";
 import { RuntimePrompt } from "./RuntimePrompt";
-import { RuntimeSection } from "./RuntimeSection";
+import { RuntimeSection, runtimeRoot } from "./RuntimeSection";
 
 const installRuntime = vi.fn();
 const getSettings = vi.fn();
@@ -103,6 +103,43 @@ describe("RuntimeSection", () => {
 
     await userEvent.click(trigger);
     expect(screen.getByText("Node.js")).toBeTruthy();
+  });
+});
+
+describe("runtimeRoot", () => {
+  // The install note used to spell out "~/.oneagent/runtimes", which names a
+  // path that does not exist on Windows. The directory now comes from the
+  // backend's installPath, so both separator styles have to work.
+  it("names the managed parent from a Windows path", () => {
+    expect(runtimeRoot([runtime({ installPath: "C:\\Users\\u\\.oneagent\\runtimes\\node\\v24.18.1" })])).toBe(
+      "C:\\Users\\u\\.oneagent\\runtimes",
+    );
+  });
+
+  it("names the managed parent from a POSIX path", () => {
+    expect(runtimeRoot([runtime()])).toBe("/home/user/.oneagent/runtimes");
+  });
+
+  it("skips a runtime with no path and uses the next one", () => {
+    expect(runtimeRoot([runtime({ installPath: "" }), runtime()])).toBe("/home/user/.oneagent/runtimes");
+  });
+
+  it("does not collapse a mixed-separator path to the drive letter", () => {
+    // Picking one separator for the whole string turned this into "C:", which
+    // the note then rendered as the install directory.
+    expect(runtimeRoot([runtime({ installPath: "C:\\Users\\u/.oneagent/runtimes/node/v1" })])).toBe(
+      "C:\\Users\\u\\.oneagent\\runtimes",
+    );
+  });
+
+  it("ignores a path too short to have a managed parent", () => {
+    expect(runtimeRoot([runtime({ installPath: "node/v1" })])).toBe("");
+  });
+
+  it("returns nothing rather than a half path when no runtime carries one", () => {
+    // The caller falls back to a sentence without a directory; returning a
+    // fragment here would render "运行时会安装到 ，".
+    expect(runtimeRoot([runtime({ installPath: "" })])).toBe("");
   });
 });
 

@@ -533,6 +533,7 @@
     }
   ],
   "paths": {
+    "logs": "${HOME}/.oneagent/logs",
     "profile": "${HOME}/.oneagent/profile.json",
     "codex_config": "${HOME}/.codex/config.toml",
     "claude-code_config": "${HOME}/.claude/settings.json",

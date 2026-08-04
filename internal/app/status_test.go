@@ -38,6 +38,11 @@ func TestStatusUsesInjectedHomeAndCommandLookup(t *testing.T) {
 	if status.Paths["profile"] != filepath.Join(home, ".oneagent", "profile.json") {
 		t.Fatalf("profile path escaped injected home: %q", status.Paths["profile"])
 	}
+	// The Task Center renders this directory verbatim. Without it the UI has to
+	// spell out "~/.oneagent/logs", which names nothing on Windows.
+	if status.Paths["logs"] != CommandLogDir(home) {
+		t.Fatalf("logs path = %q, want %q", status.Paths["logs"], CommandLogDir(home))
+	}
 	wire, err := json.Marshal(status)
 	if err != nil {
 		t.Fatal(err)
