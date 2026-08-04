@@ -63,7 +63,7 @@ export function ReviewPage() {
             <ReviewRow
               key={agent.id}
               label={agent.name}
-              value={state.status?.agents[agent.id]?.installed ? t("检测并配置") : state.installMissingAgents && !agent.guideOnly ? t("安装并配置") : agent.guideOnly ? t("显示引导") : t("只写配置")}
+              value={state.status?.agents[agent.id]?.installed ? t("检测并配置") : agent.guideOnly ? t("显示引导") : t("安装并配置")}
             />
           ))}
         </ReviewGroup>

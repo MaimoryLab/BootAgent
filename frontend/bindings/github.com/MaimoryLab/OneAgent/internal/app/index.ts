@@ -3,6 +3,7 @@
 
 export type {
     AgentStatus,
+    AgentUpdateResult,
     Capabilities,
     DesktopAgentActionResult,
     DesktopAgentProfileResult,

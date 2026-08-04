@@ -159,11 +159,9 @@ describe("wizardReducer", () => {
     expect(wizardReducer(probed, { type: "SET_PROVIDER", value: "novita" }).keyVerified).toBe(false);
   });
 
-  it("records the install toggle and the profile name", () => {
-    const state = wizardReducer(initialWizardState, { type: "SET_INSTALL_MISSING", value: false });
-    expect(state.installMissingAgents).toBe(false);
-    expect(wizardReducer(state, { type: "SET_PROFILE_LABEL", value: "Team PPIO" }).profileLabel).toBe("Team PPIO");
-    expect(wizardReducer(state, { type: "SET_PROFILE_ID", value: "codex-ppio" }).profileId).toBe("codex-ppio");
+  it("records the profile name", () => {
+    expect(wizardReducer(initialWizardState, { type: "SET_PROFILE_LABEL", value: "Team PPIO" }).profileLabel).toBe("Team PPIO");
+    expect(wizardReducer(initialWizardState, { type: "SET_PROFILE_ID", value: "codex-ppio" }).profileId).toBe("codex-ppio");
   });
 
   it("maps connection states", () => {

@@ -289,6 +289,16 @@ type AgentService struct {
 	onOutput process.OutputListener
 }
 
+func (s *AgentService) Update(ctx context.Context, request UpdateRequest) (app.AgentUpdateResult, error) {
+	if err := contextError(ctx); err != nil {
+		return app.AgentUpdateResult{}, err
+	}
+	if s == nil || s.core == nil {
+		return app.AgentUpdateResult{}, notReady("Agent update is not configured")
+	}
+	return s.core.UpdateAgent(ctx, request.AgentID)
+}
+
 func NewAgentService(core *app.UseCases) *AgentService {
 	return &AgentService{core: core}
 }
@@ -545,6 +555,10 @@ type ActivateResponse struct {
 }
 
 type LaunchRequest struct {
+	AgentID string `json:"agent_id"`
+}
+
+type UpdateRequest struct {
 	AgentID string `json:"agent_id"`
 }
 

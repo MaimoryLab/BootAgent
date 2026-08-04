@@ -30,6 +30,12 @@ export interface AgentStatus {
     "detected": DetectedConfig | null;
 }
 
+export interface AgentUpdateResult {
+    "agent": string;
+    "package": string;
+    "command": string;
+}
+
 export interface Capabilities {
     "canInstall": { [_ in string]?: boolean } | null;
 

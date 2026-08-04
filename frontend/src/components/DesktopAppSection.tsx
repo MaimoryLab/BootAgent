@@ -1,4 +1,4 @@
-import { AppWindow, Download, RefreshCw, SlidersHorizontal, TriangleAlert } from "lucide-react";
+import { AppWindow, Download, Play, RefreshCw, SlidersHorizontal, TriangleAlert } from "lucide-react";
 import { useState } from "react";
 
 import { api, describeError } from "../backend/api";
@@ -6,7 +6,7 @@ import { useI18n } from "../i18n";
 import { useTaskCenter } from "../state/TaskCenterContext";
 import type { DesktopAgentStatus, ProfileSummary } from "../types/api";
 import { DownloadProgress } from "./DownloadProgress";
-import { StatusBadge } from "./StatusBadge";
+import { AgentIcon } from "./icons/agents";
 
 interface DesktopAppSectionProps {
   app: DesktopAgentStatus;
@@ -66,6 +66,7 @@ export function DesktopAppSection({ app: desktopApp, onChanged, onConfigure, pro
       <div className="section-heading">
         <div>
           <h2>{t("桌面 Agent")}</h2>
+          <p>{t("共 {count} 个", { count: 1 })}</p>
         </div>
       </div>
       {failure ? <div className="notice notice-error desktop-app-notice"><TriangleAlert size={15} aria-hidden="true" />{failure}</div> : null}
@@ -78,40 +79,27 @@ export function DesktopAppSection({ app: desktopApp, onChanged, onConfigure, pro
       ) : null}
       <div className="desktop-app-row">
         <div className="desktop-app-identity">
-          <span className="desktop-app-icon"><AppWindow size={20} aria-hidden="true" /></span>
+          <span className="desktop-app-icon"><AgentIcon agentId="codex" size={20} /></span>
           <span>
             <strong>{desktopApp.name}</strong>
-            <small>{desktopApp.version ? t("版本 {version}", { version: desktopApp.version }) : t("版本未知")}</small>
           </span>
-        </div>
-        <div className="desktop-app-fact">
-          <small>{t("状态")}</small>
-          <StatusBadge tone={desktopApp.installed ? "success" : "warning"}>
-            {desktopApp.installed ? t("已安装") : t("未安装")}
-          </StatusBadge>
-        </div>
-        <div className="desktop-app-fact">
-          <small>{t("版本")}</small>
-          <span>{desktopApp.version || t("未知")}</span>
-        </div>
-        <div className="desktop-app-fact">
-          <small>Profile</small>
-          <span title={profile?.id || desktopApp.profileId || undefined}>{profile?.label || desktopApp.profileId || t("未绑定")}</span>
         </div>
         <div className="desktop-app-fact">
           <small>Provider</small>
           <span title={profile?.provider || undefined}>{providerName || profile?.provider || t("未绑定")}</span>
         </div>
         <div className="desktop-app-fact">
+          <small>Profile</small>
+          <span title={profile?.id || desktopApp.profileId || undefined}>{profile?.label || desktopApp.profileId || t("未绑定")}</span>
+        </div>
+        <div className="desktop-app-fact">
           <small>{t("模型")}</small>
           <span title={model || profile?.model || undefined}>{model || profile?.model || t("未记录")}</span>
         </div>
-        {desktopApp.path ? (
-          <div className="desktop-app-fact desktop-app-path">
-            <small>{t("位置")}</small>
-            <span title={desktopApp.path}>{desktopApp.path}</span>
-          </div>
-        ) : null}
+        <div className="desktop-app-fact">
+          <small>{t("版本")}</small>
+          <span>{desktopApp.version || t("未知")}</span>
+        </div>
         <div className="desktop-app-actions">
           {desktopApp.installed ? (
             <>
@@ -121,13 +109,13 @@ export function DesktopAppSection({ app: desktopApp, onChanged, onConfigure, pro
                   {t("编辑配置")}
                 </button>
               ) : null}
-              <button className="button button-secondary" type="button" onClick={() => void run("open")} disabled={Boolean(pending)}>
-                {pending === "open" ? <RefreshCw size={15} className="spin" aria-hidden="true" /> : <AppWindow size={15} aria-hidden="true" />}
-                {t("打开")}
-              </button>
               <button className="button button-secondary" type="button" onClick={() => void run("installer")} disabled={Boolean(pending)}>
                 {pending === "installer" ? <RefreshCw size={15} className="spin" aria-hidden="true" /> : <Download size={15} aria-hidden="true" />}
-                {t("更新或重新安装")}
+                {t("更新")}
+              </button>
+              <button className="button button-secondary" type="button" onClick={() => void run("open")} disabled={Boolean(pending)}>
+                {pending === "open" ? <RefreshCw size={15} className="spin" aria-hidden="true" /> : <Play size={15} aria-hidden="true" />}
+                {t("启动")}
               </button>
             </>
           ) : (

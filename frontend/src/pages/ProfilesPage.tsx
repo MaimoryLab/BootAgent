@@ -4,7 +4,6 @@ import { useNavigate } from "react-router-dom";
 
 import { api, describeError } from "../backend/api";
 import { AgentRow } from "../components/AgentRow";
-import { MirrorSetting } from "../components/MirrorSetting";
 import { PageScaffold } from "../components/PageScaffold";
 import { ProviderSegment } from "../components/ProviderSegment";
 import { useI18n } from "../i18n";
@@ -42,7 +41,6 @@ export function ProfilesPage() {
   const [busy, setBusy] = useState(false);
   const [applying, setApplying] = useState("");
   const [failure, setFailure] = useState("");
-  const [success, setSuccess] = useState("");
 
   if (!status) {
     return (
@@ -74,7 +72,6 @@ export function ProfilesPage() {
     if (!editor || !canSave) return;
     setBusy(true);
     setFailure("");
-    setSuccess("");
     try {
       await api.saveProfile({
         id: editor.id.trim(),
@@ -99,7 +96,6 @@ export function ProfilesPage() {
     if (!profile.model || !profile.agentIds.length) return;
     setApplying(profile.id);
     setFailure("");
-    setSuccess("");
     try {
       const result = await api.install({
         agents: profile.agentIds,
@@ -119,7 +115,7 @@ export function ProfilesPage() {
         throw new Error(result.results.find((item) => item.status === "failed")?.message || t("应用 Profile 失败"));
       }
       await refreshStatus();
-      setSuccess(t("{name} 已应用到 {count} 个 Agent", { name: profile.label, count: profile.agentIds.length }));
+      navigate("/overview", { replace: true });
     } catch (error) {
       setFailure(describeError(error, t("无法应用 Profile")).message);
     } finally {
@@ -135,10 +131,6 @@ export function ProfilesPage() {
           {t("新增 Profile")}
         </button>
       </div>
-
-      {/* Applying a Profile installs the missing Agents in its list, so the
-          download host belongs on this page too, not only under the runtimes. */}
-      <MirrorSetting label={t("Agent 安装源")} />
 
       {editor ? (
         <form className="profile-editor" onSubmit={(event) => void save(event)}>
@@ -232,7 +224,6 @@ export function ProfilesPage() {
       ) : null}
 
       {failure ? <p className="agent-manage-error">{failure}</p> : null}
-      {success ? <div className="agent-manage-applied"><strong>{t("应用完成")}</strong><span>{success}</span></div> : null}
 
       {!profiles.length && !editor ? (
         <div className="empty-overview">
@@ -258,7 +249,7 @@ export function ProfilesPage() {
                       <KeyRound size={12} aria-hidden="true" />
                       {status.providers[profile.provider]?.has_key ? t("Provider 已有 Key") : t("Provider 缺少 Key")}
                     </span>
-                    <button className="icon-button" type="button" onClick={() => { setEditor(editDraft(profile)); setFailure(""); setSuccess(""); }} aria-label={t("编辑 {name}", { name: profile.label })} title={t("编辑")}>
+                    <button className="icon-button" type="button" onClick={() => { setEditor(editDraft(profile)); setFailure(""); }} aria-label={t("编辑 {name}", { name: profile.label })} title={t("编辑")}>
                       <Pencil size={14} />
                     </button>
                   </span>
@@ -268,6 +259,9 @@ export function ProfilesPage() {
                   <span aria-hidden="true"> · </span>
                   {profile.model || t("未指定模型")}
                 </p>
+                <small className="profile-api-url" title={profile.baseUrl || status.providers[profile.provider]?.base_url || undefined}>
+                  {t("API 地址：")}{profile.baseUrl || status.providers[profile.provider]?.base_url || t("未记录")}
+                </small>
                 <p className="profile-agents">
                   {t("适用：{agents}", { agents: profile.agentIds.length ? profile.agentIds.map(nameOf).join(locale === "en" ? ", " : "、") : t("未选择 Agent") })}
                 </p>

@@ -31,7 +31,6 @@ export function ActivationPage() {
     [desktop, state.status],
   );
   const runtimeDownloads = useMemo(() => {
-    if (!state.installMissingAgents) return [];
     const byId = new Map((state.status?.runtimes ?? []).map((runtime) => [runtime.id, runtime]));
     const ids = new Set<string>();
     for (const agentId of state.selectedAgentIds) {
@@ -40,7 +39,7 @@ export function ActivationPage() {
     }
     for (const runtimeId of Object.keys(progress)) ids.add(runtimeId);
     return [...ids].map((id) => ({ id, runtime: byId.get(id) }));
-  }, [progress, state.installMissingAgents, state.selectedAgentIds, state.status]);
+  }, [progress, state.selectedAgentIds, state.status]);
 
   const clearRuntimeProgress = useCallback(() => {
     for (const { id } of runtimeDownloads) resetProgress(id);
@@ -59,10 +58,10 @@ export function ActivationPage() {
       profile_id: state.profileId,
       profile_label: state.profileLabel,
       configure: true,
-      install_agent: state.installMissingAgents,
+      install_agent: true,
       skip_test: false,
     }),
-    [state.installMissingAgents, state.model, state.profileId, state.profileLabel, state.provider],
+    [state.model, state.profileId, state.profileLabel, state.provider],
   );
 
   const installDesktop = useCallback(async (): Promise<{ results: AgentInstallResult[]; log: string; next: string }> => {

@@ -16,7 +16,6 @@ let mockState: {
   statusState: string;
   statusError: string;
   selectedAgentIds: string[];
-  installMissingAgents: boolean;
 };
 
 /** The real ranks, so a regression in ordering shows up as the real symptom. */
@@ -82,7 +81,6 @@ function renderPage() {
     statusState: "success",
     statusError: "",
     selectedAgentIds: [],
-    installMissingAgents: false,
   };
   render(
     <MemoryRouter>
@@ -142,6 +140,6 @@ describe("AgentSelectionPage", () => {
 
   it("counts the Agents left behind the disclosure", () => {
     renderPage();
-    expect(screen.getByRole("button", { expanded: false }).textContent).toContain("2");
+    expect(screen.getByRole("button", { name: /更多 Agent/, expanded: false }).textContent).toContain("2");
   });
 });

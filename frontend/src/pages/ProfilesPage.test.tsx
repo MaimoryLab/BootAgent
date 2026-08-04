@@ -88,6 +88,7 @@ function renderPage(profiles: ProfileSummary[]) {
       <Routes>
         <Route path="/profiles" element={<ProfilesPage />} />
         <Route path="/setup/agents" element={<h1>onboarding</h1>} />
+        <Route path="/overview" element={<h1>overview</h1>} />
       </Routes>
     </MemoryRouter>,
   );
@@ -195,6 +196,6 @@ describe("ProfilesPage", () => {
       model: "deepseek/deepseek-v3",
       install_agent: true,
     })));
-    await waitFor(() => expect(screen.getByText(/已应用到 1 个 Agent/)).toBeTruthy());
+    expect(await screen.findByRole("heading", { name: "overview" })).toBeTruthy();
   });
 });

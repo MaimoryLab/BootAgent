@@ -19,7 +19,6 @@ export interface WizardState {
   /** Onboarding installs exactly one Agent; the array shape stays because the
    *  install API and the activation page are both multi-Agent. */
   selectedAgentIds: string[];
-  installMissingAgents: boolean;
   provider: ProviderId;
   /** Optional model ID used only for the Provider connectivity probe. */
   probeModel: string;
@@ -57,7 +56,6 @@ export const initialWizardState: WizardState = {
   statusError: "",
   setupKind: "cli",
   selectedAgentIds: [],
-  installMissingAgents: true,
   provider: "ppio",
   probeModel: "",
   profileId: "",
@@ -85,7 +83,6 @@ export type WizardAction =
   | { type: "STATUS_FAILED"; message: string }
   | { type: "START_DESKTOP_SETUP" }
   | { type: "SELECT_AGENT"; agentId: string }
-  | { type: "SET_INSTALL_MISSING"; value: boolean }
   | { type: "SET_PROVIDER"; value: ProviderId }
   | { type: "SET_PROBE_MODEL"; value: string }
   | { type: "SET_PROFILE_ID"; value: string }
@@ -183,8 +180,6 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
           } : {}),
         };
       }
-    case "SET_INSTALL_MISSING":
-      return { ...state, installMissingAgents: action.value };
     case "SET_PROFILE_ID":
       return { ...state, profileId: action.value };
     case "SET_PROFILE_LABEL":

@@ -38,6 +38,7 @@ export type InstallRuntimeResult = Omit<AppModels.InstallRuntimeResult, "runtime
 export type Settings = AppModels.Settings;
 export type ActivateAgentResponse = BindingModels.ActivateResponse;
 export type LaunchAgentResponse = BindingModels.LaunchResponse;
+export type AgentUpdateResult = AppModels.AgentUpdateResult;
 export type OpenRegistrationResponse = BindingModels.OpenRegistrationResponse;
 export type ProviderEntry = ProviderModels.Entry;
 export type SaveProviderInput = BindingModels.SaveProviderRequest;

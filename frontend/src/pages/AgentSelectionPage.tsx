@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { AgentRow } from "../components/AgentRow";
+import { MirrorSetting } from "../components/MirrorSetting";
 import { PageScaffold } from "../components/PageScaffold";
 import { RuntimePrompt } from "../components/RuntimePrompt";
 import { useI18n } from "../i18n";
@@ -81,32 +82,19 @@ export function AgentSelectionPage() {
             {showMore ? <div className="additional-agent-groups">{renderRows(secondary)}</div> : null}
           </section>
 
-          <label className="toggle-row">
-            <span>
-              <strong>{t("安装缺失的 Agent")}</strong>
-              <small>{t("仅调用 lock manifest 中允许的官方 npm 或 uv 包。")}</small>
-            </span>
-            <input
-              type="checkbox"
-              role="switch"
-              checked={state.installMissingAgents}
-              onChange={(event) => dispatch({ type: "SET_INSTALL_MISSING", value: event.target.checked })}
-            />
-          </label>
+          <MirrorSetting label={t("Agent 安装源")} />
 
           {/* Installing a selected Agent needs its package manager. Offering the
               runtime here, before the wizard collects a key and a model, keeps the
               activation run from failing on a prerequisite the user cannot fix
               from the last step. */}
-          {state.installMissingAgents ? (
-            <RuntimePrompt
-              runtimes={state.status.runtimes ?? []}
-              missingRuntime={state.status.capabilities.missingRuntime ?? {}}
-              selectedAgentIds={state.selectedAgentIds}
-              agents={state.status.agents}
-              onInstalled={refreshStatus}
-            />
-          ) : null}
+          <RuntimePrompt
+            runtimes={state.status.runtimes ?? []}
+            missingRuntime={state.status.capabilities.missingRuntime ?? {}}
+            selectedAgentIds={state.selectedAgentIds}
+            agents={state.status.agents}
+            onInstalled={refreshStatus}
+          />
         </>
       ) : null}
     </PageScaffold>

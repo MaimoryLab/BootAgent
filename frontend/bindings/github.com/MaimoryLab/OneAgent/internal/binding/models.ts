@@ -157,3 +157,7 @@ export interface SaveProviderRequest {
     "anthropic_base_url": string;
     "api_key": string;
 }
+
+export interface UpdateRequest {
+    "agent_id": string;
+}

@@ -7,6 +7,10 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import * as app$0 from "../app/models.js";
+
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import * as $models from "./models.js";
 
 export function Activate(request: $models.ActivateRequest): $CancellablePromise<$models.ActivateResponse> {
@@ -23,4 +27,8 @@ export function Install(request: $models.InstallRequest): $CancellablePromise<$m
  */
 export function Launch(request: $models.LaunchRequest): $CancellablePromise<$models.LaunchResponse> {
     return $Call.ByID(1510250212, request);
+}
+
+export function Update(request: $models.UpdateRequest): $CancellablePromise<app$0.AgentUpdateResult> {
+    return $Call.ByID(444770282, request);
 }

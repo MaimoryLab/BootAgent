@@ -1,4 +1,4 @@
-import { Play, RefreshCw, SlidersHorizontal } from "lucide-react";
+import { Download, Play, RefreshCw, SlidersHorizontal } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 
@@ -6,9 +6,15 @@ import { api, describeError } from "../backend/api";
 import { sourceTranslate, type Translate, useI18n } from "../i18n";
 import type { AgentCatalogItem, AgentStatus, ProfileSummary, StatusResponse } from "../types/api";
 import { AgentIcon, agentTagline } from "./icons/agents";
-import { StatusBadge } from "./StatusBadge";
 
 type Providers = StatusResponse["providers"];
+const npmAgents = new Set(["codex", "claude-code", "opencode", "kilo-cli"]);
+const npmPackages: Record<string, string> = {
+  codex: "@openai/codex",
+  "claude-code": "@anthropic-ai/claude-code",
+  opencode: "opencode-ai",
+  "kilo-cli": "@kilocode/cli",
+};
 
 /** -1, 0 or 1 comparing dotted numeric versions; non-numeric parts sort last. */
 export function compareVersions(left: string, right: string): number {
@@ -93,6 +99,7 @@ export function AgentManageRow({
   providers,
   profileName,
   profile,
+  onChanged,
 }: {
   agentId: string;
   catalog: AgentCatalogItem | undefined;
@@ -100,9 +107,11 @@ export function AgentManageRow({
   providers: Providers;
   profileName: string;
   profile?: ProfileSummary;
+  onChanged?: () => void | Promise<void>;
 }) {
   const { t } = useI18n();
   const [launching, setLaunching] = useState(false);
+  const [updating, setUpdating] = useState(false);
   const [failure, setFailure] = useState("");
   const version = versionNote(status, t);
   const target = targetSummary(status, providers, t);
@@ -127,26 +136,37 @@ export function AgentManageRow({
       setLaunching(false);
     }
   };
+  const update = async () => {
+    setUpdating(true);
+    setFailure("");
+    try {
+      await api.updateAgent(agentId);
+      await onChanged?.();
+    } catch (error) {
+      setFailure(describeError(error, t("无法更新 Agent")).message);
+    } finally {
+      setUpdating(false);
+    }
+  };
 
   return (
     <div className="agent-manage-row" data-testid={`agent-${agentId}`}>
-      <span className="agent-icon" title={agentTagline(agentId, t) || undefined}>
-        <AgentIcon agentId={agentId} size={18} />
-      </span>
-      <span className="agent-manage-identity">
-        <strong>{catalog?.name || agentId}</strong>
-        {failure ? <small className="agent-manage-note is-error">{failure}</small> : null}
-        {target.note ? <small className="agent-manage-note">{target.note}</small> : null}
-      </span>
+      <div className="agent-manage-identity">
+        <span className="agent-icon" title={agentTagline(agentId, t) || undefined}>
+          <AgentIcon agentId={agentId} size={20} />
+        </span>
+        <span className="agent-manage-identity-copy">
+          <strong>{catalog?.name || agentId}</strong>
+          {failure ? <small className="agent-manage-note is-error">{failure}</small> : null}
+          {target.note ? <small className="agent-manage-note">{target.note}</small> : null}
+        </span>
+      </div>
       <span className="agent-manage-fact"><small>Provider</small><span title={providerName}>{providerName}</span></span>
       <span className="agent-manage-fact"><small>Profile</small><span title={status.profileId || undefined}>{profileName || t("未绑定")}</span></span>
       <span className="agent-manage-fact"><small>{t("模型")}</small><span title={model}>{model}</span></span>
       <span className={`agent-manage-fact agent-manage-version${version?.behind ? " is-behind" : ""}`}>
         <small>{t("版本")}</small><span>{version?.text || t("未知")}</span>
       </span>
-      <StatusBadge tone={status.installed ? "success" : "warning"}>
-        {status.installed ? t("已安装") : t("待安装")}
-      </StatusBadge>
       <span className="agent-manage-actions">
         {/* An explicit button rather than making the whole row a link: the row
             already carries the launch action, and two competing click targets in
@@ -159,6 +179,12 @@ export function AgentManageRow({
           <SlidersHorizontal size={15} />
           {t("编辑配置")}
         </Link>
+        {npmAgents.has(agentId) ? (
+          <button className="button button-secondary" type="button" onClick={() => void update()} disabled={updating || launching} title={t("执行 npm update")}>
+            {updating ? <RefreshCw size={15} className="spin" /> : <Download size={15} />}
+            {t("更新")}
+          </button>
+        ) : null}
         {canLaunch ? (
           <button
             className="button button-secondary"
@@ -172,6 +198,9 @@ export function AgentManageRow({
           </button>
         ) : null}
       </span>
+      <p className="agent-manage-package" title={npmPackages[agentId]}>
+        {npmPackages[agentId] ? <>npm 包：{npmPackages[agentId]}</> : null}
+      </p>
     </div>
   );
 }

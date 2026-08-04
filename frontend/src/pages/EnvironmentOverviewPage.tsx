@@ -120,6 +120,7 @@ export function EnvironmentOverviewPage() {
                 providers={status.providers}
                 profileName={profile?.label || profile?.id || ""}
                 profile={profile}
+                onChanged={refreshStatus}
               />;
             })}
           </div>

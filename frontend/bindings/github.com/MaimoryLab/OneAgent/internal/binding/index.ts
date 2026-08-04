@@ -35,5 +35,6 @@ export type {
     ProviderIDRequest,
     ProviderMutationResponse,
     SaveProfileRequest,
-    SaveProviderRequest
+    SaveProviderRequest,
+    UpdateRequest
 } from "./models.js";
