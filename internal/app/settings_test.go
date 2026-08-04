@@ -342,10 +342,18 @@ type countingRunner struct {
 	runs int
 }
 
-func (r *countingRunner) Run(ctx context.Context, argv []string, env map[string]string, timeout time.Duration) (process.Result, error) {
+// Answers the probe itself rather than delegating to a real process. Delegating
+// made the result depend on the host: the caller simulates macOS, so the argv is
+// `defaults read -g AppleLocale`, which succeeds on a developer's Mac and is not
+// a command at all on Linux. A probe that cannot run reports "unanswered" and is
+// retried by design, so on Linux the count was 5 rather than 1 -- the assertion
+// failed while the caching it describes was working correctly.
+func (r *countingRunner) Run(context.Context, []string, map[string]string, time.Duration) (process.Result, error) {
 	r.runs++
-	return r.Runner.Run(ctx, argv, env, timeout)
+	return process.Result{ExitCode: 0, Stdout: "en_US\n"}, nil
 }
+
+func (r *countingRunner) LookPath(string) (string, bool) { return "", false }
 
 // The same preference has to reach npm, not just the runtime download. The fake
 // runner records every environment, so the assertion is the registry npm was
