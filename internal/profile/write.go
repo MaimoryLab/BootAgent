@@ -21,11 +21,14 @@ type SaveRequest struct {
 	BaseURL  string
 	APIKey   string
 	// ProviderKeyAvailable lets the app change a Profile's Provider without
-	// copying that Provider-owned secret into the legacy Profile secret file.
+	// requiring a duplicate key when the Provider already has one.
 	ProviderKeyAvailable bool
 	Model                string
 	ConfigMode           string
-	AgentIDs             []string
+	Protocol             string
+	// AgentIDs is accepted for source compatibility only; Protocol is the
+	// persisted scope for new profiles.
+	AgentIDs []string
 }
 
 type ActiveRequest struct {
@@ -39,6 +42,7 @@ type ActiveRequest struct {
 	BaseURL   string
 	Model     string
 	APIKey    string
+	Protocol  string
 }
 
 // Save stores a reusable profile template without changing the active
@@ -59,10 +63,6 @@ func (s Store) Save(ctx context.Context, request SaveRequest) (Profile, error) {
 		return Profile{}, err
 	}
 	base, err := provider.ProviderBase(request.Provider, request.BaseURL)
-	if err != nil {
-		return Profile{}, err
-	}
-	agents, err := normalizeAgents(request.AgentIDs)
 	if err != nil {
 		return Profile{}, err
 	}
@@ -87,7 +87,7 @@ func (s Store) Save(ctx context.Context, request SaveRequest) (Profile, error) {
 		BaseURL:       optionalPointer(request.BaseURL, base),
 		Model:         stringPointer(model),
 		ConfigMode:    mode,
-		AgentIDs:      agents,
+		Protocol:      strings.TrimSpace(request.Protocol),
 		CreatedAt:     created,
 		ActivatedAt:   existing.ActivatedAt,
 	}
@@ -105,8 +105,7 @@ func (s Store) Save(ctx context.Context, request SaveRequest) (Profile, error) {
 }
 
 // WriteActive updates the v2 profile record and active pointer used by the
-// installation workflow. It keeps the legacy v1 behavior in memory while the
-// durable migration is implemented separately.
+// installation workflow.
 func (s Store) WriteActive(ctx context.Context, request ActiveRequest) (string, error) {
 	if err := requestContext(ctx); err != nil {
 		return "", err
@@ -169,6 +168,7 @@ func (s Store) WriteActive(ctx context.Context, request ActiveRequest) (string, 
 		BaseURL:       baseURL,
 		Model:         model,
 		ConfigMode:    mode,
+		Protocol:      strings.TrimSpace(request.Protocol),
 		AgentIDs:      agents,
 		CreatedAt:     created,
 		ActivatedAt:   activated,
@@ -191,24 +191,6 @@ func (s Store) WriteActive(ctx context.Context, request ActiveRequest) (string, 
 		return "", err
 	}
 	return s.PointerPath(), nil
-}
-
-func (s Store) ReadSecret(ctx context.Context, id string) (string, error) {
-	if err := requestContext(ctx); err != nil {
-		return "", err
-	}
-	path, err := s.SecretPath(id)
-	if err != nil {
-		return "", err
-	}
-	data, err := os.ReadFile(path)
-	if os.IsNotExist(err) {
-		return "", nil
-	}
-	if err != nil {
-		return "", writeError("Cannot read stored key for profile %s: %v", id, err)
-	}
-	return parseSecret(string(data), s.OS), nil
 }
 
 func (s Store) writeStored(ctx context.Context, stored storedProfile) error {
@@ -283,6 +265,7 @@ func profileFromStored(stored storedProfile) Profile {
 		BaseURL:       stored.BaseURL,
 		Model:         stored.Model,
 		ConfigMode:    stored.ConfigMode,
+		Protocol:      stored.Protocol,
 		AgentIDs:      cloneStrings(stored.AgentIDs),
 		CreatedAt:     stored.CreatedAt,
 		ActivatedAt:   stored.ActivatedAt,

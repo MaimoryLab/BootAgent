@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
-	"sync"
 	"time"
 
 	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
@@ -24,7 +23,6 @@ type Store struct {
 	OS   string
 	FS   *securefs.Store
 	Now  func() time.Time
-	mu   *sync.Mutex
 }
 
 type Profile struct {
@@ -35,6 +33,7 @@ type Profile struct {
 	BaseURL       *string
 	Model         *string
 	ConfigMode    string
+	Protocol      string
 	AgentIDs      []string
 	CreatedAt     string
 	ActivatedAt   *string
@@ -47,6 +46,7 @@ type Summary struct {
 	Provider    string
 	BaseURL     *string
 	Model       *string
+	Protocol    string
 	AgentIDs    []string
 	ActivatedAt *string
 	HasKey      bool
@@ -67,7 +67,8 @@ type storedProfile struct {
 	BaseURL       *string  `json:"base_url"`
 	Model         *string  `json:"model"`
 	ConfigMode    string   `json:"config_mode"`
-	AgentIDs      []string `json:"agent_ids"`
+	Protocol      string   `json:"protocol,omitempty"`
+	AgentIDs      []string `json:"-"`
 	CreatedAt     string   `json:"created_at"`
 	ActivatedAt   *string  `json:"activated_at"`
 }
@@ -81,14 +82,14 @@ type activePointer struct {
 
 func NewStore(home, osID string) Store {
 	filesystem := securefs.New(securefs.Options{OS: osID})
-	return Store{Home: home, OS: osID, FS: &filesystem, Now: time.Now, mu: &sync.Mutex{}}
+	return Store{Home: home, OS: osID, FS: &filesystem, Now: time.Now}
 }
 
 func NewStoreWithDependencies(home, osID string, filesystem securefs.Store, now func() time.Time) Store {
 	if now == nil {
 		now = time.Now
 	}
-	return Store{Home: home, OS: osID, FS: &filesystem, Now: now, mu: &sync.Mutex{}}
+	return Store{Home: home, OS: osID, FS: &filesystem, Now: now}
 }
 
 func ValidateID(id string) error {
@@ -172,27 +173,15 @@ func (s Store) LoadActiveContext(ctx context.Context) ActiveResult {
 	if err != nil {
 		return ActiveResult{Error: err.Error()}
 	}
-	var pointer map[string]any
+	var pointer activePointer
 	if err := json.Unmarshal(data, &pointer); err != nil {
 		return ActiveResult{Error: err.Error()}
 	}
-	schema, ok := integerField(pointer["schema_version"])
-	if !ok {
+	if pointer.SchemaVersion != 2 {
 		return ActiveResult{Error: "Unsupported environment profile schema"}
 	}
-	if schema == 1 {
-		profile := migrateLegacy(pointer)
-		profile, err = s.persistLegacy(ctx, profile)
-		if err != nil {
-			return ActiveResult{Error: fmt.Sprintf("Cannot migrate legacy profile: %v", err)}
-		}
-		return ActiveResult{Profile: &profile, Environment: profile.environment(), ID: profile.ID}
-	}
-	if schema != 2 {
-		return ActiveResult{Error: "Unsupported environment profile schema"}
-	}
-	active, ok := pointer["active"].(string)
-	if !ok {
+	active := pointer.Active
+	if active == "" {
 		return ActiveResult{Error: "Unsupported environment profile schema"}
 	}
 	if err := ValidateID(active); err != nil {
@@ -231,47 +220,6 @@ func (s Store) LoadActiveContext(ctx context.Context) ActiveResult {
 	return result
 }
 
-func (s Store) persistLegacy(ctx context.Context, profile Profile) (Profile, error) {
-	if s.mu != nil {
-		s.mu.Lock()
-		defer s.mu.Unlock()
-	}
-	stored := storedProfile{
-		SchemaVersion: 2,
-		ID:            profile.ID,
-		Label:         profile.Label,
-		Provider:      profile.Provider,
-		BaseURL:       profile.BaseURL,
-		Model:         profile.Model,
-		ConfigMode:    profile.ConfigMode,
-		AgentIDs:      cloneStrings(profile.AgentIDs),
-		CreatedAt:     profile.CreatedAt,
-		ActivatedAt:   profile.ActivatedAt,
-	}
-	if stored.CreatedAt == "" {
-		stored.CreatedAt = s.clock().UTC().Format(time.RFC3339)
-		profile.CreatedAt = stored.CreatedAt
-	}
-	if stored.ActivatedAt == nil {
-		stored.ActivatedAt = stringPointer(stored.CreatedAt)
-		profile.ActivatedAt = stored.ActivatedAt
-	}
-	if err := s.writeStored(ctx, stored); err != nil {
-		return Profile{}, err
-	}
-	pointer := activePointer{SchemaVersion: 2, Active: stored.ID}
-	data, err := json.MarshalIndent(pointer, "", "  ")
-	if err != nil {
-		return Profile{}, writeError("Cannot encode migrated profile pointer: %v", err)
-	}
-	data = append(data, '\n')
-	_, err = s.filesystem().AtomicWrite(ctx, s.PointerPath(), data, false)
-	if err != nil {
-		return Profile{}, err
-	}
-	return profile, nil
-}
-
 func (p Profile) Summary() Summary {
 	return Summary{
 		ID:          p.ID,
@@ -279,6 +227,7 @@ func (p Profile) Summary() Summary {
 		Provider:    p.Provider,
 		BaseURL:     p.BaseURL,
 		Model:       p.Model,
+		Protocol:    p.Protocol,
 		AgentIDs:    cloneStrings(p.AgentIDs),
 		ActivatedAt: p.ActivatedAt,
 		HasKey:      p.HasKey,
@@ -294,7 +243,7 @@ func (p Profile) environment() map[string]any {
 		"base_url":       optionalStringValue(p.BaseURL),
 		"model":          optionalStringValue(p.Model),
 		"config_mode":    p.ConfigMode,
-		"agent_ids":      cloneStrings(p.AgentIDs),
+		"protocol":       p.Protocol,
 		"created_at":     p.CreatedAt,
 		"activated_at":   optionalStringValue(p.ActivatedAt),
 	}
@@ -319,51 +268,11 @@ func decodeStored(data []byte) (Profile, error) {
 		BaseURL:       stored.BaseURL,
 		Model:         stored.Model,
 		ConfigMode:    stored.ConfigMode,
+		Protocol:      stored.Protocol,
 		AgentIDs:      cloneStrings(stored.AgentIDs),
 		CreatedAt:     stored.CreatedAt,
 		ActivatedAt:   stored.ActivatedAt,
 	}, nil
-}
-
-func migrateLegacy(pointer map[string]any) Profile {
-	activated, _ := pointer["activated_at"].(string)
-	configMode, _ := pointer["config_mode"].(string)
-	if configMode == "" {
-		configMode = "provider"
-	}
-	return Profile{
-		SchemaVersion: 2,
-		ID:            "default",
-		Label:         "default",
-		Provider:      stringField(pointer["provider"]),
-		BaseURL:       pointerString(pointer["base_url"]),
-		Model:         pointerString(pointer["model"]),
-		ConfigMode:    configMode,
-		AgentIDs:      stringSlice(pointer["agent_ids"]),
-		CreatedAt:     activated,
-		ActivatedAt:   stringPointer(activated),
-	}
-}
-
-func integerField(value any) (int, bool) {
-	number, ok := value.(float64)
-	return int(number), ok && number == float64(int(number))
-}
-
-func stringField(value any) string {
-	valueString, _ := value.(string)
-	return valueString
-}
-
-func pointerString(value any) *string {
-	if value == nil {
-		return nil
-	}
-	valueString, ok := value.(string)
-	if !ok {
-		return nil
-	}
-	return &valueString
 }
 
 func stringPointer(value string) *string {
@@ -371,20 +280,6 @@ func stringPointer(value string) *string {
 		return nil
 	}
 	return &value
-}
-
-func stringSlice(value any) []string {
-	items, ok := value.([]any)
-	if !ok {
-		return []string{}
-	}
-	result := make([]string, 0, len(items))
-	for _, item := range items {
-		if valueString, ok := item.(string); ok {
-			result = append(result, valueString)
-		}
-	}
-	return result
 }
 
 func cloneStrings(values []string) []string {

@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"os"
-	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -32,13 +31,14 @@ func TestSaveProfileIsolatesSecretAndPreservesHistory(t *testing.T) {
 		Label:    "Team PPIO",
 		Provider: "ppio",
 		Model:    "deepseek-v3",
+		Protocol: "openai",
 		AgentIDs: []string{"opencode", "codex", "codex"},
 		APIKey:   secret,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if profile.ID != "ppio-deepseek" || !profile.HasKey || !reflect.DeepEqual(profile.AgentIDs, []string{"codex", "opencode"}) {
+	if profile.ID != "ppio-deepseek" || !profile.HasKey || profile.Protocol != "openai" {
 		t.Fatalf("saved profile = %#v", profile)
 	}
 	profilePath, _ := store.ProfilePath("ppio-deepseek")
@@ -54,9 +54,6 @@ func TestSaveProfileIsolatesSecretAndPreservesHistory(t *testing.T) {
 	if err != nil || !strings.Contains(string(secretData), "ONEAGENT_API_KEY") {
 		t.Fatalf("secret file = %q, err=%v", secretData, err)
 	}
-	if got, err := store.ReadSecret(context.Background(), "ppio-deepseek"); err != nil || got != secret {
-		t.Fatalf("ReadSecret() = %q, %v", got, err)
-	}
 	if got := store.List(); len(got) != 1 || !got[0].HasKey {
 		t.Fatalf("List() = %#v", got)
 	}
@@ -65,6 +62,7 @@ func TestSaveProfileIsolatesSecretAndPreservesHistory(t *testing.T) {
 		ID:       "ppio-deepseek",
 		Provider: "ppio",
 		Model:    "model-b",
+		Protocol: "openai",
 		AgentIDs: []string{"codex"},
 	})
 	if err != nil {
@@ -74,7 +72,7 @@ func TestSaveProfileIsolatesSecretAndPreservesHistory(t *testing.T) {
 		t.Fatalf("updated profile = %#v", updated)
 	}
 	if _, err := store.Save(context.Background(), SaveRequest{
-		ID: "ppio-deepseek", Provider: "novita", Model: "model-b", AgentIDs: []string{"codex"},
+		ID: "ppio-deepseek", Provider: "novita", Model: "model-b", Protocol: "openai",
 	}); err == nil || oneerrors.As(err).Code != oneerrors.InvalidRequest {
 		t.Fatalf("provider change without a new key returned %v", err)
 	}
@@ -88,7 +86,6 @@ func TestSaveProfileValidatesInputAndCustomBase(t *testing.T) {
 		{ID: "../bad", Provider: "ppio", Model: "m", AgentIDs: []string{"codex"}},
 		{ID: "ok", Provider: "nope", Model: "m", AgentIDs: []string{"codex"}},
 		{ID: "ok", Provider: "ppio", Model: "", AgentIDs: []string{"codex"}},
-		{ID: "ok", Provider: "ppio", Model: "m", AgentIDs: nil},
 	} {
 		if _, err := store.Save(context.Background(), request); err == nil || oneerrors.As(err).Code != oneerrors.InvalidRequest {
 			t.Errorf("invalid request %#v returned %v", request, err)
@@ -98,7 +95,7 @@ func TestSaveProfileValidatesInputAndCustomBase(t *testing.T) {
 		ID:       "custom-local",
 		Provider: "custom",
 		BaseURL:  "http://127.0.0.1:9000/",
-		Model:    "m",
+		Model:    "m", Protocol: "openai",
 		AgentIDs: []string{"codex"},
 	})
 	if err != nil || profile.BaseURL == nil || *profile.BaseURL != "http://127.0.0.1:9000" {
@@ -109,32 +106,29 @@ func TestSaveProfileValidatesInputAndCustomBase(t *testing.T) {
 func TestWriteActiveMergesAgentsAndSupportsExistingAccount(t *testing.T) {
 	store := testStore(t, t.TempDir(), "linux")
 	if _, err := store.WriteActive(context.Background(), ActiveRequest{
-		Agents: []string{"codex"}, Configure: true, Provider: "ppio", Model: "model-a", APIKey: "sk-a",
+		Agents: []string{"codex"}, Configure: true, Provider: "ppio", Model: "model-a", Protocol: "responses", APIKey: "sk-a",
 	}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := store.WriteActive(context.Background(), ActiveRequest{
-		Agents: []string{"opencode"}, Configure: true, Provider: "ppio", Model: "model-a",
+		Agents: []string{"opencode"}, Configure: true, Provider: "ppio", Model: "model-a", Protocol: "openai",
 	}); err != nil {
 		t.Fatal(err)
 	}
 	active := store.LoadActive()
-	if active.Error != "" || active.Profile == nil || !reflect.DeepEqual(active.Profile.AgentIDs, []string{"codex", "opencode"}) {
+	if active.Error != "" || active.Profile == nil || active.Profile.Protocol != "openai" {
 		t.Fatalf("merged active profile = %#v", active)
 	}
 	if active.Profile.BaseURL == nil || *active.Profile.BaseURL != "https://api.ppio.com/openai" {
 		t.Fatalf("active base URL = %#v", active.Profile.BaseURL)
 	}
-	if got, err := store.ReadSecret(context.Background(), "default"); err != nil || got != "sk-a" {
-		t.Fatalf("preserved active secret = %q, %v", got, err)
-	}
 	if _, err := store.WriteActive(context.Background(), ActiveRequest{
-		Agents: []string{"aider"}, Configure: true, Provider: "novita", Model: "model-b",
+		Agents: []string{"aider"}, Configure: true, Provider: "novita", Model: "model-b", Protocol: "openai",
 	}); err != nil {
 		t.Fatal(err)
 	}
 	active = store.LoadActive()
-	if active.Profile.Provider != "novita" || !reflect.DeepEqual(active.Profile.AgentIDs, []string{"aider"}) {
+	if active.Profile.Provider != "novita" || active.Profile.Protocol != "openai" {
 		t.Fatalf("replaced active profile = %#v", active.Profile)
 	}
 	if _, err := store.WriteActive(context.Background(), ActiveRequest{Agents: []string{"codex"}, Configure: false}); err != nil {
@@ -162,9 +156,6 @@ func TestProfileWritesHonorCancellation(t *testing.T) {
 	if err == nil || oneerrors.As(err).Code != oneerrors.Timeout {
 		t.Fatalf("cancelled Save() = %v", err)
 	}
-	if _, err := store.ReadSecret(ctx, "team"); err == nil || oneerrors.As(err).Code != oneerrors.Timeout {
-		t.Fatalf("cancelled ReadSecret() = %v", err)
-	}
 }
 
 func TestWindowsSecretUsesPowerShellQuoting(t *testing.T) {
@@ -185,9 +176,6 @@ func TestWindowsSecretUsesPowerShellQuoting(t *testing.T) {
 	data, _ := os.ReadFile(path)
 	if !strings.Contains(string(data), "$env:ONEAGENT_API_KEY = 'key''value'") {
 		t.Fatalf("PowerShell secret = %q", data)
-	}
-	if got, err := store.ReadSecret(context.Background(), "win"); err != nil || got != "key'value" {
-		t.Fatalf("Windows ReadSecret() = %q, %v", got, err)
 	}
 }
 

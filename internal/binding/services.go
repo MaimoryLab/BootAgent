@@ -421,6 +421,7 @@ func (s *ProfileService) SaveProfile(ctx context.Context, request SaveProfileReq
 		APIKey:     request.APIKey,
 		Model:      request.Model,
 		ConfigMode: request.ConfigMode,
+		Protocol:   request.Protocol,
 		AgentIDs:   append([]string(nil), request.AgentIDs...),
 	})
 }
@@ -576,6 +577,7 @@ type SaveProfileRequest struct {
 	APIKey     string   `json:"api_key"`
 	Model      string   `json:"model"`
 	ConfigMode string   `json:"config_mode"`
+	Protocol   string   `json:"protocol"`
 	AgentIDs   []string `json:"agent_ids"`
 }
 

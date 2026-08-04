@@ -123,51 +123,6 @@ func TestStatusProjectsProfilesAndActiveEnvironmentWithoutSecrets(t *testing.T) 
 	}
 }
 
-func TestStatusKeepsLegacyProfileInMemoryAndReportsFailures(t *testing.T) {
-	home := t.TempDir()
-	oneagentDir := filepath.Join(home, ".oneagent")
-	if err := os.MkdirAll(oneagentDir, 0o700); err != nil {
-		t.Fatal(err)
-	}
-	legacy := `{"schema_version":1,"provider":"ppio","base_url":"https://api.ppio.com/openai","model":"legacy-model","config_mode":"provider","agent_ids":["codex"],"activated_at":"legacy-time"}`
-	if err := os.WriteFile(filepath.Join(oneagentDir, "profile.json"), []byte(legacy), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	core := NewUseCases(StatusOptions{Home: home, Platform: platform.For("linux", "amd64"), Lookup: func(string) (string, bool) { return "", false }})
-	status, err := core.GetStatus(context.Background())
-	if err != nil {
-		t.Fatal(err)
-	}
-	if status.ActiveProfile == nil || *status.ActiveProfile != "default" || status.Environment == nil || status.EnvironmentError != nil || len(status.Profiles) != 1 || status.Profiles[0].ID != "default" {
-		t.Fatalf("legacy status = %#v", status)
-	}
-
-	if err := os.WriteFile(filepath.Join(oneagentDir, "profile.json"), []byte(`{"schema_version":2,"active":"ghost"}`), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	status, err = core.GetStatus(context.Background())
-	if err != nil {
-		t.Fatal(err)
-	}
-	if status.ActiveProfile == nil || *status.ActiveProfile != "ghost" || status.Environment != nil || status.EnvironmentError == nil || !strings.Contains(*status.EnvironmentError, "ghost") {
-		t.Fatalf("missing profile status = %#v", status)
-	}
-
-	if err := os.MkdirAll(filepath.Join(oneagentDir, "profiles"), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(oneagentDir, "profiles", "ghost.json"), []byte("{"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	status, err = core.GetStatus(context.Background())
-	if err != nil {
-		t.Fatal(err)
-	}
-	if status.EnvironmentError == nil || status.Environment != nil {
-		t.Fatalf("corrupt profile status = %#v", status)
-	}
-}
-
 func TestSaveProfileUseCaseWritesOnlyPublicSummary(t *testing.T) {
 	home := t.TempDir()
 	core := NewUseCases(StatusOptions{
@@ -182,12 +137,13 @@ func TestSaveProfileUseCaseWritesOnlyPublicSummary(t *testing.T) {
 		Model:      "model-a",
 		APIKey:     "sk-secret",
 		ConfigMode: "provider",
+		Protocol:   "openai",
 		AgentIDs:   []string{"opencode", "codex"},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if summary.ID != "team" || !summary.HasKey || !reflect.DeepEqual(summary.AgentIDs, []string{"codex", "opencode"}) {
+	if summary.ID != "team" || !summary.HasKey || summary.Protocol != "openai" {
 		t.Fatalf("saved summary = %#v", summary)
 	}
 	if err := core.providers.SaveKey(context.Background(), "ppio", "new-provider-key"); err != nil {
@@ -213,9 +169,6 @@ func TestSaveProfileUseCaseWritesOnlyPublicSummary(t *testing.T) {
 	providerEntry, err = core.providers.Get("novita")
 	if err != nil || providerEntry.APIKey != "novita-key" {
 		t.Fatalf("provider switch changed Provider key: %q, %v", providerEntry.APIKey, err)
-	}
-	if key, err := core.profiles.ReadSecret(context.Background(), "team"); err != nil || key != "sk-secret" {
-		t.Fatalf("blank profile edit replaced its saved key: %q, %v", key, err)
 	}
 	status, err := core.GetStatus(context.Background())
 	if err != nil || len(status.Profiles) != 1 || status.Profiles[0].ID != "team" {

@@ -51,13 +51,10 @@ export function AgentProfilePage() {
 
   const profiles = useMemo(() => {
     if (!status) return [];
+    const protocol = catalog?.protocol || "";
     if (app) return desktopProfiles(status, app);
-    const bound = currentAgent?.profileId || "";
-    return status.profiles.filter((profile) => {
-      const ids = profile.agentIds || [];
-      return ids.includes(owner) || (!ids.length && profile.id === bound);
-    });
-  }, [app, currentAgent?.profileId, owner, status]);
+    return status.profiles.filter((profile) => profile.protocol === protocol);
+  }, [app, catalog?.protocol, owner, status]);
 
   useEffect(() => {
     if (!selectedId) {
@@ -131,6 +128,7 @@ export function AgentProfilePage() {
         apiKey: "",
         model: draft.model.trim(),
         configMode: "provider",
+        protocol: catalog?.protocol || "",
         agentIds,
       });
       setSelectedId(saved.id);

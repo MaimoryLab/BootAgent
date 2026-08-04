@@ -133,14 +133,11 @@ func TestInstallAgentsWritesAllManagedAdaptersAndPublishesProfileLast(t *testing
 		t.Fatal("API key leaked through install result")
 	}
 	active := core.profiles.LoadActive()
-	if active.Profile == nil || active.ID != "default" || len(active.Profile.AgentIDs) != 5 {
+	if active.Profile == nil || active.ID != "default" || active.Profile.Protocol != "responses" {
 		t.Fatalf("active profile = %#v", active)
 	}
 	if binding, err := core.profiles.ReadAgentBinding("codex"); err != nil || binding == nil || binding.ProfileRef != "default" {
 		t.Fatalf("default profile binding = %#v, %v", binding, err)
-	}
-	if key, err := core.profiles.ReadSecret(context.Background(), "default"); err != nil || key != "" {
-		t.Fatalf("managed Provider key was copied into the Profile secret: %q, %v", key, err)
 	}
 }
 

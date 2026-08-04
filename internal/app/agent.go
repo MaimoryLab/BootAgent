@@ -94,15 +94,6 @@ func (u *UseCases) activateAgentLocked(ctx context.Context, options ActivateAgen
 	if apiKey == "" {
 		apiKey = target.APIKey
 	}
-	// Provider credentials are authoritative. A profile secret is only a
-	// migration fallback for profiles written before credentials moved to the
-	// Provider store; once used, SaveKey below migrates it forward.
-	if apiKey == "" && profileID != "" {
-		apiKey, err = u.profiles.ReadSecret(ctx, profileID)
-		if err != nil {
-			return ActivateAgentResult{}, err
-		}
-	}
 	if apiKey == "" {
 		return ActivateAgentResult{}, oneerrors.New(oneerrors.InvalidRequest, "API key is required")
 	}
@@ -119,6 +110,13 @@ func (u *UseCases) activateAgentLocked(ctx context.Context, options ActivateAgen
 	}
 
 	protocol := provider.ProtocolForAdapter(agent.ConfigAdapter)
+	if profileID != "" {
+		for _, saved := range u.profiles.List() {
+			if saved.ID == profileID && saved.Protocol != "" && saved.Protocol != protocol {
+				return ActivateAgentResult{}, oneerrors.New(oneerrors.InvalidRequest, fmt.Sprintf("Profile %s uses %s API mode, but %s requires %s", profileID, saved.Protocol, agentID, protocol))
+			}
+		}
+	}
 	configBaseURL := target.BaseFor(protocol)
 	providerName := target.Name
 	configPath := configPath(u.status.Home, u.status.Platform.OS, agent)

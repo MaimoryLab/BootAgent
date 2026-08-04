@@ -77,6 +77,7 @@ export function DesktopProfilePage() {
         apiKey: "",
         model: draft.model.trim(),
         configMode: "provider",
+        protocol: "responses",
         agentIds: [owner],
       });
       await refreshStatus();

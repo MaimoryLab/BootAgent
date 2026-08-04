@@ -45,10 +45,6 @@ type InstallAgentsOptions struct {
 	ProfileLabel string
 }
 
-// InstallOptions is retained as a convenient compatibility name for callers
-// that used the earlier Go orchestration prototype.
-type InstallOptions = InstallAgentsOptions
-
 // AgentInstallResult is the public per-Agent outcome. It contains no key or
 // process output; the latter is reduced to the redacted aggregate Log field.
 type AgentInstallResult struct {
@@ -69,9 +65,6 @@ type AgentInstallResult struct {
 	checkOnly bool
 }
 
-// AgentResult is the short compatibility name used by the first Go port.
-type AgentResult = AgentInstallResult
-
 // InstallAgentsResult is the final aggregate outcome of one request.
 type InstallAgentsResult struct {
 	OK      bool                            `json:"ok"`
@@ -82,9 +75,6 @@ type InstallAgentsResult struct {
 	Probe   *provider.ProbeResult           `json:"probe"`
 	Probes  map[string]provider.ProbeResult `json:"probes"`
 }
-
-// InstallResult is retained for callers of the earlier orchestration API.
-type InstallResult = InstallAgentsResult
 
 // InstallAgents validates, installs and configures the requested Agents. A
 // failure for one Agent is recorded and the remaining Agents are still tried;
@@ -171,15 +161,7 @@ func (u *UseCases) validateInstall(ctx context.Context, manifest catalog.Manifes
 		options.ProfileID = profileID
 	}
 	if options.APIKey == "" {
-		// Provider credentials are authoritative. Keep the profile secret as a
-		// migration fallback for older saved profiles only.
 		options.APIKey = target.APIKey
-		if options.APIKey == "" && profileID != "" {
-			options.APIKey, err = u.profiles.ReadSecret(ctx, profileID)
-			if err != nil {
-				return options, err
-			}
-		}
 	}
 	if options.Configure && options.ProfileID == "" {
 		options.ProfileID = u.profiles.LoadActive().ID
@@ -535,10 +517,16 @@ func (r *installRun) finish(ctx context.Context, baseURL string) InstallAgentsRe
 	if !failed && probeOK && !r.options.CheckAgentOnly {
 		profileAPIKey := r.options.APIKey
 		// Managed Providers own their credentials. `custom` has no persistent
-		// Provider record, so retain its legacy Profile secret as a compatibility
-		// path for CLI callers that use an ad-hoc endpoint.
+		// Provider record, so keep its explicit key in the profile secret store.
 		if r.options.Provider != "custom" {
 			profileAPIKey = ""
+		}
+		profileProtocol := ""
+		for _, agentID := range r.options.ProfileAgents {
+			if agent, ok := r.manifest.Agents[agentID]; ok && agent.ConfigMode == "auto" {
+				profileProtocol = provider.ProtocolForAdapter(agent.ConfigAdapter)
+				break
+			}
 		}
 		if _, err := r.core.profiles.WriteActive(ctx, profileStore.ActiveRequest{
 			ProfileID: r.options.ProfileID,
@@ -549,6 +537,7 @@ func (r *installRun) finish(ctx context.Context, baseURL string) InstallAgentsRe
 			BaseURL:   baseURL,
 			Model:     r.options.Model,
 			APIKey:    profileAPIKey,
+			Protocol:  profileProtocol,
 		}); err != nil {
 			// Config files are the source of truth for running Agents; preserve
 			// them and surface profile bookkeeping failure in the redacted log.

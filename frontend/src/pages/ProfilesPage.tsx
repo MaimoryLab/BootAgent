@@ -17,6 +17,7 @@ interface ProfileDraft {
   label: string;
   provider: ProviderId;
   model: string;
+  protocol: string;
   agentIds: string[];
   originalId: string;
 }
@@ -27,7 +28,8 @@ function editDraft(profile: ProfileSummary): ProfileDraft {
     label: profile.label,
     provider: profile.provider,
     model: profile.model || "",
-    agentIds: [...profile.agentIds],
+    protocol: profile.protocol || "",
+    agentIds: [...(profile.agentIds ?? [])],
     originalId: profile.id,
   };
 }
@@ -54,10 +56,11 @@ export function ProfilesPage() {
   const configurableAgents = status.catalog.filter((agent) => agent.configMode === "auto");
   const nameOf = (agentId: string) =>
     status.catalog.find((item) => item.id === agentId)?.name || agentId;
+  const protocolOf = (profile: ProfileSummary) => profile.protocol || status.catalog.find((agent) => (profile.agentIds ?? []).includes(agent.id))?.protocol || "";
   const providerHasKey = Boolean(editor && status.providers[editor.provider]?.has_key);
   // label is absent on purpose: the backend fills it in from the existing value
   // or the ID, so demanding it here was stricter than the write path.
-  const canSave = Boolean(editor?.id.trim() && editor.model.trim() && editor.agentIds.length);
+  const canSave = Boolean(editor?.id.trim() && editor.model.trim() && (editor?.protocol || editor?.agentIds.length));
 
   // Creating a Profile goes through onboarding: it collects the Agent, Provider,
   // model and name in order, tests the saved Provider connection, and the
@@ -81,6 +84,7 @@ export function ProfilesPage() {
         apiKey: "",
         model: editor.model.trim(),
         configMode: "provider",
+        protocol: editor.protocol || status.catalog.find((agent) => editor.agentIds.includes(agent.id))?.protocol || "",
         agentIds: editor.agentIds,
       });
       await refreshStatus();
@@ -93,13 +97,14 @@ export function ProfilesPage() {
   };
 
   const apply = async (profile: ProfileSummary) => {
-    if (!profile.model || !profile.agentIds.length) return;
+    const agents = configurableAgents.filter((agent) => agent.protocol === protocolOf(profile)).map((agent) => agent.id);
+    if (!profile.model || !agents.length) return;
     setApplying(profile.id);
     setFailure("");
     try {
       const result = await api.install({
-        agents: profile.agentIds,
-        profile_agents: profile.agentIds,
+        agents,
+        profile_agents: agents,
         provider: profile.provider,
         // The endpoint belongs to the Provider. Do not replay a stale copy
         // retained by an older Profile record.
@@ -235,7 +240,7 @@ export function ProfilesPage() {
         <div className="profile-list">
           {profiles.map((profile) => {
             const canApply = Boolean(
-              profile.model && profile.agentIds.length
+              profile.model && (profile.agentIds ?? []).length
                 && (status.providers[profile.provider]?.has_key || profile.hasKey),
             );
             return (
@@ -263,7 +268,7 @@ export function ProfilesPage() {
                   {t("API 地址：")}{profile.baseUrl || status.providers[profile.provider]?.base_url || t("未记录")}
                 </small>
                 <p className="profile-agents">
-                  {t("适用：{agents}", { agents: profile.agentIds.length ? profile.agentIds.map(nameOf).join(locale === "en" ? ", " : "、") : t("未选择 Agent") })}
+                  API mode: {protocolOf(profile) || "-"}
                 </p>
                 <footer>
                   <button

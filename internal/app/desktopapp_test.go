@@ -32,19 +32,19 @@ func TestDesktopAgentStatusIsUnsupportedOutsideDesktopPlatforms(t *testing.T) {
 	}
 }
 
-func TestConfigureDesktopAgentRequiresItsOwnProfileForNonSharedApps(t *testing.T) {
+func TestConfigureDesktopAgentAcceptsAnyProfileWithAnAPIMode(t *testing.T) {
 	home := t.TempDir()
 	core := NewUseCases(StatusOptions{Home: home, Platform: platform.For("linux", "amd64")})
 	if _, err := core.SaveProfile(context.Background(), SaveProfileOptions{
-		ID: "workbuddy", Label: "WorkBuddy", Provider: "ppio", Model: "model-a", ConfigMode: "provider", AgentIDs: []string{"codex"},
+		ID: "workbuddy", Label: "WorkBuddy", Provider: "ppio", Model: "model-a", ConfigMode: "provider", Protocol: "openai",
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := core.ConfigureDesktopAgent(context.Background(), "workbuddy", "workbuddy"); err == nil {
-		t.Fatal("a profile owned by Codex was accepted for another desktop Agent")
+	if _, err := core.ConfigureDesktopAgent(context.Background(), "workbuddy", "workbuddy"); err != nil {
+		t.Fatal(err)
 	}
 	if _, err := core.SaveProfile(context.Background(), SaveProfileOptions{
-		ID: "workbuddy-own", Label: "WorkBuddy", Provider: "ppio", Model: "model-a", ConfigMode: "provider", AgentIDs: []string{"workbuddy"},
+		ID: "workbuddy-own", Label: "WorkBuddy", Provider: "ppio", Model: "model-a", ConfigMode: "provider", Protocol: "openai",
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -62,7 +62,7 @@ func TestConfigureDesktopAgentDoesNotLetBindingOverrideExplicitProfileOwner(t *t
 	home := t.TempDir()
 	core := NewUseCases(StatusOptions{Home: home, Platform: platform.For("linux", "amd64")})
 	if _, err := core.SaveProfile(context.Background(), SaveProfileOptions{
-		ID: "codex-owned", Label: "Codex", Provider: "ppio", Model: "model-a", ConfigMode: "provider", AgentIDs: []string{"codex"},
+		ID: "codex-owned", Label: "Codex", Provider: "ppio", Model: "model-a", ConfigMode: "provider", Protocol: "openai",
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -71,8 +71,8 @@ func TestConfigureDesktopAgentDoesNotLetBindingOverrideExplicitProfileOwner(t *t
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := core.ConfigureDesktopAgent(context.Background(), "workbuddy", "codex-owned"); err == nil {
-		t.Fatal("an explicit Codex-owned profile was accepted for WorkBuddy")
+	if _, err := core.ConfigureDesktopAgent(context.Background(), "workbuddy", "codex-owned"); err != nil {
+		t.Fatal(err)
 	}
 }
 

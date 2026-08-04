@@ -3,7 +3,6 @@ package app
 import (
 	"context"
 	"errors"
-	"slices"
 	"strings"
 
 	"github.com/MaimoryLab/OneAgent/internal/catalog"
@@ -142,27 +141,16 @@ func (u *UseCases) ConfigureDesktopAgent(ctx context.Context, agentID, profileID
 	if selected.ID == "" {
 		return DesktopAgentProfileResult{}, oneerrors.New(oneerrors.InvalidRequest, "Profile not found: "+profileID)
 	}
+	if selected.Protocol == "" {
+		return DesktopAgentProfileResult{}, oneerrors.New(oneerrors.InvalidRequest, "Profile has no API mode")
+	}
 	profileAgentID := desktopapp.ProfileAgentID(agentID)
-	assigned := slices.Contains(selected.AgentIDs, profileAgentID)
-	if !assigned && len(selected.AgentIDs) == 0 {
-		// Older profiles can omit AgentIDs while their per-Agent binding still
-		// identifies the active profile. Treat that binding as authoritative so
-		// the desktop and profile pages agree on what can be selected.
-		binding, bindingErr := u.profiles.ReadAgentBinding(profileAgentID)
-		assigned = bindingErr == nil && binding != nil && binding.ProfileRef == profileID
-	}
-	if !assigned {
-		// A profile selected for a desktop Agent must explicitly own that Agent.
-		// ChatGPT is the exception only in its *ID mapping*: its profile still
-		// belongs to Codex, never to a synthetic desktop ID.
-		return DesktopAgentProfileResult{}, oneerrors.New(oneerrors.InvalidRequest, "Profile is not assigned to this desktop agent")
-	}
 	if desktopapp.SharesProfile(agentID) {
 		result, err := u.ActivateAgent(ctx, ActivateAgentOptions{
 			AgentID:  profileAgentID,
 			Provider: selected.Provider,
-			// The endpoint belongs to the Provider. Profile.BaseURL is a
-			// legacy copy and must not override a current Provider edit.
+			// The endpoint belongs to the Provider and must not be overridden by
+			// the profile snapshot.
 			APIBaseURL: "",
 			Model:      stringPointerValue(selected.Model),
 			ProfileID:  profileID,
@@ -180,7 +168,7 @@ func (u *UseCases) ConfigureDesktopAgent(ctx context.Context, agentID, profileID
 	// per-Agent selection. Their profile is ready for a future vendor writer,
 	// and the overview can report the exact selected profile instead of relying
 	// on directory order.
-	// The endpoint belongs to the Provider; ignore the Profile's legacy copy.
+	// The endpoint belongs to the Provider; ignore the profile snapshot.
 	target, err := u.providers.Resolve(selected.Provider, "")
 	if err != nil {
 		return DesktopAgentProfileResult{}, err
@@ -239,12 +227,6 @@ func (u *UseCases) publicDesktopAgentStatus(value desktopapp.Status) DesktopAgen
 	if binding, err := u.profiles.ReadAgentBinding(status.ProfileAgentID); err == nil && binding != nil && binding.ProfileRef != "" {
 		status.ProfileID = nonEmptyPointer(binding.ProfileRef)
 	} else {
-		for _, profile := range u.profiles.List() {
-			if profile.ID != "" && slices.Contains(profile.AgentIDs, status.ProfileAgentID) {
-				status.ProfileID = nonEmptyPointer(profile.ID)
-				break
-			}
-		}
 	}
 	if desktopapp.SharesProfile(value.ID) {
 		if manifest, err := catalog.LoadEmbedded(); err == nil {

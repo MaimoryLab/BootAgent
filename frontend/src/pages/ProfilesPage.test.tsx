@@ -116,6 +116,12 @@ describe("ProfilesPage", () => {
     expect(document.body.innerHTML).not.toMatch(/sk-[A-Za-z0-9]/);
   });
 
+  it("renders profiles returned without the removed agentIds field", () => {
+    renderPage([profile({ agentIds: undefined, protocol: "responses" })]);
+    expect(screen.getByText("团队 PPIO")).toBeTruthy();
+    expect(screen.getByText("API mode: responses")).toBeTruthy();
+  });
+
   it("sends Profile creation through onboarding instead of an inline form", async () => {
     // The old form collected a Provider, model and Agent list without ever
     // testing the key. Onboarding collects the same fields in order, probes the

@@ -10,7 +10,6 @@ import (
 
 const (
 	InvalidRequest      = "INVALID_REQUEST"
-	InvalidOrigin       = "INVALID_ORIGIN" // Retained for compatibility; HTTP is being removed.
 	PrerequisiteMissing = "PREREQUISITE_MISSING"
 	AgentInstallFailed  = "AGENT_INSTALL_FAILED"
 	ConfigWriteFailed   = "CONFIG_WRITE_FAILED"
@@ -26,7 +25,6 @@ const (
 // callers when they need to expose it to a CLI parser.
 var ExitCodes = map[string]int{
 	InvalidRequest:      2,
-	InvalidOrigin:       2,
 	PrerequisiteMissing: 3,
 	AgentInstallFailed:  4,
 	ConfigWriteFailed:   5,

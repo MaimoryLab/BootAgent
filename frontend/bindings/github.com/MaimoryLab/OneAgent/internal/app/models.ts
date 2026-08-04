@@ -126,7 +126,7 @@ export interface ProfileSummary {
     "provider": string;
     "baseUrl": string | null;
     "model": string | null;
-    "agentIds": string[] | null;
+    "protocol": string;
     "activatedAt": string | null;
     "hasKey": boolean;
 }

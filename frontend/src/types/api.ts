@@ -43,7 +43,7 @@ export type OpenRegistrationResponse = BindingModels.OpenRegistrationResponse;
 export type ProviderEntry = ProviderModels.Entry;
 export type SaveProviderInput = BindingModels.SaveProviderRequest;
 export type SaveProviderResult = AppModels.SaveProviderResult;
-export type ProfileSummary = Omit<AppModels.ProfileSummary, "agentIds"> & { agentIds: string[] };
+export type ProfileSummary = Omit<AppModels.ProfileSummary, "agentIds" | "protocol"> & { agentIds?: string[]; protocol?: ProtocolId | "" };
 
 export type StatusResponse = Omit<
   AppModels.StatusResponse,

@@ -225,7 +225,8 @@ type ProfileSummary struct {
 	Provider    string   `json:"provider"`
 	BaseURL     *string  `json:"baseUrl"`
 	Model       *string  `json:"model"`
-	AgentIDs    []string `json:"agentIds"`
+	Protocol    string   `json:"protocol"`
+	AgentIDs    []string `json:"-"`
 	ActivatedAt *string  `json:"activatedAt"`
 	HasKey      bool     `json:"hasKey"`
 }
@@ -353,8 +354,8 @@ func (u *UseCases) GetStatus(ctx context.Context) (StatusResponse, error) {
 
 var versionPattern = regexp.MustCompile(`(^|[^\d])(\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?)`)
 
-// installedVersion mirrors the legacy installed_version(): run the Agent's
-// version command and take the first semver-looking token from either stream.
+// installedVersion runs the Agent's version command and takes the first
+// semver-looking token from either stream.
 // Any failure means "unknown", never an error — status must not break because
 // an Agent's --version is misbehaving.
 func (u *UseCases) installedVersion(ctx context.Context, executable string, versionArgs []string) *string {
@@ -428,6 +429,7 @@ type SaveProfileOptions struct {
 	APIKey     string
 	Model      string
 	ConfigMode string
+	Protocol   string
 	AgentIDs   []string
 }
 
@@ -444,25 +446,10 @@ func (u *UseCases) SaveProfile(ctx context.Context, options SaveProfileOptions) 
 	if err != nil {
 		return ProfileSummary{}, err
 	}
-	// The request's key is only a compatibility input. New UI callers leave it
-	// empty, so the Provider's existing key must never be replaced by a legacy
-	// Profile secret while the Profile is edited.
 	providedKey := options.APIKey
 	providerKey := providedKey
 	if strings.TrimSpace(providerKey) == "" {
 		providerKey = target.APIKey
-		if strings.TrimSpace(providerKey) == "" {
-			for _, item := range u.profiles.List() {
-				if item.ID != options.ID || item.Provider != options.Provider {
-					continue
-				}
-				providerKey, err = u.profiles.ReadSecret(ctx, options.ID)
-				if err != nil {
-					return ProfileSummary{}, err
-				}
-				break
-			}
-		}
 	}
 	if strings.TrimSpace(providerKey) != "" {
 		if err := u.providers.SaveKey(ctx, options.Provider, providerKey); err != nil {
@@ -474,13 +461,13 @@ func (u *UseCases) SaveProfile(ctx context.Context, options SaveProfileOptions) 
 		Label:    options.Label,
 		Provider: options.Provider,
 		BaseURL:  target.BaseURL,
-		// Keep explicit keys accepted by older callers, but do not copy a
-		// Provider-resolved key into every Profile's legacy secret file.
+		// Keep explicit keys accepted by callers, but do not copy a
+		// Provider-resolved key into every Profile secret file.
 		APIKey:               providedKey,
 		ProviderKeyAvailable: strings.TrimSpace(providerKey) != "",
 		Model:                options.Model,
 		ConfigMode:           options.ConfigMode,
-		AgentIDs:             append([]string(nil), options.AgentIDs...),
+		Protocol:             options.Protocol,
 	})
 	if err != nil {
 		return ProfileSummary{}, err
@@ -489,14 +476,9 @@ func (u *UseCases) SaveProfile(ctx context.Context, options SaveProfileOptions) 
 }
 
 func (u *UseCases) profileStatus(ctx context.Context) ([]ProfileSummary, *string, any, *string) {
-	// A v1 read can perform the one-time migration. Serialize that path with
-	// profile writes so the old pointer is backed up before another operation
-	// can publish a new profile state.
 	u.writeMu.Lock()
 	defer u.writeMu.Unlock()
 	active := u.profiles.LoadActiveContext(ctx)
-	// Load the active profile first so the status projection follows the same
-	// read ordering as the legacy implementation when a v1 pointer is present.
 	profiles := u.profileSummaries()
 	var activeID *string
 	if active.ID != "" {
@@ -532,7 +514,7 @@ func profileSummary(item profileStore.Profile) ProfileSummary {
 		Provider:    summary.Provider,
 		BaseURL:     summary.BaseURL,
 		Model:       summary.Model,
-		AgentIDs:    summary.AgentIDs,
+		Protocol:    summary.Protocol,
 		ActivatedAt: summary.ActivatedAt,
 		HasKey:      summary.HasKey,
 	}

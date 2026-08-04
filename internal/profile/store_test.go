@@ -1,7 +1,6 @@
 package profile
 
 import (
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -88,51 +87,6 @@ func TestLoadActiveV2PreservesPointerAndStripsSecrets(t *testing.T) {
 	}
 	if result.Environment["provider"] != "ppio" || result.Environment["model"] != "m" {
 		t.Fatalf("environment projection = %#v", result.Environment)
-	}
-}
-
-func TestLoadActiveLegacyAndFailures(t *testing.T) {
-	store := NewStore(t.TempDir(), "linux")
-	if err := os.MkdirAll(store.Root(), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	legacy := map[string]any{
-		"schema_version": 1,
-		"provider":       "ppio",
-		"base_url":       "https://api.ppio.com/openai",
-		"model":          "m",
-		"config_mode":    "provider",
-		"agent_ids":      []string{"codex"},
-		"activated_at":   "2026-07-22T00:00:00Z",
-	}
-	data, _ := json.Marshal(legacy)
-	if err := os.WriteFile(store.PointerPath(), data, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	result := store.LoadActive()
-	if result.Error != "" || result.ID != "default" || result.Profile == nil || result.Profile.Provider != "ppio" {
-		t.Fatalf("legacy result = %#v", result)
-	}
-	if result.Profile.CreatedAt != "2026-07-22T00:00:00Z" {
-		t.Fatalf("legacy created_at = %q", result.Profile.CreatedAt)
-	}
-	if err := os.WriteFile(store.PointerPath(), []byte("{"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if result := store.LoadActive(); result.Error == "" || result.Profile != nil {
-		t.Fatalf("invalid JSON result = %#v", result)
-	}
-	if err := os.WriteFile(store.PointerPath(), []byte(`{"schema_version":2,"active":"ghost"}`), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	result = store.LoadActive()
-	if result.ID != "ghost" || result.Profile != nil || result.Error != "Profile ghost is missing" {
-		t.Fatalf("missing profile result = %#v", result)
-	}
-	writeProfileFixture(t, store, "ghost", `{"schema_version":2,"id":"other"}`)
-	result = store.LoadActive()
-	if result.Profile != nil || result.Error != "Profile ghost is corrupt" {
-		t.Fatalf("mismatched profile result = %#v", result)
 	}
 }
 

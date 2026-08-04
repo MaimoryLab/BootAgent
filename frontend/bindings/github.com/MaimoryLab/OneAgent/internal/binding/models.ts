@@ -146,6 +146,7 @@ export interface SaveProfileRequest {
     "api_key": string;
     "model": string;
     "config_mode": string;
+    "protocol": string;
     "agent_ids": string[] | null;
 }
 
