@@ -15,11 +15,12 @@ import (
 )
 
 type Services struct {
-	Status   *StatusService
-	Provider *ProviderService
-	Agent    *AgentService
-	Profile  *ProfileService
-	Runtime  *RuntimeService
+	Status     *StatusService
+	Provider   *ProviderService
+	Agent      *AgentService
+	Profile    *ProfileService
+	Runtime    *RuntimeService
+	DesktopApp *DesktopAppService
 }
 
 type ServicesOptions struct {
@@ -29,12 +30,63 @@ type ServicesOptions struct {
 
 func NewServicesWithOptions(core *app.UseCases, opener BrowserOpener, options ServicesOptions) *Services {
 	return &Services{
-		Status:   &StatusService{core: core, afterGetStatus: options.AfterGetStatus},
-		Provider: NewProviderService(core, opener),
-		Agent:    &AgentService{core: core, onOutput: options.InstallOutput},
-		Profile:  NewProfileService(core),
-		Runtime:  &RuntimeService{core: core, onOutput: options.InstallOutput},
+		Status:     &StatusService{core: core, afterGetStatus: options.AfterGetStatus},
+		Provider:   NewProviderService(core, opener),
+		Agent:      &AgentService{core: core, onOutput: options.InstallOutput},
+		Profile:    NewProfileService(core),
+		Runtime:    &RuntimeService{core: core, onOutput: options.InstallOutput},
+		DesktopApp: NewDesktopAppService(core),
 	}
+}
+
+// DesktopAppService exposes the official ChatGPT Desktop lifecycle. It does
+// not own or rewrite ~/.codex; the existing Agent configuration use cases do.
+type DesktopAppService struct {
+	core *app.UseCases
+}
+
+func NewDesktopAppService(core *app.UseCases) *DesktopAppService {
+	return &DesktopAppService{core: core}
+}
+
+func (s *DesktopAppService) GetStatus(ctx context.Context) (app.ChatGPTAppStatus, error) {
+	if err := contextError(ctx); err != nil {
+		return app.ChatGPTAppStatus{}, err
+	}
+	if s == nil || s.core == nil {
+		return app.ChatGPTAppStatus{}, notReady("Desktop app service is not configured")
+	}
+	return s.core.ChatGPTAppStatus(ctx)
+}
+
+func (s *DesktopAppService) Install(ctx context.Context) (app.ChatGPTAppActionResult, error) {
+	if err := contextError(ctx); err != nil {
+		return app.ChatGPTAppActionResult{}, err
+	}
+	if s == nil || s.core == nil {
+		return app.ChatGPTAppActionResult{}, notReady("Desktop app service is not configured")
+	}
+	return s.core.InstallChatGPTApp(ctx)
+}
+
+func (s *DesktopAppService) Open(ctx context.Context) error {
+	if err := contextError(ctx); err != nil {
+		return err
+	}
+	if s == nil || s.core == nil {
+		return notReady("Desktop app service is not configured")
+	}
+	return s.core.OpenChatGPTApp(ctx)
+}
+
+func (s *DesktopAppService) OpenInstaller(ctx context.Context) (app.ChatGPTAppActionResult, error) {
+	if err := contextError(ctx); err != nil {
+		return app.ChatGPTAppActionResult{}, err
+	}
+	if s == nil || s.core == nil {
+		return app.ChatGPTAppActionResult{}, notReady("Desktop app service is not configured")
+	}
+	return s.core.OpenChatGPTInstaller(ctx)
 }
 
 // RuntimeService exposes the Node.js and uv bootstrap. It reuses the install

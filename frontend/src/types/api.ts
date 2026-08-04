@@ -26,6 +26,8 @@ export type AgentCatalogItem = Omit<CatalogModels.CatalogItem, "group" | "config
 
 export type AgentStatus = AppModels.AgentStatus;
 export type RuntimeStatus = AppModels.RuntimeStatus;
+export type ChatGPTAppStatus = AppModels.ChatGPTAppStatus;
+export type ChatGPTAppActionResult = AppModels.ChatGPTAppActionResult;
 export type InstallRuntimeResult = Omit<AppModels.InstallRuntimeResult, "runtimes"> & { runtimes: RuntimeStatus[] };
 export type Settings = AppModels.Settings;
 export type ActivateAgentResponse = BindingModels.ActivateResponse;

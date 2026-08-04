@@ -1,12 +1,15 @@
 import { Events } from "@wailsio/runtime";
 
 import * as AgentService from "../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/agentservice.js";
+import * as DesktopAppService from "../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/desktopappservice.js";
 import * as ProfileService from "../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/profileservice.js";
 import * as ProviderService from "../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/providerservice.js";
 import * as RuntimeService from "../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/runtimeservice.js";
 import * as StatusService from "../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/statusservice.js";
 import type {
   ActivateAgentResponse,
+  ChatGPTAppActionResult,
+  ChatGPTAppStatus,
   InstallRequest,
   InstallOutput,
   InstallResponse,
@@ -85,6 +88,11 @@ async function call<T>(operation: () => PromiseLike<T>): Promise<T> {
 export const wailsApi = {
   onInstallOutput,
   status: (): Promise<StatusResponse> => call(() => StatusService.GetStatus()) as Promise<StatusResponse>,
+  chatgptAppStatus: (): Promise<ChatGPTAppStatus> => call(() => DesktopAppService.GetStatus()) as Promise<ChatGPTAppStatus>,
+  installChatGPTApp: (): Promise<ChatGPTAppActionResult> => call(() => DesktopAppService.Install()) as Promise<ChatGPTAppActionResult>,
+  openChatGPTApp: (): Promise<void> => call(() => DesktopAppService.Open()).then(() => undefined),
+  openChatGPTInstaller: (): Promise<ChatGPTAppActionResult> =>
+    call(() => DesktopAppService.OpenInstaller()) as Promise<ChatGPTAppActionResult>,
   probe: (input: { provider: ProviderId; apiBaseUrl: string; apiKey: string; model: string; agents?: string[] }): Promise<ProbeResponse> =>
     call(() => ProviderService.Probe({
       provider: input.provider,

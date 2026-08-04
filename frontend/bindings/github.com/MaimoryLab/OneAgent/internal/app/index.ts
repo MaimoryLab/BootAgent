@@ -4,6 +4,8 @@
 export type {
     AgentStatus,
     Capabilities,
+    ChatGPTAppActionResult,
+    ChatGPTAppStatus,
     DetectedConfig,
     InstallRuntimeResult,
     ProfileSummary,

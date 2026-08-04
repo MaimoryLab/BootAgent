@@ -2,6 +2,7 @@ import { PackageOpen, Plus, RefreshCw } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import { AgentManageRow } from "../components/AgentManageRow";
+import { DesktopAppSection } from "../components/DesktopAppSection";
 import { PageScaffold } from "../components/PageScaffold";
 import { RuntimeSection } from "../components/RuntimeSection";
 import { useI18n } from "../i18n";
@@ -100,6 +101,7 @@ export function EnvironmentOverviewPage() {
         </div>
       )}
 
+      <DesktopAppSection app={status.chatgptApp} onChanged={refreshStatus} />
       <RuntimeSection runtimes={status.runtimes ?? []} onInstalled={refreshStatus} />
     </PageScaffold>
   );

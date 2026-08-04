@@ -61,6 +61,7 @@ function status(): StatusResponse {
     firstRun: false,
     environment: null,
     environmentError: null,
+    chatgptApp: { id: "chatgpt-desktop", name: "ChatGPT Desktop", installed: false, supported: false, version: null, source: "unknown" },
   };
 }
 

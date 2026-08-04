@@ -74,6 +74,7 @@ function renderPage() {
       backups: {},
       environment: null,
       environmentError: null,
+      chatgptApp: { id: "chatgpt-desktop", name: "ChatGPT Desktop", installed: false, supported: false, version: null, source: "unknown" },
       profiles: [],
       activeProfile: null,
       firstRun: false,
