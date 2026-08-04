@@ -94,7 +94,13 @@ jobs:
       - name: Package macOS app
         if: matrix.target.platform == 'macos'
         shell: bash
-        run: go run github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.3 task darwin:create:app:bundle
+        run: |
+          mkdir -p "bin/OneAgent.app/Contents/MacOS" "bin/OneAgent.app/Contents/Resources"
+          cp "bin/oneagent-desktop" "bin/OneAgent.app/Contents/MacOS/oneagent-desktop"
+          cp build/darwin/icons.icns "bin/OneAgent.app/Contents/Resources/icons.icns"
+          cp build/darwin/Info.plist "bin/OneAgent.app/Contents/Info.plist"
+          codesign --force --deep --sign - "bin/OneAgent.app"
+          rm "bin/oneagent-desktop"
 
       # - name: Sign macOS app
       #   if: matrix.target.platform == 'macos' && inputs.codesign
