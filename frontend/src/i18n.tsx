@@ -64,7 +64,7 @@ const english = {
   "查看安装日志": "View installation log",
   "任务中心": "Task center",
   "有任务正在运行": "A task is running",
-  "暂无任务日志，安装 Agent 时会显示在这里。运行时下载会显示进度卡片。": "No task logs yet. Agent commands will show output here. Runtime downloads use a progress card.",
+  "暂无任务日志，安装 Agent 时会显示在这里。下载进度会显示在对应安装区域。": "No task logs yet. Agent commands will show output here. Downloads show progress in their install area.",
   "完整日志：~/.oneagent/logs": "Full logs: ~/.oneagent/logs",
   "清空": "Clear",
   "下载进度": "Download progress",

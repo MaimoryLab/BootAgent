@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { DesktopAgentActionResult, DesktopAgentStatus } from "../types/api";
@@ -48,10 +48,26 @@ describe("DesktopAppSection", () => {
     render(<DesktopAppSection app={app()} onChanged={onChanged} />);
 
     expect(screen.getByRole("heading", { name: "桌面 Agent" })).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "安装 ChatGPT Desktop" }));
+    fireEvent.click(screen.getByRole("button", { name: "安装" }));
     await waitFor(() => expect(onChanged).toHaveBeenCalledTimes(1));
     expect(bridge.installDesktopAgent).toHaveBeenCalledWith();
     expect(screen.getByText("ChatGPT Desktop 安装完成")).toBeTruthy();
+  });
+
+  it("shows download progress until the install request completes", async () => {
+    const installed = app({ installed: true, version: "26.727.51351", path: "/Applications/ChatGPT.app" });
+    let complete!: (result: DesktopAgentActionResult) => void;
+    bridge.installDesktopAgent.mockReturnValue(new Promise((resolve) => { complete = resolve; }));
+    const onChanged = vi.fn();
+    render(<DesktopAppSection app={app()} onChanged={onChanged} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "安装" }));
+    expect(screen.getByRole("progressbar", { name: "下载进度" })).toBeTruthy();
+    expect(screen.getByText(/已下载 0\.0 MB/)).toBeTruthy();
+
+    await act(async () => { complete(action(installed)); });
+    await waitFor(() => expect(onChanged).toHaveBeenCalledTimes(1));
+    expect(screen.queryByRole("progressbar", { name: "下载进度" })).toBeNull();
   });
 
   it("opens the installed app and starts its downloaded installer", async () => {

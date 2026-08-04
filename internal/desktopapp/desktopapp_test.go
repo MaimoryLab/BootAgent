@@ -1,7 +1,10 @@
 package desktopapp
 
 import (
+	"bytes"
 	"context"
+	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -28,6 +31,26 @@ type scriptedRunner struct {
 type cancelRunner struct {
 	cancel  context.CancelFunc
 	started bool
+}
+
+type fakeDownloader struct {
+	body   []byte
+	status int
+	hits   []string
+}
+
+func (d *fakeDownloader) Do(request *http.Request) (*http.Response, error) {
+	d.hits = append(d.hits, request.URL.String())
+	status := d.status
+	if status == 0 {
+		status = http.StatusOK
+	}
+	return &http.Response{
+		StatusCode:    status,
+		Body:          io.NopCloser(bytes.NewReader(d.body)),
+		ContentLength: int64(len(d.body)),
+		Request:       request,
+	}, nil
 }
 
 func (r *cancelRunner) LookPath(string) (string, bool) { return "", false }
@@ -218,39 +241,51 @@ func TestMacDownloadURLFollowsArchitectureAndOverride(t *testing.T) {
 	}
 }
 
-func TestMacInstallStopsOnDownloadExitCode(t *testing.T) {
-	runner := &scriptedRunner{results: []process.Result{{ExitCode: 22, Stderr: "not found"}}}
+func TestMacInstallStopsOnDownloadHTTPError(t *testing.T) {
+	runner := &scriptedRunner{}
+	downloader := &fakeDownloader{status: http.StatusNotFound}
 	_, err := Install(context.Background(), Options{
 		Platform:    platform.For("macos", "arm64"),
 		SearchRoots: []string{t.TempDir()},
 		Runner:      runner,
+		Downloader:  downloader,
 	})
 	if err == nil || !strings.Contains(err.Error(), "download ChatGPT installer") {
 		t.Fatalf("install error = %v", err)
 	}
-	if len(runner.calls) != 1 || runner.calls[0][0] != "/usr/bin/curl" {
-		t.Fatalf("installer calls = %#v", runner.calls)
+	if len(downloader.hits) != 1 || downloader.hits[0] != MacDownloadURL || len(runner.calls) != 0 {
+		t.Fatalf("download hits=%#v installer calls=%#v", downloader.hits, runner.calls)
 	}
 }
 
 func TestMacOpenInstallerDownloadsInsteadOfOpeningBrowser(t *testing.T) {
-	runner := &scriptedRunner{results: []process.Result{{ExitCode: 22, Stderr: "not found"}}}
+	runner := &scriptedRunner{}
+	downloader := &fakeDownloader{status: http.StatusNotFound}
 	_, err := OpenInstaller(context.Background(), Options{
 		Platform:    platform.For("macos", "arm64"),
 		SearchRoots: []string{t.TempDir()},
 		Runner:      runner,
+		Downloader:  downloader,
 	})
 	if err == nil || !strings.Contains(err.Error(), "download ChatGPT installer") {
 		t.Fatalf("installer error = %v", err)
 	}
-	if len(runner.calls) != 1 || runner.calls[0][0] != "/usr/bin/curl" || len(runner.started) != 0 {
-		t.Fatalf("installer calls=%#v started=%#v", runner.calls, runner.started)
+	if len(downloader.hits) != 1 || len(runner.calls) != 0 || len(runner.started) != 0 {
+		t.Fatalf("download hits=%#v installer calls=%#v started=%#v", downloader.hits, runner.calls, runner.started)
 	}
 }
 
 func TestWindowsInstallDownloadsAndStartsOfficialBootstrapperWithoutFilesystemScan(t *testing.T) {
-	runner := &scriptedRunner{results: []process.Result{{ExitCode: 0}, {ExitCode: 0}, {ExitCode: 0}}}
-	result, err := Install(context.Background(), Options{Platform: platform.For("windows", "amd64"), Runner: runner})
+	runner := &scriptedRunner{results: []process.Result{{ExitCode: 0}, {ExitCode: 0}}}
+	payload := []byte("official installer")
+	downloader := &fakeDownloader{body: payload}
+	var outputs []process.Output
+	result, err := Install(context.Background(), Options{
+		Platform:   platform.For("windows", "amd64"),
+		Runner:     runner,
+		Downloader: downloader,
+		Output:     func(output process.Output) { outputs = append(outputs, output) },
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -258,9 +293,12 @@ func TestWindowsInstallDownloadsAndStartsOfficialBootstrapperWithoutFilesystemSc
 		t.Fatalf("result=%#v started=%#v", result, runner.started)
 	}
 	defer os.Remove(runner.started[0][0])
-	download := strings.Join(runner.calls[len(runner.calls)-1], " ")
-	if !strings.Contains(download, "Invoke-WebRequest") || !strings.Contains(download, "-OutFile") || !strings.Contains(download, WindowsInstallerURL) {
-		t.Fatalf("download argv = %q", download)
+	if len(downloader.hits) != 1 || downloader.hits[0] != WindowsInstallerURL {
+		t.Fatalf("download hits = %#v", downloader.hits)
+	}
+	downloaded, readErr := os.ReadFile(runner.started[0][0])
+	if readErr != nil || !bytes.Equal(downloaded, payload) {
+		t.Fatalf("downloaded installer = %q, %v", downloaded, readErr)
 	}
 	if len(runner.started[0]) != 1 || !strings.HasSuffix(strings.ToLower(runner.started[0][0]), ".exe") || strings.Contains(runner.started[0][0], "https://") {
 		t.Fatalf("bootstrapper argv = %#v", runner.started[0])
@@ -269,6 +307,19 @@ func TestWindowsInstallDownloadsAndStartsOfficialBootstrapperWithoutFilesystemSc
 		if strings.Contains(strings.Join(call, " "), "WindowsApps") {
 			t.Fatalf("Windows install must not scan WindowsApps: %#v", runner.calls)
 		}
+	}
+	var progress []process.Output
+	for _, output := range outputs {
+		if output.Kind == "progress" {
+			progress = append(progress, output)
+		}
+	}
+	if len(progress) == 0 {
+		t.Fatal("desktop installer download reported no progress")
+	}
+	last := progress[len(progress)-1]
+	if last.Target != ID || last.Received != int64(len(payload)) || last.Total != int64(len(payload)) {
+		t.Fatalf("final progress = %#v", last)
 	}
 }
 

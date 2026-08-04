@@ -7,6 +7,7 @@ import (
 
 	"github.com/MaimoryLab/OneAgent/internal/desktopapp"
 	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
+	"github.com/MaimoryLab/OneAgent/internal/process"
 )
 
 // DesktopAgentStatus is the public projection of the current desktop agent. It is
@@ -34,7 +35,7 @@ type DesktopAgentActionResult struct {
 }
 
 func (u *UseCases) desktopAgentStatus(ctx context.Context) DesktopAgentStatus {
-	return publicDesktopAgentStatus(desktopapp.Inspect(ctx, u.desktopAppOptions()))
+	return publicDesktopAgentStatus(desktopapp.Inspect(ctx, u.desktopAppOptions(nil)))
 }
 
 // DesktopAgentStatus returns the current desktop agent state without changing config files.
@@ -51,14 +52,14 @@ func (u *UseCases) DesktopAgentStatus(ctx context.Context) (DesktopAgentStatus, 
 // InstallDesktopAgent downloads and installs the current desktop agent on
 // macOS or starts its downloaded official bootstrapper on Windows. It never
 // writes ~/.codex; configuration remains a separate, explicit Codex action.
-func (u *UseCases) InstallDesktopAgent(ctx context.Context) (DesktopAgentActionResult, error) {
+func (u *UseCases) InstallDesktopAgent(ctx context.Context, output process.OutputListener) (DesktopAgentActionResult, error) {
 	if u == nil {
 		return DesktopAgentActionResult{}, oneerrors.New(oneerrors.InternalError, "Desktop agent service is not configured", oneerrors.WithStatus(501))
 	}
 	if err := contextError(ctx, "Desktop app installation request was cancelled"); err != nil {
 		return DesktopAgentActionResult{}, err
 	}
-	result, err := desktopapp.Install(ctx, u.desktopAppOptions())
+	result, err := desktopapp.Install(ctx, u.desktopAppOptions(output))
 	if err != nil {
 		return DesktopAgentActionResult{}, desktopAppInstallError(err)
 	}
@@ -74,7 +75,7 @@ func (u *UseCases) OpenDesktopAgent(ctx context.Context) error {
 	if err := contextError(ctx, "Desktop app launch request was cancelled"); err != nil {
 		return err
 	}
-	if err := desktopapp.Open(ctx, u.desktopAppOptions()); err != nil {
+	if err := desktopapp.Open(ctx, u.desktopAppOptions(nil)); err != nil {
 		return oneerrors.New(oneerrors.InternalError, "Cannot open ChatGPT Desktop", oneerrors.WithStatus(500), oneerrors.WithRetryable(true), oneerrors.WithCause(err))
 	}
 	return nil
@@ -82,25 +83,27 @@ func (u *UseCases) OpenDesktopAgent(ctx context.Context) error {
 
 // OpenDesktopAgentInstaller downloads the official package and runs the update
 // path without opening its URL in a browser.
-func (u *UseCases) OpenDesktopAgentInstaller(ctx context.Context) (DesktopAgentActionResult, error) {
+func (u *UseCases) OpenDesktopAgentInstaller(ctx context.Context, output process.OutputListener) (DesktopAgentActionResult, error) {
 	if u == nil {
 		return DesktopAgentActionResult{}, oneerrors.New(oneerrors.InternalError, "Desktop agent service is not configured", oneerrors.WithStatus(501))
 	}
 	if err := contextError(ctx, "Desktop app installer request was cancelled"); err != nil {
 		return DesktopAgentActionResult{}, err
 	}
-	result, err := desktopapp.OpenInstaller(ctx, u.desktopAppOptions())
+	result, err := desktopapp.OpenInstaller(ctx, u.desktopAppOptions(output))
 	if err != nil {
 		return DesktopAgentActionResult{}, desktopAppInstallError(err)
 	}
 	return publicDesktopAgentAction(result), nil
 }
 
-func (u *UseCases) desktopAppOptions() desktopapp.Options {
+func (u *UseCases) desktopAppOptions(output process.OutputListener) desktopapp.Options {
 	return desktopapp.Options{
-		Home:     u.status.Home,
-		Platform: u.status.Platform,
-		Runner:   u.runner,
+		Home:       u.status.Home,
+		Platform:   u.status.Platform,
+		Runner:     u.runner,
+		Output:     output,
+		Downloader: u.httpDoer,
 	}
 }
 

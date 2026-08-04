@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -62,6 +63,10 @@ type ActionResult struct {
 	App           Status `json:"app"`
 }
 
+type DownloadClient interface {
+	Do(*http.Request) (*http.Response, error)
+}
+
 // Options keeps platform and process boundaries injectable. SearchRoots and
 // ApplicationDirs are test seams; production callers leave them empty.
 type Options struct {
@@ -69,6 +74,7 @@ type Options struct {
 	Platform        platform.Info
 	Runner          process.Runner
 	Output          process.OutputListener
+	Downloader      DownloadClient
 	DownloadURL     string
 	SearchRoots     []string
 	ApplicationDirs []string
@@ -335,14 +341,10 @@ func installMacOS(ctx context.Context, options Options, replacePath string) (Act
 	}
 	defer os.RemoveAll(tempDir)
 	dmg := filepath.Join(tempDir, "ChatGPT.dmg")
-	result, err := run(options, ctx, []string{"/usr/bin/curl", "-fL", "--retry", "3", "--retry-delay", "1", "-o", dmg, url}, installTimeout)
-	if err != nil {
+	if err := downloadFile(ctx, options, url, dmg); err != nil {
 		return ActionResult{}, fmt.Errorf("download ChatGPT installer: %w", err)
 	}
-	if result.ExitCode != 0 {
-		return ActionResult{}, commandFailure("download ChatGPT installer", result)
-	}
-	result, err = run(options, ctx, []string{"/usr/bin/hdiutil", "attach", "-nobrowse", "-readonly", dmg}, installTimeout)
+	result, err := run(options, ctx, []string{"/usr/bin/hdiutil", "attach", "-nobrowse", "-readonly", dmg}, installTimeout)
 	if err != nil {
 		return ActionResult{}, fmt.Errorf("mount ChatGPT installer: %w", err)
 	}
@@ -664,14 +666,8 @@ func installWindowsInstaller(ctx context.Context, options Options, status Status
 	if url == "" {
 		url = WindowsInstallerURL
 	}
-	pathLiteral := powerShellLiteral(installerPath)
-	script := "$ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -UseBasicParsing -Uri " + powerShellLiteral(url) + " -OutFile " + pathLiteral + " -ErrorAction Stop; if ((Get-Item -LiteralPath " + pathLiteral + ").Length -eq 0) { throw 'Downloaded installer is empty' }"
-	result, err := run(options, ctx, []string{"powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script}, installTimeout)
-	if err != nil {
+	if err := downloadFile(ctx, options, url, installerPath); err != nil {
 		return ActionResult{}, fmt.Errorf("download ChatGPT installer: %w", err)
-	}
-	if result.ExitCode != 0 {
-		return ActionResult{}, commandFailure("download ChatGPT installer", result)
 	}
 	if err := contextError(ctx); err != nil {
 		return ActionResult{}, err
@@ -684,8 +680,42 @@ func installWindowsInstaller(ctx context.Context, options Options, status Status
 	return ActionResult{Status: "installer-started", Message: "The downloaded Microsoft Store installer was started", RefreshNeeded: true, App: status}, nil
 }
 
-func powerShellLiteral(value string) string {
-	return "'" + strings.ReplaceAll(value, "'", "''") + "'"
+func downloadFile(ctx context.Context, options Options, url, destination string) error {
+	downloadCtx, cancel := context.WithTimeout(ctx, installTimeout)
+	defer cancel()
+	request, err := http.NewRequestWithContext(downloadCtx, http.MethodGet, url, nil)
+	if err != nil {
+		return err
+	}
+	client := options.Downloader
+	if client == nil {
+		client = http.DefaultClient
+	}
+	response, err := client.Do(request)
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		return fmt.Errorf("download returned HTTP %d", response.StatusCode)
+	}
+	file, err := os.OpenFile(destination, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+	if err != nil {
+		return err
+	}
+	written, copyErr := process.CopyWithProgress(file, response.Body, response.ContentLength, ID, options.Output)
+	closeErr := file.Close()
+	if copyErr != nil || closeErr != nil || written == 0 {
+		_ = os.Remove(destination)
+		if copyErr != nil {
+			return copyErr
+		}
+		if closeErr != nil {
+			return closeErr
+		}
+		return errors.New("downloaded installer is empty")
+	}
+	return nil
 }
 
 func commandFailure(action string, result process.Result) error {

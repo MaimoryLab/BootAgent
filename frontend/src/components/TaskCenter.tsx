@@ -8,8 +8,8 @@ import { useTaskCenter } from "../state/TaskCenterContext";
  * The live install log, docked at the bottom of the sidebar.
  *
  * Installs run without a console, so this is where a user sees what a command
- * is doing while it runs. Runtime archive downloads use their page card rather
- * than a command-shaped log line. The durable copy is in ~/.oneagent/logs/<date>.log.
+ * is doing while it runs. Internal downloads use their install row rather than
+ * a command-shaped log line. The durable copy is in ~/.oneagent/logs/<date>.log.
  */
 export function TaskCenter() {
   const { t } = useI18n();
@@ -46,7 +46,7 @@ export function TaskCenter() {
               {lines.join("\n")}
             </pre>
           ) : (
-            <p className="task-center-empty">{t("暂无任务日志，安装 Agent 时会显示在这里。运行时下载会显示进度卡片。")}</p>
+            <p className="task-center-empty">{t("暂无任务日志，安装 Agent 时会显示在这里。下载进度会显示在对应安装区域。")}</p>
           )}
           <div className="task-center-actions">
             <span>{t("完整日志：~/.oneagent/logs")}</span>

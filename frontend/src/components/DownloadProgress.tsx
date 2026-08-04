@@ -6,17 +6,17 @@ function megabytes(bytes: number): string {
 }
 
 /**
- * The download bar for one runtime, shown inside an install surface.
+ * The download bar for one install target, shown inside its install surface.
  *
  * A pending caller can render it before the first progress event, which keeps
- * an internal runtime download visible without inventing a command log line.
+ * an internal download visible without inventing a command log line.
  * A download whose server sent no Content-Length gets an indeterminate bar
  * rather than a percentage computed from a zero total.
  */
-export function DownloadProgress({ runtimeId, pending = false }: { runtimeId: string; pending?: boolean }) {
+export function DownloadProgress({ target, pending = false }: { target: string; pending?: boolean }) {
   const { t } = useI18n();
   const { progress } = useTaskCenter();
-  const current = progress[runtimeId];
+  const current = progress[target];
   // A caller that already knows a download is in flight can show the bar before
   // the first 200ms progress event arrives. The default remains lazy for
   // ambient rows that should render nothing until there is real activity.

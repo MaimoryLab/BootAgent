@@ -27,7 +27,7 @@ func TestDesktopAgentStatusIsUnsupportedOutsideDesktopPlatforms(t *testing.T) {
 func TestInstallDesktopAgentDoesNotWriteSharedCodexConfig(t *testing.T) {
 	home := t.TempDir()
 	core := NewUseCases(StatusOptions{Home: home, Platform: platform.For("linux", "amd64")})
-	_, err := core.InstallDesktopAgent(context.Background())
+	_, err := core.InstallDesktopAgent(context.Background(), nil)
 	if err == nil {
 		t.Fatal("unsupported platform install unexpectedly succeeded")
 	}

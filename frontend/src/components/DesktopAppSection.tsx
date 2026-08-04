@@ -3,7 +3,9 @@ import { useState } from "react";
 
 import { api, describeError } from "../backend/api";
 import { useI18n } from "../i18n";
+import { useTaskCenter } from "../state/TaskCenterContext";
 import type { DesktopAgentStatus } from "../types/api";
+import { DownloadProgress } from "./DownloadProgress";
 import { StatusBadge } from "./StatusBadge";
 
 interface DesktopAppSectionProps {
@@ -15,6 +17,7 @@ type Action = "install" | "open" | "installer";
 
 export function DesktopAppSection({ app: desktopApp, onChanged }: DesktopAppSectionProps) {
   const { t } = useI18n();
+  const { resetProgress } = useTaskCenter();
   const [pending, setPending] = useState<Action | "">("");
   const [failure, setFailure] = useState("");
   const [notice, setNotice] = useState("");
@@ -22,9 +25,11 @@ export function DesktopAppSection({ app: desktopApp, onChanged }: DesktopAppSect
   if (!desktopApp?.supported) return null;
 
   const run = async (action: Action) => {
+    const downloading = action === "install" || action === "installer";
     setPending(action);
     setFailure("");
     setNotice("");
+    if (downloading) resetProgress(desktopApp.id);
     try {
       const result = action === "install"
         ? await api.installDesktopAgent()
@@ -46,6 +51,7 @@ export function DesktopAppSection({ app: desktopApp, onChanged }: DesktopAppSect
       setFailure(describeError(error, t("ChatGPT Desktop 操作失败")).message);
     } finally {
       setPending("");
+      if (downloading) resetProgress(desktopApp.id);
     }
   };
 
@@ -100,12 +106,12 @@ export function DesktopAppSection({ app: desktopApp, onChanged }: DesktopAppSect
           ) : (
             <button className="button button-primary" type="button" onClick={() => void run("install")} disabled={Boolean(pending)}>
               {pending === "install" ? <RefreshCw size={15} className="spin" aria-hidden="true" /> : <Download size={15} aria-hidden="true" />}
-              {pending === "install" ? t("安装中") : t("安装 ChatGPT Desktop")}
+              {pending === "install" ? t("安装中") : t("安装")}
             </button>
           )}
         </div>
+        {pending === "install" || pending === "installer" ? <DownloadProgress target={desktopApp.id} pending /> : null}
       </div>
-      <p className="desktop-app-note">{t("与 Codex 共用 ~/.codex 配置；安装和启动不会改动配置")}</p>
     </section>
   );
 }

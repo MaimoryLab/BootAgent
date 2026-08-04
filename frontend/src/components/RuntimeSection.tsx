@@ -87,7 +87,7 @@ export function RuntimeSection({ runtimes, onInstalled }: RuntimeSectionProps) {
                 {pending === runtime.id ? t("安装中") : t("安装")}
               </button>
             )}
-            {pending === runtime.id ? <DownloadProgress runtimeId={runtime.id} pending /> : null}
+            {pending === runtime.id ? <DownloadProgress target={runtime.id} pending /> : null}
           </div>
         ))}
       </div>

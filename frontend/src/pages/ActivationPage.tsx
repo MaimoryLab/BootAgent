@@ -159,7 +159,7 @@ export function ActivationPage() {
               </span>
             </div>
           </div>
-          {runtimeDownloads.map(({ id }) => <DownloadProgress key={id} runtimeId={id} pending />)}
+          {runtimeDownloads.map(({ id }) => <DownloadProgress key={id} target={id} pending />)}
         </section>
       ) : null}
       <div className="progress-list">

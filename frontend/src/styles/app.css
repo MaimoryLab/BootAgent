@@ -1780,7 +1780,7 @@
 .task-center-actions > button:disabled { opacity: 0.5; cursor: default; }
 
 .download-progress {
-  /* Spans the whole runtime row so the bar is not squeezed into one cell. */
+  /* Spans the whole install row so the bar is not squeezed into one cell. */
   grid-column: 1 / -1;
   display: grid;
   gap: 4px;

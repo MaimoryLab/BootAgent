@@ -81,7 +81,7 @@ export function RuntimePrompt({ runtimes, missingRuntime, selectedAgentIds, agen
             </button>
           ))}
         </div>
-        {pending ? <DownloadProgress runtimeId={pending} pending /> : null}
+        {pending ? <DownloadProgress target={pending} pending /> : null}
         {failure ? <span className="runtime-prompt-error">{failure}</span> : null}
       </div>
     </div>
