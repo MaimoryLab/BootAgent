@@ -1,4 +1,4 @@
-# ADR-002：固定 OneAgent 的网络访问、分发和用户范围边界
+# ADR-002: Fixing OneAgent's Network Access, Distribution and User Scope Boundary
 
 ## Status
 
@@ -10,80 +10,109 @@ Accepted
 
 ## Context
 
-OneAgent 面向需要本地 AI 开发环境的个人、团队和组织发行方，提供 Provider 注册引导、API Key 配置、模型选择和 Agent 安装引导。
+OneAgent targets individuals, teams and organizational redistributors who need a
+local AI development environment. It provides guided Provider signup, API Key
+configuration, model selection and guided Agent installation.
 
-部分 Agent 的官方安装源可能在用户当前网络环境中不可达。如果为了提高“一键成功率”而内置 VPN、代理、节点订阅或跨境中转，产品就会从本地配置器变成网络接入服务，并增加合规、运营和安全风险。
+The official installation source for some Agents may be unreachable from the
+user's current network. If we were to bundle a VPN, a proxy, node subscriptions
+or cross-border relays in order to raise the "one-click success rate", the
+product would turn from a local configurator into a network access service, and
+would take on compliance, operational and security risk.
 
-启动包还涉及第三方 Agent、开源许可证、CC Switch 等配置工具和用户 API Key，需要固定分发、权限和数据边界。
+The starter bundle also involves third-party Agents, open source licenses,
+configuration tools such as CC Switch, and user API Keys, so the distribution,
+permission and data boundaries need to be fixed.
 
 ## Decision
 
-OneAgent 固定为：
+OneAgent is fixed as:
 
-> Provider 账号和模型 API 的本地激活引导器、Agent 官方安装协调器和本地配置器。
+> A local activation guide for Provider accounts and model APIs, a coordinator
+> for official Agent installation, and a local configurator.
 
-明确不提供：
+Explicitly out of scope:
 
-- VPN、代理、专线或绕过网络限制的能力。
-- 共享 Provider API Key 或统一网关。
-- 自动登录、验证码处理和自动领取账户权益。
-- 未获许可的商业 Agent 包体分发。
-- 默认上传 Key、Prompt、代码和完整请求内容。
+- VPN, proxy, dedicated lines, or any ability to bypass network restrictions.
+- Shared Provider API Keys or a unified gateway.
+- Automatic login, captcha handling, or automatic claiming of account benefits.
+- Distribution of commercial Agent packages without permission.
+- Uploading Keys, prompts, code or full request content by default.
 
-软件下载采用“官方源 → 授权镜像 → 用户手动安装 → 文档引导”的降级策略。网络不可达时，产品只能报告不可达并提供手动路径，不提供网络绕过方案。
+Software download follows a fallback chain of "official source → authorized
+mirror → manual user install → documented guidance". When the network is
+unreachable, the product may only report it as unreachable and offer the manual
+path; it does not offer a way around the network.
 
-用户可以直接使用 Provider 当前账户页面显示的公开权益或其他合法额度，但 OneAgent 不承诺固定免费额度，也不把任何权益写入核心业务模型。
+Users may make direct use of the public benefits shown on their current Provider
+account page, or any other legitimate quota, but OneAgent does not promise a
+fixed free quota and does not write any benefit into the core business model.
 
-API Key 固定采用用户自己的 Key 本地保存模式。统一网关另立项目，不纳入当前 MVP。
+API Keys are fixed to a model where the user's own Key is stored locally. A
+unified gateway is a separate project and is not part of the current MVP.
 
-CC Switch 固定为可选的本机配置工具文档，不打包、不默认安装、不替代 Provider。
+CC Switch is fixed as documentation for an optional local configuration tool. It
+is not packaged, not installed by default, and does not replace a Provider.
 
 ## Alternatives Considered
 
-### 内置 VPN 或代理以保证下载成功
+### Bundle a VPN or proxy to guarantee downloads succeed
 
-- 优点：用户体验表面上更顺畅。
-- 缺点：改变产品性质，增加网络服务、数据安全和运营责任。
-- 结论：拒绝。
+- Pro: the user experience looks smoother on the surface.
+- Con: changes what the product is, and adds network service, data security and
+  operational responsibility.
+- Conclusion: rejected.
 
-### 把所有 Agent 包体直接塞进压缩包
+### Put every Agent package straight into the archive
 
-- 优点：离线安装体验更好。
-- 缺点：许可证、商业授权、版本更新和安全校验成本高。
-- 结论：拒绝。第一版使用官方源、授权镜像和手动安装检测。
+- Pro: better offline install experience.
+- Con: high cost in licensing, commercial authorization, version updates and
+  security verification.
+- Conclusion: rejected. The first version uses official sources, authorized
+  mirrors and detection of manual installs.
 
-### 默认采集 API Key 和请求日志
+### Collect API Keys and request logs by default
 
-- 优点：平台可以集中排错和统计。
-- 缺点：形成高风险敏感数据集中存储，超出本地启动器的必要范围。
-- 结论：拒绝。只保留本地日志和可选的最小匿名事件。
+- Pro: the platform can troubleshoot and gather statistics centrally.
+- Con: creates a high-risk central store of sensitive data, beyond what a local
+  launcher needs.
+- Conclusion: rejected. Only local logs and optional minimal anonymous events are
+  kept.
 
 ## Consequences
 
 ### Positive
 
-- 产品边界可对外统一表达。
-- 不同用户共用一套启动逻辑。
-- 网络不可达不再被产品解释为需要绕过网络限制。
-- 软件分发、API Key 和第三方工具的责任边界清晰。
-- 后续若要做统一网关或网络服务，可以独立评估，不污染 MVP。
+- The product boundary can be stated the same way to everyone.
+- Different users share one activation flow.
+- An unreachable network is no longer read by the product as a need to bypass
+  network restrictions.
+- Responsibility boundaries for software distribution, API Keys and third-party
+  tools are clear.
+- If a unified gateway or network service is wanted later, it can be assessed
+  independently without contaminating the MVP.
 
 ### Negative
 
-- 某些网络环境下不能保证一键下载成功。
-- 用户可能需要手动安装或使用其所在组织提供的合规网络。
-- 需要维护官方源、授权镜像和版本校验信息。
-- 公开权益不能由 OneAgent 保证。
+- One-click download cannot be guaranteed to succeed on some networks.
+- Users may need to install manually, or use a compliant network provided by
+  their organization.
+- Official sources, authorized mirrors and version verification data have to be
+  maintained.
+- Public benefits cannot be guaranteed by OneAgent.
 
 ## Release Gate
 
-发布前必须检查：
+The following must be checked before release:
 
-- 包体和脚本不含 VPN、代理、节点订阅和跨境中转。
-- 公开页面不出现“翻墙”“突破限制”“固定免费额度”等表述。
-- 用户 Key 不经过 OneAgent 服务端。
-- Agent 许可证、上游地址、版本和校验值齐全。
-- Provider 权益说明链接到官方页面，并注明以账户实际显示为准。
-- CC Switch 只作为可选配置文档。
-- 网络不可达时有明确、合规的手动安装提示。
-
+- The package and scripts contain no VPN, proxy, node subscription or
+  cross-border relay.
+- Public pages do not use wording such as "bypass the firewall", "break through
+  restrictions" or "fixed free quota".
+- User Keys do not pass through an OneAgent server.
+- Agent licenses, upstream addresses, versions and checksums are complete.
+- Provider benefit descriptions link to the official page and note that what the
+  account actually shows is authoritative.
+- CC Switch appears only as optional configuration documentation.
+- There is a clear, compliant manual install hint when the network is
+  unreachable.
