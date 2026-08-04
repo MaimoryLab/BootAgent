@@ -1,5 +1,7 @@
 # Agent 分类和安装指引
 
+[English](../en/04-agent-guides.md) · **简体中文**
+
 ## 可一键配置
 
 ### Codex

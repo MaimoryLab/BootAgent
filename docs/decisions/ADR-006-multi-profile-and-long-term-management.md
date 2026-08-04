@@ -1,9 +1,10 @@
-# ADR-006：多 Profile 与长期环境管理
+# ADR-006: Multiple Profiles and Long-Term Environment Management
 
 ## Status
 
-Implemented，凭据投递部分已被 [ADR-008](ADR-008-credentials-in-agent-config-files.md) 取代
-（详见下方「修订」小节）。多 Profile 与长期管理的结论仍然有效。
+Implemented; the credential delivery part is superseded by
+[ADR-008](ADR-008-credentials-in-agent-config-files.md) (see the "Revision" section
+below). The conclusions about multiple Profiles and long-term management still hold.
 
 ## Date
 
@@ -11,90 +12,155 @@ Implemented，凭据投递部分已被 [ADR-008](ADR-008-credentials-in-agent-co
 
 ## Context
 
-OneAgent 目前是一次性向导：激活完成即结束，`~/.oneagent/profile.json` 只保存单一激活态（`schema_version: 1`：一个 provider、一个 model、一份 agent 列表），`EnvironmentOverviewPage` 是只读页面。激活之后用户的长期需求没有载体：
+OneAgent is currently a one-shot wizard: it ends the moment setup completes,
+`~/.oneagent/profile.json` stores a single active state (`schema_version: 1`: one
+provider, one model, one agent list), and `EnvironmentOverviewPage` is a read-only
+page. After setup there is nowhere for the user's long-term needs to live:
 
-- 在多个 Provider（或同一 Provider 的多个模型）之间切换，必须重走一遍七页向导。
-- Agent 版本落后于 `agents.lock.json` 的锁定版本时（`status_payload` 已能对比出 `version` 与 `lockedVersion`），界面没有任何提示。
-- 写入配置时 `atomic_write` 已经产生 `*.backup-<ts>` 备份，但用户看不到、也无法回滚。
+- Switching between Providers, or between models of the same Provider, means walking
+  through all seven wizard pages again.
+- When an Agent version falls behind the version pinned in `agents.lock.json` --
+  `status_payload` can already compare `version` against `lockedVersion` -- the UI
+  gives no hint at all.
+- Config writes already produce `*.backup-<ts>` backups through `atomic_write`, but
+  the user cannot see them and cannot roll back.
 
-用户事实上在用 CC Switch 做 Profile 切换（见 [CC Switch 配置指引](../ai-agent-kit/tools/cc-switch.md)）。这说明切换需求真实存在，CC Switch 文档也记录了一条关键教训：**切换配置后 Agent 不会自动重新加载**，不能显示"已切换"就了事。
+Users are in fact using CC Switch to switch Profiles (see the
+[CC Switch configuration guide](../ai-agent-kit/zh/tools/cc-switch.md)). That shows
+the need to switch is real, and the CC Switch document also records one key lesson:
+**an Agent does not reload its configuration automatically after a switch**, so it is
+not enough to display "switched" and stop there.
 
 ## Decision
 
-### 存储布局
+### Storage layout
 
 ```text
 ~/.oneagent/
-  profile.json          # schema_version: 2，当前激活指针 {active: <id>}
-  profiles/             # 每套配置一个文件，不含 Key
+  profile.json          # schema_version: 2, active pointer {active: <id>}
+  profiles/             # one file per configuration, no Key inside
     <id>.json
-  secrets/              # 每套配置的密钥文件，0600 / Windows ACL
+  secrets/              # secret file per configuration, 0600 / Windows ACL
     <id>.env
 ```
 
-- Profile 记录：`id`、`label`、`provider`、`api_base_url`、`model`、`agent_ids`、`created_at`、`last_activated_at`。**Key 不进 profile 文件**（产品边界与 CLAUDE.md 硬约束）。
-- `id` 是受限 slug（`[a-z0-9][a-z0-9_-]*`），非法输入返回 `INVALID_REQUEST`。
-- `secrets/<id>.env` 保存该 profile 模板的 Key 与 Base URL。Agent 实际读取的凭据在各自的配置文件里（见下方修订小节与 ADR-008）。
+- A Profile record holds `id`, `label`, `provider`, `api_base_url`, `model`,
+  `agent_ids`, `created_at`, `last_activated_at`. **The Key does not go into the
+  profile file** (a product boundary and a hard constraint in CLAUDE.md).
+- `id` is a restricted slug (`[a-z0-9][a-z0-9_-]*`); invalid input returns
+  `INVALID_REQUEST`.
+- `secrets/<id>.env` stores the Key and Base URL for that profile template. The
+  credentials an Agent actually reads live in its own config file (see the Revision
+  section below and ADR-008).
 
-### v1 → v2 迁移
+### v1 to v2 migration
 
-读到 `schema_version: 1` 的 `profile.json` 时自动迁移：先 `backup_file` 备份原文件，再把内容转成 `profiles/default.json` 并写入 v2 指针。任何情况下不对旧文件直接报错。迁移必须由测试固定（"读 v1 文件"用例），防止后续重构悄悄破坏老用户。
+When a `profile.json` with `schema_version: 1` is read, migrate it automatically:
+back the original file up with `backup_file` first, then convert its contents into
+`profiles/default.json` and write the v2 pointer. Under no circumstances does an old
+file cause an error outright. The migration must be pinned by a test (the "read a v1
+file" case), so that later refactoring cannot quietly break existing users.
 
-### 写入与切换
+### Writing and switching
 
-- 向导激活（`install_many` 收尾的 `write_profile`）变为"更新或创建当前激活 profile"：同一 `provider + model` 沿用原 id 并保留 `agent_ids` 合并语义，否则新建。
-- 切换 = 用另一组参数重写同一批配置文件，**完全复用现有写入链路**（`_write_agent_config` 分派 + `atomic_write` + 备份），不引入新的写入逻辑。
-- `POST /api/activate` 的响应必须携带逐 Agent 的**重启指引**（采纳 CC Switch 教训：Agent 不自动重载配置），而不是只返回"已切换"。
-- Profile 操作统一复用 Go `ProfileService` 和 `securefs` 写入边界，不新增 HTTP 通道。Key 只落 `secrets/`，binding 返回公开摘要。
+- Wizard setup (the `write_profile` that closes out `install_many`) becomes "update or
+  create the currently active profile": the same `provider + model` reuses the
+  original id and keeps the `agent_ids` merge semantics, otherwise a new profile is
+  created.
+- Switching means rewriting the same set of config files with another set of
+  parameters, **fully reusing the existing write path** (`_write_agent_config`
+  dispatch plus `atomic_write` plus backup); no new write logic is introduced.
+- The response to `POST /api/activate` must carry per-Agent **restart instructions**
+  (adopting the CC Switch lesson that an Agent does not reload config on its own),
+  rather than returning only "switched".
+- Profile operations all reuse the Go `ProfileService` and the `securefs` write
+  boundary; no new HTTP channel is added. The Key only lands in `secrets/`, and the
+  binding returns a public summary.
 
 ### CLI
 
-新增子命令 `oneagent profile list / add / activate / remove`。`argv[1]` 不是已知子命令时走原有扁平解析器，保持向后兼容。
+Add the subcommands `oneagent profile list / add / activate / remove`. When `argv[1]`
+is not a known subcommand, fall through to the existing flat parser to stay backward
+compatible.
 
-### Overview 管理化
+### Turning Overview into a management surface
 
-- Profile 卡片 + 激活标识 + 一键切换。
-- Agent 行展示 `version` 对 `lockedVersion` 的漂移，"更新"走现有安装链路。
-- 路由调整：已有 profile 时根路径进 `/overview`，没有才进向导。这一条是"长期工具"定位最直接的体现。
-- 备份的列表与回滚（`*.backup-<ts>` 已存在但未暴露）作为可选的后续增量（3b），需要新端点，单独评估。
+- Profile cards, an active marker, and one-click switching.
+- Agent rows show the drift of `version` against `lockedVersion`; "update" goes
+  through the existing install path.
+- Routing change: when a profile exists, the root path goes to `/overview`; only
+  without one does it go to the wizard. This is the most direct expression of the
+  "long-term tool" positioning.
+- Listing and rolling back backups (`*.backup-<ts>` already exist but are not
+  exposed) is an optional follow-up increment (3b); it needs a new endpoint and is
+  evaluated separately.
 
-### 明确不做
+### Explicitly out of scope
 
-- **自动改写 shell rc**：`--wire-shell` 仍作为独立显式开关，在第 2 层之后单独评估。
-- **Agent 进程自动重载**：不同 Agent 的生效方式不同，不做进程操作，只给重启指引。
+- **Rewriting shell rc automatically**: `--wire-shell` remains a separate explicit
+  flag, evaluated on its own after layer 2.
+- **Reloading Agent processes automatically**: different Agents apply configuration
+  differently, so we do not operate on processes; we only give restart instructions.
 
-## 修订：从全局 profile 改为 per-agent 独立配置
+## Revision: from a global profile to per-agent independent configuration
 
-本 ADR 初稿把「per-agent 独立 profile」列为不做，理由是 `~/.oneagent/env` 天然全局共享。该理由已被推翻：共享 env 不是外部约束，而是我们自己写进三个 Agent 配置的同名变量 `ONEAGENT_API_KEY` 造成的人为耦合。五个 Agent 的配置本来就落在各自的文件里，Claude Code 与 Aider 的凭据早已独立，只有 Codex、OpenCode、Kilo CLI 因为共用一个变量名才无法在同一 shell 里指向不同 Provider。
+The first draft of this ADR listed "per-agent independent profiles" as out of scope,
+on the grounds that `~/.oneagent/env` is inherently shared globally. That reasoning
+has been overturned: a shared env is not an external constraint but artificial
+coupling we created ourselves by writing the same variable name,
+`ONEAGENT_API_KEY`, into three Agent configs. The configs of all five Agents already
+land in separate files, and the credentials for Claude Code and Aider have long been
+independent; only Codex, OpenCode, and Kilo CLI could not point at different
+Providers in the same shell, and only because they shared one variable name.
 
-因此改为 per-agent 独立凭据。第一版用 `ONEAGENT_API_KEY_<AGENT>` 加 `~/.oneagent/agents/<agent-id>.env` 实现，**已被 ADR-008 取代**：凭据现在写进 Agent 自己的配置文件（Codex 用 `~/.codex/auth.json`，Claude Code 用 `settings.json` 的 `env` 块，OpenCode/Kilo 用配置里的 `options.apiKey`），不再需要 sourced env 文件。解耦与「失败只影响单个 Agent」的结论不变。
+So the decision changes to per-agent independent credentials. The first version
+implemented this with `ONEAGENT_API_KEY_<AGENT>` plus
+`~/.oneagent/agents/<agent-id>.env`, and **has been superseded by ADR-008**:
+credentials are now written into the Agent's own config file (Codex uses
+`~/.codex/auth.json`, Claude Code uses the `env` block of `settings.json`,
+OpenCode/Kilo use `options.apiKey` in their config), so sourced env files are no
+longer needed. The conclusions about decoupling and about a failure affecting only a
+single Agent are unchanged.
 
-`profiles/` 存储保留，语义从「唯一激活态」改为**可复用模板**：三个 Agent 共用同一 Provider 与 Key 是常见场景，模板避免重复输入。
+The `profiles/` storage stays, with its meaning changed from "the one active state"
+to **reusable templates**: three Agents sharing the same Provider and Key is a common
+case, and templates avoid retyping.
 
 ## Alternatives Considered
 
-### 单个 profile.json 内嵌所有 profile
+### Embed every profile inside a single profile.json
 
-- 优点：原子替换简单，无需目录同步。
-- 缺点：文件随 profile 增长；密钥隔离与文件粒度错位；与 CC Switch 用户的心智模型不一致。
-- 结论：拒绝。每 profile 一个文件读写面更小，密钥文件天然分离。
+- Upside: atomic replacement is simple, no directory to keep in sync.
+- Downside: the file grows with the number of profiles; secret isolation is
+  misaligned with file granularity; it does not match the mental model of CC Switch
+  users.
+- Conclusion: rejected. One file per profile has a smaller read/write surface, and
+  secret files separate naturally.
 
-### per-agent 独立配置
+### Per-agent independent configuration
 
-- 优点：每个 Agent 可以指向不同 Provider。
-- 缺点：共享 env 契约失效，密钥文件数量翻倍，切换语义复杂一档。
-- 结论：拒绝；全局 profile 先行，后续有真实需求再扩展。
+- Upside: each Agent can point at a different Provider.
+- Downside: the shared env contract stops working, the number of secret files
+  doubles, and switching semantics get one level more complex.
+- Conclusion: rejected; ship the global profile first and extend later if a real need
+  appears.
 
-### 维持现状，继续推荐 CC Switch
+### Keep things as they are and keep recommending CC Switch
 
-- 优点：零开发量。
-- 缺点：OneAgent 固化为一次性工具，探测/验证能力与切换能力割裂在两个产品里。
-- 结论：拒绝。
+- Upside: zero development effort.
+- Downside: OneAgent hardens into a one-shot tool, and the probe/verify capability is
+  split away from the switching capability across two products.
+- Conclusion: rejected.
 
 ## Consequences
 
-- `profile.json` schema 变更，迁移是唯一的数据风险点：备份先行 + 测试固定。
-- `status_payload` 增加 `profiles` / `activeProfile` 字段，必须同步 `frontend/src/types/api.ts`（传输契约规则）。
-- CC Switch 文档的推荐顺序需要调整：OneAgent 内置切换为主路径，CC Switch 作为可选下游。
-- Go profile/config tests、React state tests 和 Wails binding tests 覆盖新端点与迁移路径。
-- 备份回滚 UI、per-agent profile、`--wire-shell` 需要各自的后续评估，其中回滚 UI 需要新端点。
+- The `profile.json` schema changes, and migration is the only data risk point:
+  backup first, and pin it with tests.
+- `status_payload` gains `profiles` and `activeProfile` fields, which must be mirrored
+  in `frontend/src/types/api.ts` (the transport contract rule).
+- The recommendation order in the CC Switch document needs adjusting: switching built
+  into OneAgent is the main path, with CC Switch as an optional downstream.
+- Go profile/config tests, React state tests, and Wails binding tests cover the new
+  endpoints and the migration path.
+- The backup rollback UI, per-agent profiles, and `--wire-shell` each need their own
+  follow-up evaluation; the rollback UI among them needs a new endpoint.

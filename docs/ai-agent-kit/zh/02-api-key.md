@@ -1,5 +1,7 @@
 # 创建和保存 PPIO API Key
 
+[English](../en/02-api-key.md) · **简体中文**
+
 ## 创建前确认
 
 先确认：

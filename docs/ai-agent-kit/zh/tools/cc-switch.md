@@ -1,5 +1,7 @@
 # CC Switch 配置 PPIO 指引
 
+[English](../../en/tools/cc-switch.md) · **简体中文**
+
 > 本文把 CC Switch 当作“本机配置 Profile 切换工具”使用。CC Switch 的界面、支持的 Agent 和配置字段可能随版本变化；安装和更新请以其官方项目入口为准。
 
 ## 1. 获取 CC Switch

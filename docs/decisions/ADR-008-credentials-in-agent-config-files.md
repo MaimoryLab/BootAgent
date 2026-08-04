@@ -1,4 +1,4 @@
-# ADR-008：凭据写入 Agent 自己的配置文件
+# ADR-008: Credentials Written Into Each Agent's Own Config File
 
 ## Status
 
@@ -8,55 +8,100 @@ Implemented
 
 2026-08-03
 
-- Supersedes: ADR-006 的 `ONEAGENT_API_KEY_<AGENT>` + `~/.oneagent/agents/<id>.env` 凭据投递方案
+- Supersedes: the `ONEAGENT_API_KEY_<AGENT>` + `~/.oneagent/agents/<id>.env`
+  credential delivery scheme in ADR-006
 
 ## Context
 
-ADR-006 修订版让每个 Agent 读自己的环境变量：`~/.oneagent/agents/<id>.env` 写 `ONEAGENT_API_KEY_<AGENT>`，Codex 的 `config.toml` 用 `env_key` 指向它，OpenCode / Kilo 的 JSON 用 `"apiKey": "{env:...}"` 引用它。这解决了三个 Agent 共用一个变量名的耦合，但保留了 env 文件本身的代价：
+The revised ADR-006 had every Agent read its own environment variable:
+`~/.oneagent/agents/<id>.env` wrote `ONEAGENT_API_KEY_<AGENT>`, the Codex
+`config.toml` pointed at it through `env_key`, and the OpenCode / Kilo JSON referenced
+it with `"apiKey": "{env:...}"`. That solved the coupling of three Agents sharing one
+variable name, but it kept the cost of the env file itself:
 
-- 配置只在 sourced 过 env 文件的 shell 里生效。用户从 Dock、桌面快捷方式或已开着的终端启动 Agent 就会看到未认证错误，而 OneAgent 的界面显示"已配置"。
-- 每个 Agent 的重启指引都得带一句 `source ~/.oneagent/agents/<id>.env`，桌面的 Launch 按钮也得把这句拼进终端命令，否则打开的窗口跑的是未配置的 Agent。
-- 同一份 Key 落在两处（`secrets/<id>.env` 和 `agents/<id>.env`），加上 `~/.oneagent/env` 兼容层是三处。
+- The configuration only takes effect in a shell that has sourced the env file. A user
+  who starts an Agent from the Dock, a desktop shortcut, or an already-open terminal
+  sees an unauthenticated error while the OneAgent UI shows "configured".
+- Every Agent's restart instructions had to carry a
+  `source ~/.oneagent/agents/<id>.env` line, and the desktop Launch button had to
+  splice that line into the terminal command as well, or the window it opened would be
+  running an unconfigured Agent.
+- The same Key landed in two places (`secrets/<id>.env` and `agents/<id>.env`), three
+  once you count the `~/.oneagent/env` compatibility layer.
 
-三个 Agent 都有自己的凭据文件位置，且都是 OneAgent 已经在写的那个文件或它的同目录邻居。CC Switch（Tauri）走的正是这条路：Codex 写 `~/.codex/auth.json`，Claude 写 `settings.json` 的 `env` 块，OpenCode 写 `opencode.json` 的 `provider.<id>.options.apiKey`，没有任何 env 文件。
+All three Agents have their own credential file location, and each is either the file
+OneAgent already writes or a neighbor in the same directory. CC Switch (Tauri) takes
+exactly this route: Codex writes `~/.codex/auth.json`, Claude writes the `env` block
+of `settings.json`, OpenCode writes `provider.<id>.options.apiKey` in
+`opencode.json`, with no env file anywhere.
 
 ## Decision
 
-凭据写进 Agent 自己的配置文件，删除全部 env 文件写入逻辑。
+Credentials are written into each Agent's own config file, and all env-file write
+logic is deleted.
 
-| Agent | 凭据位置 |
+| Agent | Credential location |
 | --- | --- |
-| Codex | `~/.codex/auth.json` 的 `OPENAI_API_KEY`，`auth_mode` 置为 `apikey` |
-| Claude Code | `~/.claude/settings.json` 的 `env.ANTHROPIC_AUTH_TOKEN`（本来就是这样） |
-| OpenCode | `~/.config/opencode/opencode.json` 的 `provider.oneagent.options.apiKey` |
-| Kilo CLI | `~/.config/kilo/kilo.jsonc` 的同一位置 |
-| Aider | `~/.oneagent/aider.env`（由 Aider 的 `--env-file` 直接加载） |
+| Codex | `OPENAI_API_KEY` in `~/.codex/auth.json`, with `auth_mode` set to `apikey` |
+| Claude Code | `env.ANTHROPIC_AUTH_TOKEN` in `~/.claude/settings.json` (already the case) |
+| OpenCode | `provider.oneagent.options.apiKey` in `~/.config/opencode/opencode.json` |
+| Kilo CLI | the same location in `~/.config/kilo/kilo.jsonc` |
+| Aider | `~/.oneagent/aider.env` (loaded directly by Aider's `--env-file`) |
 
-配套改动：
+Accompanying changes:
 
-- Codex 的 `[model_providers.oneagent]` 去掉 `env_key`，加 `requires_openai_auth = true`，让 Codex 用 `auth.json` 里的 Key 认证托管 provider。`auth_mode` 必须显式写成 `apikey`：残留的 `chatgpt` 会让 Codex 优先用缓存的 OAuth token，把新 Key 忽略掉。
-- `auth.json` 先写、`config.toml` 后写。指向一个认证不了的 provider 比留一个暂时没人引用的 Key 更糟。写入复用 `securefs.AtomicWrite`，`auth.json` 按 secret 处理（0600 / Windows ACL，备份同样收紧权限）。
-- OpenCode / Kilo 的配置文件现在含明文 Key，因此按 secret 写入。
-- OpenCode 的路径从 `opencode.jsonc` 改为 `opencode.json`：Key 进了这个文件之后它是 OneAgent 的主要写入目标，`.json` 是 OpenCode 自己的默认名。JSONC 注释检测不再看扩展名（OpenCode 用 JSON5 解析，`.json` 里也可能有注释），检测到就拒写并保留原文件。
-- 删除：`internal/config/env.go`（`WriteAgentEnv` / `WriteSharedEnv` / `agentEnvVar`）、`agents.lock.json` 的 `credential_delivery` 字段、status 的 `paths.env_file` 与 `backups.env`、重启指引和 Launch 命令里的 `source` 前缀；Aider 改由 `--env-file` 加载唯一保留的环境文件。
+- The Codex `[model_providers.oneagent]` block drops `env_key` and adds
+  `requires_openai_auth = true`, so Codex authenticates the hosted provider with the
+  Key in `auth.json`. `auth_mode` must be written explicitly as `apikey`: a leftover
+  `chatgpt` makes Codex prefer a cached OAuth token and ignore the new Key.
+- `auth.json` is written first, `config.toml` second. Pointing at a provider that
+  cannot authenticate is worse than leaving a Key that nothing references yet. The
+  write reuses `securefs.AtomicWrite`, and `auth.json` is handled as a secret (0600 /
+  Windows ACL, with the backup's permissions tightened the same way).
+- The OpenCode / Kilo config files now contain a plaintext Key, so they are written as
+  secrets.
+- The OpenCode path changes from `opencode.jsonc` to `opencode.json`: once the Key
+  goes into this file it is OneAgent's primary write target, and `.json` is OpenCode's
+  own default name. JSONC comment detection no longer looks at the extension (OpenCode
+  parses with JSON5, so a `.json` file may also contain comments); on detection it
+  refuses to write and leaves the original file intact.
+- Deleted: `internal/config/env.go` (`WriteAgentEnv` / `WriteSharedEnv` /
+  `agentEnvVar`), the `credential_delivery` field in `agents.lock.json`, the status
+  fields `paths.env_file` and `backups.env`, and the `source` prefix in the restart
+  instructions and Launch command; Aider switches to loading the one remaining
+  environment file through `--env-file`.
 
 ## Alternatives Considered
 
-### Codex 继续用 env_key，只改 OpenCode / Kilo
+### Keep env_key for Codex and change only OpenCode / Kilo
 
-- 优点：不动 `auth.json`，不碰 Codex 的登录态。
-- 缺点：Codex 是最主要的 Agent，留着 env 文件等于「不依赖环境变量」这个目标没达成，`source` 指引和 Launch 拼接逻辑都得留着。
-- 结论：拒绝。
+- Upside: `auth.json` is left alone, and Codex's login state is untouched.
+- Downside: Codex is the primary Agent, so keeping the env file means the goal of "not
+  depending on environment variables" is not met, and the `source` instructions and
+  the Launch splicing logic all have to stay.
+- Conclusion: rejected.
 
-### `codex login --api-key` 代替直接写 auth.json
+### `codex login --api-key` instead of writing auth.json directly
 
-- 优点：用 Codex 官方入口，格式由它自己保证。
-- 缺点：多一次子进程调用与超时处理，且它会覆盖整个 `auth.json`（丢掉用户的 OAuth 缓存）。直接 merge 只改两个键。
-- 结论：拒绝。
+- Upside: it uses the official Codex entry point, which guarantees the format itself.
+- Downside: one more subprocess call and timeout to handle, and it overwrites the
+  whole of `auth.json` (losing the user's OAuth cache). Merging directly touches only
+  two keys.
+- Conclusion: rejected.
 
 ## Consequences
 
-- `auth_mode = "apikey"` 会让 Codex Desktop 把账号视作 API-Key 认证，ChatGPT 登录相关的功能（Fast mode 等）不可用。这是用托管 provider 的必然结果，CC Switch 也记录了同一现象；OneAgent 的定位就是把 Codex 指向第三方 Provider，所以接受。
-- OpenCode / Kilo 的配置文件从「可以公开」变成「含密钥」，写入路径与权限断言随之收紧，任何未来的读取投影都不能回传这两个文件的原文。
-- `~/.oneagent/env`、`~/.oneagent/agents/*.env` 不再写入。旧版本留下的文件不会被删除，但也不再被引用；用户手工清理。
-- status 传输契约变更（`paths` 少一个键、`backups` 少一个键），已同步 `frontend/src/types/api.ts` 使用方与冻结的 status fixture。
+- `auth_mode = "apikey"` makes Codex Desktop treat the account as API-Key
+  authenticated, so features tied to ChatGPT login (Fast mode and the like) are
+  unavailable. That is an unavoidable result of using a hosted provider, and CC Switch
+  records the same behavior; OneAgent's whole purpose is to point Codex at a
+  third-party Provider, so this is accepted.
+- The OpenCode / Kilo config files go from "can be published" to "contains a secret",
+  so the write path and permission assertions tighten accordingly, and no future read
+  projection may return the raw contents of these two files.
+- `~/.oneagent/env` and `~/.oneagent/agents/*.env` are no longer written. Files left
+  behind by older versions are not deleted, but they are no longer referenced either;
+  users clean them up by hand.
+- The status transport contract changes (`paths` has one key fewer, `backups` one key
+  fewer), and the consumers in `frontend/src/types/api.ts` and the frozen status
+  fixture have been updated to match.

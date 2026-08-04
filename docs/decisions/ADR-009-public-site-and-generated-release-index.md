@@ -1,28 +1,46 @@
-# ADR-009：独立公开站与 GitHub Release 事实源
+# ADR-009: Standalone Public Site and GitHub Release as the Source of Truth
 
-- 状态：Partially Superseded（2026-08-04）——决策 1 中「在同一仓库维护」已被推翻，站点
-  迁出到 [MaimoryLab/OneAgent-site](https://github.com/MaimoryLab/OneAgent-site)；
-  同一决策中「不把营销路由加入本地 Launcher」以及决策 2–5 仍然有效。决策 4 的读取路径
-  变为站点仓库 vendor 的 `data/` 副本，从发行 tag 刷新。当前操作指南见
-  [public-site-operations.md](../public-site-operations.md)，本文件只作背景保留。
-- 日期：2026-07-28（原编号 ADR-006，与《多 Profile 与长期环境管理》撞号，2026-08-04 改为 009；
-  ADR-008 的 Supersedes 指向的是那一份，不是本文）
+- Status: Partially Superseded (2026-08-04) -- "maintained in the same repository" in
+  decision 1 has been overturned, and the site moved out to
+  [MaimoryLab/OneAgent-site](https://github.com/MaimoryLab/OneAgent-site); "do not add
+  marketing routes to the local Launcher" in that same decision, and decisions 2-5,
+  still hold. The read path in decision 4 becomes the `data/` copy vendored by the site
+  repository, refreshed from release tags. For the current operating guide see
+  [public-site-operations.md](../public-site-operations.md); this file is kept as
+  background only.
+- Date: 2026-07-28 (originally numbered ADR-006, which collided with "Multiple Profiles
+  and Long-Term Environment Management", renumbered to 009 on 2026-08-04; the
+  Supersedes line in ADR-008 points at that one, not at this document)
 
-## 背景
+## Context
 
-OneAgent 的 React 前端是随本地 Wails Launcher 打包的操作界面。公开下载、搜索内容、发行证据和企业服务需要静态可索引页面，两者的安全、缓存、路由和发布周期不同。站点构建直接读取 Release API 和仓库 JSON，保持独立发布周期。
+The OneAgent React frontend is the operating UI bundled with the local Wails Launcher.
+Public downloads, searchable content, release evidence, and enterprise services need
+static indexable pages, and the two differ in security, caching, routing, and release
+cadence. The site build reads the Release API and repository JSON directly, keeping an
+independent release cadence.
 
-## 决策
+## Decision
 
-1. 在同一仓库维护独立 `site/` Astro 静态站，不把营销路由加入本地 Launcher。
-2. App 工作流只创建 GitHub Release；站点工作流由站点变更、Release 发布或人工操作独立触发。
-3. 公开版本、发布日期、下载资产、大小和摘要只读取 GitHub Releases API，不读取本地 App 构建目录，也不维护手工回退版本。
-4. Agent 兼容目录直接读取 `agents.lock.json`；Provider 运行时端点和商业披露统一读取 `providers.lock.json`，商业字段不能影响 rank 或技术结论。
-5. 网站默认不加载客户端分析脚本；Launcher 保持默认无遥测。
+1. Maintain a standalone `site/` Astro static site in the same repository, and do not
+   add marketing routes to the local Launcher.
+2. The App workflow only creates a GitHub Release; the site workflow is triggered
+   independently by site changes, a Release publication, or manual action.
+3. Public versions, release dates, download assets, sizes, and digests are read only
+   from the GitHub Releases API, not from a local App build directory, and no
+   hand-maintained fallback version is kept.
+4. The Agent compatibility catalog reads `agents.lock.json` directly; Provider runtime
+   endpoints and commercial disclosure both read `providers.lock.json`, and commercial
+   fields must not influence rank or technical conclusions.
+5. The site loads no client-side analytics scripts by default; the Launcher stays
+   telemetry-free by default.
 
-## 后果
+## Consequences
 
-- Launcher 无需为官网 SEO、域名或外部托管做重构。
-- Draft 和本地构建不会出现在官网；只有已发布 GitHub Release 能产生版本和下载按钮。
-- GitHub Pages 发布不构建 App，App 发布也不构建或部署 Pages。
-- 网站只需要 Node 工具链；App 源代码包不再携带站点源码。
+- The Launcher needs no refactoring for site SEO, domains, or external hosting.
+- Drafts and local builds never appear on the site; only a published GitHub Release can
+  produce a version and a download button.
+- A GitHub Pages deploy does not build the App, and an App release neither builds nor
+  deploys Pages.
+- The site needs only the Node toolchain; the App source package no longer carries the
+  site source.

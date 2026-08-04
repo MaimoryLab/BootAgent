@@ -1,5 +1,7 @@
 # 配置工具选择
 
+[English](../en/03-config-tools.md) · **简体中文**
+
 OneAgent 提供三种配置方式。第一次使用建议选择内置配置；需要多个 Provider 或多个账号时，再选择 CC Switch 等本机工具。
 
 ## 方式一：OneAgent 内置配置

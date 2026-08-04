@@ -1,42 +1,61 @@
-# OneAgent 多渠道分发与合规政策
+# OneAgent multi-channel distribution and compliance policy
 
-## 状态
+## Status
 
-- 状态：Frozen / 规范性政策
-- 生效日期：2026-07-27
-- 适用对象：OneAgent 维护者、构建人员、渠道上传人员、组织发行方和文档维护者
-- 适用渠道：GitHub Release、官网、国内外网盘、企业云盘及其他公开或定向下载渠道
-- 例外处理：任何例外必须先新增 ADR，记录权利依据、风险、负责人和撤回方案
+- Status: Frozen / normative policy
+- Effective date: 2026-07-27
+- Applies to: OneAgent maintainers, build engineers, channel uploaders, organizational
+  distributors, and documentation maintainers
+- Applicable channels: GitHub Release, the official site, domestic and overseas
+  file-sharing services, corporate cloud drives, and any other public or targeted
+  download channel
+- Exceptions: any exception must first add an ADR that records the rights basis, the
+  risk, the owner, and the withdrawal plan
 
-本文是 OneAgent 的工程和运营合规基线，不替代针对具体软件、许可证、商标或运营方式的正式法律意见。
+This document is OneAgent's engineering and operations compliance baseline. It does not
+replace formal legal advice on any specific piece of software, licence, trademark, or
+mode of operation.
 
-## 1. 固定产品定义
+## 1. Fixed product definition
 
-> OneAgent 是通过本地 GUI 帮助用户检测、安装、配置和验证 AI 开发工具的环境激活器。
+> OneAgent is an environment activator that helps users detect, install, configure, and
+> verify AI development tools through a local GUI.
 
-OneAgent 可以通过多个合法渠道分发自己的构建产物，但分发渠道不改变包体的权利要求和安全要求。网盘、企业云盘和 GitHub 都只是下载镜像，不是第三方软件再分发授权的替代品。
+OneAgent may distribute its own build artifacts through multiple lawful channels, but
+the distribution channel does not change the rights requirements or the security
+requirements that apply to the package. File-sharing services, corporate cloud drives,
+and GitHub are download mirrors and nothing more; they are not a substitute for a
+redistribution authorization covering third-party software.
 
-OneAgent 默认不分发第三方 Agent 二进制。Agent 应通过官方安装源、经过书面授权的镜像、用户手动安装或文档引导获得。
+By default OneAgent does not distribute third-party Agent binaries. Agents must be
+obtained from an official installation source, a mirror covered by written
+authorization, a manual user installation, or documentation guidance.
 
-## 2. 多渠道同包原则
+## 2. Identical package across channels
 
-同一版本在不同渠道必须使用完全相同的官方构建产物，不允许渠道运营人员重新压缩、替换文件、追加推广内容或二次签名。
+For a given version, every channel must use exactly the same official build artifact.
+Channel operators must not recompress it, substitute files, append promotional content,
+or re-sign it.
 
-每个公开版本至少包含：
+Every public release contains at least:
 
-- OneAgent 二进制压缩包。
-- 与压缩包对应的 SHA-256。
-- 版本、构建时间、目标环境和发布状态。
-- 第三方许可证清单。当前由仓库根的 [NOTICE](../NOTICE) 承担；它同时区分随包分发的组件
-  与运行时下载、不再分发的组件（Node.js、uv、Agent 包）。生成这份清单的
-  `cmd/oneagent-release` 已于 `23805b0` 移除，因此 `NOTICE` 现在是手工维护的真源，新增
-  随包依赖或界面第三方标识时必须同步。
-- Agent 版本锁定清单和官方来源。
-- 发行说明、已知问题和撤回联系方式。
+- The OneAgent binary archive.
+- The SHA-256 matching that archive.
+- The version, the build time, the target environments, and the release status.
+- The third-party licence inventory. This is currently carried by [NOTICE](../NOTICE) at
+  the repository root; it also separates the components redistributed inside the package
+  from the components downloaded at run time and no longer redistributed (Node.js, uv,
+  Agent packages). `cmd/oneagent-release`, which generated this inventory, was removed
+  in `23805b0`, so `NOTICE` is now a hand-maintained source of truth and must be updated
+  whenever a bundled dependency or an in-app third-party marking is added.
+- The Agent version pinning manifest and the official sources.
+- Release notes, known issues, and a withdrawal contact.
 
-源码 ZIP、SBOM 和签名可以作为附加产物；若某个版本声称提供这些文件，则所有官方镜像必须保持同一版本和同一校验值。
+A source ZIP, an SBOM, and signatures may be shipped as additional artifacts. If a given
+version claims to provide those files, then every official mirror must carry the same
+version and the same checksums.
 
-每个渠道必须在发行台账中记录：
+Every channel must record the following in the release ledger:
 
 ```text
 release_version
@@ -51,145 +70,212 @@ withdrawn_at
 withdrawal_reason
 ```
 
-`status` 只能是 `active`、`deprecated` 或 `withdrawn`。原文件被网盘重新处理或校验值发生变化时，不得继续标记为官方镜像。
+`status` may only be `active`, `deprecated`, or `withdrawn`. Once the original file has
+been reprocessed by a file-sharing service, or its checksum has changed, it must not
+continue to be marked as an official mirror.
 
-## 3. 包体允许内容
+## 3. Permitted package contents
 
-允许进入 OneAgent 发行包的内容：
+The following may enter the OneAgent release package:
 
-- OneAgent 自有 Go 代码和构建后的 React 静态资源。
-- OneAgent 自有图标、文档和配置模板。
-- 许可证明确允许再分发，且已经完成对应义务的第三方依赖。
-- `agents.lock.json`、官方安装入口和手动配置说明。
-- Provider 官网、注册、API Key 和模型文档入口。
-- CC Switch 等第三方配置工具的独立说明文档。
+- OneAgent's own Go code and the built React static assets.
+- OneAgent's own icons, documentation, and Profiles.
+- Third-party dependencies whose licence explicitly permits redistribution and whose
+  corresponding obligations have already been satisfied.
+- `agents.lock.json`, the official installation entry points, and the manual
+  configuration instructions.
+- Entry points to Provider websites, registration, API Keys, and model documentation.
+- Standalone documentation for third-party configuration tools such as CC Switch.
 
-每个第三方文件必须能在权利清单中回答：来源、版本、许可证、是否允许二进制再分发、需要附带什么 Notice、是否需要提供源码、由谁复核。
+For every third-party file, the rights inventory must be able to answer: the source, the
+version, the licence, whether binary redistribution is permitted, what Notice has to be
+included, whether source code has to be provided, and who reviewed it.
 
-## 4. 包体禁止内容
+## 4. Prohibited package contents
 
-以下内容不得进入二进制包、源码包、网盘附件、发行说明或自动化脚本：
+The following must not enter the binary package, the source package, file-sharing
+attachments, the release notes, or the automation scripts:
 
-- 未获再分发授权的 Codex、Claude Code、Cursor、Kiro、OpenClaw、Hermes 或其他第三方 Agent 二进制。
-- 从 npm、uv、GitHub 或其他来源下载后直接复制进包内，但没有完成许可证审查的软件。
-- 修改、破解、补丁化或绕过签名的第三方软件。
-- VPN、代理、节点订阅、机场、专线或其他绕过网络限制的工具和配置。
-- 共享账号、共享 API Key、长期 Token、Cookie、验证码处理或批量注册工具。
-- 用户 HOME、历史配置、日志、Prompt、源代码、认证文件或测试 Key。
-- 未获授权的第三方 Logo、字体、宣传图片和容易造成官方合作误解的品牌资产。
-- 为规避渠道审核而制作的加密包、密码包、分卷包或伪装扩展名。
-- source map、测试缓存、概念图、Docker 测试镜像和非运行必需的开发产物。
+- Codex, Claude Code, Cursor, Kiro, OpenClaw, Hermes, or other third-party Agent
+  binaries that are not covered by a redistribution authorization.
+- Software downloaded from npm, uv, GitHub, or another source and copied straight into
+  the package without a completed licence review.
+- Third-party software that has been modified, cracked, patched, or made to bypass
+  signature checks.
+- VPNs, proxies, node subscriptions, "airport" relay services, dedicated lines, or other
+  tools and configurations for bypassing network restrictions.
+- Shared accounts, shared API Keys, long-lived tokens, cookies, CAPTCHA-solving, or bulk
+  registration tools.
+- User HOME contents, historical configuration, logs, prompts, source code,
+  authentication files, or test Keys.
+- Unauthorized third-party logos, fonts, promotional images, and brand assets that could
+  easily create the impression of an official partnership.
+- Encrypted archives, password-protected archives, split archives, or disguised file
+  extensions produced in order to evade channel review.
+- Source maps, test caches, concept diagrams, Docker test images, and other development
+  artifacts that are not required at run time.
 
-## 5. Agent 获取与安装规则
+## 5. Agent acquisition and installation rules
 
-Agent 获取顺序固定为：
+The Agent acquisition order is fixed as:
 
-1. 官方包管理器或官方发布源。
-2. 具有明确许可证或书面授权的镜像。
-3. 用户手动安装后由 OneAgent 检测。
-4. 只展示官方说明的 `guide-only` 模式。
+1. The official package manager or the official release source.
+2. A mirror with an explicit licence or written authorization.
+3. Detection by OneAgent after the user installs manually.
+4. `guide-only` mode, which shows only the official instructions.
 
-自动安装必须满足：
+Automatic installation must satisfy all of the following:
 
-- 包管理器、包名和平台位于固定 allowlist。
-- Agent 默认安装包管理器解析出的最新版本；需要复现时由调用方显式指定版本。
-- 命令以参数数组执行，禁止 `shell=True` 和动态拼接 shell 命令。
-- 安装前显示软件名称、来源、版本策略和将执行的动作，并由用户确认。
-- API Key、Token 和账号信息不得出现在命令行参数中。
-- 不自动安装 Node.js、Git、VPN 或系统级网络组件。Aider 的外部 Python 3.12 只在用户明确选择 Aider 时由上游安装流程自行要求，绝不进入 OneAgent 包体。
-- 不执行未经固定和审查的 `curl | bash`。
+- The package manager, the package name, and the platform are on a fixed allowlist.
+- By default an Agent installs the latest version resolved by the package manager; when
+  reproducibility is needed, the caller specifies the version explicitly.
+- Commands are executed with an argument array; `shell=True` and dynamically
+  concatenated shell commands are prohibited.
+- Before installing, the software name, the source, the version policy, and the actions
+  about to be taken are shown and confirmed by the user.
+- API Keys, tokens, and account information must not appear in command-line arguments.
+- Node.js, Git, VPNs, and system-level networking components are not installed
+  automatically. Aider's external Python 3.12 is required by the upstream installation
+  flow itself, only when the user explicitly chooses Aider, and never enters the
+  OneAgent package.
+- Executing a `curl | bash` that has not been pinned and reviewed is prohibited.
 
-官方来源不可达时，只能报告不可达并提供手动安装入口。OneAgent 不配置代理，不提供绕过网络限制的说明，也不把第三方二进制转存到网盘作为临时替代。
+When an official source is unreachable, the only permitted response is to report it as
+unreachable and offer a manual installation entry point. OneAgent does not configure
+proxies, does not provide instructions for bypassing network restrictions, and does not
+re-host third-party binaries on a file-sharing service as a stopgap substitute.
 
-## 6. Provider、账号和 API Key
+## 6. Providers, accounts, and API Keys
 
-- 用户自行在 Provider 官方渠道注册或登录。
-- 用户自行创建和管理 API Key。
-- OneAgent 不承诺固定免费额度、永久免费、特定活动资格或账号权益。
-- Key 只保存在用户本机允许的密钥文件中，不进入 profile、日志、截图、遥测、URL、命令行、发行包或测试报告。
-- GUI 必须显示实际 Base URL 和即将发送数据的目标地址。
-- 自定义 Provider 必须拒绝 URL 凭据、非法 scheme 和控制字符。
-- OneAgent 不运营共享 Key 池，不代用户转发模型请求，不把本地激活器描述为统一 API 网关。
+- The user registers or signs in through the Provider's official channels themselves.
+- The user creates and manages API Keys themselves.
+- OneAgent makes no promise of a fixed free quota, permanent free use, eligibility for a
+  particular campaign, or account benefits.
+- Keys are stored only in the permitted key file on the user's own machine, and do not
+  enter Profiles, logs, screenshots, telemetry, URLs, command lines, the release
+  package, or test reports.
+- The GUI must display the actual Base URL and the destination address that data is
+  about to be sent to.
+- A custom Provider must reject URL credentials, invalid schemes, and control
+  characters.
+- OneAgent does not operate a shared Key pool, does not forward model requests on the
+  user's behalf, and does not describe a local activator as a unified API gateway.
 
-如果未来增加统一网关、远程配置、账号体系、下载统计、崩溃上报或请求代理，必须独立评估个人信息、网络数据和生成式人工智能服务相关义务，不能沿用本地工具的默认边界。
+If a unified gateway, remote configuration, an account system, download statistics,
+crash reporting, or request proxying is added in the future, the obligations relating to
+personal information, network data, and generative AI services must be assessed
+independently; the default boundaries of a local tool cannot simply be carried over.
 
-## 7. 品牌和对外文案
+## 7. Brand and public copy
 
-允许使用第三方产品的文字名称描述兼容性，但不得暗示 OneAgent 是相关厂商的官方产品、国内版、联合版本或授权代理。
+Using the textual names of third-party products to describe compatibility is permitted,
+but it must not imply that OneAgent is an official product, a domestic edition, a joint
+edition, or an authorized agent of the vendor in question.
 
-推荐使用：
+Recommended wording:
 
-> OneAgent 是独立开发的环境配置工具，可帮助用户安装或配置部分第三方 AI 开发工具。相关产品和商标归其权利人所有。
+> OneAgent is an independently developed environment configuration tool that helps users
+> install or configure some third-party AI development tools. The relevant products and
+> trademarks belong to their respective rights holders.
 
-禁止使用：
+Prohibited wording:
 
-- “Claude Code 国内官方版”
-- “Codex 绿色破解版”
-- “Cursor 国内增强版”
-- “OpenAI 官方合作安装器”
-- “内置 Claude/Codex，无需官方账号”
+- "Claude Code, official domestic edition"
+- "Codex, cracked portable edition"
+- "Cursor, domestic enhanced edition"
+- "Official OpenAI partner installer"
+- "Claude/Codex built in, no official account needed"
 
-产品主视觉使用 OneAgent 自有资产或通用图标，不把第三方 Logo 作为 OneAgent 的品牌标识。
+The product's primary visual identity uses OneAgent's own assets or generic icons; a
+third-party logo is not used as OneAgent's brand mark.
 
-## 8. 渠道运营规则
+## 8. Channel operations rules
 
-- 渠道上传账号必须由明确负责人管理，不使用无法追溯的个人临时账号作为唯一来源。
-- 官方页面至少公布一个可信 SHA-256 来源；网盘页面中的校验值不能成为唯一校验依据。
-- 不允许渠道方改变文件名中的版本、平台、架构或发布状态。
-- 不在压缩包内植入渠道专属推广、兑换码、共享 Key 或组织业务逻辑。
-- 网盘或平台要求删除时，应保留通知、版本、链接、处理人和处理结果。
-- 发现版权、密钥泄露、恶意篡改或高危漏洞时，所有渠道必须同步撤回，不得只删除 GitHub 版本。
-- 已撤回版本不得换链接继续分发；修复后必须发布新版本和新校验值。
+- Channel upload accounts must be managed by a named owner; an untraceable personal
+  throwaway account must not be the sole source.
+- The official page publishes at least one trustworthy source for the SHA-256; a
+  checksum shown on a file-sharing page cannot be the only basis for verification.
+- Channel operators are not permitted to change the version, platform, architecture, or
+  release status in the file name.
+- No channel-specific promotion, redemption codes, shared Keys, or organizational
+  business logic is embedded inside the archive.
+- When a file-sharing service or platform requires removal, the notice, the version, the
+  link, the person who handled it, and the outcome should be retained.
+- On discovering a copyright issue, a key leak, malicious tampering, or a high-severity
+  vulnerability, every channel must withdraw in sync; deleting only the GitHub version
+  is prohibited.
+- A withdrawn version must not continue to be distributed under a different link; once
+  fixed, a new version with new checksums must be published.
 
-## 9. 发布门禁
+## 9. Release gate
 
-每次公开或定向分发前必须全部通过：
+All of the following must pass before any public or targeted distribution:
 
-### 权利与品牌
+### Rights and brand
 
-- [ ] 包内每个第三方文件都有来源、许可证和再分发依据。
-- [ ] 需要附带的许可证、Notice 或源码已包含。
-- [ ] 不包含未授权 Agent 二进制、字体、Logo 或宣传素材。
-- [ ] 产品名称和宣传文案不造成官方合作或来源混淆。
+- [ ] Every third-party file in the package has a source, a licence, and a
+      redistribution basis.
+- [ ] The licences, Notices, or source code that have to be included are included.
+- [ ] No unauthorized Agent binaries, fonts, logos, or promotional material are
+      included.
+- [ ] The product name and the promotional copy do not create confusion about an
+      official partnership or about origin.
 
-### 安全与隐私
+### Security and privacy
 
-- [ ] secret scan 没有发现 Key、Token、Cookie、账号或本机认证文件。
-- [ ] 包内没有 VPN、代理、节点、绕过脚本或共享凭据。
-- [ ] React 构建没有 source map、远程脚本、远程字体或 CDN 运行依赖。
-- [ ] API Key 不进入日志、URL、命令行、profile、遥测和测试产物。
-- [ ] 自动安装命令全部来自固定 allowlist，并经过参数数组执行。
+- [ ] The secret scan found no Keys, tokens, cookies, accounts, or local authentication
+      files.
+- [ ] The package contains no VPNs, proxies, nodes, bypass scripts, or shared
+      credentials.
+- [ ] The React build has no source maps, remote scripts, remote fonts, or CDN run-time
+      dependencies.
+- [ ] API Keys do not enter logs, URLs, command lines, Profiles, telemetry, or test
+      artifacts.
+- [ ] Every automatic installation command comes from the fixed allowlist and is
+      executed with an argument array.
 
-### 发行完整性
+### Release integrity
 
-- [ ] 在全新临时 HOME 中完成二进制启动和核心流程冒烟。
-- [ ] 包内没有 Agent 二进制、用户配置、测试缓存和历史构建残留。
-- [ ] 版本清单、许可证清单、SHA-256 和发行说明齐全。
-- [ ] 所有渠道上传的是同一份产物，校验值一致。
-- [ ] 渠道台账包含上传人、时间、链接和状态。
-- [ ] 已准备跨渠道撤回和安全事件响应方式。
+- [ ] Binary startup and a smoke test of the core flows completed in a fresh temporary
+      HOME.
+- [ ] The package contains no Agent binaries, user configuration, test caches, or
+      leftovers from previous builds.
+- [ ] The version manifest, the licence inventory, the SHA-256, and the release notes
+      are all complete.
+- [ ] Every channel uploaded the same artifact, with matching checksums.
+- [ ] The channel ledger contains the uploader, the time, the link, and the status.
+- [ ] Cross-channel withdrawal and a security incident response path are ready.
 
-任何一项失败都必须阻止发布。不得以“仅网盘分享”“仅小范围测试”或“用户自行承担风险”为理由跳过门禁。
+Any single failure must block the release. The gate must not be skipped on the grounds
+that it is "only a file-sharing link", "only a small-scale test", or that "users accept
+the risk themselves".
 
-## 10. 合规证据保留
+## 10. Retention of compliance evidence
 
-每个版本至少保留：
+For every version, retain at least:
 
-- 构建 commit、构建环境和构建日志摘要。
-- 发行包文件清单、SBOM 或等价依赖清单。
-- 第三方许可证与权利复核记录。
-- secret、恶意软件和发行策略扫描结果。
-- 二进制 cleanroom 冒烟结果。
-- SHA-256 和渠道台账。
-- 撤回、投诉和安全事件处理记录。
+- The build commit, the build environment, and a summary of the build log.
+- The release package file manifest, and an SBOM or an equivalent dependency inventory.
+- Third-party licence and rights review records.
+- The results of the secret, malware, and release policy scans.
+- The binary cleanroom smoke test results.
+- The SHA-256 and the channel ledger.
+- Records of withdrawals, complaints, and security incident handling.
 
-证据中不得保存用户 API Key、Authorization header、完整模型请求或真实用户目录内容。
+The evidence must not retain user API Keys, Authorization headers, complete model
+requests, or the contents of real user directories.
 
-## 11. 参考依据
+## 11. References
 
-- 《中华人民共和国著作权法》：<https://www.npc.gov.cn/c2/c30834/202011/t20201119_308796.html>
-- 《计算机软件保护条例》：<https://xzfg.moj.gov.cn/front/law/detail?LawID=581&Query=>
-- 《中华人民共和国个人信息保护法》：<https://www.cac.gov.cn/2021-08/20/c_1631050028355286.htm>
-- 《生成式人工智能服务管理暂行办法》：<https://www.cac.gov.cn/2023-07/13/c_1690898327029107.htm>
-- 《网络信息内容生态治理规定》：<https://www.cac.gov.cn/2019-12/20/c_1578375159509309.htm>
-- 《中华人民共和国反不正当竞争法》：<https://www.npc.gov.cn/npc/c2/c30834/202506/t20250627_446247.html>
+- Copyright Law of the People's Republic of China:
+  <https://www.npc.gov.cn/c2/c30834/202011/t20201119_308796.html>
+- Regulations on Computer Software Protection:
+  <https://xzfg.moj.gov.cn/front/law/detail?LawID=581&Query=>
+- Personal Information Protection Law of the People's Republic of China:
+  <https://www.cac.gov.cn/2021-08/20/c_1631050028355286.htm>
+- Interim Measures for the Management of Generative AI Services:
+  <https://www.cac.gov.cn/2023-07/13/c_1690898327029107.htm>
+- Provisions on the Governance of the Online Information Content Ecosystem:
+  <https://www.cac.gov.cn/2019-12/20/c_1578375159509309.htm>
+- Anti-Unfair Competition Law of the People's Republic of China:
+  <https://www.npc.gov.cn/npc/c2/c30834/202506/t20250627_446247.html>

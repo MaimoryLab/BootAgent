@@ -1,33 +1,58 @@
-# ADR-003：三平台运行时与版本锁定发行策略（已废弃）
+# ADR-003: Three-Platform Runtime and Version-Locked Release Policy (Obsolete)
 
-> 状态：**Superseded**（2026-07-31）。当前实现和发行规则由 [ADR-007](ADR-007-wails-v3-go-migration.md)、[ADR-005](ADR-005-channel-neutral-distribution-and-compliance.md) 和 `cmd/oneagent-release` 定义。本文件只保留历史背景，不是安装或发布操作指南。
+> Status: **Superseded** (2026-07-31). The current implementation and release
+> rules are defined by [ADR-007](ADR-007-wails-v3-go-migration.md),
+> [ADR-005](ADR-005-channel-neutral-distribution-and-compliance.md) and
+> `cmd/oneagent-release`. This file is kept for historical background only; it is
+> not an install or release guide.
 
-> 补注（2026-08-04）：本文提到的 `cmd/oneagent-release`、`cmd/oneagent-rc`、
-> `cmd/oneagent-provider-smoke` 已于 `23805b0` 移除，职责交给
-> `.github/workflows/build-artifacts.yml`。相关命令是历史背景，不可执行。
+> Addendum (2026-08-04): `cmd/oneagent-release`, `cmd/oneagent-rc` and
+> `cmd/oneagent-provider-smoke`, mentioned in this document, were removed in
+> `23805b0`, with their responsibilities handed to
+> `.github/workflows/build-artifacts.yml`. The commands involved are historical
+> background and are not executable.
 
-## 历史背景
+## Historical Background
 
-早期 OneAgent 使用跨平台脚本和 Python 标准库实现 Agent catalog、配置适配、安装编排和本地 HTTP GUI。该方案曾强调三平台路径、权限、锁定版本、npm/uv allowlist、完整错误码和 cleanroom 证据。
+Early OneAgent used cross-platform scripts and the Python standard library to
+implement the Agent catalog, config adaptation, install orchestration and a local
+HTTP GUI. That approach emphasized three-platform paths, permissions, locked
+versions, an npm/uv allowlist, a complete set of error codes, and cleanroom
+evidence.
 
-这些产品约束仍然有效，但实现已经迁移为：
+Those product constraints still hold, but the implementation has since moved to:
 
-- Go catalog、provider、install、config、profile、securefs 和 process 包。
-- `cmd/oneagent` 纯 Go CLI 与 `cmd/oneagent-desktop` Wails 应用。
-- React 通过生成的 Wails bindings 调用 Go service。
-- `cmd/oneagent-release` 生成原生 Wails/Go 包、manifest、SHA-256 和第三方 notices。
-- `cmd/oneagent-rc` 与 `cmd/oneagent-provider-smoke` 承担发行候选检查。
+- Go catalog, provider, install, config, profile, securefs and process packages.
+- The pure Go CLI `cmd/oneagent` and the Wails app `cmd/oneagent-desktop`.
+- React calling Go services through generated Wails bindings.
+- `cmd/oneagent-release` producing native Wails/Go packages, manifests, SHA-256
+  values and third-party notices.
+- `cmd/oneagent-rc` and `cmd/oneagent-provider-smoke` carrying out release
+  candidate checks.
 
-## 仍保留的产品约束
+## Product Constraints That Still Hold
 
-- Agent 包不进入 OneAgent 发行包；安装只能来自 lock 声明的官方源或用户明确选择的 HTTPS 镜像。
-- 子进程使用参数数组、受控环境和超时；禁止 shell 拼接和未审查的下载管道。
-- API Key 不进入 profile、日志、URL、命令行、React 状态或发行附件。
-- 配置写入必须备份、原子替换并收紧 Unix mode/Windows ACL。
-- Codex、Claude Code 和 OpenAI-compatible Agent 按实际协议分别探测。
-- Wails Alpha 阶段只发布 `technical-preview-unsigned`；Stable 需要单独的签名、公证和原生验证证据。
-- Aider 是可选外部上游例外：用户选择安装时需要已有 Python 3.12，OneAgent 不捆绑或下载该运行时。
+- Agent packages do not go into the OneAgent release bundle; installation may
+  only come from an official source declared in the lock file, or an HTTPS mirror
+  the user explicitly chose.
+- Subprocesses use argument arrays, a controlled environment and timeouts; shell
+  string concatenation and unreviewed download pipelines are forbidden.
+- API Keys do not go into a profile, a log, a URL, a command line, React state,
+  or a release attachment.
+- Config writes must back up, replace atomically, and tighten the Unix mode or
+  Windows ACL.
+- Codex, Claude Code and OpenAI-compatible Agents are probed separately according
+  to the protocol each one actually uses.
+- During the Wails Alpha phase, only `technical-preview-unsigned` is released;
+  Stable requires separate signing, notarization and native verification
+  evidence.
+- Aider is an optional external upstream exception: when a user chooses to
+  install it, Python 3.12 must already be present, and OneAgent neither bundles
+  nor downloads that runtime.
 
-## 迁移记录
+## Migration Record
 
-Python 实现、Python 测试、PyInstaller/wheel/setuptools 配置和相关工作流已删除。新的验收清单见 [Wails v3 迁移收尾计划](../internal/wails-v3-migration-plan.md)。
+The Python implementation, the Python tests, the PyInstaller/wheel/setuptools
+configuration and the related workflows have been deleted. For the new acceptance
+checklist see the
+[Wails v3 migration wrap-up plan](../internal/wails-v3-migration-plan.md).

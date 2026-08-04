@@ -1,5 +1,7 @@
 # PPIO 账号和 Provider 准备
 
+[English](../en/01-ppio-account.md) · **简体中文**
+
 > 本文用 PPIO 举例。内置的 Novita 和自定义 OpenAI-compatible 端点步骤相同，把官网入口和
 > Base URL 换成对应 Provider 的即可。
 

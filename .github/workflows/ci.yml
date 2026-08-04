@@ -31,6 +31,16 @@ jobs:
       # thing a plain run will not exercise.
       - run: go test -race ./...
 
+  docs:
+    name: Docs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # Neither gate below reads Markdown, so a link broken by a file move and
+      # Chinese left in an English-only doc both land on main unnoticed.
+      - run: python3 scripts/check-docs.py
+
   frontend:
     name: Frontend
     runs-on: ubuntu-latest

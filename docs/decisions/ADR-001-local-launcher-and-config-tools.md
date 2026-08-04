@@ -1,4 +1,4 @@
-# ADR-001：本地启动器采用内置配置加可选配置工具模式
+# ADR-001: A built-in configuration path plus optional config tools
 
 ## Status
 
@@ -10,67 +10,78 @@ Accepted
 
 ## Context
 
-OneAgent 的目标是帮助不同类型的用户激活一个真正可用的本地 AI 开发环境。用户可能只使用一个 Provider，也可能需要在多个 Provider、账号和模型之间切换。
+OneAgent aims to help different kinds of users activate a genuinely usable local AI
+development environment. A user may need only one Provider, or may need to switch between
+several Providers, accounts, and models.
 
-CC Switch 等第三方工具可以帮助用户管理本机 Profile，但把它们直接打进 OneAgent 会引入版本、许可证、安装脚本和配置兼容性风险。
+Third-party tools such as CC Switch can manage local profiles for a user, but bundling
+them into OneAgent would import their version, licence, install script, and configuration
+compatibility risks.
 
 ## Decision
 
-OneAgent 采用三层配置方式：
+OneAgent offers three configuration layers:
 
-1. OneAgent 内置配置：默认路径，负责首次 Provider 激活和 Agent 配置。
-2. CC Switch 等第三方工具：可选路径，通过独立文档使用，不自动安装。
-3. 手动配置：兜底路径，用于未支持 Agent、高级用户和故障排查。
+1. OneAgent's built-in configuration: the default path, responsible for first-time
+   Provider activation and agent configuration.
+2. Third-party tools such as CC Switch: an optional path, documented separately and never
+   installed automatically.
+3. Manual configuration: the fallback, for unsupported agents, advanced users, and
+   debugging.
 
-OneAgent 不把第三方配置工具、第三方托管 API 服务或共享 Provider Key 作为核心依赖。
+OneAgent does not treat a third-party config tool, a third-party hosted API service, or a
+shared Provider key as a core dependency.
 
-所有配置工具说明必须注明：
+Documentation for any config tool must state:
 
-- 官方来源。
-- 支持的 Agent。
-- Profile 字段和 Base URL 格式。
-- API Key 保存位置。
-- 切换后是否需要重启。
-- 配置备份和恢复方式。
+- Its official source.
+- Which agents it supports.
+- Its profile fields and base URL format.
+- Where it stores the API key.
+- Whether a restart is needed after switching.
+- How to back up and restore configuration.
 
 ## Alternatives Considered
 
-### 把 CC Switch 直接内置到启动包
+### Bundle CC Switch directly into the kit
 
-- 优点：用户少一步安装。
-- 缺点：需要承担第三方版本、许可证、签名、更新和配置兼容性问题。
-- 结论：拒绝。OneAgent 通过文档提供可选入口。
+- Upside: one less install step for the user.
+- Downside: OneAgent would own a third party's versioning, licensing, signing, updates,
+  and configuration compatibility.
+- Conclusion: rejected. OneAgent offers it as an optional path through documentation.
 
-### 只支持手动配置
+### Support manual configuration only
 
-- 优点：实现简单，兼容性边界清楚。
-- 缺点：首次用户容易在 Base URL、模型 ID 和配置文件位置上出错。
-- 结论：拒绝。内置配置作为默认路径，手动配置作为兜底。
+- Upside: simple to implement, with clear compatibility boundaries.
+- Downside: first-time users readily get the base URL, model ID, and config file location
+  wrong.
+- Conclusion: rejected. Built-in configuration is the default; manual is the fallback.
 
-### 允许任意第三方配置工具自动写入私有状态文件
+### Let any third-party config tool write private state files automatically
 
-- 优点：可以覆盖更多 Agent。
-- 缺点：私有文件格式不稳定，容易破坏用户配置，也难以审计。
-- 结论：拒绝。只写已经确认的官方配置入口。
+- Upside: would cover more agents.
+- Downside: private file formats are unstable, easy to corrupt, and hard to audit.
+- Conclusion: rejected. Only confirmed official configuration entry points are written.
 
 ## Consequences
 
 ### Positive
 
-- 第一次配置路径简单、可测试。
-- 第三方工具可以独立升级，不拖累 OneAgent。
-- 用户可以按照熟悉程度选择内置配置、CC Switch 或手动配置。
-- OneAgent 不需要承担第三方配置工具的长期维护责任。
+- The first-run configuration path is simple and testable.
+- Third-party tools can upgrade independently without holding OneAgent back.
+- Users can choose built-in configuration, CC Switch, or manual configuration according to
+  their own familiarity.
+- OneAgent takes on no long-term maintenance duty for a third-party config tool.
 
 ### Negative
 
-- 使用 CC Switch 的用户需要阅读额外文档。
-- OneAgent 需要维护配置工具兼容矩阵。
-- 不同 Agent 的重启和配置生效方式无法完全统一。
+- CC Switch users have to read an additional document.
+- OneAgent has to maintain a config tool compatibility matrix.
+- How a restart applies configuration cannot be made uniform across agents.
 
 ## Follow-up
 
-- 为每个配置工具增加 `verified_at`、`source_url` 和 `supported_agents` 元数据。
-- 每次配置工具升级后，重新验证至少一个代表性 Agent。
-- 如果未来要自动安装第三方工具，先增加签名校验、版本锁定和用户确认。
-
+- Add `verified_at`, `source_url`, and `supported_agents` metadata for each config tool.
+- After every config tool upgrade, re-verify at least one representative agent.
+- Before ever installing a third-party tool automatically, add signature verification,
+  version pinning, and user confirmation.

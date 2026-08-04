@@ -1,39 +1,47 @@
-# OneAgent 公开站运营与发布手册
+# OneAgent public site operations and release handbook
 
-状态：已迁出。站点自己的构建命令、环境变量和部署步骤见
-[MaimoryLab/OneAgent-site](https://github.com/MaimoryLab/OneAgent-site) 的 README。
+Status: moved out. For the site's own build commands, environment variables, and
+deployment steps, see the README in
+[MaimoryLab/OneAgent-site](https://github.com/MaimoryLab/OneAgent-site).
 
-公开站曾经是本仓库的 `site/` 目录，现在是独立仓库。本文件只保留仍然约束本仓库的部分，
-不再重复站点侧的操作步骤——两处各写一份必然慢慢分叉。
+The public site used to be this repository's `site/` directory and is now a separate
+repository. This file keeps only the parts that still constrain this repository, and no
+longer repeats the site-side steps -- two copies would drift apart sooner or later.
 
-本文原先描述的 `.github/workflows/technical-preview.yml` 和 `.github/workflows/site.yml`
-都已不存在（本仓库当前只有 `build-artifacts.yml`），按那两个工作流写的发布顺序因此
-已经失效，不要照着执行。
+The `.github/workflows/technical-preview.yml` and `.github/workflows/site.yml` this
+document originally described no longer exist (this repository now has only
+`build-artifacts.yml`), so the release sequence written around those two workflows is
+obsolete. Do not follow it.
 
-## 仍然由本仓库承担的部分
+## What this repository still owns
 
-**GitHub Release 是公开版本与资产的事实源。** 站点在构建时调用 GitHub Releases API，
-只读取已发布、非 Draft 的 Release；页面上的版本标签、发布日期、下载地址、文件大小和
-SHA-256 都来自那里，站点不读取本地 `release/` 目录，不复制下载资产，也不维护版本回退值。
-所以本仓库这边的义务是：Release 一旦发布就是公开事实，资产、校验和、签名状态必须在发布
-**之前**检查完毕。
+**A GitHub Release is the source of truth for a public version and its assets.** At build
+time the site calls the GitHub Releases API and reads only published, non-draft releases.
+The version tag, release date, download URL, file size, and SHA-256 shown on the page all
+come from there. The site does not read a local `release/` directory, does not copy
+download assets, and maintains no fallback version values. This repository's obligation
+follows from that: once a release is published it is public fact, so assets, checksums,
+and signing status must be verified **before** publishing.
 
-**`providers.lock.json` 是商业披露字段的真源。** Provider 的 `relationship`、
-`disclosure`、`referral_url` 在这里维护，且不能影响 Agent rank、兼容性结论、默认选择
-或连接测试。这条边界属于本仓库，站点只把结果展示出来。
+**`providers.lock.json` is the source of truth for commercial disclosure fields.** A
+Provider's `relationship`, `disclosure`, and `referral_url` are maintained here, and they
+must not influence Agent rank, compatibility conclusions, default selection, or connection
+tests. That boundary belongs to this repository; the site only displays the result.
 
-**改 lock 文件不会自动改变站上内容。** 站点把 `agents.lock.json` 和
-`providers.lock.json` vendor 到它自己的 `data/` 目录，从发行 tag 刷新而不是跟随本仓库
-`main`。这是刻意的：站描述的是已发布版本支持什么，跟着 `main` 会把已合并但未发布的
-Agent 宣传成可用。新增 Agent 或调整披露字段后，需要到站点仓库按其 `data/README.md`
-刷新一次。
+**Changing a lock file does not change the site.** The site vendors `agents.lock.json`
+and `providers.lock.json` into its own `data/` directory, refreshed from release tags
+rather than tracking this repository's `main`. This is deliberate: the site describes what
+a published version supports, and following `main` would advertise an Agent that is merged
+but not yet released. After adding an Agent or adjusting a disclosure field, refresh the
+site repository per its `data/README.md`.
 
-**Stable 门禁不变。** 各平台的签名、公证和原生 cleanroom 门禁仍是 App 发布流程的要求，
-GitHub Release 不替代产物验证。
+**The Stable gate is unchanged.** Per-platform signing, notarization, and the native
+cleanroom gate remain requirements of the app release process. A GitHub Release does not
+substitute for verifying the artifacts.
 
-## 历史背景
+## Background
 
-设计决策记录在
-[ADR-009](decisions/ADR-009-public-site-and-generated-release-index.md)。该 ADR 中
-「在同一仓库维护 `site/`」的部分已被本次拆分取代；不把营销路由加入本地 Launcher 的
-结论仍然有效。
+The design decision is recorded in
+[ADR-009](decisions/ADR-009-public-site-and-generated-release-index.md). The part of that
+ADR about maintaining `site/` in the same repository has been superseded by this split;
+its conclusion about not adding marketing routes to the local Launcher still holds.

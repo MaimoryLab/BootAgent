@@ -1,159 +1,184 @@
-# OneAgent 产品边界基线
+# OneAgent Product Boundary Baseline
 
-## 状态
+## Status
 
-- 状态：Frozen / 固定基线
-- 生效日期：2026-07-27
-- 适用范围：OneAgent、本地启动器、公开或定向下载包、所有下载镜像、文档和发行页面
-- 变更方式：任何突破本文件“禁止范围”的需求，必须新增 ADR 并经过合规复核
+- Status: Frozen / fixed baseline
+- Effective date: 2026-07-27
+- Scope: OneAgent, the local launcher, public or targeted download packages, all
+  download mirrors, documentation, and release pages
+- How to change it: any requirement that breaks the "prohibited scope" in this
+  document must add an ADR and pass a compliance review
 
-## 1. 一句话定义
+## 1. One-sentence definition
 
-> OneAgent 是一个帮助用户激活、配置和启动本地 AI 开发环境的工具。
+> OneAgent is a tool that helps users activate, configure, and launch a local AI development environment.
 
-它连接 Provider、模型、Agent、IDE 和本机配置工具，目标是帮助用户完成第一次成功的 AI Agent 请求。
+It connects Providers, models, Agents, IDEs, and local config tools. The goal is to help
+the user complete their first successful AI Agent request.
 
-OneAgent 不是 VPN、代理、跨境网络接入服务、共享 API Key 平台或商业 Agent 包体合集。
+OneAgent is not a VPN, a proxy, a cross-border network access service, a shared API Key
+platform, or a collection of commercial Agent packages.
 
-## 2. 目标用户
+## 2. Target users
 
-OneAgent 面向所有需要本地 AI 开发环境的用户：
+OneAgent is for everyone who needs a local AI development environment:
 
-- 第一次使用 AI Agent 的个人用户。
-- 已有 Provider 账号和 API Key 的开发者。
-- 需要多个 Provider、账号或模型 Profile 的高级用户。
-- 公司、社区和其他组织发行方。
+- Individual users trying an AI Agent for the first time.
+- Developers who already have a Provider account and an API Key.
+- Advanced users who need multiple Providers, accounts, or model Profiles.
+- Companies, communities, and other organization distributors.
 
-组织发行方可以在项目外部提供项目、兑换码或权益说明，但这些内容不属于 OneAgent 核心产品模型。
+Organization distributors may offer programs, redemption codes, or benefit descriptions
+outside the project, but that content is not part of the OneAgent core product model.
 
-## 3. 明确允许的能力
+## 3. Capabilities explicitly allowed
 
-### 3.1 本地启动和配置
+### 3.1 Local launch and configuration
 
-- 启动 `127.0.0.1` 本地 GUI。
-- 检测本机 Agent 和运行环境。
-- 调用官方 npm、uv tool、Git 或系统安装源。
-- 用户手动安装后由 OneAgent 检测。
-- 写入已经确认的官方配置入口。
-- 调用 Provider 的 OpenAI-compatible API 做模型发现和最小请求验证。
+- Launch a local GUI on `127.0.0.1`.
+- Detect the Agents and runtime environment on the machine.
+- Call official npm, uv tool, Git, or system install sources.
+- Detect what the user installed manually.
+- Write to config entry points that have already been confirmed as official.
+- Call a Provider's OpenAI-compatible API for model discovery and minimal request
+  validation.
 
-### 3.2 官方构建、文档和授权镜像
+### 3.2 Official builds, documentation, and licensed mirrors
 
-可以提供：
+The following are permitted:
 
-- 由 OneAgent 官方构建的二进制包和源码包。
-- GitHub、官网、网盘和企业云盘上的同包镜像。
-- Provider 官方注册、API Key 和模型文档。
-- Agent 官方安装说明。
-- 许可证允许的开源软件镜像。
-- 固定版本、SHA-256 校验值、上游地址和许可证文件。
-- 组织发行方在包外维护的项目模板和说明。
+- Binary and source packages built officially by OneAgent.
+- Same-package mirrors on GitHub, the official site, file-hosting services, and
+  enterprise cloud drives.
+- Official Provider registration, API Key, and model documentation.
+- Official Agent install instructions.
+- Mirrors of open-source software where the license permits.
+- Pinned versions, SHA-256 checksums, upstream addresses, and license files.
+- Project templates and instructions that organization distributors maintain outside
+  the package.
 
-同一版本的所有渠道必须使用相同产物和相同 SHA-256。渠道运营人员不得重新打包、替换文件或向压缩包内追加推广内容。
+All channels carrying the same version must use identical artifacts and an identical
+SHA-256. Channel operators must not repackage, replace files, or add promotional content
+inside the archive.
 
-### 3.3 配置工具
+### 3.3 Config tools
 
-可以提供：
+The following are permitted:
 
-- OneAgent 内置配置。
-- CC Switch 等第三方本机 Profile 工具的独立使用说明。
-- 手动配置和恢复备份说明。
+- OneAgent's built-in configuration.
+- Standalone instructions for third-party local Profile tools such as CC Switch.
+- Manual configuration and backup restore instructions.
 
-配置工具只负责本机配置管理，不负责网络绕过。
+Config tools are responsible for local configuration management only, not for network
+circumvention.
 
-## 4. 明确禁止的能力
+## 4. Capabilities explicitly prohibited
 
-以下内容不得进入产品代码、压缩包、官方文档、宣传页或自动化脚本：
+The following must not enter the product code, the archives, the official documentation,
+promotional pages, or automation scripts:
 
-- VPN、代理、机场、专线或其他绕过网络限制的工具。
-- 自动配置代理节点、代理订阅或跨境网络路由。
-- “翻墙下载”“突破限制”“免代理访问受限网站”等产品表述。
-- 自动登录、自动处理验证码、自动领取账户权益。
-- 将 OneAgent 的服务器作为用户访问境外网站的中转代理。
-- 把长期 Provider Key 写入压缩包、前端代码或公共脚本。
-- 未经许可重新分发商业 Agent 包体。
-- 未经许可证确认的开源 Agent 二进制或源码镜像。
-- 为规避渠道审核制作加密包、密码包、分卷包或伪装文件。
-- 使用第三方品牌、Logo 或文案造成 OneAgent 是官方产品或联合产品的误解。
-- 在不同渠道发布版本号相同但内容或校验值不同的压缩包。
-- 默认上传用户 API Key、Prompt、源代码或完整模型请求。
+- VPNs, proxies, "airport" services, dedicated lines, or any other tool for bypassing
+  network restrictions.
+- Automatic configuration of proxy nodes, proxy subscriptions, or cross-border network
+  routing.
+- Product wording such as "download over the wall", "break through restrictions", or
+  "reach restricted sites without a proxy".
+- Automatic login, automatic CAPTCHA solving, or automatic claiming of account benefits.
+- Using OneAgent's servers as a relay proxy for users to reach overseas websites.
+- Writing a long-lived Provider Key into an archive, frontend code, or a public script.
+- Redistributing commercial Agent packages without permission.
+- Mirroring open-source Agent binaries or source without license confirmation.
+- Producing encrypted, password-protected, split, or disguised packages to evade channel
+  review.
+- Using third-party brands, logos, or copy in a way that creates the misimpression that
+  OneAgent is an official or joint product.
+- Publishing archives that share a version number across channels but differ in content
+  or checksum.
+- Uploading user API Keys, prompts, source code, or complete model requests by default.
 
-## 5. 软件获取策略
+## 5. Software acquisition policy
 
-每个 Agent 必须配置一个下载策略：
+Every Agent must be configured with one download strategy:
 
-| 优先级 | 策略 | 说明 |
+| Priority | Strategy | Notes |
 | --- | --- | --- |
-| 1 | 官方安装源 | npm、uv tool、官方 Git、官方发布页 |
-| 2 | 授权镜像 | 有许可证、版本锁定、校验值和上游地址 |
-| 3 | 用户手动安装 | OneAgent 只检测路径和版本 |
-| 4 | 文档引导 | 不自动执行安装，只显示官方步骤 |
+| 1 | Official install source | npm, uv tool, official Git, official release page |
+| 2 | Licensed mirror | Has a license, a pinned version, a checksum, and an upstream address |
+| 3 | User manual install | OneAgent only detects the path and version |
+| 4 | Documentation guidance | Does not run the install; only shows the official steps |
 
-如果官方站点在用户当前网络不可达，OneAgent 只显示“安装源不可达”和可选的手动安装路径，不提供代理或绕过网络限制的方法。
+If the official site is unreachable from the user's current network, OneAgent only shows
+"install source unreachable" plus optional manual install paths. It does not offer a
+proxy or any method of bypassing network restrictions.
 
-## 6. Provider 和 API Key
+## 6. Providers and API Keys
 
-### 6.1 用户自己的账号模式：默认
+### 6.1 The user's own account model: the default
 
 ```text
-用户注册或登录 Provider
-→ 用户创建 API Key
-→ Key 保存在用户本机
-→ OneAgent 写入 Agent 配置
+The user signs up for or logs in to a Provider
+→ The user creates an API Key
+→ The Key is stored on the user's own machine
+→ OneAgent writes the Agent configuration
 ```
 
-用户可以使用 Provider 账户页面显示的公开权益或其他合法额度，但 OneAgent 不承诺固定免费额度、永久免费或特定账户资格。
+Users may use the published benefits shown on their Provider account page, or any other
+lawful quota, but OneAgent makes no promise of a fixed free quota, of permanently free
+access, or of any particular account eligibility.
 
-### 6.2 统一网关模式：不属于当前 MVP
+### 6.2 Unified gateway model: not part of the current MVP
 
-如果以后提供统一 API 网关，必须新增独立产品设计和合规评估，至少包含：
+If a unified API gateway is offered later, it must add its own product design and
+compliance review, covering at least:
 
-- 用户级 Token。
-- 租户级和用户级配额。
-- 速率限制。
-- 成本和余额预警。
-- Key 撤销机制。
-- 日志脱敏和数据保留策略。
-- 服务协议、隐私政策和运营主体信息。
+- Per-user tokens.
+- Tenant-level and user-level quotas.
+- Rate limiting.
+- Cost and balance alerts.
+- A key revocation mechanism.
+- Log redaction and a data retention policy.
+- Terms of service, a privacy policy, and operator entity information.
 
-在完成上述评估前，禁止在启动包中嵌入共享 Provider Key。
+Until that review is complete, embedding a shared Provider Key in the launcher package
+is prohibited.
 
-## 7. 配置工具边界
+## 7. Config tool boundary
 
-### OneAgent 内置配置
+### OneAgent built-in configuration
 
-- 所有用户的默认路径。
-- 负责第一次 Provider 配置和请求验证。
-- 不依赖第三方配置工具。
+- The default path for all users.
+- Responsible for the first Provider setup and request validation.
+- Does not depend on a third-party config tool.
 
 ### CC Switch
 
-- 可选的本机配置 Profile 工具。
-- 不打进启动包。
-- 不由 OneAgent 默认安装。
-- 使用官方项目入口和当前版本说明。
-- 不把 CC Switch 的任何服务地址当作 Provider Base URL。
-- 切换后要求用户重启目标 Agent 并做最小请求验证。
+- An optional local Profile tool.
+- Not bundled into the launcher package.
+- Not installed by OneAgent by default.
+- Uses the official project entry point and the current version's instructions.
+- Must not treat any CC Switch service address as a Provider Base URL.
+- After switching, requires the user to restart the target Agent and run a minimal
+  request validation.
 
-### 手动配置
+### Manual configuration
 
-- 作为所有 Agent 的兜底路径。
-- 只提供已验证字段、配置路径和恢复方式。
-- 不修改未知的私有状态文件。
+- The fallback path for every Agent.
+- Provides only verified fields, config paths, and restore procedures.
+- Does not modify unknown private state files.
 
-## 8. 数据和隐私基线
+## 8. Data and privacy baseline
 
-### 默认不采集
+### Not collected by default
 
-- API Key。
-- 账号密码。
-- Prompt 和源代码。
-- 完整请求体和模型响应。
-- 身份证、手机号、学号等非必要个人信息。
+- API Keys.
+- Account passwords.
+- Prompts and source code.
+- Complete request bodies and model responses.
+- Unnecessary personal information such as ID numbers, phone numbers, or student IDs.
 
-### 如需统计激活
+### If activation statistics are needed
 
-仅允许采集经过说明和同意的最小事件：
+Only the minimal set of events, disclosed and consented to, may be collected:
 
 ```text
 package_version
@@ -164,105 +189,123 @@ result_status
 timestamp
 ```
 
-事件采集应默认关闭或提供明确选择，且不能通过错误日志、崩溃报告或调试模式间接上传 Key 和用户内容。
+Event collection should be off by default or offer an explicit choice, and it must not
+indirectly upload Keys or user content through error logs, crash reports, or debug mode.
 
-## 9. 固定的产品文案
+## 9. Fixed product copy
 
-### 使用
+### Usage
 
-> OneAgent 帮助你注册或登录 Provider、创建 API Key，并完成本地 Agent 的安装和配置。
+> OneAgent helps you sign up for or log in to a Provider, create an API Key, and install and configure a local Agent.
 
-### 网络不可达
+### Network unreachable
 
-> 当前官方安装源不可达。请使用所在组织或网络服务商提供的合规网络接入，或手动安装后返回 OneAgent 检测。OneAgent 不提供 VPN、代理或绕过网络限制的功能。
+> The official install source is currently unreachable. Please use the compliant network access provided by your organization or network service provider, or install manually and return to OneAgent to detect it. OneAgent does not provide VPN, proxy, or network-restriction-bypassing features.
 
-### 公开权益
+### Published benefits
 
-> Provider 的新用户权益、邀请权益和公开说明以账户页面当前显示为准，OneAgent 不保证固定额度或永久免费。
+> A Provider's new-user benefits, referral benefits, and public descriptions are whatever the account page currently shows. OneAgent does not guarantee a fixed quota or permanently free access.
 
 ### API Key
 
-> API Key 由你在 Provider 官方账户中创建，只保存在你的本机。请勿将 Key 发给他人或提交到代码仓库。
+> You create the API Key in your official Provider account, and it is stored only on your own machine. Do not send the Key to anyone else or commit it to a code repository.
 
-## 10. 当前版本固定范围
+## 10. Fixed scope of the current version
 
-### V1 包含
+### Included in V1
 
-- PPIO、Novita 和 Custom OpenAI-compatible Provider。
-- Codex、Claude Code、OpenCode、Kilo CLI、Aider 的本地配置路径。
-- 其他 Agent 的官方安装和配置指引。
-- 模型列表获取和第一次请求验证。
-- OneAgent 内置配置。
-- CC Switch 可选说明文档。
-- 手动配置和备份恢复。
-- 通用项目模板。
+- PPIO, Novita, and Custom OpenAI-compatible Providers.
+- Local config paths for Codex, Claude Code, OpenCode, Kilo CLI, and Aider.
+- Official install and configuration guidance for other Agents.
+- Model list retrieval and first-request validation.
+- OneAgent built-in configuration.
+- Optional CC Switch documentation.
+- Manual configuration and backup restore.
+- Generic project templates.
 
-### V1 不包含
+### Not included in V1
 
-- 组织发行方的专属业务逻辑。
-- 固定免费额度承诺。
-- VPN、代理和跨境网络中转。
-- 共享 Provider Key。
-- 统一 API 网关。
-- 未授权 Agent 包体分发。
-- 默认遥测。
+- Business logic specific to an organization distributor.
+- Promises of a fixed free quota.
+- VPN, proxy, and cross-border network relay.
+- Shared Provider Keys.
+- A unified API gateway.
+- Distribution of unlicensed Agent packages.
+- Telemetry on by default.
 
-### V1 分发形态
+### V1 distribution form
 
-- 通过 GitHub、官网、网盘、企业云盘或其他合法渠道直接分发 OneAgent 官方二进制。
-- 所有渠道只承担镜像作用，不改变包体内容、版本、发布状态和校验值。
-- 默认不把第三方 Agent 二进制放入 OneAgent 压缩包。
-- 每个产物只声明其实际构建和验证过的目标环境，不承诺未验证平台。
-- 平台商店、自动更新、macOS 公证和 Windows Authenticode 不属于当前阶段。
-- 详细规则以 [多渠道分发与合规政策](distribution-compliance-policy.md) 为准。
+- Distribute the official OneAgent binaries directly through GitHub, the official site,
+  file-hosting services, enterprise cloud drives, or other lawful channels.
+- All channels serve only as mirrors; they do not change package contents, version,
+  release status, or checksums.
+- Third-party Agent binaries are not placed in the OneAgent archive by default.
+- Each artifact declares only the target environments it was actually built and verified
+  for, and promises nothing for unverified platforms.
+- Platform stores, automatic updates, macOS notarization, and Windows Authenticode are
+  out of scope for the current stage.
+- The detailed rules are governed by the
+  [Multi-channel distribution and compliance policy](distribution-compliance-policy.md).
 
-## 11. 发布门禁
+## 11. Release gates
 
-每个公开包或组织发行包发布前必须确认：
+Before every public or organization-distributor package is released, confirm:
 
-- [ ] 包体内没有 Key、代理节点、VPN 和未授权二进制。
-- [ ] 包内每个第三方文件都有来源、许可证和再分发依据。
-- [ ] 每个 Agent 都有官方来源、许可证或手动安装说明。
-- [ ] 每个镜像都有版本、SHA-256、负责人、上传时间和可撤回状态。
-- [ ] 同一版本在所有渠道的文件内容和 SHA-256 完全一致。
-- [ ] Provider 文档链接已复核。
-- [ ] CC Switch 仍然是可选文档，不是隐藏依赖。
-- [ ] API Key 不出现在日志、截图、遥测和命令行参数中。
-- [ ] 网络不可达时不会引导用户绕过网络限制。
-- [ ] 公开权益文案没有承诺固定免费额度。
-- [ ] 发行说明只声明当前产物实际构建和验证过的目标环境。
-- [ ] 每个实际发布平台都有原生构建和 cleanroom 验收证据（`ci.yml` 或 Release Candidate 流程）。
-- [ ] 渠道台账已人工同步本次发布（台账为人工流程，没有自动门禁）。
-- [ ] 品牌和文案没有造成官方合作、国内版或授权代理的误解。
-- [ ] 已准备跨渠道撤回、投诉和安全事件处理方式。
-- [ ] 默认安装官方最新版本，发行包附包名和许可证清单；复现任务可显式指定版本。
-- [ ] 未签名构建明确标记为 `technical-preview-unsigned`，没有使用 Stable 标签。
+- [ ] The package contains no Keys, proxy nodes, VPNs, or unlicensed binaries.
+- [ ] Every third-party file in the package has a source, a license, and a redistribution basis.
+- [ ] Every Agent has an official source, a license, or manual install instructions.
+- [ ] Every mirror has a version, SHA-256, owner, upload time, and withdrawable status.
+- [ ] The same version has exactly identical file contents and SHA-256 across all channels.
+- [ ] Provider documentation links have been rechecked.
+- [ ] CC Switch is still optional documentation, not a hidden dependency.
+- [ ] API Keys do not appear in logs, screenshots, telemetry, or command-line arguments.
+- [ ] When the network is unreachable, users are not guided toward bypassing network restrictions.
+- [ ] The published-benefits copy promises no fixed free quota.
+- [ ] The release notes declare only the target environments the current artifacts were actually built and verified for.
+- [ ] Every platform actually released has native build and cleanroom acceptance evidence (`ci.yml` or the Release Candidate process).
+- [ ] The channel ledger has been synced manually for this release (the ledger is a manual process; there is no automated gate).
+- [ ] Branding and copy create no misimpression of official partnership, a domestic edition, or authorized agency.
+- [ ] Cross-channel withdrawal, complaint, and security incident procedures are ready.
+- [ ] The official latest version is installed by default; release packages ship a package name and license manifest; reproduction tasks may pin an explicit version.
+- [ ] Unsigned builds are clearly marked `technical-preview-unsigned` and do not use a Stable label.
 
-完整门禁和证据要求见 [OneAgent 多渠道分发与合规政策](distribution-compliance-policy.md)。
+For the complete gates and evidence requirements, see
+[OneAgent multi-channel distribution and compliance policy](distribution-compliance-policy.md).
 
-## 12. 变更控制
+## 12. Change control
 
-以下变化必须新增 ADR，并重新做合规评估：
+The following changes must add an ADR and redo the compliance assessment:
 
-- 从本地配置改成统一 API 网关。
-- 增加代理、专线或跨境网络能力。
-- 自动安装第三方配置工具。
-- 重新分发商业 Agent 包体。
-- 允许渠道方重新打包、修改官方产物或维护渠道专属版本。
-- 使用第三方品牌资产或官方合作表述。
-- 收集用户账号、组织身份或请求内容。
-- 将启动器扩展为公开商业化 API 服务。
+- Moving from local configuration to a unified API gateway.
+- Adding proxy, dedicated line, or cross-border network capability.
+- Automatically installing a third-party config tool.
+- Redistributing commercial Agent packages.
+- Allowing channel operators to repackage, modify official artifacts, or maintain
+  channel-specific builds.
+- Using third-party brand assets or official-partnership wording.
+- Collecting user accounts, organization identity, or request contents.
+- Extending the launcher into a public commercial API service.
 
-## 官方参考
+## Official references
 
-- 《中华人民共和国计算机信息网络国际联网管理暂行规定（2024 修订）》：<https://xzfg.moj.gov.cn/law/detail?LawID=460>
-- 工业和信息化部关于清理规范互联网网络接入服务市场的通知：<https://www.miit.gov.cn/zwgk/zcwj/wjfb/tz/art/2017/art_a940645e940946e1a62cd6c90a4e994e.html>
-- 《中华人民共和国个人信息保护法》：<https://www.cac.gov.cn/2021-08/20/c_1631050028355286.htm>
-- 《中华人民共和国著作权法》：<https://www.npc.gov.cn/c2/c30834/202011/t20201119_308796.html>
-- 《计算机软件保护条例》：<https://xzfg.moj.gov.cn/front/law/detail?LawID=581&Query=>
-- 《生成式人工智能服务管理暂行办法》：<https://www.cac.gov.cn/2023-07/13/c_1690898327029107.htm>
-- 《网络信息内容生态治理规定》：<https://www.cac.gov.cn/2019-12/20/c_1578375159509309.htm>
-- 《中华人民共和国反不正当竞争法》：<https://www.npc.gov.cn/npc/c2/c30834/202506/t20250627_446247.html>
-- PPIO 官网：<https://ppio.com/>
-- PPIO API Key 文档：<https://resource.ppio.com/docs/support/api-key>
-- CC Switch 官方仓库：<https://github.com/farion1231/cc-switch>
+- Interim Provisions of the People's Republic of China on the Administration of
+  International Networking of Computer Information Networks (2024 revision):
+  <https://xzfg.moj.gov.cn/law/detail?LawID=460>
+- Ministry of Industry and Information Technology notice on cleaning up and regulating
+  the internet network access service market:
+  <https://www.miit.gov.cn/zwgk/zcwj/wjfb/tz/art/2017/art_a940645e940946e1a62cd6c90a4e994e.html>
+- Personal Information Protection Law of the People's Republic of China:
+  <https://www.cac.gov.cn/2021-08/20/c_1631050028355286.htm>
+- Copyright Law of the People's Republic of China:
+  <https://www.npc.gov.cn/c2/c30834/202011/t20201119_308796.html>
+- Regulations on the Protection of Computer Software:
+  <https://xzfg.moj.gov.cn/front/law/detail?LawID=581&Query=>
+- Interim Measures for the Administration of Generative Artificial Intelligence Services:
+  <https://www.cac.gov.cn/2023-07/13/c_1690898327029107.htm>
+- Provisions on the Governance of the Online Information Content Ecosystem:
+  <https://www.cac.gov.cn/2019-12/20/c_1578375159509309.htm>
+- Anti-Unfair Competition Law of the People's Republic of China:
+  <https://www.npc.gov.cn/npc/c2/c30834/202506/t20250627_446247.html>
+- PPIO official site: <https://ppio.com/>
+- PPIO API Key documentation: <https://resource.ppio.com/docs/support/api-key>
+- CC Switch official repository: <https://github.com/farion1231/cc-switch>

@@ -1,8 +1,9 @@
-# ADR-005：渠道无关的二进制分发与合规门禁
+# ADR-005: Channel-Neutral Binary Distribution and Compliance Gates
 
-> 补注（2026-08-04）：本文提到的 `cmd/oneagent-release`、`cmd/oneagent-rc`、
-> `cmd/oneagent-provider-smoke` 已于 `23805b0` 移除，职责交给
-> `.github/workflows/build-artifacts.yml`。相关命令是历史背景，不可执行。
+> Addendum (2026-08-04): `cmd/oneagent-release`, `cmd/oneagent-rc`, and
+> `cmd/oneagent-provider-smoke`, all mentioned below, were removed in `23805b0`;
+> their responsibilities moved to `.github/workflows/build-artifacts.yml`. The
+> commands here are historical background and are not executable.
 
 ## Status
 
@@ -14,92 +15,155 @@ Accepted
 
 ## Context
 
-早期发行计划以 GitHub Actions、四平台产物和 GitHub Release 为中心。当前产品目标已经收敛为直接分发 OneAgent 二进制包，下载渠道可能是 GitHub、官网、网盘或企业云盘，并不固定在某个平台。
+The early release plan was built around GitHub Actions, four-platform artifacts, and
+GitHub Releases. The current product goal has narrowed to distributing the OneAgent
+binary package directly, where the download channel may be GitHub, the official
+site, a file-sharing service, or a corporate cloud drive, and is not tied to any one
+platform.
 
-如果每个渠道独立重新打包，或者把第三方 Agent 二进制转存到网盘，会产生版本不可追溯、校验值不一致、许可证义务遗漏、品牌混淆和安全撤回不完整等问题。渠道可用也不代表包体内容具有再分发权利。
+If every channel repackages independently, or third-party Agent binaries get
+re-hosted on a file-sharing service, the result is untraceable versions,
+inconsistent checksums, missed licence obligations, brand confusion, and incomplete
+security withdrawals. A channel being available also does not mean the package
+contents carry redistribution rights.
 
 ## Decision
 
-### 分发模型
+### Distribution model
 
-OneAgent 采用“一个官方构建、多个同包镜像”的分发模型：
+OneAgent uses a "one official build, many identical mirrors" distribution model:
 
-- GitHub、官网、网盘和企业云盘只是可替换的下载渠道。
-- 同一版本的所有渠道必须分发字节一致、SHA-256 一致的产物。
-- 渠道方不得重新压缩、替换文件、加入推广内容或改变版本标识。
-- 每个镜像写入渠道台账，并支持跨渠道同步撤回。台账为人工流程，没有自动门禁。
+- GitHub, the official site, file-sharing services, and corporate cloud drives are
+  interchangeable download channels, nothing more.
+- Every channel for a given version must distribute byte-identical artifacts with
+  identical SHA-256 checksums.
+- Channel operators must not recompress, substitute files, add promotional content,
+  or alter version identifiers.
+- Every mirror is recorded in the channel ledger, which supports withdrawal
+  synchronized across channels. The ledger is a manual process with no automated
+  gate.
 
-### 包体边界
+### Package boundary
 
-- 默认只分发 OneAgent 自有代码和完成许可证义务的运行依赖。
-- 不分发第三方 Agent 二进制，不把官方可下载等同于允许再分发。
-- Agent 安装继续采用官方源、授权镜像、用户手动安装和 `guide-only` 的降级顺序。
-- 不捆绑 Node.js、Git Bash、VPN、代理、共享 Key 或第三方配置工具；Aider 的 Python 3.12 仅是用户选择 Aider 时的外部上游前置条件。
+- By default, only OneAgent's own code and the runtime dependencies whose licence
+  obligations have been satisfied are distributed.
+- Third-party Agent binaries are not distributed; being officially downloadable is
+  not equivalent to being redistributable.
+- Agent installation keeps its fallback order: official source, authorized mirror,
+  manual user installation, then `guide-only`.
+- Node.js, Git Bash, VPNs, proxies, shared Keys, and third-party configuration tools
+  are not bundled. Aider's Python 3.12 is an external upstream prerequisite that
+  applies only when the user chooses Aider.
 
-### 当前发行范围
+### Current release scope
 
-- 当前目标是可直接下载和运行的技术预览二进制包。分渠道分发不要求四平台全部齐备，但每个实际发布的平台仍须在对应操作系统原生构建，并以 `ci.yml` 的 cleanroom 作业或 Release Candidate 流程作为平台验收证据。
-- 每个产物只声明其实际构建和验证过的目标环境，不对未构建环境作兼容承诺。
-- 平台签名、公证、商店分发和自动更新不属于当前阶段。
-- 未完成更高等级发行门禁前继续使用 `technical-preview-unsigned`，不使用 Stable 标签。Stable 门槛本身仍然有效，并由 `cmd/oneagent-release` 的后续签名阶段对产物执行验证（macOS `codesign` / Windows Authenticode）；当前阶段只是不发布 Stable。
+- The current target is a technical preview binary package that can be downloaded
+  and run directly. Per-channel distribution does not require all four platforms to
+  be complete, but each platform that is actually released must still be built
+  natively on the corresponding operating system, with the `ci.yml` cleanroom job or
+  the Release Candidate process as the platform acceptance evidence.
+- Each artifact declares only the target environments it was actually built and
+  verified on, and makes no compatibility promise for environments that were not
+  built.
+- Platform signing, notarization, store distribution, and auto-update are out of
+  scope for the current stage.
+- `technical-preview-unsigned` remains in use until the higher-tier release gates
+  are met; the Stable label is not used. The Stable bar itself remains in force and
+  is verified against the artifacts by the later signing stage of
+  `cmd/oneagent-release` (macOS `codesign` / Windows Authenticode); the current
+  stage simply does not publish Stable.
 
-### 合规门禁
+### Compliance gates
 
-所有渠道共享同一套权利、品牌、secret、安全、隐私、包体和渠道台账检查。完整规范见 [OneAgent 多渠道分发与合规政策](../distribution-compliance-policy.md)。
+All channels share one set of rights, brand, secret, security, privacy, package, and
+channel-ledger checks. For the full specification see
+[OneAgent multi-channel distribution and compliance policy](../distribution-compliance-policy.md).
 
 ## Relationship To Previous Decisions
 
-- ADR-002 的网络访问、共享 Key、第三方 Agent 和配置工具边界继续有效。
-- ADR-003 的版本锁定、配置适配和权限约束继续有效；其旧运行时实现已由 ADR-007 的 Go/Wails 路径取代。
-- ADR-003 中“四平台同时作为当前发行门槛”的部分被本 ADR 收窄：解除“四平台必须同时齐备”的耦合，不解除任何单平台的原生构建与验收要求；平台矩阵可以作为后续扩展，不再阻塞当前渠道分发目标。
-- ADR-004 的按 Agent 协议验证继续有效。
+- The ADR-002 boundaries on network access, shared Keys, third-party Agents, and
+  configuration tools remain in force.
+- The ADR-003 version pinning, config adaptation, and permission constraints remain
+  in force; its old runtime implementation has been replaced by the Go/Wails path in
+  ADR-007.
+- The part of ADR-003 that made "all four platforms simultaneously" the current
+  release bar is narrowed by this ADR: the coupling requiring all four platforms to
+  be complete at once is removed, and no single platform's native build and
+  acceptance requirement is removed. The platform matrix can be a later expansion
+  and no longer blocks the current channel distribution goal.
+- The ADR-004 per-Agent protocol verification remains in force.
 
 ## Alternatives Considered
 
-### 指定一个渠道为权威源，其余标注为镜像
+### Designate one channel as the authoritative source and mark the rest as mirrors
 
-- 优点：概念简单，信任链清晰。
-- 缺点：接收方需要跨渠道核对才能建立信任，而离线拷贝和企业云盘根本无法核对。权威源不可达时，镜像产物退化为不可验证。
-- 结论：拒绝。可验证性必须内含在产物本身，而不是依附于下载来源。
+- Pro: conceptually simple, with a clear chain of trust.
+- Con: recipients have to cross-check across channels to establish trust, and offline
+  copies and corporate cloud drives cannot be cross-checked at all. When the
+  authoritative source is unreachable, mirror artifacts degrade to unverifiable.
+- Conclusion: rejected. Verifiability must be contained in the artifact itself rather
+  than depend on the download source.
 
-### 允许渠道重打包，但由渠道重新生成 manifest 与校验和
+### Allow channels to repackage, with the channel regenerating the manifest and checksums
 
-- 优点：渠道可以自由添加自己的说明文件或调整目录结构。
-- 缺点：等于每个渠道各自签发一套校验值，接收方无法判断哪一套是官方的，恶意篡改与善意重打包不可区分。
-- 结论：拒绝。渠道特定说明只能写在渠道页面，不进包体。
+- Pro: channels are free to add their own notes or adjust the directory layout.
+- Con: this amounts to each channel issuing its own set of checksums; recipients
+  cannot tell which set is official, and malicious tampering becomes
+  indistinguishable from well-intentioned repackaging.
+- Conclusion: rejected. Channel-specific notes belong on the channel page, not in the
+  package.
 
-### 引入 GPG 或 sigstore 发布签名替代校验和自证
+### Adopt GPG or sigstore release signing in place of self-attesting checksums
 
-- 优点：能提供来源证明，而非仅完整性证明。
-- 缺点：需要密钥管理、轮换与吊销流程，接收方还需安装验证工具。当前连 macOS/Windows 代码签名证书都没有，先做发布签名属于顺序颠倒。
-- 结论：暂不采用。取得代码签名证书、进入 Stable 路径后重新评估，届时需要新的 ADR。
+- Pro: provides proof of provenance rather than only proof of integrity.
+- Con: it requires key management, rotation, and revocation processes, and recipients
+  also have to install verification tooling. We do not yet have even macOS/Windows
+  code signing certificates, so doing release signing first is out of order.
+- Conclusion: not adopted for now. Reassess after obtaining code signing certificates
+  and entering the Stable path; that will require a new ADR.
 
-### 把全部合规规则继续散列在 README 与产品边界基线中
+### Keep all compliance rules scattered across the README and the product boundary baseline
 
-- 优点：不增加文档数量。
-- 缺点：本次落地前的状态已经证明会漂移——同一批规则在两处措辞和粒度都不同，发包时无法确定以哪份为准，并且出现过文档声称门禁已解除而代码仍在强制的矛盾。
-- 结论：拒绝。改为分层：产品边界基线负责“能不能做”的准入判断，本 ADR 与合规政策负责“怎么发”的操作约束，README 保留面向读者的摘要并链向政策。三者不重复列举同一条规则。
+- Pro: no increase in the number of documents.
+- Con: the state before this work landed already proved that this drifts -- the same
+  set of rules had different wording and granularity in two places, there was no way
+  to tell which one governed at release time, and at one point the docs claimed a
+  gate had been lifted while the code still enforced it.
+- Conclusion: rejected. Replaced by a layered split: the product boundary baseline
+  owns the "may we do this" admission decision, this ADR and the compliance policy
+  own the "how do we ship it" operational constraints, and the README keeps a
+  reader-facing summary that links to the policy. None of the three restates the same
+  rule.
 
 ## Consequences
 
 ### Positive
 
-- GitHub、网盘和官网可以使用相同产物，不需要维护渠道分支。
-- 用户可以通过 SHA-256 判断镜像是否被替换。
-- 不把第三方 Agent 包体混入 OneAgent，降低版权、供应链和版本维护风险。
-- 发生漏洞、密钥泄露或版权投诉时，可以定位并同步撤回全部渠道。
+- GitHub, file-sharing services, and the official site can use the same artifact, with
+  no channel branches to maintain.
+- Users can tell from the SHA-256 whether a mirror has been substituted.
+- Not mixing third-party Agent packages into OneAgent lowers copyright, supply chain,
+  and version maintenance risk.
+- When a vulnerability, key leak, or copyright complaint occurs, every channel can be
+  located and withdrawn in sync.
 
 ### Negative
 
-- 网络不可达时不能通过转存第三方 Agent 二进制保证一键安装。
-- 需要维护渠道台账、许可证清单和跨渠道撤回流程。
-- 未覆盖的平台不能因为源码理论兼容就出现在发行承诺中。
+- When the network is unreachable, one-click installation cannot be guaranteed by
+  re-hosting third-party Agent binaries.
+- The channel ledger, licence inventory, and cross-channel withdrawal process have to
+  be maintained.
+- Platforms that are not covered must not appear in release promises just because the
+  source is theoretically compatible.
 
 ## Release Gate
 
-- 所有镜像 SHA-256 一致。
-- 包内不存在未授权 Agent 二进制、共享凭据、代理工具和用户配置。
-- 权利清单、第三方许可证、版本清单和发行说明齐全。
-- 自动安装来源位于固定 allowlist。
-- 技术预览状态、目标环境和已知限制明确。
-- 渠道负责人、链接、上传时间和撤回状态可追溯。
+- SHA-256 identical across all mirrors.
+- No unauthorized Agent binaries, shared credentials, proxy tools, or user configs in
+  the package.
+- Rights inventory, third-party licences, version manifest, and release notes all
+  complete.
+- Automatic installation sources confined to a fixed allowlist.
+- Technical preview status, target environments, and known limitations stated
+  explicitly.
+- Channel owner, link, upload time, and withdrawal status traceable.
