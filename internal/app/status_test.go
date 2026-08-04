@@ -198,6 +198,22 @@ func TestSaveProfileUseCaseWritesOnlyPublicSummary(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
+	providerEntry, err := core.providers.Get("ppio")
+	if err != nil || providerEntry.APIKey != "new-provider-key" {
+		t.Fatalf("profile edit replaced Provider key: %q, %v", providerEntry.APIKey, err)
+	}
+	if err := core.providers.SaveKey(context.Background(), "novita", "novita-key"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := core.SaveProfile(context.Background(), SaveProfileOptions{
+		ID: "team", Label: "Novita", Provider: "novita", Model: "model-c", AgentIDs: []string{"codex"},
+	}); err != nil {
+		t.Fatalf("profile provider switch with Provider key failed: %v", err)
+	}
+	providerEntry, err = core.providers.Get("novita")
+	if err != nil || providerEntry.APIKey != "novita-key" {
+		t.Fatalf("provider switch changed Provider key: %q, %v", providerEntry.APIKey, err)
+	}
 	if key, err := core.profiles.ReadSecret(context.Background(), "team"); err != nil || key != "sk-secret" {
 		t.Fatalf("blank profile edit replaced its saved key: %q, %v", key, err)
 	}
@@ -208,6 +224,25 @@ func TestSaveProfileUseCaseWritesOnlyPublicSummary(t *testing.T) {
 	wire, err := json.Marshal(summary)
 	if err != nil || strings.Contains(string(wire), "sk-secret") || strings.Contains(string(wire), "api_key") {
 		t.Fatalf("summary leaked secret data: %s (%v)", wire, err)
+	}
+}
+
+func TestSaveProfileCanSwitchAKeylessProfileProvider(t *testing.T) {
+	home := t.TempDir()
+	core := NewUseCases(StatusOptions{
+		Home:     home,
+		Platform: platform.For("linux", "amd64"),
+		Lookup:   func(string) (string, bool) { return "", false },
+	})
+	if _, err := core.SaveProfile(context.Background(), SaveProfileOptions{
+		ID: "draft", Provider: "ppio", Model: "model-a", AgentIDs: []string{"codex"},
+	}); err != nil {
+		t.Fatalf("keyless Profile create failed: %v", err)
+	}
+	if _, err := core.SaveProfile(context.Background(), SaveProfileOptions{
+		ID: "draft", Provider: "novita", Model: "model-b", AgentIDs: []string{"codex"},
+	}); err != nil {
+		t.Fatalf("keyless Profile provider switch failed: %v", err)
 	}
 }
 

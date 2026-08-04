@@ -61,10 +61,9 @@ export function ProfilesPage() {
   // or the ID, so demanding it here was stricter than the write path.
   const canSave = Boolean(editor?.id.trim() && editor.model.trim() && editor.agentIds.length);
 
-  // Creating a Profile goes through onboarding: it collects the Agent, key,
-  // model and name in order, tests the connection, and the install writes the
-  // Profile itself. The old inline form asked for the same fields without ever
-  // verifying them.
+  // Creating a Profile goes through onboarding: it collects the Agent, Provider,
+  // model and name in order, tests the saved Provider connection, and the
+  // install writes the Profile itself.
   const startSetup = () => {
     dispatch({ type: "START_SETUP" });
     navigate("/setup/agents");
@@ -106,7 +105,9 @@ export function ProfilesPage() {
         agents: profile.agentIds,
         profile_agents: profile.agentIds,
         provider: profile.provider,
-        api_base_url: profile.baseUrl || "",
+        // The endpoint belongs to the Provider. Do not replay a stale copy
+        // retained by an older Profile record.
+        api_base_url: "",
         api_key: "",
         model: profile.model,
         profile_id: profile.id,

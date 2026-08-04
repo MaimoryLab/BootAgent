@@ -127,6 +127,32 @@ func TestActivateAgentReusesProfileKeyAndDiscoversModel(t *testing.T) {
 	}
 }
 
+func TestActivateAgentPrefersProviderKeyOverLegacyProfileSecret(t *testing.T) {
+	home := t.TempDir()
+	core := activationCore(t, home, provider.NewClient(nil), "linux")
+	if _, err := core.SaveProfile(context.Background(), SaveProfileOptions{
+		ID: "team", Provider: "ppio", Model: "model-a", APIKey: "legacy-secret", AgentIDs: []string{"codex"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := core.providers.SaveKey(context.Background(), "ppio", "provider-secret"); err != nil {
+		t.Fatal(err)
+	}
+	result, err := core.ActivateAgent(context.Background(), ActivateAgentOptions{
+		AgentID: "codex", Provider: "ppio", ProfileID: "team", Model: "model-a",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	auth, err := os.ReadFile(filepath.Join(home, ".codex", "auth.json"))
+	if err != nil || !strings.Contains(string(auth), "provider-secret") || strings.Contains(string(auth), "legacy-secret") {
+		t.Fatalf("provider key was not authoritative: %q, %v", auth, err)
+	}
+	if result.AgentID != "codex" {
+		t.Fatalf("activation result = %#v", result)
+	}
+}
+
 func TestActivateAgentDispatchesAllManagedAdapters(t *testing.T) {
 	home := t.TempDir()
 	core := activationCore(t, home, provider.NewClient(nil), "linux")

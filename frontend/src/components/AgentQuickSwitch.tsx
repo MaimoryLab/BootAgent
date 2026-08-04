@@ -3,7 +3,7 @@ import { useState } from "react";
 
 import { api, describeError } from "../backend/api";
 import { useI18n } from "../i18n";
-import type { AgentStatus, ProfileSummary } from "../types/api";
+import type { AgentStatus, ProfileSummary, StatusResponse } from "../types/api";
 
 /**
  * One-click switching between the Profiles that already cover this Agent.
@@ -22,11 +22,13 @@ export function AgentQuickSwitch({
   agentId,
   status,
   profiles,
+  providers,
   onSwitched,
 }: {
   agentId: string;
   status: AgentStatus;
   profiles: ProfileSummary[];
+  providers?: StatusResponse["providers"];
   onSwitched: () => void | Promise<void>;
 }) {
   const { t } = useI18n();
@@ -44,9 +46,9 @@ export function AgentQuickSwitch({
       await api.activateAgent(agentId, {
         provider: profile.provider,
         apiBaseUrl: "",
-        // Left empty on purpose: the backend resolves the key from the Profile
-        // secret or the Provider record, so the switch never handles a plaintext
-        // key and never needs the user to re-enter one.
+        // Left empty on purpose: the backend resolves the key from the Provider
+        // (with a legacy Profile-secret fallback), so this switch never handles
+        // a plaintext key or asks the user to re-enter one.
         apiKey: "",
         model: profile.model || "",
         profileId: profile.id,
@@ -66,9 +68,10 @@ export function AgentQuickSwitch({
       <div className="quick-switch-options" role="group" aria-label={t("快速切换")}>
         {candidates.map((profile) => {
           const active = status.profileId === profile.id;
-          // hasKey covers the Profile's own secret; a Provider key would also do,
-          // but the summary cannot see it, so this stays conservative.
-          const usable = profile.hasKey && Boolean(profile.model);
+          const providerHasKey = Boolean(providers?.[profile.provider]?.has_key);
+          // A Provider key is authoritative; hasKey only covers old Profiles
+          // that still have a legacy secret file.
+          const usable = Boolean(profile.model) && (providerHasKey || profile.hasKey);
           return (
             <button
               key={profile.id}

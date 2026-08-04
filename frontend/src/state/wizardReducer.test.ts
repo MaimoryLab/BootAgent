@@ -53,6 +53,34 @@ describe("wizardReducer", () => {
     expect(state.selectedAgentIds).toEqual(["opencode"]);
   });
 
+  it("does not carry a derived Profile into a different Agent pairing", () => {
+    const state = wizardReducer(
+      {
+        ...initialWizardState,
+        selectedAgentIds: ["codex"],
+        profileId: "codex-ppio",
+        profileLabel: "Team",
+        connection: successProbe,
+        connectionState: "success",
+        keyVerified: true,
+        models: ["old-model"],
+        modelsState: "success",
+        modelsMessage: "old list",
+        model: "old-model",
+      },
+      { type: "SELECT_AGENT", agentId: "opencode" },
+    );
+    expect(state.profileId).toBe("");
+    expect(state.profileLabel).toBe("");
+    expect(state.connection).toBeNull();
+    expect(state.connectionState).toBe("idle");
+    expect(state.keyVerified).toBe(false);
+    expect(state.models).toEqual([]);
+    expect(state.modelsState).toBe("idle");
+    expect(state.modelsMessage).toBe("");
+    expect(state.model).toBe("");
+  });
+
   it("clears a previous run when setup restarts but keeps the status snapshot", () => {
     // Entering onboarding again from the overview or the Profile page must not
     // inherit the last run's Agent, model or install log.
@@ -82,6 +110,8 @@ describe("wizardReducer", () => {
       models: ["model-a"],
       modelsState: "success" as const,
       model: "model-a",
+      profileId: "codex-ppio",
+      profileLabel: "Team PPIO",
     };
     state = wizardReducer(state, { type: "SET_HAS_API_KEY", value: true });
     expect(state.hasApiKey).toBe(true);
@@ -90,6 +120,8 @@ describe("wizardReducer", () => {
     expect(state.connection).toBeNull();
     expect(state.models).toEqual([]);
     expect(state.model).toBe("");
+    expect(state.profileId).toBe("");
+    expect(state.profileLabel).toBe("");
     state = wizardReducer(state, { type: "SET_HAS_API_KEY", value: false });
     expect(state.connectionState).toBe("idle");
   });

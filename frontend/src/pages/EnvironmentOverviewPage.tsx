@@ -6,7 +6,9 @@ import { DesktopAppSection } from "../components/DesktopAppSection";
 import { PageScaffold } from "../components/PageScaffold";
 import { RuntimeSection } from "../components/RuntimeSection";
 import { useI18n } from "../i18n";
+import { profileAgentIdForDesktop } from "../state/desktopSetup";
 import { useWizard } from "../state/WizardContext";
+import type { AgentStatus } from "../types/api";
 
 export function EnvironmentOverviewPage() {
   const { t } = useI18n();
@@ -21,7 +23,10 @@ export function EnvironmentOverviewPage() {
   };
   const startDesktopSetup = () => {
     dispatch({ type: "START_DESKTOP_SETUP" });
-    navigate("/setup/desktop/agents");
+    navigate("/setup/agents");
+  };
+  const editDesktopProfile = () => {
+    if (status?.desktopAgent?.id) navigate(`/agents/${status.desktopAgent.id}`);
   };
 
   if (state.statusState === "loading" && !status) {
@@ -48,7 +53,24 @@ export function EnvironmentOverviewPage() {
     .sort((first, second) => first.rank - second.rank)
     .filter((item) => status.agents[item.id]?.installed);
   const desktopInstalled = Boolean(status.desktopAgent?.installed);
-  const profiles = new Map(status.profiles.map((profile) => [profile.id, profile.label]));
+  const profiles = new Map(status.profiles.map((profile) => [profile.id, profile]));
+  const profileForAgent = (agentId: string, agent: AgentStatus) => {
+    if (agent.profileId) return profiles.get(agent.profileId);
+    const active = status.activeProfile ? profiles.get(status.activeProfile) : undefined;
+    if (active?.agentIds?.includes(agentId)) return active;
+    return status.profiles.find((profile) => profile.agentIds?.includes(agentId));
+  };
+  const desktopBinding = status.agents[profileAgentIdForDesktop(status.desktopAgent)];
+  const desktopProfileID = status.desktopAgent.profileId || desktopBinding?.profileId;
+  const desktopProfile = desktopProfileID
+    ? status.profiles.find((profile) => profile.id === desktopProfileID)
+    : undefined;
+  const desktopProviderName = desktopProfile
+    ? status.providers[desktopProfile.provider]?.name || desktopProfile.provider
+    : desktopBinding?.provider
+      ? status.providers[desktopBinding.provider]?.name || desktopBinding.provider
+      : undefined;
+  const desktopModel = desktopProfile?.model || desktopBinding?.model || undefined;
 
   return (
     <PageScaffold
@@ -89,13 +111,15 @@ export function EnvironmentOverviewPage() {
             {installed.map((item) => {
               const agent = status.agents[item.id];
               if (!agent) return null;
+              const profile = profileForAgent(item.id, agent);
               return <AgentManageRow
                 key={item.id}
                 agentId={item.id}
                 catalog={item}
                 status={agent}
                 providers={status.providers}
-                profileName={agent.profileId ? profiles.get(agent.profileId) || agent.profileId : ""}
+                profileName={profile?.label || profile?.id || ""}
+                profile={profile}
               />;
             })}
           </div>
@@ -112,7 +136,15 @@ export function EnvironmentOverviewPage() {
         </div>
       )}
 
-      <DesktopAppSection app={status.desktopAgent} onChanged={refreshStatus} onConfigure={startDesktopSetup} showUninstalled={false} />
+      <DesktopAppSection
+        app={status.desktopAgent}
+        profile={desktopProfile}
+        providerName={desktopProviderName}
+        model={desktopModel}
+        onChanged={refreshStatus}
+        onConfigure={editDesktopProfile}
+        showUninstalled={false}
+      />
       <RuntimeSection runtimes={status.runtimes ?? []} onInstalled={refreshStatus} />
     </PageScaffold>
   );

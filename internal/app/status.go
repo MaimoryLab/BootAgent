@@ -444,39 +444,43 @@ func (u *UseCases) SaveProfile(ctx context.Context, options SaveProfileOptions) 
 	if err != nil {
 		return ProfileSummary{}, err
 	}
-	if options.APIKey == "" {
-		preserveStoredKey := false
-		for _, item := range u.profiles.List() {
-			if item.ID == options.ID && item.Provider == options.Provider {
-				preserveStoredKey = true
+	// The request's key is only a compatibility input. New UI callers leave it
+	// empty, so the Provider's existing key must never be replaced by a legacy
+	// Profile secret while the Profile is edited.
+	providedKey := options.APIKey
+	providerKey := providedKey
+	if strings.TrimSpace(providerKey) == "" {
+		providerKey = target.APIKey
+		if strings.TrimSpace(providerKey) == "" {
+			for _, item := range u.profiles.List() {
+				if item.ID != options.ID || item.Provider != options.Provider {
+					continue
+				}
+				providerKey, err = u.profiles.ReadSecret(ctx, options.ID)
+				if err != nil {
+					return ProfileSummary{}, err
+				}
 				break
 			}
 		}
-		if preserveStoredKey {
-			storedKey, readErr := u.profiles.ReadSecret(ctx, options.ID)
-			if readErr != nil {
-				return ProfileSummary{}, readErr
-			}
-			preserveStoredKey = storedKey != ""
-		}
-		if !preserveStoredKey {
-			options.APIKey = target.APIKey
-		}
 	}
-	if options.APIKey != "" {
-		if err := u.providers.SaveKey(ctx, options.Provider, options.APIKey); err != nil {
+	if strings.TrimSpace(providerKey) != "" {
+		if err := u.providers.SaveKey(ctx, options.Provider, providerKey); err != nil {
 			return ProfileSummary{}, err
 		}
 	}
 	stored, err := u.profiles.Save(ctx, profileStore.SaveRequest{
-		ID:         options.ID,
-		Label:      options.Label,
-		Provider:   options.Provider,
-		BaseURL:    target.BaseURL,
-		APIKey:     options.APIKey,
-		Model:      options.Model,
-		ConfigMode: options.ConfigMode,
-		AgentIDs:   append([]string(nil), options.AgentIDs...),
+		ID:       options.ID,
+		Label:    options.Label,
+		Provider: options.Provider,
+		BaseURL:  target.BaseURL,
+		// Keep explicit keys accepted by older callers, but do not copy a
+		// Provider-resolved key into every Profile's legacy secret file.
+		APIKey:               providedKey,
+		ProviderKeyAvailable: strings.TrimSpace(providerKey) != "",
+		Model:                options.Model,
+		ConfigMode:           options.ConfigMode,
+		AgentIDs:             append([]string(nil), options.AgentIDs...),
 	})
 	if err != nil {
 		return ProfileSummary{}, err

@@ -13,18 +13,15 @@ const steps: Array<{ path: string; label: TranslationKey | "Agent" | "Provider" 
   { path: "/setup/activation", label: "安装" },
 ];
 
-const desktopSteps: Array<{ path: string; label: TranslationKey | "Agent" }> = [
-  { path: "/setup/desktop/agents", label: "Agent" },
-  { path: "/setup/desktop/profile", label: "配置模板" },
-  { path: "/setup/desktop/install", label: "安装" },
-];
-
 export function SetupStepper() {
   const { t } = useI18n();
   const { pathname } = useLocation();
-  const desktop = pathname.startsWith("/setup/desktop/");
-  const activeSteps = desktop ? desktopSteps : steps;
-  const current = activeSteps.findIndex((step) => step.path === pathname) + 1;
+  const activeSteps = steps;
+  // The desktop picker is the same first step as the CLI picker. The legacy
+  // desktop URLs are redirected by App, so they never create a second wizard.
+  const current = pathname === "/setup/desktop/agents"
+    ? 1
+    : activeSteps.findIndex((step) => step.path === pathname) + 1;
 
   return (
     <ol className="setup-stepper" aria-label={t("激活步骤")}>

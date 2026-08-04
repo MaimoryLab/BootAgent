@@ -139,6 +139,9 @@ func TestInstallAgentsWritesAllManagedAdaptersAndPublishesProfileLast(t *testing
 	if binding, err := core.profiles.ReadAgentBinding("codex"); err != nil || binding == nil || binding.ProfileRef != "default" {
 		t.Fatalf("default profile binding = %#v, %v", binding, err)
 	}
+	if key, err := core.profiles.ReadSecret(context.Background(), "default"); err != nil || key != "" {
+		t.Fatalf("managed Provider key was copied into the Profile secret: %q, %v", key, err)
+	}
 }
 
 // An npm install creates the managed global prefix, so the directory holding
@@ -213,6 +216,31 @@ func TestInstallAgentsAppliesNamedProfileWithItsSavedKey(t *testing.T) {
 	auth, err := os.ReadFile(filepath.Join(home, ".codex", "auth.json"))
 	if err != nil || !strings.Contains(string(auth), "profile-secret") {
 		t.Fatalf("named profile credential was not applied: %q, %v", auth, err)
+	}
+}
+
+func TestInstallAgentsPrefersProviderKeyOverLegacyProfileSecret(t *testing.T) {
+	home := t.TempDir()
+	runner := &installAppRunner{paths: map[string]string{"codex": "/fake/codex"}}
+	core := installCore(t, home, runner, nil)
+	if _, err := core.SaveProfile(context.Background(), SaveProfileOptions{
+		ID: "team", Provider: "ppio", APIKey: "legacy-secret", Model: "model-a", AgentIDs: []string{"codex"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := core.providers.SaveKey(context.Background(), "ppio", "provider-secret"); err != nil {
+		t.Fatal(err)
+	}
+	options := installOptions("codex")
+	options.APIKey = ""
+	options.ProfileID = "team"
+	result, err := core.InstallAgents(context.Background(), options)
+	if err != nil || !result.OK {
+		t.Fatalf("provider-key install = %#v, %v", result, err)
+	}
+	auth, err := os.ReadFile(filepath.Join(home, ".codex", "auth.json"))
+	if err != nil || !strings.Contains(string(auth), "provider-secret") || strings.Contains(string(auth), "legacy-secret") {
+		t.Fatalf("provider key was not authoritative: %q, %v", auth, err)
 	}
 }
 

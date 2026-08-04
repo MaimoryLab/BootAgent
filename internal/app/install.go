@@ -171,14 +171,14 @@ func (u *UseCases) validateInstall(ctx context.Context, manifest catalog.Manifes
 		options.ProfileID = profileID
 	}
 	if options.APIKey == "" {
-		if profileID != "" {
+		// Provider credentials are authoritative. Keep the profile secret as a
+		// migration fallback for older saved profiles only.
+		options.APIKey = target.APIKey
+		if options.APIKey == "" && profileID != "" {
 			options.APIKey, err = u.profiles.ReadSecret(ctx, profileID)
 			if err != nil {
 				return options, err
 			}
-		}
-		if options.APIKey == "" {
-			options.APIKey = target.APIKey
 		}
 	}
 	if options.Configure && options.ProfileID == "" {
@@ -533,6 +533,13 @@ func (r *installRun) finish(ctx context.Context, baseURL string) InstallAgentsRe
 	}
 	probeOK := chosen == nil || chosen.OK
 	if !failed && probeOK && !r.options.CheckAgentOnly {
+		profileAPIKey := r.options.APIKey
+		// Managed Providers own their credentials. `custom` has no persistent
+		// Provider record, so retain its legacy Profile secret as a compatibility
+		// path for CLI callers that use an ad-hoc endpoint.
+		if r.options.Provider != "custom" {
+			profileAPIKey = ""
+		}
 		if _, err := r.core.profiles.WriteActive(ctx, profileStore.ActiveRequest{
 			ProfileID: r.options.ProfileID,
 			Label:     r.options.ProfileLabel,
@@ -541,7 +548,7 @@ func (r *installRun) finish(ctx context.Context, baseURL string) InstallAgentsRe
 			Provider:  r.options.Provider,
 			BaseURL:   baseURL,
 			Model:     r.options.Model,
-			APIKey:    r.options.APIKey,
+			APIKey:    profileAPIKey,
 		}); err != nil {
 			// Config files are the source of truth for running Agents; preserve
 			// them and surface profile bookkeeping failure in the redacted log.

@@ -91,14 +91,17 @@ func (u *UseCases) activateAgentLocked(ctx context.Context, options ActivateAgen
 	}
 	apiKey := options.APIKey
 	profileID := strings.TrimSpace(options.ProfileID)
+	if apiKey == "" {
+		apiKey = target.APIKey
+	}
+	// Provider credentials are authoritative. A profile secret is only a
+	// migration fallback for profiles written before credentials moved to the
+	// Provider store; once used, SaveKey below migrates it forward.
 	if apiKey == "" && profileID != "" {
 		apiKey, err = u.profiles.ReadSecret(ctx, profileID)
 		if err != nil {
 			return ActivateAgentResult{}, err
 		}
-	}
-	if apiKey == "" {
-		apiKey = target.APIKey
 	}
 	if apiKey == "" {
 		return ActivateAgentResult{}, oneerrors.New(oneerrors.InvalidRequest, "API key is required")

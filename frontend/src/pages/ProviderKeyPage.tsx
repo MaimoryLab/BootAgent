@@ -7,6 +7,7 @@ import { ConnectionStatus } from "../components/ConnectionStatus";
 import { PageScaffold } from "../components/PageScaffold";
 import { ProviderSegment } from "../components/ProviderSegment";
 import { useI18n } from "../i18n";
+import { profileAgentIdForDesktop } from "../state/desktopSetup";
 import { useWizard } from "../state/WizardContext";
 import type { ProtocolId, ProviderId } from "../types/api";
 import { PROTOCOL_LABELS } from "../types/api";
@@ -19,6 +20,9 @@ export function ProviderKeyPage() {
   const apiBaseUrl = providerMeta?.base_url || "";
   const providerHasKey = Boolean(providerMeta?.has_key);
   const canProbe = providerHasKey;
+  const probeAgentIds = state.setupKind === "desktop" && state.status?.desktopAgent
+    ? [profileAgentIdForDesktop(state.status.desktopAgent)]
+    : state.selectedAgentIds;
   // Continuing requires a successful probe, not just a non-empty key: a wrong
   // key must not reach the model step. canProbe stays separate so the test
   // button remains clickable while the verdict is still outstanding.
@@ -28,11 +32,11 @@ export function ProviderKeyPage() {
   // Chat Completions may still refuse Responses, so do not imply a single one.
   const protocols = useMemo(() => {
     const byId = new Map(state.status?.catalog.map((item) => [item.id, item]) ?? []);
-    const selected = state.selectedAgentIds
+    const selected = probeAgentIds
       .map((id) => byId.get(id)?.protocol)
       .filter((value): value is ProtocolId => Boolean(value));
     return [...new Set(selected)].sort();
-  }, [state.status, state.selectedAgentIds]);
+  }, [probeAgentIds, state.status]);
 
   const endpoint = useMemo(() => {
     if (!apiBaseUrl) return "";
@@ -53,10 +57,10 @@ export function ProviderKeyPage() {
         apiBaseUrl: "",
         // The backend resolves an empty request key from the saved Provider.
         apiKey: "",
-        // A user-supplied ID lets providers without model discovery validate
-        // the model that will actually be configured.
-        model: state.model,
-        agents: state.selectedAgentIds,
+        // This is only a connectivity hint. The model selected on the next
+        // step remains the Profile's model and is never edited here.
+        model: state.probeModel,
+        agents: probeAgentIds,
       });
       dispatch({ type: "CONNECTION_RESULT", result });
     } catch (error) {
@@ -67,7 +71,7 @@ export function ProviderKeyPage() {
   const openRegistration = async () => {
     if (!providerMeta?.home) return;
     try {
-      await api.openRegister(state.provider, state.selectedAgentIds);
+      await api.openRegister(state.provider, probeAgentIds);
     } catch (error) {
       dispatch({ type: "CONNECTION_FAILED", failure: describeError(error, t("无法打开注册页面")) });
     }
@@ -95,7 +99,7 @@ export function ProviderKeyPage() {
         {!providerHasKey ? (
           <div className="notice notice-warning">
             <span>{t("这个 Provider 还没有 Key，先到 Provider 页面填写。")}</span>
-            <button className="button button-secondary" type="button" onClick={() => navigate("/providers")}>
+            <button className="button button-secondary" type="button" onClick={() => navigate(`/providers?returnTo=${encodeURIComponent("/setup/provider")}`)}>
               <ExternalLink size={15} />
               {t("前往 Provider")}
             </button>
@@ -115,16 +119,16 @@ export function ProviderKeyPage() {
         </div>
 
         <div className="field-stack">
-          <label htmlFor="provider-model">{t("自定义模型名称（可选）")}</label>
+          <label htmlFor="provider-probe-model">{t("自定义模型名称（可选）")}</label>
           <input
-            id="provider-model"
+            id="provider-probe-model"
             className="text-field"
-            value={state.model}
-            onChange={(event) => dispatch({ type: "SET_MODEL", value: event.target.value })}
+            value={state.probeModel}
+            onChange={(event) => dispatch({ type: "SET_PROBE_MODEL", value: event.target.value })}
             placeholder={t("例如 deepseek/deepseek-v3")}
             spellCheck={false}
           />
-          <small>{t("填写后将用此模型测试连接；留空时自动选择。")}</small>
+          <small>{t("可选，仅用于测试连接；实际配置模型在下一步选择。")}</small>
         </div>
 
         <div className="connection-row">

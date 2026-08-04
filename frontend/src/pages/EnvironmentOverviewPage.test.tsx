@@ -76,6 +76,16 @@ describe("EnvironmentOverviewPage", () => {
     expect(screen.getByText("团队默认")).toBeTruthy();
   });
 
+  it("uses the active Profile ownership when an older install has no binding file", () => {
+    const legacy = status();
+    legacy.agents.codex.profileId = null;
+    mockState = { status: legacy, statusState: "success", statusError: "" };
+    renderPage();
+
+    expect(screen.getByText("团队默认")).toBeTruthy();
+    expect(screen.getByText("PPIO")).toBeTruthy();
+  });
+
   it("offers onboarding as the way out of an empty environment", async () => {
     // With nothing installed the page has nothing to manage, so the empty state
     // has to lead somewhere instead of just describing the problem.

@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { OneAgentApiError } from "../backend/errors";
-import type { AgentStatus, ProfileSummary } from "../types/api";
+import type { AgentStatus, ProfileSummary, StatusResponse } from "../types/api";
 import { AgentQuickSwitch } from "./AgentQuickSwitch";
 
 const activateAgent = vi.fn();
@@ -39,8 +39,8 @@ function agent(over: Partial<AgentStatus> = {}): AgentStatus {
   return { installed: true, configured: true, profileId: "team", ...over } as AgentStatus;
 }
 
-function mount(profiles: ProfileSummary[], status = agent(), onSwitched = vi.fn()) {
-  render(<AgentQuickSwitch agentId="codex" status={status} profiles={profiles} onSwitched={onSwitched} />);
+function mount(profiles: ProfileSummary[], status = agent(), onSwitched = vi.fn(), providers?: StatusResponse["providers"]) {
+  render(<AgentQuickSwitch agentId="codex" status={status} profiles={profiles} providers={providers} onSwitched={onSwitched} />);
   return onSwitched;
 }
 
@@ -92,6 +92,16 @@ describe("AgentQuickSwitch", () => {
     // here is quieter than a round trip that errors.
     mount([profile(), profile({ id: "nokey", label: "缺 Key", hasKey: false })]);
     expect(screen.getByRole("button", { name: /缺 Key/ }).hasAttribute("disabled")).toBe(true);
+  });
+
+  it("accepts a Profile backed by the Provider key", () => {
+    mount(
+      [profile({ hasKey: false }), profile({ id: "provider-only", label: "Provider Key", hasKey: false })],
+      agent(),
+      vi.fn(),
+      { ppio: { name: "PPIO", home: "", base_url: "", has_key: true } },
+    );
+    expect(screen.getByRole("button", { name: /Provider Key/ }).hasAttribute("disabled")).toBe(false);
   });
 
   it("reports a failed switch instead of looking successful", async () => {

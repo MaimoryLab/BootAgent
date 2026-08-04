@@ -183,6 +183,7 @@ export function AgentDetailPage() {
         agentId={agentId}
         status={agent}
         profiles={status.profiles}
+        providers={status.providers}
         onSwitched={() => refreshStatus()}
       />
 

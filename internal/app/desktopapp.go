@@ -159,9 +159,11 @@ func (u *UseCases) ConfigureDesktopAgent(ctx context.Context, agentID, profileID
 	}
 	if desktopapp.SharesProfile(agentID) {
 		result, err := u.ActivateAgent(ctx, ActivateAgentOptions{
-			AgentID:    profileAgentID,
-			Provider:   selected.Provider,
-			APIBaseURL: stringPointerValue(selected.BaseURL),
+			AgentID:  profileAgentID,
+			Provider: selected.Provider,
+			// The endpoint belongs to the Provider. Profile.BaseURL is a
+			// legacy copy and must not override a current Provider edit.
+			APIBaseURL: "",
 			Model:      stringPointerValue(selected.Model),
 			ProfileID:  profileID,
 		})
@@ -178,7 +180,8 @@ func (u *UseCases) ConfigureDesktopAgent(ctx context.Context, agentID, profileID
 	// per-Agent selection. Their profile is ready for a future vendor writer,
 	// and the overview can report the exact selected profile instead of relying
 	// on directory order.
-	target, err := u.providers.Resolve(selected.Provider, stringPointerValue(selected.BaseURL))
+	// The endpoint belongs to the Provider; ignore the Profile's legacy copy.
+	target, err := u.providers.Resolve(selected.Provider, "")
 	if err != nil {
 		return DesktopAgentProfileResult{}, err
 	}

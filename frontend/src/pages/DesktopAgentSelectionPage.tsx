@@ -32,7 +32,7 @@ export function DesktopAgentSelectionPage() {
       description={t("选择要安装的桌面 Agent，每次安装一个。")}
       stepper
       primaryLabel={t("继续")}
-      onPrimary={() => navigate("/setup/desktop/profile")}
+      onPrimary={() => navigate("/setup/provider")}
       primaryDisabled={!selected || !app.supported}
       footerNote={selected ? app.name : t("选择一个 Agent")}
     >

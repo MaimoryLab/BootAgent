@@ -9,6 +9,7 @@ import { useI18n } from "../i18n";
 import { splitByRank } from "../state/ranking";
 import type { AgentCatalogItem } from "../types/api";
 import { useWizard } from "../state/WizardContext";
+import { DesktopAgentSelectionPage } from "./DesktopAgentSelectionPage";
 
 export function AgentSelectionPage() {
   const navigate = useNavigate();
@@ -37,6 +38,11 @@ export function AgentSelectionPage() {
   );
   const selectedAgent = state.selectedAgentIds[0] ?? "";
   const selectedName = state.status?.catalog.find((item) => item.id === selectedAgent)?.name ?? selectedAgent;
+
+  // Desktop installation uses this same route and the same five-step shell;
+  // its first-step row is different because the desktop app is not in the CLI
+  // catalog.
+  if (state.setupKind === "desktop") return <DesktopAgentSelectionPage />;
 
   return (
     <PageScaffold

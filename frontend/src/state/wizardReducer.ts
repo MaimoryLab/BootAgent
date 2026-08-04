@@ -21,6 +21,8 @@ export interface WizardState {
   selectedAgentIds: string[];
   installMissingAgents: boolean;
   provider: ProviderId;
+  /** Optional model ID used only for the Provider connectivity probe. */
+  probeModel: string;
   /** Profile id/label written by the confirm step. Empty means "derive from
    *  Agent and Provider". */
   profileId: string;
@@ -57,6 +59,7 @@ export const initialWizardState: WizardState = {
   selectedAgentIds: [],
   installMissingAgents: true,
   provider: "ppio",
+  probeModel: "",
   profileId: "",
   profileLabel: "",
   desktopProfileId: "",
@@ -84,6 +87,7 @@ export type WizardAction =
   | { type: "SELECT_AGENT"; agentId: string }
   | { type: "SET_INSTALL_MISSING"; value: boolean }
   | { type: "SET_PROVIDER"; value: ProviderId }
+  | { type: "SET_PROBE_MODEL"; value: string }
   | { type: "SET_PROFILE_ID"; value: string }
   | { type: "SET_PROFILE_LABEL"; value: string }
   | { type: "SET_DESKTOP_PROFILE"; value: string }
@@ -156,11 +160,29 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
       // Single select, and re-clicking the current row keeps it selected: the
       // step cannot continue with nothing chosen, so a toggle-off would only
       // ever produce a dead end.
-      return {
-        ...state,
-        selectedAgentIds: [action.agentId],
-        desktopProfileId: state.selectedAgentIds[0] === action.agentId ? state.desktopProfileId : "",
-      };
+      {
+        const changed = state.selectedAgentIds[0] !== action.agentId;
+        return {
+          ...state,
+          selectedAgentIds: [action.agentId],
+          desktopProfileId: state.selectedAgentIds[0] === action.agentId ? state.desktopProfileId : "",
+          // Profile IDs and labels are derived from the selected Agent and
+          // Provider. Do not carry a prior run's profile into a new pairing.
+          profileId: state.selectedAgentIds[0] === action.agentId ? state.profileId : "",
+          profileLabel: state.selectedAgentIds[0] === action.agentId ? state.profileLabel : "",
+          // Provider probes are protocol-specific, so a different Agent needs a
+          // fresh verdict before the model step can continue.
+          ...(changed ? {
+            connection: null,
+            connectionState: "idle" as const,
+            keyVerified: false,
+            models: [],
+            modelsState: "idle" as const,
+            modelsMessage: "",
+            model: "",
+          } : {}),
+        };
+      }
     case "SET_INSTALL_MISSING":
       return { ...state, installMissingAgents: action.value };
     case "SET_PROFILE_ID":
@@ -185,6 +207,9 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
       return {
         ...state,
         provider: action.value,
+        probeModel: "",
+        profileId: "",
+        profileLabel: "",
         connection: null,
         connectionState: "idle",
         keyVerified: false,
@@ -192,6 +217,14 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
         modelsState: "idle",
         modelsMessage: "",
         model: "",
+      };
+    case "SET_PROBE_MODEL":
+      return {
+        ...state,
+        probeModel: action.value,
+        connection: null,
+        connectionState: "idle",
+        keyVerified: false,
       };
     case "SET_HAS_API_KEY":
       // Any edit of the key invalidates the previous probe verdict. The reducer

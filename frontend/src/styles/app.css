@@ -393,12 +393,20 @@
 .desktop-profile-list { max-width: 760px; }
 .profile-choice {
   position: relative;
-  grid-template-columns: 20px minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   cursor: pointer;
 }
+.profile-choice-main {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.profile-choice-main .profile-title { min-width: 0; }
+.profile-choice > .icon-button { grid-column: 2; grid-row: 1; }
 .profile-choice > p,
-.profile-choice > .profile-key-hint { grid-column: 2 / -1; }
+.profile-choice > .profile-key-hint { grid-column: 1 / -1; }
 .profile-choice.is-selected { background: var(--blue-soft); box-shadow: inset 3px 0 var(--blue); }
 .profile-choice.is-disabled { cursor: not-allowed; opacity: 0.58; }
 .desktop-install-summary { max-width: 760px; }
@@ -1084,7 +1092,7 @@
   min-width: 0;
   padding: 13px;
   display: grid;
-  grid-template-columns: minmax(190px, 1.4fr) auto minmax(120px, 1fr) auto;
+  grid-template-columns: minmax(180px, 1.4fr) repeat(5, minmax(74px, 1fr));
   align-items: center;
   gap: 14px;
   border: 1px solid var(--border);
@@ -1130,10 +1138,10 @@
   white-space: nowrap;
 }
 
-.desktop-app-path { margin-left: 10px; }
+.desktop-app-path { grid-column: 1 / -1; grid-row: 3; margin-left: 0; }
 
 .desktop-app-actions {
-  grid-column: 3 / -1;
+  grid-column: 4 / -1;
   grid-row: 2;
   display: flex;
   flex-wrap: wrap;
@@ -1142,7 +1150,7 @@
 }
 
 .desktop-app-note {
-  grid-column: 1 / 3;
+  grid-column: 1 / 4;
   grid-row: 2;
   min-width: 0;
   margin: 0;

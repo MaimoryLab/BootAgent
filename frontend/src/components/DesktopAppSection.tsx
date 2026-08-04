@@ -4,7 +4,7 @@ import { useState } from "react";
 import { api, describeError } from "../backend/api";
 import { useI18n } from "../i18n";
 import { useTaskCenter } from "../state/TaskCenterContext";
-import type { DesktopAgentStatus } from "../types/api";
+import type { DesktopAgentStatus, ProfileSummary } from "../types/api";
 import { DownloadProgress } from "./DownloadProgress";
 import { StatusBadge } from "./StatusBadge";
 
@@ -12,13 +12,16 @@ interface DesktopAppSectionProps {
   app: DesktopAgentStatus;
   onChanged: () => void | Promise<void>;
   onConfigure?: () => void;
+  profile?: ProfileSummary;
+  providerName?: string;
+  model?: string;
   /** The overview passes false so uninstalled apps are not rendered there. */
   showUninstalled?: boolean;
 }
 
 type Action = "install" | "open" | "installer";
 
-export function DesktopAppSection({ app: desktopApp, onChanged, onConfigure, showUninstalled = true }: DesktopAppSectionProps) {
+export function DesktopAppSection({ app: desktopApp, onChanged, onConfigure, profile, providerName, model, showUninstalled = true }: DesktopAppSectionProps) {
   const { t } = useI18n();
   const { resetProgress } = useTaskCenter();
   const [pending, setPending] = useState<Action | "">("");
@@ -87,16 +90,26 @@ export function DesktopAppSection({ app: desktopApp, onChanged, onConfigure, sho
             {desktopApp.installed ? t("已安装") : t("未安装")}
           </StatusBadge>
         </div>
+        <div className="desktop-app-fact">
+          <small>{t("版本")}</small>
+          <span>{desktopApp.version || t("未知")}</span>
+        </div>
+        <div className="desktop-app-fact">
+          <small>Profile</small>
+          <span title={profile?.id || desktopApp.profileId || undefined}>{profile?.label || desktopApp.profileId || t("未绑定")}</span>
+        </div>
+        <div className="desktop-app-fact">
+          <small>Provider</small>
+          <span title={profile?.provider || undefined}>{providerName || profile?.provider || t("未绑定")}</span>
+        </div>
+        <div className="desktop-app-fact">
+          <small>{t("模型")}</small>
+          <span title={model || profile?.model || undefined}>{model || profile?.model || t("未记录")}</span>
+        </div>
         {desktopApp.path ? (
           <div className="desktop-app-fact desktop-app-path">
             <small>{t("位置")}</small>
             <span title={desktopApp.path}>{desktopApp.path}</span>
-          </div>
-        ) : null}
-        {desktopApp.profileId ? (
-          <div className="desktop-app-fact">
-            <small>Profile</small>
-            <span title={desktopApp.profileId}>{desktopApp.profileId}</span>
           </div>
         ) : null}
         <div className="desktop-app-actions">
@@ -105,7 +118,7 @@ export function DesktopAppSection({ app: desktopApp, onChanged, onConfigure, sho
               {onConfigure ? (
                 <button className="button button-secondary" type="button" onClick={onConfigure} disabled={Boolean(pending)}>
                   <SlidersHorizontal size={15} />
-                  {t("配置")}
+                  {t("编辑配置")}
                 </button>
               ) : null}
               <button className="button button-secondary" type="button" onClick={() => void run("open")} disabled={Boolean(pending)}>

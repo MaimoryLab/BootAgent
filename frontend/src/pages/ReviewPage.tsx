@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { PageScaffold } from "../components/PageScaffold";
 import { ReviewGroup, ReviewRow } from "../components/ReviewGroup";
 import { useI18n } from "../i18n";
+import { profileAgentIdForDesktop } from "../state/desktopSetup";
 import { useWizard } from "../state/WizardContext";
 
 export function ReviewPage() {
@@ -18,13 +19,16 @@ export function ReviewPage() {
   );
   const automatic = selectedCatalog.filter((agent) => agent.configMode === "auto");
   const guideOnly = selectedCatalog.filter((agent) => agent.guideOnly);
+  const desktop = state.setupKind === "desktop" ? state.status?.desktopAgent : undefined;
   const providerName = state.status?.providers[state.provider]?.name || state.provider;
   const providerHasKey = Boolean(state.status?.providers[state.provider]?.has_key);
   // Default name only; the user can override it before installing. The id is
   // derived from the Agent and Provider, which is unique per pairing and needs
   // no separate field.
-  const defaultId = `${state.selectedAgentIds[0] ?? "agent"}-${state.provider}`.replace(/[^a-z0-9_-]/gi, "-").toLowerCase();
-  const defaultLabel = `${selectedCatalog[0]?.name ?? state.selectedAgentIds[0] ?? ""} · ${providerName}`;
+  const targetID = desktop ? profileAgentIdForDesktop(desktop) : state.selectedAgentIds[0] ?? "agent";
+  const targetName = desktop?.name || selectedCatalog[0]?.name || state.selectedAgentIds[0] || "";
+  const defaultId = `${targetID}-${state.provider}`.replace(/[^a-z0-9_-]/gi, "-").toLowerCase();
+  const defaultLabel = `${targetName} · ${providerName}`;
   const profileLabel = state.profileLabel || defaultLabel;
 
   const startActivation = () => {
@@ -53,7 +57,9 @@ export function ReviewPage() {
     >
       <div className="review-columns">
         <ReviewGroup title={t("将处理")}>
-          {selectedCatalog.map((agent) => (
+          {desktop ? (
+            <ReviewRow label={desktop.name} value={desktop.installed ? t("检测并配置") : t("安装并配置")} />
+          ) : selectedCatalog.map((agent) => (
             <ReviewRow
               key={agent.id}
               label={agent.name}
@@ -69,6 +75,7 @@ export function ReviewPage() {
         </ReviewGroup>
 
         <ReviewGroup title={t("本地写入")}>
+          {desktop ? <ReviewRow label={t("桌面应用配置")} value={desktop.configPath || t("由桌面 Agent 决定")} /> : null}
           {automatic.map((agent) => (
             <ReviewRow key={agent.id} label={agent.name} value={state.status?.paths[`${agent.id}_config`] || t("由 Agent 官方配置合约决定")} />
           ))}
@@ -85,7 +92,7 @@ export function ReviewPage() {
           value={profileLabel}
           onChange={(event) => dispatch({ type: "SET_PROFILE_LABEL", value: event.target.value })}
         />
-        <small>{t("这次安装会保存为一个配置模板，之后可以直接应用到其他 Agent。")}</small>
+        <small>{t("这次安装会保存为一个配置模板，之后可以直接应用")}</small>
       </div>
     </PageScaffold>
   );

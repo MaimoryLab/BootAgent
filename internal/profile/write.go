@@ -15,14 +15,17 @@ import (
 )
 
 type SaveRequest struct {
-	ID         string
-	Label      string
-	Provider   string
-	BaseURL    string
-	APIKey     string
-	Model      string
-	ConfigMode string
-	AgentIDs   []string
+	ID       string
+	Label    string
+	Provider string
+	BaseURL  string
+	APIKey   string
+	// ProviderKeyAvailable lets the app change a Profile's Provider without
+	// copying that Provider-owned secret into the legacy Profile secret file.
+	ProviderKeyAvailable bool
+	Model                string
+	ConfigMode           string
+	AgentIDs             []string
 }
 
 type ActiveRequest struct {
@@ -64,7 +67,7 @@ func (s Store) Save(ctx context.Context, request SaveRequest) (Profile, error) {
 		return Profile{}, err
 	}
 	existing := s.existing(request.ID)
-	if existing.ID != "" && existing.Provider != request.Provider && request.APIKey == "" {
+	if existing.ID != "" && existing.Provider != request.Provider && request.APIKey == "" && !request.ProviderKeyAvailable && s.secretExists(request.ID) {
 		return Profile{}, oneerrors.New(oneerrors.InvalidRequest, "API key is required when changing a Profile provider")
 	}
 	now := s.clock().UTC().Format(time.RFC3339)

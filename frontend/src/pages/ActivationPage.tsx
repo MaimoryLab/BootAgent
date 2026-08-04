@@ -9,8 +9,9 @@ import { LogDisclosure } from "../components/LogDisclosure";
 import { PageScaffold } from "../components/PageScaffold";
 import { useI18n } from "../i18n";
 import { useTaskCenter } from "../state/TaskCenterContext";
+import { profileAgentIdForDesktop } from "../state/desktopSetup";
 import { useWizard } from "../state/WizardContext";
-import type { InstallRequest } from "../types/api";
+import type { AgentInstallResult, InstallRequest } from "../types/api";
 
 export function ActivationPage() {
   const navigate = useNavigate();
@@ -20,9 +21,14 @@ export function ActivationPage() {
   const started = useRef(false);
   const [retrying, setRetrying] = useState<string | null>(null);
   const [runtimeDownloading, setRuntimeDownloading] = useState(false);
+  const isDesktop = state.setupKind === "desktop";
+  const desktop = isDesktop ? state.status?.desktopAgent : undefined;
   const selectedNames = useMemo(
-    () => Object.fromEntries(state.status?.catalog.map((agent) => [agent.id, agent.name]) || []),
-    [state.status],
+    () => Object.fromEntries([
+      ...(state.status?.catalog.map((agent) => [agent.id, agent.name] as const) || []),
+      ...(desktop ? [[desktop.id, desktop.name] as const] : []),
+    ]),
+    [desktop, state.status],
   );
   const runtimeDownloads = useMemo(() => {
     if (!state.installMissingAgents) return [];
@@ -59,12 +65,45 @@ export function ActivationPage() {
     [state.installMissingAgents, state.model, state.profileId, state.profileLabel, state.provider],
   );
 
+  const installDesktop = useCallback(async (): Promise<{ results: AgentInstallResult[]; log: string; next: string }> => {
+    if (!desktop) throw new Error(t("找不到桌面 Agent"));
+    const owner = profileAgentIdForDesktop(desktop);
+    const profileID = state.profileId || `${owner}-${state.provider}`.toLowerCase().replace(/[^a-z0-9_-]/g, "-");
+    const profileLabel = state.profileLabel || `${desktop.name} · ${state.provider}`;
+    const profile = await api.saveProfile({
+      id: profileID,
+      label: profileLabel,
+      provider: state.provider,
+      apiBaseUrl: "",
+      apiKey: "",
+      model: state.model,
+      configMode: "provider",
+      agentIds: [owner],
+    });
+    const installed = desktop.installed ? undefined : await api.installDesktopAgent();
+    const configured = await api.configureDesktopAgent(desktop.id, profile.id);
+    return {
+      results: [{
+        agent: desktop.id,
+        status: "configured",
+        installed: installed?.app.installed ?? desktop.installed,
+        version: installed?.app.version || desktop.version || undefined,
+        message: configured.message,
+        retryable: false,
+      }],
+      log: configured.message,
+      next: configured.restart || "",
+    };
+  }, [desktop, state.profileId, state.profileLabel, state.provider, state.model, t]);
+
   const activate = useCallback(async () => {
     clearRuntimeProgress();
     setRuntimeDownloading(runtimeDownloads.length > 0);
     dispatch({ type: "ACTIVATION_LOADING", agentIds: state.selectedAgentIds });
     try {
-      const response = await api.install(requestFor(state.selectedAgentIds));
+      const response = isDesktop
+        ? await installDesktop().then((result) => ({ ...result, ok: true, probe: null }))
+        : await api.install(requestFor(state.selectedAgentIds));
       dispatch({
         type: "ACTIVATION_RESULT",
         results: response.results,
@@ -81,7 +120,7 @@ export function ActivationPage() {
     } finally {
       setRuntimeDownloading(false);
     }
-  }, [clearRuntimeProgress, dispatch, refreshStatus, requestFor, runtimeDownloads.length, state.selectedAgentIds, t]);
+  }, [clearRuntimeProgress, dispatch, installDesktop, isDesktop, refreshStatus, requestFor, runtimeDownloads.length, state.selectedAgentIds, t]);
 
   useEffect(
     () =>
@@ -108,7 +147,9 @@ export function ActivationPage() {
     setRuntimeDownloading(runtimeDownloads.length > 0);
     setRetrying(agentId);
     try {
-      const response = await api.install(requestFor([agentId], state.selectedAgentIds));
+      const response = isDesktop
+        ? await installDesktop().then((result) => ({ ...result, ok: true, probe: null }))
+        : await api.install(requestFor([agentId], state.selectedAgentIds));
       dispatch({
         type: "ACTIVATION_RESULT",
         results: response.results,

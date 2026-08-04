@@ -26,20 +26,27 @@ test("onboarding installs one Agent end to end and writes its Profile", async ({
     if (typeof call.args?.methodID === "number") bindingMethodIDs.add(call.args.methodID);
   });
 
-  // Onboarding is the only way to create a Profile: it collects the Agent, key
-  // and model in order and the install writes the Profile itself.
+  // Provider credentials are saved once on the Provider page. The wizard only
+  // selects that Provider, optionally probes with a model ID, and saves the
+  // resulting Profile.
+  await page.goto("/#/providers");
+  await page.getByRole("button", { name: "编辑 PPIO" }).click();
+  await page.getByLabel("API Key").fill("e2e-key");
+  await page.getByRole("button", { name: "保存", exact: true }).click();
+  await expect(page.getByTestId("provider-ppio")).toContainText("已保存 Key");
+
   await page.goto("/#/overview");
-  await expect(page.getByText("尚未安装任何命令行 Agent")).toBeVisible();
-  await page.getByRole("button", { name: "安装命令行 Agent" }).click();
+  await expect(page.getByText("尚未安装任何 Agent")).toBeVisible();
+  await page.getByRole("button", { name: "安装 Agent" }).click();
 
   await expect(page.getByRole("heading", { name: "选择 Agent" })).toBeVisible();
   await page.getByLabel("选择 Codex").check();
   await page.getByRole("button", { name: "继续" }).click();
 
   await expect(page.getByRole("heading", { name: "连接模型服务" })).toBeVisible();
-  await page.getByLabel("API Key").fill("e2e-key");
+  await page.getByLabel("自定义模型名称（可选）").fill("oneagent-e2e-model");
   await page.getByRole("button", { name: "测试连接" }).click();
-  // The model step is gated on a passing probe, not merely a non-empty key.
+  // The model step is gated on a passing Provider probe.
   await page.getByRole("button", { name: "继续选择模型" }).click();
 
   await expect(page.getByRole("heading", { name: "选择模型" })).toBeVisible();
@@ -58,9 +65,12 @@ test("onboarding installs one Agent end to end and writes its Profile", async ({
   await expect(agent).toContainText("PPIO");
   await expect(agent).toContainText("团队默认");
 
-  // The Profile the install wrote is editable, but no longer creatable inline.
-  await page.getByRole("link", { name: "配置模板" }).click();
+  // The Profile the install wrote is editable from the Agent row, without any
+  // credential or endpoint fields on the edit page.
+  await page.getByRole("link", { name: "编辑配置" }).click();
   await expect(page.getByText("团队默认")).toBeVisible();
+  await expect(page.getByLabel("API Key")).toHaveCount(0);
+  await expect(page.getByText("Base URL")).toHaveCount(0);
   expect(bindingMethodIDs.size).toBeGreaterThanOrEqual(3);
 });
 

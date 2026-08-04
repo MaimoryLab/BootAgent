@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 
 import { api, describeError } from "../backend/api";
 import { sourceTranslate, type Translate, useI18n } from "../i18n";
-import type { AgentCatalogItem, AgentStatus, StatusResponse } from "../types/api";
+import type { AgentCatalogItem, AgentStatus, ProfileSummary, StatusResponse } from "../types/api";
 import { AgentIcon, agentTagline } from "./icons/agents";
 import { StatusBadge } from "./StatusBadge";
 
@@ -92,22 +92,25 @@ export function AgentManageRow({
   status,
   providers,
   profileName,
+  profile,
 }: {
   agentId: string;
   catalog: AgentCatalogItem | undefined;
   status: AgentStatus;
   providers: Providers;
   profileName: string;
+  profile?: ProfileSummary;
 }) {
   const { t } = useI18n();
   const [launching, setLaunching] = useState(false);
   const [failure, setFailure] = useState("");
   const version = versionNote(status, t);
   const target = targetSummary(status, providers, t);
-  const providerName = status.provider
-    ? providers[status.provider]?.name || status.provider
+  const providerId = profile?.provider || status.provider || "";
+  const providerName = providerId
+    ? providers[providerId]?.name || providerId
     : status.detected?.baseUrl || t("未记录");
-  const model = status.model || status.detected?.model || t("未记录");
+  const model = profile?.model || status.model || status.detected?.model || t("未记录");
 
   // installed is true only when the Agent's command resolved on the managed
   // PATH, so it is already the precise "there is something to launch" signal.
@@ -151,10 +154,10 @@ export function AgentManageRow({
         <Link
           className="button button-secondary"
           to={`/agents/${agentId}`}
-          title={t("修改这个 Agent 指向的 Provider 与模型")}
+          title={t("编辑这个 Agent 关联的 Profile")}
         >
           <SlidersHorizontal size={15} />
-          {t("配置")}
+          {t("编辑配置")}
         </Link>
         {canLaunch ? (
           <button
