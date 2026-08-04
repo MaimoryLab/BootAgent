@@ -2,6 +2,10 @@
 
 > 更新：2026-07-31。本文记录当前可复核的 Go/Wails 收尾结果；旧的 Python 计数和命令不再是验收依据。
 
+> 补注（2026-08-04）：本文提到的 `cmd/oneagent-release`、`cmd/oneagent-rc`、
+> `cmd/oneagent-provider-smoke` 已于 `23805b0` 移除，职责交给
+> `.github/workflows/build-artifacts.yml`。相关命令是历史背景，不可执行。
+
 ## 已完成
 
 - Go backend 覆盖 catalog、Provider、安装、配置发现/写入、profile、secret、备份、权限和 CLI。
@@ -14,7 +18,7 @@
 
 ## 当前验证入口
 
-```bash
+```text
 go test ./...
 go test -race ./...
 bash tests/install_test.sh

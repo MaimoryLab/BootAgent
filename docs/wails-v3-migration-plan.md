@@ -4,6 +4,10 @@
 >
 > 本文是收尾验收记录。当前生产实现是 Go + Wails + React；旧脚本和旧测试已删除。Wails 仍为 Alpha，所以发行渠道保持 `technical-preview-unsigned`。
 
+> 补注（2026-08-04）：本文提到的 `cmd/oneagent-release`、`cmd/oneagent-rc`、
+> `cmd/oneagent-provider-smoke` 已于 `23805b0` 移除，职责交给
+> `.github/workflows/build-artifacts.yml`。相关命令是历史背景，不可执行。
+
 ## 1. 目标与边界
 
 - 桌面应用使用 Wails v3，React 只调用生成的 TypeScript bindings。
@@ -84,7 +88,7 @@ site/                        independent Astro release site
 
 ## 5. 验收命令
 
-```bash
+```text
 go vet ./...
 go test ./...
 go test -race ./...
@@ -104,7 +108,7 @@ go run ./cmd/oneagent-release check release
 
 发行候选在受保护环境执行：
 
-```bash
+```text
 go run ./cmd/oneagent-rc verify-agents
 go run ./cmd/oneagent-rc adopted
 go run ./cmd/oneagent-provider-smoke --provider all --timeout 30s

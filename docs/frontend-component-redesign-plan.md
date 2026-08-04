@@ -2,6 +2,10 @@
 
 > 本文原为前端重构计划，现转为当前实现摘要。历史 PyInstaller、解释器测试和旧 HTTP 命令已删除。
 
+> 补注（2026-08-04）：本文提到的 `cmd/oneagent-release`、`cmd/oneagent-rc`、
+> `cmd/oneagent-provider-smoke` 已于 `23805b0` 移除，职责交给
+> `.github/workflows/build-artifacts.yml`。相关命令是历史背景，不可执行。
+
 ## 当前实现
 
 - React 19 + TypeScript + Vite 构建 `frontend/dist`。
@@ -12,7 +16,7 @@
 
 ## 本地门禁
 
-```bash
+```text
 cd frontend
 pnpm install --frozen-lockfile
 pnpm run test:coverage

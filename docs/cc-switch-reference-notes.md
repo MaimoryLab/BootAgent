@@ -76,7 +76,7 @@ CC Switch 依赖 **`@lobehub/icons-static-svg`**（MIT，723 个 AI 品牌 SVG�
 
 两个资产不能直接用，需换等价版本：`openai.com/favicon.svg` 与 `opencode.ai/favicon.svg` 都带 `:root` CSS 变量和 `prefers-color-scheme` 媒体查询，内联进宿主文档会污染全局样式；`aider.chat/assets/logo.svg` 是 200×60 的文字标加高斯模糊滤镜，不是方形图标。
 
-**OpenClaw 的标志是龙虾，不是螃蟹。** CC Switch 的手绘稿容易让人误解形象——这也是不该以它为准的另一个理由。
+**OpenClaw 的标志是龙虾，不是螃蟹。** 所以图标要以上游官方资产为准，不要以任何第三方项目的转绘为准——这一条对我们自己同样适用。
 
 ### OpenClaw 与 Hermes 的图标不可取用
 
@@ -87,7 +87,7 @@ CC Switch 依赖 **`@lobehub/icons-static-svg`**（MIT，723 个 AI 品牌 SVG�
 
 两者都无法满足 24×24 单色 `currentColor` 的规范：渐变填充无法继承 `currentColor`，位图在 18px 渲染位与矢量字形并排时轻重不一。因此这两个按同一几何规范自绘，而不是取用 CC Switch 的资产。这不是许可问题（MIT 允许取用），是形态不兼容。
 
-**注意**：CC Switch 自己并未真的使用这个包——源码零引用，实际只在 `src/assets/icons/` 放了手工的 `chatgpt.svg` 与 `claude.svg`。这个依赖是装了没用，所以「它用了什么」不能作为可用性证据，必须自己核对。
+**注意**：这个包在 CC Switch 的源码里没有被引用，实际使用的是 `src/assets/icons/` 下手工的 `chatgpt.svg` 与 `claude.svg`。结论对我们有用的部分是方法论：「某个项目装了什么依赖」不能作为该依赖可用的证据，仍需自己核对。
 
 **许可与商标**：MIT 覆盖 SVG 文件本身，不覆盖商标权。在自己 UI 内标示「这一行是哪个 Agent」属指示性使用；不得用作 OneAgent 的产品视觉资产。统一 `currentColor` 单色渲染，既统一风格也避免为第三方商标着色。
 

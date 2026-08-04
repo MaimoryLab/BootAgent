@@ -1,0 +1,66 @@
+OneAgent
+Copyright 2026 MaimoryLab
+
+This product includes software developed at MaimoryLab.
+
+Licensed under the Apache License, Version 2.0. See LICENSE for the full text.
+
+================================================================================
+Third-party software redistributed in OneAgent binaries
+================================================================================
+
+The following components are compiled into, or bundled with, the OneAgent
+desktop application and CLI. Their license texts are reproduced in the
+directories named below, inside each dependency's own distribution.
+
+Go modules (linked into the binary)
+
+  github.com/wailsapp/wails/v3        v3.0.0-beta.3    MIT
+  github.com/pelletier/go-toml/v2     v2.4.3           MIT
+  github.com/adrg/xdg                 v0.5.3           MIT
+  github.com/mattn/go-isatty          v0.0.24          MIT
+  golang.org/x/sys                    v0.47.0          BSD-3-Clause
+
+JavaScript packages (bundled into the embedded frontend)
+
+  react                               19.2.8           MIT
+  react-dom                           19.2.8           MIT
+  react-router-dom                    7.18.1           MIT
+  lucide-react                        1.25.0           ISC
+  @wailsio/runtime                    3.0.0-alpha2.117 MIT
+
+================================================================================
+Third-party software downloaded at runtime, not redistributed
+================================================================================
+
+OneAgent does not bundle these. It downloads them from the official sources
+recorded in runtimes.lock.json, into ~/.oneagent/runtimes, at the user's
+request. They remain governed by their own licenses.
+
+  Node.js                             MIT                https://nodejs.org/dist/
+  uv (astral-sh/uv)                   MIT OR Apache-2.0  https://github.com/astral-sh/uv/releases
+
+Agent packages are likewise installed from their official registries and are
+never redistributed. Their licenses are recorded per entry in
+agents.lock.json, and include one proprietary package
+(@anthropic-ai/claude-code), which OneAgent installs only on the user's
+explicit request.
+
+================================================================================
+Third-party trademarks
+================================================================================
+
+The application displays each supported Agent's own published mark so a user
+can tell which tool a row refers to. This is nominative use: the marks
+identify the referenced products and do not imply endorsement, affiliation or
+sponsorship. They are not OneAgent product artwork, are not recoloured or
+restyled, and remain the property of their respective owners. Provenance for
+each file is recorded inline in
+frontend/src/components/icons/agents.tsx.
+
+Marks included: Claude Code (Anthropic), Codex (OpenAI), Cursor (Anysphere),
+Kilo CLI (Kilo Code), Aider, OpenCode, OpenClaw, Hermes (Nous Research).
+
+Two marks are redistributed under an open-source license rather than as
+favicons: the OpenAI and OpenCode glyphs come from lobehub/icons-static-svg
+(MIT), and the OpenClaw glyph from openclaw/openclaw (MIT).

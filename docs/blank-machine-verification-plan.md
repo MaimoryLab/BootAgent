@@ -2,6 +2,10 @@
 
 > 状态：已实施（2026-07-31）。实现入口已从历史脚本切换为 Go CLI、Go RC 命令和 shell cleanroom。
 
+> 补注（2026-08-04）：本文提到的 `cmd/oneagent-release`、`cmd/oneagent-rc`、
+> `cmd/oneagent-provider-smoke` 已于 `23805b0` 移除，职责交给
+> `.github/workflows/build-artifacts.yml`。相关命令是历史背景，不可执行。
+
 ## 验证层级
 
 | 层级 | 入口 | 证明内容 |
@@ -24,7 +28,7 @@
 
 ## 运行
 
-```bash
+```text
 go build -o bin/oneagent ./cmd/oneagent
 go run ./cmd/oneagent-rc verify-agents
 go run ./cmd/oneagent-rc adopted

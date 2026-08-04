@@ -1,11 +1,12 @@
-# ADR-006：独立公开站与 GitHub Release 事实源
+# ADR-009：独立公开站与 GitHub Release 事实源
 
 - 状态：Partially Superseded（2026-08-04）——决策 1 中「在同一仓库维护」已被推翻，站点
   迁出到 [MaimoryLab/OneAgent-site](https://github.com/MaimoryLab/OneAgent-site)；
   同一决策中「不把营销路由加入本地 Launcher」以及决策 2–5 仍然有效。决策 4 的读取路径
   变为站点仓库 vendor 的 `data/` 副本，从发行 tag 刷新。当前操作指南见
   [public-site-operations.md](../public-site-operations.md)，本文件只作背景保留。
-- 日期：2026-07-28
+- 日期：2026-07-28（原编号 ADR-006，与《多 Profile 与长期环境管理》撞号，2026-08-04 改为 009；
+  ADR-008 的 Supersedes 指向的是那一份，不是本文）
 
 ## 背景
 

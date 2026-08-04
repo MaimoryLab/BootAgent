@@ -2,7 +2,8 @@
 
 ## Status
 
-Implemented
+Implemented，凭据投递部分已被 [ADR-008](ADR-008-credentials-in-agent-config-files.md) 取代
+（详见下方「修订」小节）。多 Profile 与长期管理的结论仍然有效。
 
 ## Date
 

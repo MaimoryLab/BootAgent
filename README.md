@@ -32,10 +32,7 @@ vendor 到自己仓库，从发行 tag 刷新——所以改本仓库这两个�
 
 - `cmd/oneagent-desktop`：Wails 桌面入口。
 - `cmd/oneagent`：纯 Go headless CLI。
-- `cmd/oneagent-release`：构建、notice、manifest、SHA-256 和发行包检查。
-- `cmd/oneagent-rc`：真实 Agent 安装和无密钥配置采用检查。
-- `cmd/oneagent-provider-smoke`：PPIO/Novita 三协议 RC smoke。
-- `internal/`：桌面、CLI 和 RC 工具共用的 Go 核心。
+- `internal/`：桌面和 CLI 共用的 Go 核心。
 - `frontend/`：React 应用；发行包只携带构建后的静态资源。
 - `agents.lock.json`：Agent 包名、来源、配置适配器和许可证的唯一清单；不固定 Agent 版本或包哈希。
 - `providers.lock.json`：内置 Provider 端点、fallback probe model 和公开站披露字段清单；桌面端用户 Provider 保存在本机 `~/.oneagent/providers.json`。
@@ -122,49 +119,23 @@ pnpm run test:coverage
 pnpm run build
 pnpm exec playwright install chromium
 pnpm run test:e2e
-cd ..
-task test:native
 ```
 
-
-## Release Candidate
-
-真实锁定 Agent 安装（默认四个 npm Agent，不包含可选 Aider）：
-
-```bash
-go build -o bin/oneagent ./cmd/oneagent
-go run ./cmd/oneagent-rc verify-agents
-go run ./cmd/oneagent-rc adopted
-```
-
-Provider 三协议 smoke 从受保护环境变量读取凭据和模型，不接受命令行 Key：
-
-```bash
-ONEAGENT_PPIO_API_KEY=... \
-ONEAGENT_PPIO_OPENAI_MODEL=... \
-ONEAGENT_PPIO_ANTHROPIC_MODEL=... \
-ONEAGENT_PPIO_RESPONSES_MODEL=... \
-ONEAGENT_NOVITA_API_KEY=... \
-ONEAGENT_NOVITA_OPENAI_MODEL=... \
-ONEAGENT_NOVITA_ANTHROPIC_MODEL=... \
-ONEAGENT_NOVITA_RESPONSES_MODEL=... \
-go run ./cmd/oneagent-provider-smoke --provider all --timeout 30s
-```
+每个 pull request 都会运行 `.github/workflows/ci.yml`：Go 侧是 `go vet` 加
+`go test -race`，前端侧是 `pnpm run test` 加 `pnpm run build`。
 
 ## 发行
 
-在本机生成当前平台的未签名技术预览包：
+发行包由 `.github/workflows/build-artifacts.yml` 构建，手动触发（`workflow_dispatch`）。
+它为 macOS 与 Windows 各构建 x64/arm64 的 Wails 桌面二进制和纯 Go CLI，macOS 产物打成
+`.app`。
 
-```bash
-go run ./cmd/oneagent-release build \
-  --channel technical-preview-unsigned \
-  --source
-go run ./cmd/oneagent-release check release
-```
+Wails 仍处于 Alpha，当前不发布 Stable，不做平台签名、公证或商店分发。Stable 的签名门禁
+保留在后续发行阶段。
 
-命令会构建 React、Wails 桌面二进制和纯 Go CLI，生成 macOS `.app` 或 Windows/Linux ZIP、可选源码 ZIP、第三方 notices、release manifest 和 SHA-256 清单。检查会拒绝 source map、远程资源、secret、Agent 二进制、语言运行时和无效目录信息。
-
-Wails 仍处于 Alpha，当前不发布 Stable，不做平台签名、公证或商店分发。Stable 的签名门禁保留在后续发行阶段。
+本机要复现一份等价产物，见「快速启动」里的桌面构建步骤；发行渠道标签、SHA-256 清单和
+第三方 notices 曾由 `cmd/oneagent-release` 生成，该工具已于 `23805b0` 随构建流程迁移到
+GitHub Actions 而移除。第三方归属现在维护在仓库根的 [NOTICE](NOTICE)。
 
 ## 文档
 
@@ -176,3 +147,11 @@ Wails 仍处于 Alpha，当前不发布 Stable，不做平台签名、公证或�
 - [Wails 架构 ADR](docs/decisions/ADR-007-wails-v3-go-migration.md)
 - [按 Agent 协议验证 ADR](docs/decisions/ADR-004-per-agent-protocol-verification.md)
 - [历史 Python 发行 ADR（已废弃）](docs/decisions/ADR-003-three-platform-python-core-and-release-policy.md)
+
+## 许可证
+
+Apache License 2.0，见 [LICENSE](LICENSE)。
+
+[NOTICE](NOTICE) 列出随二进制分发的第三方组件及其许可证，以及运行时下载但不再分发的
+Node.js、uv 和 Agent 包。界面中显示的各 Agent 官方标识属于 nominative use，用于指明某一
+行对应哪个工具，不表示背书或关联，商标归各自所有者。
