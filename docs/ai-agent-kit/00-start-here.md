@@ -29,13 +29,17 @@
 
 ## 启动桌面应用
 
+下载对应平台的 `technical-preview-unsigned` 包，解压后直接启动：macOS 是
+`OneAgent.app`，Windows 是 `oneagent-desktop.exe`。当前阶段的包未签名也未公证，
+首次打开需要在系统里手动允许。
+
+需要从源码运行（开发或审查用）：
+
 ```bash
 cd frontend && pnpm install --frozen-lockfile && pnpm run build
 cd ..
 go run -tags wails ./cmd/oneagent-desktop
 ```
-
-也可以下载对应平台的 `technical-preview-unsigned` 包后直接启动 Wails 应用。
 
 ## 三条安全规则
 

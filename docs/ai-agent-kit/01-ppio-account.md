@@ -1,5 +1,8 @@
 # PPIO 账号和 Provider 准备
 
+> 本文用 PPIO 举例。内置的 Novita 和自定义 OpenAI-compatible 端点步骤相同，把官网入口和
+> Base URL 换成对应 Provider 的即可。
+
 ## 1. 打开官方入口
 
 请从 OneAgent 或官方文档打开 PPIO 官网，不要从不明群聊链接下载脚本或提交账号信息。

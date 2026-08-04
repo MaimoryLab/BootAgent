@@ -30,4 +30,4 @@
 
 ## 迁移记录
 
-Python 实现、Python 测试、PyInstaller/wheel/setuptools 配置和相关工作流已删除。新的验收清单见 [Wails v3 迁移收尾计划](../wails-v3-migration-plan.md)。
+Python 实现、Python 测试、PyInstaller/wheel/setuptools 配置和相关工作流已删除。新的验收清单见 [Wails v3 迁移收尾计划](../internal/wails-v3-migration-plan.md)。
