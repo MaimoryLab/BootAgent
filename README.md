@@ -1,14 +1,31 @@
 # OneAgent
 
-OneAgent 是一个本地 AI 开发环境激活器。React 向导和纯 Go CLI 共用同一套 Go 用例，负责检测 Agent、安装最新版本、探测 Provider、合并配置、创建备份并收紧权限。桌面应用使用 Wails v3 binding；生产进程不监听业务 TCP 端口。
+**English** · [简体中文](README_ZH.md)
 
-OneAgent 不重新分发 Agent 包，也不捆绑 Node.js、系统 WebView、Git 或 API Key。缺少运行前置条件时返回明确错误和官方安装指引。
+OneAgent is a local AI development environment activator. A React wizard and a pure Go
+CLI share the same Go use cases: detecting agents, installing the latest version, probing
+Providers, merging configuration, creating backups, and tightening permissions. The
+desktop app uses Wails v3 bindings, and the production process listens on no application
+TCP port.
 
-## 当前状态
+OneAgent does not redistribute agent packages, and it bundles no Node.js, system WebView,
+Git, or API key. When a prerequisite is missing it returns a specific error and points at
+the official install instructions.
 
-当前版本为 `0.3.0-dev`，Wails 仍处于 Alpha，因此发布渠道只能是 `technical-preview-unsigned`。Python 迁移已经完成：受版本控制的旧实现、测试、PyInstaller/wheel 打包链路均已删除；普通构建、测试、运行和发布只需要 Go、Node、pnpm 11.17.0（构建前端）及目标平台 WebView。Aider 是唯一例外：只有用户选择安装 Aider 时，才要求本机已有 Python 3.12，OneAgent 不会下载或管理它。
+## Current status
 
-## 架构
+The current version is `0.3.0-dev`. Wails is still in Alpha, so the only release channel
+is `technical-preview-unsigned`.
+
+The Python migration is complete: the previous implementation, its tests, and the
+PyInstaller/wheel packaging chain are all deleted. Building, testing, running, and
+releasing need only Go, Node, pnpm 11.17.0 (to build the frontend), and the target
+platform's WebView. Installing Aider needs Python 3.12, but no longer needs one
+preinstalled — `uv` resolves it, reusing a matching local interpreter or downloading a
+managed CPython into `~/.oneagent/runtimes/python`. Python never ships in a release
+package.
+
+## Architecture
 
 ```text
 React + TypeScript + Vite
@@ -25,21 +42,26 @@ Status / Provider / Agent / Profile services
 Pure Go CLI --------------------^
 ```
 
-公开站不在这张图里，也不在这个仓库里：它已迁出到
-[MaimoryLab/OneAgent-site](https://github.com/MaimoryLab/OneAgent-site)。它从
-GitHub Releases API 读取下载信息，并把 `agents.lock.json`、`providers.lock.json`
-vendor 到自己仓库，从发行 tag 刷新——所以改本仓库这两个文件不会自动改变站上内容。
+The public website is neither in this diagram nor in this repository. It moved to
+[MaimoryLab/OneAgent-site](https://github.com/MaimoryLab/OneAgent-site), reads download
+information from the GitHub Releases API, and vendors `agents.lock.json` and
+`providers.lock.json` into its own repository, refreshed from release tags. Changing
+those two files here does not change the site, and should not: the site describes what a
+published version supports.
 
-- `cmd/oneagent-desktop`：Wails 桌面入口。
-- `cmd/oneagent`：纯 Go headless CLI。
-- `internal/`：桌面和 CLI 共用的 Go 核心。
-- `frontend/`：React 应用；发行包只携带构建后的静态资源。
-- `agents.lock.json`：Agent 包名、来源、配置适配器和许可证的唯一清单；不固定 Agent 版本或包哈希。
-- `providers.lock.json`：内置 Provider 端点、fallback probe model 和公开站披露字段清单；桌面端用户 Provider 保存在本机 `~/.oneagent/providers.json`。
+- `cmd/oneagent-desktop`: the Wails desktop entry point.
+- `cmd/oneagent`: the pure Go headless CLI.
+- `internal/`: the Go core shared by desktop and CLI.
+- `frontend/`: the React app. Release packages carry only its built static assets.
+- `agents.lock.json`: the single manifest of agent package names, sources, config
+  adapters, and licences. It pins neither agent versions nor package hashes.
+- `providers.lock.json`: built-in Provider endpoints, fallback probe models, and the
+  disclosure fields the public site reads. User-defined Providers live on the machine in
+  `~/.oneagent/providers.json`.
 
-## 快速启动
+## Quick start
 
-### 桌面应用
+### Desktop app
 
 ```bash
 cd frontend
@@ -49,7 +71,9 @@ cd ..
 go run -tags wails ./cmd/oneagent-desktop
 ```
 
-生产构建需要目标平台的 Wails/WebView 依赖。Linux 当前使用 `gtk3` tag（Ubuntu 22.04 cleanroom）；macOS 使用系统 WKWebView；Windows 使用 WebView2 Runtime。
+A production build needs the target platform's Wails/WebView dependencies. Linux
+currently uses the `gtk3` tag (Ubuntu 22.04 cleanroom), macOS uses the system WKWebView,
+and Windows uses the WebView2 Runtime.
 
 ### CLI
 
@@ -57,33 +81,22 @@ go run -tags wails ./cmd/oneagent-desktop
 go build -o bin/oneagent ./cmd/oneagent
 ```
 
-Windows CMD：
+On Windows CMD:
 
 ```cmd
 go build -o bin\oneagent.exe .\cmd\oneagent
 bin\oneagent.exe agent set codex --provider ppio --model your-model-id --api-key your-api-key
 ```
 
-日常使用优先通过桌面粘贴或已保存 profile 传递凭据；`ONEAGENT_API_KEY` 和 `--api-key` 仅保留给受控脚本。 `--registry` 默认是官方 npm registry，镜像必须显式选择并使用 HTTPS。
+Day to day, pass credentials by pasting into the desktop app or from a saved profile.
+`ONEAGENT_API_KEY` and `--api-key` exist for controlled scripts. `--registry` defaults to
+the official npm registry; a mirror must be chosen explicitly and must use HTTPS.
 
-### 公开站
+## Agents and Providers
 
-```bash
-cd site
-pnpm install --frozen-lockfile
-pnpm test
-pnpm run build
-pnpm exec playwright install chromium
-pnpm run test:e2e
-```
+Automatically configured agents:
 
-站点只读取 GitHub Release、`agents.lock.json` 和 `providers.lock.json`，不读取本地 `release/`，也不依赖桌面构建环境。
-
-## Agent 与 Provider
-
-自动配置 Agent：
-
-| Agent | 包 | 安装器 | 协议 |
+| Agent | Package | Installer | Protocol |
 | --- | --- | --- | --- |
 | Codex | `@openai/codex` | npm | Responses |
 | Claude Code | `@anthropic-ai/claude-code` | npm | Anthropic Messages |
@@ -91,17 +104,28 @@ pnpm run test:e2e
 | Kilo CLI | `@kilocode/cli` | npm | OpenAI-compatible |
 | Aider | `aider-chat` | uv tool | OpenAI-compatible |
 
-安装器默认让 npm 或 uv 解析最新版本。需要复现特定版本时可传 `--agent-version VERSION`，例如 `oneagent --agent codex --install-agent --check-agent-only --agent-version 0.145.0`。
+By default the installer lets npm or uv resolve the latest version. To reproduce a
+specific one, pass `--agent-version VERSION`, for example
+`oneagent --agent codex --install-agent --check-agent-only --agent-version 0.145.0`.
 
-OpenClaw、Hermes、Cursor、Kiro、Gemini CLI、Cline、Continue、Qwen Code 和 Kilo VS Code 仅提供官方安装引导，不安装包、不写私有配置、不启动后台服务。
+OpenClaw, Hermes, and Cursor are guide only: OneAgent shows the official install steps
+without installing a package, writing private configuration, or starting a background
+service.
 
-内置 PPIO、Novita，并支持在 Provider 页面增删改用户 Provider。配置后按 Agent 实际协议探测：Codex 使用 `/v1/responses`，Claude Code 使用 `/v1/messages`，其余自动配置 Agent 使用 `/v1/chat/completions`。协议不兼容时返回 `PROTOCOL_UNSUPPORTED`，不会先写入不可用配置。
+PPIO and Novita are built in, and Providers can be added, edited, or removed on the
+Provider page. After configuration, each agent is probed over the protocol it actually
+speaks: Codex via `/v1/responses`, Claude Code via `/v1/messages`, and the remaining
+automatic agents via `/v1/chat/completions`. An incompatible protocol returns
+`PROTOCOL_UNSUPPORTED` rather than writing configuration that cannot work.
 
-Aider 的安装命令由 Go 后端固定为 `uv tool install --force --python 3.12 ...`，由 uv 复用或提供匹配的 Python。这条路径只在选择 Aider 时执行；缺少 `uv` 会返回 `PREREQUISITE_MISSING`。
+Aider's install command is fixed by the Go backend as
+`uv tool install --force --python 3.12 ...`, leaving uv to reuse or supply a matching
+Python. This path runs only when Aider is selected, and a missing `uv` returns
+`PREREQUISITE_MISSING`.
 
-## 开发与测试
+## Development and testing
 
-Go 核心、发行工具和 RC 工具：
+Go core:
 
 ```bash
 go vet ./...
@@ -110,7 +134,8 @@ go test -race ./...
 go run honnef.co/go/tools/cmd/staticcheck@2025.1.1 ./...
 go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...
 ```
-React/Wails 测试：
+
+React and Wails:
 
 ```bash
 cd frontend
@@ -121,50 +146,70 @@ pnpm exec playwright install chromium
 pnpm run test:e2e
 ```
 
-每个 pull request 都会运行 `.github/workflows/ci.yml`：Go 侧是 `go vet` 加
-`go test -race`，前端侧是 `pnpm run test` 加 `pnpm run build`。
+Documentation:
 
-## 发行
+```bash
+python3 scripts/check-docs.py
+```
 
-发行包由 `.github/workflows/build-artifacts.yml` 构建，手动触发（`workflow_dispatch`）。
-它为 macOS 与 Windows 各构建 x64/arm64 的 Wails 桌面二进制和纯 Go CLI，macOS 产物打成
-`.app`。
+Every pull request runs `.github/workflows/ci.yml`: `go vet` plus `go test -race` on the
+Go side, `pnpm run test` plus `pnpm run build` on the frontend side, and the
+documentation link and language check.
 
-Wails 仍处于 Alpha，当前不发布 Stable，不做平台签名、公证或商店分发。Stable 的签名门禁
-保留在后续发行阶段。
+## Releasing
 
-本机要复现一份等价产物，见「快速启动」里的桌面构建步骤；发行渠道标签、SHA-256 清单和
-第三方 notices 曾由 `cmd/oneagent-release` 生成，该工具已于 `23805b0` 随构建流程迁移到
-GitHub Actions 而移除。第三方归属现在维护在仓库根的 [NOTICE](NOTICE)。
+Release packages are built by `.github/workflows/build-artifacts.yml`, triggered manually
+via `workflow_dispatch`. It builds x64 and arm64 Wails desktop binaries and pure Go CLIs
+for macOS and Windows, packaging the macOS artifacts as `.app`.
 
-## 文档
+Wails is still in Alpha, so there is no Stable release, and no platform signing,
+notarization, or store distribution. The signing gate for Stable is deferred to a later
+release stage.
 
-`docs/` 按受众分三层：根下是当前有效的规范，`decisions/` 是架构决策，
-`internal/` 是维护者视角的历史记录。
+To reproduce an equivalent artifact locally, use the desktop build steps under Quick
+start. Channel labels, the SHA-256 manifest, and third-party notices were once generated
+by `cmd/oneagent-release`; that tool was removed in `23805b0` when the build moved to
+GitHub Actions. Third-party attribution now lives in [NOTICE](NOTICE) at the repository
+root.
 
-**使用与规范**
+## Documentation
 
-- [AI Agent Kit](docs/ai-agent-kit/README.md)：从零配置一个 Agent 环境
-- [产品边界基线](docs/product-boundary-baseline.md)：做什么、不做什么，以及为什么
-- [分发与合规政策](docs/distribution-compliance-policy.md)：发行前的权利、安全与渠道要求
-- [公开站运营手册](docs/public-site-operations.md)
+`docs/` is layered by audience: current specifications at the root, architecture
+decisions in `decisions/`, and maintainer history in `internal/`.
 
-**架构决策**
+Outward-facing documentation is written in English. The AI Agent Kit is also available in
+Chinese, and this README has a [Chinese version](README_ZH.md). `docs/internal/` is
+maintainer-facing and stays in Chinese.
 
-- [decisions/](docs/decisions/)：ADR-001 至 ADR-009，含已被取代的决策及其去向
-- [Wails v3 / Go 迁移](docs/decisions/ADR-007-wails-v3-go-migration.md)
-- [按 Agent 协议验证](docs/decisions/ADR-004-per-agent-protocol-verification.md)
-- [凭据写入 Agent 配置文件](docs/decisions/ADR-008-credentials-in-agent-config-files.md)
+**Usage and specifications**
 
-**内部实现记录**
+- [AI Agent Kit](docs/ai-agent-kit/README.md): set up an agent environment from scratch
+- [Product boundary baseline](docs/product-boundary-baseline.md): what OneAgent does, what
+  it does not, and why
+- [Distribution and compliance policy](docs/distribution-compliance-policy.md): the
+  rights, security, and channel requirements that precede a release
+- [Public site operations](docs/public-site-operations.md)
 
-- [internal/](docs/internal/README.md)：各次改造的完工记录与验证清单。里面的命令可能已随
-  工具移除而失效，该目录的 README 说明了当前的替代入口。
+**Architecture decisions**
 
-## 许可证
+- [decisions/](docs/decisions/): ADR-001 through ADR-009, including superseded decisions
+  and where they went
+- [Wails v3 / Go migration](docs/decisions/ADR-007-wails-v3-go-migration.md)
+- [Per-agent protocol verification](docs/decisions/ADR-004-per-agent-protocol-verification.md)
+- [Credentials in agent config files](docs/decisions/ADR-008-credentials-in-agent-config-files.md)
 
-Apache License 2.0，见 [LICENSE](LICENSE)。
+**Internal records**
 
-[NOTICE](NOTICE) 列出随二进制分发的第三方组件及其许可证，以及运行时下载但不再分发的
-Node.js、uv 和 Agent 包。界面中显示的各 Agent 官方标识属于 nominative use，用于指明某一
-行对应哪个工具，不表示背书或关联，商标归各自所有者。
+- [internal/](docs/internal/README.md): completion records and verification checklists for
+  past work. Commands in there may have stopped working as tools were removed; that
+  directory's README names the current entry points.
+
+## Licence
+
+Apache License 2.0. See [LICENSE](LICENSE).
+
+[NOTICE](NOTICE) lists the third-party components distributed with the binary and their
+licences, along with Node.js, uv, and the agent packages that are downloaded at runtime
+rather than redistributed. Agent marks shown in the interface are nominative use,
+identifying which tool a row refers to. They imply no endorsement or affiliation, and each
+mark belongs to its owner.
