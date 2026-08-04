@@ -5,7 +5,7 @@
 
 面向使用者的文档在上一层：[产品边界基线](../product-boundary-baseline.md)、
 [分发与合规政策](../distribution-compliance-policy.md)、
-[AI Agent Kit](../ai-agent-kit/00-start-here.md)；架构决策在
+[AI Agent Kit](../ai-agent-kit/README.md)；架构决策在
 [decisions/](../decisions/)。
 
 ## 为什么分开放

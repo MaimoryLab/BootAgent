@@ -73,6 +73,30 @@ codegraph explore "binding Service Install"
 - `docs/decisions/`：ADR。被推翻的决策保留原文并标注 Superseded 及其去向，不删改历史。
 - `docs/internal/`：维护者视角的完工记录与验证清单。不放未实施的计划——那属于 issue。
 
+## 文档语言
+
+对外文档一律英文，只有两处例外提供中文：
+
+| 位置 | 语言 |
+| --- | --- |
+| `README.md` | 英文；中文在 `README_ZH.md`，两份内容必须同步 |
+| `docs/` 根的规范、`docs/decisions/` 的 ADR | 仅英文 |
+| `docs/ai-agent-kit/` | 双语，`en/` 与 `zh/` 各自成套 |
+| `CLAUDE.md`、`docs/internal/` | 中文。读者是维护者自己，双语只增加分叉成本 |
+
+英文术语以 `frontend/src/i18n.tsx` 为准，那是产品界面的真源：运行时 = Runtimes、
+配置模板 = Profiles、环境总览 = Environment overview、仅引导 = Guide only、
+激活步骤 = Setup steps。文档另起一套译法会让用户在界面和文档之间对不上。
+`Agent`、`Provider`、`Profile`、`technical-preview-unsigned`、`agents.lock.json`
+这类标识符不译。
+
+**界面文案的方向与文档相反**：`translate()` 只在 `locale === "en"` 时查表，否则直接
+返回中文 key，所以 i18n **以中文为源语言**。新增界面文案仍然先写中文 key 再补英文
+翻译，不要因为文档转英文就去改 key——那会连带改掉全部条目。
+
+`python3 scripts/check-docs.py` 检查相对链接是否解析、英文文档里是否残留中文。
+改动文档后跑它；`.github/workflows/ci.yml` 也会跑。
+
 README、workflow、Taskfile 和 AI Agent Kit 里的命令必须对应当前仓库文件。`docs/internal/`
 里引用已移除工具的命令块用 ` ```text ` 而不是 ` ```bash `，避免被当成可运行指令。
 

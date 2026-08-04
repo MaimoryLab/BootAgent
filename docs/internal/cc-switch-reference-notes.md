@@ -165,4 +165,4 @@ CC Switch 依赖 **`@lobehub/icons-static-svg`**（MIT，723 个 AI 品牌 SVG�
 - 商业合作伙伴字段与推广排序 —— 与公开权益文案约束冲突。
 - 拖拽排序、健康徽章 —— 当前无对应需求。
 
-相关文档：[前端管理控制台改造计划](frontend-management-console-plan.md)、[产品边界基线](../product-boundary-baseline.md)、[CC Switch 可选配置说明](../ai-agent-kit/tools/cc-switch.md)。
+相关文档：[前端管理控制台改造计划](frontend-management-console-plan.md)、[产品边界基线](../product-boundary-baseline.md)、[CC Switch 可选配置说明](../ai-agent-kit/zh/tools/cc-switch.md)。

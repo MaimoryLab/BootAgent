@@ -1,5 +1,7 @@
 # 第一次请求验证
 
+[English](../en/05-first-request.md) · **简体中文**
+
 ## 1. 先验证模型列表
 
 ```bash

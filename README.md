@@ -144,7 +144,7 @@ GitHub Actions 而移除。第三方归属现在维护在仓库根的 [NOTICE](N
 
 **使用与规范**
 
-- [AI Agent Kit](docs/ai-agent-kit/00-start-here.md)：从零配置一个 Agent 环境
+- [AI Agent Kit](docs/ai-agent-kit/README.md)：从零配置一个 Agent 环境
 - [产品边界基线](docs/product-boundary-baseline.md)：做什么、不做什么，以及为什么
 - [分发与合规政策](docs/distribution-compliance-policy.md)：发行前的权利、安全与渠道要求
 - [公开站运营手册](docs/public-site-operations.md)

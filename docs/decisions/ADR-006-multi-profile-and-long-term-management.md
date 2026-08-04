@@ -17,7 +17,7 @@ OneAgent 目前是一次性向导：激活完成即结束，`~/.oneagent/profile
 - Agent 版本落后于 `agents.lock.json` 的锁定版本时（`status_payload` 已能对比出 `version` 与 `lockedVersion`），界面没有任何提示。
 - 写入配置时 `atomic_write` 已经产生 `*.backup-<ts>` 备份，但用户看不到、也无法回滚。
 
-用户事实上在用 CC Switch 做 Profile 切换（见 [CC Switch 配置指引](../ai-agent-kit/tools/cc-switch.md)）。这说明切换需求真实存在，CC Switch 文档也记录了一条关键教训：**切换配置后 Agent 不会自动重新加载**，不能显示"已切换"就了事。
+用户事实上在用 CC Switch 做 Profile 切换（见 [CC Switch 配置指引](../ai-agent-kit/zh/tools/cc-switch.md)）。这说明切换需求真实存在，CC Switch 文档也记录了一条关键教训：**切换配置后 Agent 不会自动重新加载**，不能显示"已切换"就了事。
 
 ## Decision
 

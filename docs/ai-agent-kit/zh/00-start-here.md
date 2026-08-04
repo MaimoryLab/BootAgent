@@ -1,5 +1,7 @@
 # OneAgent AI 开发环境激活指南
 
+[English](../en/00-start-here.md) · **简体中文**
+
 这套启动包帮助你完成三件事：
 
 1. 准备一个可用的模型 Provider。
