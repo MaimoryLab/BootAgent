@@ -1,4 +1,5 @@
 import { render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -55,15 +56,17 @@ function agentStatus(over: Partial<AgentStatus> = {}): AgentStatus {
 
 function renderRow(over: Partial<AgentStatus> = {}, profileName = "团队 PPIO") {
   render(
-    <AgentManageRow
-      agentId="codex"
-      catalog={catalogAgent}
-      status={agentStatus(over)}
-      providers={{
-        ppio: { name: "PPIO", home: "https://ppio.com/", base_url: "https://api.ppio.com/openai" },
-      }}
-      profileName={profileName}
-    />,
+    <MemoryRouter>
+      <AgentManageRow
+        agentId="codex"
+        catalog={catalogAgent}
+        status={agentStatus(over)}
+        providers={{
+          ppio: { name: "PPIO", home: "https://ppio.com/", base_url: "https://api.ppio.com/openai" },
+        }}
+        profileName={profileName}
+      />
+    </MemoryRouter>,
   );
 }
 
@@ -109,11 +112,27 @@ describe("AgentManageRow", () => {
     expect(isBehind("2.1.220", "2.1.217")).toBe(false);
   });
 
-  it("is informational rather than a configuration entry point", () => {
+  it("edits nowhere in the row itself", () => {
+    // The row links to the detail page rather than growing a form: credentials
+    // and probes belong on a page with room to explain them.
     renderRow();
     expect(screen.queryByLabelText(/API Key/i)).toBeNull();
     expect(screen.queryByRole("button", { name: /测试连接/ })).toBeNull();
-    expect(screen.queryByRole("button", { name: /Codex/ })).toBeNull();
+  });
+
+  it("links to the Agent's own configuration page", () => {
+    // Without this the detail page was unreachable: the route existed but nothing
+    // navigated to it.
+    renderRow();
+    expect(screen.getByRole("link", { name: /配置/ }).getAttribute("href")).toBe("/agents/codex");
+  });
+
+  it("offers configuration even for an Agent that is not installed", () => {
+    // Launching needs a binary; pointing it at a Provider does not, and the
+    // config is what a later install will pick up.
+    renderRow({ installed: false, version: null });
+    expect(screen.getByRole("link", { name: /配置/ })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /启动/ })).toBeNull();
   });
 
   it("launches the Agent it belongs to", async () => {

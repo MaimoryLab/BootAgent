@@ -6,6 +6,7 @@ import { api, describeError } from "../backend/api";
 import { AdvancedSection } from "../components/AdvancedSection";
 import { ConnectionStatus } from "../components/ConnectionStatus";
 import { AgentIcon, agentTagline } from "../components/icons/agents";
+import { AgentQuickSwitch } from "../components/AgentQuickSwitch";
 import { PageScaffold } from "../components/PageScaffold";
 import { ProviderSegment } from "../components/ProviderSegment";
 import { SecureKeyField } from "../components/SecureKeyField";
@@ -77,7 +78,16 @@ export function AgentDetailPage() {
       ? agent.detected
       : null;
   const canProbe = Boolean(apiKey);
-  const canApply = canProbe && probeState === "success" && !applying;
+  // ActivateAgent resolves the key from the request, then the Profile secret,
+  // then the Provider's stored one (internal/app/agent.go:92-102), so a typed key
+  // is not the only way to have one. Requiring it here meant a user who only
+  // wanted to change the model had to paste their key again.
+  const providerHasKey = Boolean(status.providers[provider]?.has_key);
+  const hasKeySomewhere = Boolean(apiKey) || providerHasKey;
+  // A probe is a check, not a gate: the backend never asks for one. Applying
+  // without it is allowed and warned about rather than blocked.
+  const canApply = hasKeySomewhere && probeState !== "loading" && !applying;
+  const untested = probeState !== "success";
 
   const resetVerdict = () => {
     setProbe(null);
@@ -167,6 +177,15 @@ export function AgentDetailPage() {
         </dl>
       </div>
 
+      {/* Above the form: switching between existing Profiles is the common case,
+          and editing fields by hand is the fallback for when none of them fit. */}
+      <AgentQuickSwitch
+        agentId={agentId}
+        status={agent}
+        profiles={status.profiles}
+        onSwitched={() => refreshStatus()}
+      />
+
       <section className="detail-form">
         {willOverwrite ? (
           <div className="notice notice-warning">
@@ -213,6 +232,15 @@ export function AgentDetailPage() {
         </div>
         {catalog.protocol ? (
           <small className="detail-protocol">{t("将测试 {protocol} 协议", { protocol: PROTOCOL_LABELS[catalog.protocol] })}</small>
+        ) : null}
+        {/* Say where the key is coming from, and that a skipped test is allowed.
+            Without this the empty field reads as "no key" on a Provider that has
+            one, and the enabled Apply button looks like a bug. */}
+        {!apiKey && providerHasKey ? (
+          <small className="detail-protocol">{t("留空则使用该 Provider 已保存的 Key。")}</small>
+        ) : null}
+        {canApply && untested ? (
+          <small className="detail-protocol">{t("未测试连接也可以应用，配置文件会先备份。")}</small>
         ) : null}
 
         <AdvancedSection hint={t("可以指定具体模型。留空时由端点的模型列表自动选择，多数情况保持默认即可。")}>

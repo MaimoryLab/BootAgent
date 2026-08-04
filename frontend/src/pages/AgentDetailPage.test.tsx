@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 
@@ -130,10 +131,33 @@ describe("AgentDetailPage", () => {
     expect(screen.getByText("/home/u/.codex/config.toml")).toBeTruthy();
   });
 
-  it("keeps apply disabled until a probe succeeds", () => {
-    // Constraint 1: a rejected key must not reach a config file.
+  it("keeps apply disabled when no key exists anywhere", () => {
+    // ActivateAgent needs a key from somewhere (internal/app/agent.go:104), and
+    // this Provider has none stored, so there is nothing to resolve.
     renderPage();
     expect(screen.getByRole("button", { name: /^应用/ }).hasAttribute("disabled")).toBe(true);
+  });
+
+  it("allows applying on a Provider that already has a key, without a probe", async () => {
+    // The old gate required a freshly typed key AND a passing probe. The backend
+    // asks for neither: it falls back to the Profile secret, then the Provider's
+    // stored key (agent.go:92-102). A user changing only the model was forced to
+    // paste their key again.
+    const activate = vi.spyOn(api, "activateAgent").mockResolvedValue({
+      ok: true, agent: "codex", restart: "重启 Codex", next: "codex", backup: null,
+    } as never);
+    const withKey = status();
+    withKey.providers.ppio.has_key = true;
+    renderPage("codex", withKey);
+
+    const apply = screen.getByRole("button", { name: /^应用/ });
+    expect(apply.hasAttribute("disabled")).toBe(false);
+    expect(screen.getByText(/留空则使用该 Provider 已保存的 Key/)).toBeTruthy();
+    expect(screen.getByText(/未测试连接也可以应用/)).toBeTruthy();
+
+    await userEvent.click(apply);
+    // The empty key is deliberate: the backend resolves it.
+    await waitFor(() => expect(activate).toHaveBeenCalledWith("codex", expect.objectContaining({ apiKey: "" })));
   });
 
   it("offers user Providers in the configuration menu", () => {
@@ -151,17 +175,19 @@ describe("AgentDetailPage", () => {
   });
 
   it("drops a passing verdict when the key is edited afterwards", async () => {
-    // Constraint 2: otherwise a wrong key rides in on the previous verdict.
+    // Otherwise a wrong key rides in on the previous verdict. The verdict itself
+    // is what must clear; Apply is no longer gated on it, so asserting the button
+    // would no longer prove anything.
     vi.spyOn(api, "probe").mockResolvedValue(passingProbe());
     renderPage();
     fireEvent.change(screen.getByLabelText(/API Key/i), { target: { value: "sk-good" } });
     fireEvent.click(screen.getByRole("button", { name: /测试连接/ }));
-    await waitFor(() =>
-      expect(screen.getByRole("button", { name: /^应用/ }).hasAttribute("disabled")).toBe(false),
-    );
+    // ConnectionStatus renders the probe's own message on success.
+    expect(await screen.findByRole("status")).toHaveTextContent("ok");
 
     fireEvent.change(screen.getByLabelText(/API Key/i), { target: { value: "sk-other" } });
-    expect(screen.getByRole("button", { name: /^应用/ }).hasAttribute("disabled")).toBe(true);
+    // Back to "untested", and the hint that says so reappears.
+    expect(screen.getByText(/未测试连接也可以应用/)).toBeTruthy();
   });
 
   it("reports the restart instruction and clears the key after applying", async () => {

@@ -1,5 +1,6 @@
-import { Play, RefreshCw } from "lucide-react";
+import { Play, RefreshCw, SlidersHorizontal } from "lucide-react";
 import { useState } from "react";
+import { Link } from "react-router-dom";
 
 import { api, describeError } from "../backend/api";
 import { sourceTranslate, type Translate, useI18n } from "../i18n";
@@ -143,20 +144,31 @@ export function AgentManageRow({
       <StatusBadge tone={status.installed ? "success" : "warning"}>
         {status.installed ? t("已安装") : t("待安装")}
       </StatusBadge>
-      {canLaunch ? (
-        <button
+      <span className="agent-manage-actions">
+        {/* An explicit button rather than making the whole row a link: the row
+            already carries the launch action, and two competing click targets in
+            one row is how you launch an Agent while meaning to configure it. */}
+        <Link
           className="button button-secondary"
-          type="button"
-          onClick={() => void launch()}
-          disabled={launching}
-          title={t("在新终端窗口中启动，并载入 OneAgent 写入的配置")}
+          to={`/agents/${agentId}`}
+          title={t("修改这个 Agent 指向的 Provider 与模型")}
         >
-          {launching ? <RefreshCw size={15} className="spin" /> : <Play size={15} />}
-          {t("启动")}
-        </button>
-      ) : (
-        <span className="runtime-action-placeholder" aria-hidden="true" />
-      )}
+          <SlidersHorizontal size={15} />
+          {t("配置")}
+        </Link>
+        {canLaunch ? (
+          <button
+            className="button button-secondary"
+            type="button"
+            onClick={() => void launch()}
+            disabled={launching}
+            title={t("在新终端窗口中启动，并载入 OneAgent 写入的配置")}
+          >
+            {launching ? <RefreshCw size={15} className="spin" /> : <Play size={15} />}
+            {t("启动")}
+          </button>
+        ) : null}
+      </span>
     </div>
   );
 }
