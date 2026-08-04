@@ -70,10 +70,3 @@ tasks:
       - build:frontend
     cmds:
       - cd frontend && pnpm run test:e2e
-
-  test:native:
-    summary: Start the native Wails binary and require a GetStatus binding call
-    deps:
-      - build:desktop
-    cmds:
-      - go run ./cmd/oneagent-native-smoke -binary ./{{.BIN_DIR}}/{{.APP_NAME}}

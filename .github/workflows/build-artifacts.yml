@@ -1,0 +1,105 @@
+name: Build artifacts
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    name: Build frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.17.0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 26
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: Build frontend
+        working-directory: frontend
+        run: pnpm run build
+
+      - name: Upload frontend
+        uses: actions/upload-artifact@v7
+        with:
+          name: frontend-dist
+          path: frontend/dist
+          if-no-files-found: error
+
+  build:
+    needs: frontend
+    name: Build ${{ matrix.target.platform }} ${{ matrix.arch }}
+    runs-on: ${{ matrix.target.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - platform: macos
+            runner: macos-latest
+            cgo: 1
+            suffix: ""
+            desktop_ldflags: -w -s
+          - platform: windows
+            runner: windows-latest
+            cgo: 0
+            suffix: .exe
+            desktop_ldflags: -w -s -H windowsgui
+        arch: [x64, arm64]
+
+    env:
+      CGO_ENABLED: ${{ matrix.target.cgo }}
+      CGO_CFLAGS: ${{ matrix.target.platform == 'macos' && '-mmacosx-version-min=12.0' || '' }}
+      CGO_LDFLAGS: ${{ matrix.target.platform == 'macos' && '-mmacosx-version-min=12.0' || '' }}
+      GOARCH: ${{ matrix.arch == 'x64' && 'amd64' || 'arm64' }}
+      MACOSX_DEPLOYMENT_TARGET: ${{ matrix.target.platform == 'macos' && '12.0' || '' }}
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+
+      - name: Download frontend
+        uses: actions/download-artifact@v8
+        with:
+          name: frontend-dist
+          path: frontend/dist
+
+      - name: Build binaries
+        shell: bash
+        run: |
+          mkdir -p bin
+          go build -tags wails,production -trimpath -buildvcs=false -ldflags="${{ matrix.target.desktop_ldflags }}" -o "bin/oneagent-desktop${{ matrix.target.suffix }}" ./cmd/oneagent-desktop
+          go build -trimpath -buildvcs=false -ldflags="-w -s" -o "bin/oneagent${{ matrix.target.suffix }}" ./cmd/oneagent
+
+      - name: Package macOS binaries
+        if: matrix.target.platform == 'macos'
+        working-directory: bin
+        run: zip ../OneAgent-macos-${{ matrix.arch }}.zip *
+
+      - name: Package Windows binaries
+        if: matrix.target.platform == 'windows'
+        shell: pwsh
+        run: Compress-Archive -Path bin/* -DestinationPath OneAgent-windows-${{ matrix.arch }}.zip
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: OneAgent-${{ matrix.target.platform }}-${{ matrix.arch }}
+          path: OneAgent-${{ matrix.target.platform }}-${{ matrix.arch }}.zip
+          if-no-files-found: error
+          compression-level: 0
