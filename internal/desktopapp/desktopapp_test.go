@@ -340,3 +340,18 @@ func TestCompareVersionHandlesMissingComponents(t *testing.T) {
 		t.Fatal("missing components should compare as zero")
 	}
 }
+
+func TestProfileAgentIDKeepsChatGPTOnCodexAndScopesOtherApps(t *testing.T) {
+	if got := ProfileAgentID(ID); got != SharedConfigAgentID || !SharesProfile(ID) {
+		t.Fatalf("ChatGPT profile mapping = %q, shared=%v", got, SharesProfile(ID))
+	}
+	if got := ProfileAgentID("  " + ID + " "); got != SharedConfigAgentID || !SharesProfile("  "+ID+" ") {
+		t.Fatalf("trimmed ChatGPT profile mapping = %q, shared=%v", got, SharesProfile("  "+ID+" "))
+	}
+	if got := ProfileAgentID("workbuddy"); got != "workbuddy" || SharesProfile("workbuddy") {
+		t.Fatalf("other desktop mapping = %q, shared=%v", got, SharesProfile("workbuddy"))
+	}
+	if SharesProfile("  workbuddy ") {
+		t.Fatal("whitespace around a non-shared desktop ID changed its ownership")
+	}
+}

@@ -84,7 +84,7 @@ describe("EnvironmentOverviewPage", () => {
     mockState = { status: empty, statusState: "success", statusError: "" };
     renderPage();
     expect(screen.getByText("尚未安装任何 Agent")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "安装 Agent" }));
+    fireEvent.click(screen.getByRole("button", { name: "安装命令行 Agent" }));
     expect(await screen.findByRole("heading", { name: "onboarding" })).toBeTruthy();
     // A second run must not inherit the previous Agent, model or log.
     expect(dispatch).toHaveBeenCalledWith({ type: "START_SETUP" });

@@ -35,6 +35,11 @@ export interface AgentInstallResult {
     "retryable": boolean;
 }
 
+export interface DesktopAgentProfileRequest {
+    "agent_id": string;
+    "profile_id": string;
+}
+
 export interface InstallRequest {
     "agents": string[] | null;
     "profile_agents": string[] | null;

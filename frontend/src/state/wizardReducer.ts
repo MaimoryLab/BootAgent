@@ -9,11 +9,13 @@ import type {
 } from "../types/api";
 
 export type AsyncState = "idle" | "loading" | "success" | "error";
+export type SetupKind = "cli" | "desktop";
 
 export interface WizardState {
   status: StatusResponse | null;
   statusState: AsyncState;
   statusError: string;
+  setupKind: SetupKind;
   /** Onboarding installs exactly one Agent; the array shape stays because the
    *  install API and the activation page are both multi-Agent. */
   selectedAgentIds: string[];
@@ -23,6 +25,7 @@ export interface WizardState {
    *  Agent and Provider". */
   profileId: string;
   profileLabel: string;
+  desktopProfileId: string;
   hasApiKey: boolean;
   connection: ProbeResponse | null;
   connectionState: AsyncState;
@@ -50,11 +53,13 @@ export const initialWizardState: WizardState = {
   status: null,
   statusState: "idle",
   statusError: "",
+  setupKind: "cli",
   selectedAgentIds: [],
   installMissingAgents: true,
   provider: "ppio",
   profileId: "",
   profileLabel: "",
+  desktopProfileId: "",
   hasApiKey: false,
   connection: null,
   connectionState: "idle",
@@ -75,11 +80,13 @@ export type WizardAction =
   | { type: "STATUS_LOADING" }
   | { type: "STATUS_LOADED"; status: StatusResponse }
   | { type: "STATUS_FAILED"; message: string }
+  | { type: "START_DESKTOP_SETUP" }
   | { type: "SELECT_AGENT"; agentId: string }
   | { type: "SET_INSTALL_MISSING"; value: boolean }
   | { type: "SET_PROVIDER"; value: ProviderId }
   | { type: "SET_PROFILE_ID"; value: string }
   | { type: "SET_PROFILE_LABEL"; value: string }
+  | { type: "SET_DESKTOP_PROFILE"; value: string }
   | { type: "START_SETUP"; profileId?: string; profileLabel?: string }
   | { type: "SET_HAS_API_KEY"; value: boolean }
   | { type: "CONNECTION_LOADING" }
@@ -137,17 +144,31 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
       return { ...state, status: action.status, statusState: "success", statusError: "" };
     case "STATUS_FAILED":
       return { ...state, statusState: "error", statusError: action.message };
+    case "START_DESKTOP_SETUP":
+      return {
+        ...initialWizardState,
+        status: state.status,
+        statusState: state.statusState,
+        statusError: state.statusError,
+        setupKind: "desktop",
+      };
     case "SELECT_AGENT":
       // Single select, and re-clicking the current row keeps it selected: the
       // step cannot continue with nothing chosen, so a toggle-off would only
       // ever produce a dead end.
-      return { ...state, selectedAgentIds: [action.agentId] };
+      return {
+        ...state,
+        selectedAgentIds: [action.agentId],
+        desktopProfileId: state.selectedAgentIds[0] === action.agentId ? state.desktopProfileId : "",
+      };
     case "SET_INSTALL_MISSING":
       return { ...state, installMissingAgents: action.value };
     case "SET_PROFILE_ID":
       return { ...state, profileId: action.value };
     case "SET_PROFILE_LABEL":
       return { ...state, profileLabel: action.value };
+    case "SET_DESKTOP_PROFILE":
+      return { ...state, desktopProfileId: action.value };
     case "START_SETUP":
       // Entering onboarding from the overview or the Profile page must not
       // inherit a previous run's Agent, model or install log.
@@ -156,6 +177,7 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
         status: state.status,
         statusState: state.statusState,
         statusError: state.statusError,
+        setupKind: "cli",
         profileId: action.profileId ?? "",
         profileLabel: action.profileLabel ?? "",
       };

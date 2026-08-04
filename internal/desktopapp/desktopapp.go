@@ -35,6 +35,22 @@ const (
 	WindowsInstallerURL = "https://get.microsoft.com/installer/download/9PLM9XGG6VKS?cid=website_cta_psi"
 )
 
+// ProfileAgentID is the Agent whose profile owns a desktop application's
+// provider settings. ChatGPT Desktop reads Codex's configuration; a different
+// desktop application gets its own profile namespace.
+func ProfileAgentID(agentID string) string {
+	agentID = strings.TrimSpace(agentID)
+	if agentID == ID {
+		return SharedConfigAgentID
+	}
+	return agentID
+}
+
+func SharesProfile(agentID string) bool {
+	agentID = strings.TrimSpace(agentID)
+	return ProfileAgentID(agentID) != agentID
+}
+
 const (
 	SourceMacOSDMG     = "macos-dmg"
 	SourceWindowsStore = "windows-store"

@@ -90,6 +90,18 @@ func (s *DesktopAgentService) OpenInstaller(ctx context.Context) (app.DesktopAge
 	return s.core.OpenDesktopAgentInstaller(ctx, s.onOutput)
 }
 
+// Configure applies a saved Profile to the selected desktop Agent. The profile
+// ID is the only user-supplied value; secrets stay in the Go profile store.
+func (s *DesktopAgentService) Configure(ctx context.Context, request DesktopAgentProfileRequest) (app.DesktopAgentProfileResult, error) {
+	if err := contextError(ctx); err != nil {
+		return app.DesktopAgentProfileResult{}, err
+	}
+	if s == nil || s.core == nil {
+		return app.DesktopAgentProfileResult{}, notReady("Desktop agent service is not configured")
+	}
+	return s.core.ConfigureDesktopAgent(ctx, request.AgentID, request.ProfileID)
+}
+
 // RuntimeService exposes the Node.js and uv bootstrap. It reuses the install
 // output listener so the UI can render runtime byte progress alongside Agent
 // install output; runtime bootstrap does not emit a fake command line.
@@ -420,6 +432,11 @@ type ModelsRequest struct {
 type OpenRegistrationRequest struct {
 	Provider string   `json:"provider"`
 	Agents   []string `json:"agents"`
+}
+
+type DesktopAgentProfileRequest struct {
+	AgentID   string `json:"agent_id"`
+	ProfileID string `json:"profile_id"`
 }
 
 type ProviderIDRequest struct {

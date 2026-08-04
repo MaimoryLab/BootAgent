@@ -98,4 +98,10 @@ describe("DesktopAppSection", () => {
     expect(screen.getByText("应用状态检测不可用")).toBeTruthy();
     expect(screen.queryByText("已检测到应用，但版本信息不可用")).toBeNull();
   });
+
+  it("can omit an uninstalled app from the overview", () => {
+    render(<DesktopAppSection app={app()} onChanged={vi.fn()} showUninstalled={false} />);
+
+    expect(screen.queryByRole("heading", { name: "桌面 Agent" })).toBeNull();
+  });
 });

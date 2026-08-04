@@ -15,7 +15,7 @@ import type { InstallRequest } from "../types/api";
 export function ActivationPage() {
   const navigate = useNavigate();
   const { t } = useI18n();
-  const { state, dispatch, secret, refreshStatus } = useWizard();
+  const { state, dispatch, refreshStatus } = useWizard();
   const { progress, resetProgress } = useTaskCenter();
   const started = useRef(false);
   const [retrying, setRetrying] = useState<string | null>(null);
@@ -46,7 +46,8 @@ export function ActivationPage() {
       profile_agents: profileAgents,
       provider: state.provider,
       api_base_url: "",
-      api_key: secret.keyRef.current,
+      // Provider credentials are resolved server-side from the saved Provider.
+      api_key: "",
       // SetupGuard guarantees a model before this page can render.
       model: state.model,
       profile_id: state.profileId,
@@ -55,7 +56,7 @@ export function ActivationPage() {
       install_agent: state.installMissingAgents,
       skip_test: false,
     }),
-    [secret.keyRef, state.installMissingAgents, state.model, state.profileId, state.profileLabel, state.provider],
+    [state.installMissingAgents, state.model, state.profileId, state.profileLabel, state.provider],
   );
 
   const activate = useCallback(async () => {
@@ -73,7 +74,6 @@ export function ActivationPage() {
         replaceAgents: state.selectedAgentIds,
       });
       if (response.ok) {
-        secret.clearApiKey();
         await refreshStatus();
       }
     } catch (error) {
@@ -81,7 +81,7 @@ export function ActivationPage() {
     } finally {
       setRuntimeDownloading(false);
     }
-  }, [clearRuntimeProgress, dispatch, refreshStatus, requestFor, runtimeDownloads.length, secret, state.selectedAgentIds, t]);
+  }, [clearRuntimeProgress, dispatch, refreshStatus, requestFor, runtimeDownloads.length, state.selectedAgentIds, t]);
 
   useEffect(
     () =>
@@ -119,7 +119,6 @@ export function ActivationPage() {
       });
       const otherFailures = state.activationResults.filter((item) => item.agent !== agentId && item.status === "failed");
       if (response.ok && !otherFailures.length) {
-        secret.clearApiKey();
         await refreshStatus();
       }
     } catch (error) {

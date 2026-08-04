@@ -29,8 +29,8 @@ test("onboarding installs one Agent end to end and writes its Profile", async ({
   // Onboarding is the only way to create a Profile: it collects the Agent, key
   // and model in order and the install writes the Profile itself.
   await page.goto("/#/overview");
-  await expect(page.getByText("尚未安装任何 Agent")).toBeVisible();
-  await page.getByRole("button", { name: "安装 Agent" }).click();
+  await expect(page.getByText("尚未安装任何命令行 Agent")).toBeVisible();
+  await page.getByRole("button", { name: "安装命令行 Agent" }).click();
 
   await expect(page.getByRole("heading", { name: "选择 Agent" })).toBeVisible();
   await page.getByLabel("选择 Codex").check();

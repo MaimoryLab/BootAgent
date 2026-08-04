@@ -15,6 +15,18 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 // @ts-ignore: Unused imports
 import * as app$0 from "../app/models.js";
 
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as $models from "./models.js";
+
+/**
+ * Configure applies a saved Profile to the selected desktop Agent. The profile
+ * ID is the only user-supplied value; secrets stay in the Go profile store.
+ */
+export function Configure(request: $models.DesktopAgentProfileRequest): $CancellablePromise<app$0.DesktopAgentProfileResult> {
+    return $Call.ByID(1718807223, request);
+}
+
 export function GetStatus(): $CancellablePromise<app$0.DesktopAgentStatus> {
     return $Call.ByID(2070814877);
 }

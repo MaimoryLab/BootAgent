@@ -1,4 +1,4 @@
-import { AppWindow, Download, RefreshCw, TriangleAlert } from "lucide-react";
+import { AppWindow, Download, RefreshCw, SlidersHorizontal, TriangleAlert } from "lucide-react";
 import { useState } from "react";
 
 import { api, describeError } from "../backend/api";
@@ -11,18 +11,21 @@ import { StatusBadge } from "./StatusBadge";
 interface DesktopAppSectionProps {
   app: DesktopAgentStatus;
   onChanged: () => void | Promise<void>;
+  onConfigure?: () => void;
+  /** The overview passes false so uninstalled apps are not rendered there. */
+  showUninstalled?: boolean;
 }
 
 type Action = "install" | "open" | "installer";
 
-export function DesktopAppSection({ app: desktopApp, onChanged }: DesktopAppSectionProps) {
+export function DesktopAppSection({ app: desktopApp, onChanged, onConfigure, showUninstalled = true }: DesktopAppSectionProps) {
   const { t } = useI18n();
   const { resetProgress } = useTaskCenter();
   const [pending, setPending] = useState<Action | "">("");
   const [failure, setFailure] = useState("");
   const [notice, setNotice] = useState("");
 
-  if (!desktopApp?.supported) return null;
+  if (!desktopApp?.supported || (!showUninstalled && !desktopApp.installed)) return null;
 
   const run = async (action: Action) => {
     const downloading = action === "install" || action === "installer";
@@ -90,9 +93,21 @@ export function DesktopAppSection({ app: desktopApp, onChanged }: DesktopAppSect
             <span title={desktopApp.path}>{desktopApp.path}</span>
           </div>
         ) : null}
+        {desktopApp.profileId ? (
+          <div className="desktop-app-fact">
+            <small>Profile</small>
+            <span title={desktopApp.profileId}>{desktopApp.profileId}</span>
+          </div>
+        ) : null}
         <div className="desktop-app-actions">
           {desktopApp.installed ? (
             <>
+              {onConfigure ? (
+                <button className="button button-secondary" type="button" onClick={onConfigure} disabled={Boolean(pending)}>
+                  <SlidersHorizontal size={15} />
+                  {t("配置")}
+                </button>
+              ) : null}
               <button className="button button-secondary" type="button" onClick={() => void run("open")} disabled={Boolean(pending)}>
                 {pending === "open" ? <RefreshCw size={15} className="spin" aria-hidden="true" /> : <AppWindow size={15} aria-hidden="true" />}
                 {t("打开")}
