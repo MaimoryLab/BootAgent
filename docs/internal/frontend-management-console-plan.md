@@ -5,7 +5,7 @@
 ## 已交付
 
 - 首屏环境总览、Agent 行式管理、Provider 和 Profile 页面。
-- Agent 详情页支持单 Agent 激活、Claude fast model 和配置发现警告。
+- 单 Agent 页面（`/agents/:agentId`）由 `AgentProfilePage` 承担：切换 Provider、模型和 Profile。
 - Key 不进入 reducer、浏览器存储或 binding 公开摘要；仅在用户主动打开 Provider 编辑/配置表单时通过本机 binding 读入密码字段。
 - 生成的 `frontend/bindings` 是后端 DTO 的唯一类型来源。
 - Wails server/e2e fake runner 覆盖导航、重试、错误 cause 和临时 HOME；生产构建不使用 server tag。

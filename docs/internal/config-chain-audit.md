@@ -28,7 +28,7 @@ Wails service or cmd/oneagent
 
 - Agent 命令、配置路径、平台、package manager 和包名从 catalog manifest 读取；版本默认由包管理器解析。
 - 配置适配器只在 Go 中按 adapter 分派，格式差异不伪装成数据配置。
-- 每个 Agent 的凭据交付方式由 `credential_delivery` 和 `env_vars` 声明。
+- 每个 Agent 需要哪些环境变量名由 `env_vars` 声明；凭据写到哪个文件由适配器代码决定（`internal/config/write.go`），不再有 `credential_delivery` 字段，见 [ADR-008](../decisions/ADR-008-credentials-in-agent-config-files.md)。
 - Claude Code 的 native env 与配置文件同步写入，避免出现配置显示完成但运行时未登录。
 - Codex、Claude Code、OpenCode、Kilo CLI、Aider 按各自协议探测。
 - 备份、临时文件、权限和原子替换由 `securefs` 统一处理。

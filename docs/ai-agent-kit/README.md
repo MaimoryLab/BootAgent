@@ -1,6 +1,10 @@
 # OneAgent AI 开发环境激活文档
 
-这是一套面向个人开发者、团队和组织发行方的通用 PPIO + AI Agent 使用文档。
+这是一套面向个人开发者、团队和组织发行方的 AI Agent 环境配置文档。
+
+文中以 **PPIO** 作为贯穿示例。OneAgent 内置的另一个 Provider 是 **Novita**，此外还支持
+自定义 OpenAI-compatible 端点；三者在应用里的配置步骤相同，只是 Base URL 和 Key 来源不同，
+所以下面的流程对它们同样适用。内置 Provider 的真源是仓库根的 `providers.lock.json`。
 
 产品边界以 [OneAgent 产品边界基线](../product-boundary-baseline.md) 为准。组织发行方可以在项目外部提供自己的兑换码或项目说明，但不改变 OneAgent 核心流程。
 

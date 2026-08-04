@@ -15,5 +15,5 @@
 
 - 检测响应不含 API Key、Token 或 Key 是否存在的推断。
 - 错误只包含路径和解析诊断，不回显文件内容。
-- 覆盖非 OneAgent 配置前，前端显示警告并保留备份。
+- 覆盖非 OneAgent 配置前保留备份（`internal/securefs`）。确认页说明会创建时间戳备份；针对「这份配置不是 OneAgent 写的」的专门警告目前没有界面入口。
 - guide-only Agent 不生成 `detected`。

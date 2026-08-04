@@ -26,7 +26,7 @@ OneAgent 提供三种配置方式。第一次使用建议选择内置配置；�
 
 - 需要在 PPIO、其他 OpenAI-compatible 服务和官方账号之间切换。
 - 需要为不同项目保存不同配置。
-- 经常在 Claude Code、Codex、Gemini CLI、OpenCode 等工具之间切换。
+- 经常在 Claude Code、Codex、OpenCode 等工具之间切换。
 
 CC Switch 是可选的本机配置工具，不是 OneAgent 的必需依赖。请从其官方项目入口获取当前版本，OneAgent 不把它的二进制或安装脚本重新打进启动包。
 

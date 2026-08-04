@@ -12,9 +12,9 @@
 | 职责 | Provider 配置的**存取与切换** | Agent 的**检测、安装、配置** |
 | 配置模型 | 整块存原始配置对象 | 结构化字段，由适配器翻译 |
 | 外围能力 | 本地代理、熔断器、故障转移、用量统计、MCP、skills、prompts、sessions | 无 |
-| 表单规模 | 共享编排器 `ProviderForm.tsx` 2693 行 + 共享 hooks/字段约 6000 行 + 各应用专属区块 | `AgentDetailPage.tsx` 223 行 |
+| 表单规模 | 共享编排器 `ProviderForm.tsx` 2693 行 + 共享 hooks/字段约 6000 行 + 各应用专属区块 | `AgentProfilePage.tsx` 263 行 |
 
-它的 `src/components/` 下有 19 个子目录（mcp、skills、prompts、sessions、proxy、usage…）。这些不在 OneAgent 的产品边界内（见 [产品边界基线](product-boundary-baseline.md)），尤其**本地代理与故障转移属于明确禁止范围**，不予借鉴。
+它的 `src/components/` 下有 19 个子目录（mcp、skills、prompts、sessions、proxy、usage…）。这些不在 OneAgent 的产品边界内（见 [产品边界基线](../product-boundary-baseline.md)），尤其**本地代理与故障转移属于明确禁止范围**，不予借鉴。
 
 ## 2. 配置模型：它存原始对象，我们存结构化字段
 
@@ -143,7 +143,7 @@ CC Switch 依赖 **`@lobehub/icons-static-svg`**（MIT，723 个 AI 品牌 SVG�
 
 **与 OneAgent 的 `profiles/` 模板方向相反**：它的预设是**内置的服务商清单**（我们出，用户选），我们的模板是**用户自存的组合**（用户出，用户复用）。两者不冲突，可以并存——内置预设降低首次配置成本，用户模板降低重复配置成本。
 
-若将来要做内置预设，注意 `isPartner` / `primePartner` / `partnerPromotionKey` 这类商业合作字段**不要引入**：[产品边界基线](product-boundary-baseline.md) 第 8 节要求公开权益文案不得承诺固定额度，带推广属性的预设排序会踩这条线。
+若将来要做内置预设，注意 `isPartner` / `primePartner` / `partnerPromotionKey` 这类商业合作字段**不要引入**：[产品边界基线](../product-boundary-baseline.md) 第 8 节要求公开权益文案不得承诺固定额度，带推广属性的预设排序会踩这条线。
 
 ## 6. UI 布局：与我们已高度一致
 
@@ -165,4 +165,4 @@ CC Switch 依赖 **`@lobehub/icons-static-svg`**（MIT，723 个 AI 品牌 SVG�
 - 商业合作伙伴字段与推广排序 —— 与公开权益文案约束冲突。
 - 拖拽排序、健康徽章 —— 当前无对应需求。
 
-相关文档：[前端管理控制台改造计划](frontend-management-console-plan.md)、[产品边界基线](product-boundary-baseline.md)、[CC Switch 可选配置说明](ai-agent-kit/tools/cc-switch.md)。
+相关文档：[前端管理控制台改造计划](frontend-management-console-plan.md)、[产品边界基线](../product-boundary-baseline.md)、[CC Switch 可选配置说明](../ai-agent-kit/tools/cc-switch.md)。

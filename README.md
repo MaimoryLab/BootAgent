@@ -139,14 +139,27 @@ GitHub Actions 而移除。第三方归属现在维护在仓库根的 [NOTICE](N
 
 ## 文档
 
-- [Wails v3 迁移收尾计划](docs/wails-v3-migration-plan.md)
-- [发行与合规政策](docs/distribution-compliance-policy.md)
+`docs/` 按受众分三层：根下是当前有效的规范，`decisions/` 是架构决策，
+`internal/` 是维护者视角的历史记录。
+
+**使用与规范**
+
+- [AI Agent Kit](docs/ai-agent-kit/00-start-here.md)：从零配置一个 Agent 环境
+- [产品边界基线](docs/product-boundary-baseline.md)：做什么、不做什么，以及为什么
+- [分发与合规政策](docs/distribution-compliance-policy.md)：发行前的权利、安全与渠道要求
 - [公开站运营手册](docs/public-site-operations.md)
-- [Provider RC 测试说明](docs/provider-rc-testing.md)
-- [AI Agent Kit](docs/ai-agent-kit/00-start-here.md)
-- [Wails 架构 ADR](docs/decisions/ADR-007-wails-v3-go-migration.md)
-- [按 Agent 协议验证 ADR](docs/decisions/ADR-004-per-agent-protocol-verification.md)
-- [历史 Python 发行 ADR（已废弃）](docs/decisions/ADR-003-three-platform-python-core-and-release-policy.md)
+
+**架构决策**
+
+- [decisions/](docs/decisions/)：ADR-001 至 ADR-009，含已被取代的决策及其去向
+- [Wails v3 / Go 迁移](docs/decisions/ADR-007-wails-v3-go-migration.md)
+- [按 Agent 协议验证](docs/decisions/ADR-004-per-agent-protocol-verification.md)
+- [凭据写入 Agent 配置文件](docs/decisions/ADR-008-credentials-in-agent-config-files.md)
+
+**内部实现记录**
+
+- [internal/](docs/internal/README.md)：各次改造的完工记录与验证清单。里面的命令可能已随
+  工具移除而失效，该目录的 README 说明了当前的替代入口。
 
 ## 许可证
 

@@ -66,6 +66,14 @@ codegraph explore "binding Service Install"
 
 ## 文档维护
 
-README、workflow、Taskfile 和 AI Agent Kit 里的命令必须对应当前仓库文件。历史 ADR 与已完成的计划文档可以保留背景，但必须明确标记状态，不能作为操作指南。
+`docs/` 按受众分层，新增文档时先选对位置：
+
+- `docs/` 根：当前有效的规范与政策，读者可以直接照着执行。
+- `docs/ai-agent-kit/`：面向使用者的操作文档。默认路径是下载发行包，不是从源码构建。
+- `docs/decisions/`：ADR。被推翻的决策保留原文并标注 Superseded 及其去向，不删改历史。
+- `docs/internal/`：维护者视角的完工记录与验证清单。不放未实施的计划——那属于 issue。
+
+README、workflow、Taskfile 和 AI Agent Kit 里的命令必须对应当前仓库文件。`docs/internal/`
+里引用已移除工具的命令块用 ` ```text ` 而不是 ` ```bash `，避免被当成可运行指令。
 
 `LICENSE` 是 Apache-2.0，`NOTICE` 是第三方归属的真源。新增随包分发的依赖，或在界面里加入新的第三方标识时，必须同步 `NOTICE`——`docs/distribution-compliance-policy.md` 把它列为发布前置条件。
