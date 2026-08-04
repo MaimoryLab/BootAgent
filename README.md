@@ -22,8 +22,13 @@ Status / Provider / Agent / Profile services
           |
   catalog / provider / install / config / profile / securefs
 
-Pure Go CLI --------------------^      Astro site ---- release metadata
+Pure Go CLI --------------------^
 ```
+
+公开站不在这张图里，也不在这个仓库里：它已迁出到
+[MaimoryLab/OneAgent-site](https://github.com/MaimoryLab/OneAgent-site)。它从
+GitHub Releases API 读取下载信息，并把 `agents.lock.json`、`providers.lock.json`
+vendor 到自己仓库，从发行 tag 刷新——所以改本仓库这两个文件不会自动改变站上内容。
 
 - `cmd/oneagent-desktop`：Wails 桌面入口。
 - `cmd/oneagent`：纯 Go headless CLI。
@@ -32,7 +37,6 @@ Pure Go CLI --------------------^      Astro site ---- release metadata
 - `cmd/oneagent-provider-smoke`：PPIO/Novita 三协议 RC smoke。
 - `internal/`：桌面、CLI 和 RC 工具共用的 Go 核心。
 - `frontend/`：React 应用；发行包只携带构建后的静态资源。
-- `site/`：独立 Astro 公开站，不进入桌面包体。
 - `agents.lock.json`：Agent 包名、来源、配置适配器和许可证的唯一清单；不固定 Agent 版本或包哈希。
 - `providers.lock.json`：内置 Provider 端点、fallback probe model 和公开站披露字段清单；桌面端用户 Provider 保存在本机 `~/.oneagent/providers.json`。
 

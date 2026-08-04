@@ -1,58 +1,39 @@
 # OneAgent 公开站运营与发布手册
 
-状态：已实施。
+状态：已迁出。站点自己的构建命令、环境变量和部署步骤见
+[MaimoryLab/OneAgent-site](https://github.com/MaimoryLab/OneAgent-site) 的 README。
 
-## 架构边界
+公开站曾经是本仓库的 `site/` 目录，现在是独立仓库。本文件只保留仍然约束本仓库的部分，
+不再重复站点侧的操作步骤——两处各写一份必然慢慢分叉。
 
-- `frontend/` 是随桌面 App 打包的 React 客户端。
-- `site/` 是独立构建和部署的 Astro 静态站，不进入 App 包体。
-- `.github/workflows/technical-preview.yml` 只构建 Go/Wails App 资产并创建 Draft GitHub Release。
-- `.github/workflows/site.yml` 只测试、构建和部署 GitHub Pages。
+本文原先描述的 `.github/workflows/technical-preview.yml` 和 `.github/workflows/site.yml`
+都已不存在（本仓库当前只有 `build-artifacts.yml`），按那两个工作流写的发布顺序因此
+已经失效，不要照着执行。
 
-两个工作流没有 artifact 或 job 依赖。发布者人工审核并发布 Draft Release 后，`release.published` 事件会触发站点重建。
+## 仍然由本仓库承担的部分
 
-## 版本事实源
+**GitHub Release 是公开版本与资产的事实源。** 站点在构建时调用 GitHub Releases API，
+只读取已发布、非 Draft 的 Release；页面上的版本标签、发布日期、下载地址、文件大小和
+SHA-256 都来自那里，站点不读取本地 `release/` 目录，不复制下载资产，也不维护版本回退值。
+所以本仓库这边的义务是：Release 一旦发布就是公开事实，资产、校验和、签名状态必须在发布
+**之前**检查完毕。
 
-公开站在构建时调用 GitHub Releases API，只读取已发布、非 Draft 的 Release。页面上的版本标签、发布日期、下载地址、文件大小和可用的 SHA-256 digest 均来自该 API；没有 Release 时页面明确显示尚未发布。
+**`providers.lock.json` 是商业披露字段的真源。** Provider 的 `relationship`、
+`disclosure`、`referral_url` 在这里维护，且不能影响 Agent rank、兼容性结论、默认选择
+或连接测试。这条边界属于本仓库，站点只把结果展示出来。
 
-站点不读取 App 的本地 `release/` 目录，不复制下载资产，也不维护版本回退值。Agent 目录直接读取 `agents.lock.json`，Provider 目录直接读取根目录的 `providers.lock.json`；运行时端点和公开披露字段由同一份清单管理。
+**改 lock 文件不会自动改变站上内容。** 站点把 `agents.lock.json` 和
+`providers.lock.json` vendor 到它自己的 `data/` 目录，从发行 tag 刷新而不是跟随本仓库
+`main`。这是刻意的：站描述的是已发布版本支持什么，跟着 `main` 会把已合并但未发布的
+Agent 宣传成可用。新增 Agent 或调整披露字段后，需要到站点仓库按其 `data/README.md`
+刷新一次。
 
-私有仓库构建需要提供具有 `contents:read` 权限的 `GITHUB_TOKEN`。独立 Pages 工作流使用当前任务的 GitHub token；未提供 token 的本地构建若无法读取私有仓库，会渲染“尚无已发布版本”。
+**Stable 门禁不变。** 各平台的签名、公证和原生 cleanroom 门禁仍是 App 发布流程的要求，
+GitHub Release 不替代产物验证。
 
-## 本地验证
+## 历史背景
 
-```bash
-cd site
-pnpm install --frozen-lockfile
-pnpm test
-pnpm run build
-pnpm exec playwright install chromium
-pnpm run test:e2e
-```
-
-模拟 GitHub Pages 子路径部署：
-
-```bash
-SITE_URL=https://example.com BASE_PATH=/OneAgent pnpm run build
-```
-
-该子路径产物的绝对 `<base href>` 只适用于配置的 origin。恢复本地预览时重新运行普通 `pnpm run build`。
-
-## 发布顺序
-
-1. 运行 `Technical Preview Packages`，构建并验证各平台 App 资产。
-2. 工作流以新 tag 创建不可变 Draft prerelease；已有 tag 会直接失败，不覆盖资产。
-3. 人工检查资产、校验和、签名状态和发行说明后发布 Release。
-4. `Public Site` 工作流自动从默认分支构建站点，从该 Release 读取版本与下载信息并部署 Pages。
-5. 仅修改站点、Agent 目录或 Provider 披露时，合入 `main` 即可独立部署，不触发 App 构建。
-
-GitHub repository variables：
-
-- `ONEAGENT_PUBLIC_SUPPORT_URL`：公开支持入口；为空时不展示虚构地址。
-- `ONEAGENT_PUBLIC_BUSINESS_EMAIL`：公开商务邮箱；为空时不展示虚构邮箱。
-
-## Provider 与稳定版边界
-
-Provider 商业数据保存在 `providers.lock.json`，不能影响 Agent rank、兼容性结论、默认选择或连接测试。
-
-Stable 仍需按平台满足签名、公证和原生 cleanroom 门禁。GitHub Release 是公开版本与资产的事实源，不替代 App 发布流程中的产物验证。
+设计决策记录在
+[ADR-006](decisions/ADR-006-public-site-and-generated-release-index.md)。该 ADR 中
+「在同一仓库维护 `site/`」的部分已被本次拆分取代；不把营销路由加入本地 Launcher 的
+结论仍然有效。

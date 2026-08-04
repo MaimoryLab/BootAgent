@@ -19,23 +19,6 @@
         "./frontend/e2e/wails-server.mjs"
       ],
       "port": 34123
-    },
-    {
-      "name": "oneagent-site",
-      "runtimeExecutable": "pnpm",
-      "runtimeArgs": [
-        "--dir",
-        "site",
-        "run",
-        "dev",
-        "--port",
-        "4322"
-      ],
-      "env": {
-        "SITE_URL": "http://localhost:4322"
-      },
-      "port": 4322,
-      "url": "http://localhost:4322"
     }
   ]
 }

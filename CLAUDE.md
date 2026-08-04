@@ -14,7 +14,8 @@
 - `cmd/oneagent-release`：原生 Wails/Go/React 发布包、notice、manifest 和 SHA-256。
 - `cmd/oneagent-rc`、`cmd/oneagent-provider-smoke`：发行候选的真实 Agent/Provider 检查。
 - `frontend/bindings`：Wails 生成物，禁止手工编辑。
-- `site`：独立 Astro 公开站。
+
+公开站已迁出到 [MaimoryLab/OneAgent-site](https://github.com/MaimoryLab/OneAgent-site)，本仓库不再有 `site/`。它把 `agents.lock.json` 和 `providers.lock.json` vendor 到自己的 `data/` 下，从发行 tag 而不是本仓库 `main` 刷新——改这两个文件不会自动反映到站上，也不应该：站描述的是已发布版本支持什么。
 
 `providers.lock.json` 是内置 Provider 端点、fallback model 和公开站商业披露字段的真源；用户 Provider 与内置覆盖保存在 `~/.oneagent/providers.json`。
 
