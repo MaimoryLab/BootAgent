@@ -446,7 +446,7 @@ func findMountedApp(mountPoint string) (string, error) {
 }
 
 func parseMountPoint(output string) (string, error) {
-	for _, line := range strings.Split(output, "\n") {
+	for line := range strings.SplitSeq(output, "\n") {
 		if index := strings.Index(line, "/Volumes/"); index >= 0 {
 			value := strings.TrimSpace(line[index:])
 			if value != "" {
@@ -492,7 +492,7 @@ func inspectWindows(ctx context.Context, options Options) (Status, error) {
 	if startApps.ExitCode != 0 {
 		return status, commandFailure("query Windows desktop apps", startApps)
 	}
-	for _, line := range strings.Split(startApps.Stdout, "\n") {
+	for line := range strings.SplitSeq(startApps.Stdout, "\n") {
 		appID := strings.TrimSpace(line)
 		if !isKnownStartAppID(appID) {
 			continue
@@ -575,7 +575,7 @@ func isKnownStartAppID(value string) bool {
 }
 
 func versionFromPackageFullName(fullName string) string {
-	for _, part := range strings.Split(fullName, "_") {
+	for part := range strings.SplitSeq(fullName, "_") {
 		if packageVersionPattern.MatchString(part) {
 			return part
 		}
@@ -630,7 +630,7 @@ func compareVersion(left, right string) int {
 
 func versionParts(value string) []int {
 	parts := make([]int, 0, 4)
-	for _, part := range strings.Split(value, ".") {
+	for part := range strings.SplitSeq(value, ".") {
 		number, err := strconv.Atoi(part)
 		if err != nil {
 			return nil
