@@ -86,20 +86,11 @@ jobs:
           go build -tags wails,production -trimpath -buildvcs=false -ldflags="${{ matrix.target.desktop_ldflags }}" -o "bin/oneagent-desktop${{ matrix.target.suffix }}" ./cmd/oneagent-desktop
           go build -trimpath -buildvcs=false -ldflags="-w -s" -o "bin/oneagent${{ matrix.target.suffix }}" ./cmd/oneagent
 
-      - name: Package macOS binaries
-        if: matrix.target.platform == 'macos'
-        working-directory: bin
-        run: zip ../OneAgent-macos-${{ matrix.arch }}.zip *
-
-      - name: Package Windows binaries
-        if: matrix.target.platform == 'windows'
-        shell: pwsh
-        run: Compress-Archive -Path bin/* -DestinationPath OneAgent-windows-${{ matrix.arch }}.zip
 
       - name: Upload artifact
         uses: actions/upload-artifact@v7
         with:
           name: OneAgent-${{ matrix.target.platform }}-${{ matrix.arch }}
-          path: OneAgent-${{ matrix.target.platform }}-${{ matrix.arch }}.zip
+          path: bin/*
           if-no-files-found: error
           compression-level: 0
