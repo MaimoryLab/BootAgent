@@ -3,6 +3,7 @@ import { NavLink } from "react-router-dom";
 
 import { type TranslationKey, useI18n } from "../i18n";
 import { TaskCenter } from "./TaskCenter";
+import { ThemePicker } from "./ThemePicker";
 
 // Only real destinations belong here. /setup/* are wizard steps behind
 // SetupGuard: listing them made the sidebar look broken, because clicking one
@@ -37,6 +38,10 @@ export function NavigationSidebar() {
         ))}
       </nav>
 
+      {/* First of the bottom group, so its margin-top: auto pushes appearance,
+          language and the task centre down together. */}
+      <ThemePicker />
+
       <label className="language-picker">
         <Languages size={16} aria-hidden="true" />
         <span>{t("语言")}</span>
@@ -50,8 +55,6 @@ export function NavigationSidebar() {
         </select>
       </label>
 
-      {/* Last child, so the language picker's margin-top: auto pushes both to
-          the bottom of the sidebar as one group. */}
       <TaskCenter />
     </aside>
   );

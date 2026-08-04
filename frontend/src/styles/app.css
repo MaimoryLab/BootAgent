@@ -101,15 +101,37 @@
   text-transform: uppercase;
 }
 
+/* The appearance and language rows are one group. `margin-top: auto` sits on the
+   first of them so the pair is pushed to the bottom together; putting it on the
+   language row would let the theme row float up on its own. */
+.theme-picker {
+  margin-top: auto;
+}
+
+.theme-picker,
 .language-picker {
   min-height: 38px;
-  margin-top: auto;
   padding: 0 8px;
   display: flex;
   align-items: center;
   gap: 8px;
   color: var(--text-secondary);
   font-size: 12px;
+}
+
+.theme-picker span {
+  flex: 1;
+}
+
+.theme-picker select {
+  width: 82px;
+  min-width: 0;
+  padding: 5px 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--window-bg);
+  color: var(--text-primary);
+  font: inherit;
 }
 
 .language-picker span {
