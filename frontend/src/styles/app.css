@@ -1040,6 +1040,78 @@
   background: var(--window-bg);
 }
 
+.desktop-app-section { margin-top: 30px; }
+
+.desktop-app-notice {
+  margin-bottom: 8px;
+  gap: 7px;
+}
+
+.desktop-app-row {
+  min-width: 0;
+  padding: 13px;
+  display: grid;
+  grid-template-columns: minmax(190px, 1.4fr) auto minmax(120px, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  background: var(--window-bg);
+}
+
+.desktop-app-identity,
+.desktop-app-fact {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.desktop-app-identity > span:last-child,
+.desktop-app-fact {
+  display: grid;
+  gap: 3px;
+}
+
+.desktop-app-icon {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--icon-border);
+  border-radius: 8px;
+  color: var(--icon-fg);
+  background: var(--surface-subtle);
+}
+
+.desktop-app-identity strong { font-size: 13px; }
+.desktop-app-identity small,
+.desktop-app-fact small { color: var(--text-tertiary); font-size: 10px; }
+.desktop-app-path span {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.desktop-app-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.desktop-app-note {
+  grid-column: 1 / -1;
+  min-width: 0;
+  margin: 0;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
 /* Detail page */
 .detail-head {
   margin-bottom: 18px;
@@ -1711,7 +1783,7 @@
 .task-center-actions > button:disabled { opacity: 0.5; cursor: default; }
 
 .download-progress {
-  /* Spans the whole runtime row so the bar is not squeezed into one cell. */
+  /* Spans the whole install row so the bar is not squeezed into one cell. */
   grid-column: 1 / -1;
   display: grid;
   gap: 4px;
@@ -1777,4 +1849,14 @@
   }
 
   .runtime-fact { grid-column: 1 / 3; }
+
+  .desktop-app-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+  }
+
+  .desktop-app-fact,
+  .desktop-app-path,
+  .desktop-app-actions { grid-column: 1 / 3; }
+  .desktop-app-actions { justify-content: flex-start; }
 }

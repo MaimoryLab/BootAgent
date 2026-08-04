@@ -2,6 +2,7 @@ import { PackageOpen, Plus, RefreshCw } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import { AgentManageRow } from "../components/AgentManageRow";
+import { DesktopAppSection } from "../components/DesktopAppSection";
 import { PageScaffold } from "../components/PageScaffold";
 import { RuntimeSection } from "../components/RuntimeSection";
 import { useI18n } from "../i18n";
@@ -71,7 +72,7 @@ export function EnvironmentOverviewPage() {
       {installed.length ? (
         <section className="overview-section">
           <div className="section-heading">
-            <div><h2>{t("已安装 Agent")}</h2><p>{t("共 {count} 个", { count: installed.length })}</p></div>
+            <div><h2>{t("命令行 Agent")}</h2><p>{t("共 {count} 个", { count: installed.length })}</p></div>
           </div>
           <div className="agent-manage-list">
             {installed.map((item) => {
@@ -100,6 +101,7 @@ export function EnvironmentOverviewPage() {
         </div>
       )}
 
+      <DesktopAppSection app={status.desktopAgent} onChanged={refreshStatus} />
       <RuntimeSection runtimes={status.runtimes ?? []} onInstalled={refreshStatus} />
     </PageScaffold>
   );

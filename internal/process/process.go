@@ -53,6 +53,49 @@ type Output struct {
 // to a channel without locking.
 type OutputListener func(Output)
 
+// CopyWithProgress copies a download and reports its written byte count at a
+// UI-friendly rate. total <= 0 means the response had no Content-Length.
+func CopyWithProgress(destination io.Writer, source io.Reader, total int64, target string, listener OutputListener) (int64, error) {
+	if listener == nil {
+		return io.Copy(destination, source)
+	}
+	if total < 0 {
+		total = 0
+	}
+	counter := &progressWriter{total: total, target: target, listener: listener}
+	defer counter.flush()
+	return io.Copy(io.MultiWriter(destination, counter), source)
+}
+
+// Reporting each 32 KB io.Copy chunk would push thousands of events through
+// the Wails bridge for one desktop image.
+const progressInterval = 200 * time.Millisecond
+
+type progressWriter struct {
+	received int64
+	total    int64
+	target   string
+	last     time.Time
+	listener OutputListener
+}
+
+func (w *progressWriter) Write(data []byte) (int, error) {
+	w.received += int64(len(data))
+	if time.Since(w.last) >= progressInterval {
+		w.last = time.Now()
+		w.report()
+	}
+	return len(data), nil
+}
+
+func (w *progressWriter) flush() {
+	w.report()
+}
+
+func (w *progressWriter) report() {
+	w.listener(Output{Kind: "progress", Target: w.target, Received: w.received, Total: w.total})
+}
+
 type StreamingRunner interface {
 	RunWithOutput(context.Context, []string, map[string]string, time.Duration, OutputListener) (Result, error)
 }

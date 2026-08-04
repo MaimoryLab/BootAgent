@@ -61,6 +61,7 @@ function status(): StatusResponse {
     firstRun: false,
     environment: null,
     environmentError: null,
+    desktopAgent: { id: "desktop-agent", name: "ChatGPT Desktop", installed: false, supported: false, version: null, source: "unknown" },
   };
 }
 
@@ -68,6 +69,7 @@ describe("EnvironmentOverviewPage", () => {
   it("shows only installed Agents with their Provider and Profile", () => {
     mockState = { status: status(), statusState: "success", statusError: "" };
     renderPage();
+    expect(screen.getByRole("heading", { name: "命令行 Agent" })).toBeTruthy();
     expect(screen.getByText("Codex")).toBeTruthy();
     expect(screen.queryByText("OpenCode")).toBeNull();
     expect(screen.getByText("PPIO")).toBeTruthy();

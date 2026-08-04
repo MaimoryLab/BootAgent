@@ -175,15 +175,15 @@ func TestSaveProviderReappliesEveryAgentBoundToIt(t *testing.T) {
 		"opencode": {filepath.Join(home, ".config", "opencode", "opencode.json")},
 	}
 	for _, agentID := range []string{"codex", "opencode"} {
-		applied := ""
+		var applied strings.Builder
 		for _, path := range credentialFiles[agentID] {
 			data, err := os.ReadFile(path)
 			if err != nil {
 				t.Fatalf("%s config %s: %v", agentID, path, err)
 			}
-			applied += string(data)
+			applied.WriteString(string(data))
 		}
-		if !strings.Contains(applied, "rotated-key") || !strings.Contains(applied, "relay.ppio.test") {
+		if !strings.Contains(applied.String(), "rotated-key") || !strings.Contains(applied.String(), "relay.ppio.test") {
 			t.Fatalf("%s did not pick up the rotated Provider", agentID)
 		}
 		binding, err := core.profiles.ReadAgentBinding(agentID)

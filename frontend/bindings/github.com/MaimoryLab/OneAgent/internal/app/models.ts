@@ -43,6 +43,36 @@ export interface Capabilities {
     "supportedAgentIds": string[] | null;
 }
 
+/**
+ * DesktopAgentActionResult reports a local install or a downloaded installer
+ * launch. Windows Store installation continues after its bootstrapper starts.
+ */
+export interface DesktopAgentActionResult {
+    "status": string;
+    "message": string;
+    "refreshNeeded": boolean;
+    "app": DesktopAgentStatus;
+}
+
+/**
+ * DesktopAgentStatus is the public projection of the current desktop agent. It is
+ * deliberately separate from AgentStatus: desktop and command-line agents may
+ * share config, but they have different installation and version contracts.
+ */
+export interface DesktopAgentStatus {
+    "id": string;
+    "name": string;
+    "installed": boolean;
+    "supported": boolean;
+    "path"?: string;
+    "version": string | null;
+    "source": string;
+    "configPath"?: string;
+    "configSharedWith"?: string;
+    "packageFamily"?: string;
+    "inspectionUnavailable"?: string | null;
+}
+
 export interface DetectedConfig {
     "baseUrl": string;
     "model": string;
@@ -142,4 +172,5 @@ export interface StatusResponse {
     "runtimes": RuntimeStatus[] | null;
     "environment": any;
     "environmentError": string | null;
+    "desktopAgent": DesktopAgentStatus;
 }
