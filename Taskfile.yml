@@ -28,6 +28,13 @@ tasks:
           DEV: '{{.DEV}}'
           OUTPUT: '{{.OUTPUT}}'
 
+  package:
+    summary: Packages a production build for {{.GOOS}}
+    cmds:
+      - task: '{{.GOOS}}:package'
+        vars:
+          ARCH: '{{.ARCH}}'
+
   run:
     summary: Runs the built desktop application
     cmds:

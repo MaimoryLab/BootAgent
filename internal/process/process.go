@@ -77,7 +77,50 @@ type OSRunner struct {
 }
 
 func Current() OSRunner {
-	return OSRunner{Env: environmentFromOS()}
+	environment := environmentFromOS()
+	if runtime.GOOS == "darwin" {
+		if executable, err := os.Executable(); err == nil && macOSBundleExecutable(executable) {
+			if path := loginShellPath(environment); path != "" {
+				environment["PATH"] = path
+			}
+		}
+	}
+	return OSRunner{Env: environment}
+}
+
+func macOSBundleExecutable(path string) bool {
+	return strings.Contains(filepath.ToSlash(path), ".app/Contents/MacOS/")
+}
+
+func loginShellPath(environment map[string]string) string {
+	shell := strings.TrimSpace(environment["SHELL"])
+	if shell == "" {
+		shell = "/bin/zsh"
+	}
+	if !filepath.IsAbs(shell) || !executable(shell) {
+		return ""
+	}
+
+	// ponytail: shell startup gets three seconds; keep the launchd PATH if a
+	// user's interactive setup hangs, and add caching only if this is measurable.
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	command := exec.CommandContext(ctx, shell, "-lic", `printf '\036%s\037' "$PATH"`)
+	command.Env = mergeEnvironment(environment, nil)
+	command.WaitDelay = 250 * time.Millisecond
+	output, _ := command.Output()
+	if ctx.Err() != nil {
+		return ""
+	}
+	start := bytes.LastIndexByte(output, 0x1e)
+	if start < 0 {
+		return ""
+	}
+	end := bytes.IndexByte(output[start+1:], 0x1f)
+	if end < 0 {
+		return ""
+	}
+	return strings.TrimSpace(string(output[start+1 : start+1+end]))
 }
 
 // WithEnvironment returns a copy of this runner that resolves commands against

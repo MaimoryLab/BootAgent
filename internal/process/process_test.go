@@ -4,6 +4,8 @@ import (
 	"context"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -164,6 +166,22 @@ func TestOSRunnerLookPathCanBeInjected(t *testing.T) {
 	}
 	if _, ok := runner.LookPath("missing"); ok {
 		t.Fatal("missing command unexpectedly found")
+	}
+}
+
+func TestMacOSBundleRestoresLoginShellPath(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("test helper is a POSIX shell script")
+	}
+	if !macOSBundleExecutable("/Applications/OneAgent.app/Contents/MacOS/oneagent-desktop") || macOSBundleExecutable("/tmp/oneagent-desktop") {
+		t.Fatal("macOS bundle executable detection is incorrect")
+	}
+	shell := filepath.Join(t.TempDir(), "shell")
+	if err := os.WriteFile(shell, []byte("#!/bin/sh\nprintf 'startup noise\\036/custom/bin:/usr/bin\\037trailing noise'\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if path := loginShellPath(map[string]string{"SHELL": shell, "PATH": "/usr/bin"}); path != "/custom/bin:/usr/bin" {
+		t.Fatalf("login shell PATH = %q", path)
 	}
 }
 
