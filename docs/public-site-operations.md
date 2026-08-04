@@ -34,6 +34,6 @@ GitHub Release 不替代产物验证。
 ## 历史背景
 
 设计决策记录在
-[ADR-006](decisions/ADR-006-public-site-and-generated-release-index.md)。该 ADR 中
+[ADR-009](decisions/ADR-009-public-site-and-generated-release-index.md)。该 ADR 中
 「在同一仓库维护 `site/`」的部分已被本次拆分取代；不把营销路由加入本地 Launcher 的
 结论仍然有效。

@@ -2,6 +2,10 @@
 
 > 当前实现位于 `internal/config` 和 `internal/app`。本文保留设计结论，旧脚本路径不再适用。
 
+> 补注（2026-08-04）：本文提到的 `cmd/oneagent-release`、`cmd/oneagent-rc`、
+> `cmd/oneagent-provider-smoke` 已于 `23805b0` 移除，职责交给
+> `.github/workflows/build-artifacts.yml`。相关命令是历史背景，不可执行。
+
 ## 适配器
 
 | Agent | 配置适配器 | 凭据交付 |
@@ -19,7 +23,7 @@
 
 ## 验收
 
-```bash
+```text
 go test ./internal/config ./internal/app
 bash tests/install_test.sh
 go run ./cmd/oneagent-rc adopted

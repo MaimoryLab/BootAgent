@@ -2,6 +2,10 @@
 
 > 状态：**Superseded**（2026-07-31）。当前实现和发行规则由 [ADR-007](ADR-007-wails-v3-go-migration.md)、[ADR-005](ADR-005-channel-neutral-distribution-and-compliance.md) 和 `cmd/oneagent-release` 定义。本文件只保留历史背景，不是安装或发布操作指南。
 
+> 补注（2026-08-04）：本文提到的 `cmd/oneagent-release`、`cmd/oneagent-rc`、
+> `cmd/oneagent-provider-smoke` 已于 `23805b0` 移除，职责交给
+> `.github/workflows/build-artifacts.yml`。相关命令是历史背景，不可执行。
+
 ## 历史背景
 
 早期 OneAgent 使用跨平台脚本和 Python 标准库实现 Agent catalog、配置适配、安装编排和本地 HTTP GUI。该方案曾强调三平台路径、权限、锁定版本、npm/uv allowlist、完整错误码和 cleanroom 证据。

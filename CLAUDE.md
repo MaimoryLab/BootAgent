@@ -10,10 +10,13 @@
 - `internal/install`：默认最新、可选精确版本的 Agent 包安装，registry 选择、Node.js/uv 运行时引导（下载、校验、解压、写入 PATH）和 Aider Python 管理边界。
 - `internal/profile`、`internal/securefs`：profile、secret、备份、权限和原子写。
 - `internal/binding`：Wails 暴露给前端的五个 service，是 React 与 Go 的唯一接缝。改这里的 DTO 必须重新生成 `frontend/bindings` 并同步 `frontend/src/backend/wails.ts`。
-- `cmd/oneagent`
-- `cmd/oneagent-release`：原生 Wails/Go/React 发布包、notice、manifest 和 SHA-256。
-- `cmd/oneagent-rc`、`cmd/oneagent-provider-smoke`：发行候选的真实 Agent/Provider 检查。
+- `cmd/oneagent`：纯 Go headless CLI。
+- `cmd/oneagent-desktop`：Wails 桌面入口。
 - `frontend/bindings`：Wails 生成物，禁止手工编辑。
+
+`cmd/oneagent-release`、`cmd/oneagent-rc`、`cmd/oneagent-provider-smoke` 已于 `23805b0`
+移除，职责交给 `.github/workflows/build-artifacts.yml`。历史文档里提到它们的地方是背景，
+不是可执行指南。
 
 公开站已迁出到 [MaimoryLab/OneAgent-site](https://github.com/MaimoryLab/OneAgent-site)，本仓库不再有 `site/`。它把 `agents.lock.json` 和 `providers.lock.json` vendor 到自己的 `data/` 下，从发行 tag 而不是本仓库 `main` 刷新——改这两个文件不会自动反映到站上，也不应该：站描述的是已发布版本支持什么。
 
@@ -34,20 +37,8 @@ pnpm run build
 pnpm run test:e2e
 ```
 
-构建和检查发行包：
-
-```bash
-go run ./cmd/oneagent-release build --channel technical-preview-unsigned --source
-go run ./cmd/oneagent-release check release
-```
-
-真实 RC 只在受控环境运行：
-
-```bash
-go run ./cmd/oneagent-rc verify-agents
-go run ./cmd/oneagent-rc adopted
-go run ./cmd/oneagent-provider-smoke --provider all --timeout 30s
-```
+每个 pull request 由 `.github/workflows/ci.yml` 跑上面这两组门。发行包由
+`.github/workflows/build-artifacts.yml` 手动触发构建。
 
 普通测试、Wails 构建、站点构建和发布工具不需要 Python。安装 Aider 需要 Python 3.12，但不再要求本机预装：uv 自己解析解释器，本机有匹配版本就复用，否则下载一份托管 CPython 到 `~/.oneagent/runtimes/python`。Python 仍然不进发行包。
 
@@ -75,4 +66,6 @@ codegraph explore "binding Service Install"
 
 ## 文档维护
 
-README、workflow、Taskfile、Dockerfile 和 AI Agent Kit 里的命令必须对应当前仓库文件。历史 ADR 可以保留背景，但必须明确标记为 Superseded，不能作为操作指南。
+README、workflow、Taskfile 和 AI Agent Kit 里的命令必须对应当前仓库文件。历史 ADR 与已完成的计划文档可以保留背景，但必须明确标记状态，不能作为操作指南。
+
+`LICENSE` 是 Apache-2.0，`NOTICE` 是第三方归属的真源。新增随包分发的依赖，或在界面里加入新的第三方标识时，必须同步 `NOTICE`——`docs/distribution-compliance-policy.md` 把它列为发布前置条件。
