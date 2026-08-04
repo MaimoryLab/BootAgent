@@ -33,3 +33,6 @@ site/playwright-report/
 
 .task
 .env
+
+# 本机代码索引。是否建立索引由每个开发者自己决定，重建只需 `codegraph index .`
+.codegraph/

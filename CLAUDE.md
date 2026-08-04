@@ -9,6 +9,7 @@
 - `internal/config`：TOML/JSON/JSONC 适配器、配置发现和 golden fixtures。
 - `internal/install`：默认最新、可选精确版本的 Agent 包安装，registry 选择、Node.js/uv 运行时引导（下载、校验、解压、写入 PATH）和 Aider Python 管理边界。
 - `internal/profile`、`internal/securefs`：profile、secret、备份、权限和原子写。
+- `internal/binding`：Wails 暴露给前端的五个 service，是 React 与 Go 的唯一接缝。改这里的 DTO 必须重新生成 `frontend/bindings` 并同步 `frontend/src/backend/wails.ts`。
 - `cmd/oneagent`
 - `cmd/oneagent-release`：原生 Wails/Go/React 发布包、notice、manifest 和 SHA-256。
 - `cmd/oneagent-rc`、`cmd/oneagent-provider-smoke`：发行候选的真实 Agent/Provider 检查。
@@ -48,6 +49,18 @@ go run ./cmd/oneagent-provider-smoke --provider all --timeout 30s
 ```
 
 普通测试、Wails 构建、站点构建和发布工具不需要 Python。安装 Aider 需要 Python 3.12，但不再要求本机预装：uv 自己解析解释器，本机有匹配版本就复用，否则下载一份托管 CPython 到 `~/.oneagent/runtimes/python`。Python 仍然不进发行包。
+
+## CodeGraph
+
+本仓库已建索引（`.codegraph/`，不提交，重建用 `codegraph index .`，约 0.5s）。定位或理解代码时**先用它，别 grep**：
+
+```bash
+codegraph explore "binding Service Install"
+```
+
+对这个仓库最有用的一点：它把 Go 与前端连起来。查 `AgentService` 会同时列出 `internal/binding/services.go`、生成的 `frontend/bindings/.../index.ts` 和手写的 `frontend/src/backend/wails.ts`——也就是改一个后端 DTO 需要一起动的三处。`frontend/src/types/api.ts` 里的类型是手写的而非从 bindings 导入，所以后端 DTO 与它是**两份真源**，索引是发现漏改的最快方式。
+
+**一个已知局限**：blast radius 的「⚠️ no covering tests found」只看**直接**调用者，被上层函数内部调用的实现会被误标成无测试。不要照着这个提示补已经存在的测试，先确认调用链。
 
 ## 代码边界
 
