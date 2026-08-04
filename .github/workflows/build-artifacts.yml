@@ -137,6 +137,6 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: OneAgent-${{ matrix.target.platform }}-${{ matrix.arch }}
-          path: ${{ matrix.target.platform == 'macos' && format('OneAgent-macos-{0}.zip', matrix.arch) || 'bin/*' }}
+          path: bin/*
           if-no-files-found: error
           compression-level: 0
