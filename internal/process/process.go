@@ -187,15 +187,7 @@ func (r OSRunner) Start(argv []string, overrides map[string]string) error {
 	if len(argv) == 0 || strings.TrimSpace(argv[0]) == "" {
 		return fmt.Errorf("process argv must not be empty")
 	}
-	command := exec.Command(argv[0], argv[1:]...)
-	command.Env = mergeEnvironment(r.Env, overrides)
-	if err := command.Start(); err != nil {
-		return err
-	}
-	// Nothing waits on this child, so reap it in the background rather than
-	// leaving a zombie for the lifetime of the desktop process.
-	go func() { _ = command.Wait() }()
-	return nil
+	return startDetached(argv, mergeEnvironment(r.Env, overrides))
 }
 
 func (r OSRunner) RunWithOutput(ctx context.Context, argv []string, overrides map[string]string, timeout time.Duration, listener OutputListener) (Result, error) {
