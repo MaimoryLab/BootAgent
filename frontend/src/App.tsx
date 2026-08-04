@@ -12,6 +12,7 @@ import { ProvidersPage } from "./pages/ProvidersPage";
 import { ReviewPage } from "./pages/ReviewPage";
 import { I18nProvider, useI18n } from "./i18n";
 import { TaskCenterProvider } from "./state/TaskCenterContext";
+import { ThemeProvider } from "./state/ThemeContext";
 import { WizardProvider, useWizard } from "./state/WizardContext";
 
 function SetupGuard({ stage, children }: { stage: "provider" | "model" | "review" | "activation"; children: React.ReactNode }) {
@@ -78,12 +79,14 @@ function WorkspaceRoutes() {
 
 export default function App() {
   return (
-    <I18nProvider>
-      <TaskCenterProvider>
-        <WizardProvider>
-          <WorkspaceRoutes />
-        </WizardProvider>
-      </TaskCenterProvider>
-    </I18nProvider>
+    <ThemeProvider>
+      <I18nProvider>
+        <TaskCenterProvider>
+          <WizardProvider>
+            <WorkspaceRoutes />
+          </WizardProvider>
+        </TaskCenterProvider>
+      </I18nProvider>
+    </ThemeProvider>
   );
 }
