@@ -44,6 +44,7 @@ const english = {
   "例如 deepseek/deepseek-v3": "For example, deepseek/deepseek-v3",
   "例如 siliconflow": "For example, siliconflow",
   "例如 team-ppio": "For example, team-ppio",
+  "留空则使用 Profile ID": "Leave blank to use the Profile ID",
   "例如 团队 PPIO": "For example, Team PPIO",
   "粘贴你的 API Key": "Paste your API key",
   "隐藏密钥": "Hide API key",

@@ -145,6 +145,34 @@ describe("ProfilesPage", () => {
     })));
   });
 
+  it("saves a Profile whose name was left blank", async () => {
+    // The backend fills an empty label in from the existing value or the ID
+    // (internal/profile/write.go:71-74), so requiring one here was stricter than
+    // the write path and blocked a rename-to-nothing edit.
+    const save = vi.spyOn(api, "saveProfile").mockResolvedValue(profile());
+    renderPage([profile()]);
+    fireEvent.click(screen.getByRole("button", { name: "编辑 团队 PPIO" }));
+    const label = screen.getByLabelText("名称");
+    expect(label.hasAttribute("required")).toBe(false);
+    fireEvent.change(label, { target: { value: "" } });
+
+    const button = screen.getByRole("button", { name: "保存 Profile" });
+    expect(button.hasAttribute("disabled")).toBe(false);
+    fireEvent.click(button);
+    await waitFor(() => expect(save).toHaveBeenCalledWith(expect.objectContaining({ id: "team-ppio", label: "" })));
+  });
+
+  it("still refuses to save without a model", async () => {
+    // model has no backend fallback (write.go:50-53), so this one stays required.
+    const save = vi.spyOn(api, "saveProfile");
+    renderPage([profile()]);
+    fireEvent.click(screen.getByRole("button", { name: "编辑 团队 PPIO" }));
+    fireEvent.change(screen.getByLabelText("模型"), { target: { value: "" } });
+
+    expect(screen.getByRole("button", { name: "保存 Profile" }).hasAttribute("disabled")).toBe(true);
+    expect(save).not.toHaveBeenCalled();
+  });
+
   it("applies one Profile to all of its Agents", async () => {
     const install = vi.spyOn(api, "install").mockResolvedValue({
       ok: true,
