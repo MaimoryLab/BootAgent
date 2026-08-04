@@ -70,7 +70,7 @@ describe("Wails backend adapter", () => {
     const profile = { id: "team", label: "Team", provider: "ppio", baseUrl: null, model: "m", agentIds: ["codex"], activatedAt: null, hasKey: true } satisfies ProfileSummary;
     const provider = { id: "acme", name: "Acme", home: "", base_url: "https://api.acme.test", anthropic_base_url: "", api_key: "secret", built_in: false } satisfies ProviderEntry;
     const desktopStatus = { id: "desktop-agent", name: "ChatGPT Desktop", installed: false, supported: true, version: null, source: "macos-dmg" } satisfies DesktopAgentStatus;
-    const desktopAction = { status: "external-installer-opened", message: "opened", refreshNeeded: true, app: desktopStatus } satisfies DesktopAgentActionResult;
+    const desktopAction = { status: "installer-started", message: "started", refreshNeeded: true, app: desktopStatus } satisfies DesktopAgentActionResult;
 
     bridge.status.mockResolvedValue(status);
     bridge.probe.mockResolvedValue(probe);

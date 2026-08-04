@@ -53,9 +53,8 @@ type Status struct {
 	InspectionUnavailable *string `json:"inspectionUnavailable,omitempty"`
 }
 
-// ActionResult describes an install/open-installer action. Windows Store
-// installation is external and asynchronous, so it is never reported as a
-// completed local install.
+// ActionResult describes an install or installer-launch action. Windows Store
+// installation remains asynchronous after its downloaded bootstrapper starts.
 type ActionResult struct {
 	Status        string `json:"status"`
 	Message       string `json:"message"`
@@ -113,8 +112,8 @@ func Inspect(ctx context.Context, options Options) Status {
 	return inspected
 }
 
-// Install installs the app when the platform permits a local install. On
-// Windows it opens the official Store bootstrapper and returns immediately.
+// Install downloads the official package inside OneAgent and installs it or
+// launches the downloaded platform installer.
 func Install(ctx context.Context, options Options) (ActionResult, error) {
 	if ctx == nil {
 		ctx = context.Background()
@@ -131,16 +130,16 @@ func Install(ctx context.Context, options Options) (ActionResult, error) {
 	}
 	switch options.Platform.OS {
 	case "macos":
-		return installMacOS(ctx, options)
+		return installMacOS(ctx, options, "")
 	case "windows":
-		return openWindowsInstaller(options, status)
+		return installWindowsInstaller(ctx, options, status)
 	default:
 		return ActionResult{}, fmt.Errorf("ChatGPT Desktop is not supported on %s", options.Platform.OS)
 	}
 }
 
-// OpenInstaller opens the official distribution source. It is useful for
-// updates because neither source exposes a stable public latest-version API.
+// OpenInstaller preserves the existing public update action while downloading
+// the package inside OneAgent instead of sending its URL to a browser.
 func OpenInstaller(ctx context.Context, options Options) (ActionResult, error) {
 	if ctx == nil {
 		ctx = context.Background()
@@ -154,14 +153,9 @@ func OpenInstaller(ctx context.Context, options Options) (ActionResult, error) {
 	}
 	switch options.Platform.OS {
 	case "macos":
-		url := macDownloadURL(options)
-		if err := start(options, []string{"/usr/bin/open", url}); err != nil {
-			return ActionResult{}, err
-		}
-		status.Source = SourceMacOSDMG
-		return ActionResult{Status: "external-installer-opened", Message: "The official macOS installer was opened", RefreshNeeded: true, App: status}, nil
+		return installMacOS(ctx, options, status.Path)
 	case "windows":
-		return openWindowsInstaller(options, status)
+		return installWindowsInstaller(ctx, options, status)
 	default:
 		return ActionResult{}, fmt.Errorf("ChatGPT Desktop is not supported on %s", options.Platform.OS)
 	}
@@ -333,9 +327,9 @@ func plutilValue(ctx context.Context, options Options, plist, key string) (strin
 	return strings.TrimSpace(result.Stdout), nil
 }
 
-func installMacOS(ctx context.Context, options Options) (ActionResult, error) {
+func installMacOS(ctx context.Context, options Options, replacePath string) (ActionResult, error) {
 	url := macDownloadURL(options)
-	tempDir, err := os.MkdirTemp("", "oneagent-chatgpt-")
+	tempDir, err := os.MkdirTemp("", "oneagent-desktop-agent-")
 	if err != nil {
 		return ActionResult{}, fmt.Errorf("create temporary installer directory: %w", err)
 	}
@@ -373,24 +367,34 @@ func installMacOS(ctx context.Context, options Options) (ActionResult, error) {
 	if metadata.bundleID != CodexBundleID {
 		return ActionResult{}, fmt.Errorf("downloaded app has unexpected bundle identifier %q", metadata.bundleID)
 	}
-	dirs := options.ApplicationDirs
-	if len(dirs) == 0 {
-		dirs = []string{"/Applications"}
-		if options.Home != "" {
-			dirs = append(dirs, filepath.Join(options.Home, "Applications"))
+	appName := filepath.Base(appPath)
+	destinations := make([]string, 0, 2)
+	if replacePath != "" {
+		destinations = append(destinations, filepath.Clean(replacePath))
+	} else {
+		dirs := options.ApplicationDirs
+		if len(dirs) == 0 {
+			dirs = []string{"/Applications"}
+			if options.Home != "" {
+				dirs = append(dirs, filepath.Join(options.Home, "Applications"))
+			}
+		}
+		for _, dir := range dirs {
+			destinations = append(destinations, filepath.Join(dir, appName))
 		}
 	}
-	appName := filepath.Base(appPath)
 	var lastErr error
-	for _, dir := range dirs {
+	for _, destination := range destinations {
+		dir := filepath.Dir(destination)
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			lastErr = err
 			continue
 		}
-		destination := filepath.Join(dir, appName)
 		if _, err := os.Stat(destination); err == nil {
-			lastErr = fmt.Errorf("destination already exists: %s", destination)
-			continue
+			if replacePath == "" {
+				lastErr = fmt.Errorf("destination already exists: %s", destination)
+				continue
+			}
 		} else if !os.IsNotExist(err) {
 			lastErr = err
 			continue
@@ -640,13 +644,48 @@ func versionParts(value string) []int {
 	return parts
 }
 
-func openWindowsInstaller(options Options, status Status) (ActionResult, error) {
-	script := "Start-Process -FilePath '" + WindowsInstallerURL + "'"
-	if err := start(options, []string{"powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script}); err != nil {
+func installWindowsInstaller(ctx context.Context, options Options, status Status) (ActionResult, error) {
+	installer, err := os.CreateTemp("", "oneagent-desktop-agent-*.exe")
+	if err != nil {
+		return ActionResult{}, fmt.Errorf("create temporary ChatGPT installer: %w", err)
+	}
+	installerPath := installer.Name()
+	if err := installer.Close(); err != nil {
+		_ = os.Remove(installerPath)
+		return ActionResult{}, fmt.Errorf("prepare temporary ChatGPT installer: %w", err)
+	}
+	keepInstaller := false
+	defer func() {
+		if !keepInstaller {
+			_ = os.Remove(installerPath)
+		}
+	}()
+	url := strings.TrimSpace(options.DownloadURL)
+	if url == "" {
+		url = WindowsInstallerURL
+	}
+	pathLiteral := powerShellLiteral(installerPath)
+	script := "$ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -UseBasicParsing -Uri " + powerShellLiteral(url) + " -OutFile " + pathLiteral + " -ErrorAction Stop; if ((Get-Item -LiteralPath " + pathLiteral + ").Length -eq 0) { throw 'Downloaded installer is empty' }"
+	result, err := run(options, ctx, []string{"powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script}, installTimeout)
+	if err != nil {
+		return ActionResult{}, fmt.Errorf("download ChatGPT installer: %w", err)
+	}
+	if result.ExitCode != 0 {
+		return ActionResult{}, commandFailure("download ChatGPT installer", result)
+	}
+	if err := contextError(ctx); err != nil {
 		return ActionResult{}, err
 	}
+	if err := start(options, []string{installerPath}); err != nil {
+		return ActionResult{}, fmt.Errorf("start ChatGPT installer: %w", err)
+	}
+	keepInstaller = true
 	status.Source = SourceWindowsStore
-	return ActionResult{Status: "external-installer-opened", Message: "The official Microsoft Store installer was opened", RefreshNeeded: true, App: status}, nil
+	return ActionResult{Status: "installer-started", Message: "The downloaded Microsoft Store installer was started", RefreshNeeded: true, App: status}, nil
+}
+
+func powerShellLiteral(value string) string {
+	return "'" + strings.ReplaceAll(value, "'", "''") + "'"
 }
 
 func commandFailure(action string, result process.Result) error {

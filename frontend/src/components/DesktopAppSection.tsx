@@ -1,4 +1,4 @@
-import { AppWindow, Download, ExternalLink, RefreshCw, TriangleAlert } from "lucide-react";
+import { AppWindow, Download, RefreshCw, TriangleAlert } from "lucide-react";
 import { useState } from "react";
 
 import { api, describeError } from "../backend/api";
@@ -39,7 +39,7 @@ export function DesktopAppSection({ app: desktopApp, onChanged }: DesktopAppSect
       } else if (result?.status === "already-installed") {
         setNotice(t("ChatGPT Desktop 已安装"));
       } else {
-        setNotice(t("官方安装器已打开"));
+        setNotice(t("官方安装器已启动"));
       }
       await onChanged();
     } catch (error) {
@@ -93,7 +93,7 @@ export function DesktopAppSection({ app: desktopApp, onChanged }: DesktopAppSect
                 {t("打开")}
               </button>
               <button className="button button-secondary" type="button" onClick={() => void run("installer")} disabled={Boolean(pending)}>
-                {pending === "installer" ? <RefreshCw size={15} className="spin" aria-hidden="true" /> : <ExternalLink size={15} aria-hidden="true" />}
+                {pending === "installer" ? <RefreshCw size={15} className="spin" aria-hidden="true" /> : <Download size={15} aria-hidden="true" />}
                 {t("更新或重新安装")}
               </button>
             </>

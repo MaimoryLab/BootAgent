@@ -54,9 +54,12 @@ describe("DesktopAppSection", () => {
     expect(screen.getByText("ChatGPT Desktop 安装完成")).toBeTruthy();
   });
 
-  it("opens the installed app and its official installer", async () => {
+  it("opens the installed app and starts its downloaded installer", async () => {
     bridge.openDesktopAgent.mockResolvedValue(undefined);
-    bridge.openDesktopAgentInstaller.mockResolvedValue(action(app({ installed: true, version: "26.727.51351" })));
+    bridge.openDesktopAgentInstaller.mockResolvedValue({
+      ...action(app({ installed: true, version: "26.727.51351" })),
+      status: "installer-started",
+    });
     const onChanged = vi.fn();
     const view = render(<DesktopAppSection app={app({ installed: true, version: "26.727.51351" })} onChanged={onChanged} />);
 
@@ -64,6 +67,7 @@ describe("DesktopAppSection", () => {
     await waitFor(() => expect(bridge.openDesktopAgent).toHaveBeenCalledTimes(1));
     fireEvent.click(screen.getByRole("button", { name: "更新或重新安装" }));
     await waitFor(() => expect(bridge.openDesktopAgentInstaller).toHaveBeenCalledTimes(1));
+    expect(screen.getByText("官方安装器已启动")).toBeTruthy();
     expect(view.container.textContent).toContain("版本 26.727.51351");
   });
 

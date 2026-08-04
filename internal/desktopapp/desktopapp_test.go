@@ -233,18 +233,42 @@ func TestMacInstallStopsOnDownloadExitCode(t *testing.T) {
 	}
 }
 
-func TestWindowsInstallOpensOfficialBootstrapperWithoutFilesystemScan(t *testing.T) {
-	runner := &scriptedRunner{results: []process.Result{{ExitCode: 0}, {ExitCode: 0}}}
+func TestMacOpenInstallerDownloadsInsteadOfOpeningBrowser(t *testing.T) {
+	runner := &scriptedRunner{results: []process.Result{{ExitCode: 22, Stderr: "not found"}}}
+	_, err := OpenInstaller(context.Background(), Options{
+		Platform:    platform.For("macos", "arm64"),
+		SearchRoots: []string{t.TempDir()},
+		Runner:      runner,
+	})
+	if err == nil || !strings.Contains(err.Error(), "download ChatGPT installer") {
+		t.Fatalf("installer error = %v", err)
+	}
+	if len(runner.calls) != 1 || runner.calls[0][0] != "/usr/bin/curl" || len(runner.started) != 0 {
+		t.Fatalf("installer calls=%#v started=%#v", runner.calls, runner.started)
+	}
+}
+
+func TestWindowsInstallDownloadsAndStartsOfficialBootstrapperWithoutFilesystemScan(t *testing.T) {
+	runner := &scriptedRunner{results: []process.Result{{ExitCode: 0}, {ExitCode: 0}, {ExitCode: 0}}}
 	result, err := Install(context.Background(), Options{Platform: platform.For("windows", "amd64"), Runner: runner})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.Status != "external-installer-opened" || len(runner.started) != 1 {
+	if result.Status != "installer-started" || len(runner.started) != 1 {
 		t.Fatalf("result=%#v started=%#v", result, runner.started)
 	}
-	argv := strings.Join(runner.started[0], " ")
-	if !strings.Contains(argv, "powershell.exe") || !strings.Contains(argv, WindowsInstallerURL) {
-		t.Fatalf("bootstrapper argv = %q", argv)
+	defer os.Remove(runner.started[0][0])
+	download := strings.Join(runner.calls[len(runner.calls)-1], " ")
+	if !strings.Contains(download, "Invoke-WebRequest") || !strings.Contains(download, "-OutFile") || !strings.Contains(download, WindowsInstallerURL) {
+		t.Fatalf("download argv = %q", download)
+	}
+	if len(runner.started[0]) != 1 || !strings.HasSuffix(strings.ToLower(runner.started[0][0]), ".exe") || strings.Contains(runner.started[0][0], "https://") {
+		t.Fatalf("bootstrapper argv = %#v", runner.started[0])
+	}
+	for _, call := range runner.calls {
+		if strings.Contains(strings.Join(call, " "), "WindowsApps") {
+			t.Fatalf("Windows install must not scan WindowsApps: %#v", runner.calls)
+		}
 	}
 }
 

@@ -162,7 +162,7 @@ const english = {
   "ChatGPT Desktop 已打开": "ChatGPT Desktop opened",
   "ChatGPT Desktop 安装完成": "ChatGPT Desktop installed",
   "ChatGPT Desktop 已安装": "ChatGPT Desktop is already installed",
-  "官方安装器已打开": "The official installer was opened",
+  "官方安装器已启动": "The official installer was started",
   "ChatGPT Desktop 操作失败": "ChatGPT Desktop action failed",
   "命令行 Agent": "Command-line Agent",
   "已安装 Agent": "Installed agents",

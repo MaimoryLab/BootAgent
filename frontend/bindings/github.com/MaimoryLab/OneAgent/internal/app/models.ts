@@ -44,8 +44,8 @@ export interface Capabilities {
 }
 
 /**
- * DesktopAgentActionResult reports a local install or an external official
- * installer launch. Windows Store installation continues outside OneAgent.
+ * DesktopAgentActionResult reports a local install or a downloaded installer
+ * launch. Windows Store installation continues after its bootstrapper starts.
  */
 export interface DesktopAgentActionResult {
     "status": string;

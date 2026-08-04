@@ -24,8 +24,8 @@ type DesktopAgentStatus struct {
 	InspectionUnavailable *string `json:"inspectionUnavailable,omitempty"`
 }
 
-// DesktopAgentActionResult reports a local install or an external official
-// installer launch. Windows Store installation continues outside OneAgent.
+// DesktopAgentActionResult reports a local install or a downloaded installer
+// launch. Windows Store installation continues after its bootstrapper starts.
 type DesktopAgentActionResult struct {
 	Status        string             `json:"status"`
 	Message       string             `json:"message"`
@@ -48,9 +48,9 @@ func (u *UseCases) DesktopAgentStatus(ctx context.Context) (DesktopAgentStatus, 
 	return u.desktopAgentStatus(ctx), nil
 }
 
-// InstallDesktopAgent installs the current desktop agent on macOS or opens the
-// official Store bootstrapper on Windows. It never writes ~/.codex;
-// configuration is a separate, explicit Codex action handled by the existing writer.
+// InstallDesktopAgent downloads and installs the current desktop agent on
+// macOS or starts its downloaded official bootstrapper on Windows. It never
+// writes ~/.codex; configuration remains a separate, explicit Codex action.
 func (u *UseCases) InstallDesktopAgent(ctx context.Context) (DesktopAgentActionResult, error) {
 	if u == nil {
 		return DesktopAgentActionResult{}, oneerrors.New(oneerrors.InternalError, "Desktop agent service is not configured", oneerrors.WithStatus(501))
@@ -80,8 +80,8 @@ func (u *UseCases) OpenDesktopAgent(ctx context.Context) error {
 	return nil
 }
 
-// OpenDesktopAgentInstaller opens the official distribution source. This is the
-// update path because the vendor does not publish a stable latest-version API.
+// OpenDesktopAgentInstaller downloads the official package and runs the update
+// path without opening its URL in a browser.
 func (u *UseCases) OpenDesktopAgentInstaller(ctx context.Context) (DesktopAgentActionResult, error) {
 	if u == nil {
 		return DesktopAgentActionResult{}, oneerrors.New(oneerrors.InternalError, "Desktop agent service is not configured", oneerrors.WithStatus(501))
