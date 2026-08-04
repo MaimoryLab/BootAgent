@@ -149,7 +149,6 @@ const english = {
   "本机已安装 Agent 及其当前 Provider、Profile 与模型。": "Installed agents and their current providers, profiles, and models.",
   "刷新状态": "Refresh status",
   "桌面 Agent": "Desktop Agent",
-  "官方桌面应用": "Official desktop app",
   "与 {name} 共用配置文件 {path}；安装和启动不会改动配置": "Shares the {path} configuration file with {name}; installation and launch do not modify it",
   "配置文件：{path}": "Configuration file: {path}",
   "状态": "Status",

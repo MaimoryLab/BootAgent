@@ -60,7 +60,6 @@ export function DesktopAppSection({ app: desktopApp, onChanged }: DesktopAppSect
       <div className="section-heading">
         <div>
           <h2>{t("桌面 Agent")}</h2>
-          <p>{t("官方桌面应用")}</p>
         </div>
       </div>
       {failure ? <div className="notice notice-error desktop-app-notice"><TriangleAlert size={15} aria-hidden="true" />{failure}</div> : null}
