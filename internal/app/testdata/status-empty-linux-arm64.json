@@ -7,20 +7,21 @@
   },
   "capabilities": {
     "canInstall": {
-      "codex": false,
-      "claude-code": false,
-      "opencode": false,
-      "kilo-cli": false,
       "aider": false,
-      "openclaw": false,
-      "hermes": false,
+      "claude-code": false,
+      "codex": false,
       "cursor": false,
-      "kiro": false,
-      "gemini-cli": false,
-      "cline": false,
-      "continue": false,
-      "qwen-code": false,
-      "kilo-vscode": false
+      "hermes": false,
+      "kilo-cli": false,
+      "openclaw": false,
+      "opencode": false
+    },
+    "missingRuntime": {
+      "aider": "uv",
+      "claude-code": "node",
+      "codex": "node",
+      "kilo-cli": "node",
+      "opencode": "node"
     },
     "supportedAgentIds": [
       "codex",
@@ -28,234 +29,131 @@
       "opencode",
       "kilo-cli",
       "aider",
-      "openclaw",
-      "hermes",
       "cursor",
-      "kiro",
-      "gemini-cli",
-      "cline",
-      "continue",
-      "qwen-code",
-      "kilo-vscode"
-    ],
-    "missingRuntime": {
-      "aider": "uv",
-      "claude-code": "node",
-      "codex": "node",
-      "kilo-cli": "node",
-      "opencode": "node"
-    }
+      "openclaw",
+      "hermes"
+    ]
   },
   "agents": {
-    "codex": {
+    "aider": {
       "installed": false,
-      "config": "${HOME}/.codex/config.toml",
       "configured": false,
       "guideOnly": false,
+      "config": "${HOME}/.oneagent/aider.env",
       "version": null,
       "lockedVersion": null,
       "canInstall": false,
       "provider": null,
+      "profileId": null,
       "model": null,
       "baseUrl": null,
       "updatedAt": null,
-      "detected": null,
-      "profileId": null
+      "detected": null
     },
     "claude-code": {
       "installed": false,
+      "configured": false,
+      "guideOnly": false,
       "config": "${HOME}/.claude/settings.json",
+      "version": null,
+      "lockedVersion": null,
+      "canInstall": false,
+      "provider": null,
+      "profileId": null,
+      "model": null,
+      "baseUrl": null,
+      "updatedAt": null,
+      "detected": null
+    },
+    "codex": {
+      "installed": false,
       "configured": false,
       "guideOnly": false,
+      "config": "${HOME}/.codex/config.toml",
       "version": null,
       "lockedVersion": null,
       "canInstall": false,
       "provider": null,
+      "profileId": null,
       "model": null,
       "baseUrl": null,
       "updatedAt": null,
-      "detected": null,
-      "profileId": null
-    },
-    "opencode": {
-      "installed": false,
-      "config": "${HOME}/.config/opencode/opencode.json",
-      "configured": false,
-      "guideOnly": false,
-      "version": null,
-      "lockedVersion": null,
-      "canInstall": false,
-      "provider": null,
-      "model": null,
-      "baseUrl": null,
-      "updatedAt": null,
-      "detected": null,
-      "profileId": null
-    },
-    "kilo-cli": {
-      "installed": false,
-      "config": "${HOME}/.config/kilo/kilo.jsonc",
-      "configured": false,
-      "guideOnly": false,
-      "version": null,
-      "lockedVersion": null,
-      "canInstall": false,
-      "provider": null,
-      "model": null,
-      "baseUrl": null,
-      "updatedAt": null,
-      "detected": null,
-      "profileId": null
-    },
-    "aider": {
-      "installed": false,
-      "config": "${HOME}/.oneagent/aider.env",
-      "configured": false,
-      "guideOnly": false,
-      "version": null,
-      "lockedVersion": null,
-      "canInstall": false,
-      "provider": null,
-      "model": null,
-      "baseUrl": null,
-      "updatedAt": null,
-      "detected": null,
-      "profileId": null
-    },
-    "openclaw": {
-      "installed": false,
-      "config": "",
-      "configured": false,
-      "guideOnly": true,
-      "version": null,
-      "lockedVersion": null,
-      "canInstall": false,
-      "provider": null,
-      "model": null,
-      "baseUrl": null,
-      "updatedAt": null,
-      "detected": null,
-      "profileId": null
-    },
-    "hermes": {
-      "installed": false,
-      "config": "",
-      "configured": false,
-      "guideOnly": true,
-      "version": null,
-      "lockedVersion": null,
-      "canInstall": false,
-      "provider": null,
-      "model": null,
-      "baseUrl": null,
-      "updatedAt": null,
-      "detected": null,
-      "profileId": null
+      "detected": null
     },
     "cursor": {
       "installed": false,
-      "config": "",
       "configured": false,
       "guideOnly": true,
+      "config": "",
       "version": null,
       "lockedVersion": null,
       "canInstall": false,
       "provider": null,
+      "profileId": null,
       "model": null,
       "baseUrl": null,
       "updatedAt": null,
-      "detected": null,
-      "profileId": null
+      "detected": null
     },
-    "kiro": {
+    "hermes": {
       "installed": false,
-      "config": "",
       "configured": false,
       "guideOnly": true,
+      "config": "",
       "version": null,
       "lockedVersion": null,
       "canInstall": false,
       "provider": null,
+      "profileId": null,
       "model": null,
       "baseUrl": null,
       "updatedAt": null,
-      "detected": null,
-      "profileId": null
+      "detected": null
     },
-    "gemini-cli": {
+    "kilo-cli": {
       "installed": false,
-      "config": "",
       "configured": false,
-      "guideOnly": true,
+      "guideOnly": false,
+      "config": "${HOME}/.config/kilo/kilo.jsonc",
       "version": null,
       "lockedVersion": null,
       "canInstall": false,
       "provider": null,
+      "profileId": null,
       "model": null,
       "baseUrl": null,
       "updatedAt": null,
-      "detected": null,
-      "profileId": null
+      "detected": null
     },
-    "cline": {
+    "openclaw": {
       "installed": false,
-      "config": "",
       "configured": false,
       "guideOnly": true,
+      "config": "",
       "version": null,
       "lockedVersion": null,
       "canInstall": false,
       "provider": null,
+      "profileId": null,
       "model": null,
       "baseUrl": null,
       "updatedAt": null,
-      "detected": null,
-      "profileId": null
+      "detected": null
     },
-    "continue": {
+    "opencode": {
       "installed": false,
-      "config": "",
       "configured": false,
-      "guideOnly": true,
+      "guideOnly": false,
+      "config": "${HOME}/.config/opencode/opencode.json",
       "version": null,
       "lockedVersion": null,
       "canInstall": false,
       "provider": null,
+      "profileId": null,
       "model": null,
       "baseUrl": null,
       "updatedAt": null,
-      "detected": null,
-      "profileId": null
-    },
-    "qwen-code": {
-      "installed": false,
-      "config": "",
-      "configured": false,
-      "guideOnly": true,
-      "version": null,
-      "lockedVersion": null,
-      "canInstall": false,
-      "provider": null,
-      "model": null,
-      "baseUrl": null,
-      "updatedAt": null,
-      "detected": null,
-      "profileId": null
-    },
-    "kilo-vscode": {
-      "installed": false,
-      "config": "",
-      "configured": false,
-      "guideOnly": true,
-      "version": null,
-      "lockedVersion": null,
-      "canInstall": false,
-      "provider": null,
-      "model": null,
-      "baseUrl": null,
-      "updatedAt": null,
-      "detected": null,
-      "profileId": null
+      "detected": null
     }
   },
   "catalog": [
@@ -292,22 +190,6 @@
       "rank": 2
     },
     {
-      "id": "cursor",
-      "name": "Cursor",
-      "group": "platform",
-      "configMode": "guide",
-      "guideOnly": true,
-      "lockedVersion": null,
-      "protocol": null,
-      "platforms": [
-        "macos",
-        "linux",
-        "windows"
-      ],
-      "platformNote": "",
-      "rank": 3
-    },
-    {
       "id": "opencode",
       "name": "OpenCode",
       "group": "auto",
@@ -321,55 +203,7 @@
         "windows"
       ],
       "platformNote": "",
-      "rank": 4
-    },
-    {
-      "id": "openclaw",
-      "name": "OpenClaw",
-      "group": "gateway",
-      "configMode": "guide",
-      "guideOnly": true,
-      "lockedVersion": null,
-      "protocol": null,
-      "platforms": [
-        "macos",
-        "linux",
-        "windows"
-      ],
-      "platformNote": "",
-      "rank": 5
-    },
-    {
-      "id": "hermes",
-      "name": "Hermes",
-      "group": "gateway",
-      "configMode": "guide",
-      "guideOnly": true,
-      "lockedVersion": null,
-      "protocol": null,
-      "platforms": [
-        "macos",
-        "linux",
-        "windows"
-      ],
-      "platformNote": "",
-      "rank": 6
-    },
-    {
-      "id": "gemini-cli",
-      "name": "Gemini CLI",
-      "group": "platform",
-      "configMode": "guide",
-      "guideOnly": true,
-      "lockedVersion": null,
-      "protocol": null,
-      "platforms": [
-        "macos",
-        "linux",
-        "windows"
-      ],
-      "platformNote": "",
-      "rank": 7
+      "rank": 3
     },
     {
       "id": "kilo-cli",
@@ -385,7 +219,7 @@
         "windows"
       ],
       "platformNote": "",
-      "rank": 8
+      "rank": 4
     },
     {
       "id": "aider",
@@ -401,11 +235,11 @@
         "windows"
       ],
       "platformNote": "",
-      "rank": 9
+      "rank": 5
     },
     {
-      "id": "kiro",
-      "name": "Kiro",
+      "id": "cursor",
+      "name": "Cursor",
       "group": "platform",
       "configMode": "guide",
       "guideOnly": true,
@@ -417,12 +251,12 @@
         "windows"
       ],
       "platformNote": "",
-      "rank": 10
+      "rank": 6
     },
     {
-      "id": "cline",
-      "name": "Cline",
-      "group": "ide",
+      "id": "openclaw",
+      "name": "OpenClaw",
+      "group": "gateway",
       "configMode": "guide",
       "guideOnly": true,
       "lockedVersion": null,
@@ -433,12 +267,12 @@
         "windows"
       ],
       "platformNote": "",
-      "rank": 11
+      "rank": 7
     },
     {
-      "id": "continue",
-      "name": "Continue",
-      "group": "ide",
+      "id": "hermes",
+      "name": "Hermes",
+      "group": "gateway",
       "configMode": "guide",
       "guideOnly": true,
       "lockedVersion": null,
@@ -449,39 +283,7 @@
         "windows"
       ],
       "platformNote": "",
-      "rank": 12
-    },
-    {
-      "id": "qwen-code",
-      "name": "Qwen Code",
-      "group": "ide",
-      "configMode": "guide",
-      "guideOnly": true,
-      "lockedVersion": null,
-      "protocol": null,
-      "platforms": [
-        "macos",
-        "linux",
-        "windows"
-      ],
-      "platformNote": "",
-      "rank": 13
-    },
-    {
-      "id": "kilo-vscode",
-      "name": "Kilo VS Code",
-      "group": "ide",
-      "configMode": "guide",
-      "guideOnly": true,
-      "lockedVersion": null,
-      "protocol": null,
-      "platforms": [
-        "macos",
-        "linux",
-        "windows"
-      ],
-      "platformNote": "",
-      "rank": 14
+      "rank": 8
     }
   ],
   "groups": [
@@ -503,17 +305,17 @@
     }
   ],
   "providers": {
-    "ppio": {
-      "name": "PPIO",
-      "home": "https://ppio.com/",
-      "base_url": "https://api.ppio.com/openai",
-      "anthropic_base_url": "https://api.ppio.com/anthropic"
-    },
     "novita": {
       "name": "Novita",
       "home": "https://novita.ai/",
       "base_url": "https://api.novita.ai/openai",
       "anthropic_base_url": "https://api.novita.ai/anthropic"
+    },
+    "ppio": {
+      "name": "PPIO",
+      "home": "https://ppio.com/",
+      "base_url": "https://api.ppio.com/openai",
+      "anthropic_base_url": "https://api.ppio.com/anthropic"
     }
   },
   "mirrors": [
@@ -533,26 +335,25 @@
     }
   ],
   "paths": {
-    "logs": "${HOME}/.oneagent/logs",
-    "profile": "${HOME}/.oneagent/profile.json",
-    "codex_config": "${HOME}/.codex/config.toml",
+    "aider_config": "${HOME}/.oneagent/aider.env",
     "claude-code_config": "${HOME}/.claude/settings.json",
-    "opencode_config": "${HOME}/.config/opencode/opencode.json",
+    "codex_config": "${HOME}/.codex/config.toml",
     "kilo-cli_config": "${HOME}/.config/kilo/kilo.jsonc",
-    "aider_config": "${HOME}/.oneagent/aider.env"
+    "logs": "${HOME}/.oneagent/logs",
+    "opencode_config": "${HOME}/.config/opencode/opencode.json",
+    "profile": "${HOME}/.oneagent/profile.json"
   },
   "backups": {
-    "codex": false,
-    "claude-code": false,
-    "opencode": false,
-    "kilo-cli": false,
     "aider": false,
+    "claude-code": false,
+    "codex": false,
+    "kilo-cli": false,
+    "opencode": false,
     "profile": false
   },
   "profiles": [],
   "activeProfile": null,
-  "environment": null,
-  "environmentError": null,
+  "firstRun": true,
   "runtimes": [
     {
       "id": "node",
@@ -587,6 +388,8 @@
       "requiredByHint": "Aider"
     }
   ],
+  "environment": null,
+  "environmentError": null,
   "desktopAgent": {
     "id": "desktop-agent",
     "name": "ChatGPT Desktop",
@@ -598,6 +401,5 @@
     "profileId": null,
     "configPath": "${HOME}/.codex/config.toml",
     "configSharedWith": "Codex"
-  },
-  "firstRun": true
+  }
 }
