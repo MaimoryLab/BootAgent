@@ -1104,9 +1104,12 @@
 }
 
 .desktop-app-note {
-  margin: 7px 0 0;
+  grid-column: 1 / -1;
+  min-width: 0;
+  margin: 0;
   color: var(--text-tertiary);
   font-size: 11px;
+  overflow-wrap: anywhere;
 }
 
 /* Detail page */

@@ -38,17 +38,17 @@ export function DesktopAppSection({ app: desktopApp, onChanged }: DesktopAppSect
           : null;
       if (action === "open") {
         await api.openDesktopAgent();
-        setNotice(t("ChatGPT Desktop 已打开"));
+        setNotice(t("{name} 已打开", { name: desktopApp.name }));
       } else if (result?.status === "installed") {
-        setNotice(t("ChatGPT Desktop 安装完成"));
+        setNotice(t("{name} 安装完成", { name: desktopApp.name }));
       } else if (result?.status === "already-installed") {
-        setNotice(t("ChatGPT Desktop 已安装"));
+        setNotice(t("{name} 已安装", { name: desktopApp.name }));
       } else {
         setNotice(t("官方安装器已启动"));
       }
       await onChanged();
     } catch (error) {
-      setFailure(describeError(error, t("ChatGPT Desktop 操作失败")).message);
+      setFailure(describeError(error, t("{name} 操作失败", { name: desktopApp.name })).message);
     } finally {
       setPending("");
       if (downloading) resetProgress(desktopApp.id);
@@ -110,6 +110,13 @@ export function DesktopAppSection({ app: desktopApp, onChanged }: DesktopAppSect
             </button>
           )}
         </div>
+        {desktopApp.configPath ? (
+          <p className="desktop-app-note" title={desktopApp.configPath}>
+            {desktopApp.configSharedWith
+              ? t("与 {name} 共用配置文件 {path}；安装和启动不会改动配置", { name: desktopApp.configSharedWith, path: desktopApp.configPath })
+              : t("配置文件：{path}", { path: desktopApp.configPath })}
+          </p>
+        ) : null}
         {pending === "install" || pending === "installer" ? <DownloadProgress target={desktopApp.id} pending /> : null}
       </div>
     </section>

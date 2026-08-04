@@ -56,8 +56,8 @@ export interface DesktopAgentActionResult {
 
 /**
  * DesktopAgentStatus is the public projection of the current desktop agent. It is
- * deliberately separate from AgentStatus: the app and Codex CLI share config,
- * but they have different installation and version contracts.
+ * deliberately separate from AgentStatus: desktop and command-line agents may
+ * share config, but they have different installation and version contracts.
  */
 export interface DesktopAgentStatus {
     "id": string;
@@ -67,6 +67,8 @@ export interface DesktopAgentStatus {
     "path"?: string;
     "version": string | null;
     "source": string;
+    "configPath"?: string;
+    "configSharedWith"?: string;
     "packageFamily"?: string;
     "inspectionUnavailable"?: string | null;
 }

@@ -5,14 +5,15 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/MaimoryLab/OneAgent/internal/catalog"
 	"github.com/MaimoryLab/OneAgent/internal/desktopapp"
 	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
 	"github.com/MaimoryLab/OneAgent/internal/process"
 )
 
 // DesktopAgentStatus is the public projection of the current desktop agent. It is
-// deliberately separate from AgentStatus: the app and Codex CLI share config,
-// but they have different installation and version contracts.
+// deliberately separate from AgentStatus: desktop and command-line agents may
+// share config, but they have different installation and version contracts.
 type DesktopAgentStatus struct {
 	ID                    string  `json:"id"`
 	Name                  string  `json:"name"`
@@ -21,6 +22,8 @@ type DesktopAgentStatus struct {
 	Path                  string  `json:"path,omitempty"`
 	Version               *string `json:"version"`
 	Source                string  `json:"source"`
+	ConfigPath            string  `json:"configPath,omitempty"`
+	ConfigSharedWith      string  `json:"configSharedWith,omitempty"`
 	PackageFamily         string  `json:"packageFamily,omitempty"`
 	InspectionUnavailable *string `json:"inspectionUnavailable,omitempty"`
 }
@@ -35,7 +38,7 @@ type DesktopAgentActionResult struct {
 }
 
 func (u *UseCases) desktopAgentStatus(ctx context.Context) DesktopAgentStatus {
-	return publicDesktopAgentStatus(desktopapp.Inspect(ctx, u.desktopAppOptions(nil)))
+	return u.publicDesktopAgentStatus(desktopapp.Inspect(ctx, u.desktopAppOptions(nil)))
 }
 
 // DesktopAgentStatus returns the current desktop agent state without changing config files.
@@ -51,7 +54,7 @@ func (u *UseCases) DesktopAgentStatus(ctx context.Context) (DesktopAgentStatus, 
 
 // InstallDesktopAgent downloads and installs the current desktop agent on
 // macOS or starts its downloaded official bootstrapper on Windows. It never
-// writes ~/.codex; configuration remains a separate, explicit Codex action.
+// writes shared Agent configuration; configuration remains a separate action.
 func (u *UseCases) InstallDesktopAgent(ctx context.Context, output process.OutputListener) (DesktopAgentActionResult, error) {
 	if u == nil {
 		return DesktopAgentActionResult{}, oneerrors.New(oneerrors.InternalError, "Desktop agent service is not configured", oneerrors.WithStatus(501))
@@ -63,10 +66,10 @@ func (u *UseCases) InstallDesktopAgent(ctx context.Context, output process.Outpu
 	if err != nil {
 		return DesktopAgentActionResult{}, desktopAppInstallError(err)
 	}
-	return publicDesktopAgentAction(result), nil
+	return u.publicDesktopAgentAction(result), nil
 }
 
-// OpenDesktopAgent launches the already installed app and leaves its shared Codex
+// OpenDesktopAgent launches the already installed app and leaves shared Agent
 // configuration untouched.
 func (u *UseCases) OpenDesktopAgent(ctx context.Context) error {
 	if u == nil {
@@ -76,7 +79,7 @@ func (u *UseCases) OpenDesktopAgent(ctx context.Context) error {
 		return err
 	}
 	if err := desktopapp.Open(ctx, u.desktopAppOptions(nil)); err != nil {
-		return oneerrors.New(oneerrors.InternalError, "Cannot open ChatGPT Desktop", oneerrors.WithStatus(500), oneerrors.WithRetryable(true), oneerrors.WithCause(err))
+		return oneerrors.New(oneerrors.InternalError, "Cannot open desktop agent", oneerrors.WithStatus(500), oneerrors.WithRetryable(true), oneerrors.WithCause(err))
 	}
 	return nil
 }
@@ -94,7 +97,7 @@ func (u *UseCases) OpenDesktopAgentInstaller(ctx context.Context, output process
 	if err != nil {
 		return DesktopAgentActionResult{}, desktopAppInstallError(err)
 	}
-	return publicDesktopAgentAction(result), nil
+	return u.publicDesktopAgentAction(result), nil
 }
 
 func (u *UseCases) desktopAppOptions(output process.OutputListener) desktopapp.Options {
@@ -107,8 +110,8 @@ func (u *UseCases) desktopAppOptions(output process.OutputListener) desktopapp.O
 	}
 }
 
-func publicDesktopAgentStatus(value desktopapp.Status) DesktopAgentStatus {
-	return DesktopAgentStatus{
+func (u *UseCases) publicDesktopAgentStatus(value desktopapp.Status) DesktopAgentStatus {
+	status := DesktopAgentStatus{
 		ID:                    value.ID,
 		Name:                  value.Name,
 		Installed:             value.Installed,
@@ -119,14 +122,20 @@ func publicDesktopAgentStatus(value desktopapp.Status) DesktopAgentStatus {
 		PackageFamily:         value.PackageFamily,
 		InspectionUnavailable: value.InspectionUnavailable,
 	}
+	if manifest, err := catalog.LoadEmbedded(); err == nil {
+		shared := manifest.Agents[desktopapp.SharedConfigAgentID]
+		status.ConfigPath = configPath(u.status.Home, u.status.Platform.OS, shared)
+		status.ConfigSharedWith = shared.Name
+	}
+	return status
 }
 
-func publicDesktopAgentAction(value desktopapp.ActionResult) DesktopAgentActionResult {
+func (u *UseCases) publicDesktopAgentAction(value desktopapp.ActionResult) DesktopAgentActionResult {
 	return DesktopAgentActionResult{
 		Status:        value.Status,
 		Message:       value.Message,
 		RefreshNeeded: value.RefreshNeeded,
-		App:           publicDesktopAgentStatus(value.App),
+		App:           u.publicDesktopAgentStatus(value.App),
 	}
 }
 
@@ -136,7 +145,7 @@ func desktopAppInstallError(err error) error {
 	}
 	message := strings.TrimSpace(err.Error())
 	if message == "" {
-		message = "Cannot install ChatGPT Desktop"
+		message = "Cannot install desktop agent"
 	}
 	return oneerrors.New(oneerrors.AgentInstallFailed, message, oneerrors.WithRetryable(true), oneerrors.WithCause(err))
 }

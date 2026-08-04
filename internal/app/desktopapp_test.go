@@ -19,6 +19,9 @@ func TestDesktopAgentStatusIsUnsupportedOutsideDesktopPlatforms(t *testing.T) {
 	if status.Installed || status.Supported || status.ID != "desktop-agent" {
 		t.Fatalf("status = %#v", status)
 	}
+	if status.ConfigPath != filepath.Join(home, ".codex", "config.toml") || status.ConfigSharedWith != "Codex" {
+		t.Fatalf("shared config = %q with %q", status.ConfigPath, status.ConfigSharedWith)
+	}
 	if _, err := os.Stat(filepath.Join(home, ".codex")); !os.IsNotExist(err) {
 		t.Fatalf("status probe touched shared Codex config: %v", err)
 	}

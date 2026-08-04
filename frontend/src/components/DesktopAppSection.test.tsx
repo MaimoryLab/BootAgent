@@ -21,11 +21,13 @@ vi.mock("../backend/api", async () => {
 function app(overrides: Partial<DesktopAgentStatus> = {}): DesktopAgentStatus {
   return {
     id: "desktop-agent",
-    name: "ChatGPT Desktop",
+    name: "Example Desktop",
     installed: false,
     supported: true,
     version: null,
     source: "macos-dmg",
+    configPath: "/home/u/.example/config.toml",
+    configSharedWith: "Example CLI",
     ...overrides,
   };
 }
@@ -42,20 +44,22 @@ describe("DesktopAppSection", () => {
   });
 
   it("installs a missing app and refreshes status", async () => {
-    const installed = app({ installed: true, version: "26.727.51351", path: "/Applications/ChatGPT.app" });
+    const installed = app({ installed: true, version: "26.727.51351", path: "/Applications/Example.app" });
     bridge.installDesktopAgent.mockResolvedValue(action(installed));
     const onChanged = vi.fn();
     render(<DesktopAppSection app={app()} onChanged={onChanged} />);
 
     expect(screen.getByRole("heading", { name: "桌面 Agent" })).toBeTruthy();
+    const configNote = screen.getByText("与 Example CLI 共用配置文件 /home/u/.example/config.toml；安装和启动不会改动配置");
+    expect(configNote.closest(".desktop-app-row")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "安装" }));
     await waitFor(() => expect(onChanged).toHaveBeenCalledTimes(1));
     expect(bridge.installDesktopAgent).toHaveBeenCalledWith();
-    expect(screen.getByText("ChatGPT Desktop 安装完成")).toBeTruthy();
+    expect(screen.getByText("Example Desktop 安装完成")).toBeTruthy();
   });
 
   it("shows download progress until the install request completes", async () => {
-    const installed = app({ installed: true, version: "26.727.51351", path: "/Applications/ChatGPT.app" });
+    const installed = app({ installed: true, version: "26.727.51351", path: "/Applications/Example.app" });
     let complete!: (result: DesktopAgentActionResult) => void;
     bridge.installDesktopAgent.mockReturnValue(new Promise((resolve) => { complete = resolve; }));
     const onChanged = vi.fn();
@@ -81,6 +85,7 @@ describe("DesktopAppSection", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "打开" }));
     await waitFor(() => expect(bridge.openDesktopAgent).toHaveBeenCalledTimes(1));
+    expect(screen.getByText("Example Desktop 已打开")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "更新或重新安装" }));
     await waitFor(() => expect(bridge.openDesktopAgentInstaller).toHaveBeenCalledTimes(1));
     expect(screen.getByText("官方安装器已启动")).toBeTruthy();

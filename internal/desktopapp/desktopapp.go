@@ -26,6 +26,7 @@ import (
 const (
 	ID                  = "desktop-agent"
 	Name                = "ChatGPT Desktop"
+	SharedConfigAgentID = "codex"
 	CodexBundleID       = "com.openai.codex"
 	WindowsPackageName  = "OpenAI.Codex_2p2nqsd0c76g0"
 	WindowsAUMID        = WindowsPackageName + "!App"

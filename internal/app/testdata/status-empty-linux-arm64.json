@@ -592,7 +592,9 @@
     "installed": false,
     "supported": false,
     "version": null,
-    "source": "unknown"
+    "source": "unknown",
+    "configPath": "${HOME}/.codex/config.toml",
+    "configSharedWith": "Codex"
   },
   "firstRun": true
 }
