@@ -95,18 +95,42 @@ func ReadOpenAICompatibleConfig(text string) Detected {
 }
 
 func ReadAiderConfig(text string) Detected {
-	baseURL := ""
+	return readDotenvConfig(text, "OPENAI_API_BASE", "")
+}
+
+// ReadQwenConfig reads the dotenv file Qwen Code loads from ~/.qwen/.env. The
+// endpoint variable is OPENAI_BASE_URL rather than Aider's OPENAI_API_BASE, and
+// the model is recorded too, so the overview can report drift on both.
+func ReadQwenConfig(text string) Detected {
+	return readDotenvConfig(text, "OPENAI_BASE_URL", "OPENAI_MODEL")
+}
+
+// readDotenvConfig picks the last assignment of each name, matching how a shell
+// sourcing the file would resolve a repeated variable. The three prefixes cover
+// a bare assignment, a POSIX export, and the PowerShell form OneAgent writes on
+// Windows. modelName may be empty for files that carry no model.
+func readDotenvConfig(text, baseURLName, modelName string) Detected {
+	detected := Detected{}
+	assignment := func(trimmed, name string) (string, bool) {
+		for _, prefix := range []string{name + "=", "export " + name + "=", "$env:" + name + " ="} {
+			if after, ok := strings.CutPrefix(trimmed, prefix); ok {
+				return unquoteShellValue(strings.TrimSpace(after)), true
+			}
+		}
+		return "", false
+	}
 	for line := range strings.SplitSeq(text, "\n") {
 		trimmed := strings.TrimSpace(line)
-		for _, prefix := range []string{"OPENAI_API_BASE=", "export OPENAI_API_BASE=", "$env:OPENAI_API_BASE ="} {
-			if !strings.HasPrefix(trimmed, prefix) {
-				continue
+		if value, ok := assignment(trimmed, baseURLName); ok {
+			detected.BaseURL = value
+		}
+		if modelName != "" {
+			if value, ok := assignment(trimmed, modelName); ok {
+				detected.Model = value
 			}
-			value := strings.TrimSpace(strings.TrimPrefix(trimmed, prefix))
-			baseURL = unquoteShellValue(value)
 		}
 	}
-	return Detected{BaseURL: baseURL}
+	return detected
 }
 
 // DetectFile returns nil only when the file is absent. Any present but empty,
@@ -155,6 +179,8 @@ func readerFor(adapter string, envVars map[string]string) reader {
 		return ReadOpenAICompatibleConfig
 	case "aider":
 		return ReadAiderConfig
+	case "qwen-code":
+		return ReadQwenConfig
 	default:
 		return nil
 	}

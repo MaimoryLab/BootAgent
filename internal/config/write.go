@@ -127,6 +127,27 @@ func (w Writer) WriteAider(ctx context.Context, path, baseURL, apiKey string) er
 	return w.write(ctx, path, []byte(content), true)
 }
 
+// WriteQwen points Qwen Code at the Provider through the dotenv file it loads
+// from ~/.qwen/.env.
+//
+// The variable names are not the ones WriteAider uses: Qwen Code reads
+// OPENAI_BASE_URL, and treats OPENAI_API_BASE as a legacy spelling. Writing only
+// Aider's name would leave the CLI on its own default endpoint with a key that
+// does not belong to it, which fails as an auth error rather than a missing
+// configuration — the confusing kind.
+//
+// The model is written too, unlike Aider, because Qwen Code otherwise keeps its
+// built-in default and silently ignores the model the user chose.
+func (w Writer) WriteQwen(ctx context.Context, path, baseURL, apiKey, model string) error {
+	base := provider.OpenAIBaseURL(baseURL)
+	content := "OPENAI_BASE_URL=" + dotenvQuote(base) + "\n" +
+		"OPENAI_API_KEY=" + dotenvQuote(apiKey) + "\n"
+	if model != "" {
+		content += "OPENAI_MODEL=" + dotenvQuote(model) + "\n"
+	}
+	return w.write(ctx, path, []byte(content), true)
+}
+
 func (w Writer) write(ctx context.Context, path string, data []byte, secret bool) error {
 	if _, err := w.FS.AtomicWrite(ctx, path, data, secret); err != nil {
 		return err

@@ -226,15 +226,26 @@
     },
     "qwen-code": {
       "name": "Qwen Code",
-      "group": "ide",
+      "group": "auto",
       "command": "qwen",
-      "config_mode": "guide",
+      "config_mode": "auto",
+      "config_adapter": "qwen-code",
+      "config_path": ".qwen/.env",
+      "package": {
+        "manager": "npm",
+        "name": "@qwen-code/qwen-code",
+        "source": "https://github.com/QwenLM/qwen-code",
+        "license": "Apache-2.0",
+        "license_url": "https://github.com/QwenLM/qwen-code/blob/main/LICENSE"
+      },
+      "version_args": [
+        "--version"
+      ],
       "platforms": [
         "macos",
         "linux",
         "windows"
       ],
-      "guide": "Use the official Qwen Code setup and provider configuration.",
       "rank": 13
     },
     "kilo-vscode": {

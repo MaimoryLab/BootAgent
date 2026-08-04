@@ -43,7 +43,8 @@
       "claude-code": "node",
       "codex": "node",
       "kilo-cli": "node",
-      "opencode": "node"
+      "opencode": "node",
+      "qwen-code": "node"
     }
   },
   "agents": {
@@ -229,9 +230,9 @@
     },
     "qwen-code": {
       "installed": false,
-      "config": "",
+      "config": "${HOME}/.qwen/.env",
       "configured": false,
-      "guideOnly": true,
+      "guideOnly": false,
       "version": null,
       "lockedVersion": null,
       "canInstall": false,
@@ -454,11 +455,11 @@
     {
       "id": "qwen-code",
       "name": "Qwen Code",
-      "group": "ide",
-      "configMode": "guide",
-      "guideOnly": true,
+      "group": "auto",
+      "configMode": "auto",
+      "guideOnly": false,
       "lockedVersion": null,
-      "protocol": null,
+      "protocol": "openai",
       "platforms": [
         "macos",
         "linux",
@@ -538,15 +539,17 @@
     "claude-code_config": "${HOME}/.claude/settings.json",
     "opencode_config": "${HOME}/.config/opencode/opencode.json",
     "kilo-cli_config": "${HOME}/.config/kilo/kilo.jsonc",
-    "aider_config": "${HOME}/.oneagent/aider.env"
+    "aider_config": "${HOME}/.oneagent/aider.env",
+    "qwen-code_config": "${HOME}/.qwen/.env"
   },
   "backups": {
-    "codex": false,
-    "claude-code": false,
-    "opencode": false,
-    "kilo-cli": false,
     "aider": false,
-    "profile": false
+    "claude-code": false,
+    "codex": false,
+    "kilo-cli": false,
+    "opencode": false,
+    "profile": false,
+    "qwen-code": false
   },
   "profiles": [],
   "activeProfile": null,
@@ -567,7 +570,7 @@
       "licenseUrl": "https://github.com/nodejs/node/blob/main/LICENSE",
       "source": "https://nodejs.org/dist/",
       "installPath": "${HOME}/.oneagent/runtimes/node/v24.18.1",
-      "requiredByHint": "Codex, Claude Code, OpenCode +1"
+      "requiredByHint": "Codex, Claude Code, OpenCode +2"
     },
     {
       "id": "uv",

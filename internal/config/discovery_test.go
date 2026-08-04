@@ -58,6 +58,29 @@ func TestReadAiderNeverExecutesOrReturnsKey(t *testing.T) {
 	}
 }
 
+func TestReadQwenReadsItsOwnVariablesAndKeepsTheKeyOut(t *testing.T) {
+	detected := ReadQwenConfig("OPENAI_BASE_URL='https://hand.example/v1'\nOPENAI_API_KEY='sk-never-return'\nOPENAI_MODEL=qwen3-coder-plus\n")
+	if detected.BaseURL != "https://hand.example/v1" || detected.Model != "qwen3-coder-plus" {
+		t.Fatalf("Qwen detection = %#v", detected)
+	}
+	if strings.Contains(mustJSON(t, detected), "sk-never-return") {
+		t.Fatal("the key reached the detection projection")
+	}
+	// Aider's spelling is a legacy alias in Qwen Code, so a file carrying only
+	// that must not be reported as configured.
+	if got := ReadQwenConfig("OPENAI_API_BASE=https://aider.example/v1\n"); got.BaseURL != "" {
+		t.Errorf("read Aider's variable as Qwen's endpoint: %#v", got)
+	}
+	if got := ReadQwenConfig("$env:OPENAI_BASE_URL = \"https://win.example/v1\"\n"); got.BaseURL != "https://win.example/v1" {
+		t.Errorf("PowerShell form = %#v", got)
+	}
+	// A repeated variable resolves to the last assignment, the way a shell
+	// sourcing the file would.
+	if got := ReadQwenConfig("OPENAI_BASE_URL=https://first.example/v1\nexport OPENAI_BASE_URL=https://last.example/v1\n"); got.BaseURL != "https://last.example/v1" {
+		t.Errorf("repeated assignment = %#v", got)
+	}
+}
+
 func TestReadersReturnLocalDiagnosticsForMalformedOrWrongTypes(t *testing.T) {
 	for _, detected := range []Detected{
 		ReadCodexConfig("model_provider = \nbroken ["),

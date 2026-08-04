@@ -24,8 +24,11 @@ func TestEmbeddedManifestMatchesCurrentCatalogContract(t *testing.T) {
 			}
 		}
 	}
-	if automatic != 5 {
-		t.Fatalf("automatic Agent count = %d, want 5", automatic)
+	// Bump this deliberately when promoting an Agent to auto config. The count
+	// exists so a lock edit that flips config_mode by accident is caught; the
+	// per-Agent contract above is what actually has to hold.
+	if automatic != 6 {
+		t.Fatalf("automatic Agent count = %d, want 6", automatic)
 	}
 	items := PublicCatalog(manifest, "windows")
 	if len(items) != len(manifest.Agents) {

@@ -66,6 +66,56 @@ func TestStatusReportsExistingConfigWithoutWriting(t *testing.T) {
 	}
 }
 
+func TestStatusKeepsEveryAgentsInstallAndGuideClassification(t *testing.T) {
+	// Adding or promoting one Agent must not silently reclassify another. Both
+	// halves are asserted because they are independent: canInstall follows the
+	// package, guideOnly follows config_mode, and an edit to the derivation of
+	// either would otherwise pass unnoticed.
+	expected := map[string]struct{ canInstall, guideOnly bool }{
+		"codex":       {true, false},
+		"claude-code": {true, false},
+		"opencode":    {true, false},
+		"kilo-cli":    {true, false},
+		"aider":       {true, false},
+		"qwen-code":   {true, false},
+		"cursor":      {false, true},
+		"kiro":        {false, true},
+		"gemini-cli":  {false, true},
+		"cline":       {false, true},
+		"continue":    {false, true},
+		"kilo-vscode": {false, true},
+		"openclaw":    {false, true},
+		"hermes":      {false, true},
+	}
+	// Every manager resolves, so canInstall reflects the catalog rather than this
+	// machine's runtimes.
+	core := NewUseCases(StatusOptions{
+		Home:     t.TempDir(),
+		Platform: platform.For("linux", "amd64"),
+		Lookup:   func(command string) (string, bool) { return "/fake/" + command, true },
+	})
+	status, err := core.GetStatus(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(status.Agents) != len(expected) {
+		t.Fatalf("agent count = %d, want %d; update this table deliberately", len(status.Agents), len(expected))
+	}
+	for id, want := range expected {
+		agent, ok := status.Agents[id]
+		if !ok {
+			t.Errorf("%s is missing from status", id)
+			continue
+		}
+		if agent.CanInstall != want.canInstall {
+			t.Errorf("%s canInstall = %v, want %v", id, agent.CanInstall, want.canInstall)
+		}
+		if agent.GuideOnly != want.guideOnly {
+			t.Errorf("%s guideOnly = %v, want %v", id, agent.GuideOnly, want.guideOnly)
+		}
+	}
+}
+
 func TestStatusProjectsProfilesAndActiveEnvironmentWithoutSecrets(t *testing.T) {
 	home := t.TempDir()
 	oneagentDir := filepath.Join(home, ".oneagent")
