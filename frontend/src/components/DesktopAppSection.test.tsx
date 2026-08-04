@@ -1,13 +1,13 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { ChatGPTAppActionResult, ChatGPTAppStatus } from "../types/api";
+import type { DesktopAgentActionResult, DesktopAgentStatus } from "../types/api";
 import { DesktopAppSection } from "./DesktopAppSection";
 
 const bridge = vi.hoisted(() => ({
-  installChatGPTApp: vi.fn(),
-  openChatGPTApp: vi.fn(),
-  openChatGPTInstaller: vi.fn(),
+  installDesktopAgent: vi.fn(),
+  openDesktopAgent: vi.fn(),
+  openDesktopAgentInstaller: vi.fn(),
 }));
 
 vi.mock("../backend/api", async () => {
@@ -18,9 +18,9 @@ vi.mock("../backend/api", async () => {
   };
 });
 
-function app(overrides: Partial<ChatGPTAppStatus> = {}): ChatGPTAppStatus {
+function app(overrides: Partial<DesktopAgentStatus> = {}): DesktopAgentStatus {
   return {
-    id: "chatgpt-desktop",
+    id: "desktop-agent",
     name: "ChatGPT Desktop",
     installed: false,
     supported: true,
@@ -30,39 +30,40 @@ function app(overrides: Partial<ChatGPTAppStatus> = {}): ChatGPTAppStatus {
   };
 }
 
-function action(value: ChatGPTAppStatus): ChatGPTAppActionResult {
+function action(value: DesktopAgentStatus): DesktopAgentActionResult {
   return { status: "installed", message: "installed", refreshNeeded: true, app: value };
 }
 
 describe("DesktopAppSection", () => {
   beforeEach(() => {
-    bridge.installChatGPTApp.mockReset();
-    bridge.openChatGPTApp.mockReset();
-    bridge.openChatGPTInstaller.mockReset();
+    bridge.installDesktopAgent.mockReset();
+    bridge.openDesktopAgent.mockReset();
+    bridge.openDesktopAgentInstaller.mockReset();
   });
 
   it("installs a missing app and refreshes status", async () => {
     const installed = app({ installed: true, version: "26.727.51351", path: "/Applications/ChatGPT.app" });
-    bridge.installChatGPTApp.mockResolvedValue(action(installed));
+    bridge.installDesktopAgent.mockResolvedValue(action(installed));
     const onChanged = vi.fn();
     render(<DesktopAppSection app={app()} onChanged={onChanged} />);
 
+    expect(screen.getByRole("heading", { name: "桌面 Agent" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "安装 ChatGPT Desktop" }));
     await waitFor(() => expect(onChanged).toHaveBeenCalledTimes(1));
-    expect(bridge.installChatGPTApp).toHaveBeenCalledWith();
+    expect(bridge.installDesktopAgent).toHaveBeenCalledWith();
     expect(screen.getByText("ChatGPT Desktop 安装完成")).toBeTruthy();
   });
 
   it("opens the installed app and its official installer", async () => {
-    bridge.openChatGPTApp.mockResolvedValue(undefined);
-    bridge.openChatGPTInstaller.mockResolvedValue(action(app({ installed: true, version: "26.727.51351" })));
+    bridge.openDesktopAgent.mockResolvedValue(undefined);
+    bridge.openDesktopAgentInstaller.mockResolvedValue(action(app({ installed: true, version: "26.727.51351" })));
     const onChanged = vi.fn();
     const view = render(<DesktopAppSection app={app({ installed: true, version: "26.727.51351" })} onChanged={onChanged} />);
 
     fireEvent.click(screen.getByRole("button", { name: "打开" }));
-    await waitFor(() => expect(bridge.openChatGPTApp).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(bridge.openDesktopAgent).toHaveBeenCalledTimes(1));
     fireEvent.click(screen.getByRole("button", { name: "更新或重新安装" }));
-    await waitFor(() => expect(bridge.openChatGPTInstaller).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(bridge.openDesktopAgentInstaller).toHaveBeenCalledTimes(1));
     expect(view.container.textContent).toContain("版本 26.727.51351");
   });
 

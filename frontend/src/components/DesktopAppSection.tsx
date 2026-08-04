@@ -3,11 +3,11 @@ import { useState } from "react";
 
 import { api, describeError } from "../backend/api";
 import { useI18n } from "../i18n";
-import type { ChatGPTAppStatus } from "../types/api";
+import type { DesktopAgentStatus } from "../types/api";
 import { StatusBadge } from "./StatusBadge";
 
 interface DesktopAppSectionProps {
-  app: ChatGPTAppStatus;
+  app: DesktopAgentStatus;
   onChanged: () => void | Promise<void>;
 }
 
@@ -27,12 +27,12 @@ export function DesktopAppSection({ app: desktopApp, onChanged }: DesktopAppSect
     setNotice("");
     try {
       const result = action === "install"
-        ? await api.installChatGPTApp()
+        ? await api.installDesktopAgent()
         : action === "installer"
-          ? await api.openChatGPTInstaller()
+          ? await api.openDesktopAgentInstaller()
           : null;
       if (action === "open") {
-        await api.openChatGPTApp();
+        await api.openDesktopAgent();
         setNotice(t("ChatGPT Desktop 已打开"));
       } else if (result?.status === "installed") {
         setNotice(t("ChatGPT Desktop 安装完成"));
@@ -53,7 +53,7 @@ export function DesktopAppSection({ app: desktopApp, onChanged }: DesktopAppSect
     <section className="overview-section desktop-app-section">
       <div className="section-heading">
         <div>
-          <h2>{t("ChatGPT Desktop")}</h2>
+          <h2>{t("桌面 Agent")}</h2>
           <p>{t("官方桌面应用")}</p>
         </div>
       </div>

@@ -29,7 +29,7 @@ const status = {
   activeProfile: null,
   environment: null,
   environmentError: null,
-  chatgptApp: { id: "chatgpt-desktop", name: "ChatGPT Desktop", installed: false, supported: false, version: null, source: "unknown" },
+  desktopAgent: { id: "desktop-agent", name: "ChatGPT Desktop", installed: false, supported: false, version: null, source: "unknown" },
   firstRun: true,
 } as unknown as StatusResponse;
 

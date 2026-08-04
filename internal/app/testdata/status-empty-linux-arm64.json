@@ -586,8 +586,8 @@
       "requiredByHint": "Aider"
     }
   ],
-  "chatgptApp": {
-    "id": "chatgpt-desktop",
+  "desktopAgent": {
+    "id": "desktop-agent",
     "name": "ChatGPT Desktop",
     "installed": false,
     "supported": false,

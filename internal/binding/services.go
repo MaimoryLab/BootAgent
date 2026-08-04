@@ -15,12 +15,12 @@ import (
 )
 
 type Services struct {
-	Status     *StatusService
-	Provider   *ProviderService
-	Agent      *AgentService
-	Profile    *ProfileService
-	Runtime    *RuntimeService
-	DesktopApp *DesktopAppService
+	Status       *StatusService
+	Provider     *ProviderService
+	Agent        *AgentService
+	Profile      *ProfileService
+	Runtime      *RuntimeService
+	DesktopAgent *DesktopAgentService
 }
 
 type ServicesOptions struct {
@@ -30,63 +30,63 @@ type ServicesOptions struct {
 
 func NewServicesWithOptions(core *app.UseCases, opener BrowserOpener, options ServicesOptions) *Services {
 	return &Services{
-		Status:     &StatusService{core: core, afterGetStatus: options.AfterGetStatus},
-		Provider:   NewProviderService(core, opener),
-		Agent:      &AgentService{core: core, onOutput: options.InstallOutput},
-		Profile:    NewProfileService(core),
-		Runtime:    &RuntimeService{core: core, onOutput: options.InstallOutput},
-		DesktopApp: NewDesktopAppService(core),
+		Status:       &StatusService{core: core, afterGetStatus: options.AfterGetStatus},
+		Provider:     NewProviderService(core, opener),
+		Agent:        &AgentService{core: core, onOutput: options.InstallOutput},
+		Profile:      NewProfileService(core),
+		Runtime:      &RuntimeService{core: core, onOutput: options.InstallOutput},
+		DesktopAgent: NewDesktopAgentService(core),
 	}
 }
 
-// DesktopAppService exposes the official ChatGPT Desktop lifecycle. It does
+// DesktopAgentService exposes the configured desktop agent lifecycle. It does
 // not own or rewrite ~/.codex; the existing Agent configuration use cases do.
-type DesktopAppService struct {
+type DesktopAgentService struct {
 	core *app.UseCases
 }
 
-func NewDesktopAppService(core *app.UseCases) *DesktopAppService {
-	return &DesktopAppService{core: core}
+func NewDesktopAgentService(core *app.UseCases) *DesktopAgentService {
+	return &DesktopAgentService{core: core}
 }
 
-func (s *DesktopAppService) GetStatus(ctx context.Context) (app.ChatGPTAppStatus, error) {
+func (s *DesktopAgentService) GetStatus(ctx context.Context) (app.DesktopAgentStatus, error) {
 	if err := contextError(ctx); err != nil {
-		return app.ChatGPTAppStatus{}, err
+		return app.DesktopAgentStatus{}, err
 	}
 	if s == nil || s.core == nil {
-		return app.ChatGPTAppStatus{}, notReady("Desktop app service is not configured")
+		return app.DesktopAgentStatus{}, notReady("Desktop agent service is not configured")
 	}
-	return s.core.ChatGPTAppStatus(ctx)
+	return s.core.DesktopAgentStatus(ctx)
 }
 
-func (s *DesktopAppService) Install(ctx context.Context) (app.ChatGPTAppActionResult, error) {
+func (s *DesktopAgentService) Install(ctx context.Context) (app.DesktopAgentActionResult, error) {
 	if err := contextError(ctx); err != nil {
-		return app.ChatGPTAppActionResult{}, err
+		return app.DesktopAgentActionResult{}, err
 	}
 	if s == nil || s.core == nil {
-		return app.ChatGPTAppActionResult{}, notReady("Desktop app service is not configured")
+		return app.DesktopAgentActionResult{}, notReady("Desktop agent service is not configured")
 	}
-	return s.core.InstallChatGPTApp(ctx)
+	return s.core.InstallDesktopAgent(ctx)
 }
 
-func (s *DesktopAppService) Open(ctx context.Context) error {
+func (s *DesktopAgentService) Open(ctx context.Context) error {
 	if err := contextError(ctx); err != nil {
 		return err
 	}
 	if s == nil || s.core == nil {
-		return notReady("Desktop app service is not configured")
+		return notReady("Desktop agent service is not configured")
 	}
-	return s.core.OpenChatGPTApp(ctx)
+	return s.core.OpenDesktopAgent(ctx)
 }
 
-func (s *DesktopAppService) OpenInstaller(ctx context.Context) (app.ChatGPTAppActionResult, error) {
+func (s *DesktopAgentService) OpenInstaller(ctx context.Context) (app.DesktopAgentActionResult, error) {
 	if err := contextError(ctx); err != nil {
-		return app.ChatGPTAppActionResult{}, err
+		return app.DesktopAgentActionResult{}, err
 	}
 	if s == nil || s.core == nil {
-		return app.ChatGPTAppActionResult{}, notReady("Desktop app service is not configured")
+		return app.DesktopAgentActionResult{}, notReady("Desktop agent service is not configured")
 	}
-	return s.core.OpenChatGPTInstaller(ctx)
+	return s.core.OpenDesktopAgentInstaller(ctx)
 }
 
 // RuntimeService exposes the Node.js and uv bootstrap. It reuses the install

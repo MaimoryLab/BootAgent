@@ -72,7 +72,7 @@ export function EnvironmentOverviewPage() {
       {installed.length ? (
         <section className="overview-section">
           <div className="section-heading">
-            <div><h2>{t("已安装 Agent")}</h2><p>{t("共 {count} 个", { count: installed.length })}</p></div>
+            <div><h2>{t("命令行 Agent")}</h2><p>{t("共 {count} 个", { count: installed.length })}</p></div>
           </div>
           <div className="agent-manage-list">
             {installed.map((item) => {
@@ -101,7 +101,7 @@ export function EnvironmentOverviewPage() {
         </div>
       )}
 
-      <DesktopAppSection app={status.chatgptApp} onChanged={refreshStatus} />
+      <DesktopAppSection app={status.desktopAgent} onChanged={refreshStatus} />
       <RuntimeSection runtimes={status.runtimes ?? []} onInstalled={refreshStatus} />
     </PageScaffold>
   );

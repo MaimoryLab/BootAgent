@@ -178,11 +178,11 @@ type StatusResponse struct {
 	// FirstRun reports that ~/.oneagent does not exist yet, which is the signal
 	// the UI uses to open onboarding instead of the overview. Agent detection is
 	// not a substitute: an Agent installed before OneAgent would suppress it.
-	FirstRun         bool             `json:"firstRun"`
-	Runtimes         []RuntimeStatus  `json:"runtimes"`
-	Environment      any              `json:"environment"`
-	EnvironmentError *string          `json:"environmentError"`
-	ChatGPTApp       ChatGPTAppStatus `json:"chatgptApp"`
+	FirstRun         bool               `json:"firstRun"`
+	Runtimes         []RuntimeStatus    `json:"runtimes"`
+	Environment      any                `json:"environment"`
+	EnvironmentError *string            `json:"environmentError"`
+	DesktopAgent     DesktopAgentStatus `json:"desktopAgent"`
 }
 
 type Capabilities struct {
@@ -343,7 +343,7 @@ func (u *UseCases) GetStatus(ctx context.Context) (StatusResponse, error) {
 		Environment:      environment,
 		EnvironmentError: environmentError,
 		FirstRun:         !fileExists(filepath.Join(options.Home, ".oneagent")),
-		ChatGPTApp:       u.chatGPTAppStatus(ctx),
+		DesktopAgent:     u.desktopAgentStatus(ctx),
 	}, nil
 }
 

@@ -1,8 +1,8 @@
-// Package desktopapp detects and manages the official ChatGPT Desktop app.
+// Package desktopapp detects and manages desktop agent applications.
 //
-// ChatGPT Desktop and the Codex CLI are separate products at install time, even
-// though the app currently uses the Codex bundle/package identity and shares the
-// ~/.codex configuration target.
+// The current target is ChatGPT Desktop. It and the Codex CLI are separate
+// products at install time, even though they share bundle/package identity and
+// the ~/.codex configuration target.
 package desktopapp
 
 import (
@@ -23,7 +23,7 @@ import (
 )
 
 const (
-	ID                  = "chatgpt-desktop"
+	ID                  = "desktop-agent"
 	Name                = "ChatGPT Desktop"
 	CodexBundleID       = "com.openai.codex"
 	WindowsPackageName  = "OpenAI.Codex_2p2nqsd0c76g0"

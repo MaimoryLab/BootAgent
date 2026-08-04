@@ -9,14 +9,14 @@ import (
 	"github.com/MaimoryLab/OneAgent/internal/platform"
 )
 
-func TestChatGPTAppStatusIsUnsupportedOutsideDesktopPlatforms(t *testing.T) {
+func TestDesktopAgentStatusIsUnsupportedOutsideDesktopPlatforms(t *testing.T) {
 	home := t.TempDir()
 	core := NewUseCases(StatusOptions{Home: home, Platform: platform.For("linux", "amd64")})
-	status, err := core.ChatGPTAppStatus(context.Background())
+	status, err := core.DesktopAgentStatus(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if status.Installed || status.Supported || status.ID != "chatgpt-desktop" {
+	if status.Installed || status.Supported || status.ID != "desktop-agent" {
 		t.Fatalf("status = %#v", status)
 	}
 	if _, err := os.Stat(filepath.Join(home, ".codex")); !os.IsNotExist(err) {
@@ -24,10 +24,10 @@ func TestChatGPTAppStatusIsUnsupportedOutsideDesktopPlatforms(t *testing.T) {
 	}
 }
 
-func TestInstallChatGPTAppDoesNotWriteSharedCodexConfig(t *testing.T) {
+func TestInstallDesktopAgentDoesNotWriteSharedCodexConfig(t *testing.T) {
 	home := t.TempDir()
 	core := NewUseCases(StatusOptions{Home: home, Platform: platform.For("linux", "amd64")})
-	_, err := core.InstallChatGPTApp(context.Background())
+	_, err := core.InstallDesktopAgent(context.Background())
 	if err == nil {
 		t.Fatal("unsupported platform install unexpectedly succeeded")
 	}

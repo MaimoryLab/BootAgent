@@ -44,22 +44,22 @@ export interface Capabilities {
 }
 
 /**
- * ChatGPTAppActionResult reports a local install or an external official
+ * DesktopAgentActionResult reports a local install or an external official
  * installer launch. Windows Store installation continues outside OneAgent.
  */
-export interface ChatGPTAppActionResult {
+export interface DesktopAgentActionResult {
     "status": string;
     "message": string;
     "refreshNeeded": boolean;
-    "app": ChatGPTAppStatus;
+    "app": DesktopAgentStatus;
 }
 
 /**
- * ChatGPTAppStatus is the public projection of the official desktop app. It is
+ * DesktopAgentStatus is the public projection of the current desktop agent. It is
  * deliberately separate from AgentStatus: the app and Codex CLI share config,
  * but they have different installation and version contracts.
  */
-export interface ChatGPTAppStatus {
+export interface DesktopAgentStatus {
     "id": string;
     "name": string;
     "installed": boolean;
@@ -170,5 +170,5 @@ export interface StatusResponse {
     "runtimes": RuntimeStatus[] | null;
     "environment": any;
     "environmentError": string | null;
-    "chatgptApp": ChatGPTAppStatus;
+    "desktopAgent": DesktopAgentStatus;
 }
