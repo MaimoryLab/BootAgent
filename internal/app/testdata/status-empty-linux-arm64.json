@@ -594,6 +594,8 @@
     "supported": false,
     "version": null,
     "source": "unknown",
+    "profileAgentId": "codex",
+    "profileId": null,
     "configPath": "${HOME}/.codex/config.toml",
     "configSharedWith": "Codex"
   },

@@ -5,6 +5,7 @@ export type {
     AgentStatus,
     Capabilities,
     DesktopAgentActionResult,
+    DesktopAgentProfileResult,
     DesktopAgentStatus,
     DetectedConfig,
     InstallRuntimeResult,

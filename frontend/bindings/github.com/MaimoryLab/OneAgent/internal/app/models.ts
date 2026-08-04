@@ -55,6 +55,21 @@ export interface DesktopAgentActionResult {
 }
 
 /**
+ * DesktopAgentProfileResult is the non-secret result of applying a saved
+ * profile to a desktop Agent. ChatGPT Desktop returns the Codex config result;
+ * other desktop Agents only need their own profile membership recorded until
+ * their vendor-specific config writer is added.
+ */
+export interface DesktopAgentProfileResult {
+    "agent": string;
+    "profileId": string;
+    "profileAgentId": string;
+    "config"?: string;
+    "restart"?: string;
+    "message": string;
+}
+
+/**
  * DesktopAgentStatus is the public projection of the current desktop agent. It is
  * deliberately separate from AgentStatus: desktop and command-line agents may
  * share config, but they have different installation and version contracts.
@@ -69,6 +84,8 @@ export interface DesktopAgentStatus {
     "source": string;
     "configPath"?: string;
     "configSharedWith"?: string;
+    "profileAgentId": string;
+    "profileId": string | null;
     "packageFamily"?: string;
     "inspectionUnavailable"?: string | null;
 }

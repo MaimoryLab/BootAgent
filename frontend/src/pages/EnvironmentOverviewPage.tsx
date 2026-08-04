@@ -1,4 +1,4 @@
-import { PackageOpen, Plus, RefreshCw } from "lucide-react";
+import { AppWindow, PackageOpen, Plus, RefreshCw } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import { AgentManageRow } from "../components/AgentManageRow";
@@ -18,6 +18,10 @@ export function EnvironmentOverviewPage() {
   const startSetup = () => {
     dispatch({ type: "START_SETUP" });
     navigate("/setup/agents");
+  };
+  const startDesktopSetup = () => {
+    dispatch({ type: "START_DESKTOP_SETUP" });
+    navigate("/setup/desktop/agents");
   };
 
   if (state.statusState === "loading" && !status) {
@@ -43,6 +47,7 @@ export function EnvironmentOverviewPage() {
   const installed = [...status.catalog]
     .sort((first, second) => first.rank - second.rank)
     .filter((item) => status.agents[item.id]?.installed);
+  const desktopInstalled = Boolean(status.desktopAgent?.installed);
   const profiles = new Map(status.profiles.map((profile) => [profile.id, profile.label]));
 
   return (
@@ -60,10 +65,16 @@ export function EnvironmentOverviewPage() {
             <RefreshCw size={15} className={state.statusState === "loading" ? "spin" : ""} />
             {t("刷新状态")}
           </button>
-          {installed.length ? (
+          {installed.length || desktopInstalled ? (
             <button className="button button-secondary" type="button" onClick={startSetup}>
               <Plus size={15} />
-              {t("安装 Agent")}
+              {t("安装命令行 Agent")}
+            </button>
+          ) : null}
+          {status?.desktopAgent?.supported && !status.desktopAgent.installed ? (
+            <button className="button button-secondary" type="button" onClick={startDesktopSetup}>
+              <AppWindow size={15} />
+              {t("安装桌面 Agent")}
             </button>
           ) : null}
         </>
@@ -89,7 +100,7 @@ export function EnvironmentOverviewPage() {
             })}
           </div>
         </section>
-      ) : (
+      ) : desktopInstalled ? null : (
         <div className="empty-overview">
           <PackageOpen size={28} />
           <strong>{t("尚未安装任何 Agent")}</strong>
@@ -101,7 +112,7 @@ export function EnvironmentOverviewPage() {
         </div>
       )}
 
-      <DesktopAppSection app={status.desktopAgent} onChanged={refreshStatus} />
+      <DesktopAppSection app={status.desktopAgent} onChanged={refreshStatus} onConfigure={startDesktopSetup} showUninstalled={false} />
       <RuntimeSection runtimes={status.runtimes ?? []} onInstalled={refreshStatus} />
     </PageScaffold>
   );

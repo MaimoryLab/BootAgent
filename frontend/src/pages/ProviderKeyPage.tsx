@@ -1,41 +1,29 @@
 import { ExternalLink, FlaskConical, Link2 } from "lucide-react";
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { api, describeError } from "../backend/api";
 import { ConnectionStatus } from "../components/ConnectionStatus";
 import { PageScaffold } from "../components/PageScaffold";
 import { ProviderSegment } from "../components/ProviderSegment";
-import { SecureKeyField } from "../components/SecureKeyField";
 import { useI18n } from "../i18n";
 import { useWizard } from "../state/WizardContext";
-import { PROTOCOL_LABELS } from "../types/api";
 import type { ProtocolId, ProviderId } from "../types/api";
+import { PROTOCOL_LABELS } from "../types/api";
 
 export function ProviderKeyPage() {
   const navigate = useNavigate();
   const { t } = useI18n();
-  const { state, dispatch, secret } = useWizard();
+  const { state, dispatch } = useWizard();
   const providerMeta = state.status?.providers[state.provider];
   const apiBaseUrl = providerMeta?.base_url || "";
-  const canProbe = state.hasApiKey;
+  const providerHasKey = Boolean(providerMeta?.has_key);
+  const canProbe = providerHasKey;
   // Continuing requires a successful probe, not just a non-empty key: a wrong
   // key must not reach the model step. canProbe stays separate so the test
   // button remains clickable while the verdict is still outstanding.
   const canContinue = canProbe && state.keyVerified;
 
-  useEffect(() => {
-    if (!providerMeta?.has_key) return;
-    let active = true;
-    void api.getProvider(state.provider)
-      .then((entry) => {
-        if (active) secret.setApiKey(entry.api_key);
-      })
-      .catch((error) => {
-        if (active) dispatch({ type: "CONNECTION_FAILED", failure: describeError(error, t("无法读取已保存的 API Key")) });
-      });
-    return () => { active = false; };
-  }, [dispatch, providerMeta?.has_key, secret.setApiKey, state.provider]);
   // The selected Agents decide which protocols get tested; a model that serves
   // Chat Completions may still refuse Responses, so do not imply a single one.
   const protocols = useMemo(() => {
@@ -54,7 +42,6 @@ export function ProviderKeyPage() {
   }, [apiBaseUrl, protocols]);
 
   const changeProvider = (provider: ProviderId) => {
-    secret.clearApiKey();
     dispatch({ type: "SET_PROVIDER", value: provider });
   };
 
@@ -64,7 +51,8 @@ export function ProviderKeyPage() {
       const result = await api.probe({
         provider: state.provider,
         apiBaseUrl: "",
-        apiKey: secret.keyRef.current,
+        // The backend resolves an empty request key from the saved Provider.
+        apiKey: "",
         // A user-supplied ID lets providers without model discovery validate
         // the model that will actually be configured.
         model: state.model,
@@ -88,7 +76,7 @@ export function ProviderKeyPage() {
   return (
     <PageScaffold
       title={t("连接模型服务")}
-      description={t("Key 不会进入日志、URL 或前端持久化状态。")}
+      description={t("将使用 Provider 已保存的 Key。")}
       stepper
       onBack={() => navigate("/setup/agents")}
       primaryLabel={t("继续选择模型")}
@@ -104,6 +92,15 @@ export function ProviderKeyPage() {
       />
 
       <div className="provider-form">
+        {!providerHasKey ? (
+          <div className="notice notice-warning">
+            <span>{t("这个 Provider 还没有 Key，先到 Provider 页面填写。")}</span>
+            <button className="button button-secondary" type="button" onClick={() => navigate("/providers")}>
+              <ExternalLink size={15} />
+              {t("前往 Provider")}
+            </button>
+          </div>
+        ) : null}
         <div className="provider-identity-row">
           <div>
             <strong>{providerMeta?.name}</strong>
@@ -130,8 +127,6 @@ export function ProviderKeyPage() {
           <small>{t("填写后将用此模型测试连接；留空时自动选择。")}</small>
         </div>
 
-        <SecureKeyField value={secret.keyRef.current} onChange={secret.setApiKey} />
-
         <div className="connection-row">
           <button className="button button-secondary" type="button" onClick={() => void testConnection()} disabled={!canProbe || state.connectionState === "loading"}>
             <FlaskConical size={16} />
@@ -139,7 +134,7 @@ export function ProviderKeyPage() {
           </button>
           <ConnectionStatus state={state.connectionState} result={state.connection} />
         </div>
-        {canProbe && state.connectionState === "idle" && (
+        {providerHasKey && state.connectionState === "idle" && (
           <small>{t("连接测试通过后才能继续选择模型。")}</small>
         )}
       </div>

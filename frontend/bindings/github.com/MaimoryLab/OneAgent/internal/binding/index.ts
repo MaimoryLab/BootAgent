@@ -20,6 +20,7 @@ export type {
     ActivateRequest,
     ActivateResponse,
     AgentInstallResult,
+    DesktopAgentProfileRequest,
     InstallRequest,
     InstallResponse,
     InstallRuntimeRequest,

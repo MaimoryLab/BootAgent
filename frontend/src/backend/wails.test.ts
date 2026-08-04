@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { DesktopAgentActionResult, DesktopAgentStatus, InstallResponse, ModelsResponse, ProbeResponse, ProfileSummary, ProviderEntry, StatusResponse } from "../types/api";
+import type { DesktopAgentActionResult, DesktopAgentProfileResult, DesktopAgentStatus, InstallResponse, ModelsResponse, ProbeResponse, ProfileSummary, ProviderEntry, StatusResponse } from "../types/api";
 import { LOCALE_STORAGE_KEY } from "../i18n";
 
 const bridge = vi.hoisted(() => ({
@@ -18,6 +18,7 @@ const bridge = vi.hoisted(() => ({
   desktopInstall: vi.fn(),
   desktopOpen: vi.fn(),
   desktopInstaller: vi.fn(),
+  desktopConfigure: vi.fn(),
   profiles: vi.fn(),
   saveProfile: vi.fn(),
   eventsOn: vi.fn(),
@@ -43,6 +44,7 @@ vi.mock("../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/desktopa
   Install: bridge.desktopInstall,
   Open: bridge.desktopOpen,
   OpenInstaller: bridge.desktopInstaller,
+  Configure: bridge.desktopConfigure,
 }));
 vi.mock("../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/profileservice.js", () => ({
   ListProfiles: bridge.profiles,
@@ -69,8 +71,9 @@ describe("Wails backend adapter", () => {
     const install = { ok: true, code: 0, results: [], log: "", next: "", probe: null } satisfies InstallResponse;
     const profile = { id: "team", label: "Team", provider: "ppio", baseUrl: null, model: "m", agentIds: ["codex"], activatedAt: null, hasKey: true } satisfies ProfileSummary;
     const provider = { id: "acme", name: "Acme", home: "", base_url: "https://api.acme.test", anthropic_base_url: "", api_key: "secret", built_in: false } satisfies ProviderEntry;
-    const desktopStatus = { id: "desktop-agent", name: "ChatGPT Desktop", installed: false, supported: true, version: null, source: "macos-dmg" } satisfies DesktopAgentStatus;
+    const desktopStatus = { id: "desktop-agent", name: "ChatGPT Desktop", installed: false, supported: true, version: null, source: "macos-dmg", profileAgentId: "codex", profileId: null } satisfies DesktopAgentStatus;
     const desktopAction = { status: "installer-started", message: "started", refreshNeeded: true, app: desktopStatus } satisfies DesktopAgentActionResult;
+    const desktopProfile = { agent: "desktop-agent", profileId: "team", profileAgentId: "codex", config: "/c", restart: "restart", message: "applied" } satisfies DesktopAgentProfileResult;
 
     bridge.status.mockResolvedValue(status);
     bridge.probe.mockResolvedValue(probe);
@@ -88,12 +91,14 @@ describe("Wails backend adapter", () => {
     bridge.desktopInstall.mockResolvedValue(desktopAction);
     bridge.desktopOpen.mockResolvedValue(undefined);
     bridge.desktopInstaller.mockResolvedValue(desktopAction);
+    bridge.desktopConfigure.mockResolvedValue(desktopProfile);
 
     await expect(wailsApi.status()).resolves.toBe(status);
     await expect(wailsApi.desktopAgentStatus()).resolves.toBe(desktopStatus);
     await expect(wailsApi.installDesktopAgent()).resolves.toBe(desktopAction);
     await expect(wailsApi.openDesktopAgent()).resolves.toBeUndefined();
     await expect(wailsApi.openDesktopAgentInstaller()).resolves.toBe(desktopAction);
+    await expect(wailsApi.configureDesktopAgent("desktop-agent", "team")).resolves.toBe(desktopProfile);
     await expect(wailsApi.probe({ provider: "custom", apiBaseUrl: "https://proxy.test/v1", apiKey: "secret", model: "m", agents: [] })).resolves.toBe(probe);
     await expect(wailsApi.models({ provider: "ppio", apiBaseUrl: "", apiKey: "secret" })).resolves.toBe(models);
     await expect(wailsApi.getProvider("acme")).resolves.toBe(provider);
@@ -117,6 +122,7 @@ describe("Wails backend adapter", () => {
     expect(bridge.desktopInstall).toHaveBeenCalledWith();
     expect(bridge.desktopOpen).toHaveBeenCalledWith();
     expect(bridge.desktopInstaller).toHaveBeenCalledWith();
+    expect(bridge.desktopConfigure).toHaveBeenCalledWith({ agent_id: "desktop-agent", profile_id: "team" });
     expect(bridge.saveProfile).toHaveBeenCalledWith(expect.objectContaining({ api_base_url: "", api_key: "secret", agent_ids: ["codex"] }));
   });
 

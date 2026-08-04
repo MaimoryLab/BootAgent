@@ -9,6 +9,7 @@ import * as StatusService from "../../bindings/github.com/MaimoryLab/OneAgent/in
 import type {
   ActivateAgentResponse,
   DesktopAgentActionResult,
+  DesktopAgentProfileResult,
   DesktopAgentStatus,
   InstallRequest,
   InstallOutput,
@@ -93,6 +94,8 @@ export const wailsApi = {
   openDesktopAgent: (): Promise<void> => call(() => DesktopAgentService.Open()).then(() => undefined),
   openDesktopAgentInstaller: (): Promise<DesktopAgentActionResult> =>
     call(() => DesktopAgentService.OpenInstaller()) as Promise<DesktopAgentActionResult>,
+  configureDesktopAgent: (agentId: string, profileId: string): Promise<DesktopAgentProfileResult> =>
+    call(() => DesktopAgentService.Configure({ agent_id: agentId, profile_id: profileId })) as Promise<DesktopAgentProfileResult>,
   probe: (input: { provider: ProviderId; apiBaseUrl: string; apiKey: string; model: string; agents?: string[] }): Promise<ProbeResponse> =>
     call(() => ProviderService.Probe({
       provider: input.provider,

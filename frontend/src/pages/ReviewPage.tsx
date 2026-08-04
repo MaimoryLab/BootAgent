@@ -19,6 +19,7 @@ export function ReviewPage() {
   const automatic = selectedCatalog.filter((agent) => agent.configMode === "auto");
   const guideOnly = selectedCatalog.filter((agent) => agent.guideOnly);
   const providerName = state.status?.providers[state.provider]?.name || state.provider;
+  const providerHasKey = Boolean(state.status?.providers[state.provider]?.has_key);
   // Default name only; the user can override it before installing. The id is
   // derived from the Agent and Provider, which is unique per pairing and needs
   // no separate field.
@@ -27,9 +28,10 @@ export function ReviewPage() {
   const profileLabel = state.profileLabel || defaultLabel;
 
   const startActivation = () => {
-    // A successful activation clears the key, so re-activating from here must
-    // collect it again instead of submitting an empty one.
-    if (!state.hasApiKey || !state.keyVerified) {
+    // The install request intentionally carries no key; the backend resolves
+    // it from the selected Provider. Keep the review gate in sync with that
+    // source of truth.
+    if (!providerHasKey || !state.keyVerified) {
       navigate("/setup/provider");
       return;
     }

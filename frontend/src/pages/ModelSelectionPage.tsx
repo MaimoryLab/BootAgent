@@ -11,7 +11,7 @@ import { useWizard } from "../state/WizardContext";
 export function ModelSelectionPage() {
   const navigate = useNavigate();
   const { t } = useI18n();
-  const { state, dispatch, secret } = useWizard();
+  const { state, dispatch } = useWizard();
   const requested = useRef(false);
 
   const loadModels = useCallback(async () => {
@@ -20,13 +20,14 @@ export function ModelSelectionPage() {
       const result = await api.models({
         provider: state.provider,
         apiBaseUrl: "",
-        apiKey: secret.keyRef.current,
+        // The backend resolves the empty request key from the selected Provider.
+        apiKey: "",
       });
       dispatch({ type: "MODELS_RESULT", result });
     } catch (error) {
       dispatch({ type: "MODELS_FAILED", message: describeError(error, t("无法获取模型列表")).message });
     }
-  }, [dispatch, secret.keyRef, state.provider, t]);
+  }, [dispatch, state.provider, t]);
 
   useEffect(() => {
     // SetupGuard has already verified the key; only model loading lives here.

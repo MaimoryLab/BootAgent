@@ -4,6 +4,9 @@ import { AppWindow } from "./components/AppWindow";
 import { ActivationPage } from "./pages/ActivationPage";
 import { AgentDetailPage } from "./pages/AgentDetailPage";
 import { AgentSelectionPage } from "./pages/AgentSelectionPage";
+import { DesktopAgentSelectionPage } from "./pages/DesktopAgentSelectionPage";
+import { DesktopInstallPage } from "./pages/DesktopInstallPage";
+import { DesktopProfilePage } from "./pages/DesktopProfilePage";
 import { EnvironmentOverviewPage } from "./pages/EnvironmentOverviewPage";
 import { ModelSelectionPage } from "./pages/ModelSelectionPage";
 import { ProfilesPage } from "./pages/ProfilesPage";
@@ -18,15 +21,13 @@ import { WizardProvider, useWizard } from "./state/WizardContext";
 function SetupGuard({ stage, children }: { stage: "provider" | "model" | "review" | "activation"; children: React.ReactNode }) {
   const { state } = useWizard();
   if (!state.selectedAgentIds.length) return <Navigate to="/setup/agents" replace />;
-  if (stage === "model" && (!state.hasApiKey || !state.keyVerified)) {
-    // A non-empty key alone proves nothing: only a successful probe unlocks the
-    // model step. Editing the key or switching Provider clears keyVerified, so a
-    // stale verdict cannot reach this guard.
+  const providerHasKey = Boolean(state.status?.providers[state.provider]?.has_key);
+  if (stage === "model" && (!providerHasKey || !state.keyVerified)) {
+    // Provider settings own the key; a successful probe unlocks the model step.
     //
-    // Only this step is gated on the key. A finished install clears it on
-    // purpose, and gating the later steps too would eject the user from the
-    // results page the moment it succeeded; ReviewPage's start handler sends
-    // them back for a key instead.
+    // Only this step is gated on the key. Gating the later steps too would
+    // eject the user from the results page after an install; ReviewPage checks
+    // the Provider again when a new install is started.
     return <Navigate to="/setup/provider" replace />;
   }
   if ((stage === "review" || stage === "activation") && !state.model) {
@@ -36,6 +37,18 @@ function SetupGuard({ stage, children }: { stage: "provider" | "model" | "review
   // link that has neither goes back to the review page instead of a dead end.
   if (stage === "activation" && state.activationState === "idle" && !state.activationRequested) {
     return <Navigate to="/setup/review" replace />;
+  }
+  return children;
+}
+
+function DesktopSetupGuard({ stage, children }: { stage: "profile" | "install"; children: React.ReactNode }) {
+  const { state } = useWizard();
+  const desktopID = state.status?.desktopAgent?.id;
+  if (state.setupKind !== "desktop" || !desktopID || state.selectedAgentIds[0] !== desktopID) {
+    return <Navigate to="/setup/desktop/agents" replace />;
+  }
+  if (stage === "install" && !state.desktopProfileId) {
+    return <Navigate to="/setup/desktop/profile" replace />;
   }
   return children;
 }
@@ -62,6 +75,9 @@ function WorkspaceRoutes() {
       <Routes>
         <Route path="/" element={<LandingRoute />} />
         <Route path="/setup/agents" element={<AgentSelectionPage />} />
+        <Route path="/setup/desktop/agents" element={<DesktopAgentSelectionPage />} />
+        <Route path="/setup/desktop/profile" element={<DesktopSetupGuard stage="profile"><DesktopProfilePage /></DesktopSetupGuard>} />
+        <Route path="/setup/desktop/install" element={<DesktopSetupGuard stage="install"><DesktopInstallPage /></DesktopSetupGuard>} />
         <Route path="/setup/provider" element={<SetupGuard stage="provider"><ProviderKeyPage /></SetupGuard>} />
         <Route path="/setup/model" element={<SetupGuard stage="model"><ModelSelectionPage /></SetupGuard>} />
         <Route path="/setup/review" element={<SetupGuard stage="review"><ReviewPage /></SetupGuard>} />

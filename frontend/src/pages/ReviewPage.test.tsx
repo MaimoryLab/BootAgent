@@ -42,7 +42,7 @@ function renderPage(over: Partial<WizardState> = {}) {
     selectedAgentIds: ["codex"],
     provider: "ppio",
     model: "deepseek/deepseek-v3",
-    hasApiKey: true,
+    hasApiKey: false,
     keyVerified: true,
     ...over,
   };
@@ -78,9 +78,11 @@ describe("ReviewPage", () => {
   });
 
   it("sends the user back for a key instead of installing without one", async () => {
-    // A finished run clears the key. Submitting an empty one would fail deep in
-    // the install; the provider step collects it again first.
-    renderPage({ hasApiKey: false });
+    // The wizard reuses Provider credentials, so the missing-key check comes
+    // from the Provider status rather than a frontend secret ref.
+    renderPage({
+      status: { ...status, providers: { ppio: { ...status.providers.ppio, has_key: false } } },
+    });
     fireEvent.click(screen.getByRole("button", { name: /开始安装/ }));
     expect(await screen.findByRole("heading", { name: "provider step" })).toBeTruthy();
     expect(dispatch).not.toHaveBeenCalledWith({ type: "REQUEST_ACTIVATION" });

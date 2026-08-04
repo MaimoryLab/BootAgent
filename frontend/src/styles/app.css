@@ -370,6 +370,39 @@
   accent-color: var(--blue);
 }
 
+.agent-row input[type="radio"],
+.profile-choice input[type="radio"] {
+  width: 17px;
+  height: 17px;
+  margin: 0;
+  accent-color: var(--blue);
+}
+
+.desktop-agent-choice { width: 100%; max-width: none; }
+.desktop-agent-ready,
+.desktop-install-callout {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.desktop-profile-editor { max-width: 760px; }
+.desktop-profile-list { max-width: 760px; }
+.profile-choice {
+  position: relative;
+  grid-template-columns: 20px minmax(0, 1fr) auto;
+  align-items: center;
+  cursor: pointer;
+}
+.profile-choice > p,
+.profile-choice > .profile-key-hint { grid-column: 2 / -1; }
+.profile-choice.is-selected { background: var(--blue-soft); box-shadow: inset 3px 0 var(--blue); }
+.profile-choice.is-disabled { cursor: not-allowed; opacity: 0.58; }
+.desktop-install-summary { max-width: 760px; }
+
 .agent-icon,
 .choice-icon,
 .progress-icon {
@@ -1069,6 +1102,7 @@
 
 .desktop-app-identity > span:last-child,
 .desktop-app-fact {
+  align-self: start;
   display: grid;
   gap: 3px;
 }
@@ -1096,7 +1130,11 @@
   white-space: nowrap;
 }
 
+.desktop-app-path { margin-left: 10px; }
+
 .desktop-app-actions {
+  grid-column: 3 / -1;
+  grid-row: 2;
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
@@ -1104,7 +1142,8 @@
 }
 
 .desktop-app-note {
-  grid-column: 1 / -1;
+  grid-column: 1 / 3;
+  grid-row: 2;
   min-width: 0;
   margin: 0;
   color: var(--text-tertiary);
@@ -1858,5 +1897,7 @@
   .desktop-app-fact,
   .desktop-app-path,
   .desktop-app-actions { grid-column: 1 / 3; }
-  .desktop-app-actions { justify-content: flex-start; }
+  .desktop-app-path { margin-left: 0; }
+  .desktop-app-actions { grid-row: auto; justify-content: flex-start; }
+  .desktop-app-note { grid-column: 1 / 3; grid-row: auto; }
 }
