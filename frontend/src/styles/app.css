@@ -101,15 +101,37 @@
   text-transform: uppercase;
 }
 
+/* The appearance and language rows are one group. `margin-top: auto` sits on the
+   first of them so the pair is pushed to the bottom together; putting it on the
+   language row would let the theme row float up on its own. */
+.theme-picker {
+  margin-top: auto;
+}
+
+.theme-picker,
 .language-picker {
   min-height: 38px;
-  margin-top: auto;
   padding: 0 8px;
   display: flex;
   align-items: center;
   gap: 8px;
   color: var(--text-secondary);
   font-size: 12px;
+}
+
+.theme-picker span {
+  flex: 1;
+}
+
+.theme-picker select {
+  width: 82px;
+  min-width: 0;
+  padding: 5px 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--window-bg);
+  color: var(--text-primary);
+  font: inherit;
 }
 
 .language-picker span {
@@ -962,6 +984,8 @@
   width: 100%;
   padding: 11px 13px;
   display: grid;
+  /* icon, identity, three facts, version, badge, actions. The two buttons share
+     the last cell so a row without a launch button keeps its columns aligned. */
   grid-template-columns: 30px minmax(110px, 1.1fr) repeat(3, minmax(90px, 1fr)) minmax(72px, 0.75fr) auto auto;
   align-items: center;
   gap: 12px;
@@ -1016,6 +1040,78 @@
   background: var(--window-bg);
 }
 
+.desktop-app-section { margin-top: 30px; }
+
+.desktop-app-notice {
+  margin-bottom: 8px;
+  gap: 7px;
+}
+
+.desktop-app-row {
+  min-width: 0;
+  padding: 13px;
+  display: grid;
+  grid-template-columns: minmax(190px, 1.4fr) auto minmax(120px, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  background: var(--window-bg);
+}
+
+.desktop-app-identity,
+.desktop-app-fact {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.desktop-app-identity > span:last-child,
+.desktop-app-fact {
+  display: grid;
+  gap: 3px;
+}
+
+.desktop-app-icon {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--icon-border);
+  border-radius: 8px;
+  color: var(--icon-fg);
+  background: var(--surface-subtle);
+}
+
+.desktop-app-identity strong { font-size: 13px; }
+.desktop-app-identity small,
+.desktop-app-fact small { color: var(--text-tertiary); font-size: 10px; }
+.desktop-app-path span {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.desktop-app-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.desktop-app-note {
+  grid-column: 1 / -1;
+  min-width: 0;
+  margin: 0;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
 /* Detail page */
 .detail-head {
   margin-bottom: 18px;
@@ -1049,6 +1145,68 @@
 }
 
 .detail-facts dd.is-behind { color: var(--orange); }
+
+/* Quick switch: a row of Profile chips above the manual form. Sized down from
+   the buttons in the form so it reads as a shortcut, not the primary control. */
+.quick-switch {
+  margin: 0 0 18px;
+  display: grid;
+  gap: 7px;
+}
+
+.quick-switch-label {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.quick-switch-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.quick-switch-option {
+  min-height: 30px;
+  padding: 0 11px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--window-bg);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background-color 140ms ease, border-color 140ms ease;
+}
+
+.quick-switch-option:hover:not(:disabled) {
+  background: var(--surface-subtle);
+}
+
+.quick-switch-option.is-active {
+  border-color: var(--blue);
+  background: var(--blue-soft);
+  color: var(--blue);
+  font-weight: 600;
+}
+
+/* The active chip is disabled because it is already applied, so it must not read
+   as unavailable the way a keyless Profile does. */
+.quick-switch-option:disabled:not(.is-active) {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.quick-switch-option.is-active:disabled {
+  cursor: default;
+}
+
+.quick-switch-error {
+  color: var(--red);
+  font-size: 12px;
+}
 
 .detail-form {
   display: grid;
@@ -1625,7 +1783,7 @@
 .task-center-actions > button:disabled { opacity: 0.5; cursor: default; }
 
 .download-progress {
-  /* Spans the whole runtime row so the bar is not squeezed into one cell. */
+  /* Spans the whole install row so the bar is not squeezed into one cell. */
   grid-column: 1 / -1;
   display: grid;
   gap: 4px;
@@ -1682,7 +1840,7 @@
 
   .agent-manage-row > .status-badge { grid-column: 3; grid-row: 1; }
   .agent-manage-fact { grid-column: 2 / 4; }
-  .agent-manage-row > .button,
+  .agent-manage-row > .agent-manage-actions,
   .agent-manage-row > .runtime-action-placeholder { grid-column: 2 / 4; }
 
   .runtime-row {
@@ -1691,4 +1849,14 @@
   }
 
   .runtime-fact { grid-column: 1 / 3; }
+
+  .desktop-app-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+  }
+
+  .desktop-app-fact,
+  .desktop-app-path,
+  .desktop-app-actions { grid-column: 1 / 3; }
+  .desktop-app-actions { justify-content: flex-start; }
 }

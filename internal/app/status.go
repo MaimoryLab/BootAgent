@@ -48,8 +48,8 @@ type UseCases struct {
 	filesystem  securefs.Store
 	runner      process.Runner
 	environment map[string]string
-	// httpDoer is only used for runtime archive downloads. It is injectable so
-	// bootstrap behavior is testable without reaching nodejs.org.
+	// httpDoer is shared by internal runtime and desktop-agent downloads. It is
+	// injectable so install behavior is testable without reaching a CDN.
 	httpDoer install.Doer
 	writeMu  sync.Mutex
 	// The region behind the default download host cannot change without the user
@@ -61,9 +61,8 @@ type UseCases struct {
 	regionIsChinese bool
 }
 
-// SetRuntimeDownloader overrides the HTTP client used for runtime archive
-// downloads. It exists for tests and for hosts that must route downloads
-// through their own transport.
+// SetRuntimeDownloader overrides the HTTP client used for internal downloads.
+// The historical name remains because runtime bootstrap was its first caller.
 func (u *UseCases) SetRuntimeDownloader(client install.Doer) {
 	if u != nil {
 		u.httpDoer = client
@@ -178,10 +177,11 @@ type StatusResponse struct {
 	// FirstRun reports that ~/.oneagent does not exist yet, which is the signal
 	// the UI uses to open onboarding instead of the overview. Agent detection is
 	// not a substitute: an Agent installed before OneAgent would suppress it.
-	FirstRun         bool            `json:"firstRun"`
-	Runtimes         []RuntimeStatus `json:"runtimes"`
-	Environment      any             `json:"environment"`
-	EnvironmentError *string         `json:"environmentError"`
+	FirstRun         bool               `json:"firstRun"`
+	Runtimes         []RuntimeStatus    `json:"runtimes"`
+	Environment      any                `json:"environment"`
+	EnvironmentError *string            `json:"environmentError"`
+	DesktopAgent     DesktopAgentStatus `json:"desktopAgent"`
 }
 
 type Capabilities struct {
@@ -347,6 +347,7 @@ func (u *UseCases) GetStatus(ctx context.Context) (StatusResponse, error) {
 		Environment:      environment,
 		EnvironmentError: environmentError,
 		FirstRun:         !fileExists(filepath.Join(options.Home, ".oneagent")),
+		DesktopAgent:     u.desktopAgentStatus(ctx),
 	}, nil
 }
 

@@ -57,9 +57,9 @@ export function ProfilesPage() {
   const nameOf = (agentId: string) =>
     status.catalog.find((item) => item.id === agentId)?.name || agentId;
   const providerHasKey = Boolean(editor && status.providers[editor.provider]?.has_key);
-  const canSave = Boolean(
-    editor?.id.trim() && editor.label.trim() && editor.model.trim() && editor.agentIds.length,
-  );
+  // label is absent on purpose: the backend fills it in from the existing value
+  // or the ID, so demanding it here was stricter than the write path.
+  const canSave = Boolean(editor?.id.trim() && editor.model.trim() && editor.agentIds.length);
 
   // Creating a Profile goes through onboarding: it collects the Agent, key,
   // model and name in order, tests the connection, and the install writes the
@@ -163,7 +163,18 @@ export function ProfilesPage() {
             </div>
             <div className="field-stack">
               <label htmlFor="profile-label">{t("名称")}</label>
-              <input id="profile-label" value={editor.label} onChange={(event) => setEditor({ ...editor, label: event.target.value })} placeholder={t("例如 团队 PPIO")} required />
+              {/* Optional, matching the backend: an empty label falls back to the
+                  existing one, then to the ID (internal/profile/write.go:71-74).
+                  The hint says so, or a Profile saved without a name looks like it
+                  lost it. */}
+              <input
+                id="profile-label"
+                value={editor.label}
+                onChange={(event) => setEditor({ ...editor, label: event.target.value })}
+                placeholder={t("例如 团队 PPIO")}
+                aria-describedby="profile-label-hint"
+              />
+              <small id="profile-label-hint">{t("留空则使用 Profile ID")}</small>
             </div>
             <div className="profile-editor-wide">
               <ProviderSegment

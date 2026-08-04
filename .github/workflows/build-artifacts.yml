@@ -2,6 +2,11 @@ name: Build artifacts
 
 on:
   workflow_dispatch:
+    inputs:
+      codesign:
+        description: Sign macOS apps (requires APPLE_* secrets)
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -86,6 +91,39 @@ jobs:
           go build -tags wails,production -trimpath -buildvcs=false -ldflags="${{ matrix.target.desktop_ldflags }}" -o "bin/oneagent-desktop${{ matrix.target.suffix }}" ./cmd/oneagent-desktop
           go build -trimpath -buildvcs=false -ldflags="-w -s" -o "bin/oneagent${{ matrix.target.suffix }}" ./cmd/oneagent
 
+      - name: Package macOS app
+        if: matrix.target.platform == 'macos'
+        shell: bash
+        run: |
+          mkdir -p "bin/OneAgent.app/Contents/MacOS" "bin/OneAgent.app/Contents/Resources"
+          cp "bin/oneagent-desktop" "bin/OneAgent.app/Contents/MacOS/oneagent-desktop"
+          cp build/darwin/icons.icns "bin/OneAgent.app/Contents/Resources/icons.icns"
+          cp build/darwin/Info.plist "bin/OneAgent.app/Contents/Info.plist"
+          codesign --force --deep --sign - "bin/OneAgent.app"
+          rm "bin/oneagent-desktop"
+
+      # - name: Sign macOS app
+      #   if: matrix.target.platform == 'macos' && inputs.codesign
+      #   shell: bash
+      #   env:
+      #     APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+      #     APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+      #     APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+      #   run: |
+      #     test -n "$APPLE_CERTIFICATE_BASE64"
+      #     test -n "$APPLE_CERTIFICATE_PASSWORD"
+      #     test -n "$APPLE_SIGNING_IDENTITY"
+      #     certificate="$RUNNER_TEMP/signing.p12"
+      #     keychain="$RUNNER_TEMP/signing.keychain-db"
+      #     keychain_password="$(openssl rand -hex 24)"
+      #     printf '%s' "$APPLE_CERTIFICATE_BASE64" | base64 --decode > "$certificate"
+      #     security create-keychain -p "$keychain_password" "$keychain"
+      #     security unlock-keychain -p "$keychain_password" "$keychain"
+      #     security import "$certificate" -P "$APPLE_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$keychain"
+      #     security set-key-partition-list -S apple-tool:,apple: -k "$keychain_password" "$keychain"
+      #     security list-keychains -d user -s "$keychain"
+      #     codesign --force --options runtime --timestamp --sign "$APPLE_SIGNING_IDENTITY" bin/OneAgent.app
+      #     codesign --verify --deep --strict --verbose=2 bin/OneAgent.app
 
       - name: Upload artifact
         uses: actions/upload-artifact@v7

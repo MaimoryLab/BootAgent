@@ -59,6 +59,17 @@ tasks:
     cmds:
       - '{{.WAILS3}} generate bindings -f "-tags wails" -ts -i -d frontend/bindings ./cmd/oneagent-desktop'
 
+  generate:darwin:icon:
+    summary: Generate the macOS application icon
+    run: once
+    dir: build
+    sources:
+      - appicon.png
+    generates:
+      - darwin/icons.icns
+    cmds:
+      - '{{.WAILS3}} generate icons -input appicon.png -macfilename darwin/icons.icns -windowsfilename ""'
+
   dev:frontend:
     summary: Runs the Vite dev server (used by `task dev`)
     deps:

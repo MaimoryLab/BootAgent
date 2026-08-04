@@ -8,6 +8,23 @@
     <meta name="theme-color" content="#151517" media="(prefers-color-scheme: dark)" />
     <meta name="description" content="OneAgent is the calm control plane for coding agents, providers, models, and profiles." />
     <title>OneAgent — every agent, one clear lane</title>
+    <!--
+      Runs before the first paint so a forced theme does not flash the other
+      palette while React mounts. Kept inline and dependency-free for that
+      reason; ThemeContext applies the same two classes once it takes over.
+    -->
+    <script>
+      (function () {
+        try {
+          var stored = window.localStorage.getItem("oneagent.theme");
+          if (stored === "dark" || stored === "light") {
+            document.documentElement.classList.add("theme-" + stored);
+          }
+        } catch (error) {
+          /* Storage barred: the media query in tokens.css still applies. */
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

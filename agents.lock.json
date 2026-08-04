@@ -83,7 +83,7 @@
         "windows"
       ],
       "windows_note": "Native Windows is supported; WSL is recommended upstream for the best experience.",
-      "rank": 4
+      "rank": 3
     },
     "kilo-cli": {
       "name": "Kilo CLI",
@@ -107,7 +107,7 @@
         "linux",
         "windows"
       ],
-      "rank": 8
+      "rank": 4
     },
     "aider": {
       "name": "Aider",
@@ -131,124 +131,7 @@
         "linux",
         "windows"
       ],
-      "rank": 9
-    },
-    "openclaw": {
-      "name": "OpenClaw",
-      "group": "gateway",
-      "command": "openclaw",
-      "config_mode": "guide",
-      "platforms": [
-        "macos",
-        "linux",
-        "windows"
-      ],
-      "guide": "Install from OpenClaw docs, then run: openclaw onboard --install-daemon && openclaw gateway status",
       "rank": 5
-    },
-    "hermes": {
-      "name": "Hermes",
-      "group": "gateway",
-      "command": "hermes",
-      "config_mode": "guide",
-      "platforms": [
-        "macos",
-        "linux",
-        "windows"
-      ],
-      "guide": "Install Hermes, then configure models with hermes model or ~/.hermes/config.yaml.",
-      "rank": 6
-    },
-    "cursor": {
-      "name": "Cursor",
-      "group": "platform",
-      "command": "cursor",
-      "config_mode": "guide",
-      "platforms": [
-        "macos",
-        "linux",
-        "windows"
-      ],
-      "guide": "Use Cursor subscription or official account settings; OneAgent does not write a private Cursor configuration.",
-      "rank": 3
-    },
-    "kiro": {
-      "name": "Kiro",
-      "group": "platform",
-      "command": "kiro",
-      "config_mode": "guide",
-      "platforms": [
-        "macos",
-        "linux",
-        "windows"
-      ],
-      "guide": "Use kiro login or KIRO_API_KEY for official CLI usage.",
-      "rank": 10
-    },
-    "gemini-cli": {
-      "name": "Gemini CLI",
-      "group": "platform",
-      "command": "gemini",
-      "config_mode": "guide",
-      "platforms": [
-        "macos",
-        "linux",
-        "windows"
-      ],
-      "guide": "Use Google login, GEMINI_API_KEY, or Vertex AI configuration.",
-      "rank": 7
-    },
-    "cline": {
-      "name": "Cline",
-      "group": "ide",
-      "command": "",
-      "config_mode": "guide",
-      "platforms": [
-        "macos",
-        "linux",
-        "windows"
-      ],
-      "guide": "Install the IDE extension and choose OpenAI Compatible provider in the extension UI.",
-      "rank": 11
-    },
-    "continue": {
-      "name": "Continue",
-      "group": "ide",
-      "command": "",
-      "config_mode": "guide",
-      "platforms": [
-        "macos",
-        "linux",
-        "windows"
-      ],
-      "guide": "Install the IDE extension and add an OpenAI-compatible model in Continue config.",
-      "rank": 12
-    },
-    "qwen-code": {
-      "name": "Qwen Code",
-      "group": "ide",
-      "command": "qwen",
-      "config_mode": "guide",
-      "platforms": [
-        "macos",
-        "linux",
-        "windows"
-      ],
-      "guide": "Use the official Qwen Code setup and provider configuration.",
-      "rank": 13
-    },
-    "kilo-vscode": {
-      "name": "Kilo VS Code",
-      "group": "ide",
-      "command": "",
-      "config_mode": "guide",
-      "platforms": [
-        "macos",
-        "linux",
-        "windows"
-      ],
-      "guide": "Install the Kilo Code extension and choose OpenAI Compatible provider.",
-      "rank": 14
     }
   }
 }

@@ -122,7 +122,7 @@ describe("DownloadProgress", () => {
   it("can show an indeterminate bar before the first byte event", () => {
     render(
       <TaskCenterProvider>
-        <DownloadProgress runtimeId="node" pending />
+        <DownloadProgress target="node" pending />
       </TaskCenterProvider>,
     );
     const bar = screen.getByRole("progressbar");
@@ -133,7 +133,7 @@ describe("DownloadProgress", () => {
   it("renders nothing until the download reports bytes, then tracks the percentage", () => {
     render(
       <TaskCenterProvider>
-        <DownloadProgress runtimeId="node" />
+        <DownloadProgress target="node" />
       </TaskCenterProvider>,
     );
     expect(screen.queryByRole("progressbar")).toBeNull();
@@ -147,7 +147,7 @@ describe("DownloadProgress", () => {
   it("ignores a progress event for another runtime", () => {
     render(
       <TaskCenterProvider>
-        <DownloadProgress runtimeId="node" />
+        <DownloadProgress target="node" />
       </TaskCenterProvider>,
     );
     send({ kind: "progress", target: "uv", received: 1024, total: 2048 });
@@ -157,7 +157,7 @@ describe("DownloadProgress", () => {
   it("stays indeterminate when the server sent no length", () => {
     render(
       <TaskCenterProvider>
-        <DownloadProgress runtimeId="node" />
+        <DownloadProgress target="node" />
       </TaskCenterProvider>,
     );
     // A percentage computed against a zero total would read as 0% forever.

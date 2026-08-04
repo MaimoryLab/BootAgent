@@ -587,5 +587,15 @@
       "requiredByHint": "Aider"
     }
   ],
+  "desktopAgent": {
+    "id": "desktop-agent",
+    "name": "ChatGPT Desktop",
+    "installed": false,
+    "supported": false,
+    "version": null,
+    "source": "unknown",
+    "configPath": "${HOME}/.codex/config.toml",
+    "configSharedWith": "Codex"
+  },
   "firstRun": true
 }

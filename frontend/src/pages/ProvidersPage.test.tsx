@@ -60,6 +60,7 @@ function statusWith(agents: Record<string, string | null>): StatusResponse {
     backups: {},
     environment: null,
     environmentError: null,
+    desktopAgent: { id: "desktop-agent", name: "ChatGPT Desktop", installed: false, supported: false, version: null, source: "unknown" },
     profiles: [],
     activeProfile: null,
     firstRun: false,

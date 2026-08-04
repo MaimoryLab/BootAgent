@@ -4,6 +4,8 @@
 export type {
     AgentStatus,
     Capabilities,
+    DesktopAgentActionResult,
+    DesktopAgentStatus,
     DetectedConfig,
     InstallRuntimeResult,
     ProfileSummary,

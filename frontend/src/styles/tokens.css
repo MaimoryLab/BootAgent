@@ -37,8 +37,20 @@
   --footer-height: 68px;
 }
 
+/* The dark palette is declared twice below, once per selector, because CSS has
+   no way to share a declaration list between a media query and a class. The two
+   blocks must stay in sync.
+
+   `.theme-light` opts out of the media query, so forcing light keeps the light
+   palette on a dark desktop.
+
+   Only colours belong here. The sizing tokens (--radius-*, --sidebar-width,
+   --footer-height) live in :root above and must stay there: duplicating them
+   would mean every future change had to be made twice, and forcing light mode
+   would drop whichever copy was missed. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  /* Skipped when the user forced light: the class wins over the desktop. */
+  :root:not(.theme-light) {
     --page-bg: #151517;
     --window-bg: #1e1e20;
     --sidebar-bg: rgba(24, 24, 26, 0.94);
@@ -67,4 +79,35 @@
     --info-soft: #12283a;
     --shadow-window: 0 22px 55px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.35);
   }
+}
+
+/* An explicit choice, independent of the desktop setting. */
+:root.theme-dark {
+    --page-bg: #151517;
+    --window-bg: #1e1e20;
+    --sidebar-bg: rgba(24, 24, 26, 0.94);
+    --surface-subtle: #2c2c2e;
+    --surface-pressed: #3a3a3c;
+    --text-primary: #f5f5f7;
+    --text-secondary: #98989d;
+    --text-tertiary: #6e6e73;
+    --border: rgba(255, 255, 255, 0.14);
+    --border-strong: rgba(255, 255, 255, 0.22);
+    --border-faint: rgba(255, 255, 255, 0.08);
+    --icon-border: rgba(255, 255, 255, 0.12);
+    --icon-fg: #d1d1d6;
+    --footer-bg: rgba(28, 28, 30, 0.96);
+    --overlay-panel: rgba(0, 0, 0, 0.25);
+    --blue: #0a84ff;
+    --blue-hover: #409cff;
+    --blue-soft: rgba(10, 132, 255, 0.16);
+    --green: #30d158;
+    --green-soft: #1e3726;
+    --orange: #ff9f0a;
+    --orange-soft: #3a2c12;
+    --red: #ff453a;
+    --red-soft: #3a1213;
+    --info: #7cc4ff;
+    --info-soft: #12283a;
+    --shadow-window: 0 22px 55px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.35);
 }

@@ -15,11 +15,12 @@ import (
 )
 
 type Services struct {
-	Status   *StatusService
-	Provider *ProviderService
-	Agent    *AgentService
-	Profile  *ProfileService
-	Runtime  *RuntimeService
+	Status       *StatusService
+	Provider     *ProviderService
+	Agent        *AgentService
+	Profile      *ProfileService
+	Runtime      *RuntimeService
+	DesktopAgent *DesktopAgentService
 }
 
 type ServicesOptions struct {
@@ -29,12 +30,64 @@ type ServicesOptions struct {
 
 func NewServicesWithOptions(core *app.UseCases, opener BrowserOpener, options ServicesOptions) *Services {
 	return &Services{
-		Status:   &StatusService{core: core, afterGetStatus: options.AfterGetStatus},
-		Provider: NewProviderService(core, opener),
-		Agent:    &AgentService{core: core, onOutput: options.InstallOutput},
-		Profile:  NewProfileService(core),
-		Runtime:  &RuntimeService{core: core, onOutput: options.InstallOutput},
+		Status:       &StatusService{core: core, afterGetStatus: options.AfterGetStatus},
+		Provider:     NewProviderService(core, opener),
+		Agent:        &AgentService{core: core, onOutput: options.InstallOutput},
+		Profile:      NewProfileService(core),
+		Runtime:      &RuntimeService{core: core, onOutput: options.InstallOutput},
+		DesktopAgent: NewDesktopAgentService(core, options.InstallOutput),
 	}
+}
+
+// DesktopAgentService exposes the configured desktop agent lifecycle. It does
+// not own or rewrite ~/.codex; the existing Agent configuration use cases do.
+type DesktopAgentService struct {
+	core     *app.UseCases
+	onOutput process.OutputListener
+}
+
+func NewDesktopAgentService(core *app.UseCases, output process.OutputListener) *DesktopAgentService {
+	return &DesktopAgentService{core: core, onOutput: output}
+}
+
+func (s *DesktopAgentService) GetStatus(ctx context.Context) (app.DesktopAgentStatus, error) {
+	if err := contextError(ctx); err != nil {
+		return app.DesktopAgentStatus{}, err
+	}
+	if s == nil || s.core == nil {
+		return app.DesktopAgentStatus{}, notReady("Desktop agent service is not configured")
+	}
+	return s.core.DesktopAgentStatus(ctx)
+}
+
+func (s *DesktopAgentService) Install(ctx context.Context) (app.DesktopAgentActionResult, error) {
+	if err := contextError(ctx); err != nil {
+		return app.DesktopAgentActionResult{}, err
+	}
+	if s == nil || s.core == nil {
+		return app.DesktopAgentActionResult{}, notReady("Desktop agent service is not configured")
+	}
+	return s.core.InstallDesktopAgent(ctx, s.onOutput)
+}
+
+func (s *DesktopAgentService) Open(ctx context.Context) error {
+	if err := contextError(ctx); err != nil {
+		return err
+	}
+	if s == nil || s.core == nil {
+		return notReady("Desktop agent service is not configured")
+	}
+	return s.core.OpenDesktopAgent(ctx)
+}
+
+func (s *DesktopAgentService) OpenInstaller(ctx context.Context) (app.DesktopAgentActionResult, error) {
+	if err := contextError(ctx); err != nil {
+		return app.DesktopAgentActionResult{}, err
+	}
+	if s == nil || s.core == nil {
+		return app.DesktopAgentActionResult{}, notReady("Desktop agent service is not configured")
+	}
+	return s.core.OpenDesktopAgentInstaller(ctx, s.onOutput)
 }
 
 // RuntimeService exposes the Node.js and uv bootstrap. It reuses the install

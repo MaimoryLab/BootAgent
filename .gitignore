@@ -23,13 +23,13 @@ output/
 # Go CLI 与桌面壳的本地构建产物；scripts/install.* 只转发，不构建。
 bin/
 
-# 公开站点：构建缓存与测试产物
-site/node_modules/
-site/dist/
-site/.astro/
-site/coverage/
-site/test-results/
-site/playwright-report/
+# 公开站已迁出到 MaimoryLab/OneAgent-site。这一条留着是因为迁出前克隆过本仓库的
+# 机器上，site/ 仍然躺在工作区里：不忽略它，git status 会把一整个 Astro 项目
+# 报成未跟踪文件。
+site/
 
 .task
 .env
+
+# 本机代码索引。是否建立索引由每个开发者自己决定，重建只需 `codegraph index .`
+.codegraph/
