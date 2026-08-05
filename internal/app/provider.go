@@ -6,7 +6,9 @@ import (
 	"strings"
 
 	"github.com/MaimoryLab/OneAgent/internal/catalog"
+	"github.com/MaimoryLab/OneAgent/internal/desktopapp"
 	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
+	profileStore "github.com/MaimoryLab/OneAgent/internal/profile"
 	"github.com/MaimoryLab/OneAgent/internal/provider"
 )
 
@@ -150,13 +152,26 @@ func (u *UseCases) reapplyProviderLocked(ctx context.Context, target provider.En
 			continue
 		}
 		// The Agent's own model stays authoritative; only the Provider changed.
-		if _, err := u.activateAgentLocked(ctx, ActivateAgentOptions{
-			AgentID:   agentID,
-			Provider:  target.ID,
-			APIKey:    target.APIKey,
-			Model:     binding.Model,
-			ProfileID: binding.ProfileRef,
-		}); err != nil {
+		var err error
+		if agentID == desktopapp.WorkBuddyID {
+			if u.status.Platform.OS != "macos" && u.status.Platform.OS != "windows" {
+				continue
+			}
+			if _, err = u.writeWorkBuddyConfig(ctx, target, binding.Model); err == nil {
+				_, err = u.profiles.WriteAgentBinding(ctx, agentID, profileStore.BindingWriteRequest{
+					Provider: target.ID, BaseURL: target.BaseURL, Model: binding.Model, ProfileRef: binding.ProfileRef,
+				})
+			}
+		} else {
+			_, err = u.activateAgentLocked(ctx, ActivateAgentOptions{
+				AgentID:   agentID,
+				Provider:  target.ID,
+				APIKey:    target.APIKey,
+				Model:     binding.Model,
+				ProfileID: binding.ProfileRef,
+			})
+		}
+		if err != nil {
 			if failures == nil {
 				failures = map[string]string{}
 			}
@@ -209,6 +224,10 @@ func protocolsForAgents(agentIDs []string) ([]string, error) {
 		for _, agentID := range agentIDs {
 			if agentID == "" {
 				return nil, oneerrors.New(oneerrors.InvalidRequest, "agents must be a non-empty array of Agent IDs")
+			}
+			if agentID == desktopapp.WorkBuddyID {
+				protocols[provider.ProtocolOpenAI] = true
+				continue
 			}
 			agent, ok := manifest.Agents[agentID]
 			if !ok {

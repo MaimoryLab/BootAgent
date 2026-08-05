@@ -27,6 +27,17 @@ type windowsAuthenticodeSignature struct {
 // the downloaded bootstrapper must be the Microsoft-published installer used by
 // Windows' official get.microsoft.com flow.
 func verifyWindowsInstaller(ctx context.Context, options Options, installerPath string) error {
+	return verifyWindowsInstallerPublisher(ctx, options, installerPath, []string{windowsExpectedSignerOrganization})
+}
+
+func verifyWorkBuddyWindowsInstaller(ctx context.Context, options Options, installerPath string) error {
+	return verifyWindowsInstallerPublisher(ctx, options, installerPath, []string{
+		"Tencent Technology (Shenzhen) Company Limited",
+		"Shenzhen Tencent Computer Systems Company Limited",
+	})
+}
+
+func verifyWindowsInstallerPublisher(ctx context.Context, options Options, installerPath string, allowed []string) error {
 	if strings.TrimSpace(installerPath) == "" {
 		return errors.New("Windows installer path is empty")
 	}
@@ -64,12 +75,21 @@ func verifyWindowsInstaller(ctx context.Context, options Options, installerPath 
 	if strings.TrimSpace(signature.Subject) == "" || strings.TrimSpace(signature.Issuer) == "" {
 		return errors.New("Windows Authenticode result has no signer certificate")
 	}
-	if !strings.EqualFold(strings.TrimSpace(signature.Organization), windowsExpectedSignerOrganization) ||
-		!strings.EqualFold(strings.TrimSpace(signature.Publisher), windowsExpectedSignerPublisher) {
+	if !approvedWindowsSigner(signature.Organization, allowed) || !approvedWindowsSigner(signature.Publisher, allowed) {
 		return fmt.Errorf("Windows Authenticode publisher %q (organization %q) is not approved", signature.Publisher, signature.Organization)
 	}
 
 	return nil
+}
+
+func approvedWindowsSigner(value string, allowed []string) bool {
+	value = strings.TrimSpace(value)
+	for _, expected := range allowed {
+		if strings.EqualFold(value, expected) {
+			return true
+		}
+	}
+	return false
 }
 
 func windowsAuthenticodeQuery() []string {

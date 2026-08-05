@@ -1,8 +1,7 @@
 // Package desktopapp detects and manages desktop agent applications.
 //
-// The current target is ChatGPT Desktop. It and the Codex CLI are separate
-// products at install time, even though they share bundle/package identity and
-// the ~/.codex configuration target.
+// ChatGPT Desktop and WorkBuddy are separate products at install time. ChatGPT
+// shares Codex configuration; WorkBuddy owns ~/.workbuddy/models.json.
 package desktopapp
 
 import (
@@ -87,6 +86,7 @@ type DownloadClient interface {
 // Options keeps platform and process boundaries injectable. SearchRoots and
 // ApplicationDirs are test seams; production callers leave them empty.
 type Options struct {
+	AppID           string
 	Home            string
 	Platform        platform.Info
 	Runner          process.Runner
@@ -110,6 +110,13 @@ var packageVersionPattern = regexp.MustCompile(`^[0-9]+(?:\.[0-9]+){1,3}$`)
 func Inspect(ctx context.Context, options Options) Status {
 	if ctx == nil {
 		ctx = context.Background()
+	}
+	switch selectedAppID(options) {
+	case WorkBuddyID:
+		return inspectWorkBuddy(ctx, options)
+	case ID:
+	default:
+		return unknownAppStatus(options.AppID)
 	}
 	status := baseStatus(options.Platform.OS)
 	if err := ctx.Err(); err != nil {
@@ -144,6 +151,13 @@ func Install(ctx context.Context, options Options) (ActionResult, error) {
 	if err := contextError(ctx); err != nil {
 		return ActionResult{}, err
 	}
+	switch selectedAppID(options) {
+	case WorkBuddyID:
+		return installWorkBuddy(ctx, options, false)
+	case ID:
+	default:
+		return ActionResult{}, fmt.Errorf("unknown desktop agent %q", strings.TrimSpace(options.AppID))
+	}
 	status := Inspect(ctx, options)
 	if err := contextError(ctx); err != nil {
 		return ActionResult{}, err
@@ -170,6 +184,13 @@ func OpenInstaller(ctx context.Context, options Options) (ActionResult, error) {
 	if err := contextError(ctx); err != nil {
 		return ActionResult{}, err
 	}
+	switch selectedAppID(options) {
+	case WorkBuddyID:
+		return installWorkBuddy(ctx, options, true)
+	case ID:
+	default:
+		return ActionResult{}, fmt.Errorf("unknown desktop agent %q", strings.TrimSpace(options.AppID))
+	}
 	status := Inspect(ctx, options)
 	if err := contextError(ctx); err != nil {
 		return ActionResult{}, err
@@ -191,6 +212,13 @@ func Open(ctx context.Context, options Options) error {
 	}
 	if err := contextError(ctx); err != nil {
 		return err
+	}
+	switch selectedAppID(options) {
+	case WorkBuddyID:
+		return openWorkBuddy(ctx, options)
+	case ID:
+	default:
+		return fmt.Errorf("unknown desktop agent %q", strings.TrimSpace(options.AppID))
 	}
 	status := Inspect(ctx, options)
 	if err := contextError(ctx); err != nil {
@@ -715,6 +743,10 @@ func installWindowsInstaller(ctx context.Context, options Options, status Status
 }
 
 func downloadFile(ctx context.Context, options Options, url, destination string) error {
+	return downloadFileFor(ctx, options, url, destination, ID)
+}
+
+func downloadFileFor(ctx context.Context, options Options, url, destination, target string) error {
 	downloadCtx, cancel := context.WithTimeout(ctx, installTimeout)
 	defer cancel()
 	request, err := http.NewRequestWithContext(downloadCtx, http.MethodGet, url, nil)
@@ -737,7 +769,7 @@ func downloadFile(ctx context.Context, options Options, url, destination string)
 	if err != nil {
 		return err
 	}
-	written, copyErr := process.CopyWithProgress(file, response.Body, response.ContentLength, ID, options.Output)
+	written, copyErr := process.CopyWithProgress(file, response.Body, response.ContentLength, target, options.Output)
 	closeErr := file.Close()
 	if copyErr != nil || closeErr != nil || written == 0 {
 		_ = os.Remove(destination)

@@ -47,7 +47,7 @@ export type ProfileSummary = Omit<AppModels.ProfileSummary, "protocol" | "create
 
 export type StatusResponse = Omit<
   AppModels.StatusResponse,
-  "platform" | "capabilities" | "agents" | "catalog" | "groups" | "providers" | "mirrors" | "paths" | "backups" | "profiles" | "runtimes" | "desktopAgent"
+  "platform" | "capabilities" | "agents" | "catalog" | "groups" | "providers" | "mirrors" | "paths" | "backups" | "profiles" | "runtimes" | "desktopAgent" | "desktopAgents"
 > & {
   platform: Omit<PlatformModels.Info, "os"> & { os: PlatformId };
   capabilities: Omit<AppModels.Capabilities, "canInstall" | "missingRuntime" | "supportedAgentIds"> & {
@@ -66,6 +66,7 @@ export type StatusResponse = Omit<
   backups: Record<string, boolean>;
   profiles: ProfileSummary[];
   desktopAgent: DesktopAgentStatus;
+  desktopAgents?: DesktopAgentStatus[] | null;
 };
 
 export type ProbeResponse = Omit<BindingModels.ProbeResponse, "protocol" | "protocols"> & {

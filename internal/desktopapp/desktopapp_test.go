@@ -3,6 +3,9 @@ package desktopapp
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
 	"io"
 	"maps"
 	"net/http"
@@ -39,6 +42,23 @@ type fakeDownloader struct {
 	body   []byte
 	status int
 	hits   []string
+}
+
+type routeDownloader struct {
+	routes map[string][]byte
+	hits   []string
+}
+
+func (d *routeDownloader) Do(request *http.Request) (*http.Response, error) {
+	d.hits = append(d.hits, request.URL.String())
+	body, ok := d.routes[request.URL.String()]
+	status := http.StatusOK
+	if !ok {
+		status = http.StatusNotFound
+	}
+	return &http.Response{
+		StatusCode: status, Body: io.NopCloser(bytes.NewReader(body)), ContentLength: int64(len(body)), Request: request,
+	}, nil
 }
 
 func (d *fakeDownloader) Do(request *http.Request) (*http.Response, error) {
@@ -157,6 +177,23 @@ func TestInspectMacOSValidatesBundleIDAndFallsBackToBuildVersion(t *testing.T) {
 	}
 }
 
+func TestInspectWorkBuddyMacOSUsesItsOwnBundleIdentity(t *testing.T) {
+	root := t.TempDir()
+	appPath := makeBundle(t, root, "WorkBuddy.app")
+	if err := os.WriteFile(filepath.Join(appPath, "Contents", "Info.plist"), []byte("plist"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	status := Inspect(context.Background(), Options{
+		AppID: WorkBuddyID, Platform: platform.For("darwin", "arm64"), SearchRoots: []string{root},
+		Runner: &probeRunner{macValues: map[string]string{
+			"CFBundleIdentifier": WorkBuddyBundleID, "CFBundleShortVersionString": "5.3.8",
+		}},
+	})
+	if !status.Installed || status.ID != WorkBuddyID || status.Path != appPath || status.Version == nil || *status.Version != "5.3.8" || status.Source != SourceMacOSZIP {
+		t.Fatalf("WorkBuddy status = %#v", status)
+	}
+}
+
 func TestInspectMacOSDoesNotTraverseApplicationRoots(t *testing.T) {
 	root := t.TempDir()
 	nested := makeBundle(t, filepath.Join(root, "nested"), "ChatGPT.app")
@@ -243,6 +280,74 @@ func TestMacDownloadURLFollowsArchitectureAndOverride(t *testing.T) {
 	}
 	if got := macDownloadURL(Options{Platform: platform.For("macos", "amd64"), DownloadURL: "https://mirror.test/app.dmg"}); got != "https://mirror.test/app.dmg" {
 		t.Fatalf("override URL = %q", got)
+	}
+}
+
+func TestWorkBuddyPlatformMapping(t *testing.T) {
+	tests := []struct {
+		osID string
+		arch string
+		want string
+	}{
+		{"macos", "arm64", "workbuddy-darwin-arm64"},
+		{"macos", "x64", "workbuddy-darwin-x64"},
+		{"windows", "x64", WorkBuddyWindowsPlatform},
+		{"windows", "arm64", WorkBuddyWindowsPlatform},
+	}
+	for _, test := range tests {
+		got, err := workBuddyPlatform(test.osID, test.arch)
+		if err != nil || got != test.want {
+			t.Fatalf("workBuddyPlatform(%q, %q) = %q, %v", test.osID, test.arch, got, err)
+		}
+	}
+}
+
+func TestWorkBuddyWindowsInstallUsesSharedPlatformManifestAndVerifiedDownload(t *testing.T) {
+	payload := []byte("signed WorkBuddy installer")
+	sum := sha256.Sum256(payload)
+	downloadURL := "https://download.codebuddy.cn/workbuddy/WorkBuddy.exe"
+	manifestURL := WorkBuddyUpdateEndpoint + "?platform=" + WorkBuddyWindowsPlatform
+	manifest := []byte(fmt.Sprintf(`{"version":"5.4.0","url":%q,"sha256hash":%q}`, downloadURL, hex.EncodeToString(sum[:])))
+	downloader := &routeDownloader{routes: map[string][]byte{manifestURL: manifest, downloadURL: payload}}
+	runner := &scriptedRunner{results: []process.Result{
+		{ExitCode: 0},
+		{ExitCode: 0, Stdout: `{"Status":"Valid","StatusMessage":"Signature verified.","Publisher":"Tencent Technology (Shenzhen) Company Limited","Organization":"Tencent Technology (Shenzhen) Company Limited","Subject":"CN=Tencent Technology (Shenzhen) Company Limited, O=Tencent Technology (Shenzhen) Company Limited","Issuer":"CN=Trusted CA"}`},
+	}}
+	var outputs []process.Output
+	result, err := Install(context.Background(), Options{
+		AppID: WorkBuddyID, Platform: platform.For("windows", "arm64"), Runner: runner, Downloader: downloader,
+		Output: func(output process.Output) { outputs = append(outputs, output) },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Status != "installer-started" || len(runner.started) != 1 || len(downloader.hits) != 2 || downloader.hits[0] != manifestURL || downloader.hits[1] != downloadURL {
+		t.Fatalf("result=%#v starts=%#v downloads=%#v", result, runner.started, downloader.hits)
+	}
+	defer os.Remove(runner.started[0][0])
+	data, readErr := os.ReadFile(runner.started[0][0])
+	if readErr != nil || !bytes.Equal(data, payload) {
+		t.Fatalf("downloaded WorkBuddy installer = %q, %v", data, readErr)
+	}
+	progressFound := false
+	for _, output := range outputs {
+		progressFound = progressFound || output.Kind == "progress" && output.Target == WorkBuddyID
+	}
+	if !progressFound {
+		t.Fatalf("WorkBuddy progress = %#v", outputs)
+	}
+}
+
+func TestWorkBuddyUpdateRejectsUnapprovedDownloadHost(t *testing.T) {
+	manifestURL := WorkBuddyUpdateEndpoint + "?platform=workbuddy-darwin-arm64"
+	downloader := &routeDownloader{routes: map[string][]byte{
+		manifestURL: []byte(`{"url":"https://example.test/WorkBuddy.zip"}`),
+	}}
+	_, err := fetchWorkBuddyUpdate(context.Background(), Options{
+		AppID: WorkBuddyID, Platform: platform.For("macos", "arm64"), Downloader: downloader,
+	})
+	if err == nil || !strings.Contains(err.Error(), "not approved") {
+		t.Fatalf("fetchWorkBuddyUpdate() error = %v", err)
 	}
 }
 
@@ -480,6 +585,21 @@ func TestVerifyMacOSAppRequiresExpectedTeamAndNotarization(t *testing.T) {
 	}
 	if len(runner.calls) != 3 {
 		t.Fatalf("verification calls = %#v, want codesign verify, codesign details, spctl", runner.calls)
+	}
+}
+
+func TestVerifyWorkBuddyMacOSAppRequiresExpectedTeamAndNotarization(t *testing.T) {
+	runner := &scriptedRunner{results: []process.Result{
+		{ExitCode: 0},
+		{ExitCode: 0, Stderr: strings.Join([]string{
+			"Identifier=" + WorkBuddyBundleID,
+			"Authority=Developer ID Application: Tencent Technology (Shenzhen) Company Limited (" + WorkBuddyMacTeamID + ")",
+			"TeamIdentifier=" + WorkBuddyMacTeamID,
+		}, "\n")},
+		{ExitCode: 0, Stdout: "WorkBuddy.app: accepted\nsource=Notarized Developer ID"},
+	}}
+	if err := verifyWorkBuddyMacOSApp(context.Background(), Options{Runner: runner}, "/Applications/WorkBuddy.app"); err != nil {
+		t.Fatalf("verifyWorkBuddyMacOSApp() error = %v", err)
 	}
 }
 

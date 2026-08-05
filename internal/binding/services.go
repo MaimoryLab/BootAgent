@@ -60,6 +60,16 @@ func (s *DesktopAgentService) GetStatus(ctx context.Context) (app.DesktopAgentSt
 	return s.core.DesktopAgentStatus(ctx)
 }
 
+func (s *DesktopAgentService) GetStatusFor(ctx context.Context, request DesktopAgentRequest) (app.DesktopAgentStatus, error) {
+	if err := contextError(ctx); err != nil {
+		return app.DesktopAgentStatus{}, err
+	}
+	if s == nil || s.core == nil {
+		return app.DesktopAgentStatus{}, notReady("Desktop agent service is not configured")
+	}
+	return s.core.DesktopAgentStatusFor(ctx, request.AgentID)
+}
+
 func (s *DesktopAgentService) Install(ctx context.Context) (app.DesktopAgentActionResult, error) {
 	if err := contextError(ctx); err != nil {
 		return app.DesktopAgentActionResult{}, err
@@ -68,6 +78,16 @@ func (s *DesktopAgentService) Install(ctx context.Context) (app.DesktopAgentActi
 		return app.DesktopAgentActionResult{}, notReady("Desktop agent service is not configured")
 	}
 	return s.core.InstallDesktopAgent(ctx, s.onOutput)
+}
+
+func (s *DesktopAgentService) InstallFor(ctx context.Context, request DesktopAgentRequest) (app.DesktopAgentActionResult, error) {
+	if err := contextError(ctx); err != nil {
+		return app.DesktopAgentActionResult{}, err
+	}
+	if s == nil || s.core == nil {
+		return app.DesktopAgentActionResult{}, notReady("Desktop agent service is not configured")
+	}
+	return s.core.InstallDesktopAgentFor(ctx, request.AgentID, s.onOutput)
 }
 
 func (s *DesktopAgentService) Open(ctx context.Context) error {
@@ -80,6 +100,16 @@ func (s *DesktopAgentService) Open(ctx context.Context) error {
 	return s.core.OpenDesktopAgent(ctx)
 }
 
+func (s *DesktopAgentService) OpenFor(ctx context.Context, request DesktopAgentRequest) error {
+	if err := contextError(ctx); err != nil {
+		return err
+	}
+	if s == nil || s.core == nil {
+		return notReady("Desktop agent service is not configured")
+	}
+	return s.core.OpenDesktopAgentFor(ctx, request.AgentID)
+}
+
 func (s *DesktopAgentService) OpenInstaller(ctx context.Context) (app.DesktopAgentActionResult, error) {
 	if err := contextError(ctx); err != nil {
 		return app.DesktopAgentActionResult{}, err
@@ -88,6 +118,16 @@ func (s *DesktopAgentService) OpenInstaller(ctx context.Context) (app.DesktopAge
 		return app.DesktopAgentActionResult{}, notReady("Desktop agent service is not configured")
 	}
 	return s.core.OpenDesktopAgentInstaller(ctx, s.onOutput)
+}
+
+func (s *DesktopAgentService) OpenInstallerFor(ctx context.Context, request DesktopAgentRequest) (app.DesktopAgentActionResult, error) {
+	if err := contextError(ctx); err != nil {
+		return app.DesktopAgentActionResult{}, err
+	}
+	if s == nil || s.core == nil {
+		return app.DesktopAgentActionResult{}, notReady("Desktop agent service is not configured")
+	}
+	return s.core.OpenDesktopAgentInstallerFor(ctx, request.AgentID, s.onOutput)
 }
 
 // Configure applies a saved Profile to the selected desktop Agent. The profile
@@ -446,6 +486,10 @@ type OpenRegistrationRequest struct {
 type DesktopAgentProfileRequest struct {
 	AgentID   string `json:"agent_id"`
 	ProfileID string `json:"profile_id"`
+}
+
+type DesktopAgentRequest struct {
+	AgentID string `json:"agent_id"`
 }
 
 type ProviderIDRequest struct {

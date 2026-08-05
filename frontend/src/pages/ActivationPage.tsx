@@ -9,7 +9,7 @@ import { LogDisclosure } from "../components/LogDisclosure";
 import { PageScaffold } from "../components/PageScaffold";
 import { useI18n } from "../i18n";
 import { useTaskCenter } from "../state/TaskCenterContext";
-import { profileAgentIdForDesktop } from "../state/desktopSetup";
+import { desktopProtocol, profileAgentIdForDesktop, selectedDesktopApp } from "../state/desktopSetup";
 import { useWizard } from "../state/WizardContext";
 import type { AgentInstallResult, InstallRequest } from "../types/api";
 
@@ -22,7 +22,7 @@ export function ActivationPage() {
   const [retrying, setRetrying] = useState<string | null>(null);
   const [runtimeDownloading, setRuntimeDownloading] = useState(false);
   const isDesktop = state.setupKind === "desktop";
-  const desktop = isDesktop ? state.status?.desktopAgent : undefined;
+  const desktop = isDesktop && state.status ? selectedDesktopApp(state.status, state.selectedAgentIds) : undefined;
   const selectedNames = useMemo(
     () => Object.fromEntries([
       ...(state.status?.catalog.map((agent) => [agent.id, agent.name] as const) || []),
@@ -76,9 +76,9 @@ export function ActivationPage() {
       apiKey: "",
       model: state.model,
       configMode: "provider",
-      protocol: state.status?.catalog.find((item) => item.id === owner)?.protocol || "",
+      protocol: state.status ? desktopProtocol(state.status, desktop) : "",
     });
-    const installed = desktop.installed ? undefined : await api.installDesktopAgent();
+    const installed = desktop.installed ? undefined : await api.installDesktopAgent(desktop.id);
     const configured = await api.configureDesktopAgent(desktop.id, profile.id);
     return {
       results: [{

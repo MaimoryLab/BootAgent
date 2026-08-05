@@ -4,6 +4,7 @@ import { useState } from "react";
 import { api, describeError } from "../backend/api";
 import { useI18n } from "../i18n";
 import { useTaskCenter } from "../state/TaskCenterContext";
+import { profileAgentIdForDesktop } from "../state/desktopSetup";
 import type { DesktopAgentStatus, ProfileSummary } from "../types/api";
 import { DownloadProgress } from "./DownloadProgress";
 import { AgentIcon } from "./icons/agents";
@@ -37,14 +38,15 @@ export function DesktopAppSection({ app: desktopApp, onChanged, onSetup, onConfi
     setFailure("");
     setNotice("");
     if (downloading) resetProgress(desktopApp.id);
+    const agentId = desktopApp.id === "desktop-agent" ? undefined : desktopApp.id;
     try {
       const result = action === "install"
-        ? await api.installDesktopAgent()
+        ? await (agentId ? api.installDesktopAgent(agentId) : api.installDesktopAgent())
         : action === "installer"
-          ? await api.openDesktopAgentInstaller()
+          ? await (agentId ? api.openDesktopAgentInstaller(agentId) : api.openDesktopAgentInstaller())
           : null;
       if (action === "open") {
-        await api.openDesktopAgent();
+        await (agentId ? api.openDesktopAgent(agentId) : api.openDesktopAgent());
         setNotice(t("{name} 已打开", { name: desktopApp.name }));
       } else if (result?.status === "installed") {
         setNotice(t("{name} 安装完成", { name: desktopApp.name }));
@@ -90,7 +92,7 @@ export function DesktopAppSection({ app: desktopApp, onChanged, onSetup, onConfi
           </div>
         ) : null}
         <div className="desktop-app-identity">
-          <span className="desktop-app-icon"><AgentIcon agentId="codex" size={20} /></span>
+          <span className="desktop-app-icon"><AgentIcon agentId={profileAgentIdForDesktop(desktopApp)} size={20} /></span>
           <span>
             <strong>{desktopApp.name}</strong>
           </span>

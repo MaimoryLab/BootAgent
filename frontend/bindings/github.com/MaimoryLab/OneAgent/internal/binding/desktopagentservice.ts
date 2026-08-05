@@ -31,14 +31,30 @@ export function GetStatus(): $CancellablePromise<app$0.DesktopAgentStatus> {
     return $Call.ByID(2070814877);
 }
 
+export function GetStatusFor(request: $models.DesktopAgentRequest): $CancellablePromise<app$0.DesktopAgentStatus> {
+    return $Call.ByID(2496604744, request);
+}
+
 export function Install(): $CancellablePromise<app$0.DesktopAgentActionResult> {
     return $Call.ByID(3711371820);
+}
+
+export function InstallFor(request: $models.DesktopAgentRequest): $CancellablePromise<app$0.DesktopAgentActionResult> {
+    return $Call.ByID(3526684419, request);
 }
 
 export function Open(): $CancellablePromise<void> {
     return $Call.ByID(1641870549);
 }
 
+export function OpenFor(request: $models.DesktopAgentRequest): $CancellablePromise<void> {
+    return $Call.ByID(1541039616, request);
+}
+
 export function OpenInstaller(): $CancellablePromise<app$0.DesktopAgentActionResult> {
     return $Call.ByID(693638919);
+}
+
+export function OpenInstallerFor(request: $models.DesktopAgentRequest): $CancellablePromise<app$0.DesktopAgentActionResult> {
+    return $Call.ByID(2134742642, request);
 }

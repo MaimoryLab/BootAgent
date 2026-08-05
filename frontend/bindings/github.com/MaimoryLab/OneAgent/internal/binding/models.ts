@@ -40,6 +40,10 @@ export interface DesktopAgentProfileRequest {
     "profile_id": string;
 }
 
+export interface DesktopAgentRequest {
+    "agent_id": string;
+}
+
 export interface InstallRequest {
     "agents": string[] | null;
     "provider": string;
