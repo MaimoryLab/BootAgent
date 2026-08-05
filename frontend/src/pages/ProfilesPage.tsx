@@ -6,6 +6,7 @@ import { api, describeError } from "../backend/api";
 import { PageScaffold } from "../components/PageScaffold";
 import { ProviderSegment } from "../components/ProviderSegment";
 import { useI18n } from "../i18n";
+import { taskKey, useTaskCenter, useTaskRoute } from "../state/TaskCenterContext";
 import { useWizard } from "../state/WizardContext";
 import type { ProfileSummary, ProviderId } from "../types/api";
 
@@ -35,6 +36,8 @@ export function ProfilesPage() {
   const navigate = useNavigate();
   const { locale, t } = useI18n();
   const { state, dispatch, refreshStatus } = useWizard();
+  const { startTask, finishTask } = useTaskCenter();
+  const route = useTaskRoute();
   const status = state.status;
   const [editor, setEditor] = useState<ProfileDraft | null>(null);
   const [busy, setBusy] = useState(false);
@@ -92,8 +95,17 @@ export function ProfilesPage() {
   };
 
   const apply = async (profile: ProfileSummary) => {
-    const agents = configurableAgents.filter((agent) => agent.protocol === protocolOf(profile)).map((agent) => agent.id);
-    if (!profile.model || !agents.length) return;
+    const candidates = configurableAgents.filter((agent) => agent.protocol === protocolOf(profile)).map((agent) => agent.id);
+    if (!profile.model || !candidates.length) return;
+    const agents = candidates.filter((agentId) => startTask({
+      id: taskKey("install", agentId),
+      kind: "install",
+      target: agentId,
+      title: t("安装 {name}", { name: status.catalog.find((agent) => agent.id === agentId)?.name || agentId }),
+      route,
+      progressTarget: status.capabilities.missingRuntime[agentId],
+    }));
+    if (!agents.length) return;
     setApplying(profile.id);
     setFailure("");
     try {
@@ -110,12 +122,19 @@ export function ProfilesPage() {
         install_agent: true,
         skip_test: false,
       });
+      for (const agentId of agents) {
+        const item = result.results.find((candidate) => candidate.agent === agentId);
+        finishTask(taskKey("install", agentId), !item || item.status === "failed"
+          ? { kind: "failure", message: item?.message || t("应用 Profile 失败") }
+          : { kind: "success", message: t("{name} 已应用", { name: profile.label || profile.id }) });
+      }
       if (!result.ok) {
         throw new Error(result.results.find((item) => item.status === "failed")?.message || t("应用 Profile 失败"));
       }
       await refreshStatus();
       navigate("/overview", { replace: true });
     } catch (error) {
+      for (const agentId of agents) finishTask(taskKey("install", agentId), { kind: "failure", message: describeError(error, t("无法应用 Profile")).message });
       setFailure(describeError(error, t("无法应用 Profile")).message);
     } finally {
       setApplying("");

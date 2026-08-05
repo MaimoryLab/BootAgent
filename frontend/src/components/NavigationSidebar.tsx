@@ -2,7 +2,6 @@ import { Boxes, FolderCog, Gauge, Languages, Layers3 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
 import { type TranslationKey, useI18n } from "../i18n";
-import { useWizard } from "../state/WizardContext";
 import { TaskCenter } from "./TaskCenter";
 import { ThemePicker } from "./ThemePicker";
 
@@ -17,7 +16,6 @@ const navItems: Array<{ to: string; label: TranslationKey | "Provider"; icon: ty
 
 export function NavigationSidebar() {
   const { locale, setLocale, t } = useI18n();
-  const { state } = useWizard();
   return (
     <aside className="navigation-sidebar">
       <div className="brand-lockup">
@@ -40,8 +38,8 @@ export function NavigationSidebar() {
         ))}
       </nav>
 
-      {/* First of the bottom group, so its margin-top: auto pushes appearance,
-          language and the task centre down together. */}
+      {/* First of the bottom group, so its margin-top: auto pushes appearance
+          and language down together. The task centre is viewport-docked. */}
       <ThemePicker />
 
       <label className="language-picker">
@@ -57,9 +55,8 @@ export function NavigationSidebar() {
         </select>
       </label>
 
-      {/* Last child, so the language picker's margin-top: auto pushes both to
-          the bottom of the sidebar as one group. */}
-      <TaskCenter logDir={state.status?.paths.logs || ""} />
+      {/* The task centre is fixed to the viewport's lower-left corner. */}
+      <TaskCenter />
     </aside>
   );
 }

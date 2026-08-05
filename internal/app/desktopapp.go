@@ -93,6 +93,8 @@ func (u *UseCases) InstallDesktopAgent(ctx context.Context, agentID string, outp
 	if err != nil {
 		return DesktopAgentActionResult{}, err
 	}
+	unlockTask := u.lockTask("install-desktop:" + agentID)
+	defer unlockTask()
 	result, err := desktopapp.Install(ctx, agentID, u.desktopAppOptions(output))
 	if err != nil {
 		return DesktopAgentActionResult{}, desktopAppInstallError(err)

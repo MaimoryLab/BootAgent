@@ -3,7 +3,7 @@ import { useState } from "react";
 
 import { api, describeError } from "../backend/api";
 import { useI18n } from "../i18n";
-import { useTaskCenter } from "../state/TaskCenterContext";
+import { taskKey, useTaskCenter, useTaskRoute } from "../state/TaskCenterContext";
 import type { DesktopAgentStatus, ProfileSummary } from "../types/api";
 import { DownloadProgress } from "./DownloadProgress";
 import { AgentIcon } from "./icons/agents";
@@ -25,28 +25,40 @@ type Action = "install" | "open";
 
 export function DesktopAppSection({ app: desktopApp, onChanged, onSetup, onConfigure, profile, providerName, model, showUninstalled = true, showHeading = true }: DesktopAppSectionProps) {
   const { t } = useI18n();
-  const { running, outcomes, startTask, finishTask, clearOutcome } = useTaskCenter();
+  const { startTask, finishTask, taskFor } = useTaskCenter();
+  const route = useTaskRoute();
   const [pending, setPending] = useState<Action | "">("");
+  const [localNotice, setLocalNotice] = useState("");
+  const [localFailure, setLocalFailure] = useState("");
 
   if (!desktopApp?.supported || (!showUninstalled && !desktopApp.installed)) return null;
 
   // A download outlives this component: the user can navigate away while it
   // runs, which unmounts the row and drops any local state. The in-flight flag
-  // and the outcome therefore live in the Task Center provider above the router,
+  // and the outcome therefore live in the Task Center provider above route content,
   // so both the bar and the final verdict survive the round trip.
-  const downloading = Boolean(running[desktopApp.id]);
+  const installTaskID = taskKey("install", desktopApp.id);
+  const installTask = taskFor(installTaskID);
+  const downloading = installTask?.state === "running";
   const busy = Boolean(pending) || downloading;
-  const outcome = outcomes[desktopApp.id];
-  const notice = outcome?.kind === "success" ? outcome.message : "";
-  const failure = outcome?.kind === "failure" ? outcome.message : "";
+  const notice = localNotice || (installTask?.state === "success" ? installTask.message : "");
+  const failure = localFailure || (!localNotice && installTask?.state === "failure" ? installTask.message : "");
 
   const run = async (action: Action) => {
     const downloads = action === "install";
+    if (downloads && !startTask({
+      id: installTaskID,
+      kind: "install",
+      target: desktopApp.id,
+      title: t("安装 {name}", { name: desktopApp.name }),
+      route,
+      progressTarget: desktopApp.id,
+    })) return;
     setPending(action);
-    // Opening the app is not a download, so it gets no shared bar; it still
-    // clears the previous verdict so a stale notice does not linger.
-    if (downloads) startTask(desktopApp.id);
-    else clearOutcome(desktopApp.id);
+    setLocalNotice("");
+    setLocalFailure("");
+    // Opening the app is not a download, so it gets no shared bar. Terminal
+    // install cards stay in the center until the user dismisses them.
     try {
       const result = action === "install" ? await api.installDesktopAgent(desktopApp.id) : null;
       let message: string;
@@ -62,11 +74,13 @@ export function DesktopAppSection({ app: desktopApp, onChanged, onSetup, onConfi
       }
       // Recorded in the provider, so it still reaches the user if this row
       // unmounted while the install was running.
-      finishTask(desktopApp.id, { kind: "success", message });
+      if (downloads) finishTask(installTaskID, { kind: "success", message });
+      else setLocalNotice(message);
       await onChanged();
     } catch (error) {
       const message = describeError(error, t("{name} 操作失败", { name: desktopApp.name })).message;
-      finishTask(desktopApp.id, { kind: "failure", message });
+      if (downloads) finishTask(installTaskID, { kind: "failure", message });
+      else setLocalFailure(message);
     } finally {
       setPending("");
     }

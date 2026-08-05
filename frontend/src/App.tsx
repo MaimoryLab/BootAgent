@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 
 import { AppWindow } from "./components/AppWindow";
 import { ActivationPage } from "./pages/ActivationPage";
@@ -12,12 +12,21 @@ import { ProviderKeyPage } from "./pages/ProviderKeyPage";
 import { ProvidersPage } from "./pages/ProvidersPage";
 import { ReviewPage } from "./pages/ReviewPage";
 import { I18nProvider, useI18n } from "./i18n";
-import { TaskCenterProvider } from "./state/TaskCenterContext";
+import { TaskCenterProvider, useTaskCenter } from "./state/TaskCenterContext";
 import { ThemeProvider } from "./state/ThemeContext";
 import { WizardProvider, useWizard } from "./state/WizardContext";
 
 function SetupGuard({ stage, children }: { stage: "provider" | "model" | "review" | "activation"; children: React.ReactNode }) {
   const { state } = useWizard();
+  const { tasks } = useTaskCenter();
+  const location = useLocation();
+  const activationTask = stage === "activation" && tasks.some((task) => {
+    const route = task.route.split("?", 1)[0];
+    return route === "/setup/activation";
+  });
+  // A task card can restore the activation page after another setup run reset
+  // the wizard draft. The task itself is the durable source of truth then.
+  if (stage === "activation" && activationTask && location.pathname === "/setup/activation") return children;
   if (!state.selectedAgentIds.length) return <Navigate to="/setup/agents" replace />;
   const providerHasKey = Boolean(state.status?.providers[state.provider]?.has_key);
   if (stage === "model" && !providerHasKey) {

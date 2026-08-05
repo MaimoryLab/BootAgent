@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 
 import { api, describeError } from "../backend/api";
 import { useI18n } from "../i18n";
-import { useTaskCenter } from "../state/TaskCenterContext";
+import { taskKey, useTaskCenter, useTaskRoute } from "../state/TaskCenterContext";
 import type { AgentStatus, RuntimeStatus } from "../types/api";
 import { DownloadProgress } from "./DownloadProgress";
 
@@ -23,7 +23,8 @@ interface RuntimePromptProps {
  */
 export function RuntimePrompt({ runtimes, missingRuntime, selectedAgentIds, agents, onInstalled }: RuntimePromptProps) {
   const { t } = useI18n();
-  const { running, outcomes, startTask, finishTask } = useTaskCenter();
+  const { startTask, finishTask, taskFor } = useTaskCenter();
+  const route = useTaskRoute();
   const [pending, setPending] = useState("");
 
   const required = useMemo(() => {
@@ -43,23 +44,32 @@ export function RuntimePrompt({ runtimes, missingRuntime, selectedAgentIds, agen
   if (!required.length) return null;
 
   // The prompt sits on a wizard step the user can leave mid-download, so the
-  // in-flight flag and the failure live in the provider above the router rather
+  // in-flight flag and the failure live in the provider above route content rather
   // than in local state that unmounting would discard.
-  const downloading = required.find((runtime) => running[runtime.id])?.id ?? "";
+  const downloading = required.find((runtime) => taskFor(taskKey("download", runtime.id))?.state === "running")?.id ?? "";
   const busy = Boolean(pending) || Boolean(downloading);
   const failure = required
-    .map((runtime) => outcomes[runtime.id])
-    .find((outcome) => outcome?.kind === "failure")?.message ?? "";
+    .map((runtime) => taskFor(taskKey("download", runtime.id)))
+    .find((task) => task?.state === "failure")?.message ?? "";
 
   const install = async (runtimeId: string) => {
+    const id = taskKey("download", runtimeId);
+    const runtime = required.find((item) => item.id === runtimeId);
+    if (!startTask({
+      id,
+      kind: "download",
+      target: runtimeId,
+      title: t("安装 {name} {version}", { name: runtime?.name || runtimeId, version: runtime?.lockedVersion || "" }),
+      route,
+      progressTarget: runtimeId,
+    })) return;
     setPending(runtimeId);
-    startTask(runtimeId);
     try {
       await api.installRuntime(runtimeId);
-      finishTask(runtimeId, { kind: "success", message: "" });
+      finishTask(id, { kind: "success", message: t("安装完成") });
       await onInstalled();
     } catch (error) {
-      finishTask(runtimeId, { kind: "failure", message: describeError(error, t("运行时安装失败")).message });
+      finishTask(id, { kind: "failure", message: describeError(error, t("运行时安装失败")).message });
     } finally {
       setPending("");
     }

@@ -65,12 +65,16 @@ func (u *UseCases) InstallRuntime(ctx context.Context, options InstallRuntimeOpt
 	if !present {
 		return InstallRuntimeResult{}, oneerrors.New(oneerrors.InvalidRequest, "Unknown runtime: "+options.RuntimeID)
 	}
-
 	// The bootstrap writes into the OneAgent home and touches shell profiles;
 	// keep it under the same coordinator as Agent installs so two requests
 	// cannot interleave a profile rewrite.
 	u.writeMu.Lock()
 	defer u.writeMu.Unlock()
+	// Acquire download locks after writeMu. Agent installation may bootstrap
+	// this same runtime while already holding writeMu, so every path must use
+	// the same order or an explicit runtime install could deadlock it.
+	unlockTask := u.lockTask("download:" + options.RuntimeID)
+	defer unlockTask()
 
 	preferMirror := u.preferMirror(ctx)
 	if options.PreferMirror != nil {

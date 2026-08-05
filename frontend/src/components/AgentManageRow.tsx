@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 
 import { api, describeError } from "../backend/api";
 import { sourceTranslate, type Translate, useI18n } from "../i18n";
+import { taskKey, useTaskCenter, useTaskRoute } from "../state/TaskCenterContext";
 import type { AgentCatalogItem, AgentStatus, ProfileSummary, StatusResponse } from "../types/api";
 import { AgentIcon, agentTagline } from "./icons/agents";
 
@@ -110,9 +111,14 @@ export function AgentManageRow({
   onChanged?: () => void | Promise<void>;
 }) {
   const { t } = useI18n();
+  const { startTask, finishTask, taskFor, isTaskRunning } = useTaskCenter();
+  const route = useTaskRoute();
   const [launching, setLaunching] = useState(false);
-  const [updating, setUpdating] = useState(false);
+  const [localUpdating, setLocalUpdating] = useState(false);
   const [failure, setFailure] = useState("");
+  const updateTaskID = taskKey("update", agentId);
+  const updateTask = taskFor(updateTaskID);
+  const updating = updateTask?.state === "running" || localUpdating;
   const version = versionNote(status, t);
   const target = targetSummary(status, providers, t);
   const providerId = profile?.provider || status.provider || "";
@@ -123,7 +129,8 @@ export function AgentManageRow({
   // No "not configured" state here: the Profile and Provider tokens already name
   // whichever piece is absent, so a third word for the same condition only adds
   // a term the user has to map back onto them.
-  const statusLabel = failure ? t("失败") : !status.installed ? t("未安装") : "";
+  const updateFailure = updateTask?.state === "failure" ? updateTask.message || t("失败") : "";
+  const statusLabel = failure || updateFailure ? t("失败") : !status.installed ? t("未安装") : "";
 
   // installed is true only when the Agent's command resolved on the managed
   // PATH, so it is already the precise "there is something to launch" signal.
@@ -141,15 +148,23 @@ export function AgentManageRow({
     }
   };
   const update = async () => {
-    setUpdating(true);
+    if (!startTask({
+      id: updateTaskID,
+      kind: "update",
+      target: agentId,
+      title: t("更新 {name}", { name: catalog?.name || agentId }),
+      route,
+    })) return;
+    setLocalUpdating(true);
     setFailure("");
     try {
       await api.updateAgent(agentId);
+      finishTask(updateTaskID, { kind: "success", message: t("更新完成") });
       await onChanged?.();
     } catch (error) {
-      setFailure(describeError(error, t("无法更新 Agent")).message);
+      finishTask(updateTaskID, { kind: "failure", message: describeError(error, t("无法更新 Agent")).message });
     } finally {
-      setUpdating(false);
+      setLocalUpdating(false);
     }
   };
 
@@ -162,7 +177,7 @@ export function AgentManageRow({
           </span>
           <span className="agent-manage-identity-copy">
             <strong>{catalog?.name || agentId}</strong>
-            {failure ? <small className="agent-manage-note is-error">{failure}</small> : null}
+            {failure || updateFailure ? <small className="agent-manage-note is-error">{failure || updateFailure}</small> : null}
           </span>
         </div>
         {/* Right-aligned, in a fixed order, with the Profile and Provider slots
@@ -187,7 +202,7 @@ export function AgentManageRow({
               {version.text}
             </span>
           ) : null}
-          {statusLabel ? <span className={`agent-manage-state${failure ? " is-error" : ""}`}>{statusLabel}</span> : null}
+          {statusLabel ? <span className={`agent-manage-state${failure || updateFailure ? " is-error" : ""}`}>{statusLabel}</span> : null}
         </div>
       </div>
       <div className="agent-manage-actions">
@@ -195,9 +210,9 @@ export function AgentManageRow({
             an installed Agent was previously reachable only by opening <details>,
             which made the common case the hidden one. */}
         {npmAgents.has(agentId) ? (
-          <button className="button button-secondary" type="button" onClick={() => void update()} disabled={updating || launching} title={t("执行 npm update")}>
+          <button className="button button-secondary" type="button" onClick={() => void update()} disabled={updating || launching || isTaskRunning(taskKey("install", agentId))} title={t("执行 npm update")}>
             <RefreshCw size={15} className={updating ? "spin" : ""} aria-hidden="true" />
-            {t("更新")}
+            {updating ? t("更新中") : t("更新")}
           </button>
         ) : null}
         <Link

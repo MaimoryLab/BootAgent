@@ -31,6 +31,8 @@ func (u *UseCases) UpdateAgent(ctx context.Context, agentID string) (AgentUpdate
 	if !ok || agent.Package == nil || agent.Package.Manager != "npm" {
 		return AgentUpdateResult{}, oneerrors.New(oneerrors.InvalidRequest, "Agent is not npm-managed: "+agentID)
 	}
+	unlockTask := u.lockTask("agent-task:" + strings.TrimSpace(agentID))
+	defer unlockTask()
 	runtime := u.installRuntime(nil)
 	npm, present := runtime.Runner.LookPath("npm")
 	if !present || npm == "" {
