@@ -35,6 +35,37 @@ jobs:
         with:
           build-tags: wails,production
 
+  compliance:
+    name: Release compliance
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.17.0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 26
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: Test license generator
+        run: python3 -m unittest scripts/test_generate_third_party_licenses.py
+
+      - name: Verify third-party license bundle
+        run: python3 scripts/generate_third_party_licenses.py --check
+
   docs:
     name: Docs
     runs-on: ubuntu-latest
