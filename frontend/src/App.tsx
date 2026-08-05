@@ -20,12 +20,8 @@ function SetupGuard({ stage, children }: { stage: "provider" | "model" | "review
   const { state } = useWizard();
   if (!state.selectedAgentIds.length) return <Navigate to="/setup/agents" replace />;
   const providerHasKey = Boolean(state.status?.providers[state.provider]?.has_key);
-  if (stage === "model" && (!providerHasKey || !state.keyVerified)) {
-    // Provider settings own the key; a successful probe unlocks the model step.
-    //
-    // Only this step is gated on the key. Gating the later steps too would
-    // eject the user from the results page after an install; ReviewPage checks
-    // the Provider again when a new install is started.
+  if (stage === "model" && !providerHasKey) {
+    // Provider settings own the key; the connection probe is optional.
     return <Navigate to="/setup/provider" replace />;
   }
   if ((stage === "review" || stage === "activation") && !state.model) {

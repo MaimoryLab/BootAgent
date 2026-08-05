@@ -26,7 +26,7 @@ export function ProviderKeyPage() {
   // Continuing requires a successful probe, not just a non-empty key: a wrong
   // key must not reach the model step. canProbe stays separate so the test
   // button remains clickable while the verdict is still outstanding.
-  const canContinue = canProbe && state.keyVerified;
+  const canContinue = canProbe;
 
   // The selected Agents decide which protocols get tested; a model that serves
   // Chat Completions may still refuse Responses, so do not imply a single one.
@@ -139,7 +139,7 @@ export function ProviderKeyPage() {
           <ConnectionStatus state={state.connectionState} result={state.connection} />
         </div>
         {providerHasKey && state.connectionState === "idle" && (
-          <small>{t("连接测试通过后才能继续选择模型。")}</small>
+          <small>{t("连接测试是可选的，可以直接继续选择模型。")}</small>
         )}
       </div>
     </PageScaffold>

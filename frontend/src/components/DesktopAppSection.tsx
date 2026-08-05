@@ -11,6 +11,7 @@ import { AgentIcon } from "./icons/agents";
 interface DesktopAppSectionProps {
   app: DesktopAgentStatus;
   onChanged: () => void | Promise<void>;
+  onSetup?: () => void;
   onConfigure?: () => void;
   profile?: ProfileSummary;
   providerName?: string;
@@ -21,7 +22,7 @@ interface DesktopAppSectionProps {
 
 type Action = "install" | "open" | "installer";
 
-export function DesktopAppSection({ app: desktopApp, onChanged, onConfigure, profile, providerName, model, showUninstalled = true }: DesktopAppSectionProps) {
+export function DesktopAppSection({ app: desktopApp, onChanged, onSetup, onConfigure, profile, providerName, model, showUninstalled = true }: DesktopAppSectionProps) {
   const { t } = useI18n();
   const { resetProgress } = useTaskCenter();
   const [pending, setPending] = useState<Action | "">("");
@@ -82,7 +83,7 @@ export function DesktopAppSection({ app: desktopApp, onChanged, onConfigure, pro
           <div className="uninstalled-agent-action">
             <AppWindow size={28} aria-hidden="true" />
             <span>{t("按引导安装桌面 Agent")}</span>
-            <button className="button button-primary" type="button" aria-label={t("安装")} onClick={() => void run("install")} disabled={Boolean(pending)}>
+            <button className="button button-primary" type="button" aria-label={t("安装")} onClick={() => onSetup ? onSetup() : void run("install")} disabled={Boolean(pending)}>
               {pending === "install" ? <RefreshCw size={15} className="spin" aria-hidden="true" /> : <Plus size={16} />}
               {pending === "install" ? t("安装中") : t("安装桌面 Agent")}
             </button>
@@ -129,7 +130,7 @@ export function DesktopAppSection({ app: desktopApp, onChanged, onConfigure, pro
               </button>
             </>
           ) : (
-            <button className="button button-primary" type="button" onClick={() => void run("install")} disabled={Boolean(pending)}>
+            <button className="button button-primary" type="button" onClick={() => onSetup ? onSetup() : void run("install")} disabled={Boolean(pending)}>
               {pending === "install" ? <RefreshCw size={15} className="spin" aria-hidden="true" /> : <Download size={15} aria-hidden="true" />}
               {pending === "install" ? t("安装中") : t("安装桌面 Agent")}
             </button>

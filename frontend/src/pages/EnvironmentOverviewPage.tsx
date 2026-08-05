@@ -24,6 +24,10 @@ export function EnvironmentOverviewPage() {
   const editDesktopProfile = () => {
     if (status?.desktopAgent?.id) navigate(`/agents/${status.desktopAgent.id}`);
   };
+  const startDesktopSetup = () => {
+    dispatch({ type: "START_DESKTOP_SETUP" });
+    navigate("/setup/agents");
+  };
 
   if (state.statusState === "loading" && !status) {
     return (
@@ -134,6 +138,7 @@ export function EnvironmentOverviewPage() {
 
       <DesktopAppSection
         app={status.desktopAgent}
+        onSetup={startDesktopSetup}
         profile={desktopProfile}
         providerName={desktopProviderName}
         model={desktopModel}

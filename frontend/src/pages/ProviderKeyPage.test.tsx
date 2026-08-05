@@ -65,4 +65,11 @@ describe("ProviderKeyPage", () => {
     expect(screen.getByRole("button", { name: "前往 Provider" })).toBeTruthy();
     expect(screen.queryByLabelText("API Key")).toBeNull();
   });
+
+  it("allows continuing without a connection test", () => {
+    state = { ...initialWizardState, status, statusState: "success", hasApiKey: true, keyVerified: false };
+    render(<MemoryRouter><ProviderKeyPage /></MemoryRouter>);
+
+    expect(screen.getByRole("button", { name: "继续选择模型" })).not.toBeDisabled();
+  });
 });

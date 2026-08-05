@@ -58,6 +58,15 @@ describe("DesktopAppSection", () => {
     expect(screen.getByText("Example Desktop 安装完成")).toBeTruthy();
   });
 
+  it("delegates an uninstalled app to setup when requested", () => {
+    const onSetup = vi.fn();
+    render(<DesktopAppSection app={app()} onChanged={vi.fn()} onSetup={onSetup} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "安装" }));
+    expect(onSetup).toHaveBeenCalledOnce();
+    expect(bridge.installDesktopAgent).not.toHaveBeenCalled();
+  });
+
   it("shows download progress until the install request completes", async () => {
     const installed = app({ installed: true, version: "26.727.51351", path: "/Applications/Example.app" });
     let complete!: (result: DesktopAgentActionResult) => void;

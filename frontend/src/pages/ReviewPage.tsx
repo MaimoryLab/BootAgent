@@ -35,7 +35,7 @@ export function ReviewPage() {
     // The install request intentionally carries no key; the backend resolves
     // it from the selected Provider. Keep the review gate in sync with that
     // source of truth.
-    if (!providerHasKey || !state.keyVerified) {
+    if (!providerHasKey) {
       navigate("/setup/provider");
       return;
     }
