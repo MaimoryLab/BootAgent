@@ -13,10 +13,12 @@ import (
 	"time"
 
 	"github.com/MaimoryLab/OneAgent/internal/catalog"
+	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
 	"github.com/MaimoryLab/OneAgent/internal/install"
 	"github.com/MaimoryLab/OneAgent/internal/platform"
 	"github.com/MaimoryLab/OneAgent/internal/process"
 	"github.com/MaimoryLab/OneAgent/internal/provider"
+	"github.com/MaimoryLab/OneAgent/internal/securefs"
 )
 
 func TestInstallResultWirePreservesFieldPresence(t *testing.T) {
@@ -277,6 +279,31 @@ func TestInstallAgentsDoesNotPublishProfileWhenProbeFails(t *testing.T) {
 	}
 	if active := core.profiles.LoadActive(); active.Profile != nil || active.ID != "" {
 		t.Fatalf("failed install published active profile: %#v", active)
+	}
+}
+
+func TestInstallAgentsReportsProfileWriteFailure(t *testing.T) {
+	home := t.TempDir()
+	filesystem := securefs.New(securefs.Options{OS: "linux", Secure: func(path string, directory bool) error {
+		if !directory && filepath.Dir(path) == filepath.Join(home, ".oneagent", "profiles") {
+			return oneerrors.New(oneerrors.ConfigWriteFailed, "profile write blocked")
+		}
+		return nil
+	}})
+	runner := &installAppRunner{paths: map[string]string{"codex": "/fake/codex"}}
+	core := NewUseCasesWithProviderClient(StatusOptions{
+		Home: home, Platform: platform.For("linux", "amd64"), Runner: runner,
+		Environment: map[string]string{"HOME": home}, FileSystem: &filesystem,
+	}, provider.NewClient(nil))
+	result, err := core.InstallAgents(context.Background(), installOptions("codex"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.OK || result.Code == 0 || !strings.Contains(result.Log, "profile write blocked") {
+		t.Fatalf("profile write failure = %#v", result)
+	}
+	if active := core.profiles.LoadActive(); active.ID != "" || active.Profile != nil {
+		t.Fatalf("failed profile write was published: %#v", active)
 	}
 }
 

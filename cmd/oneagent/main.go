@@ -155,7 +155,6 @@ type installCLIFlags struct {
 	Model          string
 	SmallFastModel string
 	RegisterURL    string
-	Channel        string
 	InstallAgent   bool
 	CheckOnly      bool
 	SkipTest       bool
@@ -178,7 +177,6 @@ func runInstall(args []string, stdout, stderr io.Writer) int {
 	flags.StringVar(&options.Model, "model", "", "model ID")
 	flags.StringVar(&options.SmallFastModel, "small-fast-model", "", "Claude Code fast model")
 	flags.StringVar(&options.RegisterURL, "register-url", "", "registration URL")
-	flags.StringVar(&options.Channel, "channel", "direct", "launch channel")
 	flags.BoolVar(&options.InstallAgent, "install-agent", false, "install missing Agent packages")
 	flags.BoolVar(&options.CheckOnly, "check-agent-only", false, "only inspect Agents")
 	flags.BoolVar(&options.SkipTest, "skip-test", false, "skip Provider probes")
@@ -377,7 +375,7 @@ func printUsage(stdout io.Writer) {
 		"usage: oneagent [--agent AGENT] [--provider PROVIDER]",
 		"                [--api-base-url API_BASE_URL] [--api-key API_KEY]",
 		"                [--model MODEL] [--small-fast-model MODEL]",
-		"                [--register-url URL] [--channel CHANNEL] [--install-agent]",
+		"                [--register-url URL] [--install-agent]",
 		"                [--check-agent-only] [--skip-test] [--no-open] [--json]",
 		"                [--agent-version VERSION] [--registry REGISTRY]",
 		"                [--timeout SECONDS]",
@@ -401,7 +399,6 @@ func printUsage(stdout io.Writer) {
 		"  --small-fast-model MODEL",
 		"                        Claude Code only: a cheaper fast/background model",
 		"  --register-url URL    Registration URL to open when a key is missing",
-		"  --channel CHANNEL     Launch channel recorded with the install",
 		"  --install-agent       Install missing Agent packages",
 		"  --check-agent-only    Only inspect Agents; writes no configuration",
 		"  --skip-test           Skip Provider probes",

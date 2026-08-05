@@ -15,12 +15,20 @@ function app(overrides: Partial<DesktopAgentStatus> = {}): DesktopAgentStatus {
   };
 }
 
-function profile(id: string, agentIds: string[]): ProfileSummary {
-  return { id, label: id, provider: "ppio", baseUrl: null, model: "model-a", agentIds, activatedAt: null, hasKey: true };
+function profile(id: string, protocol: ProfileSummary["protocol"]): ProfileSummary {
+  return { id, label: id, provider: "ppio", baseUrl: null, model: "model-a", protocol, activatedAt: null, hasKey: true };
 }
 
 function status(profiles: ProfileSummary[], agents: StatusResponse["agents"] = {}): StatusResponse {
-  return { profiles, agents, providers: {} } as StatusResponse;
+  return {
+    profiles,
+    agents,
+    providers: {},
+    catalog: [
+      { id: "codex", protocol: "responses" },
+      { id: "workbuddy", protocol: "openai" },
+    ],
+  } as StatusResponse;
 }
 
 describe("desktop profile mapping", () => {
@@ -33,17 +41,17 @@ describe("desktop profile mapping", () => {
     expect(desktopProfileIsShared(workbuddy)).toBe(false);
   });
 
-  it("includes the active binding only for legacy profiles without AgentIDs", () => {
+  it("uses the protocol plus the active binding for legacy profiles", () => {
     const chatGPT = app({ profileId: "legacy" });
-    const chatGPTProfiles = [profile("legacy", []), profile("other", ["codex"]), profile("wrong-owner", ["workbuddy"])] as ProfileSummary[];
+    const chatGPTProfiles = [profile("legacy", ""), profile("other", "responses"), profile("wrong-owner", "openai")];
     expect(desktopProfiles(status(chatGPTProfiles, { codex: { profileId: "legacy" } as StatusResponse["agents"][string] }), chatGPT).map(({ id }) => id)).toEqual(["legacy", "other"]);
 
-    const workbuddyProfiles = [profile("legacy", []), profile("wrong-owner", ["codex"]), profile("workbuddy", ["workbuddy"])] as ProfileSummary[];
+    const workbuddyProfiles = [profile("legacy", ""), profile("wrong-owner", "responses"), profile("workbuddy", "openai")];
     expect(desktopProfiles(status(workbuddyProfiles, { workbuddy: { profileId: "wrong-owner" } as StatusResponse["agents"][string] }), app({ id: "workbuddy" })).map(({ id }) => id)).toEqual(["workbuddy"]);
   });
 
   it("rejects a profile whose Provider no longer exists", () => {
-    const candidate = profile("team", ["codex"]);
+    const candidate = profile("team", "responses");
     expect(desktopProfileUsable(status([candidate]), candidate)).toBe(false);
   });
 });

@@ -43,7 +43,7 @@ export type OpenRegistrationResponse = BindingModels.OpenRegistrationResponse;
 export type ProviderEntry = ProviderModels.Entry;
 export type SaveProviderInput = BindingModels.SaveProviderRequest;
 export type SaveProviderResult = AppModels.SaveProviderResult;
-export type ProfileSummary = Omit<AppModels.ProfileSummary, "agentIds" | "protocol"> & { agentIds?: string[]; protocol?: ProtocolId | "" };
+export type ProfileSummary = Omit<AppModels.ProfileSummary, "protocol"> & { protocol: ProtocolId | "" };
 
 export type StatusResponse = Omit<
   AppModels.StatusResponse,
@@ -115,7 +115,6 @@ export type InstallRequest = Pick<
   api_base_url?: string;
   small_fast_model?: string;
   agent_version?: string;
-  profile_agents?: string[];
   registry?: string;
   profile_id?: string;
   profile_label?: string;

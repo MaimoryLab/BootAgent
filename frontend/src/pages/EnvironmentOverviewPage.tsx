@@ -57,8 +57,8 @@ export function EnvironmentOverviewPage() {
   const profileForAgent = (agentId: string, agent: AgentStatus) => {
     if (agent.profileId) return profiles.get(agent.profileId);
     const active = status.activeProfile ? profiles.get(status.activeProfile) : undefined;
-    if (active?.agentIds?.includes(agentId)) return active;
-    return status.profiles.find((profile) => profile.agentIds?.includes(agentId));
+    const protocol = status.catalog.find((item) => item.id === agentId)?.protocol;
+    return active?.protocol === protocol ? active : undefined;
   };
   const desktopBinding = status.agents[profileAgentIdForDesktop(status.desktopAgent)];
   const desktopProfileID = status.desktopAgent.profileId || desktopBinding?.profileId;

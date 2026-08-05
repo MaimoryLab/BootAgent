@@ -240,14 +240,13 @@ func TestAgentServiceInstallsThroughGoUseCase(t *testing.T) {
 	})
 	service := NewAgentService(core)
 	response, err := service.Install(context.Background(), InstallRequest{
-		Agents:        []string{"codex"},
-		ProfileAgents: []string{"codex"},
-		Provider:      "ppio",
-		APIKey:        "binding-install-secret",
-		Model:         "model-a",
-		Configure:     true,
-		SkipTest:      true,
-		Timeout:       30,
+		Agents:    []string{"codex"},
+		Provider:  "ppio",
+		APIKey:    "binding-install-secret",
+		Model:     "model-a",
+		Configure: true,
+		SkipTest:  true,
+		Timeout:   30,
 	})
 	if err != nil {
 		t.Fatal(err)

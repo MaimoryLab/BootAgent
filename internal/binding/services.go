@@ -319,7 +319,6 @@ func (s *AgentService) Install(ctx context.Context, request InstallRequest) (Ins
 	}
 	result, err := s.core.InstallAgents(ctx, app.InstallAgentsOptions{
 		Agents:         append([]string(nil), request.Agents...),
-		ProfileAgents:  append([]string(nil), request.ProfileAgents...),
 		Provider:       request.Provider,
 		APIBaseURL:     request.APIBaseURL,
 		APIKey:         request.APIKey,
@@ -494,7 +493,6 @@ type ModelsResponse struct {
 
 type InstallRequest struct {
 	Agents         []string `json:"agents"`
-	ProfileAgents  []string `json:"profile_agents"`
 	Provider       string   `json:"provider"`
 	APIBaseURL     string   `json:"api_base_url"`
 	APIKey         string   `json:"api_key"`

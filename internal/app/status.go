@@ -220,15 +220,14 @@ type DetectedConfig struct {
 // ProfileSummary is intentionally a public projection. It has no credential
 // field; hasKey only reports whether a secret exists in the secure store.
 type ProfileSummary struct {
-	ID          string   `json:"id"`
-	Label       string   `json:"label"`
-	Provider    string   `json:"provider"`
-	BaseURL     *string  `json:"baseUrl"`
-	Model       *string  `json:"model"`
-	Protocol    string   `json:"protocol"`
-	AgentIDs    []string `json:"-"`
-	ActivatedAt *string  `json:"activatedAt"`
-	HasKey      bool     `json:"hasKey"`
+	ID          string  `json:"id"`
+	Label       string  `json:"label"`
+	Provider    string  `json:"provider"`
+	BaseURL     *string `json:"baseUrl"`
+	Model       *string `json:"model"`
+	Protocol    string  `json:"protocol"`
+	ActivatedAt *string `json:"activatedAt"`
+	HasKey      bool    `json:"hasKey"`
 }
 
 func (u *UseCases) GetStatus(ctx context.Context) (StatusResponse, error) {

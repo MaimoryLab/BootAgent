@@ -42,7 +42,6 @@ export interface DesktopAgentProfileRequest {
 
 export interface InstallRequest {
     "agents": string[] | null;
-    "profile_agents": string[] | null;
     "provider": string;
     "api_base_url": string;
     "api_key": string;

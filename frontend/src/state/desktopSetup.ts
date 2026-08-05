@@ -20,10 +20,7 @@ export function desktopProfiles(status: StatusResponse, app: DesktopAgentStatus)
   const protocol = status.catalog?.find((item) => item.id === owner)?.protocol;
   return status.profiles.filter((profile) => {
     if (protocol && profile.protocol) return profile.protocol === protocol;
-    const agentIds = profile.agentIds ?? [];
-    // A binding is the only ownership signal available for legacy profiles
-    // that predate agent_ids. It must not override an explicit owner list.
-    return agentIds.includes(owner) || (agentIds.length === 0 && profile.id === bound);
+    return profile.id === bound;
   });
 }
 

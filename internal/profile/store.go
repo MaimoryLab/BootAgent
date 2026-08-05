@@ -34,7 +34,6 @@ type Profile struct {
 	Model         *string
 	ConfigMode    string
 	Protocol      string
-	AgentIDs      []string
 	CreatedAt     string
 	ActivatedAt   *string
 	HasKey        bool
@@ -47,7 +46,6 @@ type Summary struct {
 	BaseURL     *string
 	Model       *string
 	Protocol    string
-	AgentIDs    []string
 	ActivatedAt *string
 	HasKey      bool
 }
@@ -60,17 +58,16 @@ type ActiveResult struct {
 }
 
 type storedProfile struct {
-	SchemaVersion int      `json:"schema_version"`
-	ID            string   `json:"id"`
-	Label         string   `json:"label"`
-	Provider      string   `json:"provider"`
-	BaseURL       *string  `json:"base_url"`
-	Model         *string  `json:"model"`
-	ConfigMode    string   `json:"config_mode"`
-	Protocol      string   `json:"protocol,omitempty"`
-	AgentIDs      []string `json:"-"`
-	CreatedAt     string   `json:"created_at"`
-	ActivatedAt   *string  `json:"activated_at"`
+	SchemaVersion int     `json:"schema_version"`
+	ID            string  `json:"id"`
+	Label         string  `json:"label"`
+	Provider      string  `json:"provider"`
+	BaseURL       *string `json:"base_url"`
+	Model         *string `json:"model"`
+	ConfigMode    string  `json:"config_mode"`
+	Protocol      string  `json:"protocol,omitempty"`
+	CreatedAt     string  `json:"created_at"`
+	ActivatedAt   *string `json:"activated_at"`
 }
 
 // activePointer is deliberately a struct rather than a map so the persisted
@@ -228,7 +225,6 @@ func (p Profile) Summary() Summary {
 		BaseURL:     p.BaseURL,
 		Model:       p.Model,
 		Protocol:    p.Protocol,
-		AgentIDs:    cloneStrings(p.AgentIDs),
 		ActivatedAt: p.ActivatedAt,
 		HasKey:      p.HasKey,
 	}
@@ -269,7 +265,6 @@ func decodeStored(data []byte) (Profile, error) {
 		Model:         stored.Model,
 		ConfigMode:    stored.ConfigMode,
 		Protocol:      stored.Protocol,
-		AgentIDs:      cloneStrings(stored.AgentIDs),
 		CreatedAt:     stored.CreatedAt,
 		ActivatedAt:   stored.ActivatedAt,
 	}, nil
@@ -280,13 +275,6 @@ func stringPointer(value string) *string {
 		return nil
 	}
 	return &value
-}
-
-func cloneStrings(values []string) []string {
-	if len(values) == 0 {
-		return []string{}
-	}
-	return append([]string{}, values...)
 }
 
 func optionalStringValue(value *string) any {

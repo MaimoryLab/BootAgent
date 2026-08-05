@@ -10,7 +10,7 @@ export default defineConfig(({ command }) => ({
   plugins: [react()],
   build: {
     outDir: "dist",
-    emptyOutDir: true,
+    emptyOutDir: false,
     sourcemap: false,
     // Inline every asset. The release policy forbids CDN or external
     // references in the frontend output, and a separately emitted icon file

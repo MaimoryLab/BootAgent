@@ -15,7 +15,6 @@ interface ProfileDraft {
   label: string;
   provider: ProviderId;
   model: string;
-  agentIds: string[];
   originalId: string;
 }
 
@@ -25,7 +24,6 @@ function draftFrom(profile: ProfileSummary): ProfileDraft {
     label: profile.label,
     provider: profile.provider,
     model: profile.model || "",
-    agentIds: [...(profile.agentIds || [])],
     originalId: profile.id,
   };
 }
@@ -40,7 +38,7 @@ export function AgentProfilePage() {
   const status = state.status;
   const app = status?.desktopAgent?.id === agentId ? status.desktopAgent : null;
   const owner = app ? profileAgentIdForDesktop(app) : agentId;
-  const catalog = status?.catalog.find((item) => item.id === agentId);
+  const catalog = status?.catalog.find((item) => item.id === owner);
   const targetName = app?.name || catalog?.name || agentId;
   const currentAgent = status?.agents[owner];
   const [selectedId, setSelectedId] = useState("");
@@ -54,7 +52,7 @@ export function AgentProfilePage() {
     const protocol = catalog?.protocol || "";
     if (app) return desktopProfiles(status, app);
     return status.profiles.filter((profile) => profile.protocol === protocol);
-  }, [app, catalog?.protocol, owner, status]);
+  }, [app, catalog?.protocol, status]);
 
   useEffect(() => {
     if (!selectedId) {
@@ -99,10 +97,6 @@ export function AgentProfilePage() {
       label: `${targetName} Profile`,
       provider,
       model: current?.model || currentAgent?.model || "",
-      // A Profile created from one Agent starts with that Agent only. Reusing
-      // the selected Profile's full ownership list would silently bind the new
-      // Profile to unrelated Agents.
-      agentIds: owner ? [owner] : [],
       originalId: "",
     });
   };

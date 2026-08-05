@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"sort"
 	"strings"
 	"time"
 
@@ -33,7 +32,6 @@ type ActiveRequest struct {
 	// Label names a profile this request creates. An existing profile keeps its
 	// stored label so a re-activation never renames it behind the user's back.
 	Label     string
-	Agents    []string
 	Configure bool
 	Provider  string
 	BaseURL   string
@@ -107,10 +105,6 @@ func (s Store) WriteActive(ctx context.Context, request ActiveRequest) (string, 
 	if err := requestContext(ctx); err != nil {
 		return "", err
 	}
-	agents, err := normalizeAgents(request.Agents)
-	if err != nil {
-		return "", err
-	}
 	currentResult := s.LoadActive()
 	current := Profile{}
 	if currentResult.Profile != nil {
@@ -148,9 +142,6 @@ func (s Store) WriteActive(ctx context.Context, request ActiveRequest) (string, 
 		}
 		model = stringPointer(modelValue)
 	}
-	if sameProfileTarget(current, providerID, mode, model) {
-		agents = mergeAgents(current.AgentIDs, agents)
-	}
 	now := s.clock().UTC().Format(time.RFC3339)
 	created := current.CreatedAt
 	if created == "" {
@@ -166,7 +157,6 @@ func (s Store) WriteActive(ctx context.Context, request ActiveRequest) (string, 
 		Model:         model,
 		ConfigMode:    mode,
 		Protocol:      strings.TrimSpace(request.Protocol),
-		AgentIDs:      agents,
 		CreatedAt:     created,
 		ActivatedAt:   activated,
 	}
@@ -263,7 +253,6 @@ func profileFromStored(stored storedProfile) Profile {
 		Model:         stored.Model,
 		ConfigMode:    stored.ConfigMode,
 		Protocol:      stored.Protocol,
-		AgentIDs:      cloneStrings(stored.AgentIDs),
 		CreatedAt:     stored.CreatedAt,
 		ActivatedAt:   stored.ActivatedAt,
 	}
@@ -277,46 +266,6 @@ func configMode(value string) (string, error) {
 		return "", oneerrors.New(oneerrors.InvalidRequest, "config_mode must be provider or existing-account")
 	}
 	return value, nil
-}
-
-func normalizeAgents(values []string) ([]string, error) {
-	if len(values) == 0 {
-		return nil, oneerrors.New(oneerrors.InvalidRequest, "agents must be a non-empty array of Agent IDs")
-	}
-	seen := make(map[string]struct{}, len(values))
-	for _, value := range values {
-		value = strings.TrimSpace(value)
-		if value == "" {
-			return nil, oneerrors.New(oneerrors.InvalidRequest, "agents must contain non-empty Agent IDs")
-		}
-		seen[value] = struct{}{}
-	}
-	result := make([]string, 0, len(seen))
-	for value := range seen {
-		result = append(result, value)
-	}
-	sort.Strings(result)
-	return result, nil
-}
-
-func mergeAgents(first, second []string) []string {
-	values := append(append([]string{}, first...), second...)
-	result, _ := normalizeAgents(values)
-	return result
-}
-
-func sameProfileTarget(current Profile, providerID, mode string, model *string) bool {
-	if current.ID == "" || current.Provider != providerID || current.ConfigMode != mode {
-		return false
-	}
-	return optionalEqual(current.Model, model)
-}
-
-func optionalEqual(first, second *string) bool {
-	if first == nil || second == nil {
-		return first == nil && second == nil
-	}
-	return *first == *second
 }
 
 func optionalPointer(input, resolved string) *string {
@@ -353,28 +302,6 @@ func shellQuote(value string) string {
 
 func powershellQuote(value string) string {
 	return strings.ReplaceAll(value, "'", "''")
-}
-
-func parseSecret(content, osID string) string {
-	prefix := "export ONEAGENT_API_KEY="
-	if osID == "windows" {
-		prefix = "$env:ONEAGENT_API_KEY = "
-	}
-	for line := range strings.SplitSeq(content, "\n") {
-		line = strings.TrimSpace(line)
-		if !strings.HasPrefix(line, prefix) {
-			continue
-		}
-		value := strings.TrimSpace(strings.TrimPrefix(line, prefix))
-		if osID == "windows" && len(value) >= 2 && value[0] == '\'' && value[len(value)-1] == '\'' {
-			return strings.ReplaceAll(value[1:len(value)-1], "''", "'")
-		}
-		if strings.HasPrefix(value, "'") && strings.HasSuffix(value, "'") {
-			return strings.ReplaceAll(value[1:len(value)-1], "'\\''", "'")
-		}
-		return value
-	}
-	return ""
 }
 
 func requestContext(ctx context.Context) error {

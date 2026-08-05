@@ -100,27 +100,27 @@ func TestSaveProfileValidatesInputAndCustomBase(t *testing.T) {
 	}
 }
 
-func TestWriteActiveMergesAgentsAndSupportsExistingAccount(t *testing.T) {
+func TestWriteActiveReplacesProfileAndSupportsExistingAccount(t *testing.T) {
 	store := testStore(t, t.TempDir(), "linux")
 	if _, err := store.WriteActive(context.Background(), ActiveRequest{
-		Agents: []string{"codex"}, Configure: true, Provider: "ppio", Model: "model-a", Protocol: "responses", APIKey: "sk-a",
+		Configure: true, Provider: "ppio", Model: "model-a", Protocol: "responses", APIKey: "sk-a",
 	}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := store.WriteActive(context.Background(), ActiveRequest{
-		Agents: []string{"opencode"}, Configure: true, Provider: "ppio", Model: "model-a", Protocol: "openai",
+		Configure: true, Provider: "ppio", Model: "model-a", Protocol: "openai",
 	}); err != nil {
 		t.Fatal(err)
 	}
 	active := store.LoadActive()
 	if active.Error != "" || active.Profile == nil || active.Profile.Protocol != "openai" {
-		t.Fatalf("merged active profile = %#v", active)
+		t.Fatalf("updated active profile = %#v", active)
 	}
 	if active.Profile.BaseURL == nil || *active.Profile.BaseURL != "https://api.ppio.com/openai" {
 		t.Fatalf("active base URL = %#v", active.Profile.BaseURL)
 	}
 	if _, err := store.WriteActive(context.Background(), ActiveRequest{
-		Agents: []string{"aider"}, Configure: true, Provider: "novita", Model: "model-b", Protocol: "openai",
+		Configure: true, Provider: "novita", Model: "model-b", Protocol: "openai",
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -128,7 +128,7 @@ func TestWriteActiveMergesAgentsAndSupportsExistingAccount(t *testing.T) {
 	if active.Profile.Provider != "novita" || active.Profile.Protocol != "openai" {
 		t.Fatalf("replaced active profile = %#v", active.Profile)
 	}
-	if _, err := store.WriteActive(context.Background(), ActiveRequest{Agents: []string{"codex"}, Configure: false}); err != nil {
+	if _, err := store.WriteActive(context.Background(), ActiveRequest{Configure: false}); err != nil {
 		t.Fatal(err)
 	}
 	active = store.LoadActive()
@@ -190,7 +190,7 @@ func assertProfileMode(t *testing.T, path string, want os.FileMode) {
 func TestWriteActiveLabelsNewProfilesAndKeepsExistingNames(t *testing.T) {
 	store := testStore(t, t.TempDir(), "linux")
 	base := ActiveRequest{
-		ProfileID: "codex-ppio", Agents: []string{"codex"}, Configure: true,
+		ProfileID: "codex-ppio", Configure: true,
 		Provider: "ppio", Model: "model-a", APIKey: "sk-a",
 	}
 	labelled := base
@@ -214,7 +214,7 @@ func TestWriteActiveLabelsNewProfilesAndKeepsExistingNames(t *testing.T) {
 	}
 	// Without a label the id remains the fallback, as before.
 	if _, err := store.WriteActive(context.Background(), ActiveRequest{
-		ProfileID: "plain", Agents: []string{"codex"}, Configure: true, Provider: "ppio", Model: "model-a",
+		ProfileID: "plain", Configure: true, Provider: "ppio", Model: "model-a",
 	}); err != nil {
 		t.Fatal(err)
 	}

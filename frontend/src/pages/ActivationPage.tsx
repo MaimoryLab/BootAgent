@@ -46,9 +46,8 @@ export function ActivationPage() {
   }, [resetProgress, runtimeDownloads]);
 
   const requestFor = useCallback(
-    (agents: string[], profileAgents?: string[]): InstallRequest => ({
+    (agents: string[]): InstallRequest => ({
       agents,
-      profile_agents: profileAgents,
       provider: state.provider,
       api_base_url: "",
       // Provider credentials are resolved server-side from the saved Provider.
@@ -105,6 +104,7 @@ export function ActivationPage() {
         : await api.install(requestFor(state.selectedAgentIds));
       dispatch({
         type: "ACTIVATION_RESULT",
+        ok: response.ok,
         results: response.results,
         log: response.log,
         probe: response.probe,
@@ -148,9 +148,10 @@ export function ActivationPage() {
     try {
       const response = isDesktop
         ? await installDesktop().then((result) => ({ ...result, ok: true, probe: null }))
-        : await api.install(requestFor([agentId], state.selectedAgentIds));
+        : await api.install(requestFor([agentId]));
       dispatch({
         type: "ACTIVATION_RESULT",
+        ok: response.ok,
         results: response.results,
         log: response.log,
         probe: response.probe,

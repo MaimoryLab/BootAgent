@@ -3,7 +3,6 @@ import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { api, describeError } from "../backend/api";
-import { AgentRow } from "../components/AgentRow";
 import { PageScaffold } from "../components/PageScaffold";
 import { ProviderSegment } from "../components/ProviderSegment";
 import { useI18n } from "../i18n";
@@ -18,18 +17,16 @@ interface ProfileDraft {
   provider: ProviderId;
   model: string;
   protocol: string;
-  agentIds: string[];
   originalId: string;
 }
 
-function editDraft(profile: ProfileSummary): ProfileDraft {
+function editDraft(profile: ProfileSummary, protocol: string): ProfileDraft {
   return {
     id: profile.id,
     label: profile.label,
     provider: profile.provider,
     model: profile.model || "",
-    protocol: profile.protocol || "",
-    agentIds: [...(profile.agentIds ?? [])],
+    protocol,
     originalId: profile.id,
   };
 }
@@ -54,13 +51,12 @@ export function ProfilesPage() {
 
   const profiles = status.profiles;
   const configurableAgents = status.catalog.filter((agent) => agent.configMode === "auto");
-  const nameOf = (agentId: string) =>
-    status.catalog.find((item) => item.id === agentId)?.name || agentId;
-  const protocolOf = (profile: ProfileSummary) => profile.protocol || status.catalog.find((agent) => (profile.agentIds ?? []).includes(agent.id))?.protocol || "";
+  const protocolOf = (profile: ProfileSummary) =>
+    profile.protocol || status.catalog.find((agent) => status.agents[agent.id]?.profileId === profile.id)?.protocol || "";
   const providerHasKey = Boolean(editor && status.providers[editor.provider]?.has_key);
   // label is absent on purpose: the backend fills it in from the existing value
   // or the ID, so demanding it here was stricter than the write path.
-  const canSave = Boolean(editor?.id.trim() && editor.model.trim() && (editor?.protocol || editor?.agentIds.length));
+  const canSave = Boolean(editor?.id.trim() && editor.model.trim());
 
   // Creating a Profile goes through onboarding: it collects the Agent, Provider,
   // model and name in order, tests the saved Provider connection, and the
@@ -84,7 +80,7 @@ export function ProfilesPage() {
         apiKey: "",
         model: editor.model.trim(),
         configMode: "provider",
-        protocol: editor.protocol || status.catalog.find((agent) => editor.agentIds.includes(agent.id))?.protocol || "",
+        protocol: editor.protocol,
       });
       await refreshStatus();
       setEditor(null);
@@ -103,7 +99,6 @@ export function ProfilesPage() {
     try {
       const result = await api.install({
         agents,
-        profile_agents: agents,
         provider: profile.provider,
         // The endpoint belongs to the Provider. Do not replay a stale copy
         // retained by an older Profile record.
@@ -196,25 +191,6 @@ export function ProfilesPage() {
                 </>
               )}
             </p>
-            <fieldset className="profile-agent-picker profile-editor-wide">
-              <legend>{t("适用 Agent")}</legend>
-              <div className="agent-list">
-                {configurableAgents.map((agent) => (
-                  <AgentRow
-                    key={agent.id}
-                    agent={agent}
-                    status={status.agents[agent.id]}
-                    selected={editor.agentIds.includes(agent.id)}
-                    onToggle={() => setEditor({
-                      ...editor,
-                      agentIds: editor.agentIds.includes(agent.id)
-                        ? editor.agentIds.filter((id) => id !== agent.id)
-                        : [...editor.agentIds, agent.id],
-                    })}
-                  />
-                ))}
-              </div>
-            </fieldset>
           </div>
 
           <footer>
@@ -233,13 +209,14 @@ export function ProfilesPage() {
         <div className="empty-overview">
           <Layers size={26} />
           <strong>{t("还没有 Profile")}</strong>
-          <span>{t("走一遍安装引导，它会保存 Provider、模型和适用 Agent。")}</span>
+          <span>{t("走一遍安装引导，它会保存 Provider、模型和 API mode。")}</span>
         </div>
       ) : (
         <div className="profile-list">
           {profiles.map((profile) => {
+            const agents = configurableAgents.filter((agent) => agent.protocol === protocolOf(profile));
             const canApply = Boolean(
-              profile.model && (profile.agentIds ?? []).length
+              profile.model && agents.length
                 && (status.providers[profile.provider]?.has_key || profile.hasKey),
             );
             return (
@@ -253,7 +230,7 @@ export function ProfilesPage() {
                       <KeyRound size={12} aria-hidden="true" />
                       {status.providers[profile.provider]?.has_key ? t("Provider 已有 Key") : t("Provider 缺少 Key")}
                     </span>
-                    <button className="icon-button" type="button" onClick={() => { setEditor(editDraft(profile)); setFailure(""); }} aria-label={t("编辑 {name}", { name: profile.label })} title={t("编辑")}>
+                    <button className="icon-button" type="button" onClick={() => { setEditor(editDraft(profile, protocolOf(profile))); setFailure(""); }} aria-label={t("编辑 {name}", { name: profile.label })} title={t("编辑")}>
                       <Pencil size={14} />
                     </button>
                   </span>
@@ -275,7 +252,7 @@ export function ProfilesPage() {
                     type="button"
                     onClick={() => void apply(profile)}
                     disabled={!canApply || Boolean(applying)}
-                    title={canApply ? t("安装缺失的 Agent 并应用此 Profile") : t("请先补全模型和 Agent，并为 Provider 保存 Key")}
+                    title={canApply ? t("安装缺失的 Agent 并应用此 Profile") : t("请先补全模型和 API mode，并为 Provider 保存 Key")}
                   >
                     <Play size={14} />
                     {applying === profile.id ? t("应用中") : t("应用到 Agent")}

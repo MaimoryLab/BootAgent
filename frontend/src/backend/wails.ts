@@ -120,7 +120,6 @@ export const wailsApi = {
   install: (input: InstallRequest): Promise<InstallResponse> =>
     call(() => AgentService.Install({
       agents: input.agents,
-      profile_agents: input.profile_agents ?? null,
       provider: input.provider,
       api_base_url: input.api_base_url ?? "",
       api_key: input.api_key,

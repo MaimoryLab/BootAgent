@@ -44,8 +44,8 @@ not enough to display "switched" and stop there.
     <id>.env
 ```
 
-- A Profile record holds `id`, `label`, `provider`, `api_base_url`, `model`,
-  `agent_ids`, `created_at`, `last_activated_at`. **The Key does not go into the
+- A Profile record holds `id`, `label`, `provider`, `base_url`, `model`,
+  `config_mode`, `protocol`, `created_at`, `activated_at`. **The Key does not go into the
   profile file** (a product boundary and a hard constraint in CLAUDE.md).
 - `id` is a restricted slug (`[a-z0-9][a-z0-9_-]*`); invalid input returns
   `INVALID_REQUEST`.
@@ -63,10 +63,9 @@ file" case), so that later refactoring cannot quietly break existing users.
 
 ### Writing and switching
 
-- Wizard setup (the `write_profile` that closes out `install_many`) becomes "update or
-  create the currently active profile": the same `provider + model` reuses the
-  original id and keeps the `agent_ids` merge semantics, otherwise a new profile is
-  created.
+- Wizard setup updates or creates the requested Profile and records its API
+  protocol. Agent ownership lives only in the per-Agent binding files; Profiles do
+  not duplicate it.
 - Switching means rewriting the same set of config files with another set of
   parameters, **fully reusing the existing write path** (`_write_agent_config`
   dispatch plus `atomic_write` plus backup); no new write logic is introduced.
@@ -124,7 +123,8 @@ single Agent are unchanged.
 
 The `profiles/` storage stays, with its meaning changed from "the one active state"
 to **reusable templates**: three Agents sharing the same Provider and Key is a common
-case, and templates avoid retyping.
+case, and templates avoid retyping. A Profile records API protocol compatibility;
+per-Agent binding files remain the source of truth for actual assignment.
 
 ## Alternatives Considered
 

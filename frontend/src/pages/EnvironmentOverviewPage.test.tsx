@@ -56,7 +56,7 @@ function status(): StatusResponse {
     mirrors: [],
     paths: {},
     backups: {},
-    profiles: [{ id: "team", label: "团队默认", provider: "ppio", baseUrl: null, model: "model-a", agentIds: ["codex"], activatedAt: null, hasKey: true }],
+    profiles: [{ id: "team", label: "团队默认", provider: "ppio", baseUrl: null, model: "model-a", protocol: "responses", activatedAt: null, hasKey: true }],
     activeProfile: "team",
     firstRun: false,
     environment: null,
@@ -76,7 +76,7 @@ describe("EnvironmentOverviewPage", () => {
     expect(screen.getByText("团队默认")).toBeTruthy();
   });
 
-  it("uses the active Profile ownership when an older install has no binding file", () => {
+  it("uses a compatible active Profile when an older install has no binding file", () => {
     const legacy = status();
     legacy.agents.codex.profileId = null;
     mockState = { status: legacy, statusState: "success", statusError: "" };

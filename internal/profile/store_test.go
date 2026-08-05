@@ -3,7 +3,6 @@ package profile
 import (
 	"os"
 	"path/filepath"
-	"reflect"
 	"testing"
 )
 
@@ -105,8 +104,5 @@ func TestListSkipsCorruptAndSecretContentsNeverEnterSummary(t *testing.T) {
 	profiles := store.List()
 	if len(profiles) != 1 || profiles[0].ID != "real" {
 		t.Fatalf("filtered profiles = %#v", profiles)
-	}
-	if got := profiles[0].Summary().AgentIDs; !reflect.DeepEqual(got, []string{}) {
-		t.Fatalf("summary AgentIDs = %#v, want an empty array", got)
 	}
 }

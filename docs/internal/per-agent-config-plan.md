@@ -25,7 +25,7 @@
 
 `small_fast_model` 是可选字段。为空时回退主模型（`internal/config/write.go`）；有值时同时写入 settings 和 native env。Go binding 与 CLI 的 `--small-fast-model` 使用同一字段。
 
-当前**桌面界面没有输入它的地方**：`AgentProfilePage` 与 `AgentQuickSwitch` 都传空值，因此 GUI 路径始终走回退。要设置非默认的 fast model 只能用 CLI。
+当前**桌面界面没有输入它的地方**：`AgentProfilePage` 与 `ProfilesPage` 都传空值，因此 GUI 路径始终走回退。要设置非默认的 fast model 只能用 CLI。
 
 ## 验收
 

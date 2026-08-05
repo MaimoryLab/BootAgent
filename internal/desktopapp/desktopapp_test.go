@@ -159,7 +159,7 @@ func TestInspectMacOSDoesNotTraverseApplicationRoots(t *testing.T) {
 		t.Fatal(err)
 	}
 	runner := &probeRunner{macValues: map[string]string{"CFBundleIdentifier": CodexBundleID}}
-	status := Inspect(nil, Options{Platform: platform.For("macos", "x64"), SearchRoots: []string{root}, Runner: runner})
+	status := Inspect(context.Background(), Options{Platform: platform.For("macos", "x64"), SearchRoots: []string{root}, Runner: runner})
 	if status.Installed {
 		t.Fatalf("nested app was detected: %#v", status)
 	}

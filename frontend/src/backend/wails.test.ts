@@ -69,7 +69,7 @@ describe("Wails backend adapter", () => {
     const probe = { ok: true, reachable: true, status: 204, message: "ok", error_code: null, retryable: false } satisfies ProbeResponse;
     const models = { ...probe, models: ["model-a"] } satisfies ModelsResponse;
     const install = { ok: true, code: 0, results: [], log: "", next: "", probe: null } satisfies InstallResponse;
-    const profile = { id: "team", label: "Team", provider: "ppio", baseUrl: null, model: "m", agentIds: ["codex"], activatedAt: null, hasKey: true } satisfies ProfileSummary;
+    const profile = { id: "team", label: "Team", provider: "ppio", baseUrl: null, model: "m", protocol: "responses", activatedAt: null, hasKey: true } satisfies ProfileSummary;
     const provider = { id: "acme", name: "Acme", home: "", base_url: "https://api.acme.test", anthropic_base_url: "", api_key: "secret", built_in: false } satisfies ProviderEntry;
     const desktopStatus = { id: "desktop-agent", name: "ChatGPT Desktop", installed: false, supported: true, version: null, source: "macos-dmg", profileAgentId: "codex", profileId: null } satisfies DesktopAgentStatus;
     const desktopAction = { status: "installer-started", message: "started", refreshNeeded: true, app: desktopStatus } satisfies DesktopAgentActionResult;
@@ -114,7 +114,7 @@ describe("Wails backend adapter", () => {
     expect(bridge.probe).toHaveBeenCalledWith({ provider: "custom", api_base_url: "https://proxy.test/v1", api_key: "secret", model: "m", agents: null });
     expect(bridge.getProvider).toHaveBeenCalledWith({ id: "acme" });
     expect(bridge.deleteProvider).toHaveBeenCalledWith({ id: "acme" });
-    expect(bridge.install).toHaveBeenCalledWith(expect.objectContaining({ agents: ["codex"], profile_agents: null, timeout: 180, agent_version: "" }));
+    expect(bridge.install).toHaveBeenCalledWith(expect.objectContaining({ agents: ["codex"], timeout: 180, agent_version: "" }));
     expect(bridge.register).toHaveBeenCalledWith({ provider: "ppio", agents: null });
     expect(bridge.activate).toHaveBeenCalledWith(expect.objectContaining({ agent_id: "codex", profile_id: "", small_fast_model: "" }));
     expect(bridge.launch).toHaveBeenCalledWith({ agent_id: "codex" });

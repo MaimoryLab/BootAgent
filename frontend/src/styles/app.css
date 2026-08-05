@@ -379,8 +379,7 @@
 }
 
 .desktop-agent-choice { width: 100%; max-width: none; }
-.desktop-agent-ready,
-.desktop-install-callout {
+.desktop-agent-ready {
   margin: 0;
   display: flex;
   align-items: center;
@@ -409,8 +408,6 @@
 .profile-choice > .profile-key-hint { grid-column: 1 / -1; }
 .profile-choice.is-selected { background: var(--blue-soft); box-shadow: inset 3px 0 var(--blue); }
 .profile-choice.is-disabled { cursor: not-allowed; opacity: 0.58; }
-.desktop-install-summary { max-width: 760px; }
-
 .agent-icon,
 .choice-icon,
 .progress-icon {
@@ -1227,68 +1224,6 @@
 
 .detail-facts dd.is-behind { color: var(--orange); }
 
-/* Quick switch: a row of Profile chips above the manual form. Sized down from
-   the buttons in the form so it reads as a shortcut, not the primary control. */
-.quick-switch {
-  margin: 0 0 18px;
-  display: grid;
-  gap: 7px;
-}
-
-.quick-switch-label {
-  color: var(--text-secondary);
-  font-size: 12px;
-}
-
-.quick-switch-options {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 7px;
-}
-
-.quick-switch-option {
-  min-height: 30px;
-  padding: 0 11px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: var(--window-bg);
-  color: var(--text-primary);
-  font: inherit;
-  font-size: 12px;
-  cursor: pointer;
-  transition: background-color 140ms ease, border-color 140ms ease;
-}
-
-.quick-switch-option:hover:not(:disabled) {
-  background: var(--surface-subtle);
-}
-
-.quick-switch-option.is-active {
-  border-color: var(--blue);
-  background: var(--blue-soft);
-  color: var(--blue);
-  font-weight: 600;
-}
-
-/* The active chip is disabled because it is already applied, so it must not read
-   as unavailable the way a keyless Profile does. */
-.quick-switch-option:disabled:not(.is-active) {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
-.quick-switch-option.is-active:disabled {
-  cursor: default;
-}
-
-.quick-switch-error {
-  color: var(--red);
-  font-size: 12px;
-}
-
 .detail-form {
   display: grid;
   gap: 12px;
@@ -1619,18 +1554,6 @@
   margin: 5px 0 0;
   color: var(--text-tertiary);
   font-size: 11px;
-}
-
-.profile-agent-picker {
-  margin: 0;
-  padding: 0;
-  border: 0;
-}
-
-.profile-agent-picker legend {
-  margin-bottom: 7px;
-  font-size: 13px;
-  font-weight: 600;
 }
 
 /* Every interactive target clears the same minimum height, so a row, a button

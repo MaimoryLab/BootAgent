@@ -102,6 +102,7 @@ export type WizardAction =
   | { type: "ACTIVATION_OUTPUT"; output: InstallOutput }
   | {
       type: "ACTIVATION_RESULT";
+      ok: boolean;
       results: AgentInstallResult[];
       log: string;
       probe: ProbeResponse | null;
@@ -293,7 +294,7 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
       const activationResults = mergeResults(state.activationResults, action.results, action.replaceAgents);
       return {
         ...state,
-        activationState: activationResults.some((item) => item.status === "failed") ? "error" : "success",
+        activationState: !action.ok || activationResults.some((item) => item.status === "failed") ? "error" : "success",
         activationResults,
         activationLog: [state.activationLog, action.log].filter(Boolean).join("\n\n"),
         activationProbe: action.probe ?? state.activationProbe,

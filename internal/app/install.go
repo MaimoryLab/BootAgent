@@ -22,7 +22,6 @@ import (
 // points exercise the same validation and write ordering.
 type InstallAgentsOptions struct {
 	Agents         []string
-	ProfileAgents  []string
 	Provider       string
 	APIBaseURL     string
 	APIKey         string
@@ -169,21 +168,7 @@ func (u *UseCases) validateInstall(ctx context.Context, manifest catalog.Manifes
 			options.ProfileID = "default"
 		}
 	}
-	profileAgents := append([]string(nil), options.ProfileAgents...)
-	if len(profileAgents) == 0 {
-		profileAgents = append([]string(nil), options.Agents...)
-	}
-	options.ProfileAgents = profileAgents
-	listed := make(map[string]bool, len(profileAgents))
-	for _, id := range profileAgents {
-		listed[id] = true
-	}
 	for _, id := range options.Agents {
-		if !listed[id] {
-			return options, oneerrors.New(oneerrors.InvalidRequest, "profile_agents must include every requested Agent")
-		}
-	}
-	for _, id := range append(append([]string(nil), options.Agents...), profileAgents...) {
 		if _, present := manifest.Agents[id]; !present {
 			return options, oneerrors.New(oneerrors.InvalidRequest, "Unknown Agent: "+id)
 		}
@@ -522,7 +507,7 @@ func (r *installRun) finish(ctx context.Context, baseURL string) InstallAgentsRe
 			profileAPIKey = ""
 		}
 		profileProtocol := ""
-		for _, agentID := range r.options.ProfileAgents {
+		for _, agentID := range r.options.Agents {
 			if agent, ok := r.manifest.Agents[agentID]; ok && agent.ConfigMode == "auto" {
 				profileProtocol = provider.ProtocolForAdapter(agent.ConfigAdapter)
 				break
@@ -531,7 +516,6 @@ func (r *installRun) finish(ctx context.Context, baseURL string) InstallAgentsRe
 		if _, err := r.core.profiles.WriteActive(ctx, profileStore.ActiveRequest{
 			ProfileID: r.options.ProfileID,
 			Label:     r.options.ProfileLabel,
-			Agents:    r.options.ProfileAgents,
 			Configure: r.options.Configure,
 			Provider:  r.options.Provider,
 			BaseURL:   baseURL,
@@ -539,9 +523,14 @@ func (r *installRun) finish(ctx context.Context, baseURL string) InstallAgentsRe
 			APIKey:    profileAPIKey,
 			Protocol:  profileProtocol,
 		}); err != nil {
+			converted := oneerrors.As(err)
+			failed = true
+			if r.firstCode == 0 {
+				r.firstCode = converted.ExitCode
+			}
 			// Config files are the source of truth for running Agents; preserve
 			// them and surface profile bookkeeping failure in the redacted log.
-			r.logs = append(r.logs, "## profile\n"+oneerrors.As(err).Message)
+			r.logs = append(r.logs, "## profile\n"+converted.Message)
 		}
 	}
 	return InstallAgentsResult{

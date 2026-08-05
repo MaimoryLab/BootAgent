@@ -73,7 +73,7 @@ function profile(over: Partial<ProfileSummary> = {}): ProfileSummary {
     provider: "ppio",
     model: "deepseek/deepseek-v3",
     baseUrl: null,
-    agentIds: ["codex"],
+    protocol: "responses",
     hasKey: true,
     activatedAt: null,
     ...over,
@@ -116,8 +116,8 @@ describe("ProfilesPage", () => {
     expect(document.body.innerHTML).not.toMatch(/sk-[A-Za-z0-9]/);
   });
 
-  it("renders profiles returned without the removed agentIds field", () => {
-    renderPage([profile({ agentIds: undefined, protocol: "responses" })]);
+  it("renders the Profile API mode", () => {
+    renderPage([profile()]);
     expect(screen.getByText("团队 PPIO")).toBeTruthy();
     expect(screen.getByText("API mode: responses")).toBeTruthy();
   });

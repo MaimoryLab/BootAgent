@@ -230,6 +230,7 @@ describe("wizardReducer", () => {
     expect(state.activationResults).toHaveLength(2);
     state = wizardReducer(state, {
       type: "ACTIVATION_RESULT",
+      ok: false,
       results: [
         { agent: "codex", status: "failed", message: "npm missing", retryable: true },
         { agent: "opencode", status: "configured", retryable: false },
@@ -242,6 +243,7 @@ describe("wizardReducer", () => {
     expect(state.activationState).toBe("error");
     state = wizardReducer(state, {
       type: "ACTIVATION_RESULT",
+      ok: true,
       results: [{ agent: "codex", status: "configured", retryable: false }],
       log: "retry",
       probe: successProbe,
@@ -252,6 +254,17 @@ describe("wizardReducer", () => {
     expect(state.activationLog).toContain("first\n\nretry");
     expect(state.activationNext).toBe("opencode");
     expect(state.activationProbe?.ok).toBe(true);
+  });
+
+  it("keeps an aggregate install failure out of the success state", () => {
+    const state = wizardReducer(initialWizardState, {
+      type: "ACTIVATION_RESULT",
+      ok: false,
+      results: [{ agent: "codex", status: "configured", retryable: false }],
+      log: "profile write failed",
+      probe: null,
+    });
+    expect(state.activationState).toBe("error");
   });
 
   it("handles activation transport failure and setup reset", () => {

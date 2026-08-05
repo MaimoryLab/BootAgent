@@ -226,7 +226,6 @@ func (u *UseCases) publicDesktopAgentStatus(value desktopapp.Status) DesktopAgen
 	status.ProfileAgentID = desktopapp.ProfileAgentID(value.ID)
 	if binding, err := u.profiles.ReadAgentBinding(status.ProfileAgentID); err == nil && binding != nil && binding.ProfileRef != "" {
 		status.ProfileID = nonEmptyPointer(binding.ProfileRef)
-	} else {
 	}
 	if desktopapp.SharesProfile(value.ID) {
 		if manifest, err := catalog.LoadEmbedded(); err == nil {
