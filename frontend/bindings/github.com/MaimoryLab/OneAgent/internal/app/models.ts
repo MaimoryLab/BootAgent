@@ -129,6 +129,7 @@ export interface ProfileSummary {
     "protocol": string;
     "activatedAt": string | null;
     "hasKey": boolean;
+    "createdAt"?: string;
 }
 
 /**

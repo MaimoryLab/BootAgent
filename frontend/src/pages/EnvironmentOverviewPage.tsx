@@ -121,10 +121,10 @@ export function EnvironmentOverviewPage() {
             <div><h2>{t("命令行 Agent")}</h2><p>{t("共 {count} 个", { count: 0 })}</p></div>
           </div>
           <div className="uninstalled-agent-action">
-            <span className="visually-hidden">{t("尚未安装任何 Agent")}</span>
+            <span className="visually-hidden">{t("尚未安装任何命令行 Agent")}</span>
             <Terminal size={28} aria-hidden="true" />
             <span>{t("按引导安装命令行 Agent")}</span>
-            <button className="button button-primary" type="button" aria-label={t("安装 Agent")} onClick={startSetup}>
+            <button className="button button-primary" type="button" aria-label={t("安装命令行 Agent")} onClick={startSetup}>
               <Plus size={16} />
               {t("安装命令行 Agent")}
             </button>

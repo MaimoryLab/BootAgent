@@ -48,6 +48,7 @@ type Summary struct {
 	Protocol    string
 	ActivatedAt *string
 	HasKey      bool
+	CreatedAt   string
 }
 
 type ActiveResult struct {
@@ -227,6 +228,7 @@ func (p Profile) Summary() Summary {
 		Protocol:    p.Protocol,
 		ActivatedAt: p.ActivatedAt,
 		HasKey:      p.HasKey,
+		CreatedAt:   p.CreatedAt,
 	}
 }
 

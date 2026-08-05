@@ -68,6 +68,7 @@ type Provider struct {
 	AnthropicBaseURL string `json:"anthropic_base_url,omitempty"`
 	Custom           bool   `json:"custom,omitempty"`
 	HasKey           bool   `json:"has_key,omitempty"`
+	CreatedAt        string `json:"created_at,omitempty"`
 	fallbackModel    string
 }
 

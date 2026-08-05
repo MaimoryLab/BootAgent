@@ -6,6 +6,7 @@ import { PageScaffold } from "../components/PageScaffold";
 import { useI18n } from "../i18n";
 import { useWizard } from "../state/WizardContext";
 import { profileAgentIdForDesktop } from "../state/desktopSetup";
+import { byProfileCreatedAt } from "../state/ranking";
 
 export function ProfileSelectionPage() {
   const navigate = useNavigate();
@@ -17,14 +18,15 @@ export function ProfileSelectionPage() {
     : state.selectedAgentIds[0] || "";
   const protocol = state.status?.catalog.find((agent) => agent.id === agentId)?.protocol;
   const profiles = useMemo(
-    () => state.status?.profiles.filter((profile) => profile.protocol === protocol && profile.model?.trim()) ?? [],
+    () => byProfileCreatedAt(state.status?.profiles.filter((profile) => profile.protocol === protocol && profile.model?.trim()) ?? []),
     [protocol, state.status?.profiles],
   );
   const selected = profiles.find((profile) => profile.id === selectedId);
 
   useEffect(() => {
+    if (!selectedId && profiles.length) setSelectedId(profiles[0].id);
     if (state.status && !profiles.length) navigate("/setup/provider", { replace: true });
-  }, [navigate, profiles.length, state.status]);
+  }, [navigate, profiles, selectedId, state.status]);
 
   if (!state.status || !profiles.length) {
     return null;

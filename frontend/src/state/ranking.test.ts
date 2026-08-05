@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { AgentCatalogItem } from "../types/api";
-import { PRIMARY_RANK_LIMIT, byRank, splitByRank } from "./ranking";
+import { PRIMARY_RANK_LIMIT, byProfileCreatedAt, byProviderCreatedAt, byRank, splitByRank } from "./ranking";
 
 function item(id: string, rank: number): AgentCatalogItem {
   return {
@@ -44,5 +44,23 @@ describe("ranking", () => {
     ]);
     expect(primary.map((entry) => entry.id)).toEqual(["at-limit"]);
     expect(secondary.map((entry) => entry.id)).toEqual(["past-limit"]);
+  });
+
+  it("puts newest custom providers first and built-ins last", () => {
+    const sorted = byProviderCreatedAt({
+      ppio: { name: "PPIO", home: "", base_url: "" },
+      older: { name: "Older", home: "", base_url: "", custom: true, created_at: "2026-01-01T00:00:00Z" },
+      novita: { name: "Novita", home: "", base_url: "" },
+      newer: { name: "Newer", home: "", base_url: "", custom: true, created_at: "2026-02-01T00:00:00Z" },
+    });
+    expect(sorted.map(([id]) => id)).toEqual(["newer", "older", "novita", "ppio"]);
+  });
+
+  it("puts newest profiles first", () => {
+    const sorted = byProfileCreatedAt([
+      { id: "old", label: "Old", provider: "ppio", baseUrl: null, model: "m", protocol: "openai", activatedAt: null, hasKey: true, createdAt: "2026-01-01T00:00:00Z" },
+      { id: "new", label: "New", provider: "ppio", baseUrl: null, model: "m", protocol: "openai", activatedAt: null, hasKey: true, createdAt: "2026-02-01T00:00:00Z" },
+    ]);
+    expect(sorted.map((profile) => profile.id)).toEqual(["new", "old"]);
   });
 });

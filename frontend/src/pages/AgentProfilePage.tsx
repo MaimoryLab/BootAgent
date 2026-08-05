@@ -8,6 +8,7 @@ import { ProviderSegment } from "../components/ProviderSegment";
 import { useI18n } from "../i18n";
 import { desktopProfileUsable, desktopProfiles, profileAgentIdForDesktop } from "../state/desktopSetup";
 import { useWizard } from "../state/WizardContext";
+import { byProfileCreatedAt } from "../state/ranking";
 import type { ProfileSummary, ProviderId } from "../types/api";
 
 interface ProfileDraft {
@@ -50,14 +51,15 @@ export function AgentProfilePage() {
   const profiles = useMemo(() => {
     if (!status) return [];
     const protocol = catalog?.protocol || "";
-    if (app) return desktopProfiles(status, app);
-    return status.profiles.filter((profile) => profile.protocol === protocol);
+    const result = app ? desktopProfiles(status, app) : status.profiles.filter((profile) => profile.protocol === protocol);
+    return byProfileCreatedAt(result);
   }, [app, catalog?.protocol, status]);
 
   useEffect(() => {
     if (!selectedId) {
       const current = app?.profileId || currentAgent?.profileId || "";
       if (current && profiles.some((profile) => profile.id === current)) setSelectedId(current);
+      else if (profiles[0]) setSelectedId(profiles[0].id);
     }
   }, [app?.profileId, currentAgent?.profileId, profiles, selectedId]);
 

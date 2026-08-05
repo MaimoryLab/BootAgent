@@ -1,6 +1,7 @@
 import { Plus } from "lucide-react";
 
 import { useI18n } from "../i18n";
+import { byProviderCreatedAt } from "../state/ranking";
 import type { ProviderId, StatusResponse } from "../types/api";
 
 export function ProviderSegment({
@@ -20,8 +21,7 @@ export function ProviderSegment({
       <label htmlFor="provider-select">{t("模型服务")}</label>
       <div className="provider-picker-control">
         <select id="provider-select" value={value} onChange={(event) => onChange(event.target.value)}>
-          {Object.entries(providers)
-            .sort(([first], [second]) => first.localeCompare(second))
+          {byProviderCreatedAt(providers)
             .map(([id, provider]) => <option key={id} value={id}>{provider.name}</option>)}
         </select>
         <button className="provider-add-button" type="button" onClick={onAdd} aria-label={t("新增 Provider")} title={t("新增 Provider")}>

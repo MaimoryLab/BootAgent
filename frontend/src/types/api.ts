@@ -43,7 +43,7 @@ export type OpenRegistrationResponse = BindingModels.OpenRegistrationResponse;
 export type ProviderEntry = ProviderModels.Entry;
 export type SaveProviderInput = BindingModels.SaveProviderRequest;
 export type SaveProviderResult = AppModels.SaveProviderResult;
-export type ProfileSummary = Omit<AppModels.ProfileSummary, "protocol"> & { protocol: ProtocolId | "" };
+export type ProfileSummary = Omit<AppModels.ProfileSummary, "protocol" | "createdAt"> & { protocol: ProtocolId | ""; createdAt?: string };
 
 export type StatusResponse = Omit<
   AppModels.StatusResponse,

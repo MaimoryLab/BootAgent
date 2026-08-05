@@ -1,4 +1,4 @@
-import type { AgentCatalogItem } from "../types/api";
+import type { AgentCatalogItem, ProfileSummary, StatusResponse } from "../types/api";
 
 /**
  * Display prominence, shared by the overview and the setup selection page.
@@ -32,4 +32,18 @@ export function splitByRank(catalog: readonly AgentCatalogItem[] | undefined): {
     primary: ranked.filter((item) => item.rank <= PRIMARY_RANK_LIMIT),
     secondary: ranked.filter((item) => item.rank > PRIMARY_RANK_LIMIT),
   };
+}
+
+const builtInProviders = new Set(["ppio", "novita"]);
+
+export function byProviderCreatedAt(providers: StatusResponse["providers"]): Array<[string, StatusResponse["providers"][string]]> {
+  return Object.entries(providers).sort(([firstId, first], [secondId, second]) =>
+    builtInProviders.has(firstId) !== builtInProviders.has(secondId)
+      ? (builtInProviders.has(firstId) ? 1 : -1)
+      : (second.created_at || "").localeCompare(first.created_at || "") || first.name.localeCompare(second.name),
+  );
+}
+
+export function byProfileCreatedAt(profiles: readonly ProfileSummary[]): ProfileSummary[] {
+  return [...profiles].sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
 }

@@ -34,4 +34,5 @@ export interface Provider {
     "anthropic_base_url"?: string;
     "custom"?: boolean;
     "has_key"?: boolean;
+    "created_at"?: string;
 }

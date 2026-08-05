@@ -228,6 +228,7 @@ type ProfileSummary struct {
 	Protocol    string  `json:"protocol"`
 	ActivatedAt *string `json:"activatedAt"`
 	HasKey      bool    `json:"hasKey"`
+	CreatedAt   string  `json:"createdAt,omitempty"`
 }
 
 func (u *UseCases) GetStatus(ctx context.Context) (StatusResponse, error) {
@@ -515,6 +516,7 @@ func profileSummary(item profileStore.Profile) ProfileSummary {
 		Protocol:    summary.Protocol,
 		ActivatedAt: summary.ActivatedAt,
 		HasKey:      summary.HasKey,
+		CreatedAt:   summary.CreatedAt,
 	}
 }
 

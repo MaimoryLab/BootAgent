@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/MaimoryLab/OneAgent/internal/catalog"
 	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
@@ -37,6 +38,7 @@ type storedProvider struct {
 	BaseURL          string `json:"base_url"`
 	AnthropicBaseURL string `json:"anthropic_base_url,omitempty"`
 	APIKey           string `json:"api_key,omitempty"`
+	CreatedAt        string `json:"created_at,omitempty"`
 }
 
 type userProviderFile struct {
@@ -114,7 +116,7 @@ func (s Store) Public() (map[string]catalog.Provider, error) {
 		_, builtIn := catalog.ProviderByID(id)
 		result[id] = catalog.Provider{
 			Name: saved.Name, Home: saved.Home, BaseURL: saved.BaseURL,
-			AnthropicBaseURL: saved.AnthropicBaseURL, Custom: !builtIn, HasKey: saved.APIKey != "",
+			AnthropicBaseURL: saved.AnthropicBaseURL, Custom: !builtIn, HasKey: saved.APIKey != "", CreatedAt: saved.CreatedAt,
 		}
 	}
 	return result, nil
@@ -133,9 +135,13 @@ func (s Store) Save(ctx context.Context, entry Entry) (Entry, error) {
 	if err != nil {
 		return Entry{}, err
 	}
+	saved := file.Providers[entry.ID]
+	if saved.CreatedAt == "" {
+		saved.CreatedAt = time.Now().UTC().Format(time.RFC3339)
+	}
 	file.Providers[entry.ID] = storedProvider{
 		Name: entry.Name, Home: entry.Home, BaseURL: entry.BaseURL,
-		AnthropicBaseURL: entry.AnthropicBaseURL, APIKey: entry.APIKey,
+		AnthropicBaseURL: entry.AnthropicBaseURL, APIKey: entry.APIKey, CreatedAt: saved.CreatedAt,
 	}
 	if err := s.write(ctx, file); err != nil {
 		return Entry{}, err

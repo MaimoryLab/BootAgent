@@ -132,45 +132,6 @@
         "windows"
       ],
       "rank": 5
-    },
-    "cursor": {
-      "name": "Cursor",
-      "group": "platform",
-      "command": "cursor",
-      "config_mode": "guide",
-      "platforms": [
-        "macos",
-        "linux",
-        "windows"
-      ],
-      "guide": "Use Cursor subscription or official account settings; OneAgent does not write a private Cursor configuration.",
-      "rank": 6
-    },
-    "openclaw": {
-      "name": "OpenClaw",
-      "group": "gateway",
-      "command": "openclaw",
-      "config_mode": "guide",
-      "platforms": [
-        "macos",
-        "linux",
-        "windows"
-      ],
-      "guide": "Install from OpenClaw docs, then run: openclaw onboard --install-daemon && openclaw gateway status",
-      "rank": 7
-    },
-    "hermes": {
-      "name": "Hermes",
-      "group": "gateway",
-      "command": "hermes",
-      "config_mode": "guide",
-      "platforms": [
-        "macos",
-        "linux",
-        "windows"
-      ],
-      "guide": "Install Hermes, then configure models with hermes model or ~/.hermes/config.yaml.",
-      "rank": 8
     }
   }
 }
