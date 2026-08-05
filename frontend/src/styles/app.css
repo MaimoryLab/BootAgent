@@ -389,7 +389,6 @@
 }
 
 .desktop-profile-editor { max-width: 760px; }
-.desktop-profile-list { max-width: 760px; }
 .profile-choice {
   position: relative;
   grid-template-columns: minmax(0, 1fr) auto;
