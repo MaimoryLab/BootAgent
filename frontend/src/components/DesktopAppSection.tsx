@@ -1,4 +1,4 @@
-import { AppWindow, Download, Play, RefreshCw, SlidersHorizontal, TriangleAlert } from "lucide-react";
+import { AppWindow, Download, Play, Plus, RefreshCw, SlidersHorizontal, TriangleAlert } from "lucide-react";
 import { useState } from "react";
 
 import { api, describeError } from "../backend/api";
@@ -66,7 +66,7 @@ export function DesktopAppSection({ app: desktopApp, onChanged, onConfigure, pro
       <div className="section-heading">
         <div>
           <h2>{t("桌面 Agent")}</h2>
-          <p>{t("共 {count} 个", { count: 1 })}</p>
+          <p>{t("共 {count} 个", { count: desktopApp.installed ? 1 : 0 })}</p>
         </div>
       </div>
       {failure ? <div className="notice notice-error desktop-app-notice"><TriangleAlert size={15} aria-hidden="true" />{failure}</div> : null}
@@ -77,7 +77,17 @@ export function DesktopAppSection({ app: desktopApp, onChanged, onConfigure, pro
           {desktopApp.installed ? t("已检测到应用，但版本信息不可用") : t("应用状态检测不可用")}
         </div>
       ) : null}
-      <div className="desktop-app-row">
+      <div className={`desktop-app-row${desktopApp.installed ? "" : " is-uninstalled"}`}>
+        {!desktopApp.installed ? (
+          <div className="uninstalled-agent-action">
+            <AppWindow size={28} aria-hidden="true" />
+            <span>{t("按引导安装桌面 Agent")}</span>
+            <button className="button button-primary" type="button" aria-label={t("安装")} onClick={() => void run("install")} disabled={Boolean(pending)}>
+              {pending === "install" ? <RefreshCw size={15} className="spin" aria-hidden="true" /> : <Plus size={16} />}
+              {pending === "install" ? t("安装中") : t("安装桌面 Agent")}
+            </button>
+          </div>
+        ) : null}
         <div className="desktop-app-identity">
           <span className="desktop-app-icon"><AgentIcon agentId="codex" size={20} /></span>
           <span>
@@ -121,7 +131,7 @@ export function DesktopAppSection({ app: desktopApp, onChanged, onConfigure, pro
           ) : (
             <button className="button button-primary" type="button" onClick={() => void run("install")} disabled={Boolean(pending)}>
               {pending === "install" ? <RefreshCw size={15} className="spin" aria-hidden="true" /> : <Download size={15} aria-hidden="true" />}
-              {pending === "install" ? t("安装中") : t("安装")}
+              {pending === "install" ? t("安装中") : t("安装桌面 Agent")}
             </button>
           )}
         </div>

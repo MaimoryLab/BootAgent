@@ -1179,6 +1179,59 @@
   gap: 8px;
 }
 
+.desktop-app-row.is-uninstalled .desktop-app-actions {
+  justify-content: center;
+}
+
+.desktop-app-row.is-uninstalled {
+  min-height: 110px;
+  border-color: transparent;
+  background: transparent;
+}
+
+.desktop-app-row.is-uninstalled > :not(.desktop-app-actions):not(.uninstalled-agent-action) {
+  display: none;
+}
+
+.desktop-app-row.is-uninstalled > .desktop-app-actions {
+  display: none;
+}
+
+.desktop-app-row.is-uninstalled > .uninstalled-agent-action {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-row: 1 / -1;
+  justify-items: center;
+  gap: 10px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.uninstalled-agent-action {
+  min-height: 110px;
+  display: grid;
+  place-items: center;
+  gap: 10px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.uninstalled-agent-action > svg { color: var(--text-tertiary); }
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .desktop-app-note {
   grid-column: 1 / -1;
   grid-row: 3;
@@ -1677,14 +1730,19 @@
 }
 
 .runtime-prompt {
-  align-items: flex-start;
+  display: grid;
   gap: 10px;
 }
 
+.runtime-prompt-heading { gap: 10px; }
+
 .runtime-prompt-body {
   min-width: 0;
-  display: grid;
-  gap: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 0 12px;
 }
 
 .runtime-prompt-body > span {

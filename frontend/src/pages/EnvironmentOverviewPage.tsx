@@ -1,4 +1,4 @@
-import { AppWindow, PackageOpen, Plus, RefreshCw } from "lucide-react";
+import { PackageOpen, Plus, RefreshCw, Terminal } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import { AgentManageRow } from "../components/AgentManageRow";
@@ -19,10 +19,6 @@ export function EnvironmentOverviewPage() {
   // the first one's Agent, model and log.
   const startSetup = () => {
     dispatch({ type: "START_SETUP" });
-    navigate("/setup/agents");
-  };
-  const startDesktopSetup = () => {
-    dispatch({ type: "START_DESKTOP_SETUP" });
     navigate("/setup/agents");
   };
   const editDesktopProfile = () => {
@@ -93,12 +89,6 @@ export function EnvironmentOverviewPage() {
               {t("安装命令行 Agent")}
             </button>
           ) : null}
-          {status?.desktopAgent?.supported && !status.desktopAgent.installed ? (
-            <button className="button button-secondary" type="button" onClick={startDesktopSetup}>
-              <AppWindow size={15} />
-              {t("安装桌面 Agent")}
-            </button>
-          ) : null}
         </>
       }
     >
@@ -125,16 +115,21 @@ export function EnvironmentOverviewPage() {
             })}
           </div>
         </section>
-      ) : desktopInstalled ? null : (
-        <div className="empty-overview">
-          <PackageOpen size={28} />
-          <strong>{t("尚未安装任何 Agent")}</strong>
-          <span>{t("按引导安装第一个 Agent，OneAgent 会写入模型服务配置。")}</span>
-          <button className="button button-primary" type="button" onClick={startSetup}>
-            <Plus size={16} />
-            {t("安装 Agent")}
-          </button>
-        </div>
+      ) : (
+        <section className="overview-section">
+          <div className="section-heading">
+            <div><h2>{t("命令行 Agent")}</h2><p>{t("共 {count} 个", { count: 0 })}</p></div>
+          </div>
+          <div className="uninstalled-agent-action">
+            <span className="visually-hidden">{t("尚未安装任何 Agent")}</span>
+            <Terminal size={28} aria-hidden="true" />
+            <span>{t("按引导安装命令行 Agent")}</span>
+            <button className="button button-primary" type="button" aria-label={t("安装 Agent")} onClick={startSetup}>
+              <Plus size={16} />
+              {t("安装命令行 Agent")}
+            </button>
+          </div>
+        </section>
       )}
 
       <DesktopAppSection
@@ -144,7 +139,7 @@ export function EnvironmentOverviewPage() {
         model={desktopModel}
         onChanged={refreshStatus}
         onConfigure={editDesktopProfile}
-        showUninstalled={false}
+        showUninstalled
       />
       <RuntimeSection runtimes={status.runtimes ?? []} onInstalled={refreshStatus} />
     </PageScaffold>
