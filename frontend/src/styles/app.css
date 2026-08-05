@@ -1089,13 +1089,19 @@
   gap: 9px;
 }
 
+/* The mark sits directly on the card: no chip, no tint. The border and
+   background from .agent-icon are neutralised rather than dropped, so the 34px
+   box keeps its geometry (border-box would otherwise hand the extra 2px to the
+   glyph). Colour comes from --agent-mark-fg, which is black or white per theme
+   -- on a transparent box the mark is the only thing carrying contrast, and
+   --icon-fg was mixed for a tinted chip. */
 .agent-manage-identity .agent-icon {
   width: 34px;
   height: 34px;
   border-radius: 8px;
-  border-color: color-mix(in srgb, var(--agent-accent) 24%, var(--border));
-  background: var(--agent-soft);
-  color: var(--agent-accent);
+  border-color: transparent;
+  background: transparent;
+  color: var(--agent-mark-fg);
 }
 
 .agent-manage-identity-copy {
@@ -1336,15 +1342,18 @@
   gap: 3px;
 }
 
+/* Matches .agent-manage-identity .agent-icon above: transparent box, mark in
+   black or white. The two must stay in step or the CLI and desktop Agents in
+   the same overview would read as different kinds of object. */
 .desktop-app-icon {
   width: 34px;
   height: 34px;
   display: grid;
   place-items: center;
-  border: 1px solid color-mix(in srgb, var(--agent-accent) 24%, var(--border));
+  border: 1px solid transparent;
   border-radius: 8px;
-  color: var(--agent-accent);
-  background: var(--agent-soft);
+  color: var(--agent-mark-fg);
+  background: transparent;
 }
 
 .desktop-app-identity strong { font-size: 16px; line-height: 1.3; }
