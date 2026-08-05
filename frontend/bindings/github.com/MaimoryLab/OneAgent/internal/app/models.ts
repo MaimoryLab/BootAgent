@@ -50,8 +50,8 @@ export interface Capabilities {
 }
 
 /**
- * DesktopAgentActionResult reports a local install or a downloaded installer
- * launch. Windows Store installation continues after its bootstrapper starts.
+ * DesktopAgentActionResult reports a local installation action. Windows Store
+ * installation continues after its downloaded bootstrapper starts.
  */
 export interface DesktopAgentActionResult {
     "status": string;

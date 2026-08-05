@@ -51,8 +51,8 @@ type Status struct {
 	InspectionUnavailable *string `json:"inspectionUnavailable,omitempty"`
 }
 
-// ActionResult describes an install or installer-launch action. Windows Store
-// installation remains asynchronous after its downloaded bootstrapper starts.
+// ActionResult describes an installation action. Windows Store installation
+// remains asynchronous after its downloaded bootstrapper starts.
 type ActionResult struct {
 	Status        string `json:"status"`
 	Message       string `json:"message"`
@@ -112,21 +112,17 @@ func inspectChatGPT(ctx context.Context, options Options) Status {
 	return inspected
 }
 
-func installChatGPT(ctx context.Context, options Options, update bool) (ActionResult, error) {
+func installChatGPT(ctx context.Context, options Options) (ActionResult, error) {
 	status := inspectChatGPT(ctx, options)
 	if err := contextError(ctx); err != nil {
 		return ActionResult{}, err
 	}
-	if status.Installed && !update && options.Platform.OS == "macos" {
+	if status.Installed && options.Platform.OS == "macos" {
 		return ActionResult{Status: "already-installed", Message: "ChatGPT Desktop is already installed", App: status}, nil
-	}
-	replacePath := ""
-	if update {
-		replacePath = status.Path
 	}
 	switch options.Platform.OS {
 	case "macos":
-		return installChatGPTMacOS(ctx, options, replacePath)
+		return installChatGPTMacOS(ctx, options, "")
 	case "windows":
 		return installChatGPTWindowsInstaller(ctx, options, status)
 	default:

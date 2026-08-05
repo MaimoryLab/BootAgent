@@ -38,7 +38,3 @@ export function Install(request: $models.DesktopAgentRequest): $CancellablePromi
 export function Open(request: $models.DesktopAgentRequest): $CancellablePromise<void> {
     return $Call.ByID(1641870549, request);
 }
-
-export function OpenInstaller(request: $models.DesktopAgentRequest): $CancellablePromise<app$0.DesktopAgentActionResult> {
-    return $Call.ByID(693638919, request);
-}

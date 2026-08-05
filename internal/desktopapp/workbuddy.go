@@ -188,21 +188,17 @@ func workBuddyStartAppsQuery() []string {
 	return []string{"powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script}
 }
 
-func installWorkBuddy(ctx context.Context, options Options, update bool) (ActionResult, error) {
+func installWorkBuddy(ctx context.Context, options Options) (ActionResult, error) {
 	status := inspectWorkBuddy(ctx, options)
 	if err := contextError(ctx); err != nil {
 		return ActionResult{}, err
 	}
-	if status.Installed && !update {
+	if status.Installed {
 		return ActionResult{Status: "already-installed", Message: "WorkBuddy is already installed", App: status}, nil
 	}
 	switch options.Platform.OS {
 	case "macos":
-		replacePath := ""
-		if update {
-			replacePath = status.Path
-		}
-		return installWorkBuddyMacOS(ctx, options, replacePath)
+		return installWorkBuddyMacOS(ctx, options, "")
 	case "windows":
 		return installWorkBuddyWindows(ctx, options, status)
 	default:

@@ -22,7 +22,7 @@ interface DesktopAppSectionProps {
   showHeading?: boolean;
 }
 
-type Action = "install" | "open" | "installer";
+type Action = "install" | "open";
 
 export function DesktopAppSection({ app: desktopApp, onChanged, onSetup, onConfigure, profile, providerName, model, showUninstalled = true, showHeading = true }: DesktopAppSectionProps) {
   const { t } = useI18n();
@@ -42,18 +42,14 @@ export function DesktopAppSection({ app: desktopApp, onChanged, onSetup, onConfi
   const failure = outcome?.kind === "failure" ? outcome.message : "";
 
   const run = async (action: Action) => {
-    const downloads = action === "install" || action === "installer";
+    const downloads = action === "install";
     setPending(action);
     // Opening the app is not a download, so it gets no shared bar; it still
     // clears the previous verdict so a stale notice does not linger.
     if (downloads) startTask(desktopApp.id);
     else clearOutcome(desktopApp.id);
     try {
-      const result = action === "install"
-        ? await api.installDesktopAgent(desktopApp.id)
-        : action === "installer"
-          ? await api.openDesktopAgentInstaller(desktopApp.id)
-          : null;
+      const result = action === "install" ? await api.installDesktopAgent(desktopApp.id) : null;
       let message: string;
       if (action === "open") {
         await api.openDesktopAgent(desktopApp.id);
@@ -145,10 +141,6 @@ export function DesktopAppSection({ app: desktopApp, onChanged, onSetup, onConfi
                   {t("编辑配置")}
                 </button>
               ) : null}
-              <button className="button button-secondary" type="button" onClick={() => void run("installer")} disabled={busy}>
-                {pending === "installer" || downloading ? <RefreshCw size={15} className="spin" aria-hidden="true" /> : <Download size={15} aria-hidden="true" />}
-                {t("更新")}
-              </button>
               <button className="button button-secondary" type="button" onClick={() => void run("open")} disabled={busy}>
                 {pending === "open" ? <RefreshCw size={15} className="spin" aria-hidden="true" /> : <Play size={15} aria-hidden="true" />}
                 {t("启动")}

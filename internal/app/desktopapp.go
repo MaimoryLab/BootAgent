@@ -46,8 +46,8 @@ type DesktopAgentProfileResult struct {
 	Message        string `json:"message"`
 }
 
-// DesktopAgentActionResult reports a local install or a downloaded installer
-// launch. Windows Store installation continues after its bootstrapper starts.
+// DesktopAgentActionResult reports a local installation action. Windows Store
+// installation continues after its downloaded bootstrapper starts.
 type DesktopAgentActionResult struct {
 	Status        string             `json:"status"`
 	Message       string             `json:"message"`
@@ -117,26 +117,6 @@ func (u *UseCases) OpenDesktopAgent(ctx context.Context, agentID string) error {
 		return oneerrors.New(oneerrors.InternalError, "Cannot open desktop agent", oneerrors.WithStatus(500), oneerrors.WithRetryable(true), oneerrors.WithCause(err))
 	}
 	return nil
-}
-
-// OpenDesktopAgentInstaller downloads the official package and runs the update
-// path without opening its URL in a browser.
-func (u *UseCases) OpenDesktopAgentInstaller(ctx context.Context, agentID string, output process.OutputListener) (DesktopAgentActionResult, error) {
-	if u == nil {
-		return DesktopAgentActionResult{}, oneerrors.New(oneerrors.InternalError, "Desktop agent service is not configured", oneerrors.WithStatus(501))
-	}
-	if err := contextError(ctx, "Desktop app installer request was cancelled"); err != nil {
-		return DesktopAgentActionResult{}, err
-	}
-	agentID, err := knownDesktopAgentID(agentID)
-	if err != nil {
-		return DesktopAgentActionResult{}, err
-	}
-	result, err := desktopapp.OpenInstaller(ctx, agentID, u.desktopAppOptions(output))
-	if err != nil {
-		return DesktopAgentActionResult{}, desktopAppInstallError(err)
-	}
-	return u.publicDesktopAgentAction(result), nil
 }
 
 // ConfigureDesktopAgent applies a saved profile without accepting a secret

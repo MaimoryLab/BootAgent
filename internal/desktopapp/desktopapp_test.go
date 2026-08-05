@@ -394,23 +394,6 @@ func TestMacInstallStopsOnDownloadHTTPError(t *testing.T) {
 	}
 }
 
-func TestMacOpenInstallerDownloadsInsteadOfOpeningBrowser(t *testing.T) {
-	runner := &scriptedRunner{}
-	downloader := &fakeDownloader{status: http.StatusNotFound}
-	_, err := OpenInstaller(context.Background(), ChatGPTDesktopID, Options{
-		Platform:    platform.For("macos", "arm64"),
-		SearchRoots: []string{t.TempDir()},
-		Runner:      runner,
-		Downloader:  downloader,
-	})
-	if err == nil || !strings.Contains(err.Error(), "download ChatGPT installer") {
-		t.Fatalf("installer error = %v", err)
-	}
-	if len(downloader.hits) != 1 || len(runner.calls) != 0 || len(runner.started) != 0 {
-		t.Fatalf("download hits=%#v installer calls=%#v started=%#v", downloader.hits, runner.calls, runner.started)
-	}
-}
-
 func TestWindowsInstallDownloadsAndStartsOfficialBootstrapperWithoutFilesystemScan(t *testing.T) {
 	runner := &scriptedRunner{results: []process.Result{
 		{ExitCode: 0},

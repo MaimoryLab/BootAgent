@@ -17,7 +17,6 @@ const bridge = vi.hoisted(() => ({
   desktopStatus: vi.fn(),
   desktopInstall: vi.fn(),
   desktopOpen: vi.fn(),
-  desktopInstaller: vi.fn(),
   desktopConfigure: vi.fn(),
   profiles: vi.fn(),
   saveProfile: vi.fn(),
@@ -43,7 +42,6 @@ vi.mock("../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/desktopa
   GetStatus: bridge.desktopStatus,
   Install: bridge.desktopInstall,
   Open: bridge.desktopOpen,
-  OpenInstaller: bridge.desktopInstaller,
   Configure: bridge.desktopConfigure,
 }));
 vi.mock("../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/profileservice.js", () => ({
@@ -90,14 +88,12 @@ describe("Wails backend adapter", () => {
     bridge.desktopStatus.mockResolvedValue(desktopStatus);
     bridge.desktopInstall.mockResolvedValue(desktopAction);
     bridge.desktopOpen.mockResolvedValue(undefined);
-    bridge.desktopInstaller.mockResolvedValue(desktopAction);
     bridge.desktopConfigure.mockResolvedValue(desktopProfile);
 
     await expect(wailsApi.status()).resolves.toBe(status);
     await expect(wailsApi.desktopAgentStatus("chatgpt-desktop")).resolves.toBe(desktopStatus);
     await expect(wailsApi.installDesktopAgent("chatgpt-desktop")).resolves.toBe(desktopAction);
     await expect(wailsApi.openDesktopAgent("chatgpt-desktop")).resolves.toBeUndefined();
-    await expect(wailsApi.openDesktopAgentInstaller("chatgpt-desktop")).resolves.toBe(desktopAction);
     await expect(wailsApi.configureDesktopAgent("chatgpt-desktop", "team")).resolves.toBe(desktopProfile);
     await expect(wailsApi.probe({ provider: "custom", apiBaseUrl: "https://proxy.test/v1", apiKey: "secret", model: "m", agents: [] })).resolves.toBe(probe);
     await expect(wailsApi.models({ provider: "ppio", apiBaseUrl: "", apiKey: "secret" })).resolves.toBe(models);
@@ -121,7 +117,6 @@ describe("Wails backend adapter", () => {
     expect(bridge.desktopStatus).toHaveBeenCalledWith({ agent_id: "chatgpt-desktop" });
     expect(bridge.desktopInstall).toHaveBeenCalledWith({ agent_id: "chatgpt-desktop" });
     expect(bridge.desktopOpen).toHaveBeenCalledWith({ agent_id: "chatgpt-desktop" });
-    expect(bridge.desktopInstaller).toHaveBeenCalledWith({ agent_id: "chatgpt-desktop" });
     expect(bridge.desktopConfigure).toHaveBeenCalledWith({ agent_id: "chatgpt-desktop", profile_id: "team" });
     expect(bridge.saveProfile).toHaveBeenCalledWith(expect.objectContaining({ api_base_url: "", api_key: "secret" }));
   });

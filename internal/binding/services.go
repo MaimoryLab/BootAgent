@@ -80,16 +80,6 @@ func (s *DesktopAgentService) Open(ctx context.Context, request DesktopAgentRequ
 	return s.core.OpenDesktopAgent(ctx, request.AgentID)
 }
 
-func (s *DesktopAgentService) OpenInstaller(ctx context.Context, request DesktopAgentRequest) (app.DesktopAgentActionResult, error) {
-	if err := contextError(ctx); err != nil {
-		return app.DesktopAgentActionResult{}, err
-	}
-	if s == nil || s.core == nil {
-		return app.DesktopAgentActionResult{}, notReady("Desktop agent service is not configured")
-	}
-	return s.core.OpenDesktopAgentInstaller(ctx, request.AgentID, s.onOutput)
-}
-
 // Configure applies a saved Profile to the selected desktop Agent. The profile
 // ID is the only user-supplied value; secrets stay in the Go profile store.
 func (s *DesktopAgentService) Configure(ctx context.Context, request DesktopAgentProfileRequest) (app.DesktopAgentProfileResult, error) {

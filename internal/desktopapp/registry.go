@@ -29,7 +29,7 @@ type Definition struct {
 type implementation struct {
 	Definition
 	inspect func(context.Context, Options) Status
-	install func(context.Context, Options, bool) (ActionResult, error)
+	install func(context.Context, Options) (ActionResult, error)
 	open    func(context.Context, Options) error
 }
 
@@ -137,21 +137,7 @@ func Install(ctx context.Context, agentID string, options Options) (ActionResult
 	if err := contextError(ctx); err != nil {
 		return ActionResult{}, err
 	}
-	return agent.install(ctx, options, false)
-}
-
-func OpenInstaller(ctx context.Context, agentID string, options Options) (ActionResult, error) {
-	agent, ok := implementationFor(agentID)
-	if !ok {
-		return ActionResult{}, fmt.Errorf("unknown desktop agent %q", strings.TrimSpace(agentID))
-	}
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	if err := contextError(ctx); err != nil {
-		return ActionResult{}, err
-	}
-	return agent.install(ctx, options, true)
+	return agent.install(ctx, options)
 }
 
 func Open(ctx context.Context, agentID string, options Options) error {

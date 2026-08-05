@@ -96,8 +96,6 @@ export const wailsApi = {
     call(() => DesktopAgentService.Install({ agent_id: agentId })) as Promise<DesktopAgentActionResult>,
   openDesktopAgent: (agentId: string): Promise<void> =>
     call(() => DesktopAgentService.Open({ agent_id: agentId })).then(() => undefined),
-  openDesktopAgentInstaller: (agentId: string): Promise<DesktopAgentActionResult> =>
-    call(() => DesktopAgentService.OpenInstaller({ agent_id: agentId })) as Promise<DesktopAgentActionResult>,
   configureDesktopAgent: (agentId: string, profileId: string): Promise<DesktopAgentProfileResult> =>
     call(() => DesktopAgentService.Configure({ agent_id: agentId, profile_id: profileId })) as Promise<DesktopAgentProfileResult>,
   probe: (input: { provider: ProviderId; apiBaseUrl: string; apiKey: string; model: string; agents?: string[] }): Promise<ProbeResponse> =>

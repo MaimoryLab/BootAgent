@@ -9,7 +9,6 @@ const bridge = vi.hoisted(() => ({
   onInstallOutput: () => () => {},
   installDesktopAgent: vi.fn(),
   openDesktopAgent: vi.fn(),
-  openDesktopAgentInstaller: vi.fn(),
 }));
 
 vi.mock("../backend/api", async () => {
@@ -45,7 +44,6 @@ describe("DesktopAppSection", () => {
   beforeEach(() => {
     bridge.installDesktopAgent.mockReset();
     bridge.openDesktopAgent.mockReset();
-    bridge.openDesktopAgentInstaller.mockReset();
   });
 
   it("installs a missing app and refreshes status", async () => {
@@ -100,14 +98,10 @@ describe("DesktopAppSection", () => {
     expect(screen.queryByRole("progressbar", { name: "下载进度" })).toBeNull();
   });
 
-  it("opens the installed app and starts its downloaded installer", async () => {
+  it("opens the installed app without offering an update", async () => {
     bridge.openDesktopAgent.mockResolvedValue(undefined);
-    bridge.openDesktopAgentInstaller.mockResolvedValue({
-      ...action(app({ installed: true, version: "26.727.51351" })),
-      status: "installer-started",
-    });
     const onChanged = vi.fn();
-    const view = render(
+    render(
       <TaskCenterProvider>
         <DesktopAppSection app={app({ installed: true, version: "26.727.51351" })} onChanged={onChanged} />
       </TaskCenterProvider>,
@@ -117,10 +111,7 @@ describe("DesktopAppSection", () => {
     await waitFor(() => expect(bridge.openDesktopAgent).toHaveBeenCalledTimes(1));
     expect(bridge.openDesktopAgent).toHaveBeenCalledWith("chatgpt-desktop");
     expect(screen.getByText("Example Desktop 已打开")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "更新" }));
-    await waitFor(() => expect(bridge.openDesktopAgentInstaller).toHaveBeenCalledTimes(1));
-    expect(bridge.openDesktopAgentInstaller).toHaveBeenCalledWith("chatgpt-desktop");
-    expect(screen.getByText("官方安装器已启动")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "更新" })).toBeNull();
     // The version is a token now, so its heading lives in title= rather than
     // beside the value. Assert the labelled element, not the concatenation.
     expect(screen.getByTitle("版本").textContent).toBe("26.727.51351");
