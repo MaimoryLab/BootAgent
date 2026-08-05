@@ -120,11 +120,25 @@ describe("AgentManageRow", () => {
     }
   });
 
-  it("distinguishes an unconfigured Agent from a configured one", () => {
+  it("names which piece is missing rather than one shared status word", () => {
     renderRow({ configured: false, provider: null, profileId: null, model: null, baseUrl: null }, "");
     expect(screen.queryByText("未记录")).toBeNull();
-    expect(screen.getByText("未配置", { selector: ".agent-manage-state" })).toBeTruthy();
-    expect(screen.getByText("未绑定")).toBeTruthy();
+    // Each token names its own field. A shared "未绑定" on both, plus a separate
+    // "未配置" badge, said the same thing three times without saying which of
+    // the two was actually absent.
+    expect(screen.getByTitle("配置模板").textContent).toBe("无 Profile");
+    expect(screen.getByTitle("模型服务").textContent).toBe("无 Provider");
+    expect(screen.queryByText("未配置")).toBeNull();
+    expect(screen.queryByText("未绑定")).toBeNull();
+  });
+
+  it("keeps the token order fixed when a field is absent", () => {
+    // The Provider token used to be dropped when empty, sliding model and
+    // version left so the same field sat in a different slot per row.
+    renderRow({ provider: null, model: "m-1", version: "1.0.0" }, "prod");
+    const order = [...document.querySelectorAll(".agent-manage-meta .agent-manage-pill")]
+      .map((pill) => pill.getAttribute("title"));
+    expect(order).toEqual(["配置模板", "模型服务", "模型", "版本"]);
   });
 
   it("flags a version behind the locked one", () => {

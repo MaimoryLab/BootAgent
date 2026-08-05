@@ -12,18 +12,18 @@
  * marks are not recoloured or restyled.
  */
 import {
-  Blocks,
   Bot,
-  Braces,
   GitBranch,
-  MousePointer2,
   type LucideIcon
 } from "lucide-react";
 
 import { sourceTranslate, type Translate, type TranslationKey } from "../../i18n";
 
 import assetRightsManifest from "./asset-rights.json";
+import claudeCodeMark from "./assets/claude-code.svg";
 import codexMark from "./assets/codex.svg";
+import cursorMark from "./assets/cursor.svg";
+import kiloCliMark from "./assets/kilo-cli.svg";
 import opencodeMark from "./assets/opencode.svg";
 
 type AssetRights = (typeof assetRightsManifest.assets)[keyof typeof assetRightsManifest.assets];
@@ -46,9 +46,26 @@ const MARKS: Record<string, Mark> = {
     source: assetRightsManifest.assets.opencode.source,
     rights: assetRightsManifest.assets.opencode,
   },
-  "claude-code": { kind: "generic", Icon: Braces, source: GENERIC_SOURCE },
-  cursor: { kind: "generic", Icon: MousePointer2, source: GENERIC_SOURCE },
-  "kilo-cli": { kind: "generic", Icon: Blocks, source: GENERIC_SOURCE },
+  "claude-code": {
+    kind: "asset",
+    src: claudeCodeMark,
+    source: assetRightsManifest.assets["claude-code"].source,
+    rights: assetRightsManifest.assets["claude-code"],
+  },
+  cursor: {
+    kind: "asset",
+    src: cursorMark,
+    source: assetRightsManifest.assets.cursor.source,
+    rights: assetRightsManifest.assets.cursor,
+  },
+  "kilo-cli": {
+    kind: "asset",
+    src: kiloCliMark,
+    source: assetRightsManifest.assets["kilo-cli"].source,
+    rights: assetRightsManifest.assets["kilo-cli"],
+  },
+  // Aider has no mark in lobe-icons, so it keeps a generic symbol rather than a
+  // vendor favicon copied in without an auditable redistribution basis.
   aider: { kind: "generic", Icon: GitBranch, source: GENERIC_SOURCE },
 };
 

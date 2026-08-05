@@ -89,27 +89,35 @@ export function DesktopAppSection({ app: desktopApp, onChanged, onSetup, onConfi
             </button>
           </div>
         ) : null}
-        <div className="desktop-app-identity">
-          <span className="desktop-app-icon"><AgentIcon agentId="codex" size={20} /></span>
-          <span>
-            <strong>{desktopApp.name}</strong>
-          </span>
-        </div>
-        <div className="desktop-app-fact">
-          <small>Provider</small>
-          <span title={profile?.provider || undefined}>{providerName || profile?.provider || t("未绑定")}</span>
-        </div>
-        <div className="desktop-app-fact">
-          <small>Profile</small>
-          <span title={profile?.id || desktopApp.profileId || undefined}>{profile?.label || desktopApp.profileId || t("未绑定")}</span>
-        </div>
-        <div className="desktop-app-fact">
-          <small>{t("模型")}</small>
-          <span title={model || profile?.model || undefined}>{model || profile?.model || t("未记录")}</span>
-        </div>
-        <div className="desktop-app-fact">
-          <small>{t("版本")}</small>
-          <span>{desktopApp.version || t("未知")}</span>
+        <div className="desktop-app-summary">
+          <div className="desktop-app-identity">
+            <span className="desktop-app-icon"><AgentIcon agentId="codex" size={20} /></span>
+            <span>
+              <strong>{desktopApp.name}</strong>
+            </span>
+          </div>
+          {/* Same token strip as the CLI rows. Four labelled fact columns made
+              this card twice the height of the rows beneath it for the same
+              four values. */}
+          <div className="desktop-app-meta">
+            <span className={`agent-manage-pill${profile?.label || desktopApp.profileId ? "" : " is-muted"}`} title={t("配置模板")}>
+              {profile?.label || desktopApp.profileId || t("无 Profile")}
+            </span>
+            <span className={`agent-manage-pill${providerName || profile?.provider ? "" : " is-muted"}`} title={t("模型服务")}>
+              {providerName || profile?.provider ? <i aria-hidden="true" /> : null}
+              {providerName || profile?.provider || t("无 Provider")}
+            </span>
+            {model || profile?.model ? (
+              <span className="agent-manage-pill agent-manage-model" title={t("模型")}>
+                {model || profile?.model}
+              </span>
+            ) : null}
+            {desktopApp.version ? (
+              <span className="agent-manage-pill agent-manage-version" title={t("版本")}>
+                {desktopApp.version}
+              </span>
+            ) : null}
+          </div>
         </div>
         <div className="desktop-app-actions">
           {desktopApp.installed ? (

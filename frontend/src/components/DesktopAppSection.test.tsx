@@ -98,7 +98,9 @@ describe("DesktopAppSection", () => {
     fireEvent.click(screen.getByRole("button", { name: "更新" }));
     await waitFor(() => expect(bridge.openDesktopAgentInstaller).toHaveBeenCalledTimes(1));
     expect(screen.getByText("官方安装器已启动")).toBeTruthy();
-    expect(view.container.textContent).toContain("版本26.727.51351");
+    // The version is a token now, so its heading lives in title= rather than
+    // beside the value. Assert the labelled element, not the concatenation.
+    expect(screen.getByTitle("版本").textContent).toBe("26.727.51351");
   });
 
   it("does not claim an app was found when inspection is unavailable", () => {
