@@ -7,6 +7,7 @@ from pathlib import Path
 
 from scripts.generate_third_party_licenses import (
     Dependency,
+    collect_asset_dependencies,
     compare_trees,
     copy_license_files,
     parse_json_stream,
@@ -35,6 +36,17 @@ class LicenseCopyTests(unittest.TestCase):
 
             self.assertEqual(copied, ("licenses/pkg/LICENSE",))
             self.assertEqual((output / "licenses/pkg/LICENSE").read_bytes(), b"Line one\nLine two\n")
+
+
+class AssetDependencyTests(unittest.TestCase):
+    def test_collects_only_rights_manifest_assets_and_copies_license_text(self) -> None:
+        with tempfile.TemporaryDirectory() as output_dir:
+            dependencies = collect_asset_dependencies(Path(output_dir))
+            self.assertEqual([dependency.name for dependency in dependencies], ["codex", "openclaw", "opencode"])
+            for dependency in dependencies:
+                self.assertEqual(dependency.license, "MIT")
+                for license_file in dependency.license_files:
+                    self.assertTrue((Path(output_dir) / license_file).is_file())
 
 
 class NoticeRenderingTests(unittest.TestCase):

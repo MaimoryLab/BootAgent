@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import dataclasses
 import difflib
+import hashlib
 import json
 import os
 import re
@@ -25,6 +26,8 @@ from typing import Any
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_OUTPUT = ROOT / "third_party"
 FRONTEND = ROOT / "frontend"
+ICON_ROOT = FRONTEND / "src" / "components" / "icons"
+ASSET_RIGHTS_MANIFEST = ICON_ROOT / "asset-rights.json"
 TARGETS = (
     ("macos-x64", "darwin", "amd64", "1"),
     ("macos-arm64", "darwin", "arm64", "1"),
@@ -187,6 +190,47 @@ def npm_license_source(name: str, package_path: Path) -> Path:
     raise RuntimeError(f"npm package {name} has no bundled license file in {package_path}")
 
 
+def copy_license_file(source: Path, destination_directory: Path, relative_root: Path) -> tuple[str, ...]:
+    if not source.is_file():
+        raise RuntimeError(f"asset license source does not exist: {source}")
+    destination_directory.mkdir(parents=True, exist_ok=True)
+    destination = destination_directory / "LICENSE"
+    text = source.read_text(encoding="utf-8")
+    normalized = "\n".join(line.rstrip() for line in text.splitlines()).rstrip() + "\n"
+    destination.write_text(normalized, encoding="utf-8")
+    return (destination.relative_to(relative_root).as_posix(),)
+
+
+def collect_asset_dependencies(output: Path) -> list[Dependency]:
+    manifest = json.loads(ASSET_RIGHTS_MANIFEST.read_text(encoding="utf-8"))
+    if manifest.get("schemaVersion") != 1:
+        raise RuntimeError("unsupported asset rights manifest schema")
+    dependencies: list[Dependency] = []
+    for name, rights in sorted(manifest.get("assets", {}).items()):
+        asset = ICON_ROOT / str(rights["file"])
+        digest = hashlib.sha256(asset.read_bytes()).hexdigest()
+        expected = str(rights["sha256"]).lower()
+        if digest != expected:
+            raise RuntimeError(f"asset hash mismatch for {name}: {digest} != {expected}")
+        license_source = ICON_ROOT / str(rights["licenseSource"])
+        copied = copy_license_file(
+            source=license_source,
+            destination_directory=output / "licenses" / "assets" / safe_component(name),
+            relative_root=output,
+        )
+        dependencies.append(
+            Dependency(
+                ecosystem="asset",
+                name=name,
+                version=digest,
+                license=str(rights["license"]),
+                platforms=("frontend",),
+                license_files=copied,
+            )
+        )
+    return dependencies
+
+
 def collect_npm_dependencies(output: Path) -> list[Dependency]:
     dependencies: list[Dependency] = []
     inventory = pnpm_license_inventory()
@@ -245,7 +289,7 @@ def generate(output: Path) -> None:
     if output.exists():
         shutil.rmtree(output)
     output.mkdir(parents=True)
-    dependencies = collect_go_dependencies(output) + collect_npm_dependencies(output)
+    dependencies = collect_go_dependencies(output) + collect_npm_dependencies(output) + collect_asset_dependencies(output)
     dependencies.sort()
     (output / "THIRD_PARTY_NOTICES.md").write_text(render_notice(dependencies), encoding="utf-8")
     manifest = {

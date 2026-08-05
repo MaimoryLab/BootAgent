@@ -9,6 +9,9 @@ the embedded frontend. Full license and notice texts are included under
 
 | Ecosystem | Package | Version | Targets | License | License files |
 | --- | --- | --- | --- | --- | --- |
+| asset | `codex` | `a595df6b423920c67a7f8f73c063e4bfb72d415948097b6cac063a2366bb5186` | frontend | MIT | `licenses/assets/codex/LICENSE` |
+| asset | `openclaw` | `1ee82ff331b7295074bf6f60a0812c5f64daad65b2395d5d5e47a6c6c5180a7c` | frontend | MIT | `licenses/assets/openclaw/LICENSE` |
+| asset | `opencode` | `7cfa6e9d6726f7c9fa26c7d9aef0dfec52d20a137380454340f30f12ccbfd302` | frontend | MIT | `licenses/assets/opencode/LICENSE` |
 | go | `github.com/adrg/xdg` | `v0.5.3` | macos-arm64, macos-x64, windows-arm64, windows-x64 | MIT | `licenses/go/github.com_adrg_xdg@v0.5.3/LICENSE` |
 | go | `github.com/go-ole/go-ole` | `v1.3.0` | windows-arm64, windows-x64 | MIT | `licenses/go/github.com_go-ole_go-ole@v1.3.0/LICENSE` |
 | go | `github.com/pelletier/go-toml/v2` | `v2.4.3` | macos-arm64, macos-x64, windows-arm64, windows-x64 | MIT | `licenses/go/github.com_pelletier_go-toml_v2@v2.4.3/LICENSE` |

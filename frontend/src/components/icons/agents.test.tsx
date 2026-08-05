@@ -1,7 +1,7 @@
 import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { AGENT_ICON_IDS, AgentIcon, agentMarkSource, agentTagline } from "./agents";
+import { AGENT_ICON_IDS, AgentIcon, agentMarkKind, agentMarkRights, agentMarkSource, agentTagline } from "./agents";
 
 const AUTO_AGENTS = ["codex", "claude-code", "opencode", "kilo-cli", "aider"];
 // Shown on the first screen alongside them, so they need marks of their own even
@@ -16,19 +16,33 @@ describe("AgentIcon", () => {
     for (const id of ALL) {
       expect(AGENT_ICON_IDS).toContain(id);
     }
-    const sources = ALL.map((id) => {
+    const rendered = ALL.map((id) => {
       const { container } = render(<AgentIcon agentId={id} />);
-      return container.querySelector("img")?.getAttribute("src") ?? "";
+      return container.innerHTML;
     });
-    expect(new Set(sources).size).toBe(ALL.length);
-    expect(sources.every(Boolean)).toBe(true);
+    expect(new Set(rendered).size).toBe(ALL.length);
+    expect(rendered.every(Boolean)).toBe(true);
   });
 
-  it("records where every mark came from", () => {
-    // Provenance is the thing that makes these safe to ship: each is the
-    // project's own published artwork, not something drawn to look like it.
-    for (const id of ALL) {
-      expect(agentMarkSource(id)).toMatch(/\.(svg|png)|MIT/);
+  it("uses generic Lucide marks for assets without redistribution evidence", () => {
+    for (const id of ["claude-code", "cursor", "hermes", "kilo-cli", "aider"]) {
+      const { container } = render(<AgentIcon agentId={id} />);
+      expect(agentMarkKind(id)).toBe("generic");
+      expect(container.querySelector("svg[data-mark-kind=generic]")).not.toBeNull();
+      expect(container.querySelector("img")).toBeNull();
+      expect(agentMarkRights(id)).toBeNull();
+    }
+  });
+
+  it("records auditable rights for every redistributed image asset", () => {
+    for (const id of ["codex", "opencode", "openclaw"]) {
+      const rights = agentMarkRights(id);
+      expect(agentMarkKind(id)).toBe("asset");
+      expect(rights?.license).toBe("MIT");
+      expect(rights?.source).toMatch(/^https:\/\//);
+      expect(rights?.sha256).toMatch(/^[a-f0-9]{64}$/);
+      expect(rights?.licenseSource).toMatch(/^licenses\//);
+      expect(agentMarkSource(id)).toBe(rights?.source);
     }
     expect(agentMarkSource("brand-new-agent")).toBe("");
   });
@@ -54,11 +68,13 @@ describe("AgentIcon", () => {
     for (const size of [18, 20]) {
       for (const id of ALL) {
         const { container } = render(<AgentIcon agentId={id} size={size} />);
-        const img = container.querySelector("img");
-        expect(img?.getAttribute("width")).toBe(String(size));
-        expect(img?.getAttribute("height")).toBe(String(size));
-        // contain, so a mark with tighter padding cannot overflow the box.
-        expect(img?.style.objectFit).toBe("contain");
+        const mark = container.querySelector<HTMLElement>("img, svg");
+        expect(mark?.getAttribute("width")).toBe(String(size));
+        expect(mark?.getAttribute("height")).toBe(String(size));
+        if (mark?.tagName === "IMG") {
+          // contain, so a mark with tighter padding cannot overflow the box.
+          expect((mark as HTMLImageElement).style.objectFit).toBe("contain");
+        }
       }
     }
   });
