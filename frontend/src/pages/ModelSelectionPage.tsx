@@ -42,7 +42,7 @@ export function ModelSelectionPage() {
       title={t("选择模型")}
       description={t("从当前 Key 可访问的模型中选择，接口不支持时可直接输入模型 ID。")}
       stepper
-      onBack={() => navigate("/setup/provider")}
+      onBack={() => navigate(state.profileId ? "/setup/profile" : "/setup/provider")}
       primaryLabel={t("继续")}
       onPrimary={() => navigate("/setup/review")}
       primaryDisabled={!state.model.trim() || state.modelsState === "loading"}

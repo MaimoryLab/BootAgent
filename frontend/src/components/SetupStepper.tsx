@@ -2,11 +2,13 @@ import { Check } from "lucide-react";
 import { useLocation } from "react-router-dom";
 
 import { type TranslationKey, useI18n } from "../i18n";
+import { useWizard } from "../state/WizardContext";
 
 // Single source of truth for the onboarding sequence: order and labels. Pages
 // no longer pass step numbers; the current step is derived from the route.
 const steps: Array<{ path: string; label: TranslationKey | "Agent" | "Provider" }> = [
   { path: "/setup/agents", label: "Agent" },
+  { path: "/setup/profile", label: "Profile选择" },
   { path: "/setup/provider", label: "Provider" },
   { path: "/setup/model", label: "模型" },
   { path: "/setup/review", label: "确认" },
@@ -16,6 +18,7 @@ const steps: Array<{ path: string; label: TranslationKey | "Agent" | "Provider" 
 export function SetupStepper() {
   const { t } = useI18n();
   const { pathname } = useLocation();
+  const { state } = useWizard();
   const activeSteps = steps;
   // The desktop picker is the same first step as the CLI picker. The legacy
   // desktop URLs are redirected by App, so they never create a second wizard.
@@ -27,12 +30,13 @@ export function SetupStepper() {
     <ol className="setup-stepper" aria-label={t("激活步骤")}>
       {activeSteps.map((step, index) => {
         const number = index + 1;
-        const complete = number < current;
+        const skipped = state.reusedProfile && (step.path === "/setup/provider" || step.path === "/setup/model");
+        const complete = number < current && !skipped;
         const active = number === current;
         return (
           <li
             key={step.label}
-            className={`stepper-item${active ? " is-active" : ""}${complete ? " is-complete" : ""}`}
+            className={`stepper-item${active ? " is-active" : ""}${complete ? " is-complete" : ""}${skipped ? " is-skipped" : ""}`}
             aria-current={active ? "step" : undefined}
           >
             <span className="stepper-marker">{complete ? <Check size={14} /> : number}</span>

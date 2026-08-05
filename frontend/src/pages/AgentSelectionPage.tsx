@@ -39,6 +39,11 @@ export function AgentSelectionPage() {
   );
   const selectedAgent = state.selectedAgentIds[0] ?? "";
   const selectedName = state.status?.catalog.find((item) => item.id === selectedAgent)?.name ?? selectedAgent;
+  const continueSetup = () => {
+    const protocol = state.status?.catalog.find((item) => item.id === selectedAgent)?.protocol;
+    const hasProfile = Boolean(protocol && state.status?.profiles.some((profile) => profile.protocol === protocol));
+    navigate(hasProfile ? "/setup/profile" : "/setup/provider");
+  };
 
   // Desktop installation uses this same route and the same five-step shell;
   // its first-step row is different because the desktop app is not in the CLI
@@ -51,7 +56,7 @@ export function AgentSelectionPage() {
       description={t("选择这次要安装并配置的开发工具，每次安装一个。")}
       stepper
       primaryLabel={t("继续")}
-      onPrimary={() => navigate("/setup/provider")}
+      onPrimary={continueSetup}
       primaryDisabled={!selectedAgent || state.statusState === "loading"}
       footerNote={selectedAgent ? selectedName : t("选择一个 Agent")}
       bodyClassName="agent-selection-body"

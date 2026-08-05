@@ -164,6 +164,22 @@ describe("wizardReducer", () => {
     expect(wizardReducer(initialWizardState, { type: "SET_PROFILE_ID", value: "codex-ppio" }).profileId).toBe("codex-ppio");
   });
 
+  it("loads an existing profile without reopening model discovery", () => {
+    const selected = wizardReducer(initialWizardState, {
+      type: "SELECT_PROFILE",
+      provider: "ppio",
+      profileId: "team",
+      profileLabel: "Team",
+      model: "model-a",
+      keyVerified: true,
+    });
+    expect(selected.profileId).toBe("team");
+    expect(selected.profileLabel).toBe("Team");
+    expect(selected.model).toBe("model-a");
+    expect(selected.keyVerified).toBe(true);
+    expect(selected.connectionState).toBe("success");
+  });
+
   it("maps connection states", () => {
     let state = wizardReducer(initialWizardState, { type: "CONNECTION_LOADING" });
     expect(state.connectionState).toBe("loading");

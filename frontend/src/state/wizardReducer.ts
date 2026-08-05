@@ -26,6 +26,7 @@ export interface WizardState {
    *  Agent and Provider". */
   profileId: string;
   profileLabel: string;
+  reusedProfile: boolean;
   desktopProfileId: string;
   hasApiKey: boolean;
   connection: ProbeResponse | null;
@@ -60,6 +61,7 @@ export const initialWizardState: WizardState = {
   probeModel: "",
   profileId: "",
   profileLabel: "",
+  reusedProfile: false,
   desktopProfileId: "",
   hasApiKey: false,
   connection: null,
@@ -87,6 +89,8 @@ export type WizardAction =
   | { type: "SET_PROBE_MODEL"; value: string }
   | { type: "SET_PROFILE_ID"; value: string }
   | { type: "SET_PROFILE_LABEL"; value: string }
+  | { type: "SELECT_PROFILE"; provider: ProviderId; profileId: string; profileLabel: string; model: string; keyVerified: boolean }
+  | { type: "START_NEW_PROFILE" }
   | { type: "SET_DESKTOP_PROFILE"; value: string }
   | { type: "START_SETUP"; profileId?: string; profileLabel?: string }
   | { type: "SET_HAS_API_KEY"; value: boolean }
@@ -168,6 +172,7 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
           // Provider. Do not carry a prior run's profile into a new pairing.
           profileId: state.selectedAgentIds[0] === action.agentId ? state.profileId : "",
           profileLabel: state.selectedAgentIds[0] === action.agentId ? state.profileLabel : "",
+          ...(changed ? { reusedProfile: false } : {}),
           // Provider probes are protocol-specific, so a different Agent needs a
           // fresh verdict before the model step can continue.
           ...(changed ? {
@@ -185,6 +190,20 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
       return { ...state, profileId: action.value };
     case "SET_PROFILE_LABEL":
       return { ...state, profileLabel: action.value };
+    case "START_NEW_PROFILE":
+      return { ...state, profileId: "", profileLabel: "", model: "", reusedProfile: false, keyVerified: false, connection: null, connectionState: "idle", models: [], modelsState: "idle", modelsMessage: "" };
+    case "SELECT_PROFILE":
+      return {
+        ...state,
+        provider: action.provider,
+        profileId: action.profileId,
+        profileLabel: action.profileLabel,
+        reusedProfile: true,
+        model: action.model,
+        keyVerified: action.keyVerified,
+        connection: null,
+        connectionState: action.keyVerified ? "success" : "idle",
+      };
     case "SET_DESKTOP_PROFILE":
       return { ...state, desktopProfileId: action.value };
     case "START_SETUP":
@@ -206,6 +225,7 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
         probeModel: "",
         profileId: "",
         profileLabel: "",
+        reusedProfile: false,
         connection: null,
         connectionState: "idle",
         keyVerified: false,
