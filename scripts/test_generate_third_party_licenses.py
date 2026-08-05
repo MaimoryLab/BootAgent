@@ -6,7 +6,9 @@ import unittest
 from pathlib import Path
 
 from scripts.generate_third_party_licenses import (
+    ASSET_RIGHTS_MANIFEST,
     Dependency,
+    ICON_ROOT,
     collect_asset_dependencies,
     compare_trees,
     copy_license_files,
@@ -39,14 +41,48 @@ class LicenseCopyTests(unittest.TestCase):
 
 
 class AssetDependencyTests(unittest.TestCase):
-    def test_collects_only_rights_manifest_assets_and_copies_license_text(self) -> None:
+    def test_collects_every_rights_manifest_asset_and_copies_license_text(self) -> None:
+        # Derived from the manifest rather than a hardcoded pair of names: this
+        # reads the real repository file, so listing the assets literally meant
+        # the test failed every time an icon was added or removed, which says
+        # nothing about whether the bundle is correct.
+        manifest = json.loads(ASSET_RIGHTS_MANIFEST.read_text(encoding="utf-8"))
+        expected = sorted(manifest["assets"])
+
         with tempfile.TemporaryDirectory() as output_dir:
             dependencies = collect_asset_dependencies(Path(output_dir))
-            self.assertEqual([dependency.name for dependency in dependencies], ["codex", "opencode"])
+            self.assertEqual([dependency.name for dependency in dependencies], expected)
             for dependency in dependencies:
                 self.assertEqual(dependency.license, "MIT")
+                self.assertTrue(dependency.license_files)
                 for license_file in dependency.license_files:
                     self.assertTrue((Path(output_dir) / license_file).is_file())
+
+    def test_every_shipped_image_asset_is_registered(self) -> None:
+        # The generator walks the manifest, never the directory, so an asset file
+        # that nobody registered is redistributed with no source, licence or hash
+        # recorded -- and --check still passes. That is the failure this guards:
+        # docs/distribution-compliance-policy.md makes the rights inventory a
+        # release precondition.
+        manifest = json.loads(ASSET_RIGHTS_MANIFEST.read_text(encoding="utf-8"))
+        registered = {
+            (ICON_ROOT / str(rights["file"])).resolve()
+            for rights in manifest["assets"].values()
+        }
+        on_disk = {
+            path.resolve()
+            for path in (ICON_ROOT / "assets").iterdir()
+            if path.is_file() and path.suffix.lower() in {".svg", ".png", ".jpg", ".jpeg", ".webp"}
+        }
+
+        unregistered = sorted(path.name for path in on_disk - registered)
+        self.assertEqual(
+            unregistered,
+            [],
+            "image assets present but absent from asset-rights.json: "
+            f"{unregistered}. Register each with its source, licence, copyright "
+            "owner and SHA-256, or delete it.",
+        )
 
 
 class NoticeRenderingTests(unittest.TestCase):
