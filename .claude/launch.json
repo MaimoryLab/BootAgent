@@ -18,7 +18,7 @@
       "runtimeArgs": [
         "./frontend/e2e/wails-server.mjs"
       ],
-      "port": 34123
+      "port": 8080
     }
   ]
 }

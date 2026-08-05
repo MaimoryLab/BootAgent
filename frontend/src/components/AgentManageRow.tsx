@@ -16,18 +16,6 @@ const npmPackages: Record<string, string> = {
   "kilo-cli": "@kilocode/cli",
 };
 
-const AGENT_ACCENTS: Record<string, "blue" | "green" | "orange"> = {
-  codex: "blue",
-  "claude-code": "orange",
-  opencode: "green",
-  "kilo-cli": "blue",
-  aider: "orange",
-};
-
-function agentAccent(agentId: string): "blue" | "green" | "orange" {
-  return AGENT_ACCENTS[agentId] || "blue";
-}
-
 /** -1, 0 or 1 comparing dotted numeric versions; non-numeric parts sort last. */
 export function compareVersions(left: string, right: string): number {
   const parse = (value: string) => value.split(/[.+-]/).map((part) => Number.parseInt(part, 10));
@@ -132,8 +120,10 @@ export function AgentManageRow({
   const profileLabel = profileName || status.profileId || "";
   const model = profile?.model || status.model || status.detected?.model || "";
   const baseUrl = status.baseUrl || status.detected?.baseUrl || "";
-  const hasConfiguration = Boolean(providerName || profileLabel || model || baseUrl);
-  const statusLabel = failure ? t("失败") : !status.installed ? t("未安装") : !hasConfiguration ? t("未配置") : "";
+  // No "not configured" state here: the Profile and Provider tokens already name
+  // whichever piece is absent, so a third word for the same condition only adds
+  // a term the user has to map back onto them.
+  const statusLabel = failure ? t("失败") : !status.installed ? t("未安装") : "";
 
   // installed is true only when the Agent's command resolved on the managed
   // PATH, so it is already the precise "there is something to launch" signal.
@@ -164,7 +154,7 @@ export function AgentManageRow({
   };
 
   return (
-    <div className="agent-manage-row" data-accent={agentAccent(agentId)} data-testid={`agent-${agentId}`}>
+    <div className="agent-manage-row" data-testid={`agent-${agentId}`}>
       <div className="agent-manage-summary">
         <div className="agent-manage-identity">
           <span className="agent-icon" title={agentTagline(agentId, t) || undefined}>
@@ -175,15 +165,17 @@ export function AgentManageRow({
             {failure ? <small className="agent-manage-note is-error">{failure}</small> : null}
           </span>
         </div>
+        {/* Right-aligned, in a fixed order, with the Profile and Provider slots
+            always rendered. Dropping an absent Provider slid every later token
+            left, so the same field sat in a different position from row to row
+            and the strip could not be read down the column. */}
         <div className="agent-manage-meta" aria-label={t("状态")}>
-          {providerName ? (
-            <span className="agent-manage-pill" title={t("模型服务")}>
-              <i aria-hidden="true" />
-              {providerName}
-            </span>
-          ) : null}
           <span className={`agent-manage-pill${profileLabel ? "" : " is-muted"}`} title={t("配置模板")}>
-            {profileLabel || t("未绑定")}
+            {profileLabel || t("无 Profile")}
+          </span>
+          <span className={`agent-manage-pill${providerName ? "" : " is-muted"}`} title={t("模型服务")}>
+            {providerName ? <i aria-hidden="true" /> : null}
+            {providerName || t("无 Provider")}
           </span>
           {model ? (
             <span className="agent-manage-pill agent-manage-model" title={t("模型")}>
@@ -199,15 +191,16 @@ export function AgentManageRow({
         </div>
       </div>
       <div className="agent-manage-actions">
-        {!canLaunch ? (
-          <Link
-            className="button button-secondary"
-            to={`/agents/${agentId}`}
-            title={t("编辑这个 Agent 关联的 Profile")}
-          >
-            {t("配置")}
-          </Link>
-        ) : null}
+        {/* Always in the row, not only when the Agent cannot launch. Configuring
+            an installed Agent was previously reachable only by opening <details>,
+            which made the common case the hidden one. */}
+        <Link
+          className="button button-secondary"
+          to={`/agents/${agentId}`}
+          title={t("编辑这个 Agent 关联的 Profile")}
+        >
+          {t("配置")}
+        </Link>
         {npmAgents.has(agentId) ? (
           <button className="button button-secondary" type="button" onClick={() => void update()} disabled={updating || launching} title={t("执行 npm update")}>
             {t("更新")}
@@ -229,15 +222,6 @@ export function AgentManageRow({
       <details className="agent-manage-details">
         <summary>{t("详情")}</summary>
         <div className="agent-manage-details-body">
-          {canLaunch ? (
-            <Link
-              className="agent-manage-detail-action"
-              to={`/agents/${agentId}`}
-              title={t("编辑这个 Agent 关联的 Profile")}
-            >
-              {t("配置")}
-            </Link>
-          ) : null}
           {providerName ? (
             <div><small>{t("模型服务")}</small><span>{providerName}</span></div>
           ) : null}
