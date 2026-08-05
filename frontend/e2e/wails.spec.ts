@@ -14,7 +14,7 @@ test("language selection switches to English and persists", async ({ page }) => 
 
 test("a machine with no OneAgent state opens onboarding from the landing route", async ({ page }) => {
   await page.goto("/#/");
-  await expect(page.getByRole("heading", { name: "选择 Agent" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "选择命令行 Agent" })).toBeVisible();
 });
 
 test("onboarding installs one Agent end to end and writes its Profile", async ({ page }) => {
@@ -39,7 +39,7 @@ test("onboarding installs one Agent end to end and writes its Profile", async ({
   await expect(page.getByText("尚未安装任何 Agent")).toBeVisible();
   await page.getByRole("button", { name: "安装 Agent" }).click();
 
-  await expect(page.getByRole("heading", { name: "选择 Agent" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "选择命令行 Agent" })).toBeVisible();
   await page.getByLabel("选择 Codex").check();
   await page.getByRole("button", { name: "继续" }).click();
 

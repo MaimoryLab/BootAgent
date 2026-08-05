@@ -1,5 +1,5 @@
-import { ChevronDown, PackageCheck } from "lucide-react";
-import { useMemo, useState } from "react";
+import { PackageCheck } from "lucide-react";
+import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { AgentRow } from "../components/AgentRow";
@@ -7,7 +7,7 @@ import { MirrorSetting } from "../components/MirrorSetting";
 import { PageScaffold } from "../components/PageScaffold";
 import { RuntimePrompt } from "../components/RuntimePrompt";
 import { useI18n } from "../i18n";
-import { splitByRank } from "../state/ranking";
+import { byRank } from "../state/ranking";
 import type { AgentCatalogItem } from "../types/api";
 import { useWizard } from "../state/WizardContext";
 import { DesktopAgentSelectionPage } from "./DesktopAgentSelectionPage";
@@ -16,15 +16,13 @@ export function AgentSelectionPage() {
   const navigate = useNavigate();
   const { t } = useI18n();
   const { state, dispatch, refreshStatus } = useWizard();
-  const [showMore, setShowMore] = useState(false);
-  // Ranked, not grouped by catalog group. Leading with the "auto" group put Kilo
-  // and Aider on the first screen and folded Cursor, OpenClaw and Hermes away.
+  // Keep every Agent available in one scrollable list, ordered by catalog rank.
   // Guide-only Agents stay selectable: install_many answers them with a
   // guide-only result and writes nothing, which is the flow Review relies on.
-  const { primary, secondary } = useMemo(() => splitByRank(state.status?.catalog), [state.status]);
+  const agents = useMemo(() => byRank(state.status?.catalog), [state.status]);
 
   const renderRows = (agents: readonly AgentCatalogItem[]) => (
-    <div className="agent-list">
+      <div className="agent-list agent-selection-list">
       {agents.map((agent) => (
         <AgentRow
           key={agent.id}
@@ -69,23 +67,14 @@ export function AgentSelectionPage() {
           <section className="content-section">
             <div className="section-heading">
               <div>
-                <h2>{t("常用 Agent")}</h2>
-                <p>{t("可一键配置的默认安装最新版本，仅引导的只显示官方步骤。")}</p>
+                <h2>{t("选择 Agent")}</h2>
+                <p>{t("选择这次要安装并配置的开发工具，每次安装一个。")}</p>
                 {/* Guide-only rows stay selectable: install_many answers them
                     with a guide-only result and writes nothing. */}
               </div>
               <PackageCheck size={19} aria-hidden="true" />
             </div>
-            {renderRows(primary)}
-          </section>
-
-          <section className={`disclosure-section${showMore ? " is-open" : ""}`}>
-            <button type="button" className="disclosure-trigger" onClick={() => setShowMore((value) => !value)} aria-expanded={showMore}>
-              <ChevronDown size={18} />
-              {t("更多 Agent（{count}）", { count: secondary.length })}
-              <span>{t("网关、平台账号与 IDE 扩展")}</span>
-            </button>
-            {showMore ? <div className="additional-agent-groups">{renderRows(secondary)}</div> : null}
+            {renderRows(agents)}
           </section>
 
           <MirrorSetting label={t("Agent 安装源")} />

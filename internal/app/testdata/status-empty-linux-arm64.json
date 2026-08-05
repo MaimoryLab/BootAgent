@@ -10,10 +10,7 @@
       "aider": false,
       "claude-code": false,
       "codex": false,
-      "cursor": false,
-      "hermes": false,
       "kilo-cli": false,
-      "openclaw": false,
       "opencode": false
     },
     "missingRuntime": {
@@ -28,10 +25,7 @@
       "claude-code",
       "opencode",
       "kilo-cli",
-      "aider",
-      "cursor",
-      "openclaw",
-      "hermes"
+      "aider"
     ]
   },
   "agents": {
@@ -80,56 +74,11 @@
       "updatedAt": null,
       "detected": null
     },
-    "cursor": {
-      "installed": false,
-      "configured": false,
-      "guideOnly": true,
-      "config": "",
-      "version": null,
-      "lockedVersion": null,
-      "canInstall": false,
-      "provider": null,
-      "profileId": null,
-      "model": null,
-      "baseUrl": null,
-      "updatedAt": null,
-      "detected": null
-    },
-    "hermes": {
-      "installed": false,
-      "configured": false,
-      "guideOnly": true,
-      "config": "",
-      "version": null,
-      "lockedVersion": null,
-      "canInstall": false,
-      "provider": null,
-      "profileId": null,
-      "model": null,
-      "baseUrl": null,
-      "updatedAt": null,
-      "detected": null
-    },
     "kilo-cli": {
       "installed": false,
       "configured": false,
       "guideOnly": false,
       "config": "${HOME}/.config/kilo/kilo.jsonc",
-      "version": null,
-      "lockedVersion": null,
-      "canInstall": false,
-      "provider": null,
-      "profileId": null,
-      "model": null,
-      "baseUrl": null,
-      "updatedAt": null,
-      "detected": null
-    },
-    "openclaw": {
-      "installed": false,
-      "configured": false,
-      "guideOnly": true,
-      "config": "",
       "version": null,
       "lockedVersion": null,
       "canInstall": false,
@@ -236,54 +185,6 @@
       ],
       "platformNote": "",
       "rank": 5
-    },
-    {
-      "id": "cursor",
-      "name": "Cursor",
-      "group": "platform",
-      "configMode": "guide",
-      "guideOnly": true,
-      "lockedVersion": null,
-      "protocol": null,
-      "platforms": [
-        "macos",
-        "linux",
-        "windows"
-      ],
-      "platformNote": "",
-      "rank": 6
-    },
-    {
-      "id": "openclaw",
-      "name": "OpenClaw",
-      "group": "gateway",
-      "configMode": "guide",
-      "guideOnly": true,
-      "lockedVersion": null,
-      "protocol": null,
-      "platforms": [
-        "macos",
-        "linux",
-        "windows"
-      ],
-      "platformNote": "",
-      "rank": 7
-    },
-    {
-      "id": "hermes",
-      "name": "Hermes",
-      "group": "gateway",
-      "configMode": "guide",
-      "guideOnly": true,
-      "lockedVersion": null,
-      "protocol": null,
-      "platforms": [
-        "macos",
-        "linux",
-        "windows"
-      ],
-      "platformNote": "",
-      "rank": 8
     }
   ],
   "groups": [

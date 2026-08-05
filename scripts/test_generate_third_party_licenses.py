@@ -42,7 +42,7 @@ class AssetDependencyTests(unittest.TestCase):
     def test_collects_only_rights_manifest_assets_and_copies_license_text(self) -> None:
         with tempfile.TemporaryDirectory() as output_dir:
             dependencies = collect_asset_dependencies(Path(output_dir))
-            self.assertEqual([dependency.name for dependency in dependencies], ["codex", "openclaw", "opencode"])
+            self.assertEqual([dependency.name for dependency in dependencies], ["codex", "opencode"])
             for dependency in dependencies:
                 self.assertEqual(dependency.license, "MIT")
                 for license_file in dependency.license_files:

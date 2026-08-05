@@ -16,18 +16,6 @@
       "ecosystem": "asset",
       "license": "MIT",
       "license_files": [
-        "licenses/assets/openclaw/LICENSE"
-      ],
-      "name": "openclaw",
-      "platforms": [
-        "frontend"
-      ],
-      "version": "1ee82ff331b7295074bf6f60a0812c5f64daad65b2395d5d5e47a6c6c5180a7c"
-    },
-    {
-      "ecosystem": "asset",
-      "license": "MIT",
-      "license_files": [
         "licenses/assets/opencode/LICENSE"
       ],
       "name": "opencode",

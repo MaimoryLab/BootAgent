@@ -93,12 +93,10 @@ describe("EnvironmentOverviewPage", () => {
     empty.agents.codex.installed = false;
     mockState = { status: empty, statusState: "success", statusError: "" };
     renderPage();
-    expect(screen.getByText("尚未安装任何 Agent")).toBeTruthy();
-    // The header's "安装命令行 Agent" is deliberately absent here: with nothing
-    // installed the empty state owns the call to action, as its own primary
-    // button, rather than repeating it in the toolbar.
-    expect(screen.queryByRole("button", { name: "安装命令行 Agent" })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "安装 Agent" }));
+    expect(screen.getByText("尚未安装任何命令行 Agent")).toBeTruthy();
+    // With nothing installed the empty state owns the single call to action.
+    expect(screen.getAllByRole("button", { name: "安装命令行 Agent" })).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: "安装命令行 Agent" }));
     expect(await screen.findByRole("heading", { name: "onboarding" })).toBeTruthy();
     // A second run must not inherit the previous Agent, model or log.
     expect(dispatch).toHaveBeenCalledWith({ type: "START_SETUP" });

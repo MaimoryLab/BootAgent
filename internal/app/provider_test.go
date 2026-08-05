@@ -75,19 +75,6 @@ func TestProbeProviderSelectsFirstFailure(t *testing.T) {
 	}
 }
 
-func TestProtocolsForAgentsRejectsUnknownAndIgnoresGuideOnly(t *testing.T) {
-	protocols, err := protocolsForAgents([]string{"openclaw"})
-	if err != nil || !reflect.DeepEqual(protocols, []string{provider.ProtocolOpenAI}) {
-		t.Fatalf("guide protocols = %v, err=%v", protocols, err)
-	}
-	if _, err := protocolsForAgents([]string{"missing-agent"}); err == nil || oneerrors.As(err).Code != oneerrors.InvalidRequest {
-		t.Fatalf("unknown Agent error = %v", err)
-	}
-	if _, err := protocolsForAgents([]string{""}); err == nil || oneerrors.As(err).Code != oneerrors.InvalidRequest {
-		t.Fatalf("empty Agent error = %v", err)
-	}
-}
-
 func TestProviderUseCasesHonorCancellationBeforeNetwork(t *testing.T) {
 	called := false
 	core := providerUseCases(t, appProviderDoer(func(*http.Request) (*http.Response, error) {

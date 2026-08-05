@@ -331,6 +331,11 @@
   background: var(--window-bg);
 }
 
+.agent-selection-list {
+  max-height: min(560px, 58vh);
+  overflow-y: auto;
+}
+
 .agent-row {
   min-height: 68px;
   padding: 10px 14px;

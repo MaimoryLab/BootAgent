@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"maps"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -71,9 +72,7 @@ func (r *scriptedRunner) LookPath(string) (string, bool) { return "", false }
 func (r *scriptedRunner) Run(_ context.Context, argv []string, environment map[string]string, _ time.Duration) (process.Result, error) {
 	r.calls = append(r.calls, append([]string(nil), argv...))
 	copyEnvironment := make(map[string]string, len(environment))
-	for key, value := range environment {
-		copyEnvironment[key] = value
-	}
+	maps.Copy(copyEnvironment, environment)
 	r.environments = append(r.environments, copyEnvironment)
 	if len(r.results) == 0 {
 		return process.Result{Args: argv, ExitCode: 0}, nil

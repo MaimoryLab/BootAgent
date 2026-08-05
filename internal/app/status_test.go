@@ -261,9 +261,6 @@ api_key = "sk-detected-secret"
 	if err != nil || strings.Contains(string(wire), "sk-detected-secret") || strings.Contains(string(wire), "api_key") {
 		t.Fatalf("detected status leaked secret data: %s (%v)", wire, err)
 	}
-	if status.Agents["openclaw"].Detected != nil {
-		t.Fatalf("guide-only Agent unexpectedly detected config: %#v", status.Agents["openclaw"].Detected)
-	}
 }
 
 func TestStatusReportsInstalledVersionFromVersionCommand(t *testing.T) {
@@ -290,9 +287,6 @@ func TestStatusReportsInstalledVersionFromVersionCommand(t *testing.T) {
 	}
 	if !found {
 		t.Fatalf("version command was not invoked: %#v", runner.calls)
-	}
-	if openclaw := status.Agents["openclaw"]; openclaw.Version != nil {
-		t.Fatalf("guide-only Agent should not report a version: %#v", openclaw)
 	}
 }
 

@@ -17,15 +17,13 @@ import {
   Braces,
   GitBranch,
   MousePointer2,
-  Sparkles,
-  type LucideIcon,
+  type LucideIcon
 } from "lucide-react";
 
 import { sourceTranslate, type Translate, type TranslationKey } from "../../i18n";
 
 import assetRightsManifest from "./asset-rights.json";
 import codexMark from "./assets/codex.svg";
-import openclawMark from "./assets/openclaw.svg";
 import opencodeMark from "./assets/opencode.svg";
 
 type AssetRights = (typeof assetRightsManifest.assets)[keyof typeof assetRightsManifest.assets];
@@ -48,15 +46,8 @@ const MARKS: Record<string, Mark> = {
     source: assetRightsManifest.assets.opencode.source,
     rights: assetRightsManifest.assets.opencode,
   },
-  openclaw: {
-    kind: "asset",
-    src: openclawMark,
-    source: assetRightsManifest.assets.openclaw.source,
-    rights: assetRightsManifest.assets.openclaw,
-  },
   "claude-code": { kind: "generic", Icon: Braces, source: GENERIC_SOURCE },
   cursor: { kind: "generic", Icon: MousePointer2, source: GENERIC_SOURCE },
-  hermes: { kind: "generic", Icon: Sparkles, source: GENERIC_SOURCE },
   "kilo-cli": { kind: "generic", Icon: Blocks, source: GENERIC_SOURCE },
   aider: { kind: "generic", Icon: GitBranch, source: GENERIC_SOURCE },
 };
@@ -68,9 +59,6 @@ const TAGLINES: Record<string, TranslationKey> = {
   opencode: "开源终端编码代理",
   "kilo-cli": "多模型编排的命令行代理",
   aider: "结对编程式的仓库编辑代理",
-  cursor: "AI 编辑器，按官方方式安装",
-  openclaw: "多渠道 AI 网关，常驻运行",
-  hermes: "自我成长型 Agent 框架",
 };
 
 export const AGENT_ICON_IDS = Object.keys(MARKS);

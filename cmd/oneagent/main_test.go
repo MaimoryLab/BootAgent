@@ -14,26 +14,6 @@ import (
 	"github.com/MaimoryLab/OneAgent/internal/platform"
 )
 
-func TestFlatInstallCLIEmitsStructuredGuideResult(t *testing.T) {
-	home := t.TempDir()
-	var stdout, stderr bytes.Buffer
-	code := run([]string{"--agent", "openclaw", "--check-agent-only", "--json", "--home", home}, &stdout, &stderr)
-	if code != 0 {
-		t.Fatalf("exit=%d stderr=%s", code, stderr.String())
-	}
-	var payload map[string]any
-	if err := json.Unmarshal(stdout.Bytes(), &payload); err != nil {
-		t.Fatal(err)
-	}
-	if payload["ok"] != true {
-		t.Fatalf("payload=%v", payload)
-	}
-	results, ok := payload["results"].([]any)
-	if !ok || len(results) != 1 || results[0].(map[string]any)["status"] != "guide-only" {
-		t.Fatalf("results=%v", payload["results"])
-	}
-}
-
 func TestAgentSetAndListCLIUseGoBindingsWithoutLeakingKey(t *testing.T) {
 	home := t.TempDir()
 	var stdout, stderr bytes.Buffer

@@ -2,10 +2,10 @@ import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import App from "./App";
 import { api } from "./backend/api";
 import { LOCALE_STORAGE_KEY } from "./i18n";
 import type { StatusResponse } from "./types/api";
-import App from "./App";
 
 // App mounts the real I18nProvider, and jsdom's navigator.language is en-US, so
 // pin the locale rather than assert against whichever one the host implies.
@@ -35,7 +35,7 @@ describe("landing route", () => {
   it("opens onboarding on a machine with no ~/.oneagent", async () => {
     vi.spyOn(api, "status").mockResolvedValue({ ...status, firstRun: true });
     render(<MemoryRouter initialEntries={["/"]}><App /></MemoryRouter>);
-    expect(await screen.findByRole("heading", { name: "选择 Agent" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "选择 Agent", level: 1 })).toBeTruthy();
   });
 
   it("opens the overview once OneAgent has state", async () => {

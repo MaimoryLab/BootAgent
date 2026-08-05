@@ -16,14 +16,6 @@
       "licenseSource": "licenses/lobehub/LICENSE",
       "copyrightOwner": "LobeHub contributors",
       "sha256": "7cfa6e9d6726f7c9fa26c7d9aef0dfec52d20a137380454340f30f12ccbfd302"
-    },
-    "openclaw": {
-      "file": "assets/openclaw.svg",
-      "source": "https://github.com/openclaw/openclaw/blob/main/docs/assets/pixel-lobster.svg",
-      "license": "MIT",
-      "licenseSource": "licenses/openclaw/LICENSE",
-      "copyrightOwner": "OpenClaw contributors",
-      "sha256": "1ee82ff331b7295074bf6f60a0812c5f64daad65b2395d5d5e47a6c6c5180a7c"
     }
   }
 }

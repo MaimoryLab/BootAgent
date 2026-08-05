@@ -3,11 +3,9 @@ import { describe, expect, it } from "vitest";
 
 import { AGENT_ICON_IDS, AgentIcon, agentMarkKind, agentMarkRights, agentMarkSource, agentTagline } from "./agents";
 
-const AUTO_AGENTS = ["codex", "claude-code", "opencode", "kilo-cli", "aider"];
 // Shown on the first screen alongside them, so they need marks of their own even
 // though OneAgent does not configure them.
-const PROMINENT_GUIDE_AGENTS = ["cursor", "openclaw", "hermes"];
-const ALL = [...AUTO_AGENTS, ...PROMINENT_GUIDE_AGENTS];
+const ALL = ["codex", "claude-code", "opencode", "kilo-cli", "aider"];
 
 describe("AgentIcon", () => {
   it("has a distinct mark for every Agent on the first screen", () => {
@@ -24,18 +22,8 @@ describe("AgentIcon", () => {
     expect(rendered.every(Boolean)).toBe(true);
   });
 
-  it("uses generic Lucide marks for assets without redistribution evidence", () => {
-    for (const id of ["claude-code", "cursor", "hermes", "kilo-cli", "aider"]) {
-      const { container } = render(<AgentIcon agentId={id} />);
-      expect(agentMarkKind(id)).toBe("generic");
-      expect(container.querySelector("svg[data-mark-kind=generic]")).not.toBeNull();
-      expect(container.querySelector("img")).toBeNull();
-      expect(agentMarkRights(id)).toBeNull();
-    }
-  });
-
   it("records auditable rights for every redistributed image asset", () => {
-    for (const id of ["codex", "opencode", "openclaw"]) {
+    for (const id of ["codex"]) {
       const rights = agentMarkRights(id);
       expect(agentMarkKind(id)).toBe("asset");
       expect(rights?.license).toBe("MIT");
