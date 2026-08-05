@@ -3,7 +3,7 @@ import { useState } from "react";
 
 import { api, describeError } from "../backend/api";
 import { useI18n } from "../i18n";
-import { useTaskCenter } from "../state/TaskCenterContext";
+import { taskKey, useTaskCenter, useTaskRoute } from "../state/TaskCenterContext";
 import type { RuntimeStatus } from "../types/api";
 import { AdvancedSection } from "./AdvancedSection";
 import { DownloadProgress } from "./DownloadProgress";
@@ -39,7 +39,8 @@ export function runtimeRoot(runtimes: RuntimeStatus[]): string {
 
 export function RuntimeSection({ runtimes, onInstalled }: RuntimeSectionProps) {
   const { t } = useI18n();
-  const { running, outcomes, startTask, finishTask } = useTaskCenter();
+  const { startTask, finishTask, taskFor } = useTaskCenter();
+  const route = useTaskRoute();
   const [pending, setPending] = useState("");
 
   const supported = runtimes.filter((runtime) => runtime.supported || runtime.installed);
@@ -50,23 +51,32 @@ export function RuntimeSection({ runtimes, onInstalled }: RuntimeSectionProps) {
   const root = runtimeRoot(supported);
 
   // A runtime download survives navigation away from this section, so the
-  // in-flight flag and the failure both live in the provider above the router.
+  // in-flight flag and the failure both live in the provider above route content.
   // A local flag would reset on unmount and hide a download still running.
-  const downloading = supported.find((runtime) => running[runtime.id])?.id ?? "";
+  const downloading = supported.find((runtime) => taskFor(taskKey("download", runtime.id))?.state === "running")?.id ?? "";
   const busy = Boolean(pending) || Boolean(downloading);
   const failure = supported
-    .map((runtime) => outcomes[runtime.id])
-    .find((outcome) => outcome?.kind === "failure")?.message ?? "";
+    .map((runtime) => taskFor(taskKey("download", runtime.id)))
+    .find((task) => task?.state === "failure")?.message ?? "";
 
   const install = async (runtimeId: string) => {
+    const id = taskKey("download", runtimeId);
+    const runtime = supported.find((item) => item.id === runtimeId);
+    if (!startTask({
+      id,
+      kind: "download",
+      target: runtimeId,
+      title: t("安装 {name} {version}", { name: runtime?.name || runtimeId, version: runtime?.lockedVersion || "" }),
+      route,
+      progressTarget: runtimeId,
+    })) return;
     setPending(runtimeId);
-    startTask(runtimeId);
     try {
       await api.installRuntime(runtimeId);
-      finishTask(runtimeId, { kind: "success", message: "" });
+      finishTask(id, { kind: "success", message: t("安装完成") });
       await onInstalled();
     } catch (error) {
-      finishTask(runtimeId, { kind: "failure", message: describeError(error, t("运行时安装失败")).message });
+      finishTask(id, { kind: "failure", message: describeError(error, t("运行时安装失败")).message });
     } finally {
       setPending("");
     }
@@ -111,7 +121,7 @@ export function RuntimeSection({ runtimes, onInstalled }: RuntimeSectionProps) {
                 className="button button-secondary"
                 type="button"
                 onClick={() => void install(runtime.id)}
-                disabled={busy}
+                disabled={busy || taskFor(taskKey("download", runtime.id))?.state === "running"}
               >
                 {pending === runtime.id || downloading === runtime.id ? <RefreshCw size={15} className="spin" /> : <Download size={15} />}
                 {pending === runtime.id || downloading === runtime.id ? t("安装中") : t("安装")}

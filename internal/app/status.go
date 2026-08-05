@@ -52,6 +52,11 @@ type UseCases struct {
 	// injectable so install behavior is testable without reaching a CDN.
 	httpDoer install.Doer
 	writeMu  sync.Mutex
+	// taskLocks serialize one install/update/download target without exposing a
+	// second transport-level task service. The existing writeMu still protects
+	// shared config publication; these locks prevent duplicate work at the edge.
+	taskMu    sync.Mutex
+	taskLocks map[string]*sync.Mutex
 	// The region behind the default download host cannot change without the user
 	// changing a system setting, so a successful probe is remembered for the
 	// process. regionKnown is separate from the answer so a probe that failed is

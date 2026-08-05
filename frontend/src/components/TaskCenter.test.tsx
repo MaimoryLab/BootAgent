@@ -2,8 +2,9 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { act } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 
-import { TaskCenterProvider } from "../state/TaskCenterContext";
+import { taskKey, TaskCenterProvider, type TaskInput, useTaskCenter } from "../state/TaskCenterContext";
 import type { InstallOutput } from "../types/api";
 import { DownloadProgress } from "./DownloadProgress";
 import { TaskCenter } from "./TaskCenter";
@@ -30,87 +31,103 @@ function send(output: InstallOutput) {
   });
 }
 
+const installTask: TaskInput = {
+  id: taskKey("install", "codex"),
+  kind: "install",
+  target: "codex",
+  title: "安装 Codex",
+  route: "/setup/activation",
+};
+
+function TaskHarness() {
+  const { startTask, finishTask } = useTaskCenter();
+  return (
+    <div>
+      <button type="button" onClick={() => { startTask(installTask); }}>启动安装</button>
+      <button type="button" onClick={() => finishTask(installTask.id!, { kind: "success", message: "安装完成" })}>完成安装</button>
+      <button type="button" onClick={() => { startTask(installTask); }}>再次启动</button>
+      <button type="button" onClick={() => { startTask({ kind: "update", target: "codex", title: "更新 Codex", route: "/overview" }); }}>更新同一 Agent</button>
+    </div>
+  );
+}
+
+function LocationProbe() {
+  const location = useLocation();
+  return <output data-testid="location">{location.pathname}</output>;
+}
+
+function renderTaskCenter(initialEntry = "/overview") {
+  return render(
+    <MemoryRouter initialEntries={[initialEntry]}>
+      <TaskCenterProvider>
+        <TaskCenter />
+        <TaskHarness />
+        <Routes>
+          <Route path="*" element={<LocationProbe />} />
+        </Routes>
+      </TaskCenterProvider>
+    </MemoryRouter>,
+  );
+}
+
 describe("TaskCenter", () => {
   beforeEach(() => {
     emit = null;
     unsubscribe.mockReset();
   });
 
-  it("shows commands and their output once opened", async () => {
+  it("shows task cards and never renders command output", async () => {
     const user = userEvent.setup();
-    render(
-      <TaskCenterProvider>
-        <TaskCenter />
-      </TaskCenterProvider>,
-    );
-    await user.click(screen.getByRole("button", { name: /任务中心/ }));
-    expect(screen.getByText(/暂无任务日志/)).toBeTruthy();
+    renderTaskCenter();
+    await user.click(screen.getByRole("button", { name: "启动安装" }));
+    expect(await screen.findByText("安装 Codex")).toBeTruthy();
+    expect(screen.getByText("进行中")).toBeTruthy();
 
     send({ kind: "command", args: ["npm", "install", "-g", "@openai/codex"] });
-    // Output arrives in chunks that split mid-line; the feed must join them
-    // rather than render each chunk as its own line.
-    send({ kind: "output", stream: "stdout", text: "added 1 " });
-    send({ kind: "output", stream: "stdout", text: "package\n" });
-
-    const feed = screen.getByText(/npm install/);
-    expect(feed.textContent).toContain("$ npm install -g @openai/codex");
-    expect(feed.textContent).toContain("added 1 package");
+    send({ kind: "output", stream: "stdout", text: "added 1 package\n" });
+    expect(screen.queryByText(/npm install/)).toBeNull();
+    expect(screen.queryByText(/added 1 package/)).toBeNull();
+    expect(screen.queryByText(/暂无任务日志|清空|完整日志/)).toBeNull();
   });
 
-  it("keeps collecting output while the pane is closed", async () => {
+  it("returns to the route recorded by a card after navigation", async () => {
     const user = userEvent.setup();
-    render(
-      <TaskCenterProvider>
-        <TaskCenter />
-      </TaskCenterProvider>,
-    );
-    send({ kind: "command", args: ["uv", "tool", "install", "aider-chat"] });
-    // A user who opens the pane after an install started still needs the log.
-    await user.click(screen.getByRole("button", { name: /任务中心/ }));
-    expect(screen.getByText(/uv tool install aider-chat/)).toBeTruthy();
+    renderTaskCenter();
+    await user.click(screen.getByRole("button", { name: "启动安装" }));
+    await user.click(screen.getByRole("button", { name: /返回任务页面：安装 Codex/ }));
+    expect(screen.getByTestId("location")).toHaveTextContent("/setup/activation");
   });
 
-  it("clears the feed on request", async () => {
+  it("keeps a terminal card until the user dismisses it", async () => {
     const user = userEvent.setup();
-    render(
-      <TaskCenterProvider>
-        <TaskCenter />
-      </TaskCenterProvider>,
-    );
-    await user.click(screen.getByRole("button", { name: /任务中心/ }));
-    send({ kind: "output", stream: "stderr", text: "boom\n" });
-    await user.click(screen.getByRole("button", { name: /清空/ }));
-    expect(screen.queryByText("boom")).toBeNull();
-    expect(screen.getByText(/暂无任务日志/)).toBeTruthy();
+    renderTaskCenter();
+    await user.click(screen.getByRole("button", { name: "启动安装" }));
+    await user.click(screen.getByRole("button", { name: "完成安装" }));
+    expect(await screen.findByText(/已完成/)).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "关闭任务" }));
+    expect(screen.queryByText("安装 Codex")).toBeNull();
   });
 
-  it("shows the backend's own log directory, not a Unix path", async () => {
-    // The label used to hardcode "~/.oneagent/logs", which names a directory
-    // that does not exist on Windows.
+  it("tracks byte progress on a download card", async () => {
     const user = userEvent.setup();
-    // Braces, not a bare attribute string: JSX string literals do not process
-    // backslash escapes, so logDir="C:\\Users" would pass two backslashes.
-    const windowsDir = "C:\\Users\\u\\.oneagent\\logs";
-    render(
-      <TaskCenterProvider>
-        <TaskCenter logDir={windowsDir} />
-      </TaskCenterProvider>,
-    );
-    await user.click(screen.getByRole("button", { name: /任务中心/ }));
-    expect(screen.getByText(`完整日志：${windowsDir}`)).toBeTruthy();
-    expect(screen.queryByText(/~\/\.oneagent/)).toBeNull();
+    renderTaskCenter();
+    await user.click(screen.getByRole("button", { name: "启动安装" }));
+    // The install card is enough to prove task rendering; progress events are
+    // attributed only to a matching progress target.
+    send({ kind: "progress", target: "codex", received: 5 * 1024 * 1024, total: 20 * 1024 * 1024 });
+    expect(await screen.findByText(/5\.0 MB \/ 20\.0 MB/)).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "完成安装" }));
+    expect(screen.queryByText(/5\.0 MB \/ 20\.0 MB/)).toBeNull();
   });
 
-  it("drops the path from the label when the backend reported none", async () => {
+  it("locks duplicate and conflicting work on the same Agent", async () => {
     const user = userEvent.setup();
-    render(
-      <TaskCenterProvider>
-        <TaskCenter />
-      </TaskCenterProvider>,
-    );
-    await user.click(screen.getByRole("button", { name: /任务中心/ }));
-    // "完整日志：" with nothing after it would read as a missing value.
-    expect(screen.getByText("完整日志")).toBeTruthy();
+    renderTaskCenter();
+    await user.click(screen.getByRole("button", { name: "启动安装" }));
+    await user.click(screen.getByRole("button", { name: "再次启动" }));
+    await user.click(screen.getByRole("button", { name: "更新同一 Agent" }));
+    expect(screen.getAllByText("安装 Codex")).toHaveLength(1);
+    expect(screen.queryByText("更新 Codex")).toBeNull();
   });
 });
 

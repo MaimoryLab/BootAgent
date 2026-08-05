@@ -1,35 +1,83 @@
-import { ChevronDown, ListChecks, Trash2 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { CheckCircle2, ChevronDown, CircleAlert, LoaderCircle, ListChecks, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useInRouterContext, useNavigate } from "react-router-dom";
 
 import { useI18n } from "../i18n";
-import { useTaskCenter } from "../state/TaskCenterContext";
+import { type TaskRecord, useTaskCenter } from "../state/TaskCenterContext";
 
-/**
- * The live install log, docked at the bottom of the sidebar.
- *
- * Installs run without a console, so this is where a user sees what a command
- * is doing while it runs. Internal downloads use their install row rather than
- * a command-shaped log line.
- *
- * @param logDir Absolute directory the backend reports as `paths.logs`, holding
- * one file per day. Passed in rather than read from context so this stays
- * renderable on its own; on Windows it is C:\Users\<name>\.oneagent\logs, which
- * a literal "~/.oneagent/logs" misreports.
- */
-export function TaskCenter({ logDir = "" }: { logDir?: string }) {
+function megabytes(bytes: number): string {
+  return (bytes / (1024 * 1024)).toFixed(1);
+}
+
+function TaskCard({ task, onOpen, onDismiss }: { task: TaskRecord; onOpen: () => void; onDismiss: () => void }) {
   const { t } = useI18n();
-  const { log, progress, clear } = useTaskCenter();
+  const progress = task.progress;
+  const knownTotal = Boolean(progress && progress.total > 0);
+  const percent = knownTotal && progress ? Math.min(100, Math.round((progress.received / progress.total) * 100)) : 0;
+  const status = task.state === "running" ? t("进行中") : task.state === "success" ? t("已完成") : t("失败");
+  return (
+    <article className={`task-card is-${task.state}`}>
+      <button type="button" className="task-card-main" onClick={onOpen} aria-label={t("返回任务页面：{title}", { title: task.title })}>
+        <span className="task-card-icon" aria-hidden="true">
+          {task.state === "running" ? <LoaderCircle size={16} className="spin" /> : task.state === "success" ? <CheckCircle2 size={16} /> : <CircleAlert size={16} />}
+        </span>
+        <span className="task-card-copy">
+          <strong>{task.title}</strong>
+          <small>{status}{task.message ? ` · ${task.message}` : ""}</small>
+          {task.state === "running" && progress ? (
+            <span className="task-card-progress">
+              <span className={`task-card-progress-track${knownTotal ? "" : " is-indeterminate"}`}>
+                <span className="task-card-progress-fill" style={knownTotal ? { width: `${percent}%` } : undefined} />
+              </span>
+              <small>
+                {knownTotal
+                  ? t("已下载 {done} MB / {total} MB（{percent}%）", { done: megabytes(progress.received), total: megabytes(progress.total), percent })
+                  : t("已下载 {done} MB", { done: megabytes(progress.received) })}
+              </small>
+            </span>
+          ) : null}
+        </span>
+      </button>
+      {task.state !== "running" ? (
+        <button type="button" className="task-card-dismiss" onClick={onDismiss} aria-label={t("关闭任务")} title={t("关闭任务")}>
+          <X size={14} aria-hidden="true" />
+        </button>
+      ) : null}
+    </article>
+  );
+}
+
+function TaskCenterBody({ navigate }: { navigate: (route: string) => void }) {
+  const { t } = useI18n();
+  const { tasks, dismissTask } = useTaskCenter();
+  return (
+    <div className="task-center-body">
+      {tasks.length ? tasks.map((task) => (
+        <TaskCard
+          key={task.id}
+          task={task}
+          onOpen={() => navigate(task.route)}
+          onDismiss={() => dismissTask(task.id)}
+        />
+      )) : <p className="task-center-empty">{t("暂无任务")}</p>}
+    </div>
+  );
+}
+
+function TaskCenterWithRouter() {
+  const navigate = useNavigate();
+  return <TaskCenterShell navigate={navigate} />;
+}
+
+function TaskCenterShell({ navigate }: { navigate: (route: string) => void }) {
+  const { t } = useI18n();
+  const { tasks } = useTaskCenter();
   const [open, setOpen] = useState(false);
-  const feed = useRef<HTMLPreElement>(null);
-  const active = Object.keys(progress).length > 0;
+  const active = tasks.some((task) => task.state === "running");
 
-  // Follow the tail while open, the way a terminal does.
   useEffect(() => {
-    const element = feed.current;
-    if (open && element) element.scrollTop = element.scrollHeight;
-  }, [log, open]);
-
-  const lines = log ? log.split("\n").filter((line, index, all) => line !== "" || index !== all.length - 1) : [];
+    if (active) setOpen(true);
+  }, [active]);
 
   return (
     <section className={`task-center${open ? " is-open" : ""}`}>
@@ -38,32 +86,23 @@ export function TaskCenter({ logDir = "" }: { logDir?: string }) {
         className="task-center-trigger"
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
+        aria-label={t("任务中心")}
       >
         <ListChecks size={16} aria-hidden="true" />
         <span>{t("任务中心")}</span>
         {active ? <em className="task-center-dot" aria-label={t("有任务正在运行")} /> : null}
         <ChevronDown size={15} aria-hidden="true" />
       </button>
-      {open ? (
-        <div className="task-center-body">
-          {lines.length ? (
-            <pre ref={feed} className="task-center-feed" aria-live="polite">
-              {lines.join("\n")}
-            </pre>
-          ) : (
-            <p className="task-center-empty">{t("暂无任务日志，安装 Agent 时会显示在这里。下载进度会显示在对应安装区域。")}</p>
-          )}
-          <div className="task-center-actions">
-            <span title={logDir || undefined}>
-              {logDir ? t("完整日志：{dir}").replace("{dir}", logDir) : t("完整日志")}
-            </span>
-            <button type="button" onClick={clear} disabled={!lines.length}>
-              <Trash2 size={14} aria-hidden="true" />
-              {t("清空")}
-            </button>
-          </div>
-        </div>
-      ) : null}
+      {open ? <TaskCenterBody navigate={(route) => { setOpen(false); navigate(route); }} /> : null}
     </section>
   );
+}
+
+/** The standalone branch keeps component tests and embedders router-free. */
+function TaskCenterWithoutRouter() {
+  return <TaskCenterShell navigate={() => {}} />;
+}
+
+export function TaskCenter() {
+  return useInRouterContext() ? <TaskCenterWithRouter /> : <TaskCenterWithoutRouter />;
 }

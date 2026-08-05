@@ -85,7 +85,6 @@ func (u *UseCases) InstallAgents(ctx context.Context, options InstallAgentsOptio
 	if err := contextError(ctx, "Agent installation request was cancelled"); err != nil {
 		return InstallAgentsResult{}, err
 	}
-
 	// Installation writes env/config/profile/binding files. Keep the whole
 	// operation under the same coordinator as Activate and SaveProfile so two
 	// Wails calls cannot interleave backups or publish a stale profile pointer.
@@ -100,6 +99,10 @@ func (u *UseCases) InstallAgents(ctx context.Context, options InstallAgentsOptio
 	if err != nil {
 		return InstallAgentsResult{}, err
 	}
+	// Install and update share the Agent target lock: npm must not mutate a
+	// package while another request is installing or configuring that same Agent.
+	unlockTasks := u.lockTasks("agent-task:", options.Agents)
+	defer unlockTasks()
 
 	autoAgents := make([]string, 0, len(options.Agents))
 	for _, id := range options.Agents {
@@ -446,6 +449,11 @@ func (r *installRun) ensureAgentRuntime(ctx context.Context, agent catalog.Agent
 	if !known {
 		return runtime, nil
 	}
+	// Agent installation can bootstrap the same runtime exposed by the runtime
+	// page. Share its download lock so both paths never write one archive/tree
+	// concurrently; InstallAgents already holds writeMu before reaching here.
+	unlockTask := r.core.lockTask("download:" + runtimeID)
+	defer unlockTask()
 	// The download preference is machine-level, so an install triggered by
 	// activating an Agent honors it exactly as the runtime list does.
 	options := install.RuntimeOptions{PreferMirror: r.core.preferMirror(ctx)}
