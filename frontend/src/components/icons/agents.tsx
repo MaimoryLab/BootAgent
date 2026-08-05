@@ -1,15 +1,19 @@
 /**
  * Agent marks used to identify rows in OneAgent.
  *
- * Three image assets remain because their exact source, MIT license text,
+ * Five image assets are shipped because their exact source, MIT license text,
  * copyright owner, and SHA-256 are tracked in asset-rights.json. Agents whose
  * published artwork does not have an auditable redistribution basis use generic
  * Lucide marks instead; those marks identify a row without copying a vendor
  * favicon into the release.
  *
  * Trademark note: the labels identify which Agent a row refers to. The generic
- * marks are OneAgent UI symbols, not vendor artwork. The three licensed image
- * marks are not recoloured or restyled.
+ * marks are OneAgent UI symbols, not vendor artwork. The licensed marks keep
+ * their published geometry unchanged; none is restyled or re-drawn. Each is
+ * distributed as a single-colour glyph painted with fill="currentColor", so it
+ * takes the surrounding text colour by design rather than carrying a brand
+ * colour we would be altering -- that is what makes them legible on both
+ * themes.
  */
 import {
   Bot,
@@ -20,14 +24,14 @@ import {
 import { sourceTranslate, type Translate, type TranslationKey } from "../../i18n";
 
 import assetRightsManifest from "./asset-rights.json";
-import claudeCodeMark from "./assets/claude-code.svg";
-import codexMark from "./assets/codex.svg";
-import cursorMark from "./assets/cursor.svg";
-import kiloCliMark from "./assets/kilo-cli.svg";
-import opencodeMark from "./assets/opencode.svg";
+import claudeCodeMark from "./assets/claude-code.svg?raw";
+import codexMark from "./assets/codex.svg?raw";
+import cursorMark from "./assets/cursor.svg?raw";
+import kiloCliMark from "./assets/kilo-cli.svg?raw";
+import opencodeMark from "./assets/opencode.svg?raw";
 
 type AssetRights = (typeof assetRightsManifest.assets)[keyof typeof assetRightsManifest.assets];
-type AssetMark = { kind: "asset"; src: string; source: string; rights: AssetRights };
+type AssetMark = { kind: "asset"; markup: string; source: string; rights: AssetRights };
 type GenericMark = { kind: "generic"; Icon: LucideIcon; source: string };
 type Mark = AssetMark | GenericMark;
 
@@ -36,31 +40,31 @@ const GENERIC_SOURCE = "lucide-react@1.25.0 (ISC)";
 const MARKS: Record<string, Mark> = {
   codex: {
     kind: "asset",
-    src: codexMark,
+    markup: codexMark,
     source: assetRightsManifest.assets.codex.source,
     rights: assetRightsManifest.assets.codex,
   },
   opencode: {
     kind: "asset",
-    src: opencodeMark,
+    markup: opencodeMark,
     source: assetRightsManifest.assets.opencode.source,
     rights: assetRightsManifest.assets.opencode,
   },
   "claude-code": {
     kind: "asset",
-    src: claudeCodeMark,
+    markup: claudeCodeMark,
     source: assetRightsManifest.assets["claude-code"].source,
     rights: assetRightsManifest.assets["claude-code"],
   },
   cursor: {
     kind: "asset",
-    src: cursorMark,
+    markup: cursorMark,
     source: assetRightsManifest.assets.cursor.source,
     rights: assetRightsManifest.assets.cursor,
   },
   "kilo-cli": {
     kind: "asset",
-    src: kiloCliMark,
+    markup: kiloCliMark,
     source: assetRightsManifest.assets["kilo-cli"].source,
     rights: assetRightsManifest.assets["kilo-cli"],
   },
@@ -128,18 +132,22 @@ export function AgentIcon({ agentId, size = 18 }: { agentId: string; size?: numb
       />
     );
   }
+  // Inlined rather than loaded through <img src>. Each asset paints with
+  // fill="currentColor", and an SVG fetched by <img> is an isolated document
+  // where currentColor cannot see this page's colour -- it resolved to black, so
+  // the marks were near-invisible on the dark theme's #2c2c2e panels. Inline,
+  // they inherit the same colour the Lucide marks beside them already use.
+  //
+  // The markup is bundled at build time from files in this repository, so it is
+  // not runtime input. It is still constrained: only these five imports reach
+  // here, and the width/height below override the assets' own 1em sizing.
   return (
-    <img
+    <span
       className="agent-mark"
-      src={mark.src}
-      width={size}
-      height={size}
-      alt=""
+      style={{ width: size, height: size }}
       aria-hidden="true"
       data-mark-kind="asset"
-      // contain keeps the three licensed assets inside the same square box.
-      style={{ objectFit: "contain" }}
-      draggable={false}
+      dangerouslySetInnerHTML={{ __html: mark.markup }}
     />
   );
 }

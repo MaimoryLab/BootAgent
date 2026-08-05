@@ -8,8 +8,16 @@ body,
 #root {
   min-width: 320px;
   height: 100%;
-  min-height: 100%;
   margin: 0;
+}
+
+/* Split out from the rule above, which also declared min-height: 100% and so
+   competed with body's 100vh for the same property. Both resolve to the
+   viewport here, because html is height: 100% -- but only one applied, leaving
+   the other reading as intent it did not have. */
+html,
+#root {
+  min-height: 100%;
 }
 
 body {

@@ -17,6 +17,13 @@ export interface TaskProgress {
   total: number;
 }
 
+/** The outcome of a finished install, kept so the page that started it can
+ *  report the result even if the user navigated away while it ran. */
+export interface TaskOutcome {
+  kind: "success" | "failure";
+  message: string;
+}
+
 export interface TaskCenterValue {
   /** The live feed, newest at the end. */
   log: string;
@@ -24,6 +31,21 @@ export interface TaskCenterValue {
   progress: Record<string, TaskProgress>;
   /** Drops a stale bar before the same target is installed again. */
   resetProgress: (target: string) => void;
+  /**
+   * Targets with an install in flight. This lives here rather than in the
+   * component that started it: a download outlives the page it was started
+   * from, and a local useState flag resets to empty when that page unmounts,
+   * hiding the bar for a download that is still running.
+   */
+  running: Record<string, true>;
+  /** Outcome per target, readable after the starting component remounts. */
+  outcomes: Record<string, TaskOutcome>;
+  /** Marks a target in flight and clears any previous bar and outcome. */
+  startTask: (target: string) => void;
+  /** Records the result and drops the bar. Safe after the starter unmounted. */
+  finishTask: (target: string, outcome: TaskOutcome) => void;
+  /** Acknowledges an outcome the user has now seen. */
+  clearOutcome: (target: string) => void;
   clear: () => void;
 }
 
@@ -41,6 +63,11 @@ const TaskCenterContext = createContext<TaskCenterValue>({
   log: "",
   progress: {},
   resetProgress: () => {},
+  running: {},
+  outcomes: {},
+  startTask: () => {},
+  finishTask: () => {},
+  clearOutcome: () => {},
   clear: () => {},
 });
 
@@ -59,6 +86,8 @@ function formatCommand(args: string[]): string {
 export function TaskCenterProvider({ children }: PropsWithChildren) {
   const [log, setLog] = useState("");
   const [progress, setProgress] = useState<Record<string, TaskProgress>>({});
+  const [running, setRunning] = useState<Record<string, true>>({});
+  const [outcomes, setOutcomes] = useState<Record<string, TaskOutcome>>({});
 
   useEffect(
     () =>
@@ -89,11 +118,43 @@ export function TaskCenterProvider({ children }: PropsWithChildren) {
     });
   }, []);
 
+  const startTask = useCallback((target: string) => {
+    setRunning((current) => ({ ...current, [target]: true }));
+    // A retry must not open on the previous attempt's finished bar or verdict.
+    resetProgress(target);
+    setOutcomes((current) => {
+      if (!(target in current)) return current;
+      const next = { ...current };
+      delete next[target];
+      return next;
+    });
+  }, [resetProgress]);
+
+  const finishTask = useCallback((target: string, outcome: TaskOutcome) => {
+    setRunning((current) => {
+      if (!(target in current)) return current;
+      const next = { ...current };
+      delete next[target];
+      return next;
+    });
+    setOutcomes((current) => ({ ...current, [target]: outcome }));
+    resetProgress(target);
+  }, [resetProgress]);
+
+  const clearOutcome = useCallback((target: string) => {
+    setOutcomes((current) => {
+      if (!(target in current)) return current;
+      const next = { ...current };
+      delete next[target];
+      return next;
+    });
+  }, []);
+
   const clear = useCallback(() => setLog(""), []);
 
   const value = useMemo<TaskCenterValue>(
-    () => ({ log, progress, resetProgress, clear }),
-    [clear, log, progress, resetProgress],
+    () => ({ log, progress, resetProgress, running, outcomes, startTask, finishTask, clearOutcome, clear }),
+    [clear, clearOutcome, finishTask, log, outcomes, progress, resetProgress, running, startTask],
   );
   return <TaskCenterContext.Provider value={value}>{children}</TaskCenterContext.Provider>;
 }

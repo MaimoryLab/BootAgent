@@ -15,12 +15,14 @@ function megabytes(bytes: number): string {
  */
 export function DownloadProgress({ target, pending = false }: { target: string; pending?: boolean }) {
   const { t } = useI18n();
-  const { progress } = useTaskCenter();
+  const { progress, running } = useTaskCenter();
   const current = progress[target];
-  // A caller that already knows a download is in flight can show the bar before
-  // the first 200ms progress event arrives. The default remains lazy for
-  // ambient rows that should render nothing until there is real activity.
-  if (!current && !pending) return null;
+  // `running` comes from the provider above the router, so the bar reappears
+  // when the user navigates back to a download still in flight. `pending` stays
+  // as an explicit override for a caller that knows a download has started but
+  // whose target is not keyed in `running` yet. Without either, an ambient row
+  // renders nothing until real bytes arrive.
+  if (!current && !pending && !running[target]) return null;
 
   const received = current?.received ?? 0;
   const total = current?.total ?? 0;
