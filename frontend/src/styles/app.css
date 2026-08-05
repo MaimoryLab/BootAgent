@@ -425,6 +425,22 @@
   color: var(--icon-fg);
 }
 
+/* The licensed marks are inlined so their fill="currentColor" resolves against
+   this container -- through <img src> it could not, and they painted black on
+   the dark theme. Each asset declares width/height in em, so the box sets the
+   pixel size and the glyph fills it. */
+.agent-mark {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  color: inherit;
+}
+
+.agent-mark > svg {
+  width: 100%;
+  height: 100%;
+}
+
 .agent-copy,
 .choice-copy,
 .progress-copy {

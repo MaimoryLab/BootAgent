@@ -50,25 +50,61 @@ describe("AgentIcon", () => {
   it("keeps the mark out of the accessibility tree", () => {
     // The Agent name sits right next to it, so announcing the mark duplicates.
     const { container } = render(<AgentIcon agentId="codex" />);
-    const img = container.querySelector("img");
-    expect(img?.getAttribute("aria-hidden")).toBe("true");
-    expect(img?.getAttribute("alt")).toBe("");
+    const mark = container.querySelector('[data-mark-kind="asset"]');
+    expect(mark?.getAttribute("aria-hidden")).toBe("true");
+    // The inlined svg must not be announced separately from its wrapper.
+    expect(container.querySelector("svg")?.getAttribute("role")).toBeNull();
   });
 
   it("renders every mark in the same square box", () => {
     // Uniformity comes from the container, not from restyling the artwork:
-    // that is what lets marks from eight different brands read as one set.
+    // that is what lets marks from five different brands read as one set.
     for (const size of [18, 20]) {
       for (const id of ALL) {
         const { container } = render(<AgentIcon agentId={id} size={size} />);
-        const mark = container.querySelector<HTMLElement>("img, svg");
-        expect(mark?.getAttribute("width")).toBe(String(size));
-        expect(mark?.getAttribute("height")).toBe(String(size));
-        if (mark?.tagName === "IMG") {
-          // contain, so a mark with tighter padding cannot overflow the box.
-          expect((mark as HTMLImageElement).style.objectFit).toBe("contain");
+        if (agentMarkKind(id) === "asset") {
+          // The licensed assets declare their own size in em, so the wrapper
+          // carries the pixel box and CSS stretches the glyph to fill it.
+          const mark = container.querySelector<HTMLElement>('[data-mark-kind="asset"]');
+          expect(mark?.style.width).toBe(`${size}px`);
+          expect(mark?.style.height).toBe(`${size}px`);
+        } else {
+          const mark = container.querySelector<SVGElement>("svg");
+          expect(mark?.getAttribute("width")).toBe(String(size));
+          expect(mark?.getAttribute("height")).toBe(String(size));
         }
       }
+    }
+  });
+
+  it("inlines licensed marks so currentColor resolves against the page", () => {
+    // Loaded through <img src> an SVG is an isolated document: fill="currentColor"
+    // cannot see this page's colour and resolved to black, leaving the marks at
+    // roughly 1.2:1 against the dark theme's #2c2c2e panels. Inlining is what
+    // lets them inherit the colour the Lucide marks beside them already use.
+    const darkIconFg = "rgb(209, 209, 214)";
+    for (const id of AGENT_ICON_IDS.filter((value) => agentMarkKind(value) === "asset")) {
+      const { container } = render(
+        <div style={{ color: darkIconFg }}>
+          <AgentIcon agentId={id} />
+        </div>,
+      );
+      const mark = container.querySelector('[data-mark-kind="asset"]')!;
+      expect(mark.tagName, id).not.toBe("IMG");
+      const svg = mark.querySelector("svg");
+      expect(svg, `${id} should inline its svg`).toBeTruthy();
+      expect(svg!.getAttribute("fill"), id).toBe("currentColor");
+      expect(getComputedStyle(svg!).color, id).toBe(darkIconFg);
+    }
+  });
+
+  it("keeps the published geometry of every licensed mark", () => {
+    // The compliance note in agents.tsx states the marks are not re-drawn.
+    // The viewBox is the check: inlining must not rescale or crop the artwork.
+    for (const id of AGENT_ICON_IDS.filter((value) => agentMarkKind(value) === "asset")) {
+      const { container } = render(<AgentIcon agentId={id} />);
+      const svg = container.querySelector('[data-mark-kind="asset"] svg');
+      expect(svg!.getAttribute("viewBox"), id).toBe("0 0 24 24");
     }
   });
 
