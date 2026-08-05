@@ -291,16 +291,30 @@
   ],
   "environment": null,
   "environmentError": null,
-  "desktopAgent": {
-    "id": "desktop-agent",
-    "name": "ChatGPT Desktop",
-    "installed": false,
-    "supported": false,
-    "version": null,
-    "source": "unknown",
-    "profileAgentId": "codex",
-    "profileId": null,
-    "configPath": "${HOME}/.codex/config.toml",
-    "configSharedWith": "Codex"
-  }
+  "desktopAgents": [
+    {
+      "id": "chatgpt-desktop",
+      "name": "ChatGPT Desktop",
+      "installed": false,
+      "supported": false,
+      "version": null,
+      "source": "unknown",
+      "configPath": "${HOME}/.codex/config.toml",
+      "configSharedWith": "Codex",
+      "protocol": "responses",
+      "profileAgentId": "codex",
+      "profileId": null
+    },
+    {
+      "id": "workbuddy",
+      "name": "WorkBuddy",
+      "installed": false,
+      "supported": false,
+      "version": null,
+      "source": "unknown",
+      "protocol": "openai",
+      "profileAgentId": "workbuddy",
+      "profileId": null
+    }
+  ]
 }

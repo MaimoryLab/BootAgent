@@ -6,7 +6,7 @@ import { api, describeError } from "../backend/api";
 import { PageScaffold } from "../components/PageScaffold";
 import { ProviderSegment } from "../components/ProviderSegment";
 import { useI18n } from "../i18n";
-import { desktopProfileUsable, desktopProfiles, profileAgentIdForDesktop } from "../state/desktopSetup";
+import { desktopApps, desktopProfileUsable, desktopProfiles, desktopProtocol, profileAgentIdForDesktop } from "../state/desktopSetup";
 import { useWizard } from "../state/WizardContext";
 import { byProfileCreatedAt } from "../state/ranking";
 import type { ProfileSummary, ProviderId } from "../types/api";
@@ -37,7 +37,7 @@ export function AgentProfilePage() {
   const { t } = useI18n();
   const { state, refreshStatus } = useWizard();
   const status = state.status;
-  const app = status?.desktopAgent?.id === agentId ? status.desktopAgent : null;
+  const app = status ? desktopApps(status).find((candidate) => candidate.id === agentId) || null : null;
   const owner = app ? profileAgentIdForDesktop(app) : agentId;
   const catalog = status?.catalog.find((item) => item.id === owner);
   const targetName = app?.name || catalog?.name || agentId;
@@ -123,7 +123,7 @@ export function AgentProfilePage() {
         apiKey: "",
         model: draft.model.trim(),
         configMode: "provider",
-        protocol: catalog?.protocol || "",
+        protocol: app ? desktopProtocol(app) : catalog?.protocol || "",
       });
       setSelectedId(saved.id);
       setDraft(null);

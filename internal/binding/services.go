@@ -39,8 +39,8 @@ func NewServicesWithOptions(core *app.UseCases, opener BrowserOpener, options Se
 	}
 }
 
-// DesktopAgentService exposes the configured desktop agent lifecycle. It does
-// not own or rewrite ~/.codex; the existing Agent configuration use cases do.
+// DesktopAgentService exposes the configured desktop Agent lifecycle. Every
+// operation names its target explicitly, just like the CLI Agent service.
 type DesktopAgentService struct {
 	core     *app.UseCases
 	onOutput process.OutputListener
@@ -50,44 +50,44 @@ func NewDesktopAgentService(core *app.UseCases, output process.OutputListener) *
 	return &DesktopAgentService{core: core, onOutput: output}
 }
 
-func (s *DesktopAgentService) GetStatus(ctx context.Context) (app.DesktopAgentStatus, error) {
+func (s *DesktopAgentService) GetStatus(ctx context.Context, request DesktopAgentRequest) (app.DesktopAgentStatus, error) {
 	if err := contextError(ctx); err != nil {
 		return app.DesktopAgentStatus{}, err
 	}
 	if s == nil || s.core == nil {
 		return app.DesktopAgentStatus{}, notReady("Desktop agent service is not configured")
 	}
-	return s.core.DesktopAgentStatus(ctx)
+	return s.core.DesktopAgentStatus(ctx, request.AgentID)
 }
 
-func (s *DesktopAgentService) Install(ctx context.Context) (app.DesktopAgentActionResult, error) {
+func (s *DesktopAgentService) Install(ctx context.Context, request DesktopAgentRequest) (app.DesktopAgentActionResult, error) {
 	if err := contextError(ctx); err != nil {
 		return app.DesktopAgentActionResult{}, err
 	}
 	if s == nil || s.core == nil {
 		return app.DesktopAgentActionResult{}, notReady("Desktop agent service is not configured")
 	}
-	return s.core.InstallDesktopAgent(ctx, s.onOutput)
+	return s.core.InstallDesktopAgent(ctx, request.AgentID, s.onOutput)
 }
 
-func (s *DesktopAgentService) Open(ctx context.Context) error {
+func (s *DesktopAgentService) Open(ctx context.Context, request DesktopAgentRequest) error {
 	if err := contextError(ctx); err != nil {
 		return err
 	}
 	if s == nil || s.core == nil {
 		return notReady("Desktop agent service is not configured")
 	}
-	return s.core.OpenDesktopAgent(ctx)
+	return s.core.OpenDesktopAgent(ctx, request.AgentID)
 }
 
-func (s *DesktopAgentService) OpenInstaller(ctx context.Context) (app.DesktopAgentActionResult, error) {
+func (s *DesktopAgentService) OpenInstaller(ctx context.Context, request DesktopAgentRequest) (app.DesktopAgentActionResult, error) {
 	if err := contextError(ctx); err != nil {
 		return app.DesktopAgentActionResult{}, err
 	}
 	if s == nil || s.core == nil {
 		return app.DesktopAgentActionResult{}, notReady("Desktop agent service is not configured")
 	}
-	return s.core.OpenDesktopAgentInstaller(ctx, s.onOutput)
+	return s.core.OpenDesktopAgentInstaller(ctx, request.AgentID, s.onOutput)
 }
 
 // Configure applies a saved Profile to the selected desktop Agent. The profile
@@ -275,9 +275,6 @@ func (s *ProviderService) OpenRegistration(ctx context.Context, request OpenRegi
 	if err != nil || parsed.User != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" {
 		return OpenRegistrationResponse{}, oneerrors.New(oneerrors.InvalidRequest, "Provider registration URL is invalid")
 	}
-	if s == nil || s.opener == nil {
-		return OpenRegistrationResponse{OK: true, URL: entry.Home, Message: "Provider registration URL validated"}, nil
-	}
 	if err := s.opener(entry.Home); err != nil {
 		return OpenRegistrationResponse{}, oneerrors.New(oneerrors.InternalError, "Unable to open Provider registration", oneerrors.WithStatus(500), oneerrors.WithRetryable(true), oneerrors.WithCause(err))
 	}
@@ -446,6 +443,10 @@ type OpenRegistrationRequest struct {
 type DesktopAgentProfileRequest struct {
 	AgentID   string `json:"agent_id"`
 	ProfileID string `json:"profile_id"`
+}
+
+type DesktopAgentRequest struct {
+	AgentID string `json:"agent_id"`
 }
 
 type ProviderIDRequest struct {

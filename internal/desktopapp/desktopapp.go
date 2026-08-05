@@ -1,8 +1,7 @@
 // Package desktopapp detects and manages desktop agent applications.
 //
-// The current target is ChatGPT Desktop. It and the Codex CLI are separate
-// products at install time, even though they share bundle/package identity and
-// the ~/.codex configuration target.
+// ChatGPT Desktop and WorkBuddy are separate products at install time. ChatGPT
+// shares Codex configuration; WorkBuddy owns ~/.workbuddy/models.json.
 package desktopapp
 
 import (
@@ -24,32 +23,13 @@ import (
 )
 
 const (
-	ID                  = "desktop-agent"
-	Name                = "ChatGPT Desktop"
-	SharedConfigAgentID = "codex"
-	CodexBundleID       = "com.openai.codex"
-	WindowsPackageName  = "OpenAI.Codex_2p2nqsd0c76g0"
-	WindowsAUMID        = WindowsPackageName + "!App"
-	MacDownloadURL      = "https://persistent.oaistatic.com/codex-app-prod/ChatGPT.dmg"
-	MacDownloadURLX64   = "https://persistent.oaistatic.com/codex-app-prod/ChatGPT-latest-x64.dmg"
-	WindowsInstallerURL = "https://get.microsoft.com/installer/download/9PLM9XGG6VKS?cid=website_cta_psi"
+	CodexBundleID              = "com.openai.codex"
+	ChatGPTWindowsPackageName  = "OpenAI.Codex_2p2nqsd0c76g0"
+	ChatGPTWindowsAUMID        = ChatGPTWindowsPackageName + "!App"
+	ChatGPTMacDownloadURL      = "https://persistent.oaistatic.com/codex-app-prod/ChatGPT.dmg"
+	ChatGPTMacDownloadURLX64   = "https://persistent.oaistatic.com/codex-app-prod/ChatGPT-latest-x64.dmg"
+	ChatGPTWindowsInstallerURL = "https://get.microsoft.com/installer/download/9PLM9XGG6VKS?cid=website_cta_psi"
 )
-
-// ProfileAgentID is the Agent whose profile owns a desktop application's
-// provider settings. ChatGPT Desktop reads Codex's configuration; a different
-// desktop application gets its own profile namespace.
-func ProfileAgentID(agentID string) string {
-	agentID = strings.TrimSpace(agentID)
-	if agentID == ID {
-		return SharedConfigAgentID
-	}
-	return agentID
-}
-
-func SharesProfile(agentID string) bool {
-	agentID = strings.TrimSpace(agentID)
-	return ProfileAgentID(agentID) != agentID
-}
 
 const (
 	SourceMacOSDMG     = "macos-dmg"
@@ -107,11 +87,8 @@ var packageVersionPattern = regexp.MustCompile(`^[0-9]+(?:\.[0-9]+){1,3}$`)
 // Inspect never returns an operational error. A broken plist, unavailable
 // PowerShell, or inaccessible AppX metadata is represented in the status so a
 // single desktop-app probe cannot break the whole environment status call.
-func Inspect(ctx context.Context, options Options) Status {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	status := baseStatus(options.Platform.OS)
+func inspectChatGPT(ctx context.Context, options Options) Status {
+	status := baseChatGPTStatus(options.Platform.OS)
 	if err := ctx.Err(); err != nil {
 		message := err.Error()
 		status.InspectionUnavailable = &message
@@ -121,9 +98,9 @@ func Inspect(ctx context.Context, options Options) Status {
 	var err error
 	switch options.Platform.OS {
 	case "macos":
-		inspected, err = inspectMacOS(ctx, options)
+		inspected, err = inspectChatGPTMacOS(ctx, options)
 	case "windows":
-		inspected, err = inspectWindows(ctx, options)
+		inspected, err = inspectChatGPTWindows(ctx, options)
 	default:
 		return status
 	}
@@ -135,64 +112,30 @@ func Inspect(ctx context.Context, options Options) Status {
 	return inspected
 }
 
-// Install downloads the official package inside OneAgent and installs it or
-// launches the downloaded platform installer.
-func Install(ctx context.Context, options Options) (ActionResult, error) {
-	if ctx == nil {
-		ctx = context.Background()
-	}
+func installChatGPT(ctx context.Context, options Options, update bool) (ActionResult, error) {
+	status := inspectChatGPT(ctx, options)
 	if err := contextError(ctx); err != nil {
 		return ActionResult{}, err
 	}
-	status := Inspect(ctx, options)
-	if err := contextError(ctx); err != nil {
-		return ActionResult{}, err
-	}
-	if status.Installed && options.Platform.OS == "macos" {
+	if status.Installed && !update && options.Platform.OS == "macos" {
 		return ActionResult{Status: "already-installed", Message: "ChatGPT Desktop is already installed", App: status}, nil
 	}
+	replacePath := ""
+	if update {
+		replacePath = status.Path
+	}
 	switch options.Platform.OS {
 	case "macos":
-		return installMacOS(ctx, options, "")
+		return installChatGPTMacOS(ctx, options, replacePath)
 	case "windows":
-		return installWindowsInstaller(ctx, options, status)
+		return installChatGPTWindowsInstaller(ctx, options, status)
 	default:
 		return ActionResult{}, fmt.Errorf("ChatGPT Desktop is not supported on %s", options.Platform.OS)
 	}
 }
 
-// OpenInstaller preserves the existing public update action while downloading
-// the package inside OneAgent instead of sending its URL to a browser.
-func OpenInstaller(ctx context.Context, options Options) (ActionResult, error) {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	if err := contextError(ctx); err != nil {
-		return ActionResult{}, err
-	}
-	status := Inspect(ctx, options)
-	if err := contextError(ctx); err != nil {
-		return ActionResult{}, err
-	}
-	switch options.Platform.OS {
-	case "macos":
-		return installMacOS(ctx, options, status.Path)
-	case "windows":
-		return installWindowsInstaller(ctx, options, status)
-	default:
-		return ActionResult{}, fmt.Errorf("ChatGPT Desktop is not supported on %s", options.Platform.OS)
-	}
-}
-
-// Open launches an installed desktop app without touching its configuration.
-func Open(ctx context.Context, options Options) error {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	if err := contextError(ctx); err != nil {
-		return err
-	}
-	status := Inspect(ctx, options)
+func openChatGPT(ctx context.Context, options Options) error {
+	status := inspectChatGPT(ctx, options)
 	if err := contextError(ctx); err != nil {
 		return err
 	}
@@ -211,7 +154,7 @@ func Open(ctx context.Context, options Options) error {
 	case "windows":
 		aumid := status.PackageFamily
 		if aumid == "" {
-			aumid = WindowsAUMID
+			aumid = ChatGPTWindowsAUMID
 		}
 		return start(options, []string{"explorer.exe", "shell:AppsFolder\\" + normalizeAUMID(aumid)})
 	default:
@@ -219,7 +162,7 @@ func Open(ctx context.Context, options Options) error {
 	}
 }
 
-func baseStatus(osID string) Status {
+func baseChatGPTStatus(osID string) Status {
 	source := SourceUnknown
 	supported := false
 	switch osID {
@@ -228,7 +171,7 @@ func baseStatus(osID string) Status {
 	case "windows":
 		source, supported = SourceWindowsStore, true
 	}
-	return Status{ID: ID, Name: Name, Supported: supported, Source: source}
+	return Status{ID: ChatGPTDesktopID, Name: ChatGPTDesktopName, Supported: supported, Source: source}
 }
 
 func runnerFor(options Options) process.Runner {
@@ -273,8 +216,8 @@ func start(options Options, argv []string) error {
 	return launcher.Start(argv, nil)
 }
 
-func inspectMacOS(ctx context.Context, options Options) (Status, error) {
-	status := baseStatus("macos")
+func inspectChatGPTMacOS(ctx context.Context, options Options) (Status, error) {
+	status := baseChatGPTStatus("macos")
 	roots := options.SearchRoots
 	if len(roots) == 0 {
 		roots = []string{"/Applications"}
@@ -354,8 +297,8 @@ func plutilValue(ctx context.Context, options Options, plist, key string) (strin
 	return strings.TrimSpace(result.Stdout), nil
 }
 
-func installMacOS(ctx context.Context, options Options, replacePath string) (ActionResult, error) {
-	url, err := approvedDownloadURL(macDownloadURL(options), "persistent.oaistatic.com")
+func installChatGPTMacOS(ctx context.Context, options Options, replacePath string) (ActionResult, error) {
+	url, err := approvedDownloadURL(chatGPTMacDownloadURL(options), "persistent.oaistatic.com")
 	if err != nil {
 		return ActionResult{}, fmt.Errorf("validate ChatGPT installer URL: %w", err)
 	}
@@ -365,7 +308,7 @@ func installMacOS(ctx context.Context, options Options, replacePath string) (Act
 	}
 	defer os.RemoveAll(tempDir)
 	dmg := filepath.Join(tempDir, "ChatGPT.dmg")
-	if err := downloadFile(ctx, options, url, dmg); err != nil {
+	if err := downloadFile(ctx, options, url, dmg, ChatGPTDesktopID); err != nil {
 		return ActionResult{}, fmt.Errorf("download ChatGPT installer: %w", err)
 	}
 	result, err := run(options, ctx, []string{"/usr/bin/hdiutil", "attach", "-nobrowse", "-readonly", dmg}, installTimeout)
@@ -382,7 +325,7 @@ func installMacOS(ctx context.Context, options Options, replacePath string) (Act
 	defer func() {
 		_, _ = run(options, context.Background(), []string{"/usr/bin/hdiutil", "detach", mountPoint}, installTimeout)
 	}()
-	appPath, err := findMountedApp(mountPoint)
+	appPath, err := findChatGPTMountedApp(mountPoint)
 	if err != nil {
 		return ActionResult{}, err
 	}
@@ -393,7 +336,7 @@ func installMacOS(ctx context.Context, options Options, replacePath string) (Act
 	if metadata.bundleID != CodexBundleID {
 		return ActionResult{}, fmt.Errorf("downloaded app has unexpected bundle identifier %q", metadata.bundleID)
 	}
-	if err := verifyMacOSApp(ctx, options, appPath); err != nil {
+	if err := verifyChatGPTMacOSApp(ctx, options, appPath); err != nil {
 		return ActionResult{}, fmt.Errorf("verify downloaded ChatGPT app: %w", err)
 	}
 	appName := filepath.Base(appPath)
@@ -437,7 +380,7 @@ func installMacOS(ctx context.Context, options Options, replacePath string) (Act
 			lastErr = commandFailure("copy ChatGPT app", copyResult)
 			continue
 		}
-		installed := baseStatus("macos")
+		installed := baseChatGPTStatus("macos")
 		installed.Installed = true
 		installed.Path = destination
 		installed.Version = metadata.version
@@ -449,17 +392,17 @@ func installMacOS(ctx context.Context, options Options, replacePath string) (Act
 	return ActionResult{}, lastErr
 }
 
-func macDownloadURL(options Options) string {
+func chatGPTMacDownloadURL(options Options) string {
 	if strings.TrimSpace(options.DownloadURL) != "" {
 		return options.DownloadURL
 	}
 	if strings.EqualFold(options.Platform.Arch, "x64") || strings.EqualFold(options.Platform.Arch, "amd64") || strings.EqualFold(options.Platform.Arch, "x86_64") {
-		return MacDownloadURLX64
+		return ChatGPTMacDownloadURLX64
 	}
-	return MacDownloadURL
+	return ChatGPTMacDownloadURL
 }
 
-func findMountedApp(mountPoint string) (string, error) {
+func findChatGPTMountedApp(mountPoint string) (string, error) {
 	for _, name := range []string{"ChatGPT.app", "Codex.app", "OpenAI Codex.app", "OpenAI.Codex.app"} {
 		candidate := filepath.Join(mountPoint, name)
 		if info, err := os.Stat(candidate); err == nil && info.IsDir() {
@@ -490,12 +433,12 @@ func parseMountPoint(output string) (string, error) {
 	return "", errors.New("could not determine the mounted ChatGPT installer volume")
 }
 
-func inspectWindows(ctx context.Context, options Options) (Status, error) {
-	status := baseStatus("windows")
-	result, err := run(options, ctx, windowsPackageQuery(), inspectTimeout)
+func inspectChatGPTWindows(ctx context.Context, options Options) (Status, error) {
+	status := baseChatGPTStatus("windows")
+	result, err := run(options, ctx, chatGPTWindowsPackageQuery(), inspectTimeout)
 	var packageQueryErr error
 	if err == nil && result.ExitCode == 0 {
-		if packageInfo, ok := parseWindowsPackage(result.Stdout); ok && isKnownPackage(packageInfo.Name, packageInfo.PackageFullName) {
+		if packageInfo, ok := parseWindowsPackage(result.Stdout); ok && isChatGPTPackage(packageInfo.Name, packageInfo.PackageFullName) {
 			status.Installed = true
 			status.Path = strings.TrimSpace(packageInfo.InstallLocation)
 			status.Version = nonEmptyPointer(packageInfo.Version)
@@ -518,7 +461,7 @@ func inspectWindows(ctx context.Context, options Options) (Status, error) {
 	} else {
 		packageQueryErr = commandFailure("query Windows AppX packages", result)
 	}
-	startApps, startErr := run(options, ctx, windowsStartAppsQuery(), inspectTimeout)
+	startApps, startErr := run(options, ctx, chatGPTWindowsStartAppsQuery(), inspectTimeout)
 	if startErr != nil {
 		return status, startErr
 	}
@@ -527,7 +470,7 @@ func inspectWindows(ctx context.Context, options Options) (Status, error) {
 	}
 	for line := range strings.SplitSeq(startApps.Stdout, "\n") {
 		appID := strings.TrimSpace(line)
-		if !isKnownStartAppID(appID) {
+		if !isChatGPTStartAppID(appID) {
 			continue
 		}
 		status.Installed = true
@@ -550,7 +493,7 @@ type windowsPackage struct {
 	InstallLocation   string `json:"InstallLocation"`
 }
 
-func windowsPackageQuery() []string {
+func chatGPTWindowsPackageQuery() []string {
 	script := `$items = @(
   Get-AppxPackage -Name 'OpenAI.Codex' -ErrorAction SilentlyContinue
   Get-AppxPackage -Name 'OpenAI.CodexBeta' -ErrorAction SilentlyContinue
@@ -560,7 +503,7 @@ $items | Sort-Object Version -Descending | Select-Object -First 1 Name,PackageFu
 	return []string{"powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script}
 }
 
-func windowsStartAppsQuery() []string {
+func chatGPTWindowsStartAppsQuery() []string {
 	script := `Get-StartApps | Where-Object { $_.AppID -like 'OpenAI.Codex_*!App' -or $_.AppID -like 'OpenAI.CodexBeta_*!App' -or $_.AppID -like 'OpenAI.ChatGPT-Desktop_*!App' } | Select-Object -First 1 -ExpandProperty AppID`
 	return []string{"powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script}
 }
@@ -582,7 +525,7 @@ func parseWindowsPackage(output string) (windowsPackage, bool) {
 	return items[0], true
 }
 
-func isKnownPackage(name, fullName string) bool {
+func isChatGPTPackage(name, fullName string) bool {
 	name = strings.ToLower(strings.TrimSpace(name))
 	fullName = strings.ToLower(strings.TrimSpace(fullName))
 	for _, identity := range []string{"openai.codex", "openai.codexbeta", "openai.chatgpt-desktop"} {
@@ -593,7 +536,7 @@ func isKnownPackage(name, fullName string) bool {
 	return false
 }
 
-func isKnownStartAppID(value string) bool {
+func isChatGPTStartAppID(value string) bool {
 	separator := strings.IndexByte(value, '!')
 	if separator <= 0 || !strings.EqualFold(value[separator:], "!App") {
 		return false
@@ -673,10 +616,10 @@ func versionParts(value string) []int {
 	return parts
 }
 
-func installWindowsInstaller(ctx context.Context, options Options, status Status) (ActionResult, error) {
+func installChatGPTWindowsInstaller(ctx context.Context, options Options, status Status) (ActionResult, error) {
 	url := strings.TrimSpace(options.DownloadURL)
 	if url == "" {
-		url = WindowsInstallerURL
+		url = ChatGPTWindowsInstallerURL
 	}
 	url, err := approvedDownloadURL(url, "get.microsoft.com")
 	if err != nil {
@@ -697,13 +640,13 @@ func installWindowsInstaller(ctx context.Context, options Options, status Status
 			_ = os.Remove(installerPath)
 		}
 	}()
-	if err := downloadFile(ctx, options, url, installerPath); err != nil {
+	if err := downloadFile(ctx, options, url, installerPath, ChatGPTDesktopID); err != nil {
 		return ActionResult{}, fmt.Errorf("download ChatGPT installer: %w", err)
 	}
 	if err := contextError(ctx); err != nil {
 		return ActionResult{}, err
 	}
-	if err := verifyWindowsInstaller(ctx, options, installerPath); err != nil {
+	if err := verifyChatGPTWindowsInstaller(ctx, options, installerPath); err != nil {
 		return ActionResult{}, fmt.Errorf("verify downloaded ChatGPT installer with Authenticode: %w", err)
 	}
 	if err := start(options, []string{installerPath}); err != nil {
@@ -714,7 +657,7 @@ func installWindowsInstaller(ctx context.Context, options Options, status Status
 	return ActionResult{Status: "installer-started", Message: "The downloaded Microsoft Store installer was started", RefreshNeeded: true, App: status}, nil
 }
 
-func downloadFile(ctx context.Context, options Options, url, destination string) error {
+func downloadFile(ctx context.Context, options Options, url, destination, target string) error {
 	downloadCtx, cancel := context.WithTimeout(ctx, installTimeout)
 	defer cancel()
 	request, err := http.NewRequestWithContext(downloadCtx, http.MethodGet, url, nil)
@@ -737,7 +680,7 @@ func downloadFile(ctx context.Context, options Options, url, destination string)
 	if err != nil {
 		return err
 	}
-	written, copyErr := process.CopyWithProgress(file, response.Body, response.ContentLength, ID, options.Output)
+	written, copyErr := process.CopyWithProgress(file, response.Body, response.ContentLength, target, options.Output)
 	closeErr := file.Close()
 	if copyErr != nil || closeErr != nil || written == 0 {
 		_ = os.Remove(destination)

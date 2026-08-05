@@ -7,7 +7,7 @@ import { ConnectionStatus } from "../components/ConnectionStatus";
 import { PageScaffold } from "../components/PageScaffold";
 import { ProviderSegment } from "../components/ProviderSegment";
 import { useI18n } from "../i18n";
-import { profileAgentIdForDesktop } from "../state/desktopSetup";
+import { desktopProtocol, profileAgentIdForDesktop, selectedDesktopApp } from "../state/desktopSetup";
 import { useWizard } from "../state/WizardContext";
 import type { ProtocolId, ProviderId } from "../types/api";
 import { PROTOCOL_LABELS } from "../types/api";
@@ -20,8 +20,11 @@ export function ProviderKeyPage() {
   const apiBaseUrl = providerMeta?.base_url || "";
   const providerHasKey = Boolean(providerMeta?.has_key);
   const canProbe = providerHasKey;
-  const probeAgentIds = state.setupKind === "desktop" && state.status?.desktopAgent
-    ? [profileAgentIdForDesktop(state.status.desktopAgent)]
+  const desktop = state.setupKind === "desktop" && state.status
+    ? selectedDesktopApp(state.status, state.selectedAgentIds)
+    : undefined;
+  const probeAgentIds = desktop
+    ? [profileAgentIdForDesktop(desktop)]
     : state.selectedAgentIds;
   // Continuing requires a successful probe, not just a non-empty key: a wrong
   // key must not reach the model step. canProbe stays separate so the test
@@ -31,12 +34,13 @@ export function ProviderKeyPage() {
   // The selected Agents decide which protocols get tested; a model that serves
   // Chat Completions may still refuse Responses, so do not imply a single one.
   const protocols = useMemo(() => {
+    if (desktop) return [desktopProtocol(desktop) as ProtocolId].filter(Boolean);
     const byId = new Map(state.status?.catalog.map((item) => [item.id, item]) ?? []);
     const selected = probeAgentIds
       .map((id) => byId.get(id)?.protocol)
       .filter((value): value is ProtocolId => Boolean(value));
     return [...new Set(selected)].sort();
-  }, [probeAgentIds, state.status]);
+  }, [desktop, probeAgentIds, state.status]);
 
   const endpoint = useMemo(() => {
     if (!apiBaseUrl) return "";

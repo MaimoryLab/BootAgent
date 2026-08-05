@@ -27,7 +27,7 @@ export interface TaskOutcome {
 export interface TaskCenterValue {
   /** The live feed, newest at the end. */
   log: string;
-  /** Keyed by the runtime or desktop-agent target the download belongs to. */
+  /** Keyed by the runtime or Desktop Agent target the download belongs to. */
   progress: Record<string, TaskProgress>;
   /** Drops a stale bar before the same target is installed again. */
   resetProgress: (target: string) => void;
