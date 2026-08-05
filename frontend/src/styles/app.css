@@ -1061,6 +1061,9 @@
   padding: 12px 14px;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "summary summary"
+    "details actions";
   align-items: center;
   gap: 10px 18px;
   border: 1px solid var(--border);
@@ -1074,6 +1077,7 @@
   min-width: 0;
   display: grid;
   grid-template-columns: minmax(0, auto) minmax(0, 1fr);
+  grid-area: summary;
   align-items: center;
   gap: 8px 14px;
 }
@@ -1182,6 +1186,8 @@
    `grid-column: 3` here belonged to the earlier five-column card and would put
    the buttons outside the grid. */
 .agent-manage-actions {
+  grid-area: actions;
+  align-self: end;
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -1195,7 +1201,6 @@
 }
 
 .agent-manage-actions .button-primary {
-  min-width: 0;
   color: #ffffff;
   background: var(--agent-accent);
   border-color: var(--agent-accent);
@@ -1206,7 +1211,8 @@
 }
 
 .agent-manage-details {
-  grid-column: 1 / -1;
+  grid-area: details;
+  align-self: end;
   min-width: 0;
   color: var(--text-secondary);
   font-size: 11px;
@@ -1290,6 +1296,9 @@
   padding: 12px 14px;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "summary summary"
+    "note actions";
   align-items: center;
   gap: 10px 18px;
   border: 1px solid var(--border);
@@ -1301,6 +1310,7 @@
   min-width: 0;
   display: grid;
   grid-template-columns: minmax(0, auto) minmax(0, 1fr);
+  grid-area: summary;
   align-items: center;
   gap: 8px 14px;
 }
@@ -1331,10 +1341,10 @@
   height: 34px;
   display: grid;
   place-items: center;
-  border: 1px solid var(--icon-border);
+  border: 1px solid color-mix(in srgb, var(--agent-accent) 24%, var(--border));
   border-radius: 8px;
-  color: var(--icon-fg);
-  background: var(--surface-subtle);
+  color: var(--agent-accent);
+  background: var(--agent-soft);
 }
 
 .desktop-app-identity strong { font-size: 16px; line-height: 1.3; }
@@ -1344,6 +1354,8 @@
    with the actions inline, so pinning them to column 3 / row 2 -- as the old
    five-column layout did -- would place them outside the grid. */
 .desktop-app-actions {
+  grid-area: actions;
+  align-self: end;
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -1409,10 +1421,10 @@
   border: 0;
 }
 
-/* Flows after the summary row rather than being pinned to row 3: the actions
-   moved inline, so a fixed row would leave an empty band above this. */
+/* Keep the shared config note beside the actions in the card's lower row. */
 .desktop-app-note {
-  grid-column: 1 / -1;
+  grid-area: note;
+  align-self: end;
   min-width: 0;
   margin: 0;
   color: var(--text-tertiary);
@@ -2070,6 +2082,10 @@
   .agent-manage-row {
     width: 100%;
     grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "summary"
+      "actions"
+      "details";
     align-items: start;
   }
 
@@ -2094,6 +2110,10 @@
 
   .desktop-app-row {
     grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "summary"
+      "note"
+      "actions";
     align-items: start;
   }
 

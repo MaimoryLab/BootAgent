@@ -112,12 +112,11 @@ describe("AgentManageRow", () => {
     expect(screen.getByText("@openai/codex")).toBeTruthy();
   });
 
-  it("uses text-first actions without decorative button icons", () => {
+  it("uses familiar icons alongside action labels", () => {
     renderRow();
-    for (const label of [/配置/, /启动/]) {
-      const control = screen.getByRole(label.test("启动") ? "button" : "link", { name: label });
-      expect(control.querySelector("svg")).toBeNull();
-    }
+    expect(screen.getByRole("link", { name: /配置/ }).querySelector("svg")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /更新/ }).querySelector("svg")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /启动/ }).querySelector("svg")).toBeTruthy();
   });
 
   it("names which piece is missing rather than one shared status word", () => {

@@ -1,4 +1,4 @@
-import { RefreshCw } from "lucide-react";
+import { Play, RefreshCw, SlidersHorizontal } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 
@@ -194,18 +194,21 @@ export function AgentManageRow({
         {/* Always in the row, not only when the Agent cannot launch. Configuring
             an installed Agent was previously reachable only by opening <details>,
             which made the common case the hidden one. */}
+        {npmAgents.has(agentId) ? (
+          <button className="button button-secondary" type="button" onClick={() => void update()} disabled={updating || launching} title={t("执行 npm update")}>
+            <RefreshCw size={15} className={updating ? "spin" : ""} aria-hidden="true" />
+            {t("更新")}
+          </button>
+        ) : null}
         <Link
           className="button button-secondary"
           to={`/agents/${agentId}`}
           title={t("编辑这个 Agent 关联的 Profile")}
         >
+          <SlidersHorizontal size={15} aria-hidden="true" />
           {t("配置")}
         </Link>
-        {npmAgents.has(agentId) ? (
-          <button className="button button-secondary" type="button" onClick={() => void update()} disabled={updating || launching} title={t("执行 npm update")}>
-            {t("更新")}
-          </button>
-        ) : null}
+
         {canLaunch ? (
           <button
             className="button button-primary"
@@ -214,7 +217,7 @@ export function AgentManageRow({
             disabled={launching}
             title={t("在新终端窗口中启动，并载入 OneAgent 写入的配置")}
           >
-            {launching ? <RefreshCw size={14} className="spin" aria-hidden="true" /> : null}
+            {launching ? <RefreshCw size={14} className="spin" aria-hidden="true" /> : <Play size={15} aria-hidden="true" />}
             {t("启动")}
           </button>
         ) : null}

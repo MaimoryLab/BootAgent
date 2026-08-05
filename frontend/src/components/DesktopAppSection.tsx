@@ -4,7 +4,6 @@ import { useState } from "react";
 import { api, describeError } from "../backend/api";
 import { useI18n } from "../i18n";
 import { useTaskCenter } from "../state/TaskCenterContext";
-import { profileAgentIdForDesktop } from "../state/desktopSetup";
 import type { DesktopAgentStatus, ProfileSummary } from "../types/api";
 import { DownloadProgress } from "./DownloadProgress";
 import { AgentIcon } from "./icons/agents";
@@ -138,10 +137,10 @@ export function DesktopAppSection({ app: desktopApp, onChanged, onSetup, onConfi
               {onConfigure ? (
                 <button className="button button-secondary" type="button" onClick={onConfigure} disabled={busy}>
                   <SlidersHorizontal size={15} />
-                  {t("编辑配置")}
+                  {t("配置")}
                 </button>
               ) : null}
-              <button className="button button-secondary" type="button" onClick={() => void run("open")} disabled={busy}>
+              <button className="button button-primary" type="button" onClick={() => void run("open")} disabled={busy}>
                 {pending === "open" ? <RefreshCw size={15} className="spin" aria-hidden="true" /> : <Play size={15} aria-hidden="true" />}
                 {t("启动")}
               </button>
