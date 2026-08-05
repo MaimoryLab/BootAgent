@@ -355,3 +355,96 @@ func TestProfileAgentIDKeepsChatGPTOnCodexAndScopesOtherApps(t *testing.T) {
 		t.Fatal("whitespace around a non-shared desktop ID changed its ownership")
 	}
 }
+
+func TestVerifyMacOSAppRequiresExpectedTeamAndNotarization(t *testing.T) {
+	runner := &scriptedRunner{results: []process.Result{
+		{ExitCode: 0},
+		{
+			ExitCode: 0,
+			Stderr: strings.Join([]string{
+				"Identifier=com.openai.codex",
+				"Authority=Developer ID Application: OpenAI OpCo, LLC (2DC432GLL2)",
+				"TeamIdentifier=2DC432GLL2",
+			}, "\n"),
+		},
+		{ExitCode: 0, Stdout: "ChatGPT.app: accepted\nsource=Notarized Developer ID"},
+	}}
+
+	if err := verifyMacOSApp(context.Background(), Options{Runner: runner}, "/Applications/ChatGPT.app"); err != nil {
+		t.Fatalf("verifyMacOSApp() error = %v", err)
+	}
+	if len(runner.calls) != 3 {
+		t.Fatalf("verification calls = %#v, want codesign verify, codesign details, spctl", runner.calls)
+	}
+}
+
+func TestVerifyMacOSAppRejectsUnsignedBundleBeforeIdentityChecks(t *testing.T) {
+	runner := &scriptedRunner{results: []process.Result{{ExitCode: 1, Stderr: "code object is not signed at all"}}}
+
+	err := verifyMacOSApp(context.Background(), Options{Runner: runner}, "/Applications/ChatGPT.app")
+
+	if err == nil || !strings.Contains(err.Error(), "code signature") {
+		t.Fatalf("verifyMacOSApp() error = %v, want code-signature failure", err)
+	}
+	if len(runner.calls) != 1 {
+		t.Fatalf("verification continued after signature failure: %#v", runner.calls)
+	}
+}
+
+func TestApprovedDownloadURLRequiresHTTPSAndAllowedHost(t *testing.T) {
+	for _, test := range []struct {
+		name string
+		url  string
+		want bool
+	}{
+		{name: "official", url: MacDownloadURL, want: true},
+		{name: "http", url: "http://persistent.oaistatic.com/codex-app-prod/ChatGPT.dmg", want: false},
+		{name: "wrong host", url: "https://example.test/ChatGPT.dmg", want: false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := approvedDownloadURL(test.url, "persistent.oaistatic.com")
+			if (err == nil) != test.want {
+				t.Fatalf("approvedDownloadURL(%q) error = %v, want allowed=%v", test.url, err, test.want)
+			}
+		})
+	}
+}
+
+func TestVerifyMacOSAppRejectsWrongTeamID(t *testing.T) {
+	runner := &scriptedRunner{results: []process.Result{
+		{ExitCode: 0},
+		{
+			ExitCode: 0,
+			Stderr:   "Identifier=com.openai.codex\nAuthority=Developer ID Application: OpenAI OpCo, LLC (2DC432GLL2)\nTeamIdentifier=WRONGTEAM",
+		},
+	}}
+
+	err := verifyMacOSApp(context.Background(), Options{Runner: runner}, "/Applications/ChatGPT.app")
+
+	if err == nil || !strings.Contains(err.Error(), "TeamIdentifier") {
+		t.Fatalf("verifyMacOSApp() error = %v, want TeamIdentifier failure", err)
+	}
+	if len(runner.calls) != 2 {
+		t.Fatalf("verification continued after identity failure: %#v", runner.calls)
+	}
+}
+
+func TestVerifyMacOSAppRejectsNonNotarizedDeveloperIDSource(t *testing.T) {
+	runner := &scriptedRunner{results: []process.Result{
+		{ExitCode: 0},
+		{
+			ExitCode: 0,
+			Stderr:   "Identifier=com.openai.codex\nAuthority=Developer ID Application: OpenAI OpCo, LLC (2DC432GLL2)\nTeamIdentifier=2DC432GLL2",
+		},
+		{ExitCode: 0, Stdout: "ChatGPT.app: accepted\nsource=Developer ID"},
+	}}
+
+	err := verifyMacOSApp(context.Background(), Options{Runner: runner}, "/Applications/ChatGPT.app")
+
+	if err == nil || !strings.Contains(err.Error(), "notarized Developer ID") {
+		t.Fatalf("verifyMacOSApp() error = %v, want notarization failure", err)
+	}
+	if len(runner.calls) != 3 {
+		t.Fatalf("verification continued after Gatekeeper failure: %#v", runner.calls)
+	}
+}

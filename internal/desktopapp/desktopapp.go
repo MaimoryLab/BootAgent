@@ -351,7 +351,10 @@ func plutilValue(ctx context.Context, options Options, plist, key string) (strin
 }
 
 func installMacOS(ctx context.Context, options Options, replacePath string) (ActionResult, error) {
-	url := macDownloadURL(options)
+	url, err := approvedDownloadURL(macDownloadURL(options), "persistent.oaistatic.com")
+	if err != nil {
+		return ActionResult{}, fmt.Errorf("validate ChatGPT installer URL: %w", err)
+	}
 	tempDir, err := os.MkdirTemp("", "oneagent-desktop-agent-")
 	if err != nil {
 		return ActionResult{}, fmt.Errorf("create temporary installer directory: %w", err)
@@ -385,6 +388,9 @@ func installMacOS(ctx context.Context, options Options, replacePath string) (Act
 	}
 	if metadata.bundleID != CodexBundleID {
 		return ActionResult{}, fmt.Errorf("downloaded app has unexpected bundle identifier %q", metadata.bundleID)
+	}
+	if err := verifyMacOSApp(ctx, options, appPath); err != nil {
+		return ActionResult{}, fmt.Errorf("verify downloaded ChatGPT app: %w", err)
 	}
 	appName := filepath.Base(appPath)
 	destinations := make([]string, 0, 2)
