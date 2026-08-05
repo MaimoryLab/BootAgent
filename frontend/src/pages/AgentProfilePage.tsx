@@ -116,7 +116,6 @@ export function AgentProfilePage() {
   const save = async (event: FormEvent) => {
     event.preventDefault();
     if (!draft || !canSave) return;
-    const agentIds = [...new Set([...(draft.agentIds || []), owner].filter(Boolean))];
     setBusy(true);
     setFailure("");
     try {
@@ -129,7 +128,6 @@ export function AgentProfilePage() {
         model: draft.model.trim(),
         configMode: "provider",
         protocol: catalog?.protocol || "",
-        agentIds,
       });
       setSelectedId(saved.id);
       setDraft(null);

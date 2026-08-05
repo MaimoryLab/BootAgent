@@ -138,7 +138,6 @@ func TestSaveProfileUseCaseWritesOnlyPublicSummary(t *testing.T) {
 		APIKey:     "sk-secret",
 		ConfigMode: "provider",
 		Protocol:   "openai",
-		AgentIDs:   []string{"opencode", "codex"},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -150,7 +149,7 @@ func TestSaveProfileUseCaseWritesOnlyPublicSummary(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := core.SaveProfile(context.Background(), SaveProfileOptions{
-		ID: "team", Label: "Renamed", Provider: "ppio", Model: "model-b", AgentIDs: []string{"codex"},
+		ID: "team", Label: "Renamed", Provider: "ppio", Model: "model-b",
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -162,7 +161,7 @@ func TestSaveProfileUseCaseWritesOnlyPublicSummary(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := core.SaveProfile(context.Background(), SaveProfileOptions{
-		ID: "team", Label: "Novita", Provider: "novita", Model: "model-c", AgentIDs: []string{"codex"},
+		ID: "team", Label: "Novita", Provider: "novita", Model: "model-c",
 	}); err != nil {
 		t.Fatalf("profile provider switch with Provider key failed: %v", err)
 	}
@@ -188,12 +187,12 @@ func TestSaveProfileCanSwitchAKeylessProfileProvider(t *testing.T) {
 		Lookup:   func(string) (string, bool) { return "", false },
 	})
 	if _, err := core.SaveProfile(context.Background(), SaveProfileOptions{
-		ID: "draft", Provider: "ppio", Model: "model-a", AgentIDs: []string{"codex"},
+		ID: "draft", Provider: "ppio", Model: "model-a",
 	}); err != nil {
 		t.Fatalf("keyless Profile create failed: %v", err)
 	}
 	if _, err := core.SaveProfile(context.Background(), SaveProfileOptions{
-		ID: "draft", Provider: "novita", Model: "model-b", AgentIDs: []string{"codex"},
+		ID: "draft", Provider: "novita", Model: "model-b",
 	}); err != nil {
 		t.Fatalf("keyless Profile provider switch failed: %v", err)
 	}

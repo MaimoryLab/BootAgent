@@ -430,7 +430,6 @@ type SaveProfileOptions struct {
 	Model      string
 	ConfigMode string
 	Protocol   string
-	AgentIDs   []string
 }
 
 func (u *UseCases) SaveProfile(ctx context.Context, options SaveProfileOptions) (ProfileSummary, error) {

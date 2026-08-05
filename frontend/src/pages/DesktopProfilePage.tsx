@@ -78,7 +78,6 @@ export function DesktopProfilePage() {
         model: draft.model.trim(),
         configMode: "provider",
         protocol: "responses",
-        agentIds: [owner],
       });
       await refreshStatus();
       dispatch({ type: "SET_DESKTOP_PROFILE", value: saved.id });

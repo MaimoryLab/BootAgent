@@ -109,7 +109,7 @@ describe("Wails backend adapter", () => {
     await wailsApi.activateAgent("codex", { provider: "ppio", apiBaseUrl: "", apiKey: "secret", model: "m" });
     await wailsApi.launchAgent("codex");
     await expect(wailsApi.listProfiles()).resolves.toEqual([profile]);
-    await expect(wailsApi.saveProfile({ id: "team", label: "Team", provider: "ppio", apiBaseUrl: "", apiKey: "secret", model: "m", configMode: "provider", agentIds: ["codex"] })).resolves.toBe(profile);
+    await expect(wailsApi.saveProfile({ id: "team", label: "Team", provider: "ppio", apiBaseUrl: "", apiKey: "secret", model: "m", configMode: "provider" })).resolves.toBe(profile);
 
     expect(bridge.probe).toHaveBeenCalledWith({ provider: "custom", api_base_url: "https://proxy.test/v1", api_key: "secret", model: "m", agents: null });
     expect(bridge.getProvider).toHaveBeenCalledWith({ id: "acme" });
@@ -123,7 +123,7 @@ describe("Wails backend adapter", () => {
     expect(bridge.desktopOpen).toHaveBeenCalledWith();
     expect(bridge.desktopInstaller).toHaveBeenCalledWith();
     expect(bridge.desktopConfigure).toHaveBeenCalledWith({ agent_id: "desktop-agent", profile_id: "team" });
-    expect(bridge.saveProfile).toHaveBeenCalledWith(expect.objectContaining({ api_base_url: "", api_key: "secret", agent_ids: ["codex"] }));
+    expect(bridge.saveProfile).toHaveBeenCalledWith(expect.objectContaining({ api_base_url: "", api_key: "secret" }));
   });
 
   it("restores structured Wails errors without exposing raw bridge details", async () => {

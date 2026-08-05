@@ -100,7 +100,6 @@ func TestActivateAgentReusesProfileKeyAndDiscoversModel(t *testing.T) {
 		Provider: "ppio",
 		Model:    "saved-model",
 		APIKey:   "stored-secret",
-		AgentIDs: []string{"opencode"},
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -131,7 +130,7 @@ func TestActivateAgentPrefersProviderKeyOverLegacyProfileSecret(t *testing.T) {
 	home := t.TempDir()
 	core := activationCore(t, home, provider.NewClient(nil), "linux")
 	if _, err := core.SaveProfile(context.Background(), SaveProfileOptions{
-		ID: "team", Provider: "ppio", Model: "model-a", APIKey: "legacy-secret", AgentIDs: []string{"codex"},
+		ID: "team", Provider: "ppio", Model: "model-a", APIKey: "legacy-secret",
 	}); err != nil {
 		t.Fatal(err)
 	}

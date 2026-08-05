@@ -147,7 +147,6 @@ export interface SaveProfileRequest {
     "model": string;
     "config_mode": string;
     "protocol": string;
-    "agent_ids": string[] | null;
 }
 
 export interface SaveProviderRequest {

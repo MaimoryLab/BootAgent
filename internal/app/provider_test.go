@@ -126,7 +126,7 @@ func TestSavedProviderDrivesStatusAndProbeWithoutResendingKey(t *testing.T) {
 		t.Fatalf("saved Provider status = %#v, err=%v", status.Providers["acme"], err)
 	}
 	result, err := reloaded.ProbeProvider(context.Background(), ProviderProbeOptions{
-		Provider: "acme", Model: "model-a", AgentIDs: []string{"opencode"},
+		Provider: "acme", Model: "model-a",
 	})
 	if err != nil || !result.Primary.OK {
 		t.Fatalf("saved Provider probe = %#v, err=%v", result, err)

@@ -171,7 +171,6 @@ export const wailsApi = {
     model: string;
     configMode: string;
     protocol?: string;
-    agentIds: string[];
   }): Promise<ProfileSummary> =>
     call(() => ProfileService.SaveProfile({
       id: input.id,
@@ -182,6 +181,5 @@ export const wailsApi = {
       model: input.model,
       config_mode: input.configMode,
       protocol: input.protocol ?? "",
-      agent_ids: input.agentIds,
     })) as Promise<ProfileSummary>,
 };

@@ -26,9 +26,6 @@ type SaveRequest struct {
 	Model                string
 	ConfigMode           string
 	Protocol             string
-	// AgentIDs is accepted for source compatibility only; Protocol is the
-	// persisted scope for new profiles.
-	AgentIDs []string
 }
 
 type ActiveRequest struct {

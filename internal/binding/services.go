@@ -422,7 +422,6 @@ func (s *ProfileService) SaveProfile(ctx context.Context, request SaveProfileReq
 		Model:      request.Model,
 		ConfigMode: request.ConfigMode,
 		Protocol:   request.Protocol,
-		AgentIDs:   append([]string(nil), request.AgentIDs...),
 	})
 }
 
@@ -570,15 +569,14 @@ type LaunchResponse struct {
 }
 
 type SaveProfileRequest struct {
-	ID         string   `json:"id"`
-	Label      string   `json:"label"`
-	Provider   string   `json:"provider"`
-	APIBaseURL string   `json:"api_base_url"`
-	APIKey     string   `json:"api_key"`
-	Model      string   `json:"model"`
-	ConfigMode string   `json:"config_mode"`
-	Protocol   string   `json:"protocol"`
-	AgentIDs   []string `json:"agent_ids"`
+	ID         string `json:"id"`
+	Label      string `json:"label"`
+	Provider   string `json:"provider"`
+	APIBaseURL string `json:"api_base_url"`
+	APIKey     string `json:"api_key"`
+	Model      string `json:"model"`
+	ConfigMode string `json:"config_mode"`
+	Protocol   string `json:"protocol"`
 }
 
 func contextError(ctx context.Context) error {

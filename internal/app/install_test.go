@@ -194,7 +194,7 @@ func TestInstallAgentsAppliesNamedProfileWithItsSavedKey(t *testing.T) {
 	runner := &installAppRunner{paths: map[string]string{"codex": "/fake/codex"}}
 	core := installCore(t, home, runner, nil)
 	if _, err := core.SaveProfile(context.Background(), SaveProfileOptions{
-		ID: "team", Label: "Team", Provider: "ppio", APIKey: "profile-secret", Model: "model-a", AgentIDs: []string{"codex"},
+		ID: "team", Label: "Team", Provider: "ppio", APIKey: "profile-secret", Model: "model-a",
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -221,7 +221,7 @@ func TestInstallAgentsPrefersProviderKeyOverLegacyProfileSecret(t *testing.T) {
 	runner := &installAppRunner{paths: map[string]string{"codex": "/fake/codex"}}
 	core := installCore(t, home, runner, nil)
 	if _, err := core.SaveProfile(context.Background(), SaveProfileOptions{
-		ID: "team", Provider: "ppio", APIKey: "legacy-secret", Model: "model-a", AgentIDs: []string{"codex"},
+		ID: "team", Provider: "ppio", APIKey: "legacy-secret", Model: "model-a",
 	}); err != nil {
 		t.Fatal(err)
 	}

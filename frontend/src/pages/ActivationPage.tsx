@@ -78,7 +78,6 @@ export function ActivationPage() {
       model: state.model,
       configMode: "provider",
       protocol: state.status?.catalog.find((item) => item.id === owner)?.protocol || "",
-      agentIds: [owner],
     });
     const installed = desktop.installed ? undefined : await api.installDesktopAgent();
     const configured = await api.configureDesktopAgent(desktop.id, profile.id);

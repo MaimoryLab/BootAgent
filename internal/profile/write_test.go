@@ -32,7 +32,6 @@ func TestSaveProfileIsolatesSecretAndPreservesHistory(t *testing.T) {
 		Provider: "ppio",
 		Model:    "deepseek-v3",
 		Protocol: "openai",
-		AgentIDs: []string{"opencode", "codex", "codex"},
 		APIKey:   secret,
 	})
 	if err != nil {
@@ -63,7 +62,6 @@ func TestSaveProfileIsolatesSecretAndPreservesHistory(t *testing.T) {
 		Provider: "ppio",
 		Model:    "model-b",
 		Protocol: "openai",
-		AgentIDs: []string{"codex"},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -83,9 +81,9 @@ func TestSaveProfileIsolatesSecretAndPreservesHistory(t *testing.T) {
 func TestSaveProfileValidatesInputAndCustomBase(t *testing.T) {
 	store := testStore(t, t.TempDir(), "linux")
 	for _, request := range []SaveRequest{
-		{ID: "../bad", Provider: "ppio", Model: "m", AgentIDs: []string{"codex"}},
-		{ID: "ok", Provider: "nope", Model: "m", AgentIDs: []string{"codex"}},
-		{ID: "ok", Provider: "ppio", Model: "", AgentIDs: []string{"codex"}},
+		{ID: "../bad", Provider: "ppio", Model: "m"},
+		{ID: "ok", Provider: "nope", Model: "m"},
+		{ID: "ok", Provider: "ppio", Model: ""},
 	} {
 		if _, err := store.Save(context.Background(), request); err == nil || oneerrors.As(err).Code != oneerrors.InvalidRequest {
 			t.Errorf("invalid request %#v returned %v", request, err)
@@ -96,7 +94,6 @@ func TestSaveProfileValidatesInputAndCustomBase(t *testing.T) {
 		Provider: "custom",
 		BaseURL:  "http://127.0.0.1:9000/",
 		Model:    "m", Protocol: "openai",
-		AgentIDs: []string{"codex"},
 	})
 	if err != nil || profile.BaseURL == nil || *profile.BaseURL != "http://127.0.0.1:9000" {
 		t.Fatalf("custom profile = %#v, err=%v", profile, err)
@@ -152,7 +149,7 @@ func TestProfileWritesHonorCancellation(t *testing.T) {
 	store := testStore(t, t.TempDir(), "linux")
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	_, err := store.Save(ctx, SaveRequest{ID: "team", Provider: "ppio", Model: "m", AgentIDs: []string{"codex"}})
+	_, err := store.Save(ctx, SaveRequest{ID: "team", Provider: "ppio", Model: "m"})
 	if err == nil || oneerrors.As(err).Code != oneerrors.Timeout {
 		t.Fatalf("cancelled Save() = %v", err)
 	}
@@ -169,7 +166,7 @@ func TestWindowsSecretUsesPowerShellQuoting(t *testing.T) {
 		Now:      fixedProfileClock,
 	})
 	store = NewStoreWithDependencies(store.Home, "windows", filesystem, fixedProfileClock)
-	if _, err := store.Save(context.Background(), SaveRequest{ID: "win", Provider: "ppio", Model: "m", AgentIDs: []string{"codex"}, APIKey: "key'value"}); err != nil {
+	if _, err := store.Save(context.Background(), SaveRequest{ID: "win", Provider: "ppio", Model: "m", APIKey: "key'value"}); err != nil {
 		t.Fatal(err)
 	}
 	path, _ := store.SecretPath("win")

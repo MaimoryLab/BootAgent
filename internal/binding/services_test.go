@@ -192,7 +192,6 @@ func TestProfileServiceSavesWithoutReturningSecret(t *testing.T) {
 		Model:      "model-a",
 		APIKey:     "sk-secret",
 		ConfigMode: "provider",
-		AgentIDs:   []string{"codex"},
 	})
 	if err != nil || summary.ID != "team" || !summary.HasKey {
 		t.Fatalf("saved profile = %#v, err=%v", summary, err)

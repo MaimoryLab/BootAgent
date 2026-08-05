@@ -85,7 +85,6 @@ export function ProfilesPage() {
         model: editor.model.trim(),
         configMode: "provider",
         protocol: editor.protocol || status.catalog.find((agent) => editor.agentIds.includes(agent.id))?.protocol || "",
-        agentIds: editor.agentIds,
       });
       await refreshStatus();
       setEditor(null);
