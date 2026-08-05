@@ -31,6 +31,10 @@ jobs:
       # thing a plain run will not exercise.
       - run: go test -race ./...
 
+      - uses: dominikh/staticcheck-action@v1.4.1
+        with:
+          build-tags: wails,production
+
   docs:
     name: Docs
     runs-on: ubuntu-latest
