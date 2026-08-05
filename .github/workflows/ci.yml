@@ -31,9 +31,10 @@ jobs:
       # thing a plain run will not exercise.
       - run: go test -race ./...
 
+      # The Linux CI runner does not provide Wails' GTK/WebKitGTK native
+      # libraries. The default package graph still checks the portable Go code;
+      # target-specific release builds run in build-artifacts.yml.
       - uses: dominikh/staticcheck-action@v1.4.1
-        with:
-          build-tags: wails,production
 
   compliance:
     name: Release compliance
