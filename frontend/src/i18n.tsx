@@ -29,6 +29,11 @@ const english = {
   "暂无": "None",
   "未记录": "Not recorded",
   "未绑定": "Not linked",
+  // A token says which of the two things is absent, rather than sharing one
+  // vague word between them: two pills both reading "not linked" left no way to
+  // tell whether the Provider or the Profile was the missing one.
+  "无 Provider": "No provider",
+  "无 Profile": "No profile",
   "未安装": "Not installed",
   "已安装": "Installed",
   "待安装": "Not installed",

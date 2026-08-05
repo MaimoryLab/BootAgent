@@ -4,6 +4,18 @@
       "ecosystem": "asset",
       "license": "MIT",
       "license_files": [
+        "licenses/assets/claude-code/LICENSE"
+      ],
+      "name": "claude-code",
+      "platforms": [
+        "frontend"
+      ],
+      "version": "365a70a7eb3956d9b9a96086058ebe04e1dbd8e291a756ad964e8a283fbd6d38"
+    },
+    {
+      "ecosystem": "asset",
+      "license": "MIT",
+      "license_files": [
         "licenses/assets/codex/LICENSE"
       ],
       "name": "codex",
@@ -11,6 +23,30 @@
         "frontend"
       ],
       "version": "a595df6b423920c67a7f8f73c063e4bfb72d415948097b6cac063a2366bb5186"
+    },
+    {
+      "ecosystem": "asset",
+      "license": "MIT",
+      "license_files": [
+        "licenses/assets/cursor/LICENSE"
+      ],
+      "name": "cursor",
+      "platforms": [
+        "frontend"
+      ],
+      "version": "0cb51bddf264ae108926fd554c063ef40fc1aac3c5c921ddb39ad184e4e5d0ef"
+    },
+    {
+      "ecosystem": "asset",
+      "license": "MIT",
+      "license_files": [
+        "licenses/assets/kilo-cli/LICENSE"
+      ],
+      "name": "kilo-cli",
+      "platforms": [
+        "frontend"
+      ],
+      "version": "a2aef0e0bb992ebe768bfb8c3a3ab6ff2c2638448b09dd88db27877de1c07a22"
     },
     {
       "ecosystem": "asset",

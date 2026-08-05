@@ -16,6 +16,9 @@ frontend/coverage/
 frontend/test-results/
 frontend/playwright-report/
 
+# CI 跑 scripts/ 下的 unittest 会留下字节码
+__pycache__/
+
 # 可再生的产物：imagegen 设计稿与工具自动生成的 repowiki
 output/
 .qoder/

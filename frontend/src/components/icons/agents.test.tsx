@@ -23,7 +23,12 @@ describe("AgentIcon", () => {
   });
 
   it("records auditable rights for every redistributed image asset", () => {
-    for (const id of ["codex"]) {
+    // Every id whose mark is a real image, not a generic symbol. Asserting the
+    // set rather than one example is what makes an unregistered mark fail here:
+    // shipping artwork without a source, licence and hash is the defect.
+    const assetIds = AGENT_ICON_IDS.filter((id) => agentMarkKind(id) === "asset");
+    expect(assetIds.sort()).toEqual(["claude-code", "codex", "cursor", "kilo-cli", "opencode"]);
+    for (const id of assetIds) {
       const rights = agentMarkRights(id);
       expect(agentMarkKind(id)).toBe("asset");
       expect(rights?.license).toBe("MIT");

@@ -16,6 +16,30 @@
       "licenseSource": "licenses/lobehub/LICENSE",
       "copyrightOwner": "LobeHub contributors",
       "sha256": "7cfa6e9d6726f7c9fa26c7d9aef0dfec52d20a137380454340f30f12ccbfd302"
+    },
+    "claude-code": {
+      "file": "assets/claude-code.svg",
+      "source": "https://github.com/lobehub/lobe-icons/blob/master/packages/static-svg/icons/claude.svg",
+      "license": "MIT",
+      "licenseSource": "licenses/lobehub/LICENSE",
+      "copyrightOwner": "LobeHub contributors",
+      "sha256": "365a70a7eb3956d9b9a96086058ebe04e1dbd8e291a756ad964e8a283fbd6d38"
+    },
+    "cursor": {
+      "file": "assets/cursor.svg",
+      "source": "https://github.com/lobehub/lobe-icons/blob/master/packages/static-svg/icons/cursor.svg",
+      "license": "MIT",
+      "licenseSource": "licenses/lobehub/LICENSE",
+      "copyrightOwner": "LobeHub contributors",
+      "sha256": "0cb51bddf264ae108926fd554c063ef40fc1aac3c5c921ddb39ad184e4e5d0ef"
+    },
+    "kilo-cli": {
+      "file": "assets/kilo-cli.svg",
+      "source": "https://github.com/lobehub/lobe-icons/blob/master/packages/static-svg/icons/kilocode.svg",
+      "license": "MIT",
+      "licenseSource": "licenses/lobehub/LICENSE",
+      "copyrightOwner": "LobeHub contributors",
+      "sha256": "a2aef0e0bb992ebe768bfb8c3a3ab6ff2c2638448b09dd88db27877de1c07a22"
     }
   }
 }
