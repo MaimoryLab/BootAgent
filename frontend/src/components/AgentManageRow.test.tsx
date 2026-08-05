@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -74,14 +74,56 @@ describe("AgentManageRow", () => {
   it("shows what the Agent is pointed at", () => {
     renderRow();
     expect(screen.getByText("Codex")).toBeTruthy();
-    expect(screen.getByText("PPIO", { selector: ".agent-manage-fact > span" })).toBeTruthy();
-    expect(screen.getByText(/deepseek\/deepseek-v3/)).toBeTruthy();
-    expect(screen.getByText("团队 PPIO")).toBeTruthy();
+    expect(screen.getByText("PPIO", { selector: ".agent-manage-pill" })).toBeTruthy();
+    expect(within(screen.getByTestId("agent-codex").querySelector(".agent-manage-summary") as HTMLElement).getByText("deepseek/deepseek-v3")).toBeTruthy();
+    expect(within(screen.getByTestId("agent-codex").querySelector(".agent-manage-summary") as HTMLElement).getByText("团队 PPIO")).toBeTruthy();
+  });
+
+  it("uses compact UI tokens instead of repeating field labels", () => {
+    renderRow();
+    const summary = screen.getByTestId("agent-codex").querySelector(".agent-manage-summary");
+    if (!summary) throw new Error("agent summary not found");
+    const summaryView = within(summary as HTMLElement);
+
+    expect(summaryView.queryByText("Provider")).toBeNull();
+    expect(summaryView.queryByText("Profile")).toBeNull();
+    expect(summaryView.queryByText("模型")).toBeNull();
+    expect(summaryView.queryByText("版本")).toBeNull();
+    expect(summaryView.queryByText(/npm 包/)).toBeNull();
+    expect(summaryView.getByText("PPIO")).toBeTruthy();
+    expect(summaryView.getByText("团队 PPIO")).toBeTruthy();
+    expect(summaryView.getByText("0.145.0")).toBeTruthy();
+  });
+
+  it("keeps low-frequency URL and package details behind disclosure", async () => {
+    renderRow();
+    const row = screen.getByTestId("agent-codex");
+    const details = row.querySelector("details");
+    if (!details) throw new Error("agent details disclosure not found");
+
+    expect(details).not.toHaveAttribute("open");
+    expect(within(row.querySelector(".agent-manage-summary") as HTMLElement).queryByText("https://api.ppio.com/openai")).toBeNull();
+    expect(within(row.querySelector(".agent-manage-summary") as HTMLElement).queryByText("@openai/codex")).toBeNull();
+
+    await userEvent.click(screen.getByText("详情"));
+
+    expect(details).toHaveAttribute("open");
+    expect(screen.getByText("https://api.ppio.com/openai")).toBeTruthy();
+    expect(screen.getByText("@openai/codex")).toBeTruthy();
+  });
+
+  it("uses text-first actions without decorative button icons", () => {
+    renderRow();
+    for (const label of [/配置/, /启动/]) {
+      const control = screen.getByRole(label.test("启动") ? "button" : "link", { name: label });
+      expect(control.querySelector("svg")).toBeNull();
+    }
   });
 
   it("distinguishes an unconfigured Agent from a configured one", () => {
     renderRow({ configured: false, provider: null, profileId: null, model: null, baseUrl: null }, "");
-    expect(screen.getAllByText("未记录")).toHaveLength(2);
+    expect(screen.queryByText("未记录")).toBeNull();
+    expect(screen.getByText("未配置", { selector: ".agent-manage-state" })).toBeTruthy();
     expect(screen.getByText("未绑定")).toBeTruthy();
   });
 
@@ -120,10 +162,13 @@ describe("AgentManageRow", () => {
     expect(screen.queryByRole("button", { name: /测试连接/ })).toBeNull();
   });
 
-  it("links to the Agent's own configuration page", () => {
+  it("links to the Agent's own configuration page", async () => {
     // Without this the detail page was unreachable: the route existed but nothing
     // navigated to it.
     renderRow();
+    const details = screen.getByTestId("agent-codex").querySelector("details");
+    if (!details) throw new Error("agent details disclosure not found");
+    await userEvent.click(details.querySelector("summary") as HTMLElement);
     expect(screen.getByRole("link", { name: /配置/ }).getAttribute("href")).toBe("/agents/codex");
   });
 

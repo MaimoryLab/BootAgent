@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 
@@ -72,8 +72,9 @@ describe("EnvironmentOverviewPage", () => {
     expect(screen.getByRole("heading", { name: "命令行 Agent" })).toBeTruthy();
     expect(screen.getByText("Codex")).toBeTruthy();
     expect(screen.queryByText("OpenCode")).toBeNull();
-    expect(screen.getByText("PPIO")).toBeTruthy();
-    expect(screen.getByText("团队默认")).toBeTruthy();
+    const row = within(screen.getByTestId("agent-codex"));
+    expect(row.getByText("PPIO", { selector: ".agent-manage-pill" })).toBeTruthy();
+    expect(row.getByText("团队默认", { selector: ".agent-manage-pill" })).toBeTruthy();
   });
 
   it("uses a compatible active Profile when an older install has no binding file", () => {
@@ -82,8 +83,9 @@ describe("EnvironmentOverviewPage", () => {
     mockState = { status: legacy, statusState: "success", statusError: "" };
     renderPage();
 
-    expect(screen.getByText("团队默认")).toBeTruthy();
-    expect(screen.getByText("PPIO")).toBeTruthy();
+    const row = within(screen.getByTestId("agent-codex"));
+    expect(row.getByText("团队默认", { selector: ".agent-manage-pill" })).toBeTruthy();
+    expect(row.getByText("PPIO", { selector: ".agent-manage-pill" })).toBeTruthy();
   });
 
   it("offers onboarding as the way out of an empty environment", async () => {
