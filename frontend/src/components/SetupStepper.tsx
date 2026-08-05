@@ -30,7 +30,8 @@ export function SetupStepper() {
     <ol className="setup-stepper" aria-label={t("激活步骤")}>
       {activeSteps.map((step, index) => {
         const number = index + 1;
-        const skipped = state.reusedProfile && (step.path === "/setup/provider" || step.path === "/setup/model");
+        const skipped = (state.profileStepSkipped && step.path === "/setup/profile")
+          || (state.reusedProfile && (step.path === "/setup/provider" || step.path === "/setup/model"));
         const complete = number < current && !skipped;
         const active = number === current;
         return (

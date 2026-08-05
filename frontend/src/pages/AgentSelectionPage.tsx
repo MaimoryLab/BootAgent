@@ -42,6 +42,7 @@ export function AgentSelectionPage() {
   const continueSetup = () => {
     const protocol = state.status?.catalog.find((item) => item.id === selectedAgent)?.protocol;
     const hasProfile = Boolean(protocol && state.status?.profiles.some((profile) => profile.protocol === protocol));
+    dispatch({ type: "SET_PROFILE_STEP_SKIPPED", value: !hasProfile });
     navigate(hasProfile ? "/setup/profile" : "/setup/provider");
   };
 

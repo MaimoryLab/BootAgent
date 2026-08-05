@@ -16,7 +16,9 @@ export function DesktopAgentSelectionPage() {
   const selected = state.selectedAgentIds[0] === app?.id;
   const continueSetup = () => {
     const protocol = state.status?.catalog.find((item) => item.id === profileAgentIdForDesktop(app!))?.protocol;
-    navigate(protocol && state.status?.profiles.some((profile) => profile.protocol === protocol) ? "/setup/profile" : "/setup/provider");
+    const hasProfile = Boolean(protocol && state.status?.profiles.some((profile) => profile.protocol === protocol));
+    dispatch({ type: "SET_PROFILE_STEP_SKIPPED", value: !hasProfile });
+    navigate(hasProfile ? "/setup/profile" : "/setup/provider");
   };
 
   useEffect(() => {

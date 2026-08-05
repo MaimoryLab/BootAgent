@@ -27,6 +27,7 @@ export interface WizardState {
   profileId: string;
   profileLabel: string;
   reusedProfile: boolean;
+  profileStepSkipped: boolean;
   desktopProfileId: string;
   hasApiKey: boolean;
   connection: ProbeResponse | null;
@@ -62,6 +63,7 @@ export const initialWizardState: WizardState = {
   profileId: "",
   profileLabel: "",
   reusedProfile: false,
+  profileStepSkipped: false,
   desktopProfileId: "",
   hasApiKey: false,
   connection: null,
@@ -91,6 +93,7 @@ export type WizardAction =
   | { type: "SET_PROFILE_LABEL"; value: string }
   | { type: "SELECT_PROFILE"; provider: ProviderId; profileId: string; profileLabel: string; model: string; keyVerified: boolean }
   | { type: "START_NEW_PROFILE" }
+  | { type: "SET_PROFILE_STEP_SKIPPED"; value: boolean }
   | { type: "SET_DESKTOP_PROFILE"; value: string }
   | { type: "START_SETUP"; profileId?: string; profileLabel?: string }
   | { type: "SET_HAS_API_KEY"; value: boolean }
@@ -192,6 +195,8 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
       return { ...state, profileLabel: action.value };
     case "START_NEW_PROFILE":
       return { ...state, profileId: "", profileLabel: "", model: "", reusedProfile: false, keyVerified: false, connection: null, connectionState: "idle", models: [], modelsState: "idle", modelsMessage: "" };
+    case "SET_PROFILE_STEP_SKIPPED":
+      return { ...state, profileStepSkipped: action.value };
     case "SELECT_PROFILE":
       return {
         ...state,
@@ -199,6 +204,7 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
         profileId: action.profileId,
         profileLabel: action.profileLabel,
         reusedProfile: true,
+        profileStepSkipped: false,
         model: action.model,
         keyVerified: action.keyVerified,
         connection: null,
