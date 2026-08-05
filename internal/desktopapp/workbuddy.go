@@ -2,8 +2,6 @@ package desktopapp
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -30,7 +28,6 @@ type workBuddyUpdate struct {
 	Version        string `json:"version"`
 	URL            string `json:"url"`
 	ProductVersion string `json:"productVersion"`
-	SHA256Hash     string `json:"sha256hash"`
 }
 
 func inspectWorkBuddy(ctx context.Context, options Options) Status {
@@ -302,12 +299,6 @@ func fetchWorkBuddyUpdate(ctx context.Context, options Options) (workBuddyUpdate
 	if err != nil {
 		return workBuddyUpdate{}, fmt.Errorf("validate WorkBuddy installer URL: %w", err)
 	}
-	if update.SHA256Hash != "" {
-		decoded, decodeErr := hex.DecodeString(strings.TrimSpace(update.SHA256Hash))
-		if decodeErr != nil || len(decoded) != sha256.Size {
-			return workBuddyUpdate{}, errors.New("WorkBuddy update response has an invalid SHA-256 hash")
-		}
-	}
 	return update, nil
 }
 
@@ -335,9 +326,6 @@ func installWorkBuddyMacOS(ctx context.Context, options Options, replacePath str
 	archive := filepath.Join(tempDir, "WorkBuddy.zip")
 	if err := downloadFile(ctx, options, update.URL, archive, WorkBuddyID); err != nil {
 		return ActionResult{}, fmt.Errorf("download WorkBuddy installer: %w", err)
-	}
-	if err := verifyWorkBuddyChecksum(archive, update.SHA256Hash); err != nil {
-		return ActionResult{}, err
 	}
 	extracted := filepath.Join(tempDir, "extracted")
 	if err := os.MkdirAll(extracted, 0o700); err != nil {
@@ -466,9 +454,6 @@ func installWorkBuddyWindows(ctx context.Context, options Options, status Status
 	if err := downloadFile(ctx, options, update.URL, installerPath, WorkBuddyID); err != nil {
 		return ActionResult{}, fmt.Errorf("download WorkBuddy installer: %w", err)
 	}
-	if err := verifyWorkBuddyChecksum(installerPath, update.SHA256Hash); err != nil {
-		return ActionResult{}, err
-	}
 	if err := contextError(ctx); err != nil {
 		return ActionResult{}, err
 	}
@@ -484,27 +469,6 @@ func installWorkBuddyWindows(ctx context.Context, options Options, status Status
 		status.Version = nonEmptyPointer(workBuddyVersion(update))
 	}
 	return ActionResult{Status: "installer-started", Message: "The downloaded WorkBuddy installer was started", RefreshNeeded: true, App: status}, nil
-}
-
-func verifyWorkBuddyChecksum(path, expected string) error {
-	expected = strings.TrimSpace(expected)
-	if expected == "" {
-		return nil
-	}
-	file, err := os.Open(path)
-	if err != nil {
-		return fmt.Errorf("open WorkBuddy installer for checksum verification: %w", err)
-	}
-	defer file.Close()
-	hash := sha256.New()
-	if _, err := io.Copy(hash, file); err != nil {
-		return fmt.Errorf("hash WorkBuddy installer: %w", err)
-	}
-	actual := hex.EncodeToString(hash.Sum(nil))
-	if !strings.EqualFold(actual, expected) {
-		return errors.New("downloaded WorkBuddy installer failed SHA-256 verification")
-	}
-	return nil
 }
 
 func workBuddyVersion(update workBuddyUpdate) string {

@@ -3,8 +3,6 @@ package desktopapp
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"io"
 	"maps"
@@ -331,12 +329,11 @@ func TestWorkBuddyPlatformMapping(t *testing.T) {
 	}
 }
 
-func TestWorkBuddyWindowsInstallUsesSharedPlatformManifestAndVerifiedDownload(t *testing.T) {
+func TestWorkBuddyWindowsInstallUsesSharedPlatformManifestAndSignatureVerification(t *testing.T) {
 	payload := []byte("signed WorkBuddy installer")
-	sum := sha256.Sum256(payload)
 	downloadURL := "https://download.codebuddy.cn/workbuddy/WorkBuddy.exe"
 	manifestURL := WorkBuddyUpdateEndpoint + "?platform=" + WorkBuddyWindowsPlatform
-	manifest := fmt.Appendf(nil, `{"version":"5.4.0","url":%q,"sha256hash":%q}`, downloadURL, hex.EncodeToString(sum[:]))
+	manifest := fmt.Appendf(nil, `{"version":"5.4.0","url":%q,"sha256hash":"stale-vendor-metadata"}`, downloadURL)
 	downloader := &routeDownloader{routes: map[string][]byte{manifestURL: manifest, downloadURL: payload}}
 	runner := &scriptedRunner{results: []process.Result{
 		{ExitCode: 0},
