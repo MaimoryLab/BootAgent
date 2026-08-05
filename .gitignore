@@ -10,8 +10,8 @@ release/
 build/metadata/
 build/release-stage/
 frontend/node_modules/
-frontend/dist/*
 !frontend/dist/.keep
+frontend/dist/*
 frontend/coverage/
 frontend/test-results/
 frontend/playwright-report/
