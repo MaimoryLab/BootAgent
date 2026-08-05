@@ -1,6 +1,42 @@
 {
   "dependencies": [
     {
+      "ecosystem": "asset",
+      "license": "MIT",
+      "license_files": [
+        "licenses/assets/codex/LICENSE"
+      ],
+      "name": "codex",
+      "platforms": [
+        "frontend"
+      ],
+      "version": "a595df6b423920c67a7f8f73c063e4bfb72d415948097b6cac063a2366bb5186"
+    },
+    {
+      "ecosystem": "asset",
+      "license": "MIT",
+      "license_files": [
+        "licenses/assets/openclaw/LICENSE"
+      ],
+      "name": "openclaw",
+      "platforms": [
+        "frontend"
+      ],
+      "version": "1ee82ff331b7295074bf6f60a0812c5f64daad65b2395d5d5e47a6c6c5180a7c"
+    },
+    {
+      "ecosystem": "asset",
+      "license": "MIT",
+      "license_files": [
+        "licenses/assets/opencode/LICENSE"
+      ],
+      "name": "opencode",
+      "platforms": [
+        "frontend"
+      ],
+      "version": "7cfa6e9d6726f7c9fa26c7d9aef0dfec52d20a137380454340f30f12ccbfd302"
+    },
+    {
       "ecosystem": "go",
       "license": "MIT",
       "license_files": [

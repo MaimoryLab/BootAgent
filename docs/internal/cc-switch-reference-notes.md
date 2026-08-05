@@ -72,7 +72,7 @@ CC Switch 依赖 **`@lobehub/icons-static-svg`**（MIT，723 个 AI 品牌 SVG�
 | Kilo CLI | `kilocode.ai/favicon/favicon.svg` |
 | Aider | `aider.chat/assets/icons/favicon-32x32.png` |
 
-因此不再有任何自绘图标。**结论：判断某个品牌「没有官方图标」之前，要查该项目自己的站点，而不是只查一个图标集。**
+这些来源只能证明「站点上存在一个图像」，不能单独证明 OneAgent 有权复制并随二进制再分发。当前实现只保留有完整权利清单的 Codex、OpenCode、OpenClaw 资产；Claude Code、Cursor、Hermes、Kilo CLI 和 Aider 使用通用 Lucide 符号。**结论：判断某个品牌「没有官方图标」之前，要查该项目自己的站点；决定能否随产品再分发之前，还要取得许可证或书面授权。**
 
 两个资产不能直接用，需换等价版本：`openai.com/favicon.svg` 与 `opencode.ai/favicon.svg` 都带 `:root` CSS 变量和 `prefers-color-scheme` 媒体查询，内联进宿主文档会污染全局样式；`aider.chat/assets/logo.svg` 是 200×60 的文字标加高斯模糊滤镜，不是方形图标。
 

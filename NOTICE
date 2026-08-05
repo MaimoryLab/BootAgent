@@ -9,10 +9,11 @@ Licensed under the Apache License, Version 2.0. See LICENSE for the full text.
 Third-party software redistributed in OneAgent binaries
 ================================================================================
 
-The target-specific dependency inventory is generated from the production Go
-build graph and the frozen frontend production dependency graph. The complete
-inventory is distributed as THIRD_PARTY_NOTICES.md, with the corresponding
-license and notice texts under licenses/ in every binary artifact.
+The target-specific dependency and reviewed static-asset inventory is generated
+from the production Go build graph, the frozen frontend production dependency
+graph, and frontend/src/components/icons/asset-rights.json. The complete inventory
+is distributed as THIRD_PARTY_NOTICES.md, with the corresponding license and
+notice texts under licenses/ in every binary artifact.
 
 The tracked source of that generated material is third_party/. Run
 `scripts/generate_third_party_licenses.py --check` to verify that it still
@@ -39,17 +40,13 @@ explicit request.
 Third-party trademarks
 ================================================================================
 
-The application displays each supported Agent's own published mark so a user
-can tell which tool a row refers to. This is nominative use: the marks
-identify the referenced products and do not imply endorsement, affiliation or
-sponsorship. They are not OneAgent product artwork, are not recoloured or
-restyled, and remain the property of their respective owners. Provenance for
-each file is recorded inline in
-frontend/src/components/icons/agents.tsx.
+The application identifies supported Agents in a row using either a generic
+OneAgent UI symbol or a separately audited image asset. Generic Lucide symbols
+are used for Claude Code, Cursor, Hermes, Kilo CLI, and Aider so their website
+favicons are not copied into the release. The three retained image assets are
+listed with source, license, owner, and SHA-256 in
+frontend/src/components/icons/asset-rights.json.
 
-Marks included: Claude Code (Anthropic), Codex (OpenAI), Cursor (Anysphere),
-Kilo CLI (Kilo Code), Aider, OpenCode, OpenClaw, Hermes (Nous Research).
-
-Two marks are redistributed under an open-source license rather than as
-favicons: the OpenAI and OpenCode glyphs come from lobehub/icons-static-svg
-(MIT), and the OpenClaw glyph from openclaw/openclaw (MIT).
+This is nominative use: the labels identify the referenced products and do not
+imply endorsement, affiliation or sponsorship. The image assets are not
+recoloured or restyled and remain the property of their respective owners.

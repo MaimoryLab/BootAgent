@@ -1,43 +1,64 @@
 /**
- * Agent marks, taken from each project's own published artwork.
+ * Agent marks used to identify rows in OneAgent.
  *
- * Earlier revisions drew these by hand to keep one monochrome style. That
- * inverted the priority: a glyph has to be recognised before it is tidy, and a
- * hand-drawn "claw" read as a cup. Every Agent here has an official mark, so
- * every mark is the official one, in the brand's own colours.
+ * Three image assets remain because their exact source, MIT license text,
+ * copyright owner, and SHA-256 are tracked in asset-rights.json. Agents whose
+ * published artwork does not have an auditable redistribution basis use generic
+ * Lucide marks instead; those marks identify a row without copying a vendor
+ * favicon into the release.
  *
- * Uniformity now comes from the container rather than from redrawing: one square
- * box, one size per context, consistent padding. That is how a folder of
- * unrelated app icons still reads as a set.
- *
- * Trademark note: these identify which Agent a row refers to — nominative use.
- * They are not OneAgent product artwork and are not recoloured or restyled.
- * Sources are recorded per entry; assets live beside this file and are inlined
- * at build time, since the release policy forbids external references.
+ * Trademark note: the labels identify which Agent a row refers to. The generic
+ * marks are OneAgent UI symbols, not vendor artwork. The three licensed image
+ * marks are not recoloured or restyled.
  */
-import { Bot } from "lucide-react";
+import {
+  Blocks,
+  Bot,
+  Braces,
+  GitBranch,
+  MousePointer2,
+  Sparkles,
+  type LucideIcon,
+} from "lucide-react";
 
 import { sourceTranslate, type Translate, type TranslationKey } from "../../i18n";
 
-import aiderMark from "./assets/aider.png";
-import claudeMark from "./assets/claude-code.svg";
+import assetRightsManifest from "./asset-rights.json";
 import codexMark from "./assets/codex.svg";
-import cursorMark from "./assets/cursor.svg";
-import hermesMark from "./assets/hermes.png";
-import kiloMark from "./assets/kilo-cli.svg";
 import openclawMark from "./assets/openclaw.svg";
 import opencodeMark from "./assets/opencode.svg";
 
-/** Where each mark came from, so the next person can re-check it. */
-const MARKS: Record<string, { src: string; source: string }> = {
-  codex: { src: codexMark, source: "lobehub/icons-static-svg openai (MIT)" },
-  "claude-code": { src: claudeMark, source: "claude.ai/favicon.svg" },
-  cursor: { src: cursorMark, source: "cursor.com/favicon.svg" },
-  opencode: { src: opencodeMark, source: "lobehub/icons-static-svg opencode (MIT)" },
-  openclaw: { src: openclawMark, source: "openclaw/openclaw docs/assets/pixel-lobster.svg (MIT)" },
-  hermes: { src: hermesMark, source: "hermes-agent.nousresearch.com/icon.png" },
-  "kilo-cli": { src: kiloMark, source: "kilocode.ai/favicon/favicon.svg" },
-  aider: { src: aiderMark, source: "aider.chat/assets/icons/favicon-32x32.png" },
+type AssetRights = (typeof assetRightsManifest.assets)[keyof typeof assetRightsManifest.assets];
+type AssetMark = { kind: "asset"; src: string; source: string; rights: AssetRights };
+type GenericMark = { kind: "generic"; Icon: LucideIcon; source: string };
+type Mark = AssetMark | GenericMark;
+
+const GENERIC_SOURCE = "lucide-react@1.25.0 (ISC)";
+
+const MARKS: Record<string, Mark> = {
+  codex: {
+    kind: "asset",
+    src: codexMark,
+    source: assetRightsManifest.assets.codex.source,
+    rights: assetRightsManifest.assets.codex,
+  },
+  opencode: {
+    kind: "asset",
+    src: opencodeMark,
+    source: assetRightsManifest.assets.opencode.source,
+    rights: assetRightsManifest.assets.opencode,
+  },
+  openclaw: {
+    kind: "asset",
+    src: openclawMark,
+    source: assetRightsManifest.assets.openclaw.source,
+    rights: assetRightsManifest.assets.openclaw,
+  },
+  "claude-code": { kind: "generic", Icon: Braces, source: GENERIC_SOURCE },
+  cursor: { kind: "generic", Icon: MousePointer2, source: GENERIC_SOURCE },
+  hermes: { kind: "generic", Icon: Sparkles, source: GENERIC_SOURCE },
+  "kilo-cli": { kind: "generic", Icon: Blocks, source: GENERIC_SOURCE },
+  aider: { kind: "generic", Icon: GitBranch, source: GENERIC_SOURCE },
 };
 
 /** One-line positioning shown on hover; never a restatement of the name. */
@@ -59,17 +80,48 @@ export function agentTagline(agentId: string, t: Translate = sourceTranslate): s
   return tagline ? t(tagline) : "";
 }
 
-/** The provenance of an Agent's mark, for the reference notes and tests. */
+/** The source URL or package provenance displayed in reference notes/tests. */
 export function agentMarkSource(agentId: string): string {
   return MARKS[agentId]?.source ?? "";
+}
+
+/** Whether an Agent uses a licensed image asset, a generic mark, or fallback. */
+export function agentMarkKind(agentId: string): "asset" | "generic" | "fallback" {
+  return MARKS[agentId]?.kind ?? "fallback";
+}
+
+/** Auditable rights for an image asset; generic marks intentionally return null. */
+export function agentMarkRights(agentId: string): AssetRights | null {
+  const mark = MARKS[agentId];
+  return mark?.kind === "asset" ? mark.rights : null;
 }
 
 export function AgentIcon({ agentId, size = 18 }: { agentId: string; size?: number }) {
   const mark = MARKS[agentId];
   if (!mark) {
-    // An Agent added to agents.lock.json before its mark is fetched still
+    // An Agent added to agents.lock.json before its mark is assigned still
     // renders rather than leaving a blank square.
-    return <Bot size={size} strokeWidth={1.8} aria-hidden="true" />;
+    return (
+      <Bot
+        width={size}
+        height={size}
+        strokeWidth={1.8}
+        data-mark-kind="fallback"
+        aria-hidden="true"
+      />
+    );
+  }
+  if (mark.kind === "generic") {
+    const Icon = mark.Icon;
+    return (
+      <Icon
+        width={size}
+        height={size}
+        strokeWidth={1.8}
+        data-mark-kind="generic"
+        aria-hidden="true"
+      />
+    );
   }
   return (
     <img
@@ -79,8 +131,8 @@ export function AgentIcon({ agentId, size = 18 }: { agentId: string; size?: numb
       height={size}
       alt=""
       aria-hidden="true"
-      // Marks are square but not identically padded; contain keeps the tallest
-      // and widest ones from overflowing the box they share.
+      data-mark-kind="asset"
+      // contain keeps the three licensed assets inside the same square box.
       style={{ objectFit: "contain" }}
       draggable={false}
     />
