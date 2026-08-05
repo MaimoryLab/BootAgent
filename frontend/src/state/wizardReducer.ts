@@ -290,9 +290,9 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
         models: action.result.models,
         modelsState: action.result.ok ? "success" : "error",
         modelsMessage: action.result.message,
-        // No placeholder fallback: when discovery finds nothing the field stays
-        // empty and the page requires a manual, user-confirmed model ID.
-        model: state.model || action.result.models[0] || "",
+        // Keep a model manually entered for the connection probe; it is often
+        // the only valid model when discovery is incomplete or unsupported.
+        model: state.model || state.probeModel.trim() || action.result.models[0] || "",
       };
     case "MODELS_FAILED":
       return {
@@ -300,6 +300,7 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
         models: [],
         modelsState: "error",
         modelsMessage: action.message,
+        model: state.model || state.probeModel.trim(),
       };
     case "SET_MODEL":
       return { ...state, model: action.value, connection: null, connectionState: "idle" };

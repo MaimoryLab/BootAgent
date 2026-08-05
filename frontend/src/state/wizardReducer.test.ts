@@ -223,6 +223,14 @@ describe("wizardReducer", () => {
     expect(state.model).toBe("");
   });
 
+  it("reuses the custom probe model on the model step", () => {
+    const models = { ...successProbe, models: ["listed-model"], message: "found" } satisfies ModelsResponse;
+    let state = wizardReducer({ ...initialWizardState, probeModel: "vendor/test-model" }, { type: "MODELS_RESULT", result: models });
+    expect(state.model).toBe("vendor/test-model");
+    state = wizardReducer({ ...initialWizardState, probeModel: "vendor/test-model" }, { type: "MODELS_FAILED", message: "unsupported" });
+    expect(state.model).toBe("vendor/test-model");
+  });
+
   it("arms activation only through an explicit request and disarms it on start", () => {
     // Remounting the activation page (browser back) must find the flag down,
     // otherwise the install side effect would replay with a cleared key.
