@@ -23,9 +23,10 @@ type probeRunner struct {
 }
 
 type scriptedRunner struct {
-	results []process.Result
-	calls   [][]string
-	started [][]string
+	results      []process.Result
+	calls        [][]string
+	environments []map[string]string
+	started      [][]string
 }
 
 type cancelRunner struct {
@@ -67,8 +68,13 @@ func (r *cancelRunner) Start([]string, map[string]string) error {
 
 func (r *scriptedRunner) LookPath(string) (string, bool) { return "", false }
 
-func (r *scriptedRunner) Run(_ context.Context, argv []string, _ map[string]string, _ time.Duration) (process.Result, error) {
+func (r *scriptedRunner) Run(_ context.Context, argv []string, environment map[string]string, _ time.Duration) (process.Result, error) {
 	r.calls = append(r.calls, append([]string(nil), argv...))
+	copyEnvironment := make(map[string]string, len(environment))
+	for key, value := range environment {
+		copyEnvironment[key] = value
+	}
+	r.environments = append(r.environments, copyEnvironment)
 	if len(r.results) == 0 {
 		return process.Result{Args: argv, ExitCode: 0}, nil
 	}
@@ -276,7 +282,11 @@ func TestMacOpenInstallerDownloadsInsteadOfOpeningBrowser(t *testing.T) {
 }
 
 func TestWindowsInstallDownloadsAndStartsOfficialBootstrapperWithoutFilesystemScan(t *testing.T) {
-	runner := &scriptedRunner{results: []process.Result{{ExitCode: 0}, {ExitCode: 0}}}
+	runner := &scriptedRunner{results: []process.Result{
+		{ExitCode: 0},
+		{ExitCode: 0},
+		{ExitCode: 0, Stdout: `{"Status":"Valid","StatusMessage":"Signature verified.","Publisher":"Microsoft Corporation","Organization":"Microsoft Corporation","Subject":"CN=Microsoft Corporation, O=Microsoft Corporation","Issuer":"CN=Microsoft Marketplace CA G 024"}`},
+	}}
 	payload := []byte("official installer")
 	downloader := &fakeDownloader{body: payload}
 	var outputs []process.Output
@@ -329,6 +339,102 @@ func TestWindowsInstallDoesNotOpenInstallerAfterCancellation(t *testing.T) {
 	_, err := Install(ctx, Options{Platform: platform.For("windows", "amd64"), Runner: runner})
 	if err == nil || runner.started {
 		t.Fatalf("install error=%v, installer started=%v", err, runner.started)
+	}
+}
+
+func TestVerifyWindowsInstallerRequiresValidMicrosoftAuthenticode(t *testing.T) {
+	runner := &scriptedRunner{results: []process.Result{{
+		ExitCode: 0,
+		Stdout:   `{"Status":"Valid","StatusMessage":"Signature verified.","Publisher":"Microsoft Corporation","Organization":"Microsoft Corporation","Subject":"CN=Microsoft Corporation, O=Microsoft Corporation","Issuer":"CN=Microsoft Marketplace CA G 024"}`,
+	}}}
+
+	if err := verifyWindowsInstaller(context.Background(), Options{Runner: runner}, `C:\Users\test\ChatGPT.exe`); err != nil {
+		t.Fatalf("verifyWindowsInstaller() error = %v", err)
+	}
+	if len(runner.calls) != 1 || runner.calls[0][0] != "powershell.exe" {
+		t.Fatalf("verification calls = %#v", runner.calls)
+	}
+	if got := runner.environments[0]["ONEAGENT_AUTHENTICODE_PATH"]; got != `C:\Users\test\ChatGPT.exe` {
+		t.Fatalf("Authenticode path environment = %q", got)
+	}
+}
+
+func TestVerifyWindowsInstallerRejectsInvalidAuthenticodeStates(t *testing.T) {
+	for _, status := range []string{"NotSigned", "HashMismatch", "NotTrusted", "UnknownError"} {
+		t.Run(status, func(t *testing.T) {
+			runner := &scriptedRunner{results: []process.Result{{
+				ExitCode: 0,
+				Stdout:   `{"Status":"` + status + `","StatusMessage":"signature failure","Publisher":"Microsoft Corporation","Organization":"Microsoft Corporation","Subject":"CN=Microsoft Corporation","Issuer":"CN=Microsoft Marketplace CA G 024"}`,
+			}}}
+
+			err := verifyWindowsInstaller(context.Background(), Options{Runner: runner}, `C:\Users\test\ChatGPT.exe`)
+			if err == nil || !strings.Contains(err.Error(), status) {
+				t.Fatalf("verifyWindowsInstaller() error = %v, want status %q rejection", err, status)
+			}
+		})
+	}
+}
+
+func TestVerifyWindowsInstallerRejectsMissingSignerCertificate(t *testing.T) {
+	runner := &scriptedRunner{results: []process.Result{{
+		ExitCode: 0,
+		Stdout:   `{"Status":"Valid","StatusMessage":"Signature verified.","Publisher":"","Organization":"","Subject":"","Issuer":""}`,
+	}}}
+
+	err := verifyWindowsInstaller(context.Background(), Options{Runner: runner}, `C:\Users\test\ChatGPT.exe`)
+	if err == nil || !strings.Contains(err.Error(), "signer certificate") {
+		t.Fatalf("verifyWindowsInstaller() error = %v, want missing signer certificate rejection", err)
+	}
+}
+
+func TestVerifyWindowsInstallerRejectsUnexpectedPublisher(t *testing.T) {
+	runner := &scriptedRunner{results: []process.Result{{
+		ExitCode: 0,
+		Stdout:   `{"Status":"Valid","StatusMessage":"Signature verified.","Publisher":"Example Corporation","Organization":"Example Corporation","Subject":"CN=Example Corporation, O=Example Corporation","Issuer":"CN=Example CA"}`,
+	}}}
+
+	err := verifyWindowsInstaller(context.Background(), Options{Runner: runner}, `C:\Users\test\ChatGPT.exe`)
+	if err == nil || !strings.Contains(err.Error(), "publisher") {
+		t.Fatalf("verifyWindowsInstaller() error = %v, want publisher rejection", err)
+	}
+}
+
+func TestWindowsInstallDoesNotStartUnsignedInstaller(t *testing.T) {
+	runner := &scriptedRunner{results: []process.Result{
+		{ExitCode: 0},
+		{ExitCode: 0},
+		{ExitCode: 0, Stdout: `{"Status":"NotSigned","StatusMessage":"The file is not digitally signed.","Publisher":"","Organization":"","Subject":"","Issuer":""}`},
+	}}
+	downloader := &fakeDownloader{body: []byte("unsigned installer")}
+
+	_, err := Install(context.Background(), Options{
+		Platform:   platform.For("windows", "amd64"),
+		Runner:     runner,
+		Downloader: downloader,
+	})
+	if err == nil || !strings.Contains(err.Error(), "Authenticode") {
+		t.Fatalf("Install() error = %v, want Authenticode rejection", err)
+	}
+	if len(runner.started) != 0 {
+		t.Fatalf("unsigned installer was started: %#v", runner.started)
+	}
+}
+
+func TestWindowsInstallRejectsUnapprovedDownloadHost(t *testing.T) {
+	runner := &scriptedRunner{}
+	downloader := &fakeDownloader{body: []byte("installer")}
+
+	_, err := Install(context.Background(), Options{
+		Platform:    platform.For("windows", "amd64"),
+		Runner:      runner,
+		Downloader:  downloader,
+		DownloadURL: "https://example.test/installer.exe",
+	})
+	if err == nil || !strings.Contains(err.Error(), "validate ChatGPT installer URL") {
+		t.Fatalf("Install() error = %v, want URL validation failure", err)
+	}
+	if len(downloader.hits) != 0 || len(runner.started) != 0 {
+		t.Fatalf("unapproved URL was used: downloads=%#v starts=%#v", downloader.hits, runner.started)
 	}
 }
 

@@ -246,6 +246,10 @@ func contextError(ctx context.Context) error {
 }
 
 func run(options Options, ctx context.Context, argv []string, timeout time.Duration) (process.Result, error) {
+	return runWithEnvironment(options, ctx, argv, nil, timeout)
+}
+
+func runWithEnvironment(options Options, ctx context.Context, argv []string, environment map[string]string, timeout time.Duration) (process.Result, error) {
 	if len(argv) == 0 {
 		return process.Result{ExitCode: -1}, errors.New("desktop-app command is empty")
 	}
@@ -255,7 +259,7 @@ func run(options Options, ctx context.Context, argv []string, timeout time.Durat
 	if options.Output != nil {
 		options.Output(process.Output{Kind: "command", Args: append([]string(nil), argv...)})
 	}
-	return runnerFor(options).Run(ctx, argv, nil, timeout)
+	return runnerFor(options).Run(ctx, argv, environment, timeout)
 }
 
 func start(options Options, argv []string) error {
@@ -670,6 +674,14 @@ func versionParts(value string) []int {
 }
 
 func installWindowsInstaller(ctx context.Context, options Options, status Status) (ActionResult, error) {
+	url := strings.TrimSpace(options.DownloadURL)
+	if url == "" {
+		url = WindowsInstallerURL
+	}
+	url, err := approvedDownloadURL(url, "get.microsoft.com")
+	if err != nil {
+		return ActionResult{}, fmt.Errorf("validate ChatGPT installer URL: %w", err)
+	}
 	installer, err := os.CreateTemp("", "oneagent-desktop-agent-*.exe")
 	if err != nil {
 		return ActionResult{}, fmt.Errorf("create temporary ChatGPT installer: %w", err)
@@ -685,15 +697,14 @@ func installWindowsInstaller(ctx context.Context, options Options, status Status
 			_ = os.Remove(installerPath)
 		}
 	}()
-	url := strings.TrimSpace(options.DownloadURL)
-	if url == "" {
-		url = WindowsInstallerURL
-	}
 	if err := downloadFile(ctx, options, url, installerPath); err != nil {
 		return ActionResult{}, fmt.Errorf("download ChatGPT installer: %w", err)
 	}
 	if err := contextError(ctx); err != nil {
 		return ActionResult{}, err
+	}
+	if err := verifyWindowsInstaller(ctx, options, installerPath); err != nil {
+		return ActionResult{}, fmt.Errorf("verify downloaded ChatGPT installer with Authenticode: %w", err)
 	}
 	if err := start(options, []string{installerPath}); err != nil {
 		return ActionResult{}, fmt.Errorf("start ChatGPT installer: %w", err)
