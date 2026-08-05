@@ -1,6 +1,5 @@
-// Package version holds the single version constant reported by the Go CLI and
-// the desktop shell.
+// Package version holds the version reported by release binaries.
 package version
 
-// Version is the current native Go/Wails release line.
-const Version = "0.3.0-dev"
+// Version is replaced with the release version through Go linker flags.
+var Version = "v0.0.0-dev"

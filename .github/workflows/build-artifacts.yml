@@ -2,15 +2,32 @@ name: Build artifacts
 
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: Release version (for example v0.3.0)
+        required: true
+        type: string
+        default: v0.0.0
 
 permissions:
   contents: read
+
+env:
+  RELEASE_VERSION: ${{ inputs.version }}
 
 jobs:
   frontend:
     name: Build frontend
     runs-on: ubuntu-latest
     steps:
+      - name: Validate release version
+        shell: bash
+        run: |
+          if [[ ! "$RELEASE_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "version must match vX.Y.Z" >&2
+            exit 1
+          fi
+
       - uses: actions/checkout@v7
 
       - uses: pnpm/action-setup@v6
@@ -83,8 +100,9 @@ jobs:
         shell: bash
         run: |
           mkdir -p bin
-          go build -tags wails,production -trimpath -buildvcs=false -ldflags="${{ matrix.target.desktop_ldflags }}" -o "bin/oneagent-desktop${{ matrix.target.suffix }}" ./cmd/oneagent-desktop
-          go build -trimpath -buildvcs=false -ldflags="-w -s" -o "bin/oneagent${{ matrix.target.suffix }}" ./cmd/oneagent
+          version_ldflag="-X github.com/MaimoryLab/OneAgent/internal/version.Version=$RELEASE_VERSION"
+          go build -tags wails,production -trimpath -buildvcs=false -ldflags="${{ matrix.target.desktop_ldflags }} $version_ldflag" -o "bin/oneagent-desktop${{ matrix.target.suffix }}" ./cmd/oneagent-desktop
+          go build -trimpath -buildvcs=false -ldflags="-w -s $version_ldflag" -o "bin/oneagent${{ matrix.target.suffix }}" ./cmd/oneagent
 
       - name: Package macOS app
         if: matrix.target.platform == 'macos'
@@ -94,6 +112,9 @@ jobs:
           cp "bin/oneagent-desktop" "bin/OneAgent.app/Contents/MacOS/oneagent-desktop"
           cp build/darwin/icons.icns "bin/OneAgent.app/Contents/Resources/icons.icns"
           cp build/darwin/Info.plist "bin/OneAgent.app/Contents/Info.plist"
+          bundle_version="${RELEASE_VERSION#v}"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $bundle_version" "bin/OneAgent.app/Contents/Info.plist"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $bundle_version" "bin/OneAgent.app/Contents/Info.plist"
           codesign --force --deep --sign - "bin/OneAgent.app"
           rm "bin/oneagent-desktop"
 
