@@ -7,6 +7,7 @@ import { AgentSelectionPage } from "./pages/AgentSelectionPage";
 import { EnvironmentOverviewPage } from "./pages/EnvironmentOverviewPage";
 import { ModelSelectionPage } from "./pages/ModelSelectionPage";
 import { ProfilesPage } from "./pages/ProfilesPage";
+import { ProfileSelectionPage } from "./pages/ProfileSelectionPage";
 import { ProviderKeyPage } from "./pages/ProviderKeyPage";
 import { ProvidersPage } from "./pages/ProvidersPage";
 import { ReviewPage } from "./pages/ReviewPage";
@@ -60,6 +61,7 @@ function WorkspaceRoutes() {
       <Routes>
         <Route path="/" element={<LandingRoute />} />
         <Route path="/setup/agents" element={<AgentSelectionPage />} />
+        <Route path="/setup/profile" element={<SetupGuard stage="provider"><ProfileSelectionPage /></SetupGuard>} />
         <Route path="/setup/desktop/agents" element={<Navigate to="/setup/agents" replace />} />
         {/* Kept as redirects for bookmarks from the previous desktop wizard. */}
         <Route path="/setup/desktop/profile" element={<Navigate to="/setup/provider" replace />} />

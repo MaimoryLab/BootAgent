@@ -234,11 +234,11 @@
 }
 
 .setup-stepper {
-  max-width: 620px;
+  width: min(100%, 760px);
   margin: 22px 0 0;
   padding: 0;
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   list-style: none;
 }
 

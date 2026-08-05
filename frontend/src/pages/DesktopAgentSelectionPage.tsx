@@ -6,6 +6,7 @@ import { PageScaffold } from "../components/PageScaffold";
 import { StatusBadge } from "../components/StatusBadge";
 import { useI18n } from "../i18n";
 import { useWizard } from "../state/WizardContext";
+import { profileAgentIdForDesktop } from "../state/desktopSetup";
 
 export function DesktopAgentSelectionPage() {
   const navigate = useNavigate();
@@ -13,6 +14,12 @@ export function DesktopAgentSelectionPage() {
   const { state, dispatch } = useWizard();
   const app = state.status?.desktopAgent;
   const selected = state.selectedAgentIds[0] === app?.id;
+  const continueSetup = () => {
+    const protocol = state.status?.catalog.find((item) => item.id === profileAgentIdForDesktop(app!))?.protocol;
+    const hasProfile = Boolean(protocol && state.status?.profiles.some((profile) => profile.protocol === protocol));
+    dispatch({ type: "SET_PROFILE_STEP_SKIPPED", value: !hasProfile });
+    navigate(hasProfile ? "/setup/profile" : "/setup/provider");
+  };
 
   useEffect(() => {
     if (state.setupKind !== "desktop") dispatch({ type: "START_DESKTOP_SETUP" });
@@ -32,7 +39,7 @@ export function DesktopAgentSelectionPage() {
       description={t("选择要安装的桌面 Agent，每次安装一个。")}
       stepper
       primaryLabel={t("继续")}
-      onPrimary={() => navigate("/setup/provider")}
+      onPrimary={continueSetup}
       primaryDisabled={!selected || !app.supported}
       footerNote={selected ? app.name : t("选择一个 Agent")}
     >

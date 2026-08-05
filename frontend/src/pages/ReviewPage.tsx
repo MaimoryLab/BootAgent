@@ -50,7 +50,7 @@ export function ReviewPage() {
       title={t("确认激活")}
       description={t("核对安装、配置和备份范围。API Key 不会显示在此页。")}
       stepper
-      onBack={() => navigate("/setup/model")}
+      onBack={() => navigate(state.profileId ? "/setup/profile" : "/setup/model")}
       primaryLabel={t("开始安装")}
       onPrimary={startActivation}
       footerNote={<span className="secure-note"><ShieldCheck size={15} />{t("覆盖前会自动创建时间戳备份")}</span>}
@@ -84,7 +84,7 @@ export function ReviewPage() {
         </ReviewGroup>
       </div>
 
-      <div className="field-stack">
+      {!state.reusedProfile ? <div className="field-stack">
         <label htmlFor="review-profile-label">{t("配置模板名称")}</label>
         <input
           id="review-profile-label"
@@ -93,7 +93,7 @@ export function ReviewPage() {
           onChange={(event) => dispatch({ type: "SET_PROFILE_LABEL", value: event.target.value })}
         />
         <small>{t("这次安装会保存为一个配置模板，之后可以直接应用")}</small>
-      </div>
+      </div> : null}
     </PageScaffold>
   );
 }
