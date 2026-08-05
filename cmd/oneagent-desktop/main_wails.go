@@ -71,11 +71,17 @@ func main() {
 		Mac: application.MacOptions{ApplicationShouldTerminateAfterLastWindowClosed: true},
 	})
 	if !application.System.IsServer() {
+		// A floor, not a second breakpoint: the sidebar deliberately collapses to
+		// a 72px icon rail under 900px, and the layout is verified down to 560px.
+		// This only stops the window being dragged narrower than any breakpoint
+		// accounts for, where the Agent rows and page padding have nothing left.
 		appInstance.Window.NewWithOptions(application.WebviewWindowOptions{
-			Title:  "OneAgent",
-			Width:  1180,
-			Height: 760,
-			URL:    "/",
+			Title:     "OneAgent",
+			Width:     1180,
+			Height:    760,
+			MinWidth:  560,
+			MinHeight: 480,
+			URL:       "/",
 		})
 	}
 	if err := appInstance.Run(); err != nil {

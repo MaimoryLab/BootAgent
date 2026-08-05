@@ -984,16 +984,30 @@
 @media (max-width: 900px) {
   :root { --sidebar-width: 72px; }
   .brand-lockup { justify-content: center; padding-inline: 0; }
+  /* Every text label in the rail is hidden at 72px. Each surviving control
+     keeps its own aria-label, so the accessible name does not depend on the
+     visible text. Anything added to the sidebar with a text label belongs in
+     this list: 12px of column forces CJK to one glyph per line, which is how
+     "外观" and "任务中心" ended up stacked vertically. */
   .brand-lockup > div,
   .sidebar-link span,
   .sidebar-section-label,
   .language-picker > span,
-  .language-picker > svg { display: none; }
+  .language-picker > svg,
+  .theme-picker > span,
+  .theme-picker > svg,
+  .task-center-trigger > span,
+  .task-center-trigger > svg:last-child { display: none; }
   .sidebar-link { justify-content: center; padding: 0; }
   .sidebar-link.is-active::before { left: -12px; }
   .language-picker { padding: 0; }
   .language-select-wide { display: none; }
   .language-select-compact { display: block; width: 48px; padding-inline: 3px; font-size: 10px; }
+
+  /* Centre what is left, now that the flex: 1 spacer spans are gone. */
+  .theme-picker { padding: 0; justify-content: center; }
+  .theme-picker select { width: 48px; padding-inline: 3px; font-size: 10px; }
+  .task-center-trigger { padding: 0; justify-content: center; gap: 5px; }
 }
 
 @media (max-height: 760px) {
