@@ -90,22 +90,14 @@ async function call<T>(operation: () => PromiseLike<T>): Promise<T> {
 export const wailsApi = {
   onInstallOutput,
   status: (): Promise<StatusResponse> => call(() => StatusService.GetStatus()) as Promise<StatusResponse>,
-  desktopAgentStatus: (agentId?: string): Promise<DesktopAgentStatus> =>
-    call(() => agentId && agentId !== "desktop-agent"
-      ? DesktopAgentService.GetStatusFor({ agent_id: agentId })
-      : DesktopAgentService.GetStatus()) as Promise<DesktopAgentStatus>,
-  installDesktopAgent: (agentId?: string): Promise<DesktopAgentActionResult> =>
-    call(() => agentId && agentId !== "desktop-agent"
-      ? DesktopAgentService.InstallFor({ agent_id: agentId })
-      : DesktopAgentService.Install()) as Promise<DesktopAgentActionResult>,
-  openDesktopAgent: (agentId?: string): Promise<void> =>
-    call(() => agentId && agentId !== "desktop-agent"
-      ? DesktopAgentService.OpenFor({ agent_id: agentId })
-      : DesktopAgentService.Open()).then(() => undefined),
-  openDesktopAgentInstaller: (agentId?: string): Promise<DesktopAgentActionResult> =>
-    call(() => agentId && agentId !== "desktop-agent"
-      ? DesktopAgentService.OpenInstallerFor({ agent_id: agentId })
-      : DesktopAgentService.OpenInstaller()) as Promise<DesktopAgentActionResult>,
+  desktopAgentStatus: (agentId: string): Promise<DesktopAgentStatus> =>
+    call(() => DesktopAgentService.GetStatus({ agent_id: agentId })) as Promise<DesktopAgentStatus>,
+  installDesktopAgent: (agentId: string): Promise<DesktopAgentActionResult> =>
+    call(() => DesktopAgentService.Install({ agent_id: agentId })) as Promise<DesktopAgentActionResult>,
+  openDesktopAgent: (agentId: string): Promise<void> =>
+    call(() => DesktopAgentService.Open({ agent_id: agentId })).then(() => undefined),
+  openDesktopAgentInstaller: (agentId: string): Promise<DesktopAgentActionResult> =>
+    call(() => DesktopAgentService.OpenInstaller({ agent_id: agentId })) as Promise<DesktopAgentActionResult>,
   configureDesktopAgent: (agentId: string, profileId: string): Promise<DesktopAgentProfileResult> =>
     call(() => DesktopAgentService.Configure({ agent_id: agentId, profile_id: profileId })) as Promise<DesktopAgentProfileResult>,
   probe: (input: { provider: ProviderId; apiBaseUrl: string; apiKey: string; model: string; agents?: string[] }): Promise<ProbeResponse> =>

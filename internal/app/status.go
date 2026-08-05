@@ -181,8 +181,7 @@ type StatusResponse struct {
 	Runtimes         []RuntimeStatus      `json:"runtimes"`
 	Environment      any                  `json:"environment"`
 	EnvironmentError *string              `json:"environmentError"`
-	DesktopAgent     DesktopAgentStatus   `json:"desktopAgent"`
-	DesktopAgents    []DesktopAgentStatus `json:"desktopAgents,omitempty"`
+	DesktopAgents    []DesktopAgentStatus `json:"desktopAgents"`
 }
 
 type Capabilities struct {
@@ -333,12 +332,6 @@ func (u *UseCases) GetStatus(ctx context.Context) (StatusResponse, error) {
 	}
 	profiles, activeProfile, environment, environmentError := u.profileStatus(ctx)
 	desktopAgents := u.desktopAgentStatuses(ctx)
-	var desktopAgent DesktopAgentStatus
-	if len(desktopAgents) > 0 {
-		desktopAgent = desktopAgents[0]
-	} else {
-		desktopAgent = u.desktopAgentStatus(ctx)
-	}
 	return StatusResponse{
 		APIVersion:       1,
 		Platform:         options.Platform,
@@ -356,7 +349,6 @@ func (u *UseCases) GetStatus(ctx context.Context) (StatusResponse, error) {
 		Environment:      environment,
 		EnvironmentError: environmentError,
 		FirstRun:         !fileExists(filepath.Join(options.Home, ".oneagent")),
-		DesktopAgent:     desktopAgent,
 		DesktopAgents:    desktopAgents,
 	}, nil
 }

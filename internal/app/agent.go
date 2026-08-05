@@ -168,6 +168,8 @@ func writeManagedAgentConfig(ctx context.Context, writer configWriter.Writer, ag
 		return writer.WriteOpenAICompatible(ctx, path, "https://app.kilo.ai/config.json", providerName, baseURL, apiKey, model)
 	case "aider":
 		return writer.WriteAider(ctx, path, baseURL, apiKey)
+	case "workbuddy":
+		return writer.WriteWorkBuddy(ctx, path, baseURL, apiKey, model)
 	default:
 		return oneerrors.New(oneerrors.InvalidRequest, fmt.Sprintf("Unsupported auto-config Agent: %s", agentID))
 	}

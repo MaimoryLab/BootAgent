@@ -76,7 +76,7 @@ export function ActivationPage() {
       apiKey: "",
       model: state.model,
       configMode: "provider",
-      protocol: state.status ? desktopProtocol(state.status, desktop) : "",
+      protocol: desktopProtocol(desktop),
     });
     const installed = desktop.installed ? undefined : await api.installDesktopAgent(desktop.id);
     const configured = await api.configureDesktopAgent(desktop.id, profile.id);

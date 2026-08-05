@@ -13,11 +13,10 @@ export function DesktopAgentSelectionPage() {
   const { t } = useI18n();
   const { state, dispatch } = useWizard();
   const apps = state.status ? desktopApps(state.status) : [];
-  const app = apps.find((candidate) => candidate.id === state.selectedAgentIds[0]) || apps[0];
-  const selected = state.selectedAgentIds[0] === app?.id;
+  const app = apps.find((candidate) => candidate.id === state.selectedAgentIds[0]);
   const continueSetup = () => {
     if (!app || !state.status) return;
-    const protocol = desktopProtocol(state.status, app);
+    const protocol = desktopProtocol(app);
     const hasProfile = Boolean(protocol && state.status?.profiles.some((profile) => profile.protocol === protocol));
     dispatch({ type: "SET_PROFILE_STEP_SKIPPED", value: !hasProfile });
     navigate(hasProfile ? "/setup/profile" : "/setup/provider");
@@ -27,7 +26,7 @@ export function DesktopAgentSelectionPage() {
     if (state.setupKind !== "desktop") dispatch({ type: "START_DESKTOP_SETUP" });
   }, [dispatch, state.setupKind]);
 
-  if (!app) {
+  if (!apps.length) {
     return (
       <PageScaffold title={t("选择 Agent")}>
         <div className="empty-overview">{t("无法读取环境状态")}</div>
@@ -42,8 +41,8 @@ export function DesktopAgentSelectionPage() {
       stepper
       primaryLabel={t("继续")}
       onPrimary={continueSetup}
-      primaryDisabled={!selected || !app.supported}
-      footerNote={selected ? app.name : t("选择一个 Agent")}
+      primaryDisabled={!app || !app.supported}
+      footerNote={app?.name || t("选择一个 Agent")}
     >
       <section className="content-section desktop-agent-choice">
         <div className="section-heading">

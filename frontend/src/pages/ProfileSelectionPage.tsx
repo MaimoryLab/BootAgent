@@ -20,7 +20,7 @@ export function ProfileSelectionPage() {
     ? profileAgentIdForDesktop(desktop)
     : state.selectedAgentIds[0] || "";
   const protocol = desktop && state.status
-    ? desktopProtocol(state.status, desktop)
+    ? desktopProtocol(desktop)
     : state.status?.catalog.find((agent) => agent.id === agentId)?.protocol;
   const profiles = useMemo(
     () => byProfileCreatedAt(state.status?.profiles.filter((profile) => profile.protocol === protocol && profile.model?.trim()) ?? []),

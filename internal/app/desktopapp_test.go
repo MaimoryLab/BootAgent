@@ -16,11 +16,11 @@ import (
 func TestDesktopAgentStatusIsUnsupportedOutsideDesktopPlatforms(t *testing.T) {
 	home := t.TempDir()
 	core := NewUseCases(StatusOptions{Home: home, Platform: platform.For("linux", "amd64")})
-	status, err := core.DesktopAgentStatus(context.Background())
+	status, err := core.DesktopAgentStatus(context.Background(), desktopapp.ChatGPTDesktopID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if status.Installed || status.Supported || status.ID != "desktop-agent" {
+	if status.Installed || status.Supported || status.ID != desktopapp.ChatGPTDesktopID {
 		t.Fatalf("status = %#v", status)
 	}
 	if status.ConfigPath != filepath.Join(home, ".codex", "config.toml") || status.ConfigSharedWith != "Codex" {
@@ -138,7 +138,7 @@ func TestDesktopAgentStatusDoesNotClaimCodexSharingForOtherApps(t *testing.T) {
 func TestInstallDesktopAgentDoesNotWriteSharedCodexConfig(t *testing.T) {
 	home := t.TempDir()
 	core := NewUseCases(StatusOptions{Home: home, Platform: platform.For("linux", "amd64")})
-	_, err := core.InstallDesktopAgent(context.Background(), nil)
+	_, err := core.InstallDesktopAgent(context.Background(), desktopapp.ChatGPTDesktopID, nil)
 	if err == nil {
 		t.Fatal("unsupported platform install unexpectedly succeeded")
 	}

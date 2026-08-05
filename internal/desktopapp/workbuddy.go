@@ -33,23 +33,6 @@ type workBuddyUpdate struct {
 	SHA256Hash     string `json:"sha256hash"`
 }
 
-func IDs() []string {
-	return []string{ID, WorkBuddyID}
-}
-
-func selectedAppID(options Options) string {
-	if id := strings.TrimSpace(options.AppID); id != "" {
-		return id
-	}
-	return ID
-}
-
-func unknownAppStatus(id string) Status {
-	id = strings.TrimSpace(id)
-	message := fmt.Sprintf("unknown desktop agent %q", id)
-	return Status{ID: id, Name: id, Source: SourceUnknown, InspectionUnavailable: &message}
-}
-
 func inspectWorkBuddy(ctx context.Context, options Options) Status {
 	status := baseWorkBuddyStatus(options.Platform.OS)
 	if err := contextError(ctx); err != nil {
@@ -350,7 +333,7 @@ func installWorkBuddyMacOS(ctx context.Context, options Options, replacePath str
 	}
 	defer os.RemoveAll(tempDir)
 	archive := filepath.Join(tempDir, "WorkBuddy.zip")
-	if err := downloadFileFor(ctx, options, update.URL, archive, WorkBuddyID); err != nil {
+	if err := downloadFile(ctx, options, update.URL, archive, WorkBuddyID); err != nil {
 		return ActionResult{}, fmt.Errorf("download WorkBuddy installer: %w", err)
 	}
 	if err := verifyWorkBuddyChecksum(archive, update.SHA256Hash); err != nil {
@@ -480,7 +463,7 @@ func installWorkBuddyWindows(ctx context.Context, options Options, status Status
 			_ = os.Remove(installerPath)
 		}
 	}()
-	if err := downloadFileFor(ctx, options, update.URL, installerPath, WorkBuddyID); err != nil {
+	if err := downloadFile(ctx, options, update.URL, installerPath, WorkBuddyID); err != nil {
 		return ActionResult{}, fmt.Errorf("download WorkBuddy installer: %w", err)
 	}
 	if err := verifyWorkBuddyChecksum(installerPath, update.SHA256Hash); err != nil {

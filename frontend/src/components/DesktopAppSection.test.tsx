@@ -20,12 +20,15 @@ vi.mock("../backend/api", async () => {
 
 function app(overrides: Partial<DesktopAgentStatus> = {}): DesktopAgentStatus {
   return {
-    id: "desktop-agent",
+    id: "chatgpt-desktop",
     name: "Example Desktop",
     installed: false,
     supported: true,
     version: null,
     source: "macos-dmg",
+    protocol: "responses",
+    profileAgentId: "codex",
+    profileId: null,
     configPath: "/home/u/.example/config.toml",
     configSharedWith: "Example CLI",
     ...overrides,
@@ -54,7 +57,7 @@ describe("DesktopAppSection", () => {
     expect(configNote.closest(".desktop-app-row")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "安装" }));
     await waitFor(() => expect(onChanged).toHaveBeenCalledTimes(1));
-    expect(bridge.installDesktopAgent).toHaveBeenCalledWith();
+    expect(bridge.installDesktopAgent).toHaveBeenCalledWith("chatgpt-desktop");
     expect(screen.getByText("Example Desktop 安装完成")).toBeTruthy();
   });
 
@@ -94,9 +97,11 @@ describe("DesktopAppSection", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "启动" }));
     await waitFor(() => expect(bridge.openDesktopAgent).toHaveBeenCalledTimes(1));
+    expect(bridge.openDesktopAgent).toHaveBeenCalledWith("chatgpt-desktop");
     expect(screen.getByText("Example Desktop 已打开")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "更新" }));
     await waitFor(() => expect(bridge.openDesktopAgentInstaller).toHaveBeenCalledTimes(1));
+    expect(bridge.openDesktopAgentInstaller).toHaveBeenCalledWith("chatgpt-desktop");
     expect(screen.getByText("官方安装器已启动")).toBeTruthy();
     expect(view.container.textContent).toContain("版本26.727.51351");
   });

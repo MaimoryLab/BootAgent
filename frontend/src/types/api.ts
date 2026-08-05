@@ -26,12 +26,7 @@ export type AgentCatalogItem = Omit<CatalogModels.CatalogItem, "group" | "config
 
 export type AgentStatus = AppModels.AgentStatus;
 export type RuntimeStatus = AppModels.RuntimeStatus;
-export type DesktopAgentStatus = Omit<AppModels.DesktopAgentStatus, "profileAgentId" | "profileId"> & {
-  /** Older Wails fixtures may omit the profile projection; the UI derives the
-   * ChatGPT -> Codex mapping when it is absent. */
-  profileAgentId?: string;
-  profileId?: string | null;
-};
+export type DesktopAgentStatus = Omit<AppModels.DesktopAgentStatus, "protocol"> & { protocol: ProtocolId | "" };
 export type DesktopAgentActionResult = Omit<AppModels.DesktopAgentActionResult, "app"> & { app: DesktopAgentStatus };
 export type DesktopAgentProfileResult = AppModels.DesktopAgentProfileResult;
 export type InstallRuntimeResult = Omit<AppModels.InstallRuntimeResult, "runtimes"> & { runtimes: RuntimeStatus[] };
@@ -47,7 +42,7 @@ export type ProfileSummary = Omit<AppModels.ProfileSummary, "protocol" | "create
 
 export type StatusResponse = Omit<
   AppModels.StatusResponse,
-  "platform" | "capabilities" | "agents" | "catalog" | "groups" | "providers" | "mirrors" | "paths" | "backups" | "profiles" | "runtimes" | "desktopAgent" | "desktopAgents"
+  "platform" | "capabilities" | "agents" | "catalog" | "groups" | "providers" | "mirrors" | "paths" | "backups" | "profiles" | "runtimes" | "desktopAgents"
 > & {
   platform: Omit<PlatformModels.Info, "os"> & { os: PlatformId };
   capabilities: Omit<AppModels.Capabilities, "canInstall" | "missingRuntime" | "supportedAgentIds"> & {
@@ -65,8 +60,7 @@ export type StatusResponse = Omit<
   paths: Record<string, string>;
   backups: Record<string, boolean>;
   profiles: ProfileSummary[];
-  desktopAgent: DesktopAgentStatus;
-  desktopAgents?: DesktopAgentStatus[] | null;
+  desktopAgents: DesktopAgentStatus[];
 };
 
 export type ProbeResponse = Omit<BindingModels.ProbeResponse, "protocol" | "protocols"> & {

@@ -36,9 +36,7 @@ type DesktopAgentStatus struct {
 }
 
 // DesktopAgentProfileResult is the non-secret result of applying a saved
-// profile to a desktop Agent. ChatGPT Desktop writes Codex configuration and
-// WorkBuddy writes ~/.workbuddy/models.json; other desktop IDs only record
-// their own profile membership.
+// profile to a desktop Agent.
 type DesktopAgentProfileResult struct {
 	AgentID        string `json:"agent"`
 	ProfileID      string `json:"profileId"`
@@ -57,27 +55,17 @@ type DesktopAgentActionResult struct {
 	App           DesktopAgentStatus `json:"app"`
 }
 
-func (u *UseCases) desktopAgentStatus(ctx context.Context) DesktopAgentStatus {
-	return u.publicDesktopAgentStatus(desktopapp.Inspect(ctx, u.desktopAppOptions(nil)))
-}
-
 func (u *UseCases) desktopAgentStatuses(ctx context.Context) []DesktopAgentStatus {
-	if u.status.Platform.OS != "macos" && u.status.Platform.OS != "windows" {
-		return nil
-	}
-	result := make([]DesktopAgentStatus, 0, len(desktopapp.IDs()))
-	for _, agentID := range desktopapp.IDs() {
-		result = append(result, u.publicDesktopAgentStatus(desktopapp.Inspect(ctx, u.desktopAppOptionsFor(agentID, nil))))
+	definitions := desktopapp.Definitions()
+	result := make([]DesktopAgentStatus, 0, len(definitions))
+	for _, definition := range definitions {
+		result = append(result, u.publicDesktopAgentStatus(desktopapp.Inspect(ctx, definition.ID, u.desktopAppOptions(nil))))
 	}
 	return result
 }
 
-// DesktopAgentStatus returns the current desktop agent state without changing config files.
-func (u *UseCases) DesktopAgentStatus(ctx context.Context) (DesktopAgentStatus, error) {
-	return u.DesktopAgentStatusFor(ctx, desktopapp.ID)
-}
-
-func (u *UseCases) DesktopAgentStatusFor(ctx context.Context, agentID string) (DesktopAgentStatus, error) {
+// DesktopAgentStatus returns one explicitly selected desktop Agent without changing config files.
+func (u *UseCases) DesktopAgentStatus(ctx context.Context, agentID string) (DesktopAgentStatus, error) {
 	if u == nil {
 		return DesktopAgentStatus{}, oneerrors.New(oneerrors.InternalError, "Desktop agent service is not configured", oneerrors.WithStatus(501))
 	}
@@ -88,17 +76,13 @@ func (u *UseCases) DesktopAgentStatusFor(ctx context.Context, agentID string) (D
 	if err != nil {
 		return DesktopAgentStatus{}, err
 	}
-	return u.publicDesktopAgentStatus(desktopapp.Inspect(ctx, u.desktopAppOptionsFor(agentID, nil))), nil
+	return u.publicDesktopAgentStatus(desktopapp.Inspect(ctx, agentID, u.desktopAppOptions(nil))), nil
 }
 
 // InstallDesktopAgent downloads and installs the current desktop agent on
 // macOS or starts its downloaded official bootstrapper on Windows. It never
 // writes shared Agent configuration; configuration remains a separate action.
-func (u *UseCases) InstallDesktopAgent(ctx context.Context, output process.OutputListener) (DesktopAgentActionResult, error) {
-	return u.InstallDesktopAgentFor(ctx, desktopapp.ID, output)
-}
-
-func (u *UseCases) InstallDesktopAgentFor(ctx context.Context, agentID string, output process.OutputListener) (DesktopAgentActionResult, error) {
+func (u *UseCases) InstallDesktopAgent(ctx context.Context, agentID string, output process.OutputListener) (DesktopAgentActionResult, error) {
 	if u == nil {
 		return DesktopAgentActionResult{}, oneerrors.New(oneerrors.InternalError, "Desktop agent service is not configured", oneerrors.WithStatus(501))
 	}
@@ -109,7 +93,7 @@ func (u *UseCases) InstallDesktopAgentFor(ctx context.Context, agentID string, o
 	if err != nil {
 		return DesktopAgentActionResult{}, err
 	}
-	result, err := desktopapp.Install(ctx, u.desktopAppOptionsFor(agentID, output))
+	result, err := desktopapp.Install(ctx, agentID, u.desktopAppOptions(output))
 	if err != nil {
 		return DesktopAgentActionResult{}, desktopAppInstallError(err)
 	}
@@ -118,11 +102,7 @@ func (u *UseCases) InstallDesktopAgentFor(ctx context.Context, agentID string, o
 
 // OpenDesktopAgent launches the already installed app and leaves shared Agent
 // configuration untouched.
-func (u *UseCases) OpenDesktopAgent(ctx context.Context) error {
-	return u.OpenDesktopAgentFor(ctx, desktopapp.ID)
-}
-
-func (u *UseCases) OpenDesktopAgentFor(ctx context.Context, agentID string) error {
+func (u *UseCases) OpenDesktopAgent(ctx context.Context, agentID string) error {
 	if u == nil {
 		return oneerrors.New(oneerrors.InternalError, "Desktop agent service is not configured", oneerrors.WithStatus(501))
 	}
@@ -133,7 +113,7 @@ func (u *UseCases) OpenDesktopAgentFor(ctx context.Context, agentID string) erro
 	if err != nil {
 		return err
 	}
-	if err := desktopapp.Open(ctx, u.desktopAppOptionsFor(agentID, nil)); err != nil {
+	if err := desktopapp.Open(ctx, agentID, u.desktopAppOptions(nil)); err != nil {
 		return oneerrors.New(oneerrors.InternalError, "Cannot open desktop agent", oneerrors.WithStatus(500), oneerrors.WithRetryable(true), oneerrors.WithCause(err))
 	}
 	return nil
@@ -141,11 +121,7 @@ func (u *UseCases) OpenDesktopAgentFor(ctx context.Context, agentID string) erro
 
 // OpenDesktopAgentInstaller downloads the official package and runs the update
 // path without opening its URL in a browser.
-func (u *UseCases) OpenDesktopAgentInstaller(ctx context.Context, output process.OutputListener) (DesktopAgentActionResult, error) {
-	return u.OpenDesktopAgentInstallerFor(ctx, desktopapp.ID, output)
-}
-
-func (u *UseCases) OpenDesktopAgentInstallerFor(ctx context.Context, agentID string, output process.OutputListener) (DesktopAgentActionResult, error) {
+func (u *UseCases) OpenDesktopAgentInstaller(ctx context.Context, agentID string, output process.OutputListener) (DesktopAgentActionResult, error) {
 	if u == nil {
 		return DesktopAgentActionResult{}, oneerrors.New(oneerrors.InternalError, "Desktop agent service is not configured", oneerrors.WithStatus(501))
 	}
@@ -156,7 +132,7 @@ func (u *UseCases) OpenDesktopAgentInstallerFor(ctx context.Context, agentID str
 	if err != nil {
 		return DesktopAgentActionResult{}, err
 	}
-	result, err := desktopapp.OpenInstaller(ctx, u.desktopAppOptionsFor(agentID, output))
+	result, err := desktopapp.OpenInstaller(ctx, agentID, u.desktopAppOptions(output))
 	if err != nil {
 		return DesktopAgentActionResult{}, desktopAppInstallError(err)
 	}
@@ -164,8 +140,7 @@ func (u *UseCases) OpenDesktopAgentInstallerFor(ctx context.Context, agentID str
 }
 
 // ConfigureDesktopAgent applies a saved profile without accepting a secret
-// from the desktop-specific UI. ChatGPT Desktop shares Codex's config writer;
-// all other desktop IDs are recorded as owners of their own profile.
+// from the desktop-specific UI.
 func (u *UseCases) ConfigureDesktopAgent(ctx context.Context, agentID, profileID string) (DesktopAgentProfileResult, error) {
 	if u == nil {
 		return DesktopAgentProfileResult{}, oneerrors.New(oneerrors.InternalError, "Desktop agent service is not configured", oneerrors.WithStatus(501))
@@ -173,11 +148,15 @@ func (u *UseCases) ConfigureDesktopAgent(ctx context.Context, agentID, profileID
 	if err := contextError(ctx, "Desktop agent configuration request was cancelled"); err != nil {
 		return DesktopAgentProfileResult{}, err
 	}
-	agentID = strings.TrimSpace(agentID)
 	profileID = strings.TrimSpace(profileID)
-	if agentID == "" || profileID == "" {
+	if profileID == "" {
 		return DesktopAgentProfileResult{}, oneerrors.New(oneerrors.InvalidRequest, "desktop agent and profile are required")
 	}
+	agentID, err := knownDesktopAgentID(agentID)
+	if err != nil {
+		return DesktopAgentProfileResult{}, err
+	}
+	definition, _ := desktopapp.DefinitionFor(agentID)
 	var selected profileStore.Profile
 	for _, candidate := range u.profiles.List() {
 		if candidate.ID == profileID {
@@ -191,11 +170,11 @@ func (u *UseCases) ConfigureDesktopAgent(ctx context.Context, agentID, profileID
 	if selected.Protocol == "" {
 		return DesktopAgentProfileResult{}, oneerrors.New(oneerrors.InvalidRequest, "Profile has no API mode")
 	}
-	if agentID == desktopapp.WorkBuddyID && selected.Protocol != provider.ProtocolOpenAI {
-		return DesktopAgentProfileResult{}, oneerrors.New(oneerrors.InvalidRequest, "WorkBuddy requires an OpenAI-compatible Profile")
+	if definition.Protocol != "" && selected.Protocol != definition.Protocol {
+		return DesktopAgentProfileResult{}, oneerrors.New(oneerrors.InvalidRequest, definition.Name+" requires a "+provider.ProtocolLabel(definition.Protocol)+" Profile")
 	}
-	profileAgentID := desktopapp.ProfileAgentID(agentID)
-	if desktopapp.SharesProfile(agentID) {
+	profileAgentID := definition.ProfileAgentID
+	if definition.SharedConfigAgentID != "" {
 		result, err := u.ActivateAgent(ctx, ActivateAgentOptions{
 			AgentID:  profileAgentID,
 			Provider: selected.Provider,
@@ -211,13 +190,9 @@ func (u *UseCases) ConfigureDesktopAgent(ctx context.Context, agentID, profileID
 		return DesktopAgentProfileResult{
 			AgentID: agentID, ProfileID: profileID, ProfileAgentID: profileAgentID,
 			Config: result.Config, Restart: result.Restart,
-			Message: "Shared Codex profile applied",
+			Message: definition.Name + " profile applied",
 		}, nil
 	}
-	// Desktop vendors without a OneAgent config adapter still get a durable
-	// per-Agent selection. Their profile is ready for a future vendor writer,
-	// and the overview can report the exact selected profile instead of relying
-	// on directory order.
 	// The endpoint belongs to the Provider; ignore the profile snapshot.
 	target, err := u.providers.Resolve(selected.Provider, "")
 	if err != nil {
@@ -229,13 +204,9 @@ func (u *UseCases) ConfigureDesktopAgent(ctx context.Context, agentID, profileID
 	}
 	u.writeMu.Lock()
 	defer u.writeMu.Unlock()
-	configPath := ""
-	workBuddyConfig := agentID == desktopapp.WorkBuddyID && (u.status.Platform.OS == "macos" || u.status.Platform.OS == "windows")
-	if workBuddyConfig {
-		configPath, err = u.writeWorkBuddyConfig(ctx, target, model)
-		if err != nil {
-			return DesktopAgentProfileResult{}, err
-		}
+	configPath, managed, err := u.writeDesktopAgentConfig(ctx, definition, target, model)
+	if err != nil {
+		return DesktopAgentProfileResult{}, err
 	}
 	_, err = u.profiles.WriteAgentBinding(ctx, agentID, profileStore.BindingWriteRequest{
 		Provider:   target.ID,
@@ -248,26 +219,38 @@ func (u *UseCases) ConfigureDesktopAgent(ctx context.Context, agentID, profileID
 	}
 	result := DesktopAgentProfileResult{
 		AgentID: agentID, ProfileID: profileID, ProfileAgentID: profileAgentID,
-		Message: "Desktop Agent profile assigned",
+		Message: definition.Name + " profile assigned",
 	}
-	if workBuddyConfig {
+	if managed {
 		result.Config = configPath
-		result.Restart = "Restart WorkBuddy"
-		result.Message = "WorkBuddy model applied"
+		result.Restart = "Restart " + definition.Name
+		result.Message = definition.Name + " model applied"
 	}
 	return result, nil
 }
 
-func (u *UseCases) writeWorkBuddyConfig(ctx context.Context, target provider.Entry, model string) (string, error) {
+func (u *UseCases) writeDesktopAgentConfig(ctx context.Context, definition desktopapp.Definition, target provider.Entry, model string) (string, bool, error) {
+	if strings.TrimSpace(definition.ConfigAdapter) == "" || strings.TrimSpace(definition.ConfigPath) == "" {
+		return "", false, nil
+	}
+	if u.status.Platform.OS != "macos" && u.status.Platform.OS != "windows" {
+		return "", false, nil
+	}
 	if strings.TrimSpace(target.APIKey) == "" {
-		return "", oneerrors.New(oneerrors.InvalidRequest, "API key is required")
+		return "", false, oneerrors.New(oneerrors.InvalidRequest, "API key is required")
 	}
-	path := filepath.Join(u.status.Home, ".workbuddy", "models.json")
+	path := filepath.Join(u.status.Home, filepath.FromSlash(definition.ConfigPath))
 	writer := configWriter.NewWriter(u.status.Home, u.status.Platform.OS, u.filesystem)
-	if err := writer.WriteWorkBuddy(ctx, path, target.BaseFor(provider.ProtocolOpenAI), target.APIKey, model); err != nil {
-		return "", err
+	protocol := definition.Protocol
+	if protocol == "" {
+		protocol = provider.ProtocolForAdapter(definition.ConfigAdapter)
 	}
-	return path, nil
+	if err := writeManagedAgentConfig(ctx, writer, definition.ID, catalog.Agent{
+		ConfigAdapter: definition.ConfigAdapter,
+	}, path, target.Name, target.BaseFor(protocol), target.APIKey, model, ""); err != nil {
+		return "", false, err
+	}
+	return path, true, nil
 }
 
 func stringPointerValue(value *string) string {
@@ -278,12 +261,7 @@ func stringPointerValue(value *string) string {
 }
 
 func (u *UseCases) desktopAppOptions(output process.OutputListener) desktopapp.Options {
-	return u.desktopAppOptionsFor(desktopapp.ID, output)
-}
-
-func (u *UseCases) desktopAppOptionsFor(agentID string, output process.OutputListener) desktopapp.Options {
 	return desktopapp.Options{
-		AppID:      agentID,
 		Home:       u.status.Home,
 		Platform:   u.status.Platform,
 		Runner:     u.runner,
@@ -304,32 +282,33 @@ func (u *UseCases) publicDesktopAgentStatus(value desktopapp.Status) DesktopAgen
 		PackageFamily:         value.PackageFamily,
 		InspectionUnavailable: value.InspectionUnavailable,
 	}
-	status.ProfileAgentID = desktopapp.ProfileAgentID(value.ID)
+	definition, ok := desktopapp.DefinitionFor(value.ID)
+	if !ok {
+		status.ProfileAgentID = value.ID
+		return status
+	}
+	status.ProfileAgentID = definition.ProfileAgentID
+	status.Protocol = definition.Protocol
 	if binding, err := u.profiles.ReadAgentBinding(status.ProfileAgentID); err == nil && binding != nil && binding.ProfileRef != "" {
 		status.ProfileID = nonEmptyPointer(binding.ProfileRef)
 	}
-	if desktopapp.SharesProfile(value.ID) {
+	if definition.SharedConfigAgentID != "" {
 		if manifest, err := catalog.LoadEmbedded(); err == nil {
-			shared := manifest.Agents[desktopapp.SharedConfigAgentID]
+			shared := manifest.Agents[definition.SharedConfigAgentID]
 			status.ConfigPath = configPath(u.status.Home, u.status.Platform.OS, shared)
 			status.ConfigSharedWith = shared.Name
-			if u.status.Platform.OS == "macos" || u.status.Platform.OS == "windows" {
-				status.Protocol = provider.ProtocolForAdapter(shared.ConfigAdapter)
-			}
+			status.Protocol = provider.ProtocolForAdapter(shared.ConfigAdapter)
 		}
-	} else if value.ID == desktopapp.WorkBuddyID && (u.status.Platform.OS == "macos" || u.status.Platform.OS == "windows") {
-		status.ConfigPath = filepath.Join(u.status.Home, ".workbuddy", "models.json")
-		status.Protocol = provider.ProtocolOpenAI
+	} else if definition.ConfigPath != "" && value.Supported {
+		status.ConfigPath = filepath.Join(u.status.Home, filepath.FromSlash(definition.ConfigPath))
 	}
 	return status
 }
 
 func knownDesktopAgentID(value string) (string, error) {
 	value = strings.TrimSpace(value)
-	for _, agentID := range desktopapp.IDs() {
-		if value == agentID {
-			return value, nil
-		}
+	if _, ok := desktopapp.DefinitionFor(value); ok {
+		return value, nil
 	}
 	return "", oneerrors.New(oneerrors.InvalidRequest, "Unknown desktop Agent: "+value)
 }

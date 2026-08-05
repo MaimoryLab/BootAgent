@@ -2,7 +2,7 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 
-import type { StatusResponse } from "../types/api";
+import type { DesktopAgentStatus, StatusResponse } from "../types/api";
 import { EnvironmentOverviewPage } from "./EnvironmentOverviewPage";
 
 const dispatch = vi.fn();
@@ -61,7 +61,22 @@ function status(): StatusResponse {
     firstRun: false,
     environment: null,
     environmentError: null,
-    desktopAgent: { id: "desktop-agent", name: "ChatGPT Desktop", installed: false, supported: false, version: null, source: "unknown" },
+    desktopAgents: [],
+  };
+}
+
+function desktopApp(overrides: Partial<DesktopAgentStatus> = {}): DesktopAgentStatus {
+  return {
+    id: "chatgpt-desktop",
+    name: "ChatGPT Desktop",
+    installed: false,
+    supported: true,
+    version: null,
+    source: "macos-dmg",
+    protocol: "responses",
+    profileAgentId: "codex",
+    profileId: null,
+    ...overrides,
   };
 }
 
@@ -102,5 +117,45 @@ describe("EnvironmentOverviewPage", () => {
     expect(await screen.findByRole("heading", { name: "onboarding" })).toBeTruthy();
     // A second run must not inherit the previous Agent, model or log.
     expect(dispatch).toHaveBeenCalledWith({ type: "START_SETUP" });
+  });
+
+  it("counts and shows only installed desktop Agents", async () => {
+    const current = status();
+    current.desktopAgents = [
+      desktopApp({ installed: true, version: "26.730.61309", profileId: "team" }),
+      desktopApp({ id: "workbuddy", name: "WorkBuddy", protocol: "openai", profileAgentId: "workbuddy" }),
+    ];
+    mockState = { status: current, statusState: "success", statusError: "" };
+    renderPage();
+
+    const desktopSection = screen.getByRole("heading", { name: "桌面 Agent" }).closest("section");
+    expect(desktopSection).toBeTruthy();
+    expect(within(desktopSection!).getByText("共 1 个")).toBeTruthy();
+    expect(within(desktopSection!).getByText("ChatGPT Desktop")).toBeTruthy();
+    expect(screen.queryByText("按引导安装桌面 Agent")).toBeNull();
+    const footer = within(screen.getByRole("contentinfo"));
+    expect(footer.getByRole("button", { name: "安装桌面 Agent" })).toBeTruthy();
+    expect(screen.getAllByRole("button", { name: "安装桌面 Agent" })).toHaveLength(1);
+
+    fireEvent.click(screen.getByRole("button", { name: "安装桌面 Agent" }));
+    expect(dispatch).toHaveBeenCalledWith({ type: "START_DESKTOP_SETUP" });
+    expect(dispatch).not.toHaveBeenCalledWith(expect.objectContaining({ type: "SELECT_AGENT" }));
+    expect(await screen.findByRole("heading", { name: "onboarding" })).toBeTruthy();
+  });
+
+  it("uses one footer action when no desktop Agent is installed", () => {
+    const current = status();
+    current.agents.codex.installed = false;
+    current.desktopAgents = [
+      desktopApp(),
+      desktopApp({ id: "workbuddy", name: "WorkBuddy", protocol: "openai", profileAgentId: "workbuddy" }),
+    ];
+    mockState = { status: current, statusState: "success", statusError: "" };
+    renderPage();
+
+    expect(screen.queryByText("按引导安装桌面 Agent")).toBeNull();
+    const footer = within(screen.getByRole("contentinfo"));
+    expect(footer.getByRole("button", { name: "安装桌面 Agent" })).toBeTruthy();
+    expect(screen.getAllByRole("button", { name: "安装桌面 Agent" })).toHaveLength(1);
   });
 });

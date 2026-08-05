@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -151,9 +152,7 @@ func (w Writer) WriteWorkBuddy(ctx context.Context, path, baseURL, apiKey, model
 	found := false
 	for _, existing := range models {
 		if id, _ := existing["id"].(string); id == model {
-			for key, value := range entry {
-				existing[key] = value
-			}
+			maps.Copy(existing, entry)
 			found = true
 			break
 		}

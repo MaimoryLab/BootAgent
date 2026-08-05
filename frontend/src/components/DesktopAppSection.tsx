@@ -12,18 +12,19 @@ import { AgentIcon } from "./icons/agents";
 interface DesktopAppSectionProps {
   app: DesktopAgentStatus;
   onChanged: () => void | Promise<void>;
-  onSetup?: () => void;
+  onSetup?: (agentId: string) => void;
   onConfigure?: () => void;
   profile?: ProfileSummary;
   providerName?: string;
   model?: string;
   /** The overview passes false so uninstalled apps are not rendered there. */
   showUninstalled?: boolean;
+  showHeading?: boolean;
 }
 
 type Action = "install" | "open" | "installer";
 
-export function DesktopAppSection({ app: desktopApp, onChanged, onSetup, onConfigure, profile, providerName, model, showUninstalled = true }: DesktopAppSectionProps) {
+export function DesktopAppSection({ app: desktopApp, onChanged, onSetup, onConfigure, profile, providerName, model, showUninstalled = true, showHeading = true }: DesktopAppSectionProps) {
   const { t } = useI18n();
   const { resetProgress } = useTaskCenter();
   const [pending, setPending] = useState<Action | "">("");
@@ -38,15 +39,14 @@ export function DesktopAppSection({ app: desktopApp, onChanged, onSetup, onConfi
     setFailure("");
     setNotice("");
     if (downloading) resetProgress(desktopApp.id);
-    const agentId = desktopApp.id === "desktop-agent" ? undefined : desktopApp.id;
     try {
       const result = action === "install"
-        ? await (agentId ? api.installDesktopAgent(agentId) : api.installDesktopAgent())
+        ? await api.installDesktopAgent(desktopApp.id)
         : action === "installer"
-          ? await (agentId ? api.openDesktopAgentInstaller(agentId) : api.openDesktopAgentInstaller())
+          ? await api.openDesktopAgentInstaller(desktopApp.id)
           : null;
       if (action === "open") {
-        await (agentId ? api.openDesktopAgent(agentId) : api.openDesktopAgent());
+        await api.openDesktopAgent(desktopApp.id);
         setNotice(t("{name} 已打开", { name: desktopApp.name }));
       } else if (result?.status === "installed") {
         setNotice(t("{name} 安装完成", { name: desktopApp.name }));
@@ -65,13 +65,15 @@ export function DesktopAppSection({ app: desktopApp, onChanged, onSetup, onConfi
   };
 
   return (
-    <section className="overview-section desktop-app-section">
-      <div className="section-heading">
-        <div>
-          <h2>{t("桌面 Agent")}</h2>
-          <p>{t("共 {count} 个", { count: desktopApp.installed ? 1 : 0 })}</p>
+    <section className={`overview-section desktop-app-section${showHeading ? "" : " desktop-app-item"}`}>
+      {showHeading ? (
+        <div className="section-heading">
+          <div>
+            <h2>{t("桌面 Agent")}</h2>
+            <p>{t("共 {count} 个", { count: desktopApp.installed ? 1 : 0 })}</p>
+          </div>
         </div>
-      </div>
+      ) : null}
       {failure ? <div className="notice notice-error desktop-app-notice"><TriangleAlert size={15} aria-hidden="true" />{failure}</div> : null}
       {notice ? <div className="notice notice-success desktop-app-notice"><AppWindow size={15} aria-hidden="true" />{notice}</div> : null}
       {desktopApp.inspectionUnavailable ? (
@@ -85,7 +87,7 @@ export function DesktopAppSection({ app: desktopApp, onChanged, onSetup, onConfi
           <div className="uninstalled-agent-action">
             <AppWindow size={28} aria-hidden="true" />
             <span>{t("按引导安装桌面 Agent")}</span>
-            <button className="button button-primary" type="button" aria-label={t("安装")} onClick={() => onSetup ? onSetup() : void run("install")} disabled={Boolean(pending)}>
+            <button className="button button-primary" type="button" aria-label={t("安装")} onClick={() => onSetup ? onSetup(desktopApp.id) : void run("install")} disabled={Boolean(pending)}>
               {pending === "install" ? <RefreshCw size={15} className="spin" aria-hidden="true" /> : <Plus size={16} />}
               {pending === "install" ? t("安装中") : t("安装桌面 Agent")}
             </button>
@@ -132,7 +134,7 @@ export function DesktopAppSection({ app: desktopApp, onChanged, onSetup, onConfi
               </button>
             </>
           ) : (
-            <button className="button button-primary" type="button" onClick={() => onSetup ? onSetup() : void run("install")} disabled={Boolean(pending)}>
+            <button className="button button-primary" type="button" onClick={() => onSetup ? onSetup(desktopApp.id) : void run("install")} disabled={Boolean(pending)}>
               {pending === "install" ? <RefreshCw size={15} className="spin" aria-hidden="true" /> : <Download size={15} aria-hidden="true" />}
               {pending === "install" ? t("安装中") : t("安装桌面 Agent")}
             </button>

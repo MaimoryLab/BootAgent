@@ -34,7 +34,7 @@ export function ProviderKeyPage() {
   // The selected Agents decide which protocols get tested; a model that serves
   // Chat Completions may still refuse Responses, so do not imply a single one.
   const protocols = useMemo(() => {
-    if (desktop && state.status) return [desktopProtocol(state.status, desktop) as ProtocolId].filter(Boolean);
+    if (desktop) return [desktopProtocol(desktop) as ProtocolId].filter(Boolean);
     const byId = new Map(state.status?.catalog.map((item) => [item.id, item]) ?? []);
     const selected = probeAgentIds
       .map((id) => byId.get(id)?.protocol)

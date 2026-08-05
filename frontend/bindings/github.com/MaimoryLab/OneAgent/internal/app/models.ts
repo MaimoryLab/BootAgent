@@ -62,9 +62,7 @@ export interface DesktopAgentActionResult {
 
 /**
  * DesktopAgentProfileResult is the non-secret result of applying a saved
- * profile to a desktop Agent. ChatGPT Desktop writes Codex configuration and
- * WorkBuddy writes ~/.workbuddy/models.json; other desktop IDs only record
- * their own profile membership.
+ * profile to a desktop Agent.
  */
 export interface DesktopAgentProfileResult {
     "agent": string;
@@ -197,6 +195,5 @@ export interface StatusResponse {
     "runtimes": RuntimeStatus[] | null;
     "environment": any;
     "environmentError": string | null;
-    "desktopAgent": DesktopAgentStatus;
-    "desktopAgents"?: DesktopAgentStatus[] | null;
+    "desktopAgents": DesktopAgentStatus[] | null;
 }

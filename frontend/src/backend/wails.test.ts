@@ -64,16 +64,16 @@ describe("Wails backend adapter", () => {
       capabilities: { canInstall: {}, missingRuntime: {}, supportedAgentIds: [] },
       agents: {}, catalog: [], groups: [], providers: {}, mirrors: [], paths: {}, backups: {},
       profiles: [], activeProfile: null, environment: null, environmentError: null, firstRun: false,
-      desktopAgent: { id: "desktop-agent", name: "ChatGPT Desktop", installed: false, supported: false, version: null, source: "unknown" },
+      desktopAgents: [],
     } satisfies StatusResponse;
     const probe = { ok: true, reachable: true, status: 204, message: "ok", error_code: null, retryable: false } satisfies ProbeResponse;
     const models = { ...probe, models: ["model-a"] } satisfies ModelsResponse;
     const install = { ok: true, code: 0, results: [], log: "", next: "", probe: null } satisfies InstallResponse;
     const profile = { id: "team", label: "Team", provider: "ppio", baseUrl: null, model: "m", protocol: "responses", activatedAt: null, hasKey: true } satisfies ProfileSummary;
     const provider = { id: "acme", name: "Acme", home: "", base_url: "https://api.acme.test", anthropic_base_url: "", api_key: "secret", built_in: false } satisfies ProviderEntry;
-    const desktopStatus = { id: "desktop-agent", name: "ChatGPT Desktop", installed: false, supported: true, version: null, source: "macos-dmg", profileAgentId: "codex", profileId: null } satisfies DesktopAgentStatus;
+    const desktopStatus = { id: "chatgpt-desktop", name: "ChatGPT Desktop", installed: false, supported: true, version: null, source: "macos-dmg", protocol: "responses", profileAgentId: "codex", profileId: null } satisfies DesktopAgentStatus;
     const desktopAction = { status: "installer-started", message: "started", refreshNeeded: true, app: desktopStatus } satisfies DesktopAgentActionResult;
-    const desktopProfile = { agent: "desktop-agent", profileId: "team", profileAgentId: "codex", config: "/c", restart: "restart", message: "applied" } satisfies DesktopAgentProfileResult;
+    const desktopProfile = { agent: "chatgpt-desktop", profileId: "team", profileAgentId: "codex", config: "/c", restart: "restart", message: "applied" } satisfies DesktopAgentProfileResult;
 
     bridge.status.mockResolvedValue(status);
     bridge.probe.mockResolvedValue(probe);
@@ -94,11 +94,11 @@ describe("Wails backend adapter", () => {
     bridge.desktopConfigure.mockResolvedValue(desktopProfile);
 
     await expect(wailsApi.status()).resolves.toBe(status);
-    await expect(wailsApi.desktopAgentStatus()).resolves.toBe(desktopStatus);
-    await expect(wailsApi.installDesktopAgent()).resolves.toBe(desktopAction);
-    await expect(wailsApi.openDesktopAgent()).resolves.toBeUndefined();
-    await expect(wailsApi.openDesktopAgentInstaller()).resolves.toBe(desktopAction);
-    await expect(wailsApi.configureDesktopAgent("desktop-agent", "team")).resolves.toBe(desktopProfile);
+    await expect(wailsApi.desktopAgentStatus("chatgpt-desktop")).resolves.toBe(desktopStatus);
+    await expect(wailsApi.installDesktopAgent("chatgpt-desktop")).resolves.toBe(desktopAction);
+    await expect(wailsApi.openDesktopAgent("chatgpt-desktop")).resolves.toBeUndefined();
+    await expect(wailsApi.openDesktopAgentInstaller("chatgpt-desktop")).resolves.toBe(desktopAction);
+    await expect(wailsApi.configureDesktopAgent("chatgpt-desktop", "team")).resolves.toBe(desktopProfile);
     await expect(wailsApi.probe({ provider: "custom", apiBaseUrl: "https://proxy.test/v1", apiKey: "secret", model: "m", agents: [] })).resolves.toBe(probe);
     await expect(wailsApi.models({ provider: "ppio", apiBaseUrl: "", apiKey: "secret" })).resolves.toBe(models);
     await expect(wailsApi.getProvider("acme")).resolves.toBe(provider);
@@ -118,11 +118,11 @@ describe("Wails backend adapter", () => {
     expect(bridge.register).toHaveBeenCalledWith({ provider: "ppio", agents: null });
     expect(bridge.activate).toHaveBeenCalledWith(expect.objectContaining({ agent_id: "codex", profile_id: "", small_fast_model: "" }));
     expect(bridge.launch).toHaveBeenCalledWith({ agent_id: "codex" });
-    expect(bridge.desktopStatus).toHaveBeenCalledWith();
-    expect(bridge.desktopInstall).toHaveBeenCalledWith();
-    expect(bridge.desktopOpen).toHaveBeenCalledWith();
-    expect(bridge.desktopInstaller).toHaveBeenCalledWith();
-    expect(bridge.desktopConfigure).toHaveBeenCalledWith({ agent_id: "desktop-agent", profile_id: "team" });
+    expect(bridge.desktopStatus).toHaveBeenCalledWith({ agent_id: "chatgpt-desktop" });
+    expect(bridge.desktopInstall).toHaveBeenCalledWith({ agent_id: "chatgpt-desktop" });
+    expect(bridge.desktopOpen).toHaveBeenCalledWith({ agent_id: "chatgpt-desktop" });
+    expect(bridge.desktopInstaller).toHaveBeenCalledWith({ agent_id: "chatgpt-desktop" });
+    expect(bridge.desktopConfigure).toHaveBeenCalledWith({ agent_id: "chatgpt-desktop", profile_id: "team" });
     expect(bridge.saveProfile).toHaveBeenCalledWith(expect.objectContaining({ api_base_url: "", api_key: "secret" }));
   });
 

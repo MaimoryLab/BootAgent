@@ -14,7 +14,7 @@ const (
 	WorkBuddyMacTeamID     = "FN2V63AD2J"
 )
 
-func verifyMacOSApp(ctx context.Context, options Options, appPath string) error {
+func verifyChatGPTMacOSApp(ctx context.Context, options Options, appPath string) error {
 	return verifyMacOSIdentity(ctx, options, appPath, CodexBundleID, MacExpectedTeamID, MacExpectedAuthority)
 }
 

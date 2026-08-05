@@ -26,7 +26,7 @@ type windowsAuthenticodeSignature struct {
 // verifier. A valid signature from an unexpected publisher is not sufficient:
 // the downloaded bootstrapper must be the Microsoft-published installer used by
 // Windows' official get.microsoft.com flow.
-func verifyWindowsInstaller(ctx context.Context, options Options, installerPath string) error {
+func verifyChatGPTWindowsInstaller(ctx context.Context, options Options, installerPath string) error {
 	return verifyWindowsInstallerPublisher(ctx, options, installerPath, []string{windowsExpectedSignerOrganization})
 }
 

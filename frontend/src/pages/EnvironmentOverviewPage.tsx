@@ -24,7 +24,7 @@ export function EnvironmentOverviewPage() {
   const editDesktopProfile = (agentId: string) => {
     if (agentId) navigate(`/agents/${agentId}`);
   };
-  const startDesktopSetup = () => {
+  const openDesktopSetup = () => {
     dispatch({ type: "START_DESKTOP_SETUP" });
     navigate("/setup/agents");
   };
@@ -52,8 +52,9 @@ export function EnvironmentOverviewPage() {
   const installed = [...status.catalog]
     .sort((first, second) => first.rank - second.rank)
     .filter((item) => status.agents[item.id]?.installed);
-  const desktopApplications = desktopApps(status);
-  const desktopInstalled = desktopApplications.some((app) => app.installed);
+  const desktopApplications = desktopApps(status).filter((app) => app.supported);
+  const installedDesktopApplications = desktopApplications.filter((app) => app.installed);
+  const desktopInstallable = desktopApplications.some((app) => !app.installed);
   const profiles = new Map(status.profiles.map((profile) => [profile.id, profile]));
   const profileForAgent = (agentId: string, agent: AgentStatus) => {
     if (agent.profileId) return profiles.get(agent.profileId);
@@ -77,10 +78,16 @@ export function EnvironmentOverviewPage() {
             <RefreshCw size={15} className={state.statusState === "loading" ? "spin" : ""} />
             {t("刷新状态")}
           </button>
-          {installed.length || desktopInstalled ? (
+          {installed.length || installedDesktopApplications.length ? (
             <button className="button button-secondary" type="button" onClick={startSetup}>
               <Plus size={15} />
               {t("安装命令行 Agent")}
+            </button>
+          ) : null}
+          {desktopInstallable ? (
+            <button className="button button-secondary" type="button" onClick={openDesktopSetup}>
+              <Plus size={15} />
+              {t("安装桌面 Agent")}
             </button>
           ) : null}
         </>
@@ -126,30 +133,39 @@ export function EnvironmentOverviewPage() {
         </section>
       )}
 
-      {desktopApplications.map((app) => {
-        const binding = status.agents[profileAgentIdForDesktop(app)];
-        const profileID = app.profileId || binding?.profileId;
-        const profile = profileID ? status.profiles.find((item) => item.id === profileID) : undefined;
-        const providerName = profile
-          ? status.providers[profile.provider]?.name || profile.provider
-          : binding?.provider
-            ? status.providers[binding.provider]?.name || binding.provider
-            : undefined;
-        const model = profile?.model || binding?.model || undefined;
-        return (
-          <DesktopAppSection
-            key={app.id}
-            app={app}
-            onSetup={startDesktopSetup}
-            profile={profile}
-            providerName={providerName}
-            model={model}
-            onChanged={refreshStatus}
-            onConfigure={() => editDesktopProfile(app.id)}
-            showUninstalled
-          />
-        );
-      })}
+      {installedDesktopApplications.length ? (
+        <section className="overview-section desktop-app-section">
+          <div className="section-heading">
+            <div><h2>{t("桌面 Agent")}</h2><p>{t("共 {count} 个", { count: installedDesktopApplications.length })}</p></div>
+          </div>
+          <div className="desktop-app-list">
+            {installedDesktopApplications.map((app) => {
+              const binding = status.agents[profileAgentIdForDesktop(app)];
+              const profileID = app.profileId || binding?.profileId;
+              const profile = profileID ? status.profiles.find((item) => item.id === profileID) : undefined;
+              const providerName = profile
+                ? status.providers[profile.provider]?.name || profile.provider
+                : binding?.provider
+                  ? status.providers[binding.provider]?.name || binding.provider
+                  : undefined;
+              const model = profile?.model || binding?.model || undefined;
+              return (
+                <DesktopAppSection
+                  key={app.id}
+                  app={app}
+                  profile={profile}
+                  providerName={providerName}
+                  model={model}
+                  onChanged={refreshStatus}
+                  onConfigure={() => editDesktopProfile(app.id)}
+                  showUninstalled={false}
+                  showHeading={false}
+                />
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
       <RuntimeSection runtimes={status.runtimes ?? []} onInstalled={refreshStatus} />
     </PageScaffold>
   );

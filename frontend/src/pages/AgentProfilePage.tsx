@@ -123,7 +123,7 @@ export function AgentProfilePage() {
         apiKey: "",
         model: draft.model.trim(),
         configMode: "provider",
-        protocol: app ? desktopProtocol(status, app) : catalog?.protocol || "",
+        protocol: app ? desktopProtocol(app) : catalog?.protocol || "",
       });
       setSelectedId(saved.id);
       setDraft(null);

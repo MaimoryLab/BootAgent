@@ -142,6 +142,35 @@ func makeBundle(t *testing.T, root, name string) string {
 	return filepath.Dir(path)
 }
 
+func TestDesktopLifecycleRequiresAnExplicitKnownAgent(t *testing.T) {
+	options := Options{Platform: platform.For("macos", "arm64")}
+	status := Inspect(context.Background(), "", options)
+	if status.ID != "" || status.InspectionUnavailable == nil {
+		t.Fatalf("empty Agent ID status = %#v", status)
+	}
+	if _, err := Install(context.Background(), "", options); err == nil {
+		t.Fatal("empty Agent ID install unexpectedly succeeded")
+	}
+	if err := Open(context.Background(), "", options); err == nil {
+		t.Fatal("empty Agent ID open unexpectedly succeeded")
+	}
+}
+
+func TestDesktopDefinitionsExposeIndependentProducts(t *testing.T) {
+	definitions := Definitions()
+	if len(definitions) < 2 || definitions[0].ID != ChatGPTDesktopID || definitions[1].ID != WorkBuddyID {
+		t.Fatalf("desktop definitions = %#v", definitions)
+	}
+	chatGPT, ok := DefinitionFor(ChatGPTDesktopID)
+	if !ok || chatGPT.ProfileAgentID != CodexAgentID || chatGPT.SharedConfigAgentID != CodexAgentID {
+		t.Fatalf("ChatGPT definition = %#v, found=%v", chatGPT, ok)
+	}
+	workBuddy, ok := DefinitionFor(WorkBuddyID)
+	if !ok || workBuddy.ProfileAgentID != WorkBuddyID || workBuddy.Protocol != "openai" {
+		t.Fatalf("WorkBuddy definition = %#v, found=%v", workBuddy, ok)
+	}
+}
+
 func TestInspectMacOSValidatesBundleIDAndFallsBackToBuildVersion(t *testing.T) {
 	root := t.TempDir()
 	appPath := makeBundle(t, root, "ChatGPT.app")
@@ -153,7 +182,7 @@ func TestInspectMacOSValidatesBundleIDAndFallsBackToBuildVersion(t *testing.T) {
 		"CFBundleVersion":            "26.727.51351",
 		"CFBundleShortVersionString": "",
 	}}
-	status := Inspect(context.Background(), Options{
+	status := Inspect(context.Background(), ChatGPTDesktopID, Options{
 		Platform:    platform.For("darwin", "arm64"),
 		SearchRoots: []string{root},
 		Runner:      runner,
@@ -167,7 +196,7 @@ func TestInspectMacOSValidatesBundleIDAndFallsBackToBuildVersion(t *testing.T) {
 	if len(runner.calls) != 3 || runner.calls[1][2] != "CFBundleShortVersionString" || runner.calls[2][2] != "CFBundleVersion" {
 		t.Fatalf("plutil calls = %#v", runner.calls)
 	}
-	direct := Inspect(context.Background(), Options{
+	direct := Inspect(context.Background(), ChatGPTDesktopID, Options{
 		Platform:    platform.For("darwin", "arm64"),
 		SearchRoots: []string{appPath},
 		Runner:      &probeRunner{macValues: runner.macValues},
@@ -183,8 +212,8 @@ func TestInspectWorkBuddyMacOSUsesItsOwnBundleIdentity(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(appPath, "Contents", "Info.plist"), []byte("plist"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	status := Inspect(context.Background(), Options{
-		AppID: WorkBuddyID, Platform: platform.For("darwin", "arm64"), SearchRoots: []string{root},
+	status := Inspect(context.Background(), WorkBuddyID, Options{
+		Platform: platform.For("darwin", "arm64"), SearchRoots: []string{root},
 		Runner: &probeRunner{macValues: map[string]string{
 			"CFBundleIdentifier": WorkBuddyBundleID, "CFBundleShortVersionString": "5.3.8",
 		}},
@@ -201,7 +230,7 @@ func TestInspectMacOSDoesNotTraverseApplicationRoots(t *testing.T) {
 		t.Fatal(err)
 	}
 	runner := &probeRunner{macValues: map[string]string{"CFBundleIdentifier": CodexBundleID}}
-	status := Inspect(context.Background(), Options{Platform: platform.For("macos", "x64"), SearchRoots: []string{root}, Runner: runner})
+	status := Inspect(context.Background(), ChatGPTDesktopID, Options{Platform: platform.For("macos", "x64"), SearchRoots: []string{root}, Runner: runner})
 	if status.Installed {
 		t.Fatalf("nested app was detected: %#v", status)
 	}
@@ -229,7 +258,7 @@ func TestInspectWindowsUsesRegisteredPackageQueriesOnly(t *testing.T) {
 		ExitCode: 0,
 		Stdout:   `{"Name":"OpenAI.Codex","PackageFullName":"OpenAI.Codex_26.727.51351.0_neutral__2p2nqsd0c76g0","Version":"26.727.51351.0","PackageFamilyName":"OpenAI.Codex_2p2nqsd0c76g0","InstallLocation":"C:\\Program Files\\OpenAI\\Codex"}`,
 	}}}
-	status := Inspect(context.Background(), Options{Platform: platform.For("windows", "amd64"), Runner: runner})
+	status := Inspect(context.Background(), ChatGPTDesktopID, Options{Platform: platform.For("windows", "amd64"), Runner: runner})
 	if !status.Installed || status.Version == nil || *status.Version != "26.727.51351.0" {
 		t.Fatalf("status = %#v", status)
 	}
@@ -251,7 +280,7 @@ func TestInspectWindowsStartAppsFallbackReportsUnknownMetadata(t *testing.T) {
 			{ExitCode: 0, Stdout: ""},
 			{ExitCode: 0, Stdout: appID + "\n"},
 		}}
-		status := Inspect(context.Background(), Options{Platform: platform.For("windows", "amd64"), Runner: runner})
+		status := Inspect(context.Background(), ChatGPTDesktopID, Options{Platform: platform.For("windows", "amd64"), Runner: runner})
 		if !status.Installed || status.PackageFamily != strings.Split(appID, "!")[0] || status.Version != nil {
 			t.Fatalf("appID=%q status = %#v", appID, status)
 		}
@@ -272,13 +301,13 @@ func TestParseMountPointKeepsSpaces(t *testing.T) {
 }
 
 func TestMacDownloadURLFollowsArchitectureAndOverride(t *testing.T) {
-	if got := macDownloadURL(Options{Platform: platform.For("macos", "amd64")}); got != MacDownloadURLX64 {
+	if got := chatGPTMacDownloadURL(Options{Platform: platform.For("macos", "amd64")}); got != ChatGPTMacDownloadURLX64 {
 		t.Fatalf("x64 URL = %q", got)
 	}
-	if got := macDownloadURL(Options{Platform: platform.For("macos", "arm64")}); got != MacDownloadURL {
+	if got := chatGPTMacDownloadURL(Options{Platform: platform.For("macos", "arm64")}); got != ChatGPTMacDownloadURL {
 		t.Fatalf("arm64 URL = %q", got)
 	}
-	if got := macDownloadURL(Options{Platform: platform.For("macos", "amd64"), DownloadURL: "https://mirror.test/app.dmg"}); got != "https://mirror.test/app.dmg" {
+	if got := chatGPTMacDownloadURL(Options{Platform: platform.For("macos", "amd64"), DownloadURL: "https://mirror.test/app.dmg"}); got != "https://mirror.test/app.dmg" {
 		t.Fatalf("override URL = %q", got)
 	}
 }
@@ -307,15 +336,15 @@ func TestWorkBuddyWindowsInstallUsesSharedPlatformManifestAndVerifiedDownload(t 
 	sum := sha256.Sum256(payload)
 	downloadURL := "https://download.codebuddy.cn/workbuddy/WorkBuddy.exe"
 	manifestURL := WorkBuddyUpdateEndpoint + "?platform=" + WorkBuddyWindowsPlatform
-	manifest := []byte(fmt.Sprintf(`{"version":"5.4.0","url":%q,"sha256hash":%q}`, downloadURL, hex.EncodeToString(sum[:])))
+	manifest := fmt.Appendf(nil, `{"version":"5.4.0","url":%q,"sha256hash":%q}`, downloadURL, hex.EncodeToString(sum[:]))
 	downloader := &routeDownloader{routes: map[string][]byte{manifestURL: manifest, downloadURL: payload}}
 	runner := &scriptedRunner{results: []process.Result{
 		{ExitCode: 0},
 		{ExitCode: 0, Stdout: `{"Status":"Valid","StatusMessage":"Signature verified.","Publisher":"Tencent Technology (Shenzhen) Company Limited","Organization":"Tencent Technology (Shenzhen) Company Limited","Subject":"CN=Tencent Technology (Shenzhen) Company Limited, O=Tencent Technology (Shenzhen) Company Limited","Issuer":"CN=Trusted CA"}`},
 	}}
 	var outputs []process.Output
-	result, err := Install(context.Background(), Options{
-		AppID: WorkBuddyID, Platform: platform.For("windows", "arm64"), Runner: runner, Downloader: downloader,
+	result, err := Install(context.Background(), WorkBuddyID, Options{
+		Platform: platform.For("windows", "arm64"), Runner: runner, Downloader: downloader,
 		Output: func(output process.Output) { outputs = append(outputs, output) },
 	})
 	if err != nil {
@@ -344,7 +373,7 @@ func TestWorkBuddyUpdateRejectsUnapprovedDownloadHost(t *testing.T) {
 		manifestURL: []byte(`{"url":"https://example.test/WorkBuddy.zip"}`),
 	}}
 	_, err := fetchWorkBuddyUpdate(context.Background(), Options{
-		AppID: WorkBuddyID, Platform: platform.For("macos", "arm64"), Downloader: downloader,
+		Platform: platform.For("macos", "arm64"), Downloader: downloader,
 	})
 	if err == nil || !strings.Contains(err.Error(), "not approved") {
 		t.Fatalf("fetchWorkBuddyUpdate() error = %v", err)
@@ -354,7 +383,7 @@ func TestWorkBuddyUpdateRejectsUnapprovedDownloadHost(t *testing.T) {
 func TestMacInstallStopsOnDownloadHTTPError(t *testing.T) {
 	runner := &scriptedRunner{}
 	downloader := &fakeDownloader{status: http.StatusNotFound}
-	_, err := Install(context.Background(), Options{
+	_, err := Install(context.Background(), ChatGPTDesktopID, Options{
 		Platform:    platform.For("macos", "arm64"),
 		SearchRoots: []string{t.TempDir()},
 		Runner:      runner,
@@ -363,7 +392,7 @@ func TestMacInstallStopsOnDownloadHTTPError(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "download ChatGPT installer") {
 		t.Fatalf("install error = %v", err)
 	}
-	if len(downloader.hits) != 1 || downloader.hits[0] != MacDownloadURL || len(runner.calls) != 0 {
+	if len(downloader.hits) != 1 || downloader.hits[0] != ChatGPTMacDownloadURL || len(runner.calls) != 0 {
 		t.Fatalf("download hits=%#v installer calls=%#v", downloader.hits, runner.calls)
 	}
 }
@@ -371,7 +400,7 @@ func TestMacInstallStopsOnDownloadHTTPError(t *testing.T) {
 func TestMacOpenInstallerDownloadsInsteadOfOpeningBrowser(t *testing.T) {
 	runner := &scriptedRunner{}
 	downloader := &fakeDownloader{status: http.StatusNotFound}
-	_, err := OpenInstaller(context.Background(), Options{
+	_, err := OpenInstaller(context.Background(), ChatGPTDesktopID, Options{
 		Platform:    platform.For("macos", "arm64"),
 		SearchRoots: []string{t.TempDir()},
 		Runner:      runner,
@@ -394,7 +423,7 @@ func TestWindowsInstallDownloadsAndStartsOfficialBootstrapperWithoutFilesystemSc
 	payload := []byte("official installer")
 	downloader := &fakeDownloader{body: payload}
 	var outputs []process.Output
-	result, err := Install(context.Background(), Options{
+	result, err := Install(context.Background(), ChatGPTDesktopID, Options{
 		Platform:   platform.For("windows", "amd64"),
 		Runner:     runner,
 		Downloader: downloader,
@@ -407,7 +436,7 @@ func TestWindowsInstallDownloadsAndStartsOfficialBootstrapperWithoutFilesystemSc
 		t.Fatalf("result=%#v started=%#v", result, runner.started)
 	}
 	defer os.Remove(runner.started[0][0])
-	if len(downloader.hits) != 1 || downloader.hits[0] != WindowsInstallerURL {
+	if len(downloader.hits) != 1 || downloader.hits[0] != ChatGPTWindowsInstallerURL {
 		t.Fatalf("download hits = %#v", downloader.hits)
 	}
 	downloaded, readErr := os.ReadFile(runner.started[0][0])
@@ -432,7 +461,7 @@ func TestWindowsInstallDownloadsAndStartsOfficialBootstrapperWithoutFilesystemSc
 		t.Fatal("desktop installer download reported no progress")
 	}
 	last := progress[len(progress)-1]
-	if last.Target != ID || last.Received != int64(len(payload)) || last.Total != int64(len(payload)) {
+	if last.Target != ChatGPTDesktopID || last.Received != int64(len(payload)) || last.Total != int64(len(payload)) {
 		t.Fatalf("final progress = %#v", last)
 	}
 }
@@ -440,7 +469,7 @@ func TestWindowsInstallDownloadsAndStartsOfficialBootstrapperWithoutFilesystemSc
 func TestWindowsInstallDoesNotOpenInstallerAfterCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	runner := &cancelRunner{cancel: cancel}
-	_, err := Install(ctx, Options{Platform: platform.For("windows", "amd64"), Runner: runner})
+	_, err := Install(ctx, ChatGPTDesktopID, Options{Platform: platform.For("windows", "amd64"), Runner: runner})
 	if err == nil || runner.started {
 		t.Fatalf("install error=%v, installer started=%v", err, runner.started)
 	}
@@ -452,8 +481,8 @@ func TestVerifyWindowsInstallerRequiresValidMicrosoftAuthenticode(t *testing.T) 
 		Stdout:   `{"Status":"Valid","StatusMessage":"Signature verified.","Publisher":"Microsoft Corporation","Organization":"Microsoft Corporation","Subject":"CN=Microsoft Corporation, O=Microsoft Corporation","Issuer":"CN=Microsoft Marketplace CA G 024"}`,
 	}}}
 
-	if err := verifyWindowsInstaller(context.Background(), Options{Runner: runner}, `C:\Users\test\ChatGPT.exe`); err != nil {
-		t.Fatalf("verifyWindowsInstaller() error = %v", err)
+	if err := verifyChatGPTWindowsInstaller(context.Background(), Options{Runner: runner}, `C:\Users\test\ChatGPT.exe`); err != nil {
+		t.Fatalf("verifyChatGPTWindowsInstaller() error = %v", err)
 	}
 	if len(runner.calls) != 1 || runner.calls[0][0] != "powershell.exe" {
 		t.Fatalf("verification calls = %#v", runner.calls)
@@ -471,9 +500,9 @@ func TestVerifyWindowsInstallerRejectsInvalidAuthenticodeStates(t *testing.T) {
 				Stdout:   `{"Status":"` + status + `","StatusMessage":"signature failure","Publisher":"Microsoft Corporation","Organization":"Microsoft Corporation","Subject":"CN=Microsoft Corporation","Issuer":"CN=Microsoft Marketplace CA G 024"}`,
 			}}}
 
-			err := verifyWindowsInstaller(context.Background(), Options{Runner: runner}, `C:\Users\test\ChatGPT.exe`)
+			err := verifyChatGPTWindowsInstaller(context.Background(), Options{Runner: runner}, `C:\Users\test\ChatGPT.exe`)
 			if err == nil || !strings.Contains(err.Error(), status) {
-				t.Fatalf("verifyWindowsInstaller() error = %v, want status %q rejection", err, status)
+				t.Fatalf("verifyChatGPTWindowsInstaller() error = %v, want status %q rejection", err, status)
 			}
 		})
 	}
@@ -485,9 +514,9 @@ func TestVerifyWindowsInstallerRejectsMissingSignerCertificate(t *testing.T) {
 		Stdout:   `{"Status":"Valid","StatusMessage":"Signature verified.","Publisher":"","Organization":"","Subject":"","Issuer":""}`,
 	}}}
 
-	err := verifyWindowsInstaller(context.Background(), Options{Runner: runner}, `C:\Users\test\ChatGPT.exe`)
+	err := verifyChatGPTWindowsInstaller(context.Background(), Options{Runner: runner}, `C:\Users\test\ChatGPT.exe`)
 	if err == nil || !strings.Contains(err.Error(), "signer certificate") {
-		t.Fatalf("verifyWindowsInstaller() error = %v, want missing signer certificate rejection", err)
+		t.Fatalf("verifyChatGPTWindowsInstaller() error = %v, want missing signer certificate rejection", err)
 	}
 }
 
@@ -497,9 +526,9 @@ func TestVerifyWindowsInstallerRejectsUnexpectedPublisher(t *testing.T) {
 		Stdout:   `{"Status":"Valid","StatusMessage":"Signature verified.","Publisher":"Example Corporation","Organization":"Example Corporation","Subject":"CN=Example Corporation, O=Example Corporation","Issuer":"CN=Example CA"}`,
 	}}}
 
-	err := verifyWindowsInstaller(context.Background(), Options{Runner: runner}, `C:\Users\test\ChatGPT.exe`)
+	err := verifyChatGPTWindowsInstaller(context.Background(), Options{Runner: runner}, `C:\Users\test\ChatGPT.exe`)
 	if err == nil || !strings.Contains(err.Error(), "publisher") {
-		t.Fatalf("verifyWindowsInstaller() error = %v, want publisher rejection", err)
+		t.Fatalf("verifyChatGPTWindowsInstaller() error = %v, want publisher rejection", err)
 	}
 }
 
@@ -511,7 +540,7 @@ func TestWindowsInstallDoesNotStartUnsignedInstaller(t *testing.T) {
 	}}
 	downloader := &fakeDownloader{body: []byte("unsigned installer")}
 
-	_, err := Install(context.Background(), Options{
+	_, err := Install(context.Background(), ChatGPTDesktopID, Options{
 		Platform:   platform.For("windows", "amd64"),
 		Runner:     runner,
 		Downloader: downloader,
@@ -528,7 +557,7 @@ func TestWindowsInstallRejectsUnapprovedDownloadHost(t *testing.T) {
 	runner := &scriptedRunner{}
 	downloader := &fakeDownloader{body: []byte("installer")}
 
-	_, err := Install(context.Background(), Options{
+	_, err := Install(context.Background(), ChatGPTDesktopID, Options{
 		Platform:    platform.For("windows", "amd64"),
 		Runner:      runner,
 		Downloader:  downloader,
@@ -552,11 +581,11 @@ func TestCompareVersionHandlesMissingComponents(t *testing.T) {
 }
 
 func TestProfileAgentIDKeepsChatGPTOnCodexAndScopesOtherApps(t *testing.T) {
-	if got := ProfileAgentID(ID); got != SharedConfigAgentID || !SharesProfile(ID) {
-		t.Fatalf("ChatGPT profile mapping = %q, shared=%v", got, SharesProfile(ID))
+	if got := ProfileAgentID(ChatGPTDesktopID); got != CodexAgentID || !SharesProfile(ChatGPTDesktopID) {
+		t.Fatalf("ChatGPT profile mapping = %q, shared=%v", got, SharesProfile(ChatGPTDesktopID))
 	}
-	if got := ProfileAgentID("  " + ID + " "); got != SharedConfigAgentID || !SharesProfile("  "+ID+" ") {
-		t.Fatalf("trimmed ChatGPT profile mapping = %q, shared=%v", got, SharesProfile("  "+ID+" "))
+	if got := ProfileAgentID("  " + ChatGPTDesktopID + " "); got != CodexAgentID || !SharesProfile("  "+ChatGPTDesktopID+" ") {
+		t.Fatalf("trimmed ChatGPT profile mapping = %q, shared=%v", got, SharesProfile("  "+ChatGPTDesktopID+" "))
 	}
 	if got := ProfileAgentID("workbuddy"); got != "workbuddy" || SharesProfile("workbuddy") {
 		t.Fatalf("other desktop mapping = %q, shared=%v", got, SharesProfile("workbuddy"))
@@ -580,8 +609,8 @@ func TestVerifyMacOSAppRequiresExpectedTeamAndNotarization(t *testing.T) {
 		{ExitCode: 0, Stdout: "ChatGPT.app: accepted\nsource=Notarized Developer ID"},
 	}}
 
-	if err := verifyMacOSApp(context.Background(), Options{Runner: runner}, "/Applications/ChatGPT.app"); err != nil {
-		t.Fatalf("verifyMacOSApp() error = %v", err)
+	if err := verifyChatGPTMacOSApp(context.Background(), Options{Runner: runner}, "/Applications/ChatGPT.app"); err != nil {
+		t.Fatalf("verifyChatGPTMacOSApp() error = %v", err)
 	}
 	if len(runner.calls) != 3 {
 		t.Fatalf("verification calls = %#v, want codesign verify, codesign details, spctl", runner.calls)
@@ -606,10 +635,10 @@ func TestVerifyWorkBuddyMacOSAppRequiresExpectedTeamAndNotarization(t *testing.T
 func TestVerifyMacOSAppRejectsUnsignedBundleBeforeIdentityChecks(t *testing.T) {
 	runner := &scriptedRunner{results: []process.Result{{ExitCode: 1, Stderr: "code object is not signed at all"}}}
 
-	err := verifyMacOSApp(context.Background(), Options{Runner: runner}, "/Applications/ChatGPT.app")
+	err := verifyChatGPTMacOSApp(context.Background(), Options{Runner: runner}, "/Applications/ChatGPT.app")
 
 	if err == nil || !strings.Contains(err.Error(), "code signature") {
-		t.Fatalf("verifyMacOSApp() error = %v, want code-signature failure", err)
+		t.Fatalf("verifyChatGPTMacOSApp() error = %v, want code-signature failure", err)
 	}
 	if len(runner.calls) != 1 {
 		t.Fatalf("verification continued after signature failure: %#v", runner.calls)
@@ -622,7 +651,7 @@ func TestApprovedDownloadURLRequiresHTTPSAndAllowedHost(t *testing.T) {
 		url  string
 		want bool
 	}{
-		{name: "official", url: MacDownloadURL, want: true},
+		{name: "official", url: ChatGPTMacDownloadURL, want: true},
 		{name: "http", url: "http://persistent.oaistatic.com/codex-app-prod/ChatGPT.dmg", want: false},
 		{name: "wrong host", url: "https://example.test/ChatGPT.dmg", want: false},
 	} {
@@ -644,10 +673,10 @@ func TestVerifyMacOSAppRejectsWrongTeamID(t *testing.T) {
 		},
 	}}
 
-	err := verifyMacOSApp(context.Background(), Options{Runner: runner}, "/Applications/ChatGPT.app")
+	err := verifyChatGPTMacOSApp(context.Background(), Options{Runner: runner}, "/Applications/ChatGPT.app")
 
 	if err == nil || !strings.Contains(err.Error(), "TeamIdentifier") {
-		t.Fatalf("verifyMacOSApp() error = %v, want TeamIdentifier failure", err)
+		t.Fatalf("verifyChatGPTMacOSApp() error = %v, want TeamIdentifier failure", err)
 	}
 	if len(runner.calls) != 2 {
 		t.Fatalf("verification continued after identity failure: %#v", runner.calls)
@@ -664,10 +693,10 @@ func TestVerifyMacOSAppRejectsNonNotarizedDeveloperIDSource(t *testing.T) {
 		{ExitCode: 0, Stdout: "ChatGPT.app: accepted\nsource=Developer ID"},
 	}}
 
-	err := verifyMacOSApp(context.Background(), Options{Runner: runner}, "/Applications/ChatGPT.app")
+	err := verifyChatGPTMacOSApp(context.Background(), Options{Runner: runner}, "/Applications/ChatGPT.app")
 
 	if err == nil || !strings.Contains(err.Error(), "notarized Developer ID") {
-		t.Fatalf("verifyMacOSApp() error = %v, want notarization failure", err)
+		t.Fatalf("verifyChatGPTMacOSApp() error = %v, want notarization failure", err)
 	}
 	if len(runner.calls) != 3 {
 		t.Fatalf("verification continued after Gatekeeper failure: %#v", runner.calls)
