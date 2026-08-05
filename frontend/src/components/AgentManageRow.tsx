@@ -1,4 +1,4 @@
-import { Download, Play, RefreshCw, SlidersHorizontal } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 
@@ -15,6 +15,18 @@ const npmPackages: Record<string, string> = {
   opencode: "opencode-ai",
   "kilo-cli": "@kilocode/cli",
 };
+
+const AGENT_ACCENTS: Record<string, "blue" | "green" | "orange"> = {
+  codex: "blue",
+  "claude-code": "orange",
+  opencode: "green",
+  "kilo-cli": "blue",
+  aider: "orange",
+};
+
+function agentAccent(agentId: string): "blue" | "green" | "orange" {
+  return AGENT_ACCENTS[agentId] || "blue";
+}
 
 /** -1, 0 or 1 comparing dotted numeric versions; non-numeric parts sort last. */
 export function compareVersions(left: string, right: string): number {
@@ -116,10 +128,12 @@ export function AgentManageRow({
   const version = versionNote(status, t);
   const target = targetSummary(status, providers, t);
   const providerId = profile?.provider || status.provider || "";
-  const providerName = providerId
-    ? providers[providerId]?.name || providerId
-    : status.detected?.baseUrl || t("未记录");
-  const model = profile?.model || status.model || status.detected?.model || t("未记录");
+  const providerName = providerId ? providers[providerId]?.name || providerId : "";
+  const profileLabel = profileName || status.profileId || "";
+  const model = profile?.model || status.model || status.detected?.model || "";
+  const baseUrl = status.baseUrl || status.detected?.baseUrl || "";
+  const hasConfiguration = Boolean(providerName || profileLabel || model || baseUrl);
+  const statusLabel = failure ? t("失败") : !status.installed ? t("未安装") : !hasConfiguration ? t("未配置") : "";
 
   // installed is true only when the Agent's command resolved on the managed
   // PATH, so it is already the precise "there is something to launch" signal.
@@ -150,57 +164,103 @@ export function AgentManageRow({
   };
 
   return (
-    <div className="agent-manage-row" data-testid={`agent-${agentId}`}>
-      <div className="agent-manage-identity">
-        <span className="agent-icon" title={agentTagline(agentId, t) || undefined}>
-          <AgentIcon agentId={agentId} size={20} />
-        </span>
-        <span className="agent-manage-identity-copy">
-          <strong>{catalog?.name || agentId}</strong>
-          {failure ? <small className="agent-manage-note is-error">{failure}</small> : null}
-          {target.note ? <small className="agent-manage-note">{target.note}</small> : null}
-        </span>
+    <div className="agent-manage-row" data-accent={agentAccent(agentId)} data-testid={`agent-${agentId}`}>
+      <div className="agent-manage-summary">
+        <div className="agent-manage-identity">
+          <span className="agent-icon" title={agentTagline(agentId, t) || undefined}>
+            <AgentIcon agentId={agentId} size={20} />
+          </span>
+          <span className="agent-manage-identity-copy">
+            <strong>{catalog?.name || agentId}</strong>
+            {failure ? <small className="agent-manage-note is-error">{failure}</small> : null}
+          </span>
+        </div>
+        <div className="agent-manage-meta" aria-label={t("状态")}>
+          {providerName ? (
+            <span className="agent-manage-pill" title={t("模型服务")}>
+              <i aria-hidden="true" />
+              {providerName}
+            </span>
+          ) : null}
+          <span className={`agent-manage-pill${profileLabel ? "" : " is-muted"}`} title={t("配置模板")}>
+            {profileLabel || t("未绑定")}
+          </span>
+          {model ? (
+            <span className="agent-manage-pill agent-manage-model" title={t("模型")}>
+              {model}
+            </span>
+          ) : null}
+          {version ? (
+            <span className={`agent-manage-pill agent-manage-version${version.behind ? " is-behind" : ""}`} title={t("版本")}>
+              {version.text}
+            </span>
+          ) : null}
+          {statusLabel ? <span className={`agent-manage-state${failure ? " is-error" : ""}`}>{statusLabel}</span> : null}
+        </div>
       </div>
-      <span className="agent-manage-fact"><small>Provider</small><span title={providerName}>{providerName}</span></span>
-      <span className="agent-manage-fact"><small>Profile</small><span title={status.profileId || undefined}>{profileName || t("未绑定")}</span></span>
-      <span className="agent-manage-fact"><small>{t("模型")}</small><span title={model}>{model}</span></span>
-      <span className={`agent-manage-fact agent-manage-version${version?.behind ? " is-behind" : ""}`}>
-        <small>{t("版本")}</small><span>{version?.text || t("未知")}</span>
-      </span>
-      <span className="agent-manage-actions">
-        {/* An explicit button rather than making the whole row a link: the row
-            already carries the launch action, and two competing click targets in
-            one row is how you launch an Agent while meaning to configure it. */}
-        <Link
-          className="button button-secondary"
-          to={`/agents/${agentId}`}
-          title={t("编辑这个 Agent 关联的 Profile")}
-        >
-          <SlidersHorizontal size={15} />
-          {t("编辑配置")}
-        </Link>
+      <div className="agent-manage-actions">
+        {!canLaunch ? (
+          <Link
+            className="button button-secondary"
+            to={`/agents/${agentId}`}
+            title={t("编辑这个 Agent 关联的 Profile")}
+          >
+            {t("配置")}
+          </Link>
+        ) : null}
         {npmAgents.has(agentId) ? (
           <button className="button button-secondary" type="button" onClick={() => void update()} disabled={updating || launching} title={t("执行 npm update")}>
-            {updating ? <RefreshCw size={15} className="spin" /> : <Download size={15} />}
             {t("更新")}
           </button>
         ) : null}
         {canLaunch ? (
           <button
-            className="button button-secondary"
+            className="button button-primary"
             type="button"
             onClick={() => void launch()}
             disabled={launching}
             title={t("在新终端窗口中启动，并载入 OneAgent 写入的配置")}
           >
-            {launching ? <RefreshCw size={15} className="spin" /> : <Play size={15} />}
+            {launching ? <RefreshCw size={14} className="spin" aria-hidden="true" /> : null}
             {t("启动")}
           </button>
         ) : null}
-      </span>
-      <p className="agent-manage-package" title={npmPackages[agentId]}>
-        {npmPackages[agentId] ? <>npm 包：{npmPackages[agentId]}</> : null}
-      </p>
+      </div>
+      <details className="agent-manage-details">
+        <summary>{t("详情")}</summary>
+        <div className="agent-manage-details-body">
+          {canLaunch ? (
+            <Link
+              className="agent-manage-detail-action"
+              to={`/agents/${agentId}`}
+              title={t("编辑这个 Agent 关联的 Profile")}
+            >
+              {t("配置")}
+            </Link>
+          ) : null}
+          {providerName ? (
+            <div><small>{t("模型服务")}</small><span>{providerName}</span></div>
+          ) : null}
+          {profileLabel ? (
+            <div><small>{t("配置模板")}</small><span>{profileLabel}</span></div>
+          ) : null}
+          {model ? (
+            <div><small>{t("模型")}</small><span className="agent-manage-detail-code">{model}</span></div>
+          ) : null}
+          {baseUrl ? (
+            <div><small>URL</small><span className="agent-manage-detail-code" title={baseUrl}>{baseUrl}</span></div>
+          ) : null}
+          {target.text && target.text !== t("未配置") ? (
+            <div><small>{t("检测状态")}</small><span>{target.text}</span></div>
+          ) : null}
+          {target.note ? (
+            <div className="agent-manage-detail-note"><small>{t("备注")}</small><span>{target.note}</span></div>
+          ) : null}
+          {npmPackages[agentId] ? (
+            <div><small>npm</small><span className="agent-manage-detail-code">{npmPackages[agentId]}</span></div>
+          ) : null}
+        </div>
+      </details>
     </div>
   );
 }

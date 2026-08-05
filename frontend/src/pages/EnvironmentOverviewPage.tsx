@@ -75,7 +75,7 @@ export function EnvironmentOverviewPage() {
   return (
     <PageScaffold
       title={t("环境总览")}
-      description={t("本机已安装 Agent 及其当前 Provider、Profile 与模型。")}
+      description={t("本机已安装 Agent 及其当前配置。")}
       secondaryAction={
         <>
           <button
