@@ -23,9 +23,8 @@ interface RuntimePromptProps {
  */
 export function RuntimePrompt({ runtimes, missingRuntime, selectedAgentIds, agents, onInstalled }: RuntimePromptProps) {
   const { t } = useI18n();
-  const { resetProgress } = useTaskCenter();
+  const { running, outcomes, startTask, finishTask } = useTaskCenter();
   const [pending, setPending] = useState("");
-  const [failure, setFailure] = useState("");
 
   const required = useMemo(() => {
     const byId = new Map(runtimes.map((runtime) => [runtime.id, runtime]));
@@ -43,19 +42,26 @@ export function RuntimePrompt({ runtimes, missingRuntime, selectedAgentIds, agen
 
   if (!required.length) return null;
 
+  // The prompt sits on a wizard step the user can leave mid-download, so the
+  // in-flight flag and the failure live in the provider above the router rather
+  // than in local state that unmounting would discard.
+  const downloading = required.find((runtime) => running[runtime.id])?.id ?? "";
+  const busy = Boolean(pending) || Boolean(downloading);
+  const failure = required
+    .map((runtime) => outcomes[runtime.id])
+    .find((outcome) => outcome?.kind === "failure")?.message ?? "";
+
   const install = async (runtimeId: string) => {
     setPending(runtimeId);
-    setFailure("");
-    // A retry must not open on the previous attempt's finished bar.
-    resetProgress(runtimeId);
+    startTask(runtimeId);
     try {
       await api.installRuntime(runtimeId);
+      finishTask(runtimeId, { kind: "success", message: "" });
       await onInstalled();
     } catch (error) {
-      setFailure(describeError(error, t("运行时安装失败")).message);
+      finishTask(runtimeId, { kind: "failure", message: describeError(error, t("运行时安装失败")).message });
     } finally {
       setPending("");
-      resetProgress(runtimeId);
     }
   };
 
@@ -74,16 +80,16 @@ export function RuntimePrompt({ runtimes, missingRuntime, selectedAgentIds, agen
               className="button button-secondary"
               type="button"
               onClick={() => void install(runtime.id)}
-              disabled={Boolean(pending)}
+              disabled={busy}
             >
-              {pending === runtime.id ? <RefreshCw size={15} className="spin" /> : <Download size={15} />}
-              {pending === runtime.id
+              {pending === runtime.id || downloading === runtime.id ? <RefreshCw size={15} className="spin" /> : <Download size={15} />}
+              {pending === runtime.id || downloading === runtime.id
                 ? t("安装中")
                 : t("安装 {name} {version}", { name: runtime.name, version: runtime.lockedVersion })}
             </button>
           ))}
         </div>
-        {pending ? <DownloadProgress target={pending} pending /> : null}
+        {required.map((runtime) => <DownloadProgress key={runtime.id} target={runtime.id} />)}
         {failure ? <span className="runtime-prompt-error">{failure}</span> : null}
       </div>
     </div>

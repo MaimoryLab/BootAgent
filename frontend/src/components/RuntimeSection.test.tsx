@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { OneAgentApiError } from "../backend/errors";
 import type { RuntimeStatus } from "../types/api";
+import { TaskCenterProvider } from "../state/TaskCenterContext";
 import { RuntimePrompt } from "./RuntimePrompt";
 import { RuntimeSection, runtimeRoot } from "./RuntimeSection";
 
@@ -15,6 +16,7 @@ vi.mock("../backend/api", async () => {
   const errors = await import("../backend/errors");
   return {
     api: {
+      onInstallOutput: () => () => {},
       installRuntime: (runtime: string) => installRuntime(runtime),
       getSettings: () => getSettings(),
       saveSettings: (settings: unknown) => saveSettings(settings),
@@ -57,7 +59,11 @@ describe("RuntimeSection", () => {
   });
 
   it("reports installed runtimes with their version and offers no install button", () => {
-    render(<RuntimeSection runtimes={[runtime({ installed: true, version: "24.18.1", managed: true })]} onInstalled={vi.fn()} />);
+    render(
+      <TaskCenterProvider>
+        <RuntimeSection runtimes={[runtime({ installed: true, version: "24.18.1", managed: true })]} onInstalled={vi.fn()} />
+      </TaskCenterProvider>,
+    );
     fireEvent.click(screen.getByRole("button", { name: "运行时" }));
     expect(screen.getByText("Node.js")).toBeTruthy();
     expect(screen.getByText("版本 24.18.1")).toBeTruthy();
@@ -68,7 +74,11 @@ describe("RuntimeSection", () => {
   it("installs a missing runtime and refreshes status afterwards", async () => {
     installRuntime.mockResolvedValue({ runtime: "node", installed: true, version: "24.18.1", pathUpdated: true, runtimes: [] });
     const onInstalled = vi.fn();
-    render(<RuntimeSection runtimes={[runtime()]} onInstalled={onInstalled} />);
+    render(
+      <TaskCenterProvider>
+        <RuntimeSection runtimes={[runtime()]} onInstalled={onInstalled} />
+      </TaskCenterProvider>,
+    );
     fireEvent.click(screen.getByRole("button", { name: "运行时" }));
     expect(screen.getByText("未安装")).toBeTruthy();
 
@@ -82,7 +92,11 @@ describe("RuntimeSection", () => {
       throw new OneAgentApiError("校验和不匹配", "AGENT_INSTALL_FAILED", true, 400);
     });
     const onInstalled = vi.fn();
-    render(<RuntimeSection runtimes={[runtime()]} onInstalled={onInstalled} />);
+    render(
+      <TaskCenterProvider>
+        <RuntimeSection runtimes={[runtime()]} onInstalled={onInstalled} />
+      </TaskCenterProvider>,
+    );
     fireEvent.click(screen.getByRole("button", { name: "运行时" }));
 
     await userEvent.click(screen.getByRole("button", { name: "安装" }));
@@ -91,12 +105,20 @@ describe("RuntimeSection", () => {
   });
 
   it("hides runtimes with no locked download for this platform", () => {
-    render(<RuntimeSection runtimes={[runtime({ supported: false })]} onInstalled={vi.fn()} />);
+    render(
+      <TaskCenterProvider>
+        <RuntimeSection runtimes={[runtime({ supported: false })]} onInstalled={vi.fn()} />
+      </TaskCenterProvider>,
+    );
     expect(screen.queryByText("Node.js")).toBeNull();
   });
 
   it("starts collapsed for secondary overview details", async () => {
-    render(<RuntimeSection runtimes={[runtime()]} onInstalled={vi.fn()} />);
+    render(
+      <TaskCenterProvider>
+        <RuntimeSection runtimes={[runtime()]} onInstalled={vi.fn()} />
+      </TaskCenterProvider>,
+    );
     const trigger = screen.getByRole("button", { name: "运行时" });
     expect(trigger).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryByText("Node.js")).toBeNull();

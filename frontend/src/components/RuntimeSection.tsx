@@ -39,9 +39,8 @@ export function runtimeRoot(runtimes: RuntimeStatus[]): string {
 
 export function RuntimeSection({ runtimes, onInstalled }: RuntimeSectionProps) {
   const { t } = useI18n();
-  const { resetProgress } = useTaskCenter();
+  const { running, outcomes, startTask, finishTask } = useTaskCenter();
   const [pending, setPending] = useState("");
-  const [failure, setFailure] = useState("");
 
   const supported = runtimes.filter((runtime) => runtime.supported || runtime.installed);
   if (!supported.length) return null;
@@ -50,19 +49,26 @@ export function RuntimeSection({ runtimes, onInstalled }: RuntimeSectionProps) {
   // the source rather than just the missing ones.
   const root = runtimeRoot(supported);
 
+  // A runtime download survives navigation away from this section, so the
+  // in-flight flag and the failure both live in the provider above the router.
+  // A local flag would reset on unmount and hide a download still running.
+  const downloading = supported.find((runtime) => running[runtime.id])?.id ?? "";
+  const busy = Boolean(pending) || Boolean(downloading);
+  const failure = supported
+    .map((runtime) => outcomes[runtime.id])
+    .find((outcome) => outcome?.kind === "failure")?.message ?? "";
+
   const install = async (runtimeId: string) => {
     setPending(runtimeId);
-    setFailure("");
-    // A retry must not open on the previous attempt's finished bar.
-    resetProgress(runtimeId);
+    startTask(runtimeId);
     try {
       await api.installRuntime(runtimeId);
+      finishTask(runtimeId, { kind: "success", message: "" });
       await onInstalled();
     } catch (error) {
-      setFailure(describeError(error, t("运行时安装失败")).message);
+      finishTask(runtimeId, { kind: "failure", message: describeError(error, t("运行时安装失败")).message });
     } finally {
       setPending("");
-      resetProgress(runtimeId);
     }
   };
 
@@ -105,13 +111,14 @@ export function RuntimeSection({ runtimes, onInstalled }: RuntimeSectionProps) {
                 className="button button-secondary"
                 type="button"
                 onClick={() => void install(runtime.id)}
-                disabled={Boolean(pending)}
+                disabled={busy}
               >
-                {pending === runtime.id ? <RefreshCw size={15} className="spin" /> : <Download size={15} />}
-                {pending === runtime.id ? t("安装中") : t("安装")}
+                {pending === runtime.id || downloading === runtime.id ? <RefreshCw size={15} className="spin" /> : <Download size={15} />}
+                {pending === runtime.id || downloading === runtime.id ? t("安装中") : t("安装")}
               </button>
             )}
-            {pending === runtime.id ? <DownloadProgress target={runtime.id} pending /> : null}
+            {/* Reads the shared in-flight state, so the bar returns after navigation. */}
+            <DownloadProgress target={runtime.id} />
           </div>
         ))}
       </div>

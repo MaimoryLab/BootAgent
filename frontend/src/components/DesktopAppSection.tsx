@@ -24,41 +24,54 @@ type Action = "install" | "open" | "installer";
 
 export function DesktopAppSection({ app: desktopApp, onChanged, onSetup, onConfigure, profile, providerName, model, showUninstalled = true }: DesktopAppSectionProps) {
   const { t } = useI18n();
-  const { resetProgress } = useTaskCenter();
+  const { running, outcomes, startTask, finishTask, clearOutcome } = useTaskCenter();
   const [pending, setPending] = useState<Action | "">("");
-  const [failure, setFailure] = useState("");
-  const [notice, setNotice] = useState("");
 
   if (!desktopApp?.supported || (!showUninstalled && !desktopApp.installed)) return null;
 
+  // A download outlives this component: the user can navigate away while it
+  // runs, which unmounts the row and drops any local state. The in-flight flag
+  // and the outcome therefore live in the Task Center provider above the router,
+  // so both the bar and the final verdict survive the round trip.
+  const downloading = Boolean(running[desktopApp.id]);
+  const busy = Boolean(pending) || downloading;
+  const outcome = outcomes[desktopApp.id];
+  const notice = outcome?.kind === "success" ? outcome.message : "";
+  const failure = outcome?.kind === "failure" ? outcome.message : "";
+
   const run = async (action: Action) => {
-    const downloading = action === "install" || action === "installer";
+    const downloads = action === "install" || action === "installer";
     setPending(action);
-    setFailure("");
-    setNotice("");
-    if (downloading) resetProgress(desktopApp.id);
+    // Opening the app is not a download, so it gets no shared bar; it still
+    // clears the previous verdict so a stale notice does not linger.
+    if (downloads) startTask(desktopApp.id);
+    else clearOutcome(desktopApp.id);
     try {
       const result = action === "install"
         ? await api.installDesktopAgent()
         : action === "installer"
           ? await api.openDesktopAgentInstaller()
           : null;
+      let message: string;
       if (action === "open") {
         await api.openDesktopAgent();
-        setNotice(t("{name} 已打开", { name: desktopApp.name }));
+        message = t("{name} 已打开", { name: desktopApp.name });
       } else if (result?.status === "installed") {
-        setNotice(t("{name} 安装完成", { name: desktopApp.name }));
+        message = t("{name} 安装完成", { name: desktopApp.name });
       } else if (result?.status === "already-installed") {
-        setNotice(t("{name} 已安装", { name: desktopApp.name }));
+        message = t("{name} 已安装", { name: desktopApp.name });
       } else {
-        setNotice(t("官方安装器已启动"));
+        message = t("官方安装器已启动");
       }
+      // Recorded in the provider, so it still reaches the user if this row
+      // unmounted while the install was running.
+      finishTask(desktopApp.id, { kind: "success", message });
       await onChanged();
     } catch (error) {
-      setFailure(describeError(error, t("{name} 操作失败", { name: desktopApp.name })).message);
+      const message = describeError(error, t("{name} 操作失败", { name: desktopApp.name })).message;
+      finishTask(desktopApp.id, { kind: "failure", message });
     } finally {
       setPending("");
-      if (downloading) resetProgress(desktopApp.id);
     }
   };
 
@@ -83,9 +96,9 @@ export function DesktopAppSection({ app: desktopApp, onChanged, onSetup, onConfi
           <div className="uninstalled-agent-action">
             <AppWindow size={28} aria-hidden="true" />
             <span>{t("按引导安装桌面 Agent")}</span>
-            <button className="button button-primary" type="button" aria-label={t("安装")} onClick={() => onSetup ? onSetup() : void run("install")} disabled={Boolean(pending)}>
-              {pending === "install" ? <RefreshCw size={15} className="spin" aria-hidden="true" /> : <Plus size={16} />}
-              {pending === "install" ? t("安装中") : t("安装桌面 Agent")}
+            <button className="button button-primary" type="button" aria-label={t("安装")} onClick={() => onSetup ? onSetup() : void run("install")} disabled={busy}>
+              {pending === "install" || downloading ? <RefreshCw size={15} className="spin" aria-hidden="true" /> : <Plus size={16} />}
+              {pending === "install" || downloading ? t("安装中") : t("安装桌面 Agent")}
             </button>
           </div>
         ) : null}
@@ -123,24 +136,24 @@ export function DesktopAppSection({ app: desktopApp, onChanged, onSetup, onConfi
           {desktopApp.installed ? (
             <>
               {onConfigure ? (
-                <button className="button button-secondary" type="button" onClick={onConfigure} disabled={Boolean(pending)}>
+                <button className="button button-secondary" type="button" onClick={onConfigure} disabled={busy}>
                   <SlidersHorizontal size={15} />
                   {t("编辑配置")}
                 </button>
               ) : null}
-              <button className="button button-secondary" type="button" onClick={() => void run("installer")} disabled={Boolean(pending)}>
-                {pending === "installer" ? <RefreshCw size={15} className="spin" aria-hidden="true" /> : <Download size={15} aria-hidden="true" />}
+              <button className="button button-secondary" type="button" onClick={() => void run("installer")} disabled={busy}>
+                {pending === "installer" || downloading ? <RefreshCw size={15} className="spin" aria-hidden="true" /> : <Download size={15} aria-hidden="true" />}
                 {t("更新")}
               </button>
-              <button className="button button-secondary" type="button" onClick={() => void run("open")} disabled={Boolean(pending)}>
+              <button className="button button-secondary" type="button" onClick={() => void run("open")} disabled={busy}>
                 {pending === "open" ? <RefreshCw size={15} className="spin" aria-hidden="true" /> : <Play size={15} aria-hidden="true" />}
                 {t("启动")}
               </button>
             </>
           ) : (
-            <button className="button button-primary" type="button" onClick={() => onSetup ? onSetup() : void run("install")} disabled={Boolean(pending)}>
-              {pending === "install" ? <RefreshCw size={15} className="spin" aria-hidden="true" /> : <Download size={15} aria-hidden="true" />}
-              {pending === "install" ? t("安装中") : t("安装桌面 Agent")}
+            <button className="button button-primary" type="button" onClick={() => onSetup ? onSetup() : void run("install")} disabled={busy}>
+              {pending === "install" || downloading ? <RefreshCw size={15} className="spin" aria-hidden="true" /> : <Download size={15} aria-hidden="true" />}
+              {pending === "install" || downloading ? t("安装中") : t("安装桌面 Agent")}
             </button>
           )}
         </div>
@@ -151,7 +164,9 @@ export function DesktopAppSection({ app: desktopApp, onChanged, onSetup, onConfi
               : t("配置文件：{path}", { path: desktopApp.configPath })}
           </p>
         ) : null}
-        {pending === "install" || pending === "installer" ? <DownloadProgress target={desktopApp.id} pending /> : null}
+        {/* No local flag in the condition: DownloadProgress reads the shared
+            in-flight state itself, so navigating away and back keeps the bar. */}
+        <DownloadProgress target={desktopApp.id} />
       </div>
     </section>
   );
