@@ -97,6 +97,10 @@ jobs:
         working-directory: frontend
         run: pnpm install --frozen-lockfile
 
+      # Includes src/styles/cascade.test.ts, which is the only gate that reads
+      # CSS. Three layout bugs reached main through duplicate selectors silently
+      # overriding each other, none of them reachable by a type check or a
+      # component test.
       - name: Test
         working-directory: frontend
         run: pnpm run test

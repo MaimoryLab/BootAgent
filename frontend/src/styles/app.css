@@ -1102,6 +1102,9 @@
   gap: 5px;
 }
 
+/* Shape only. Colour is set once per variant below, so .agent-manage-state does
+   not first inherit the solid treatment and then override it -- it is always
+   the muted one. */
 .agent-manage-pill,
 .agent-manage-state {
   min-width: 0;
@@ -1112,13 +1115,16 @@
   gap: 5px;
   border: 1px solid var(--border);
   border-radius: 999px;
-  color: var(--text-secondary);
-  background: var(--window-bg);
   font-size: 11px;
   line-height: 1.2;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.agent-manage-pill {
+  color: var(--text-secondary);
+  background: var(--window-bg);
 }
 
 .agent-manage-pill > i {
@@ -1315,16 +1321,6 @@
 
 .desktop-app-identity strong { font-size: 16px; line-height: 1.3; }
 .desktop-app-identity small { color: var(--text-tertiary); font-size: 10px; }
-.desktop-app-path span {
-  min-width: 0;
-  overflow: hidden;
-  color: var(--text-secondary);
-  font-size: 12px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.desktop-app-path { grid-column: 1 / -1; grid-row: 3; margin-left: 0; }
 
 /* No explicit grid placement: the row is two columns now (summary | actions)
    with the actions inline, so pinning them to column 3 / row 2 -- as the old
@@ -1757,21 +1753,20 @@
   font-size: 11px;
 }
 
-/* Every interactive target clears the same minimum height, so a row, a button
-   and a disclosure all feel like the same control family. */
-.button,
-.disclosure-trigger,
-.provider-link,
-.agent-manage-row {
+/* A 28px floor for the one interactive target that declares no height of its
+   own. This list used to also carry .button, .button-compact (via .button),
+   .disclosure-trigger and .agent-manage-row, all of which declare a *larger*
+   min-height elsewhere -- 38px, 32px, 46px and 84px. Same specificity and
+   later in source order (app.css loads after base.css) made this a ceiling
+   rather than a floor, so it silently shortened all four. Anything added here
+   must not set its own min-height. */
+.provider-link {
   min-height: 28px;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  * {
-    transition-duration: 0ms !important;
-    animation-duration: 0ms !important;
-  }
-}
+/* Reduced motion is handled once, in base.css. A second block here overrode
+   only two of its four properties, so the two sheets disagreed on the duration
+   while base.css remained the only place covering ::before/::after. */
 
 /* Advanced options: present but not in the way. */
 .advanced-section {
