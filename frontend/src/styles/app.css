@@ -1142,6 +1142,9 @@
 
 .agent-manage-note.is-error { color: var(--red); }
 
+/* Placed by the row's own two-column grid (summary | actions). An explicit
+   `grid-column: 3` here belonged to the earlier five-column card and would put
+   the buttons outside the grid. */
 .agent-manage-actions {
   display: flex;
   align-items: center;
@@ -1309,6 +1312,9 @@
 
 .desktop-app-path { grid-column: 1 / -1; grid-row: 3; margin-left: 0; }
 
+/* No explicit grid placement: the row is two columns now (summary | actions)
+   with the actions inline, so pinning them to column 3 / row 2 -- as the old
+   five-column layout did -- would place them outside the grid. */
 .desktop-app-actions {
   display: flex;
   align-items: center;
@@ -1441,12 +1447,10 @@
    under the icon, which is what made every row tall and narrow. It and the
    .agent-manage-target rule beside it had no markup left using them. */
 
-.agent-manage-actions {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  gap: 9px;
-}
+/* The action row is defined once, above. A second block here won on source order
+   and dropped justify-content, so the buttons stopped right-aligning; only
+   flex-shrink was carrying its weight. */
+.agent-manage-actions { flex-shrink: 0; }
 
 .agent-manage-error {
   margin: 0;
@@ -2043,7 +2047,9 @@
   }
 
   /* Stack identity above the tokens: at this width the two-column summary
-     leaves neither side enough room, and the tokens wrap into a ragged block. */
+     leaves neither side enough room, and the tokens wrap into a ragged block.
+     The row is single-column here, so the actions span it without needing an
+     explicit grid-column. */
   .agent-manage-summary { grid-template-columns: minmax(0, 1fr); }
   .agent-manage-meta { justify-content: flex-start; }
 
