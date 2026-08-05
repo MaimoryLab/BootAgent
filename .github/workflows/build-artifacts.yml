@@ -104,6 +104,14 @@ jobs:
           go build -tags wails,production -trimpath -buildvcs=false -ldflags="${{ matrix.target.desktop_ldflags }} $version_ldflag" -o "bin/oneagent-desktop${{ matrix.target.suffix }}" ./cmd/oneagent-desktop
           go build -trimpath -buildvcs=false -ldflags="-w -s $version_ldflag" -o "bin/oneagent${{ matrix.target.suffix }}" ./cmd/oneagent
 
+      - name: Verify production Go dependency inventory
+        shell: bash
+        run: |
+          python3 scripts/generate_third_party_licenses.py \
+            --verify-platform "${{ matrix.target.platform }}-${{ matrix.arch }}" \
+            --verify-go-binary "bin/oneagent-desktop${{ matrix.target.suffix }}" \
+            --verify-go-binary "bin/oneagent${{ matrix.target.suffix }}"
+
       - name: Package macOS app
         if: matrix.target.platform == 'macos'
         shell: bash
@@ -117,6 +125,35 @@ jobs:
           /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $bundle_version" "bin/OneAgent.app/Contents/Info.plist"
           codesign --force --deep --sign - "bin/OneAgent.app"
           rm "bin/oneagent-desktop"
+
+      - name: Add license material to artifact
+        shell: bash
+        run: |
+          cp LICENSE NOTICE third_party/THIRD_PARTY_NOTICES.md bin/
+          cp -R third_party/licenses bin/licenses
+          if [[ "${{ matrix.target.platform }}" == "macos" ]]; then
+            compliance="bin/OneAgent.app/Contents/Resources/compliance"
+            mkdir -p "$compliance"
+            cp LICENSE NOTICE third_party/THIRD_PARTY_NOTICES.md "$compliance/"
+            cp -R third_party/licenses "$compliance/licenses"
+          fi
+
+      - name: Verify artifact license material
+        shell: bash
+        run: |
+          test -f bin/LICENSE
+          test -f bin/NOTICE
+          test -f bin/THIRD_PARTY_NOTICES.md
+          test -f bin/licenses/go/github.com_go-ole_go-ole@v1.3.0/LICENSE
+          test -f bin/licenses/npm/react-router@7.18.1/LICENSE.md
+          test -f bin/licenses/npm/scheduler@0.27.0/LICENSE
+          test -f bin/licenses/npm/cookie@1.0.1/LICENSE
+          test -f bin/licenses/npm/set-cookie-parser@2.6.0/LICENSE
+          if [[ "${{ matrix.target.platform }}" == "macos" ]]; then
+            test -f bin/OneAgent.app/Contents/Resources/compliance/LICENSE
+            test -f bin/OneAgent.app/Contents/Resources/compliance/NOTICE
+            test -f bin/OneAgent.app/Contents/Resources/compliance/THIRD_PARTY_NOTICES.md
+          fi
 
       - name: Upload artifact
         uses: actions/upload-artifact@v7

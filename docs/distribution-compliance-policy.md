@@ -42,12 +42,12 @@ Every public release contains at least:
 - The OneAgent binary archive.
 - The SHA-256 matching that archive.
 - The version, the build time, the target environments, and the release status.
-- The third-party licence inventory. This is currently carried by [NOTICE](../NOTICE) at
-  the repository root; it also separates the components redistributed inside the package
-  from the components downloaded at run time and no longer redistributed (Node.js, uv,
-  Agent packages). `cmd/oneagent-release`, which generated this inventory, was removed
-  in `23805b0`, so `NOTICE` is now a hand-maintained source of truth and must be updated
-  whenever a bundled dependency or an in-app third-party marking is added.
+- The third-party licence inventory and full licence texts. The generated source is
+  [third_party/THIRD_PARTY_NOTICES.md](../third_party/THIRD_PARTY_NOTICES.md), with
+  dependency texts under `third_party/licenses/`; every binary artifact carries the same
+  files at its root. `scripts/generate_third_party_licenses.py --check` derives the
+  inventory from the production Go targets and frozen frontend dependency graph, and CI
+  blocks a stale or incomplete bundle.
 - The Agent version pinning manifest and the official sources.
 - Release notes, known issues, and a withdrawal contact.
 

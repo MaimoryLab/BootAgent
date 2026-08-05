@@ -1,0 +1,185 @@
+{
+  "dependencies": [
+    {
+      "ecosystem": "go",
+      "license": "MIT",
+      "license_files": [
+        "licenses/go/github.com_adrg_xdg@v0.5.3/LICENSE"
+      ],
+      "name": "github.com/adrg/xdg",
+      "platforms": [
+        "macos-arm64",
+        "macos-x64",
+        "windows-arm64",
+        "windows-x64"
+      ],
+      "version": "v0.5.3"
+    },
+    {
+      "ecosystem": "go",
+      "license": "MIT",
+      "license_files": [
+        "licenses/go/github.com_go-ole_go-ole@v1.3.0/LICENSE"
+      ],
+      "name": "github.com/go-ole/go-ole",
+      "platforms": [
+        "windows-arm64",
+        "windows-x64"
+      ],
+      "version": "v1.3.0"
+    },
+    {
+      "ecosystem": "go",
+      "license": "MIT",
+      "license_files": [
+        "licenses/go/github.com_pelletier_go-toml_v2@v2.4.3/LICENSE"
+      ],
+      "name": "github.com/pelletier/go-toml/v2",
+      "platforms": [
+        "macos-arm64",
+        "macos-x64",
+        "windows-arm64",
+        "windows-x64"
+      ],
+      "version": "v2.4.3"
+    },
+    {
+      "ecosystem": "go",
+      "license": "MIT",
+      "license_files": [
+        "licenses/go/github.com_wailsapp_wails_v3@v3.0.0-beta.3/LICENSE"
+      ],
+      "name": "github.com/wailsapp/wails/v3",
+      "platforms": [
+        "macos-arm64",
+        "macos-x64",
+        "windows-arm64",
+        "windows-x64"
+      ],
+      "version": "v3.0.0-beta.3"
+    },
+    {
+      "ecosystem": "go",
+      "license": "BSD-3-Clause",
+      "license_files": [
+        "licenses/go/golang.org_x_sys@v0.47.0/LICENSE"
+      ],
+      "name": "golang.org/x/sys",
+      "platforms": [
+        "windows-arm64",
+        "windows-x64"
+      ],
+      "version": "v0.47.0"
+    },
+    {
+      "ecosystem": "npm",
+      "license": "MIT",
+      "license_files": [
+        "licenses/npm/wailsio_runtime@3.0.0-alpha2.117/LICENSE"
+      ],
+      "name": "@wailsio/runtime",
+      "platforms": [
+        "frontend"
+      ],
+      "version": "3.0.0-alpha2.117"
+    },
+    {
+      "ecosystem": "npm",
+      "license": "MIT",
+      "license_files": [
+        "licenses/npm/cookie@1.0.1/LICENSE"
+      ],
+      "name": "cookie",
+      "platforms": [
+        "frontend"
+      ],
+      "version": "1.0.1"
+    },
+    {
+      "ecosystem": "npm",
+      "license": "ISC",
+      "license_files": [
+        "licenses/npm/lucide-react@1.25.0/LICENSE"
+      ],
+      "name": "lucide-react",
+      "platforms": [
+        "frontend"
+      ],
+      "version": "1.25.0"
+    },
+    {
+      "ecosystem": "npm",
+      "license": "MIT",
+      "license_files": [
+        "licenses/npm/react@19.2.8/LICENSE"
+      ],
+      "name": "react",
+      "platforms": [
+        "frontend"
+      ],
+      "version": "19.2.8"
+    },
+    {
+      "ecosystem": "npm",
+      "license": "MIT",
+      "license_files": [
+        "licenses/npm/react-dom@19.2.8/LICENSE"
+      ],
+      "name": "react-dom",
+      "platforms": [
+        "frontend"
+      ],
+      "version": "19.2.8"
+    },
+    {
+      "ecosystem": "npm",
+      "license": "MIT",
+      "license_files": [
+        "licenses/npm/react-router@7.18.1/LICENSE.md"
+      ],
+      "name": "react-router",
+      "platforms": [
+        "frontend"
+      ],
+      "version": "7.18.1"
+    },
+    {
+      "ecosystem": "npm",
+      "license": "MIT",
+      "license_files": [
+        "licenses/npm/react-router-dom@7.18.1/LICENSE.md"
+      ],
+      "name": "react-router-dom",
+      "platforms": [
+        "frontend"
+      ],
+      "version": "7.18.1"
+    },
+    {
+      "ecosystem": "npm",
+      "license": "MIT",
+      "license_files": [
+        "licenses/npm/scheduler@0.27.0/LICENSE"
+      ],
+      "name": "scheduler",
+      "platforms": [
+        "frontend"
+      ],
+      "version": "0.27.0"
+    },
+    {
+      "ecosystem": "npm",
+      "license": "MIT",
+      "license_files": [
+        "licenses/npm/set-cookie-parser@2.6.0/LICENSE"
+      ],
+      "name": "set-cookie-parser",
+      "platforms": [
+        "frontend"
+      ],
+      "version": "2.6.0"
+    }
+  ],
+  "generated_by": "scripts/generate_third_party_licenses.py",
+  "schema_version": 1
+}
