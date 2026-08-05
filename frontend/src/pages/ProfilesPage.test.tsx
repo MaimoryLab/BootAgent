@@ -122,6 +122,12 @@ describe("ProfilesPage", () => {
     expect(screen.getByText("API mode: responses")).toBeTruthy();
   });
 
+  it("shows which Agents use each Profile", () => {
+    renderPage([profile(), profile({ id: "unused", label: "未使用" })]);
+    expect(screen.getByTestId("profile-team-ppio").textContent).toContain("Codex");
+    expect(screen.getByTestId("profile-unused").textContent).toContain("暂无 Agent 使用");
+  });
+
   it("sends Profile creation through onboarding instead of an inline form", async () => {
     // The old form collected a Provider, model and Agent list without ever
     // testing the key. Onboarding collects the same fields in order, probes the

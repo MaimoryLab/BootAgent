@@ -215,6 +215,7 @@ export function ProfilesPage() {
         <div className="profile-list">
           {profiles.map((profile) => {
             const agents = configurableAgents.filter((agent) => agent.protocol === protocolOf(profile));
+            const users = configurableAgents.filter((agent) => status.agents[agent.id]?.profileId === profile.id);
             const canApply = Boolean(
               profile.model && agents.length
                 && (status.providers[profile.provider]?.has_key || profile.hasKey),
@@ -247,6 +248,11 @@ export function ProfilesPage() {
                   API mode: {protocolOf(profile) || "-"}
                 </p>
                 <footer>
+                  {users.length ? (
+                    <span className="provider-users">
+                      {users.map((agent) => <span className="provider-user-chip" key={agent.id}>{agent.name}</span>)}
+                    </span>
+                  ) : <span className="provider-users is-empty">{t("暂无 Agent 使用")}</span>}
                   <button
                     className="button button-secondary"
                     type="button"
