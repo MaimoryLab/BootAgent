@@ -1236,6 +1236,8 @@
 }
 
 .desktop-app-section { margin-top: 30px; }
+.desktop-app-list { display: grid; gap: 8px; }
+.desktop-app-list .desktop-app-item { margin-top: 0; }
 
 .desktop-app-notice {
   margin-bottom: 8px;

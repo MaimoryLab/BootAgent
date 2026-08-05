@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { PageScaffold } from "../components/PageScaffold";
 import { useI18n } from "../i18n";
 import { useWizard } from "../state/WizardContext";
-import { profileAgentIdForDesktop } from "../state/desktopSetup";
+import { desktopProtocol, profileAgentIdForDesktop, selectedDesktopApp } from "../state/desktopSetup";
 import { byProfileCreatedAt } from "../state/ranking";
 
 export function ProfileSelectionPage() {
@@ -13,10 +13,15 @@ export function ProfileSelectionPage() {
   const { t } = useI18n();
   const { state, dispatch } = useWizard();
   const [selectedId, setSelectedId] = useState("");
-  const agentId = state.setupKind === "desktop" && state.status?.desktopAgent
-    ? profileAgentIdForDesktop(state.status.desktopAgent)
+  const desktop = state.setupKind === "desktop" && state.status
+    ? selectedDesktopApp(state.status, state.selectedAgentIds)
+    : undefined;
+  const agentId = desktop
+    ? profileAgentIdForDesktop(desktop)
     : state.selectedAgentIds[0] || "";
-  const protocol = state.status?.catalog.find((agent) => agent.id === agentId)?.protocol;
+  const protocol = desktop && state.status
+    ? desktopProtocol(desktop)
+    : state.status?.catalog.find((agent) => agent.id === agentId)?.protocol;
   const profiles = useMemo(
     () => byProfileCreatedAt(state.status?.profiles.filter((profile) => profile.protocol === protocol && profile.model?.trim()) ?? []),
     [protocol, state.status?.profiles],

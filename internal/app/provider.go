@@ -6,7 +6,9 @@ import (
 	"strings"
 
 	"github.com/MaimoryLab/OneAgent/internal/catalog"
+	"github.com/MaimoryLab/OneAgent/internal/desktopapp"
 	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
+	profileStore "github.com/MaimoryLab/OneAgent/internal/profile"
 	"github.com/MaimoryLab/OneAgent/internal/provider"
 )
 
@@ -150,13 +152,42 @@ func (u *UseCases) reapplyProviderLocked(ctx context.Context, target provider.En
 			continue
 		}
 		// The Agent's own model stays authoritative; only the Provider changed.
-		if _, err := u.activateAgentLocked(ctx, ActivateAgentOptions{
-			AgentID:   agentID,
-			Provider:  target.ID,
-			APIKey:    target.APIKey,
-			Model:     binding.Model,
-			ProfileID: binding.ProfileRef,
-		}); err != nil {
+		var err error
+		if definition, isDesktop := desktopapp.DefinitionFor(agentID); isDesktop {
+			if definition.SharedConfigAgentID != "" {
+				_, err = u.activateAgentLocked(ctx, ActivateAgentOptions{
+					AgentID:   definition.ProfileAgentID,
+					Provider:  target.ID,
+					APIKey:    target.APIKey,
+					Model:     binding.Model,
+					ProfileID: binding.ProfileRef,
+				})
+			} else if definition.ConfigAdapter != "" {
+				_, managed, configErr := u.writeDesktopAgentConfig(ctx, definition, target, binding.Model)
+				err = configErr
+				if err == nil && !managed {
+					continue
+				}
+				if err == nil && managed {
+					_, err = u.profiles.WriteAgentBinding(ctx, agentID, profileStore.BindingWriteRequest{
+						Provider: target.ID, BaseURL: target.BaseURL, Model: binding.Model, ProfileRef: binding.ProfileRef,
+					})
+				}
+			} else {
+				_, err = u.profiles.WriteAgentBinding(ctx, agentID, profileStore.BindingWriteRequest{
+					Provider: target.ID, BaseURL: target.BaseURL, Model: binding.Model, ProfileRef: binding.ProfileRef,
+				})
+			}
+		} else {
+			_, err = u.activateAgentLocked(ctx, ActivateAgentOptions{
+				AgentID:   agentID,
+				Provider:  target.ID,
+				APIKey:    target.APIKey,
+				Model:     binding.Model,
+				ProfileID: binding.ProfileRef,
+			})
+		}
+		if err != nil {
 			if failures == nil {
 				failures = map[string]string{}
 			}
@@ -209,6 +240,18 @@ func protocolsForAgents(agentIDs []string) ([]string, error) {
 		for _, agentID := range agentIDs {
 			if agentID == "" {
 				return nil, oneerrors.New(oneerrors.InvalidRequest, "agents must be a non-empty array of Agent IDs")
+			}
+			if definition, ok := desktopapp.DefinitionFor(agentID); ok {
+				if definition.Protocol != "" {
+					protocols[definition.Protocol] = true
+				} else if definition.SharedConfigAgentID != "" {
+					manifestAgent, exists := manifest.Agents[definition.SharedConfigAgentID]
+					if !exists {
+						return nil, oneerrors.New(oneerrors.InvalidRequest, "Unknown shared Agent: "+definition.SharedConfigAgentID)
+					}
+					protocols[provider.ProtocolForAdapter(manifestAgent.ConfigAdapter)] = true
+				}
+				continue
 			}
 			agent, ok := manifest.Agents[agentID]
 			if !ok {

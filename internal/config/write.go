@@ -2,7 +2,9 @@ package config
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -118,6 +120,51 @@ func (w Writer) WriteOpenAICompatible(ctx context.Context, path, schemaURL, prov
 	providers.Set("oneagent", oneagent)
 	document.Set("model", "oneagent/"+model)
 	return w.writeJSON(ctx, path, document, true)
+}
+
+// WriteWorkBuddy adds or updates one custom OpenAI-compatible model while
+// preserving every other model and field in ~/.workbuddy/models.json.
+func (w Writer) WriteWorkBuddy(ctx context.Context, path, baseURL, apiKey, model string) error {
+	text, err := readText(path)
+	if err != nil {
+		return configError("Cannot read existing WorkBuddy configuration %s: %v", path, err)
+	}
+	models := []map[string]any{}
+	if strings.TrimSpace(text) != "" {
+		if err := json.Unmarshal([]byte(text), &models); err != nil {
+			return configError("Existing WorkBuddy configuration is invalid: %s: %v", path, err)
+		}
+		if models == nil {
+			return configError("Existing WorkBuddy configuration is invalid: %s must contain a JSON array", path)
+		}
+	}
+	entry := map[string]any{
+		"id":                model,
+		"name":              model,
+		"vendor":            "Custom",
+		"url":               baseURL,
+		"apiKey":            apiKey,
+		"supportsToolCall":  true,
+		"supportsImages":    false,
+		"supportsReasoning": false,
+		"useCustomProtocol": false,
+	}
+	found := false
+	for _, existing := range models {
+		if id, _ := existing["id"].(string); id == model {
+			maps.Copy(existing, entry)
+			found = true
+			break
+		}
+	}
+	if !found {
+		models = append(models, entry)
+	}
+	data, err := json.MarshalIndent(models, "", "  ")
+	if err != nil {
+		return configError("Cannot encode WorkBuddy configuration %s: %v", path, err)
+	}
+	return w.write(ctx, path, append(data, '\n'), true)
 }
 
 func (w Writer) WriteAider(ctx context.Context, path, baseURL, apiKey string) error {

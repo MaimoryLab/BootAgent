@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { PageScaffold } from "../components/PageScaffold";
 import { ReviewGroup, ReviewRow } from "../components/ReviewGroup";
 import { useI18n } from "../i18n";
-import { profileAgentIdForDesktop } from "../state/desktopSetup";
+import { profileAgentIdForDesktop, selectedDesktopApp } from "../state/desktopSetup";
 import { useWizard } from "../state/WizardContext";
 
 export function ReviewPage() {
@@ -19,7 +19,9 @@ export function ReviewPage() {
   );
   const automatic = selectedCatalog.filter((agent) => agent.configMode === "auto");
   const guideOnly = selectedCatalog.filter((agent) => agent.guideOnly);
-  const desktop = state.setupKind === "desktop" ? state.status?.desktopAgent : undefined;
+  const desktop = state.setupKind === "desktop" && state.status
+    ? selectedDesktopApp(state.status, state.selectedAgentIds)
+    : undefined;
   const providerName = state.status?.providers[state.provider]?.name || state.provider;
   const providerHasKey = Boolean(state.status?.providers[state.provider]?.has_key);
   // Default name only; the user can override it before installing. The id is

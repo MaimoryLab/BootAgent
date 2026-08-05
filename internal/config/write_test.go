@@ -138,6 +138,60 @@ func TestWriteJSONAdaptersPreserveFieldsAndRejectJSONC(t *testing.T) {
 	}
 }
 
+func TestWriteWorkBuddyUpdatesModelArrayAndPreservesOtherModels(t *testing.T) {
+	home := t.TempDir()
+	path := filepath.Join(home, ".workbuddy", "models.json")
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	original := `[{"id":"keep","name":"Keep","vendor":"Custom","url":"https://keep.example","apiKey":"keep-key","extra":{"nested":true}},{"id":"model-a","name":"Old","vendor":"Custom","url":"https://old.example","apiKey":"old-key","unknown":"kept"}]`
+	if err := os.WriteFile(path, []byte(original), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	writer := testWriter(t, home, "linux")
+	if err := writer.WriteWorkBuddy(context.Background(), path, "https://api.example/openai", "new-key", "model-a"); err != nil {
+		t.Fatal(err)
+	}
+	var models []map[string]any
+	data, err := os.ReadFile(path)
+	if err != nil || json.Unmarshal(data, &models) != nil || len(models) != 2 {
+		t.Fatalf("WorkBuddy config = %s, err=%v", data, err)
+	}
+	if models[0]["id"] != "keep" || models[0]["extra"].(map[string]any)["nested"] != true {
+		t.Fatalf("unmanaged WorkBuddy model changed: %#v", models[0])
+	}
+	updated := models[1]
+	if updated["id"] != "model-a" || updated["name"] != "model-a" || updated["vendor"] != "Custom" ||
+		updated["url"] != "https://api.example/openai" || updated["apiKey"] != "new-key" || updated["unknown"] != "kept" ||
+		updated["supportsToolCall"] != true || updated["supportsImages"] != false || updated["supportsReasoning"] != false || updated["useCustomProtocol"] != false {
+		t.Fatalf("updated WorkBuddy model = %#v", updated)
+	}
+	info, err := os.Stat(path)
+	if err != nil || info.Mode().Perm() != 0o600 {
+		t.Fatalf("WorkBuddy config mode = %v, err=%v", info.Mode().Perm(), err)
+	}
+}
+
+func TestWriteWorkBuddyRejectsInvalidFiles(t *testing.T) {
+	home := t.TempDir()
+	path := filepath.Join(home, ".workbuddy", "models.json")
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	writer := testWriter(t, home, "linux")
+	for _, invalid := range []string{`{"models":"not-an-array"}`, `null`} {
+		if err := os.WriteFile(path, []byte(invalid), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if err := writer.WriteWorkBuddy(context.Background(), path, "https://api.example", "key", "model-c"); err == nil {
+			t.Fatal("invalid WorkBuddy config unexpectedly succeeded")
+		}
+		if data, _ := os.ReadFile(path); string(data) != invalid {
+			t.Fatalf("invalid WorkBuddy config was modified: %s", data)
+		}
+	}
+}
+
 func TestWriteAiderQuotesSecretsOnUnixAndWindows(t *testing.T) {
 	linuxHome := t.TempDir()
 	linux := testWriter(t, linuxHome, "linux")
