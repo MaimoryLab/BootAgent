@@ -14,6 +14,8 @@ export function ModelSelectionPage() {
   const { state, dispatch } = useWizard();
   const requested = useRef(false);
 
+  const modelMessage = state.modelsMessage.replace(/^Found (\d+) models\.$/, (_, count: string) => t("找到 {count} 个模型", { count }));
+
   const loadModels = useCallback(async () => {
     dispatch({ type: "MODELS_LOADING" });
     try {
@@ -54,8 +56,8 @@ export function ModelSelectionPage() {
       }
     >
       {state.modelsState === "loading" ? <div className="loading-block"><span className="spinner" />{t("正在读取模型列表")}</div> : null}
-      {state.modelsMessage && state.modelsState !== "loading" ? (
-        <div className={`notice ${state.modelsState === "success" ? "notice-success" : "notice-warning"}`}>{state.modelsMessage}</div>
+      {modelMessage && state.modelsState !== "loading" ? (
+        <div className={`notice ${state.modelsState === "success" ? "notice-success" : "notice-warning"}`}>{modelMessage}</div>
       ) : null}
       <ModelPicker models={state.models} value={state.model} onChange={(value) => dispatch({ type: "SET_MODEL", value })} />
     </PageScaffold>

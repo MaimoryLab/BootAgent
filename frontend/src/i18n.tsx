@@ -150,6 +150,7 @@ const english = {
   "连接测试通过后才能继续选择模型。": "Pass the connection test before selecting a model.",
   "连接测试是可选的，可以直接继续选择模型。": "Connection testing is optional; you can continue to select a model directly.",
   "无法获取模型列表": "Could not load the model list",
+  "找到 {count} 个模型": "Found {count} models.",
   "选择模型": "Select a model",
   "从当前 Key 可访问的模型中选择，接口不支持时可直接输入模型 ID。": "Choose a model accessible with this key, or enter a model ID when discovery is unavailable.",
   "刷新列表": "Refresh list",

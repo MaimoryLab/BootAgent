@@ -286,6 +286,7 @@ button:active:not(:disabled) {
 .notice {
   min-height: 38px;
   padding: 9px 12px;
+  margin-bottom: 16px;
   border: 1px solid var(--border);
   border-radius: var(--radius-control);
   display: flex;
