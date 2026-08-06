@@ -6,7 +6,7 @@ import { AGENT_ICON_IDS, AgentIcon, agentMarkKind, agentMarkRights, agentMarkSou
 // Every Agent in agents.lock.json, all of which reach the first screen. Keep in
 // step with the catalog: an Agent with no mark falls back to a shared symbol and
 // stops being identifiable without reading its label.
-const ALL = ["codex", "claude-code", "opencode", "kilo-cli", "aider", "openclaw"];
+const ALL = ["codex", "claude-code", "opencode", "kilo-cli", "aider", "openclaw", "hermes"];
 
 describe("AgentIcon", () => {
   it("has a distinct mark for every Agent on the first screen", () => {
@@ -27,13 +27,15 @@ describe("AgentIcon", () => {
     // Every id whose mark is a real image, not a generic symbol. Asserting the
     // set rather than one example is what makes an unregistered mark fail here:
     // shipping artwork without a source, licence and hash is the defect.
-    const assetIds = AGENT_ICON_IDS.filter((id) => agentMarkKind(id) === "asset");
+    // Every id whose mark is redistributed artwork, vector or bitmap. Filtering
+    // on "asset" alone would let a raster mark ship with no recorded rights,
+    // which is the same defect this test exists to catch.
+    const licensedIds = AGENT_ICON_IDS.filter((id) => agentMarkKind(id) === "asset" || agentMarkKind(id) === "bitmap");
     // chatgpt-desktop is a desktop Agent rather than a CLI, and it reuses the
     // OpenAI mark because it is OpenAI's own product sharing Codex's config.
-    expect(assetIds.sort()).toEqual(["chatgpt-desktop", "claude-code", "codex", "kilo-cli", "openclaw", "opencode"]);
-    for (const id of assetIds) {
+    expect(licensedIds.sort()).toEqual(["chatgpt-desktop", "claude-code", "codex", "hermes", "kilo-cli", "openclaw", "opencode"]);
+    for (const id of licensedIds) {
       const rights = agentMarkRights(id);
-      expect(agentMarkKind(id)).toBe("asset");
       expect(rights?.license).toBe("MIT");
       expect(rights?.source).toMatch(/^https:\/\//);
       expect(rights?.sha256).toMatch(/^[a-f0-9]{64}$/);
@@ -65,10 +67,12 @@ describe("AgentIcon", () => {
     for (const size of [18, 20]) {
       for (const id of ALL) {
         const { container } = render(<AgentIcon agentId={id} size={size} />);
-        if (agentMarkKind(id) === "asset") {
-          // The licensed assets declare their own size in em, so the wrapper
-          // carries the pixel box and CSS stretches the glyph to fill it.
-          const mark = container.querySelector<HTMLElement>('[data-mark-kind="asset"]');
+        const kind = agentMarkKind(id);
+        if (kind === "asset" || kind === "bitmap") {
+          // The licensed assets declare their own size in em, and the bitmap has
+          // intrinsic pixels, so in both cases the wrapper carries the box and
+          // CSS fits the artwork to it.
+          const mark = container.querySelector<HTMLElement>(`[data-mark-kind="${kind}"]`);
           expect(mark?.style.width).toBe(`${size}px`);
           expect(mark?.style.height).toBe(`${size}px`);
         } else {
@@ -129,21 +133,60 @@ describe("AgentIcon", () => {
     }
   });
 
-  it("records that the one modified asset was modified", () => {
-    // MIT lets a copy be changed, but the change has to be stated. OpenClaw's
-    // mark was recoloured from a red gradient to currentColor, so shipping it as
-    // if it were untouched vendor artwork is the defect this catches -- in both
-    // directions, since claiming an unmodified mark was modified is also wrong.
-    for (const id of AGENT_ICON_IDS.filter((value) => agentMarkKind(value) === "asset")) {
+  it("records every modified asset as modified, and no others", () => {
+    // MIT lets a copy be changed, but the change has to be stated. Shipping a
+    // changed mark as if it were untouched vendor artwork is the defect this
+    // catches -- in both directions, since claiming an unmodified mark was
+    // modified is also wrong.
+    const MODIFIED: Record<string, RegExp> = {
+      // Recoloured from a red gradient to a single currentColor glyph.
+      openclaw: /currentColor/,
+      // Downscaled from the published 1772x1799 to a 64px square.
+      hermes: /[Dd]ownscaled/,
+    };
+    for (const id of AGENT_ICON_IDS.filter((value) => agentMarkKind(value) === "asset" || agentMarkKind(value) === "bitmap")) {
       const rights = agentMarkRights(id)!;
-      if (id === "openclaw") {
+      const expectedNote = MODIFIED[id];
+      if (expectedNote) {
         expect(rights.modified, id).toBe(true);
-        expect(rights.modificationNote, id).toMatch(/currentColor/);
-        // Not the vendor's own artwork, so the owner must not read as OpenClaw's.
-        expect(rights.copyrightOwner, id).toMatch(/cc-switch/);
+        expect(rights.modificationNote, id).toMatch(expectedNote);
       } else {
         expect("modified" in rights, `${id} should not claim a modification`).toBe(false);
       }
+    }
+    // Not the vendor's own artwork, so the owner must not read as OpenClaw's.
+    expect(agentMarkRights("openclaw")!.copyrightOwner).toMatch(/cc-switch/);
+    // Hermes' mark IS the vendor's own, taken from their repository under their
+    // own MIT rather than from a downstream copy with no recorded provenance.
+    expect(agentMarkRights("hermes")!.copyrightOwner).toBe("Nous Research");
+    expect(agentMarkRights("hermes")!.source).toMatch(/NousResearch\/hermes-agent/);
+    // The note must cite the upstream hash, since the shipped file's own hash
+    // cannot prove what it was derived from.
+    expect(agentMarkRights("hermes")!.modificationNote).toMatch(/2eaff911b9da9b1f1fcc81adb02f4992bb9ea6b781f4dd048cd79349927ddb7a/);
+  });
+
+  it("plates the bitmap mark, since it cannot adapt to the theme", () => {
+    // The other marks paint with currentColor and sit on a transparent box. This
+    // one is ~97% opaque and roughly half near-black, half near-white, so on a
+    // transparent box its light half glows on the dark theme and its dark half
+    // does the same on the light one. The plate is the fix, and it must not be
+    // themed: inverting it would alter the artwork's apparent colours, which is a
+    // modification asset-rights.json does not claim.
+    const { container } = render(<AgentIcon agentId="hermes" size={20} />);
+    const mark = container.querySelector<HTMLElement>('[data-mark-kind="bitmap"]');
+    expect(mark).not.toBeNull();
+    expect(mark!.classList.contains("agent-mark-plated")).toBe(true);
+    expect(mark!.style.width).toBe("20px");
+    expect(mark!.style.height).toBe("20px");
+    const image = mark!.querySelector("img");
+    expect(image).not.toBeNull();
+    // Decorative: the Agent name sits beside it, so it must not be announced.
+    expect(mark!.getAttribute("aria-hidden")).toBe("true");
+    expect(image!.getAttribute("alt")).toBe("");
+    // No vector mark may be plated -- they would lose their transparency.
+    for (const id of AGENT_ICON_IDS.filter((value) => agentMarkKind(value) === "asset")) {
+      const { container: vector } = render(<AgentIcon agentId={id} />);
+      expect(vector.querySelector(".agent-mark-plated"), id).toBeNull();
     }
   });
 

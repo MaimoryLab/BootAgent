@@ -181,6 +181,8 @@ func writeManagedAgentConfig(ctx context.Context, writer configWriter.Writer, ag
 		return writer.WriteOpenClaw(ctx, path, providerName, baseURL, apiKey, model)
 	case "aider":
 		return writer.WriteAider(ctx, path, baseURL, apiKey)
+	case "hermes":
+		return writer.WriteHermes(ctx, path, providerName, baseURL, apiKey, model)
 	case "workbuddy":
 		return writer.WriteWorkBuddy(ctx, path, baseURL, apiKey, model)
 	default:

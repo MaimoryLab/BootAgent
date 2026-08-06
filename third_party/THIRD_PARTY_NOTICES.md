@@ -11,6 +11,7 @@ the embedded frontend. Full license and notice texts are included under
 | --- | --- | --- | --- | --- | --- |
 | asset | `claude-code` | `365a70a7eb3956d9b9a96086058ebe04e1dbd8e291a756ad964e8a283fbd6d38` | frontend | MIT | `licenses/assets/claude-code/LICENSE` |
 | asset | `codex` | `a595df6b423920c67a7f8f73c063e4bfb72d415948097b6cac063a2366bb5186` | frontend | MIT | `licenses/assets/codex/LICENSE` |
+| asset | `hermes` | `dcebb7a2d9cee90954c900cb73c1b72c2839524d8d31ff7f5e0286a1e76a5ccc` | frontend | MIT | `licenses/assets/hermes/LICENSE` |
 | asset | `kilo-cli` | `a2aef0e0bb992ebe768bfb8c3a3ab6ff2c2638448b09dd88db27877de1c07a22` | frontend | MIT | `licenses/assets/kilo-cli/LICENSE` |
 | asset | `openclaw` | `9eac78bcfa8e106ed3267293235281743e161b5accf2ff5c676700b64cfcdbbc` | frontend | MIT | `licenses/assets/openclaw/LICENSE` |
 | asset | `opencode` | `7cfa6e9d6726f7c9fa26c7d9aef0dfec52d20a137380454340f30f12ccbfd302` | frontend | MIT | `licenses/assets/opencode/LICENSE` |
@@ -20,6 +21,7 @@ the embedded frontend. Full license and notice texts are included under
 | go | `github.com/wailsapp/wails/v3` | `v3.0.0-beta.3` | macos-arm64, macos-x64, windows-arm64, windows-x64 | MIT | `licenses/go/github.com_wailsapp_wails_v3@v3.0.0-beta.3/LICENSE` |
 | go | `golang.org/x/mod` | `v0.35.0` | macos-arm64, macos-x64, windows-arm64, windows-x64 | BSD-3-Clause | `licenses/go/golang.org_x_mod@v0.35.0/LICENSE` |
 | go | `golang.org/x/sys` | `v0.47.0` | windows-arm64, windows-x64 | BSD-3-Clause | `licenses/go/golang.org_x_sys@v0.47.0/LICENSE` |
+| go | `gopkg.in/yaml.v3` | `v3.0.1` | macos-arm64, macos-x64, windows-arm64, windows-x64 | MIT AND Apache-2.0 | `licenses/go/gopkg.in_yaml.v3@v3.0.1/LICENSE`<br>`licenses/go/gopkg.in_yaml.v3@v3.0.1/NOTICE` |
 | npm | `@wailsio/runtime` | `3.0.0-alpha2.117` | frontend | MIT | `licenses/npm/wailsio_runtime@3.0.0-alpha2.117/LICENSE` |
 | npm | `cookie` | `1.0.1` | frontend | MIT | `licenses/npm/cookie@1.0.1/LICENSE` |
 | npm | `lucide-react` | `1.25.0` | frontend | ISC | `licenses/npm/lucide-react@1.25.0/LICENSE` |
@@ -35,4 +37,5 @@ the embedded frontend. Full license and notice texts are included under
 Everything above is redistributed unmodified except the entries listed
 here. Their licenses permit modification and require it to be stated.
 
+- `hermes` (asset): Downscaled from the published 1772x1799 PNG (sha256 2eaff911b9da9b1f1fcc81adb02f4992bb9ea6b781f4dd048cd79349927ddb7a) to 64x64 for a 20px icon box, padded to a square canvas first so the aspect ratio is preserved. Pixels are otherwise untouched: no recolouring and no crop. Unlike the other marks this one is a bitmap, because no vector is published -- logo.svg is absent from both the vendor site and the repository -- so it cannot paint with currentColor and is rendered on a fixed plate instead.
 - `openclaw` (asset): Recoloured to a single currentColor glyph for theme adaptation: the linearGradient (#ff4d4d to #991b1b), the antenna stroke colour and the cyan eye highlights were removed, and the eyes became a mask cut-out. Geometry is unchanged. Not an official OpenClaw mark; drawn by the cc-switch project.

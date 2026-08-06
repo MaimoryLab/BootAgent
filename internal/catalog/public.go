@@ -14,6 +14,10 @@ var adapterProtocols = map[string]string{
 	"opencode":    ProtocolOpenAI,
 	"kilo-cli":    ProtocolOpenAI,
 	"aider":       ProtocolOpenAI,
+	// Hermes' transport enum is chat_completions / anthropic_messages /
+	// codex_responses. OneAgent writes the first, so the Provider is probed for
+	// Chat Completions rather than for whichever protocol happens to be default.
+	"hermes": ProtocolOpenAI,
 }
 
 var groups = []Group{

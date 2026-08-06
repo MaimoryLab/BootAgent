@@ -42,6 +42,16 @@
       "sha256": "9eac78bcfa8e106ed3267293235281743e161b5accf2ff5c676700b64cfcdbbc",
       "modified": true,
       "modificationNote": "Recoloured to a single currentColor glyph for theme adaptation: the linearGradient (#ff4d4d to #991b1b), the antenna stroke colour and the cyan eye highlights were removed, and the eyes became a mask cut-out. Geometry is unchanged. Not an official OpenClaw mark; drawn by the cc-switch project."
+    },
+    "hermes": {
+      "file": "assets/hermes.png",
+      "source": "https://github.com/NousResearch/hermes-agent/blob/main/website/static/img/logo.png",
+      "license": "MIT",
+      "licenseSource": "licenses/nousresearch/LICENSE",
+      "copyrightOwner": "Nous Research",
+      "sha256": "dcebb7a2d9cee90954c900cb73c1b72c2839524d8d31ff7f5e0286a1e76a5ccc",
+      "modified": true,
+      "modificationNote": "Downscaled from the published 1772x1799 PNG (sha256 2eaff911b9da9b1f1fcc81adb02f4992bb9ea6b781f4dd048cd79349927ddb7a) to 64x64 for a 20px icon box, padded to a square canvas first so the aspect ratio is preserved. Pixels are otherwise untouched: no recolouring and no crop. Unlike the other marks this one is a bitmap, because no vector is published -- logo.svg is absent from both the vendor site and the repository -- so it cannot paint with currentColor and is rendered on a fixed plate instead."
     }
   }
 }

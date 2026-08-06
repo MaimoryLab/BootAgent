@@ -570,7 +570,7 @@ func officialInstallCommand(agent catalog.Agent) string {
 	case "npm":
 		return "npm install -g " + agent.Package.Name
 	case "uv":
-		return "uv tool install --force --python " + install.AiderPythonVersion + " " + agent.Package.Name
+		return "uv tool install --force --python " + install.PythonToolVersion + " " + agent.Package.Name
 	default:
 		manager := agent.Package.Manager
 		if manager == "" {

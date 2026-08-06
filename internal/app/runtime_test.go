@@ -65,7 +65,9 @@ func TestRuntimeStatusesReportLockedVersionsAndRequirements(t *testing.T) {
 	if !strings.Contains(node.RequiredByHint, "Codex") {
 		t.Fatalf("node requiredBy = %q", node.RequiredByHint)
 	}
-	if uv := byID["uv"]; uv.RequiredByHint != "Aider" {
+	// uv serves both Python Agents, and the hint lists every one so the user can
+	// see what installing it unlocks.
+	if uv := byID["uv"]; uv.RequiredByHint != "Aider, Hermes" {
 		t.Fatalf("uv requiredBy = %q", uv.RequiredByHint)
 	}
 }

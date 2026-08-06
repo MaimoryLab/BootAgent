@@ -30,6 +30,19 @@
       "ecosystem": "asset",
       "license": "MIT",
       "license_files": [
+        "licenses/assets/hermes/LICENSE"
+      ],
+      "modification": "Downscaled from the published 1772x1799 PNG (sha256 2eaff911b9da9b1f1fcc81adb02f4992bb9ea6b781f4dd048cd79349927ddb7a) to 64x64 for a 20px icon box, padded to a square canvas first so the aspect ratio is preserved. Pixels are otherwise untouched: no recolouring and no crop. Unlike the other marks this one is a bitmap, because no vector is published -- logo.svg is absent from both the vendor site and the repository -- so it cannot paint with currentColor and is rendered on a fixed plate instead.",
+      "name": "hermes",
+      "platforms": [
+        "frontend"
+      ],
+      "version": "dcebb7a2d9cee90954c900cb73c1b72c2839524d8d31ff7f5e0286a1e76a5ccc"
+    },
+    {
+      "ecosystem": "asset",
+      "license": "MIT",
+      "license_files": [
         "licenses/assets/kilo-cli/LICENSE"
       ],
       "modification": "",
@@ -156,6 +169,23 @@
         "windows-x64"
       ],
       "version": "v0.47.0"
+    },
+    {
+      "ecosystem": "go",
+      "license": "MIT AND Apache-2.0",
+      "license_files": [
+        "licenses/go/gopkg.in_yaml.v3@v3.0.1/LICENSE",
+        "licenses/go/gopkg.in_yaml.v3@v3.0.1/NOTICE"
+      ],
+      "modification": "",
+      "name": "gopkg.in/yaml.v3",
+      "platforms": [
+        "macos-arm64",
+        "macos-x64",
+        "windows-arm64",
+        "windows-x64"
+      ],
+      "version": "v3.0.1"
     },
     {
       "ecosystem": "npm",

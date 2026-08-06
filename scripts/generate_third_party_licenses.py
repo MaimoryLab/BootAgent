@@ -41,6 +41,13 @@ GO_LICENSES = {
     "github.com/wailsapp/wails/v3": "MIT",
     "golang.org/x/sys": "BSD-3-Clause",
     "golang.org/x/mod": "BSD-3-Clause",
+    # Reviewed against the module's own LICENSE, which states it plainly: the
+    # files ported from libyaml (apic.go, emitterc.go, parserc.go, readerc.go,
+    # scannerc.go, writerc.go, yamlh.go, yamlprivateh.go) stay under libyaml's
+    # MIT, and the rest is Apache-2.0 per the accompanying NOTICE. Both apply to
+    # the shipped package at once, so this is AND rather than OR -- unlike uv in
+    # runtimes.lock.json, where the recipient may choose either.
+    "gopkg.in/yaml.v3": "MIT AND Apache-2.0",
 }
 LICENSE_PREFIXES = ("license", "licence", "copying", "notice", "copyright")
 

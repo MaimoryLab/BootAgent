@@ -222,6 +222,64 @@ func (w Writer) WriteOpenClaw(ctx context.Context, path, providerName, baseURL, 
 	return w.writeJSON(ctx, path, document, true)
 }
 
+// WriteHermes points Hermes at a Provider by editing three keys under `model`
+// and one entry in `custom_providers`, leaving the rest of config.yaml alone.
+//
+// The merge is node-level so comments survive. That is not a nicety here: a real
+// config.yaml is mostly Hermes' own inline documentation, and the file also holds
+// unrelated user state -- skills, mcp_servers, browser and terminal settings --
+// that OneAgent has no business rewriting. Hermes' own `hermes config set`
+// strips every comment in the file, so it is not usable as the write path.
+//
+// The provider entry is keyed by name rather than by position, because the user
+// may have reordered or added providers between runs.
+func (w Writer) WriteHermes(ctx context.Context, path, providerName, baseURL, apiKey, model string) error {
+	document, err := loadYAML(path)
+	if err != nil {
+		return err
+	}
+	base := provider.OpenAIBaseURL(baseURL)
+	settings, err := childMapping(document.top(), "model")
+	if err != nil {
+		return configError("Existing Hermes configuration is not usable: %s: %v", path, err)
+	}
+	// Hermes resolves a model through the provider named here, so the provider
+	// entry below and this name have to agree.
+	setScalar(settings, "provider", providerName)
+	setScalar(settings, "default", model)
+	setScalar(settings, "base_url", base)
+
+	providers, err := childSequence(document.top(), "custom_providers")
+	if err != nil {
+		return configError("Existing Hermes provider list is not usable: %s: %v", path, err)
+	}
+	entry := sequenceEntryByName(providers, providerName)
+	if entry == nil {
+		entry = mappingNode()
+		providers.Content = append(providers.Content, entry)
+		setScalar(entry, "name", providerName)
+	}
+	setScalar(entry, "base_url", base)
+	setScalar(entry, "api_key", apiKey)
+
+	data, err := document.Marshal()
+	if err != nil {
+		return configError("Cannot encode Hermes configuration %s: %v", path, err)
+	}
+	// Re-applying the same Profile must not touch the file. Beyond avoiding a
+	// pointless backup on every status refresh, this bounds a real cosmetic
+	// artefact: yaml.v3 re-emits a comment that trails a nested mapping one
+	// indent level deeper, so a config with commented-out nested settings would
+	// shift those lines on each successive write. Skipping an unchanged write
+	// means it can happen at most once, when something genuinely changed.
+	if document.unchanged(data) {
+		return nil
+	}
+	// The key lands in this file, so it is written with secret permissions even
+	// though the rest of the document is not sensitive.
+	return w.write(ctx, path, data, true)
+}
+
 func (w Writer) WriteAider(ctx context.Context, path, baseURL, apiKey string) error {
 	base := provider.OpenAIBaseURL(baseURL)
 	content := "OPENAI_API_BASE=" + dotenvQuote(base) + "\n" +
@@ -253,6 +311,18 @@ func readText(path string) (string, error) {
 		return "", err
 	}
 	return string(data), nil
+}
+
+func loadYAML(path string) (*yamlDocument, error) {
+	text, err := readText(path)
+	if err != nil {
+		return nil, configError("Cannot read existing YAML configuration %s: %v", path, err)
+	}
+	document, err := parseYAML(text)
+	if err != nil {
+		return nil, configError("Existing YAML configuration is invalid: %s: %v", path, err)
+	}
+	return document, nil
 }
 
 func loadJSON(path string) (*jsonorder.Object, error) {

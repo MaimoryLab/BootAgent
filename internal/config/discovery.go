@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/pelletier/go-toml/v2"
+	"gopkg.in/yaml.v3"
 )
 
 type Detected struct {
@@ -126,6 +127,44 @@ func ReadOpenClawConfig(text string) Detected {
 	return Detected{BaseURL: baseURL, Model: model, ManagedByOneAgent: managed}
 }
 
+// ReadHermesConfig reports the model binding Hermes is currently using.
+//
+// "Managed by OneAgent" is decided by whether the provider named under `model`
+// also has an entry in custom_providers, which is the pair WriteHermes writes.
+// A model set by `hermes model` against a provider Hermes resolves itself has no
+// such entry, and reporting that as managed would let a later write silently
+// take over a binding OneAgent never made.
+func ReadHermesConfig(text string) Detected {
+	var parsed struct {
+		Model struct {
+			Provider string `yaml:"provider"`
+			Default  string `yaml:"default"`
+			BaseURL  string `yaml:"base_url"`
+		} `yaml:"model"`
+		CustomProviders []struct {
+			Name    string `yaml:"name"`
+			BaseURL string `yaml:"base_url"`
+		} `yaml:"custom_providers"`
+	}
+	if err := yaml.Unmarshal([]byte(text), &parsed); err != nil {
+		return unreadable("配置文件不是有效的 YAML")
+	}
+	managed := false
+	baseURL := parsed.Model.BaseURL
+	for _, entry := range parsed.CustomProviders {
+		if entry.Name != "" && entry.Name == parsed.Model.Provider {
+			managed = true
+			// The provider entry is the endpoint actually used for this model, so
+			// prefer it over the top-level base_url when the two disagree.
+			if entry.BaseURL != "" {
+				baseURL = entry.BaseURL
+			}
+			break
+		}
+	}
+	return Detected{BaseURL: baseURL, Model: parsed.Model.Default, ManagedByOneAgent: managed}
+}
+
 func ReadAiderConfig(text string) Detected {
 	baseURL := ""
 	for line := range strings.SplitSeq(text, "\n") {
@@ -189,6 +228,8 @@ func readerFor(adapter string, envVars map[string]string) reader {
 		return ReadOpenClawConfig
 	case "aider":
 		return ReadAiderConfig
+	case "hermes":
+		return ReadHermesConfig
 	default:
 		return nil
 	}

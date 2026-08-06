@@ -449,6 +449,28 @@
   height: 100%;
 }
 
+/* Hermes' mark is the one raster in the set: no vector is published, so it
+   cannot paint with currentColor like the others. It is ~97% opaque and roughly
+   half near-black, half near-white, so against a transparent box its light half
+   glows on the dark theme and its dark half does the same on the light one.
+
+   The plate gives it one background on both themes. It stays white rather than
+   following the theme because inverting it would alter the artwork's apparent
+   colours, and the asset ships unmodified apart from a downscale. The inset
+   keeps the square artwork from touching the rounded corners. */
+.agent-mark-plated {
+  overflow: hidden;
+  border-radius: 5px;
+  background: #ffffff;
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+.agent-mark-plated > img {
+  width: 88%;
+  height: 88%;
+  object-fit: contain;
+}
+
 .agent-copy,
 .choice-copy,
 .progress-copy {

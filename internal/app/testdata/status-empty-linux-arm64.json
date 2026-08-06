@@ -10,6 +10,7 @@
       "aider": false,
       "claude-code": false,
       "codex": false,
+      "hermes": false,
       "kilo-cli": false,
       "openclaw": false,
       "opencode": false
@@ -18,6 +19,7 @@
       "aider": "uv",
       "claude-code": "node",
       "codex": "node",
+      "hermes": "uv",
       "kilo-cli": "node",
       "openclaw": "node",
       "opencode": "node"
@@ -28,7 +30,8 @@
       "opencode",
       "kilo-cli",
       "aider",
-      "openclaw"
+      "openclaw",
+      "hermes"
     ]
   },
   "agents": {
@@ -69,6 +72,22 @@
       "configured": false,
       "guideOnly": false,
       "config": "${HOME}/.codex/config.toml",
+      "version": null,
+      "lockedVersion": null,
+      "latestVersion": null,
+      "canInstall": false,
+      "provider": null,
+      "profileId": null,
+      "model": null,
+      "baseUrl": null,
+      "updatedAt": null,
+      "detected": null
+    },
+    "hermes": {
+      "installed": false,
+      "configured": false,
+      "guideOnly": false,
+      "config": "${HOME}/.hermes/config.yaml",
       "version": null,
       "lockedVersion": null,
       "latestVersion": null,
@@ -237,6 +256,24 @@
       "rank": 6,
       "packageManager": "npm",
       "packageName": "openclaw"
+    },
+    {
+      "id": "hermes",
+      "name": "Hermes",
+      "group": "auto",
+      "configMode": "auto",
+      "guideOnly": false,
+      "lockedVersion": null,
+      "protocol": "openai",
+      "platforms": [
+        "macos",
+        "linux",
+        "windows"
+      ],
+      "platformNote": "",
+      "rank": 7,
+      "packageManager": "uv",
+      "packageName": "hermes-agent"
     }
   ],
   "groups": [
@@ -291,6 +328,7 @@
     "aider_config": "${HOME}/.oneagent/aider.env",
     "claude-code_config": "${HOME}/.claude/settings.json",
     "codex_config": "${HOME}/.codex/config.toml",
+    "hermes_config": "${HOME}/.hermes/config.yaml",
     "kilo-cli_config": "${HOME}/.config/kilo/kilo.jsonc",
     "logs": "${HOME}/.oneagent/logs",
     "openclaw_config": "${HOME}/.openclaw/openclaw.json",
@@ -301,6 +339,7 @@
     "aider": false,
     "claude-code": false,
     "codex": false,
+    "hermes": false,
     "kilo-cli": false,
     "openclaw": false,
     "opencode": false,
@@ -340,7 +379,7 @@
       "licenseUrl": "https://github.com/astral-sh/uv/blob/main/LICENSE-APACHE",
       "source": "https://github.com/astral-sh/uv/releases",
       "installPath": "${HOME}/.oneagent/runtimes/uv/v0.12.1",
-      "requiredByHint": "Aider"
+      "requiredByHint": "Aider, Hermes"
     }
   ],
   "environment": null,
