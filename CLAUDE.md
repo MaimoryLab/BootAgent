@@ -1,6 +1,6 @@
 # OneAgent 开发约定
 
-当前分支是 Go/Wails 收尾线，版本为 `0.3.0-dev`。桌面入口是 `cmd/oneagent-desktop`，headless CLI 是 `cmd/oneagent`；两者共享 `internal/` 用例。React 只通过生成的 Wails bindings 调用后端。
+当前分支是 Go/Wails 收尾线，版本为 `0.3.0-dev`。唯一产品入口是 `cmd/oneagent-desktop`。React 只通过生成的 Wails bindings 调用后端。
 
 ## 目录
 
@@ -10,7 +10,6 @@
 - `internal/install`：默认最新、可选精确版本的 Agent 包安装，registry 选择、Node.js/uv 运行时引导（下载、校验、解压、写入 PATH）和 Aider Python 管理边界。
 - `internal/profile`、`internal/securefs`：profile、secret、备份、权限和原子写。
 - `internal/binding`：Wails 暴露给前端的五个 service，是 React 与 Go 的唯一接缝。改这里的 DTO 必须重新生成 `frontend/bindings` 并同步 `frontend/src/backend/wails.ts`。
-- `cmd/oneagent`：纯 Go headless CLI。
 - `cmd/oneagent-desktop`：Wails 桌面入口。
 - `frontend/bindings`：Wails 生成物，禁止手工编辑。
 
@@ -28,8 +27,6 @@
 go test ./...
 go test -race ./...
 go vet ./...
-go build -o bin/oneagent ./cmd/oneagent
-
 cd frontend
 pnpm install --frozen-lockfile
 pnpm run test

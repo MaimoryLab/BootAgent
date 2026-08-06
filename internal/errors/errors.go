@@ -1,5 +1,4 @@
-// Package oneerrors defines the stable error contract shared by the Go core,
-// Wails services, and the standalone CLI.
+// Package oneerrors defines the stable error contract exposed by Wails services.
 package oneerrors
 
 import (
@@ -21,8 +20,7 @@ const (
 	InternalError       = "INTERNAL_ERROR"
 )
 
-// ExitCodes is the stable process-level error contract. The map is copied by
-// callers when they need to expose it to a CLI parser.
+// ExitCodes preserves the numeric codes included in existing error payloads.
 var ExitCodes = map[string]int{
 	InvalidRequest:      2,
 	PrerequisiteMissing: 3,

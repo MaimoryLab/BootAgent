@@ -1,6 +1,5 @@
-// Package provider contains transport-independent Provider and protocol
-// rules. Network clients are kept separate so these checks can be reused by
-// the CLI and Wails bindings without opening a request during validation.
+// Package provider contains Provider and protocol rules. Network clients are
+// kept separate so validation does not open a request.
 package provider
 
 import (
@@ -43,8 +42,7 @@ func ValidateBaseURL(value string) (string, error) {
 }
 
 // ProviderBase resolves a catalog Provider or validates a custom endpoint.
-// Built-in Providers may still receive an explicit override, matching the
-// existing CLI behavior.
+// Built-in Providers may still receive an explicit override.
 func ProviderBase(providerID, customBase string) (string, error) {
 	if providerID == "custom" {
 		return ValidateBaseURL(customBase)

@@ -17,9 +17,8 @@ import (
 	"github.com/MaimoryLab/OneAgent/internal/provider"
 )
 
-// InstallAgentsOptions is one installation request. The use case deliberately
-// keeps the request independent of Wails or CLI transport types so both entry
-// points exercise the same validation and write ordering.
+// InstallAgentsOptions is one installation request. It stays independent of
+// Wails transport types so validation and write ordering remain in the core.
 type InstallAgentsOptions struct {
 	Agents         []string
 	Provider       string
@@ -181,7 +180,7 @@ func (u *UseCases) validateInstall(ctx context.Context, manifest catalog.Manifes
 		}
 	}
 	// Apply the stored mirror preference before validating, so one code path
-	// covers the explicit --registry, the preference, and the official default.
+	// covers an explicit request registry, the preference, and the official default.
 	// Validate even when all commands are already installed: this prevents an
 	// invalid setting from being silently accepted on a no-op run.
 	options.Registry = u.packageRegistry(ctx, options.Registry)

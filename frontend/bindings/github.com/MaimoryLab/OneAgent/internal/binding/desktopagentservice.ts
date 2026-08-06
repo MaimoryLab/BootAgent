@@ -3,7 +3,7 @@
 
 /**
  * DesktopAgentService exposes the configured desktop Agent lifecycle. Every
- * operation names its target explicitly, just like the CLI Agent service.
+ * operation names its target explicitly.
  * @module
  */
 

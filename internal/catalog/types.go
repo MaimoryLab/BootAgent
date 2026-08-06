@@ -1,5 +1,5 @@
 // Package catalog parses the embedded Agent and Provider catalog files and
-// projects them for the desktop shell and the CLI. These hand-edited files keep
+// projects them for the desktop application. These hand-edited files keep
 // runtime code from inventing package names, URLs, or models.
 package catalog
 

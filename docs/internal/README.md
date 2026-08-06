@@ -21,6 +21,9 @@
 `.github/workflows/build-artifacts.yml`；`tests/` 目录也已不存在。引用它们的地方用
 ` ```text ` 而不是 ` ```bash ` 标注，表示那是历史命令而非可运行指令。
 
+独立的 `cmd/oneagent` CLI 及其测试已于 2026-08-06 移除，桌面应用是当前唯一产品入口；
+本目录里保留的 CLI 路径和命令同样只表示历史状态。
+
 **当前可运行的验证入口只有两处**：`.github/workflows/ci.yml`（每个 PR 自动跑
 `go vet`、`go test -race`、前端 test 和 build），以及
 `.github/workflows/build-artifacts.yml`（手动触发的发行构建）。本地命令见

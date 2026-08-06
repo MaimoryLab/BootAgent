@@ -1,5 +1,5 @@
-// Package oneagent is the module root. It exists to embed the catalog files
-// and the built frontend bundle shared by the CLI and desktop shell.
+// Package oneagent is the module root. It embeds the catalog files and built
+// frontend bundle used by the desktop application.
 package oneagent
 
 import "embed"

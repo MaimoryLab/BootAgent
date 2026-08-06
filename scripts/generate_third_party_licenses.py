@@ -137,7 +137,6 @@ def collect_go_module_platforms() -> dict[tuple[str, str], set[str]]:
                 "-deps",
                 "-json",
                 "./cmd/oneagent-desktop",
-                "./cmd/oneagent",
             ],
             env=env,
         )

@@ -19,9 +19,8 @@ const settingsSchemaVersion = 1
 // never delay status.
 const regionProbeTimeout = 3 * time.Second
 
-// Settings holds machine-level preferences that are not part of a profile and
-// not secret. It is deliberately tiny: a preference belongs here only when both
-// the desktop app and the CLI need it and it must outlive one request.
+// Settings holds non-secret machine-level preferences that must outlive one
+// request and do not belong to a profile.
 type Settings struct {
 	SchemaVersion int `json:"schema_version"`
 	// PreferMirror routes runtime archives through the mirror in
@@ -130,8 +129,7 @@ func (u *UseCases) preferMirror(ctx context.Context) bool {
 }
 
 // packageRegistry resolves the npm registry an install should use. An explicit
-// per-request registry always wins: the CLI's --registry must not be silently
-// overridden by a stored preference.
+// per-request registry must not be silently overridden by a stored preference.
 func (u *UseCases) packageRegistry(ctx context.Context, requested string) string {
 	if requested != "" {
 		return requested

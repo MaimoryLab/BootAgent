@@ -50,12 +50,6 @@ tasks:
     cmds:
       - go test ./...
 
-  build:cli:
-    summary: Build the headless Go CLI
-    cmds:
-      - mkdir -p {{.BIN_DIR}}
-      - go build -o {{.BIN_DIR}}/oneagent ./cmd/oneagent
-
   generate:bindings:
     summary: Regenerate Wails TypeScript bindings
     cmds:

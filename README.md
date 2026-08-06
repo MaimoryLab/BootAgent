@@ -2,11 +2,10 @@
 
 **English** · [简体中文](README_ZH.md)
 
-OneAgent is a local AI development environment activator. A React wizard and a pure Go
-CLI share the same Go use cases: detecting agents, installing the latest version, probing
-Providers, merging configuration, creating backups, and tightening permissions. The
-desktop app uses Wails v3 bindings, and the production process listens on no application
-TCP port.
+OneAgent is a local AI development environment activator. Its React wizard detects
+agents, installs the latest version, probes Providers, merges configuration, creates
+backups, and tightens permissions through Wails v3 bindings. The production process
+listens on no application TCP port.
 
 OneAgent does not redistribute agent packages, and it bundles no Node.js, system WebView,
 Git, or API key. When a prerequisite is missing it returns a specific error and points at
@@ -38,8 +37,6 @@ Status / Provider / Agent / Profile services
       Go application use cases
           |
   catalog / provider / install / config / profile / securefs
-
-Pure Go CLI --------------------^
 ```
 
 The public website is neither in this diagram nor in this repository. It moved to
@@ -50,8 +47,7 @@ those two files here does not change the site, and should not: the site describe
 published version supports.
 
 - `cmd/oneagent-desktop`: the Wails desktop entry point.
-- `cmd/oneagent`: the pure Go headless CLI.
-- `internal/`: the Go core shared by desktop and CLI.
+- `internal/`: the Go application core.
 - `frontend/`: the React app. Release packages carry only its built static assets.
 - `agents.lock.json`: the single manifest of agent package names, sources, config
   adapters, and licences. It pins neither agent versions nor package hashes.
@@ -75,23 +71,6 @@ A production build needs the target platform's Wails/WebView dependencies. Linux
 currently uses the `gtk3` tag (Ubuntu 22.04 cleanroom), macOS uses the system WKWebView,
 and Windows uses the WebView2 Runtime.
 
-### CLI
-
-```bash
-go build -o bin/oneagent ./cmd/oneagent
-```
-
-On Windows CMD:
-
-```cmd
-go build -o bin\oneagent.exe .\cmd\oneagent
-bin\oneagent.exe agent set codex --provider ppio --model your-model-id --api-key your-api-key
-```
-
-Day to day, pass credentials by pasting into the desktop app or from a saved profile.
-`ONEAGENT_API_KEY` and `--api-key` exist for controlled scripts. `--registry` defaults to
-the official npm registry; a mirror must be chosen explicitly and must use HTTPS.
-
 ## Agents and Providers
 
 Automatically configured agents:
@@ -107,9 +86,7 @@ Automatically configured agents:
 | Hermes Agent | `hermes-agent` | official Bash / PowerShell script | OpenAI-compatible |
 
 For npm- and uv-managed agents, the installer resolves the latest version by default.
-To reproduce a specific one, pass `--agent-version VERSION`, for example
-`oneagent --agent codex --install-agent --check-agent-only --agent-version 0.145.0`.
-Hermes's official script owns its version selection and does not accept this option.
+Hermes's official script owns its version selection.
 
 OpenClaw is a gateway, and OneAgent's scope for it stops at the model provider. It
 installs the package and writes the provider and default model into
