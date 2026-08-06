@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 
 import { AppWindow } from "./components/AppWindow";
+import { AppUpdater } from "./components/AppUpdater";
 import { ActivationPage } from "./pages/ActivationPage";
 import { AgentProfilePage } from "./pages/AgentProfilePage";
 import { AgentSelectionPage } from "./pages/AgentSelectionPage";
@@ -91,6 +92,7 @@ export default function App() {
     <ThemeProvider>
       <I18nProvider>
         <TaskCenterProvider>
+          <AppUpdater />
           <WizardProvider>
             <WorkspaceRoutes />
           </WizardProvider>

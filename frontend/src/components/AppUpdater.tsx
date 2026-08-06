@@ -1,0 +1,81 @@
+import { Dialogs } from "@wailsio/runtime";
+import { useEffect, useRef } from "react";
+
+import { api, describeError, isCancellationError } from "../backend/api";
+import { OTA_PROGRESS_TARGET } from "../backend/wails";
+import { useI18n } from "../i18n";
+import { taskCanceller, taskKey, useTaskCenter } from "../state/TaskCenterContext";
+
+export function AppUpdater() {
+  const { t } = useI18n();
+  const taskCenter = useTaskCenter();
+  const latest = useRef(taskCenter);
+  const checked = useRef(false);
+  const active = useRef(false);
+  latest.current = taskCenter;
+
+  useEffect(() => {
+    active.current = true;
+    if (checked.current) return () => { active.current = false; };
+    checked.current = true;
+
+    void (async () => {
+      let version: string;
+      try {
+        version = await api.checkUpdate();
+      } catch {
+        return;
+      }
+      const id = taskKey("update", OTA_PROGRESS_TARGET);
+      if (!active.current || !version || latest.current.isTaskRunning(id)) return;
+
+      const updateLabel = t("更新");
+      let choice: string;
+      try {
+        choice = await Dialogs.Question({
+          Title: t("OneAgent 更新"),
+          Message: t("发现 OneAgent 新版本 {version}，现在下载吗？", { version }),
+          Buttons: [
+            { Label: updateLabel, IsDefault: true },
+            { Label: t("暂不"), IsCancel: true },
+          ],
+        });
+      } catch {
+        return;
+      }
+      if (!active.current || choice !== updateLabel || !latest.current.startTask({
+        id,
+        kind: "update",
+        target: OTA_PROGRESS_TARGET,
+        progressTarget: OTA_PROGRESS_TARGET,
+        title: t("更新 OneAgent {version}", { version }),
+        route: "/overview",
+      })) return;
+
+      try {
+        const request = api.downloadUpdate();
+        latest.current.setTaskCanceller(id, taskCanceller(request));
+        await request;
+        latest.current.finishTask(id, { kind: "success", message: t("更新已下载") });
+        latest.current.setTaskAction(id, {
+          label: t("重启并更新"),
+          run: async () => {
+            try {
+              await api.restartUpdate();
+            } catch (error) {
+              latest.current.setTaskMessage(id, describeError(error, t("无法重启并更新")).message);
+            }
+          },
+        });
+      } catch (error) {
+        latest.current.finishTask(id, isCancellationError(error)
+          ? { kind: "cancelled", message: t("已取消") }
+          : { kind: "failure", message: describeError(error, t("更新失败")).message });
+      }
+    })();
+
+    return () => { active.current = false; };
+  }, [t]);
+
+  return null;
+}
