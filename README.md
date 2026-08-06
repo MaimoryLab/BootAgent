@@ -223,7 +223,7 @@ Both are also built-in Providers in OneAgent. Sponsorship does not change which
 Provider is recommended or how one is verified: every Provider is probed against
 the protocol its Agent actually speaks, and the built-in list is ordered in
 `providers.lock.json` independently of any commercial relationship. See
-[providers.lock.json](providers.lock.json) for each entry's declared
+[manifests/providers.lock.json](manifests/providers.lock.json) for each entry's declared
 relationship and disclosure.
 
 ## Licence
