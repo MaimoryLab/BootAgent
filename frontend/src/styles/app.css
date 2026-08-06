@@ -1637,11 +1637,23 @@
 .icon-button:hover { color: var(--text-primary); background: var(--surface-pressed); }
 .icon-button.is-danger:hover { color: var(--red); background: var(--red-soft); }
 
+/* auto-fill rather than a media query: the pane width already varies with the
+   sidebar, which itself collapses at two breakpoints, so enumerating column
+   counts would mean tracking both. 340px is the floor at which a card still fits
+   its 92px endpoint label plus a readable value, so below roughly 790px of pane
+   this becomes one column on its own.
+
+   align-items: start keeps a card at its natural height. Without it grid
+   stretches every card in a row to match the tallest, and card heights genuinely
+   differ here: the Anthropic endpoint row only renders when that endpoint is
+   set. */
 .provider-list,
 .profile-list {
   width: 100%;
   display: grid;
-  gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  align-items: start;
+  gap: 10px;
 }
 
 .provider-card,

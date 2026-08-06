@@ -28,7 +28,9 @@ describe("AgentIcon", () => {
     // set rather than one example is what makes an unregistered mark fail here:
     // shipping artwork without a source, licence and hash is the defect.
     const assetIds = AGENT_ICON_IDS.filter((id) => agentMarkKind(id) === "asset");
-    expect(assetIds.sort()).toEqual(["claude-code", "codex", "kilo-cli", "openclaw", "opencode"]);
+    // chatgpt-desktop is a desktop Agent rather than a CLI, and it reuses the
+    // OpenAI mark because it is OpenAI's own product sharing Codex's config.
+    expect(assetIds.sort()).toEqual(["chatgpt-desktop", "claude-code", "codex", "kilo-cli", "openclaw", "opencode"]);
     for (const id of assetIds) {
       const rights = agentMarkRights(id);
       expect(agentMarkKind(id)).toBe("asset");
@@ -110,6 +112,7 @@ describe("AgentIcon", () => {
     // recorded in asset-rights.json does not touch geometry.
     const PUBLISHED_VIEWBOX: Record<string, string> = {
       codex: "0 0 24 24",
+      "chatgpt-desktop": "0 0 24 24",
       opencode: "0 0 24 24",
       "claude-code": "0 0 24 24",
       "kilo-cli": "0 0 24 24",
@@ -141,6 +144,30 @@ describe("AgentIcon", () => {
       } else {
         expect("modified" in rights, `${id} should not claim a modification`).toBe(false);
       }
+    }
+  });
+
+  it("gives a desktop Agent its own mark rather than another vendor's", () => {
+    // The desktop card used to pass a literal agentId="codex" for every desktop
+    // Agent, so WorkBuddy -- a Tencent product -- rendered OpenAI's mark. Reusing
+    // one vendor's artwork for another vendor's product is a trademark problem,
+    // not a cosmetic one, so each case is asserted separately.
+    //
+    // ChatGPT Desktop is the one legitimate reuse: it is OpenAI's own app and
+    // shares Codex's configuration, so it renders the same OpenAI mark.
+    const { container: chatgpt } = render(<AgentIcon agentId="chatgpt-desktop" />);
+    const { container: codex } = render(<AgentIcon agentId="codex" />);
+    expect(chatgpt.innerHTML).toBe(codex.innerHTML);
+
+    // WorkBuddy has no licensed mark, so it must fall back to the generic symbol
+    // and must not borrow one that belongs to somebody else.
+    const { container: workbuddy } = render(<AgentIcon agentId="workbuddy" />);
+    expect(agentMarkKind("workbuddy")).toBe("fallback");
+    expect(workbuddy.querySelector('[data-mark-kind="fallback"]')).not.toBeNull();
+    expect(workbuddy.innerHTML).not.toBe(codex.innerHTML);
+    for (const id of AGENT_ICON_IDS.filter((value) => agentMarkKind(value) === "asset")) {
+      const { container } = render(<AgentIcon agentId={id} />);
+      expect(workbuddy.innerHTML, `workbuddy must not reuse the ${id} mark`).not.toBe(container.innerHTML);
     }
   });
 

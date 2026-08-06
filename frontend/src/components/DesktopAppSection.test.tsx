@@ -180,4 +180,27 @@ describe("DesktopAppSection", () => {
 
     expect(screen.queryByRole("heading", { name: "桌面 Agent" })).toBeNull();
   });
+
+  // This component renders every desktop Agent, and it used to hardcode
+  // agentId="codex" for all of them. WorkBuddy is a Tencent product, so its card
+  // displayed OpenAI's mark -- a trademark problem rather than a styling one.
+  it("marks each desktop Agent with its own icon, not the first one's", () => {
+    const markOf = (value: DesktopAgentStatus) => {
+      const { container } = render(
+        <TaskCenterProvider>
+          <DesktopAppSection app={value} onChanged={vi.fn()} />
+        </TaskCenterProvider>,
+      );
+      return container.querySelector(".desktop-app-icon")!.innerHTML;
+    };
+
+    const chatgpt = markOf(app({ id: "chatgpt-desktop", name: "ChatGPT Desktop" }));
+    const workbuddy = markOf(app({ id: "workbuddy", name: "WorkBuddy", profileAgentId: "workbuddy", protocol: "openai" }));
+
+    expect(workbuddy).not.toBe(chatgpt);
+    // ChatGPT Desktop is OpenAI's own app, so a licensed asset is correct there.
+    expect(chatgpt).toContain('data-mark-kind="asset"');
+    // WorkBuddy has no licensed mark, so the generic fallback is the right answer.
+    expect(workbuddy).toContain('data-mark-kind="fallback"');
+  });
 });
