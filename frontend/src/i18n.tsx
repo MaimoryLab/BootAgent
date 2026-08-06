@@ -57,7 +57,7 @@ const english = {
   "或手动输入模型 ID": "Or enter a model ID",
   "手动输入模型 ID": "Enter a model ID",
   "例如 gpt-4.1": "For example, gpt-4.1",
-  "例如 deepseek/deepseek-v3": "For example, deepseek/deepseek-v3",
+  "例如 deepseek/deepseek-v4-pro": "For example, deepseek/deepseek-v4-pro",
   "例如 siliconflow": "For example, siliconflow",
   "例如 team-ppio": "For example, team-ppio",
   "留空则使用 Profile ID": "Leave blank to use the Profile ID",
