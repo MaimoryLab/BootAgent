@@ -29,6 +29,11 @@ export interface TaskOutcome {
 
 export type TaskCanceller = () => void | PromiseLike<void>;
 
+export interface TaskAction {
+  label: string;
+  run: () => void | PromiseLike<void>;
+}
+
 export function taskCanceller(request: { cancel?: (cause?: unknown) => void | PromiseLike<void> }): TaskCanceller | undefined {
   return typeof request.cancel === "function" ? () => request.cancel?.() : undefined;
 }
@@ -45,6 +50,7 @@ export interface TaskInput {
   progressTarget?: string;
   /** Cards backed by one request are cancelled together. */
   group?: string;
+  action?: TaskAction;
 }
 
 export interface TaskRecord extends TaskInput {
@@ -103,6 +109,8 @@ export interface TaskCenterValue {
   /** Finishes one card. `id` may be a card id or a target for old callers. */
   finishTask: (id: string, outcome: TaskOutcome) => void;
   setTaskCanceller: (id: string, cancel?: TaskCanceller) => void;
+  setTaskAction: (id: string, action?: TaskAction) => void;
+  setTaskMessage: (id: string, message: string) => void;
   cancelTask: (id: string, message?: string) => void;
   /** Compatibility removal for a terminal task. */
   clearOutcome: (id: string) => void;
@@ -122,6 +130,8 @@ const TaskCenterContext = createContext<TaskCenterValue>({
   startTask: () => true,
   finishTask: () => {},
   setTaskCanceller: () => {},
+  setTaskAction: () => {},
+  setTaskMessage: () => {},
   cancelTask: () => {},
   clearOutcome: () => {},
   dismissTask: () => {},
@@ -208,6 +218,18 @@ export function TaskCenterProvider({ children }: PropsWithChildren) {
     }
     if (task?.state === "running") cancellersRef.current.set(taskID, cancel);
   }, []);
+
+  const setTaskAction = useCallback((id: string, action?: TaskAction) => {
+    updateTasks((current) => current.map((task) => (
+      task.id === id || task.target === id ? { ...task, action } : task
+    )));
+  }, [updateTasks]);
+
+  const setTaskMessage = useCallback((id: string, message: string) => {
+    updateTasks((current) => current.map((task) => (
+      task.id === id || task.target === id ? { ...task, message } : task
+    )));
+  }, [updateTasks]);
 
   const resetProgress = useCallback((target: string) => {
     setProgress((current) => {
@@ -324,8 +346,8 @@ export function TaskCenterProvider({ children }: PropsWithChildren) {
   }, [tasks]);
 
   const value = useMemo<TaskCenterValue>(
-    () => ({ tasks, progress, resetProgress, running, outcomes, startTask, finishTask, setTaskCanceller, cancelTask, clearOutcome, dismissTask, taskFor, isTaskRunning }),
-    [cancelTask, clearOutcome, dismissTask, finishTask, isTaskRunning, outcomes, progress, resetProgress, running, setTaskCanceller, startTask, taskFor, tasks],
+    () => ({ tasks, progress, resetProgress, running, outcomes, startTask, finishTask, setTaskCanceller, setTaskAction, setTaskMessage, cancelTask, clearOutcome, dismissTask, taskFor, isTaskRunning }),
+    [cancelTask, clearOutcome, dismissTask, finishTask, isTaskRunning, outcomes, progress, resetProgress, running, setTaskAction, setTaskCanceller, setTaskMessage, startTask, taskFor, tasks],
   );
   return <TaskCenterContext.Provider value={value}>{children}</TaskCenterContext.Provider>;
 }
