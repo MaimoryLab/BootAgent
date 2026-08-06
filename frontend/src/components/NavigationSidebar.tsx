@@ -2,6 +2,7 @@ import { Boxes, FolderCog, Gauge, Languages, Layers3 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
 import { type TranslationKey, useI18n } from "../i18n";
+import { SelectField } from "./SelectField";
 import { TaskCenter } from "./TaskCenter";
 import { ThemePicker } from "./ThemePicker";
 
@@ -42,18 +43,24 @@ export function NavigationSidebar() {
           and language down together. The task centre is viewport-docked. */}
       <ThemePicker />
 
-      <label className="language-picker">
+      {/* One picker, where there used to be two selects differing only in their
+          option text -- CSS showed one and hid the other per breakpoint. The
+          short labels now live in the option list, which stays readable at the
+          72px rail because the list is ours and is not clipped to the trigger. */}
+      <div className="language-picker">
         <Languages size={16} aria-hidden="true" />
         <span>{t("语言")}</span>
-        <select className="language-select-wide" value={locale} onChange={(event) => setLocale(event.target.value as "zh-CN" | "en")} aria-label={t("语言")}>
-          <option value="zh-CN">中文</option>
-          <option value="en">English</option>
-        </select>
-        <select className="language-select-compact" value={locale} onChange={(event) => setLocale(event.target.value as "zh-CN" | "en")} aria-label={t("语言")}>
-          <option value="zh-CN">中</option>
-          <option value="en">EN</option>
-        </select>
-      </label>
+        <SelectField
+          className="language-select"
+          label={t("语言")}
+          value={locale}
+          onChange={(next) => setLocale(next as "zh-CN" | "en")}
+          options={[
+            { value: "zh-CN", label: "中文" },
+            { value: "en", label: "English" },
+          ]}
+        />
+      </div>
 
       {/* The task centre is fixed to the viewport's lower-left corner. */}
       <TaskCenter />

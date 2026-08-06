@@ -3,13 +3,20 @@ import { expect, test } from "@playwright/test";
 // Every test addresses a route directly. "/" is a decision, not a page: on a
 // home without ~/.oneagent it opens onboarding, so landing there would make
 // these tests depend on whichever one ran first and wrote state.
+// selectOption is gone from these tests: the pickers are custom listboxes now,
+// because a native select's popup is drawn by the OS and cannot be styled. The
+// combobox role is unchanged, so they are still found the same way, but choosing
+// takes the two steps a user takes.
 test("language selection switches to English and persists", async ({ page }) => {
   await page.goto("/#/overview");
-  await page.getByRole("combobox", { name: "语言" }).selectOption("en");
+  await page.getByRole("combobox", { name: "语言" }).click();
+  await page.getByRole("option", { name: "English" }).click();
   await expect(page.getByRole("heading", { name: "Environment overview" })).toBeVisible();
 
   await page.reload();
-  await expect(page.getByRole("combobox", { name: "Language" })).toHaveValue("en");
+  // The trigger shows the current value, which is also the check that the choice
+  // survived a reload rather than only re-rendering the heading.
+  await expect(page.getByRole("combobox", { name: "Language" })).toHaveText("English");
 });
 
 // The task centre is position: fixed at the viewport's lower-left corner, so it
@@ -31,14 +38,12 @@ test("every sidebar control at the bottom is actually clickable", async ({ page 
     const label = `${viewport.width}x${viewport.height}`;
 
     const covered = await page.evaluate(() => {
-      const selectors = [".theme-picker select", ".language-select-wide", ".language-select-compact", ".task-center-trigger"];
+      const selectors = [".theme-select .select-field-trigger", ".language-select .select-field-trigger", ".task-center-trigger"];
       const blocked: Array<{ selector: string; coveredBy: string }> = [];
       for (const selector of selectors) {
         const element = document.querySelector(selector);
         if (!element) continue;
         const box = element.getBoundingClientRect();
-        // The sidebar swaps the wide and compact selects per breakpoint; the
-        // hidden one of the pair is not a failure.
         if (box.width === 0 || box.height === 0) continue;
         const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
         if (hit !== element && !element.contains(hit)) {
@@ -49,10 +54,12 @@ test("every sidebar control at the bottom is actually clickable", async ({ page 
     });
     expect(covered, `controls covered at ${label}`).toEqual([]);
 
-    // A real pointer click, not selectOption: the regression was that the
-    // element stayed reachable programmatically while being unreachable by
-    // pointer, so dispatching events directly would have passed.
-    await page.locator(".language-select-wide, .language-select-compact").locator("visible=true").click({ timeout: 2000 });
+    // A real pointer click: the regression was that the element stayed reachable
+    // programmatically while being unreachable by pointer, so dispatching events
+    // directly would have passed. Opening also proves the list is not itself
+    // clipped by the sidebar or covered by the task centre.
+    await page.getByRole("combobox", { name: /语言|Language/ }).click({ timeout: 2000 });
+    await expect(page.getByRole("listbox", { name: /语言|Language/ })).toBeVisible();
     await page.keyboard.press("Escape");
   }
 });
