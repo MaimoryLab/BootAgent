@@ -211,7 +211,7 @@ export function AgentProfilePage() {
             </div>
             <div className="field-stack profile-editor-wide">
               <label htmlFor="agent-profile-model">{t("模型")}</label>
-              <input id="agent-profile-model" value={draft.model} onChange={(event) => setDraft({ ...draft, model: event.target.value })} placeholder={t("例如 deepseek/deepseek-v3")} required />
+              <input id="agent-profile-model" value={draft.model} onChange={(event) => setDraft({ ...draft, model: event.target.value })} placeholder={t("例如 deepseek/deepseek-v4-pro")} required />
             </div>
           </div>
           <p className="profile-key-hint">
