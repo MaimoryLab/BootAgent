@@ -23,7 +23,10 @@ const bridge = vi.hoisted(() => ({
   eventsOn: vi.fn(),
 }));
 
-vi.mock("@wailsio/runtime", () => ({ Events: { On: bridge.eventsOn } }));
+vi.mock("@wailsio/runtime", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@wailsio/runtime")>()),
+  Events: { On: bridge.eventsOn },
+}));
 vi.mock("../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/statusservice.js", () => ({ GetStatus: bridge.status }));
 vi.mock("../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/providerservice.js", () => ({
   Probe: bridge.probe,
@@ -49,6 +52,7 @@ vi.mock("../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/profiles
   SaveProfile: bridge.saveProfile,
 }));
 
+import { CancellablePromise } from "@wailsio/runtime";
 import { INSTALL_OUTPUT_EVENT, normalizeWailsError, onInstallOutput, wailsApi } from "./wails";
 
 describe("Wails backend adapter", () => {
@@ -132,6 +136,18 @@ describe("Wails backend adapter", () => {
     expect(normalizeWailsError(new Error("secret-key-value"))).toMatchObject({
       message: "无法调用本机 OneAgent 服务", code: "INTERNAL_ERROR", status: 500, retryable: true,
     });
+  });
+
+  it("preserves Wails cancellation through the error adapter", async () => {
+    const oncancelled = vi.fn();
+    bridge.install.mockReturnValue(new CancellablePromise<InstallResponse>(() => {}, oncancelled));
+    const request = wailsApi.install({ agents: ["codex"], provider: "ppio", api_key: "", model: "m", configure: true, install_agent: true, skip_test: true });
+    const rejection = request.catch((error) => error);
+
+    expect(typeof request.cancel).toBe("function");
+    await request.cancel?.();
+    expect(oncancelled).toHaveBeenCalledOnce();
+    await expect(rejection).resolves.toMatchObject({ name: "CancelError" });
   });
 
   it("subscribes to and filters installation output events", () => {

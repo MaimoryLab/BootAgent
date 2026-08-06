@@ -2,11 +2,11 @@ import { KeyRound, Layers, Pencil, Play, Plus, Save, X } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { api, describeError } from "../backend/api";
+import { api, describeError, isCancellationError } from "../backend/api";
 import { PageScaffold } from "../components/PageScaffold";
 import { ProviderSegment } from "../components/ProviderSegment";
 import { useI18n } from "../i18n";
-import { taskKey, useTaskCenter, useTaskRoute } from "../state/TaskCenterContext";
+import { taskCanceller, taskKey, useTaskCenter, useTaskRoute } from "../state/TaskCenterContext";
 import { useWizard } from "../state/WizardContext";
 import type { ProfileSummary, ProviderId } from "../types/api";
 
@@ -36,7 +36,7 @@ export function ProfilesPage() {
   const navigate = useNavigate();
   const { locale, t } = useI18n();
   const { state, dispatch, refreshStatus } = useWizard();
-  const { startTask, finishTask } = useTaskCenter();
+  const { startTask, finishTask, setTaskCanceller } = useTaskCenter();
   const route = useTaskRoute();
   const status = state.status;
   const [editor, setEditor] = useState<ProfileDraft | null>(null);
@@ -97,6 +97,7 @@ export function ProfilesPage() {
   const apply = async (profile: ProfileSummary) => {
     const candidates = configurableAgents.filter((agent) => agent.protocol === protocolOf(profile)).map((agent) => agent.id);
     if (!profile.model || !candidates.length) return;
+    const group = `profile:${profile.id}:${Date.now()}`;
     const agents = candidates.filter((agentId) => startTask({
       id: taskKey("install", agentId),
       kind: "install",
@@ -104,12 +105,13 @@ export function ProfilesPage() {
       title: t("安装 {name}", { name: status.catalog.find((agent) => agent.id === agentId)?.name || agentId }),
       route,
       progressTarget: status.capabilities.missingRuntime[agentId],
+      group,
     }));
     if (!agents.length) return;
     setApplying(profile.id);
     setFailure("");
     try {
-      const result = await api.install({
+      const request = api.install({
         agents,
         provider: profile.provider,
         // The endpoint belongs to the Provider. Do not replay a stale copy
@@ -122,6 +124,9 @@ export function ProfilesPage() {
         install_agent: true,
         skip_test: false,
       });
+      const cancel = taskCanceller(request);
+      for (const agentId of agents) setTaskCanceller(taskKey("install", agentId), cancel);
+      const result = await request;
       for (const agentId of agents) {
         const item = result.results.find((candidate) => candidate.agent === agentId);
         finishTask(taskKey("install", agentId), !item || item.status === "failed"
@@ -134,8 +139,10 @@ export function ProfilesPage() {
       await refreshStatus();
       navigate("/overview", { replace: true });
     } catch (error) {
-      for (const agentId of agents) finishTask(taskKey("install", agentId), { kind: "failure", message: describeError(error, t("无法应用 Profile")).message });
-      setFailure(describeError(error, t("无法应用 Profile")).message);
+      const cancelled = isCancellationError(error);
+      const message = cancelled ? "" : describeError(error, t("无法应用 Profile")).message;
+      for (const agentId of agents) finishTask(taskKey("install", agentId), { kind: cancelled ? "cancelled" : "failure", message });
+      if (!cancelled) setFailure(message);
     } finally {
       setApplying("");
     }

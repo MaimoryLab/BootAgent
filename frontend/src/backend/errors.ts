@@ -18,6 +18,11 @@ export interface FailureDetail {
 	retryable: boolean;
 }
 
+export function isCancellationError(error: unknown): boolean {
+	const name = error && typeof error === "object" ? (error as { name?: unknown }).name : undefined;
+	return name === "CancelError" || name === "CancelledRejectionError";
+}
+
 /** Normalize any thrown value into the stable frontend error contract. */
 export function describeError(error: unknown, fallback: string): FailureDetail {
 	if (error instanceof OneAgentApiError) {

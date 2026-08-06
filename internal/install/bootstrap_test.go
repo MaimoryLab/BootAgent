@@ -27,6 +27,37 @@ type fakeDownloader struct {
 	hits   []string
 }
 
+type cancelAtEOFBody struct {
+	cancel  context.CancelFunc
+	content []byte
+}
+
+func (b *cancelAtEOFBody) Read(buffer []byte) (int, error) {
+	if len(b.content) == 0 {
+		return 0, io.EOF
+	}
+	written := copy(buffer, b.content)
+	b.content = b.content[written:]
+	if len(b.content) == 0 {
+		b.cancel()
+		return written, io.EOF
+	}
+	return written, nil
+}
+
+func (*cancelAtEOFBody) Close() error { return nil }
+
+type cancellingDownloader struct {
+	cancel  context.CancelFunc
+	content []byte
+}
+
+func (d cancellingDownloader) Do(request *http.Request) (*http.Response, error) {
+	return &http.Response{
+		StatusCode: http.StatusOK, Body: &cancelAtEOFBody{cancel: d.cancel, content: d.content}, ContentLength: int64(len(d.content)), Request: request,
+	}, nil
+}
+
 func (d *fakeDownloader) Do(request *http.Request) (*http.Response, error) {
 	url := request.URL.String()
 	d.hits = append(d.hits, url)
@@ -214,6 +245,20 @@ func TestEnsureRuntimeRejectsChecksumMismatchAndKeepsNothing(t *testing.T) {
 	}
 	if _, statErr := os.Stat(filepath.Join(RuntimeRoot(home), "node", "v1.2.3")); !os.IsNotExist(statErr) {
 		t.Fatalf("a rejected download left a runtime directory behind")
+	}
+}
+
+func TestFetchToDeletesTheFileWhenCancellationWinsAtEOF(t *testing.T) {
+	directory := t.TempDir()
+	ctx, cancel := context.WithCancel(context.Background())
+	content := []byte("partial runtime archive")
+	_, err := fetchTo(ctx, cancellingDownloader{cancel: cancel, content: content}, "https://example.test/runtime", digestOf(content), directory, nil, "node")
+	if err != context.Canceled {
+		t.Fatalf("cancelled download error = %v", err)
+	}
+	entries, readErr := os.ReadDir(directory)
+	if readErr != nil || len(entries) != 0 {
+		t.Fatalf("cancelled download left files behind: %v, %v", entries, readErr)
 	}
 }
 

@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 
 import { api, describeError } from "../backend/api";
 import { sourceTranslate, type Translate, useI18n } from "../i18n";
-import { taskKey, useTaskCenter, useTaskRoute } from "../state/TaskCenterContext";
+import { taskCanceller, taskKey, useTaskCenter, useTaskRoute } from "../state/TaskCenterContext";
 import type { AgentCatalogItem, AgentStatus, ProfileSummary, StatusResponse } from "../types/api";
 import { AgentIcon, agentTagline } from "./icons/agents";
 
@@ -111,7 +111,7 @@ export function AgentManageRow({
   onChanged?: () => void | Promise<void>;
 }) {
   const { t } = useI18n();
-  const { startTask, finishTask, taskFor, isTaskRunning } = useTaskCenter();
+  const { startTask, finishTask, setTaskCanceller, taskFor, isTaskRunning } = useTaskCenter();
   const route = useTaskRoute();
   const [launching, setLaunching] = useState(false);
   const [localUpdating, setLocalUpdating] = useState(false);
@@ -158,7 +158,9 @@ export function AgentManageRow({
     setLocalUpdating(true);
     setFailure("");
     try {
-      await api.updateAgent(agentId);
+      const request = api.updateAgent(agentId);
+      setTaskCanceller(updateTaskID, taskCanceller(request));
+      await request;
       finishTask(updateTaskID, { kind: "success", message: t("更新完成") });
       await onChanged?.();
     } catch (error) {

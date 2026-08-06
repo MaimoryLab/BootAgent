@@ -1,4 +1,4 @@
-import { Events } from "@wailsio/runtime";
+import { Events, type CancellablePromiseLike } from "@wailsio/runtime";
 
 import * as AgentService from "../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/agentservice.js";
 import * as DesktopAgentService from "../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/desktopagentservice.js";
@@ -30,7 +30,7 @@ import type {
   StatusResponse,
 } from "../types/api";
 import { currentLocale, translate } from "../i18n";
-import { OneAgentApiError } from "./errors";
+import { isCancellationError, OneAgentApiError } from "./errors";
 
 export const INSTALL_OUTPUT_EVENT = "oneagent:install-output";
 
@@ -44,6 +44,8 @@ export function onInstallOutput(listener: (output: InstallOutput) => void): () =
 }
 
 type ErrorCause = Record<string, unknown>;
+
+export type CancellableRequest<T> = Promise<T> & Partial<Pick<CancellablePromiseLike<T>, "cancel">>;
 
 function causeOf(error: unknown): ErrorCause {
   const cause = error && typeof error === "object" ? (error as { cause?: unknown }).cause : undefined;
@@ -79,11 +81,17 @@ export function normalizeWailsError(error: unknown): OneAgentApiError {
   );
 }
 
-async function call<T>(operation: () => PromiseLike<T>): Promise<T> {
+function call<T>(operation: () => PromiseLike<T>): CancellableRequest<T> {
   try {
-    return await operation();
+    return operation().then(
+      (value) => value,
+      (error) => {
+        if (isCancellationError(error)) throw error;
+        throw normalizeWailsError(error);
+      },
+    ) as CancellableRequest<T>;
   } catch (error) {
-    throw normalizeWailsError(error);
+    return Promise.reject(isCancellationError(error) ? error : normalizeWailsError(error)) as CancellableRequest<T>;
   }
 }
 
@@ -92,12 +100,12 @@ export const wailsApi = {
   status: (): Promise<StatusResponse> => call(() => StatusService.GetStatus()) as Promise<StatusResponse>,
   desktopAgentStatus: (agentId: string): Promise<DesktopAgentStatus> =>
     call(() => DesktopAgentService.GetStatus({ agent_id: agentId })) as Promise<DesktopAgentStatus>,
-  installDesktopAgent: (agentId: string): Promise<DesktopAgentActionResult> =>
-    call(() => DesktopAgentService.Install({ agent_id: agentId })) as Promise<DesktopAgentActionResult>,
+  installDesktopAgent: (agentId: string): CancellableRequest<DesktopAgentActionResult> =>
+    call(() => DesktopAgentService.Install({ agent_id: agentId })) as CancellableRequest<DesktopAgentActionResult>,
   openDesktopAgent: (agentId: string): Promise<void> =>
     call(() => DesktopAgentService.Open({ agent_id: agentId })).then(() => undefined),
-  configureDesktopAgent: (agentId: string, profileId: string): Promise<DesktopAgentProfileResult> =>
-    call(() => DesktopAgentService.Configure({ agent_id: agentId, profile_id: profileId })) as Promise<DesktopAgentProfileResult>,
+  configureDesktopAgent: (agentId: string, profileId: string): CancellableRequest<DesktopAgentProfileResult> =>
+    call(() => DesktopAgentService.Configure({ agent_id: agentId, profile_id: profileId })) as CancellableRequest<DesktopAgentProfileResult>,
   probe: (input: { provider: ProviderId; apiBaseUrl: string; apiKey: string; model: string; agents?: string[] }): Promise<ProbeResponse> =>
     call(() => ProviderService.Probe({
       provider: input.provider,
@@ -118,7 +126,7 @@ export const wailsApi = {
     call(() => ProviderService.SaveProvider(input)) as Promise<SaveProviderResult>,
   deleteProvider: (id: string): Promise<void> =>
     call(() => ProviderService.DeleteProvider({ id })).then(() => undefined),
-  install: (input: InstallRequest): Promise<InstallResponse> =>
+  install: (input: InstallRequest): CancellableRequest<InstallResponse> =>
     call(() => AgentService.Install({
       agents: input.agents,
       provider: input.provider,
@@ -134,7 +142,7 @@ export const wailsApi = {
       skip_test: input.skip_test,
       registry: input.registry ?? "",
       timeout: input.timeout ?? 180,
-    })) as Promise<InstallResponse>,
+    })) as CancellableRequest<InstallResponse>,
   openRegister: (provider: ProviderId, agents: string[]): Promise<OpenRegistrationResponse> =>
     call(() => ProviderService.OpenRegistration({ provider, agents: agents.length ? agents : null })) as Promise<OpenRegistrationResponse>,
   activateAgent: (
@@ -152,12 +160,12 @@ export const wailsApi = {
     })) as Promise<ActivateAgentResponse>,
   launchAgent: (agentId: string): Promise<LaunchAgentResponse> =>
     call(() => AgentService.Launch({ agent_id: agentId })) as Promise<LaunchAgentResponse>,
-  updateAgent: (agentId: string): Promise<AgentUpdateResult> =>
-    call(() => AgentService.Update({ agent_id: agentId })) as Promise<AgentUpdateResult>,
+  updateAgent: (agentId: string): CancellableRequest<AgentUpdateResult> =>
+    call(() => AgentService.Update({ agent_id: agentId })) as CancellableRequest<AgentUpdateResult>,
   listRuntimes: (): Promise<RuntimeStatus[]> =>
     call(() => RuntimeService.ListRuntimes()).then((runtimes) => runtimes ?? []),
-  installRuntime: (runtime: string): Promise<InstallRuntimeResult> =>
-    call(() => RuntimeService.InstallRuntime({ runtime })) as Promise<InstallRuntimeResult>,
+  installRuntime: (runtime: string): CancellableRequest<InstallRuntimeResult> =>
+    call(() => RuntimeService.InstallRuntime({ runtime })) as CancellableRequest<InstallRuntimeResult>,
   getSettings: (): Promise<Settings> => call(() => RuntimeService.GetSettings()) as Promise<Settings>,
   saveSettings: (settings: Settings): Promise<Settings> =>
     call(() => RuntimeService.SaveSettings(settings)) as Promise<Settings>,
@@ -171,7 +179,7 @@ export const wailsApi = {
     model: string;
     configMode: string;
     protocol?: string;
-  }): Promise<ProfileSummary> =>
+  }): CancellableRequest<ProfileSummary> =>
     call(() => ProfileService.SaveProfile({
       id: input.id,
       label: input.label,
@@ -181,5 +189,5 @@ export const wailsApi = {
       model: input.model,
       config_mode: input.configMode,
       protocol: input.protocol ?? "",
-    })) as Promise<ProfileSummary>,
+    })) as CancellableRequest<ProfileSummary>,
 };

@@ -678,13 +678,17 @@ func downloadFile(ctx context.Context, options Options, url, destination, target
 	}
 	written, copyErr := process.CopyWithProgress(file, response.Body, response.ContentLength, target, options.Output)
 	closeErr := file.Close()
-	if copyErr != nil || closeErr != nil || written == 0 {
+	contextErr := downloadCtx.Err()
+	if copyErr != nil || closeErr != nil || contextErr != nil || written == 0 {
 		_ = os.Remove(destination)
 		if copyErr != nil {
 			return copyErr
 		}
 		if closeErr != nil {
 			return closeErr
+		}
+		if contextErr != nil {
+			return contextErr
 		}
 		return errors.New("downloaded installer is empty")
 	}

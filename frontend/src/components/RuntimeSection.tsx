@@ -3,7 +3,7 @@ import { useState } from "react";
 
 import { api, describeError } from "../backend/api";
 import { useI18n } from "../i18n";
-import { taskKey, useTaskCenter, useTaskRoute } from "../state/TaskCenterContext";
+import { taskCanceller, taskKey, useTaskCenter, useTaskRoute } from "../state/TaskCenterContext";
 import type { RuntimeStatus } from "../types/api";
 import { AdvancedSection } from "./AdvancedSection";
 import { DownloadProgress } from "./DownloadProgress";
@@ -39,7 +39,7 @@ export function runtimeRoot(runtimes: RuntimeStatus[]): string {
 
 export function RuntimeSection({ runtimes, onInstalled }: RuntimeSectionProps) {
   const { t } = useI18n();
-  const { startTask, finishTask, taskFor } = useTaskCenter();
+  const { startTask, finishTask, setTaskCanceller, taskFor } = useTaskCenter();
   const route = useTaskRoute();
   const [pending, setPending] = useState("");
 
@@ -72,7 +72,9 @@ export function RuntimeSection({ runtimes, onInstalled }: RuntimeSectionProps) {
     })) return;
     setPending(runtimeId);
     try {
-      await api.installRuntime(runtimeId);
+      const request = api.installRuntime(runtimeId);
+      setTaskCanceller(id, taskCanceller(request));
+      await request;
       finishTask(id, { kind: "success", message: t("安装完成") });
       await onInstalled();
     } catch (error) {
