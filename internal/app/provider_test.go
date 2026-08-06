@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+	"sync"
 	"testing"
 
 	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
@@ -38,7 +39,10 @@ func providerUseCases(t *testing.T, doer provider.HTTPDoer) *UseCases {
 
 func TestProbeProviderAggregatesAgentProtocols(t *testing.T) {
 	seen := make([]string, 0)
+	var seenMu sync.Mutex
 	core := providerUseCases(t, appProviderDoer(func(request *http.Request) (*http.Response, error) {
+		seenMu.Lock()
+		defer seenMu.Unlock()
 		seen = append(seen, request.URL.Path)
 		return appProviderResponse(http.StatusNoContent, ""), nil
 	}))
