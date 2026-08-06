@@ -38,17 +38,22 @@ func verifyMacOSIdentity(ctx context.Context, options Options, appPath, bundleID
 	if result.ExitCode != 0 {
 		return commandFailure("read macOS signing identity", result)
 	}
-	details := result.Stdout + "\n" + result.Stderr
-	requiredValues := []string{"Identifier=" + bundleID, "TeamIdentifier=" + teamID}
-	if authority != "" {
-		requiredValues = append(requiredValues, "Authority="+authority)
+	details := macOSVerificationValues(result.Stdout + "\n" + result.Stderr)
+	requiredValues := []struct{ key, value string }{
+		{"Identifier", bundleID},
+		{"TeamIdentifier", teamID},
 	}
 	for _, required := range requiredValues {
-		if !strings.Contains(details, required) {
-			return fmt.Errorf("macOS signature is missing expected identity %q", required)
+		values := details[required.key]
+		if len(values) != 1 || values[0] != required.value {
+			return fmt.Errorf("macOS signature is missing expected identity %q", required.key+"="+required.value)
 		}
 	}
-	if authority == "" && (!strings.Contains(details, "Authority=Developer ID Application:") || !strings.Contains(details, "("+teamID+")")) {
+	authorities := details["Authority"]
+	if authority != "" && (len(authorities) == 0 || authorities[0] != authority) {
+		return fmt.Errorf("macOS signature is missing expected identity %q", "Authority="+authority)
+	}
+	if authority == "" && (len(authorities) == 0 || !strings.HasPrefix(authorities[0], "Developer ID Application: ") || !strings.HasSuffix(authorities[0], " ("+teamID+")")) {
 		return fmt.Errorf("macOS signature is missing the expected Developer ID authority for team %s", teamID)
 	}
 
@@ -59,9 +64,30 @@ func verifyMacOSIdentity(ctx context.Context, options Options, appPath, bundleID
 	if result.ExitCode != 0 {
 		return commandFailure("assess macOS app with Gatekeeper", result)
 	}
-	if !strings.Contains(result.Stdout+"\n"+result.Stderr, MacExpectedSpctlSource) {
+	sources := macOSVerificationValues(result.Stdout + "\n" + result.Stderr)["source"]
+	if len(sources) != 1 || "source="+sources[0] != MacExpectedSpctlSource {
 		return errors.New("macOS app is not accepted as notarized Developer ID software")
 	}
 
 	return nil
+}
+
+func macOSVerificationValues(output string) map[string][]string {
+	values := make(map[string][]string)
+	for line := range strings.SplitSeq(output, "\n") {
+		key, value, ok := strings.Cut(strings.TrimSuffix(line, "\r"), "=")
+		if !ok {
+			continue
+		}
+		switch key {
+		case "Identifier", "source":
+			values[key] = append(values[key], value)
+		case "TeamIdentifier", "Authority":
+			// codesign emits signing fields after Identifier; anything earlier can be part of a newline-containing path.
+			if len(values["Identifier"]) > 0 {
+				values[key] = append(values[key], value)
+			}
+		}
+	}
+	return values
 }

@@ -656,6 +656,53 @@ func TestVerifyWorkBuddyMacOSAppRequiresExpectedTeamAndNotarization(t *testing.T
 	}
 }
 
+func TestVerifyMacOSAppRejectsIdentityInjectedByExecutablePath(t *testing.T) {
+	runner := &scriptedRunner{results: []process.Result{
+		{ExitCode: 0},
+		{ExitCode: 0, Stderr: strings.Join([]string{
+			"Executable=/Applications/Identifier=" + CodexBundleID + " TeamIdentifier=" + MacExpectedTeamID + " Authority=" + MacExpectedAuthority + ".app/Contents/MacOS/Fake",
+			"Identifier=com.example.fake",
+			"Authority=Developer ID Application: Example (EXAMPLETEAM)",
+			"TeamIdentifier=EXAMPLETEAM",
+		}, "\n")},
+		{ExitCode: 0, Stdout: "Fake.app: accepted\nsource=Notarized Developer ID"},
+	}}
+
+	err := verifyChatGPTMacOSApp(context.Background(), Options{Runner: runner}, "/Applications/Identifier="+CodexBundleID+" TeamIdentifier="+MacExpectedTeamID+".app")
+
+	if err == nil {
+		t.Fatal("verifyChatGPTMacOSApp() accepted identity values echoed from the executable path")
+	}
+	if len(runner.calls) != 2 {
+		t.Fatalf("verification continued after identity failure: %#v", runner.calls)
+	}
+}
+
+func TestVerifyMacOSAppRejectsMatchingNonLeafAuthority(t *testing.T) {
+	runner := &scriptedRunner{results: []process.Result{
+		{ExitCode: 0},
+		{ExitCode: 0, Stderr: strings.Join([]string{
+			"Executable=/Applications/Fake",
+			"Authority=" + MacExpectedAuthority,
+			".app/Contents/MacOS/Fake",
+			"Identifier=" + CodexBundleID,
+			"Authority=Developer ID Application: Example (EXAMPLETEAM)",
+			"Authority=" + MacExpectedAuthority,
+			"TeamIdentifier=" + MacExpectedTeamID,
+		}, "\n")},
+		{ExitCode: 0, Stdout: "Fake.app: accepted\nsource=Notarized Developer ID"},
+	}}
+
+	err := verifyChatGPTMacOSApp(context.Background(), Options{Runner: runner}, "/Applications/Fake.app")
+
+	if err == nil || !strings.Contains(err.Error(), "Authority") {
+		t.Fatalf("verifyChatGPTMacOSApp() error = %v, want leaf Authority failure", err)
+	}
+	if len(runner.calls) != 2 {
+		t.Fatalf("verification continued after authority failure: %#v", runner.calls)
+	}
+}
+
 func TestVerifyMacOSAppRejectsUnsignedBundleBeforeIdentityChecks(t *testing.T) {
 	runner := &scriptedRunner{results: []process.Result{{ExitCode: 1, Stderr: "code object is not signed at all"}}}
 
@@ -714,7 +761,7 @@ func TestVerifyMacOSAppRejectsNonNotarizedDeveloperIDSource(t *testing.T) {
 			ExitCode: 0,
 			Stderr:   "Identifier=com.openai.codex\nAuthority=Developer ID Application: OpenAI OpCo, LLC (2DC432GLL2)\nTeamIdentifier=2DC432GLL2",
 		},
-		{ExitCode: 0, Stdout: "ChatGPT.app: accepted\nsource=Developer ID"},
+		{ExitCode: 0, Stdout: "/Applications/source=Notarized Developer ID.app: accepted\nsource=Developer ID"},
 	}}
 
 	err := verifyChatGPTMacOSApp(context.Background(), Options{Runner: runner}, "/Applications/ChatGPT.app")
