@@ -40,5 +40,4 @@
 | [blank-machine-verification-plan.md](blank-machine-verification-plan.md) | 空白机器验证的断言清单（执行入口已移除） |
 | [recent-work-summary.md](recent-work-summary.md) | 一次阶段性完工清单，已被上面几份取代 |
 | [mvp-agent-installer-plan.md](mvp-agent-installer-plan.md) | 最初的 HTTP/Python 原型，仅存背景 |
-| [cc-switch-reference-notes.md](cc-switch-reference-notes.md) | 对 CC Switch 的定向调研与采纳/不采纳结论 |
 | [release-evidence/](release-evidence/) | 历史发行包的 SHA-256 与 cleanroom 记录 |
