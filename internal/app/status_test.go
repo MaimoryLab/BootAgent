@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/MaimoryLab/OneAgent/internal/platform"
+	"github.com/MaimoryLab/OneAgent/internal/provider"
 )
 
 func TestStatusUsesInjectedHomeAndCommandLookup(t *testing.T) {
@@ -195,6 +196,16 @@ func TestSaveProfileCanSwitchAKeylessProfileProvider(t *testing.T) {
 		ID: "draft", Provider: "novita", Model: "model-b",
 	}); err != nil {
 		t.Fatalf("keyless Profile provider switch failed: %v", err)
+	}
+}
+
+func TestSaveProfileUsesProtocolEndpoint(t *testing.T) {
+	core := NewUseCases(StatusOptions{Home: t.TempDir(), Platform: platform.For("linux", "amd64"), Lookup: func(string) (string, bool) { return "", false }})
+	if _, err := core.SaveProvider(context.Background(), provider.Entry{ID: "anthropic-only", Name: "Anthropic", AnthropicBaseURL: "https://api.example.test/anthropic"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := core.SaveProfile(context.Background(), SaveProfileOptions{ID: "anthropic", Provider: "anthropic-only", Model: "model", ConfigMode: "provider", Protocol: "anthropic"}); err != nil {
+		t.Fatal(err)
 	}
 }
 

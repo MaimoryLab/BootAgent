@@ -97,6 +97,7 @@ export function ProviderKeyPage() {
         providers={state.status?.providers ?? {}}
         onAdd={() => navigate(`/providers/new?returnTo=${encodeURIComponent("/setup/provider")}`)}
         onChange={changeProvider}
+        protocol={protocols.length === 1 ? protocols[0] : ""}
       />
 
       <div className="provider-form">

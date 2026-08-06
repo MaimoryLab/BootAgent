@@ -43,3 +43,18 @@ func TestStorePersistsCRUDAndPrivateKey(t *testing.T) {
 		t.Fatal("deleted Provider was still readable")
 	}
 }
+
+func TestStoreAcceptsEitherAPIEndpoint(t *testing.T) {
+	store := NewStore(t.TempDir(), securefs.New(securefs.Options{OS: "linux"}))
+	for _, entry := range []Entry{
+		{ID: "anthropic-only", Name: "Anthropic", AnthropicBaseURL: "https://api.example.test/anthropic"},
+		{ID: "openai-only", Name: "OpenAI", BaseURL: "https://api.example.test/openai"},
+	} {
+		if _, err := store.Save(context.Background(), entry); err != nil {
+			t.Fatalf("save %s: %v", entry.ID, err)
+		}
+	}
+	if _, err := store.Save(context.Background(), Entry{ID: "empty", Name: "Empty"}); err == nil {
+		t.Fatal("empty Provider unexpectedly saved")
+	}
+}

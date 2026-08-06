@@ -217,8 +217,13 @@ func validateEntry(entry Entry) error {
 	if entry.Name == "" {
 		return oneerrors.New(oneerrors.InvalidRequest, "Provider name is required")
 	}
-	if _, err := ValidateBaseURL(entry.BaseURL); err != nil {
-		return err
+	if entry.BaseURL == "" && entry.AnthropicBaseURL == "" {
+		return oneerrors.New(oneerrors.InvalidRequest, "At least one API base URL is required")
+	}
+	if entry.BaseURL != "" {
+		if _, err := ValidateBaseURL(entry.BaseURL); err != nil {
+			return err
+		}
 	}
 	if entry.Home != "" {
 		if _, err := ValidateBaseURL(entry.Home); err != nil {

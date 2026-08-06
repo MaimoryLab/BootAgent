@@ -81,6 +81,11 @@ export function ProfilesPage() {
     });
   };
 
+  const providerForProtocol = (protocol: string, current: ProviderId) => {
+    if (!protocol || (status.providers[current] && (protocol === "anthropic" ? status.providers[current].anthropic_base_url : status.providers[current].base_url))) return current;
+    return byProviderCreatedAt(status.providers).find(([, provider]) => protocol === "anthropic" ? provider.anthropic_base_url : provider.base_url)?.[0] || current;
+  };
+
   const save = async (event: FormEvent) => {
     event.preventDefault();
     if (!editor || !canSave) return;
@@ -213,7 +218,7 @@ export function ProfilesPage() {
                   id="profile-protocol"
                   label={t("API 类型")}
                   value={editor.protocol}
-                  onChange={(protocol) => setEditor({ ...editor, protocol })}
+                  onChange={(protocol) => setEditor({ ...editor, protocol, provider: providerForProtocol(protocol, editor.provider) })}
                   options={[
                     { value: "", label: t("请选择 API 类型") },
                     ...(Object.keys(PROTOCOL_LABELS) as ProtocolId[]).map((protocol) => ({ value: protocol, label: PROTOCOL_LABELS[protocol] })),
@@ -227,6 +232,7 @@ export function ProfilesPage() {
                 providers={status.providers}
                 onAdd={() => navigate(`/providers/new?returnTo=${encodeURIComponent("/profiles")}`)}
                 onChange={(provider) => setEditor({ ...editor, provider })}
+                protocol={editor.protocol as ProtocolId}
               />
             </div>
             <div className="field-stack profile-editor-wide">

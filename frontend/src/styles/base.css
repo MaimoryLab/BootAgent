@@ -267,6 +267,12 @@ button:active:not(:disabled) {
   background: var(--surface-subtle);
 }
 
+.select-field-option.is-disabled {
+  color: var(--text-tertiary);
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
 .select-field-check {
   flex: 0 0 auto;
   color: var(--blue);

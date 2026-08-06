@@ -8,8 +8,8 @@ import { ProviderSegment } from "../components/ProviderSegment";
 import { useI18n } from "../i18n";
 import { desktopApps, desktopProfileUsable, desktopProfiles, desktopProtocol, profileAgentIdForDesktop } from "../state/desktopSetup";
 import { useWizard } from "../state/WizardContext";
-import { byProfileCreatedAt } from "../state/ranking";
-import type { ProfileSummary, ProviderId } from "../types/api";
+import { byProfileCreatedAt, byProviderCreatedAt } from "../state/ranking";
+import type { ProfileSummary, ProviderId, ProtocolId } from "../types/api";
 
 interface ProfileDraft {
   id: string;
@@ -42,6 +42,7 @@ export function AgentProfilePage() {
   const catalog = status?.catalog.find((item) => item.id === owner);
   const targetName = app?.name || catalog?.name || agentId;
   const currentAgent = status?.agents[owner];
+  const protocol = (app ? desktopProtocol(app) : catalog?.protocol || "") as ProtocolId | "";
   const [selectedId, setSelectedId] = useState("");
   const [draft, setDraft] = useState<ProfileDraft | null>(null);
   const [busy, setBusy] = useState(false);
@@ -85,7 +86,7 @@ export function AgentProfilePage() {
   const canApply = Boolean(selected && desktopProfileUsable(status, selected));
 
   const openCreate = () => {
-    const provider = Object.keys(status.providers)[0] || "ppio";
+    const provider = byProviderCreatedAt(status.providers).find(([, meta]) => protocol === "anthropic" ? meta.anthropic_base_url : meta.base_url)?.[0] || "ppio";
     const current = selected || profiles[0];
     const baseID = `${owner || "agent"}-${provider}`.toLowerCase().replace(/[^a-z0-9_-]/g, "-");
     const ids = new Set(status.profiles.map((profile) => profile.id));
@@ -205,6 +206,7 @@ export function AgentProfilePage() {
                 providers={status.providers}
                 onAdd={() => navigate(`/providers/new?returnTo=${encodeURIComponent(`/agents/${agentId}`)}`)}
                 onChange={(provider) => setDraft({ ...draft, provider })}
+                protocol={protocol}
               />
             </div>
             <div className="field-stack profile-editor-wide">

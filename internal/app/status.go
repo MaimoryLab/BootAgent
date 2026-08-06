@@ -475,7 +475,7 @@ func (u *UseCases) SaveProfile(ctx context.Context, options SaveProfileOptions) 
 		ID:       options.ID,
 		Label:    options.Label,
 		Provider: options.Provider,
-		BaseURL:  target.BaseURL,
+		BaseURL:  target.BaseFor(options.Protocol),
 		// Keep explicit keys accepted by callers, but do not copy a
 		// Provider-resolved key into every Profile secret file.
 		APIKey:               providedKey,
