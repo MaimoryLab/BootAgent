@@ -154,6 +154,21 @@ Wails 仍处于 Alpha，当前不发布 Stable，不做平台签名、公证或�
 
 - [internal/](docs/internal/README.md)：各次改造的完工记录与验证清单。里面的命令可能已随工具移除而失效，该目录的 README 说明了当前的替代入口。
 
+## 赞助
+
+OneAgent 的开发由以下机构支持：
+
+<p>
+  <a href="https://ppio.com/"><img src="docs/assets/sponsors/ppio-color.png" alt="PPIO" height="48"></a>
+  &nbsp;&nbsp;
+  <a href="https://novita.ai/"><img src="docs/assets/sponsors/novita-color.png" alt="Novita" height="48"></a>
+</p>
+
+两者同时也是 OneAgent 的内置 Provider。赞助关系不改变推荐哪个 Provider、也不改变
+如何验证它：每个 Provider 都按其 Agent 实际使用的协议探测，内置列表的顺序在
+`providers.lock.json` 里独立定义，与商业关系无关。各条目声明的关系与披露见
+[providers.lock.json](providers.lock.json)。
+
 ## 许可证
 
 Apache License 2.0，见 [LICENSE](LICENSE)。
