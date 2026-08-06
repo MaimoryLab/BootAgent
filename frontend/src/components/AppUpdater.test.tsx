@@ -186,4 +186,27 @@ describe("AppUpdater", () => {
     expect(await screen.findByText(/restart failed/)).toBeTruthy();
     expect(screen.getByRole("button", { name: "Restart and update" })).toBeTruthy();
   });
+
+  it("serializes restart attempts and allows retry after failure", async () => {
+    const user = userEvent.setup();
+    let rejectRestart!: (error: unknown) => void;
+    const restart = new Promise<void>((_resolve, reject) => { rejectRestart = reject; });
+    mocks.checkUpdate.mockResolvedValue("v2.0.0");
+    mocks.question.mockResolvedValue("Update");
+    mocks.downloadUpdate.mockResolvedValue(undefined);
+    mocks.restartUpdate.mockReturnValueOnce(restart).mockResolvedValueOnce(undefined);
+    mount();
+
+    await waitFor(() => expect(mocks.downloadUpdate).toHaveBeenCalledTimes(1));
+    await user.click(screen.getByRole("button", { name: "Task center" }));
+    const restartButton = await screen.findByRole("button", { name: "Restart and update" });
+    await user.click(restartButton);
+    await user.click(restartButton);
+    expect(mocks.restartUpdate).toHaveBeenCalledTimes(1);
+
+    rejectRestart(new Error("restart failed"));
+    expect(await screen.findByText(/restart failed/)).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Restart and update" }));
+    expect(mocks.restartUpdate).toHaveBeenCalledTimes(2);
+  });
 });

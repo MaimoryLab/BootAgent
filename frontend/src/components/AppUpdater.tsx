@@ -14,6 +14,7 @@ export function AppUpdater() {
   const latest = useRef(taskCenter);
   const checked = useRef(false);
   const active = useRef(false);
+  const restarting = useRef(false);
   latest.current = taskCenter;
 
   useEffect(() => {
@@ -62,10 +63,14 @@ export function AppUpdater() {
         latest.current.setTaskAction(OTA_TASK_ID, {
           label: t("重启并更新"),
           run: async () => {
+            if (restarting.current) return;
+            restarting.current = true;
             try {
               await api.restartUpdate();
             } catch (error) {
               latest.current.setTaskMessage(OTA_TASK_ID, describeError(error, t("无法重启并更新")).message);
+            } finally {
+              restarting.current = false;
             }
           },
         });
