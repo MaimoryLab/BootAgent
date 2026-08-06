@@ -170,7 +170,7 @@ OneAgent 的开发由以下机构支持：
 两者同时也是 OneAgent 的内置 Provider。赞助关系不改变推荐哪个 Provider、也不改变
 如何验证它：每个 Provider 都按其 Agent 实际使用的协议探测，内置列表的顺序在
 `providers.lock.json` 里独立定义，与商业关系无关。各条目声明的关系与披露见
-[providers.lock.json](manifests/providers.lock.json)。
+[manifests/providers.lock.json](manifests/providers.lock.json)。
 
 ## 许可证
 

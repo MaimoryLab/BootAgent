@@ -257,7 +257,7 @@ export function ProfilesPage() {
             </div>
             <div className="field-stack profile-editor-wide">
               <label htmlFor="profile-model">{t("模型")}</label>
-              <input id="profile-model" value={editor.model} onChange={(event) => setEditor({ ...editor, model: event.target.value })} placeholder={t("例如 deepseek/deepseek-v3")} required />
+              <input id="profile-model" value={editor.model} onChange={(event) => setEditor({ ...editor, model: event.target.value })} placeholder={t("例如 deepseek/deepseek-v4-pro")} required />
             </div>
             {/* The key is the Provider's, so this only reports whether that
                 Provider has one and links to where it is set. */}
