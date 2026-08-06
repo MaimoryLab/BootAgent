@@ -340,7 +340,8 @@
 }
 
 .agent-selection-list {
-  max-height: min(560px, 58vh);
+  min-height: 0;
+  max-height: none;
   overflow-y: auto;
 }
 
@@ -508,9 +509,17 @@
 .status-neutral { color: var(--text-secondary); background: var(--surface-pressed); }
 
 .agent-selection-body {
-  display: grid;
-  align-content: start;
+  display: flex;
+  flex-direction: column;
+  align-content: stretch;
   gap: 18px;
+  overflow: hidden;
+}
+
+.agent-selection-body > .content-section {
+  min-height: 0;
+  flex: 1 1 auto;
+  grid-template-rows: auto minmax(0, 1fr);
 }
 
 .disclosure-section {
