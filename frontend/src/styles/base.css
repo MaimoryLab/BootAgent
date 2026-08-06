@@ -297,6 +297,7 @@ button:active:not(:disabled) {
   border-radius: var(--radius-control);
   display: flex;
   align-items: center;
+  gap: 10px;
   color: var(--text-secondary);
   background: var(--surface-subtle);
   font-size: 13px;
