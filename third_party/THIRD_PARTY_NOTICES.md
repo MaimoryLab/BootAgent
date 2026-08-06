@@ -18,15 +18,15 @@ the embedded frontend. Full license and notice texts are included under
 | go | `github.com/go-ole/go-ole` | `v1.3.0` | windows-arm64, windows-x64 | MIT | `licenses/go/github.com_go-ole_go-ole@v1.3.0/LICENSE` |
 | go | `github.com/pelletier/go-toml/v2` | `v2.4.3` | macos-arm64, macos-x64, windows-arm64, windows-x64 | MIT | `licenses/go/github.com_pelletier_go-toml_v2@v2.4.3/LICENSE` |
 | go | `github.com/wailsapp/wails/v3` | `v3.0.0-beta.4` | macos-arm64, macos-x64, windows-arm64, windows-x64 | MIT | `licenses/go/github.com_wailsapp_wails_v3@v3.0.0-beta.4/LICENSE` |
-| go | `golang.org/x/mod` | `v0.35.0` | macos-arm64, macos-x64, windows-arm64, windows-x64 | BSD-3-Clause | `licenses/go/golang.org_x_mod@v0.35.0/LICENSE` |
+| go | `golang.org/x/mod` | `v0.38.0` | macos-arm64, macos-x64, windows-arm64, windows-x64 | BSD-3-Clause | `licenses/go/golang.org_x_mod@v0.38.0/LICENSE` |
 | go | `golang.org/x/sys` | `v0.47.0` | windows-arm64, windows-x64 | BSD-3-Clause | `licenses/go/golang.org_x_sys@v0.47.0/LICENSE` |
-| npm | `@wailsio/runtime` | `3.0.0-alpha2.117` | frontend | MIT | `licenses/npm/wailsio_runtime@3.0.0-alpha2.117/LICENSE` |
+| npm | `@wailsio/runtime` | `3.0.0-beta.1` | frontend | MIT | `licenses/npm/wailsio_runtime@3.0.0-beta.1/LICENSE` |
 | npm | `cookie` | `1.0.1` | frontend | MIT | `licenses/npm/cookie@1.0.1/LICENSE` |
-| npm | `lucide-react` | `1.25.0` | frontend | ISC | `licenses/npm/lucide-react@1.25.0/LICENSE` |
+| npm | `lucide-react` | `1.28.0` | frontend | ISC | `licenses/npm/lucide-react@1.28.0/LICENSE` |
 | npm | `react` | `19.2.8` | frontend | MIT | `licenses/npm/react@19.2.8/LICENSE` |
 | npm | `react-dom` | `19.2.8` | frontend | MIT | `licenses/npm/react-dom@19.2.8/LICENSE` |
-| npm | `react-router` | `7.18.1` | frontend | MIT | `licenses/npm/react-router@7.18.1/LICENSE.md` |
-| npm | `react-router-dom` | `7.18.1` | frontend | MIT | `licenses/npm/react-router-dom@7.18.1/LICENSE.md` |
+| npm | `react-router` | `7.18.2` | frontend | MIT | `licenses/npm/react-router@7.18.2/LICENSE.md` |
+| npm | `react-router-dom` | `7.18.2` | frontend | MIT | `licenses/npm/react-router-dom@7.18.2/LICENSE.md` |
 | npm | `scheduler` | `0.27.0` | frontend | MIT | `licenses/npm/scheduler@0.27.0/LICENSE` |
 | npm | `set-cookie-parser` | `2.6.0` | frontend | MIT | `licenses/npm/set-cookie-parser@2.6.0/LICENSE` |
 
