@@ -167,10 +167,15 @@ macOS and Windows OTA archives for amd64 and arm64, plus `SHA256SUMS`, to the ma
 GitHub Release. Each macOS archive contains `OneAgent.app`; each Windows archive contains
 `oneagent-desktop.exe`. The workflow can also be run manually with a required version.
 
-Wails is still in Alpha, with no platform signing, notarization, or store distribution.
+Wails is still in Alpha, so there is no Stable release, and no platform signing,
+notarization, or store distribution. The signing gate for Stable is deferred to a later
+release stage.
 
 To reproduce an equivalent artifact locally, use the desktop build steps under Quick
-start. Third-party attribution lives in [NOTICE](NOTICE) at the repository root.
+start. Channel labels, the SHA-256 manifest, and third-party notices were once generated
+by `cmd/oneagent-release`; that tool was removed in `23805b0` when the build moved to
+GitHub Actions. Third-party attribution now lives in [NOTICE](NOTICE) at the repository
+root.
 
 ## Documentation
 
