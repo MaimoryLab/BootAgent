@@ -39,7 +39,11 @@ export function AgentRow({ agent, status, selected, onToggle, single = false, na
           <strong>{agent.name}</strong>
           {agent.lockedVersion ? <span className="agent-version">v{agent.lockedVersion}</span> : null}
         </span>
-        <span>{agent.guideOnly ? t("显示官方安装与配置步骤") : t("支持检测、安装与初始化配置")}</span>
+        <span>{agent.guideOnly
+          ? t("显示官方安装与配置步骤")
+          : agent.packageManager === "official-script"
+            ? t("支持检测、安装与配置，但运行无法被 OneAgent 管理")
+            : t("支持检测、安装与初始化配置")}</span>
         {agent.platformNote ? <small>{agent.platformNote}</small> : null}
       </span>
       <StatusBadge tone={statusTone}>{statusLabel}</StatusBadge>

@@ -101,6 +101,7 @@ const english = {
   "官方文档": "Official docs",
   "显示官方安装与配置步骤": "Show official installation and setup steps",
   "支持检测、安装与初始化配置": "Supports detection, installation, and initial setup",
+  "支持检测、安装与配置，但运行无法被 OneAgent 管理": "Supports detection, installation, and configuration, but runtime is not managed by OneAgent",
   "选择 {name}": "Select {name}",
   "配置无法解析": "Configuration could not be parsed",
   "配置文件当前指向 {url}": "Configuration file currently points to {url}",
