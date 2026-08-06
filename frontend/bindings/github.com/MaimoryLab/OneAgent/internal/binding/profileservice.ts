@@ -13,6 +13,10 @@ import * as app$0 from "../app/models.js";
 // @ts-ignore: Unused imports
 import * as $models from "./models.js";
 
+export function DeleteProfile(request: $models.ProviderIDRequest): $CancellablePromise<$models.ProviderMutationResponse> {
+    return $Call.ByID(965476673, request);
+}
+
 export function ListProfiles(): $CancellablePromise<app$0.ProfileSummary[] | null> {
     return $Call.ByID(192725737);
 }

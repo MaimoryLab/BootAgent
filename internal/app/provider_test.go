@@ -13,6 +13,7 @@ import (
 
 	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
 	"github.com/MaimoryLab/OneAgent/internal/platform"
+	profileStore "github.com/MaimoryLab/OneAgent/internal/profile"
 	"github.com/MaimoryLab/OneAgent/internal/provider"
 )
 
@@ -199,5 +200,78 @@ func TestSaveProviderSkipsReapplyWhenOnlyMetadataChanges(t *testing.T) {
 	result, err := core.SaveProvider(context.Background(), entry)
 	if err != nil || len(result.Reapplied) != 0 || len(result.Failures) != 0 {
 		t.Fatalf("metadata-only save reapplied: %#v, err=%v", result, err)
+	}
+}
+
+func TestDeleteProviderRejectsBoundAgents(t *testing.T) {
+	home := t.TempDir()
+	core := activationCore(t, home, provider.NewClient(nil), "linux")
+	if _, err := core.SaveProvider(context.Background(), provider.Entry{
+		ID: "acme", Name: "Acme", BaseURL: "https://api.acme.test", APIKey: "key",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := core.ActivateAgent(context.Background(), ActivateAgentOptions{
+		AgentID: "codex", Provider: "acme", Model: "model-a",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	err := core.DeleteProvider(context.Background(), "acme")
+	if err == nil || oneerrors.As(err).Code != oneerrors.InvalidRequest || !strings.Contains(err.Error(), "codex") {
+		t.Fatalf("deleting in-use Provider returned %v", err)
+	}
+	if _, err := core.GetProvider(context.Background(), "acme"); err != nil {
+		t.Fatalf("guard deleted Provider: %v", err)
+	}
+}
+
+func TestDeleteProfileRejectsBoundAgents(t *testing.T) {
+	home := t.TempDir()
+	core := activationCore(t, home, provider.NewClient(nil), "linux")
+	if _, err := core.SaveProfile(context.Background(), SaveProfileOptions{
+		ID: "team", Provider: "ppio", Model: "model-a", ConfigMode: "provider",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := core.ActivateAgent(context.Background(), ActivateAgentOptions{
+		AgentID: "codex", Provider: "ppio", APIKey: "key", Model: "model-a", ProfileID: "team",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	err := core.DeleteProfile(context.Background(), "team")
+	if err == nil || oneerrors.As(err).Code != oneerrors.InvalidRequest || !strings.Contains(err.Error(), "codex") {
+		t.Fatalf("deleting in-use Profile returned %v", err)
+	}
+	if _, err := core.profiles.ProfilePath("team"); err != nil {
+		t.Fatal(err)
+	}
+	if len(core.profiles.List()) != 1 {
+		t.Fatal("in-use Profile was deleted")
+	}
+}
+
+func TestDeleteIgnoresStaleBindingWithoutAgentConfig(t *testing.T) {
+	home := t.TempDir()
+	core := activationCore(t, home, provider.NewClient(nil), "linux")
+	if _, err := core.SaveProvider(context.Background(), provider.Entry{
+		ID: "acme", Name: "Acme", BaseURL: "https://api.acme.test", APIKey: "key",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := core.SaveProfile(context.Background(), SaveProfileOptions{
+		ID: "stale", Provider: "acme", Model: "model-a", ConfigMode: "provider",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := core.profiles.WriteAgentBinding(context.Background(), "workbuddy", profileStore.BindingWriteRequest{
+		Provider: "acme", BaseURL: "https://api.acme.test", Model: "model-a", ProfileRef: "stale",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := core.DeleteProfile(context.Background(), "stale"); err != nil {
+		t.Fatalf("stale binding blocked Profile deletion: %v", err)
+	}
+	if err := core.DeleteProvider(context.Background(), "acme"); err != nil {
+		t.Fatalf("stale binding blocked Provider deletion: %v", err)
 	}
 }

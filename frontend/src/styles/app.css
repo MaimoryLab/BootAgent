@@ -1543,7 +1543,7 @@
 .agent-manage-actions { flex-shrink: 0; }
 
 .agent-manage-error {
-  margin: 0;
+  margin: 12px 0;
   padding: 8px 11px;
   border-radius: var(--radius-control);
   background: var(--red-soft);

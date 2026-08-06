@@ -4,10 +4,12 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"maps"
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -488,6 +490,47 @@ func (u *UseCases) SaveProfile(ctx context.Context, options SaveProfileOptions) 
 		return ProfileSummary{}, err
 	}
 	return profileSummary(stored), nil
+}
+
+func (u *UseCases) DeleteProfile(ctx context.Context, id string) error {
+	if u == nil {
+		return oneerrors.New(oneerrors.InternalError, "Profile service is not configured", oneerrors.WithStatus(501))
+	}
+	if err := ctx.Err(); err != nil {
+		return oneerrors.New(oneerrors.Timeout, "Profile request was cancelled", oneerrors.WithRetryable(true), oneerrors.WithCause(err))
+	}
+	u.writeMu.Lock()
+	defer u.writeMu.Unlock()
+	id = strings.TrimSpace(id)
+	var users []string
+	for agentID, binding := range u.catalogAgentBindings(true) {
+		if binding.ProfileRef == id {
+			users = append(users, agentID)
+		}
+	}
+	if len(users) > 0 {
+		sort.Strings(users)
+		return oneerrors.New(oneerrors.InvalidRequest, fmt.Sprintf("Profile %s is used by Agent(s): %s", id, strings.Join(users, ", ")))
+	}
+	return u.profiles.Delete(ctx, id)
+}
+
+// catalogAgentBindings mirrors the management pages' user lists. Profiles only
+// show auto-configured Agents; Providers show every catalog Agent.
+func (u *UseCases) catalogAgentBindings(autoOnly bool) map[string]profileStore.AgentBinding {
+	manifest, err := catalog.LoadEmbedded()
+	if err != nil {
+		return map[string]profileStore.AgentBinding{}
+	}
+	result := map[string]profileStore.AgentBinding{}
+	for agentID, binding := range u.profiles.ListAgentBindings() {
+		agent, ok := manifest.Agents[agentID]
+		if !ok || (autoOnly && agent.ConfigMode != "auto") {
+			continue
+		}
+		result[agentID] = binding
+	}
+	return result
 }
 
 func (u *UseCases) profileStatus(ctx context.Context) ([]ProfileSummary, *string, any, *string) {

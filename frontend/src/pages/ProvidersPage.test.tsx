@@ -98,6 +98,17 @@ describe("ProvidersPage", () => {
     expect(ppio.textContent).not.toContain("claude-code");
   });
 
+  it("explains why an in-use Provider cannot be deleted", () => {
+    mockState = { status: statusWith({ codex: "acme" }), statusState: "success" };
+    if (!mockState.status) throw new Error("missing status");
+    mockState.status.providers.acme = { name: "Acme", home: "", base_url: "https://api.acme.test", custom: true };
+    const remove = vi.spyOn(api, "deleteProvider");
+    render(<MemoryRouter><ProvidersPage /></MemoryRouter>);
+    fireEvent.click(screen.getByRole("button", { name: "删除 Acme" }));
+    expect(screen.getByText(/Provider 正在被.*使用，无法删除/)).toBeTruthy();
+    expect(remove).not.toHaveBeenCalled();
+  });
+
   it("says so when no Agent uses a Provider", () => {
     renderPage({ codex: "ppio" });
     expect(screen.getByTestId("provider-novita").textContent).toMatch(/暂无/);

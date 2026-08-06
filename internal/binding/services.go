@@ -411,6 +411,19 @@ func (s *ProfileService) SaveProfile(ctx context.Context, request SaveProfileReq
 	})
 }
 
+func (s *ProfileService) DeleteProfile(ctx context.Context, request ProviderIDRequest) (ProviderMutationResponse, error) {
+	if err := contextError(ctx); err != nil {
+		return ProviderMutationResponse{}, err
+	}
+	if s == nil || s.core == nil {
+		return ProviderMutationResponse{}, notReady("Profile service is not configured")
+	}
+	if err := s.core.DeleteProfile(ctx, request.ID); err != nil {
+		return ProviderMutationResponse{}, err
+	}
+	return ProviderMutationResponse{OK: true}, nil
+}
+
 type ProbeRequest struct {
 	Provider   string   `json:"provider"`
 	APIBaseURL string   `json:"api_base_url"`

@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"sort"
 	"strings"
 
@@ -208,6 +209,16 @@ func (u *UseCases) DeleteProvider(ctx context.Context, providerID string) error 
 	}
 	u.writeMu.Lock()
 	defer u.writeMu.Unlock()
+	var users []string
+	for agentID, binding := range u.catalogAgentBindings(false) {
+		if binding.Provider == strings.TrimSpace(providerID) {
+			users = append(users, agentID)
+		}
+	}
+	if len(users) > 0 {
+		sort.Strings(users)
+		return oneerrors.New(oneerrors.InvalidRequest, fmt.Sprintf("Provider %s is used by Agent(s): %s", strings.TrimSpace(providerID), strings.Join(users, ", ")))
+	}
 	return u.providers.Delete(ctx, providerID)
 }
 
