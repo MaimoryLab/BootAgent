@@ -12,8 +12,32 @@ import (
 	"github.com/MaimoryLab/OneAgent/internal/binding"
 	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
 	"github.com/MaimoryLab/OneAgent/internal/process"
+	"github.com/MaimoryLab/OneAgent/internal/version"
 	"github.com/wailsapp/wails/v3/pkg/application"
+	"github.com/wailsapp/wails/v3/pkg/updater"
+	"github.com/wailsapp/wails/v3/pkg/updater/providers/github"
 )
+
+func configureUpdater(appInstance *application.App) binding.UpdateBackend {
+	current := version.UpdaterVersion()
+	if current == "" {
+		return nil
+	}
+	provider, err := github.New(github.Config{Repository: "MaimoryLab/OneAgent", ChecksumAsset: "SHA256SUMS"})
+	if err != nil {
+		slog.Error("OneAgent updater provider is unavailable", "error", err)
+		return nil
+	}
+	if err := appInstance.Updater.Init(updater.Config{
+		CurrentVersion: current,
+		Providers:      []updater.Provider{provider},
+		Window:         updater.WindowNone,
+	}); err != nil {
+		slog.Error("OneAgent updater is unavailable", "error", err)
+		return nil
+	}
+	return appInstance.Updater
+}
 
 func main() {
 	var appInstance *application.App
@@ -70,6 +94,16 @@ func main() {
 		},
 		Mac: application.MacOptions{ApplicationShouldTerminateAfterLastWindowClosed: true},
 	})
+	updateBackend := configureUpdater(appInstance)
+	appInstance.Event.On(updater.EventDownloadProgress, func(event *application.CustomEvent) {
+		if event == nil {
+			return
+		}
+		if output, ok := binding.UpdateProgressOutput(event.Data); ok {
+			appInstance.Event.Emit("oneagent:install-output", output)
+		}
+	})
+	appInstance.RegisterService(application.NewServiceWithOptions(binding.NewUpdateService(updateBackend), application.ServiceOptions{MarshalError: oneerrors.Marshal}))
 	if !application.System.IsServer() {
 		// A floor, not a second breakpoint: the sidebar deliberately collapses to
 		// a 72px icon rail under 900px, and the layout is verified down to 560px.

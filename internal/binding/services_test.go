@@ -48,6 +48,7 @@ func TestServiceMethodAllowlist(t *testing.T) {
 		{&ProfileService{}, []string{"ListProfiles", "SaveProfile"}},
 		{&RuntimeService{}, []string{"GetSettings", "InstallRuntime", "ListRuntimes", "SaveSettings"}},
 		{&DesktopAgentService{}, []string{"Configure", "GetStatus", "Install", "Open"}},
+		{&UpdateService{}, []string{"Check", "DownloadAndInstall", "Restart"}},
 	}
 	for _, test := range tests {
 		typeOf := reflect.TypeOf(test.service)

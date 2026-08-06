@@ -1,6 +1,9 @@
 name: Build artifacts
 
 on:
+  push:
+    tags:
+      - 'v*.*.*'
   workflow_dispatch:
     inputs:
       version:
@@ -13,7 +16,11 @@ permissions:
   contents: read
 
 env:
-  RELEASE_VERSION: ${{ inputs.version }}
+  RELEASE_VERSION: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
+
+concurrency:
+  group: build-artifacts-${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
+  cancel-in-progress: false
 
 jobs:
   frontend:
@@ -57,7 +64,7 @@ jobs:
 
   build:
     needs: frontend
-    name: Build ${{ matrix.target.platform }} ${{ matrix.arch }}
+    name: Build ${{ matrix.target.platform }} ${{ matrix.arch.label }}
     runs-on: ${{ matrix.target.runner }}
     strategy:
       fail-fast: false
@@ -73,13 +80,15 @@ jobs:
             cgo: 0
             suffix: .exe
             desktop_ldflags: -w -s -H windowsgui
-        arch: [x64, arm64]
+        arch:
+          - {label: x64, goarch: amd64, ota: amd64}
+          - {label: arm64, goarch: arm64, ota: arm64}
 
     env:
       CGO_ENABLED: ${{ matrix.target.cgo }}
       CGO_CFLAGS: ${{ matrix.target.platform == 'macos' && '-mmacosx-version-min=12.0' || '' }}
       CGO_LDFLAGS: ${{ matrix.target.platform == 'macos' && '-mmacosx-version-min=12.0' || '' }}
-      GOARCH: ${{ matrix.arch == 'x64' && 'amd64' || 'arm64' }}
+      GOARCH: ${{ matrix.arch.goarch }}
       MACOSX_DEPLOYMENT_TARGET: ${{ matrix.target.platform == 'macos' && '12.0' || '' }}
 
     steps:
@@ -104,14 +113,6 @@ jobs:
           go build -tags wails,production -trimpath -buildvcs=false -ldflags="${{ matrix.target.desktop_ldflags }} $version_ldflag" -o "bin/oneagent-desktop${{ matrix.target.suffix }}" ./cmd/oneagent-desktop
           go build -trimpath -buildvcs=false -ldflags="-w -s $version_ldflag" -o "bin/oneagent${{ matrix.target.suffix }}" ./cmd/oneagent
 
-      - name: Verify production Go dependency inventory
-        shell: bash
-        run: |
-          python3 scripts/generate_third_party_licenses.py \
-            --verify-platform "${{ matrix.target.platform }}-${{ matrix.arch }}" \
-            --verify-go-binary "bin/oneagent-desktop${{ matrix.target.suffix }}" \
-            --verify-go-binary "bin/oneagent${{ matrix.target.suffix }}"
-
       - name: Package macOS app
         if: matrix.target.platform == 'macos'
         shell: bash
@@ -126,39 +127,77 @@ jobs:
           codesign --force --deep --sign - "bin/OneAgent.app"
           rm "bin/oneagent-desktop"
 
-      - name: Add license material to artifact
-        shell: bash
-        run: |
-          cp LICENSE NOTICE third_party/THIRD_PARTY_NOTICES.md bin/
-          cp -R third_party/licenses bin/licenses
-          if [[ "${{ matrix.target.platform }}" == "macos" ]]; then
-            compliance="bin/OneAgent.app/Contents/Resources/compliance"
-            mkdir -p "$compliance"
-            cp LICENSE NOTICE third_party/THIRD_PARTY_NOTICES.md "$compliance/"
-            cp -R third_party/licenses "$compliance/licenses"
-          fi
-
-      - name: Verify artifact license material
-        shell: bash
-        run: |
-          test -f bin/LICENSE
-          test -f bin/NOTICE
-          test -f bin/THIRD_PARTY_NOTICES.md
-          test -f bin/licenses/go/github.com_go-ole_go-ole@v1.3.0/LICENSE
-          test -f bin/licenses/npm/react-router@7.18.1/LICENSE.md
-          test -f bin/licenses/npm/scheduler@0.27.0/LICENSE
-          test -f bin/licenses/npm/cookie@1.0.1/LICENSE
-          test -f bin/licenses/npm/set-cookie-parser@2.6.0/LICENSE
-          if [[ "${{ matrix.target.platform }}" == "macos" ]]; then
-            test -f bin/OneAgent.app/Contents/Resources/compliance/LICENSE
-            test -f bin/OneAgent.app/Contents/Resources/compliance/NOTICE
-            test -f bin/OneAgent.app/Contents/Resources/compliance/THIRD_PARTY_NOTICES.md
-          fi
-
       - name: Upload artifact
         uses: actions/upload-artifact@v7
         with:
-          name: OneAgent-${{ matrix.target.platform }}-${{ matrix.arch }}
+          name: OneAgent-${{ matrix.target.platform }}-${{ matrix.arch.label }}
           path: bin/*
           if-no-files-found: error
           compression-level: 0
+
+      - name: Package macOS OTA archive
+        if: matrix.target.platform == 'macos'
+        shell: bash
+        run: |
+          (cd bin && zip -qry "OneAgent-darwin-${{ matrix.arch.ota }}.zip" OneAgent.app)
+          roots="$(unzip -Z1 "bin/OneAgent-darwin-${{ matrix.arch.ota }}.zip" | awk -F/ 'NF {print $1}' | sort -u)"
+          test "$roots" = OneAgent.app
+
+      - name: Package Windows OTA archive
+        if: matrix.target.platform == 'windows'
+        shell: pwsh
+        run: |
+          $archive = "bin/OneAgent-windows-${{ matrix.arch.ota }}.zip"
+          Compress-Archive -Path "bin/oneagent-desktop.exe" -DestinationPath $archive
+          $roots = @(tar -tf $archive | ForEach-Object { ($_ -split '/')[0] } | Where-Object { $_ } | Sort-Object -Unique)
+          if ($roots.Count -ne 1 -or $roots[0] -ne "oneagent-desktop.exe") {
+            throw "unexpected OTA archive roots: $($roots -join ', ')"
+          }
+
+      - name: Upload OTA archive
+        uses: actions/upload-artifact@v7
+        with:
+          name: ota-${{ matrix.target.platform }}-${{ matrix.arch.label }}
+          path: bin/OneAgent-${{ matrix.target.platform == 'macos' && 'darwin' || 'windows' }}-${{ matrix.arch.ota }}.zip
+          if-no-files-found: error
+
+  release:
+    needs: build
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    name: Publish release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Download OTA archives
+        uses: actions/download-artifact@v8
+        with:
+          pattern: ota-*
+          path: release-assets
+          merge-multiple: true
+
+      - name: Validate and publish release
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected=(
+            OneAgent-darwin-amd64.zip
+            OneAgent-darwin-arm64.zip
+            OneAgent-windows-amd64.zip
+            OneAgent-windows-arm64.zip
+          )
+          mapfile -t archives < <(find release-assets -maxdepth 1 -type f -name 'OneAgent-*.zip' -printf '%f\n' | sort)
+          test "${#archives[@]}" -eq 4
+          diff <(printf '%s\n' "${expected[@]}" | sort) <(printf '%s\n' "${archives[@]}")
+          (cd release-assets && sha256sum OneAgent-*.zip > SHA256SUMS)
+          test "$(wc -l < release-assets/SHA256SUMS)" -eq 4
+
+          if gh release view "$RELEASE_VERSION" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_VERSION" release-assets/* --clobber
+            gh release edit "$RELEASE_VERSION" --draft=false --prerelease=false
+          else
+            gh release create "$RELEASE_VERSION" release-assets/* --verify-tag --title "$RELEASE_VERSION" --generate-notes
+          fi

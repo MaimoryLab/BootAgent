@@ -12,6 +12,7 @@ import { TaskCenter } from "./TaskCenter";
 let emit: ((output: InstallOutput) => void) | null = null;
 const unsubscribe = vi.fn();
 const cancelRequest = vi.fn();
+const terminalAction = vi.fn();
 
 vi.mock("../backend/api", async () => {
   const errors = await import("../backend/errors");
@@ -41,13 +42,14 @@ const installTask: TaskInput = {
 };
 
 function TaskHarness() {
-  const { startTask, finishTask, setTaskCanceller } = useTaskCenter();
+  const { startTask, finishTask, setTaskCanceller, setTaskAction } = useTaskCenter();
   return (
     <div>
       <button type="button" onClick={() => {
         if (startTask(installTask)) setTaskCanceller(installTask.id!, cancelRequest);
       }}>启动安装</button>
       <button type="button" onClick={() => finishTask(installTask.id!, { kind: "success", message: "安装完成" })}>完成安装</button>
+      <button type="button" onClick={() => setTaskAction(installTask.id!, { label: "重试安装", run: terminalAction })}>设置终端动作</button>
       <button type="button" onClick={() => { startTask(installTask); }}>再次启动</button>
       <button type="button" onClick={() => { startTask({ kind: "update", target: "codex", title: "更新 Codex", route: "/overview" }); }}>更新同一 Agent</button>
       <button type="button" onClick={() => {
@@ -85,6 +87,7 @@ describe("TaskCenter", () => {
     emit = null;
     unsubscribe.mockReset();
     cancelRequest.mockReset();
+    terminalAction.mockReset();
   });
 
   it("shows task cards and never renders command output", async () => {
@@ -117,6 +120,17 @@ describe("TaskCenter", () => {
     expect(await screen.findByText(/已完成/)).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "关闭任务" }));
     expect(screen.queryByText("安装 Codex")).toBeNull();
+  });
+
+  it("renders and invokes a terminal action after the task finishes", async () => {
+    const user = userEvent.setup();
+    renderTaskCenter();
+    await user.click(screen.getByRole("button", { name: "启动安装" }));
+    await user.click(screen.getByRole("button", { name: "设置终端动作" }));
+    expect(screen.queryByRole("button", { name: "重试安装" })).toBeNull();
+    await user.click(screen.getByRole("button", { name: "完成安装" }));
+    await user.click(screen.getByRole("button", { name: "重试安装" }));
+    expect(terminalAction).toHaveBeenCalledTimes(1);
   });
 
   it("tracks byte progress on a download card", async () => {

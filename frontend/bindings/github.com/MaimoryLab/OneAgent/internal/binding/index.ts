@@ -7,13 +7,15 @@ import * as ProfileService from "./profileservice.js";
 import * as ProviderService from "./providerservice.js";
 import * as RuntimeService from "./runtimeservice.js";
 import * as StatusService from "./statusservice.js";
+import * as UpdateService from "./updateservice.js";
 export {
     AgentService,
     DesktopAgentService,
     ProfileService,
     ProviderService,
     RuntimeService,
-    StatusService
+    StatusService,
+    UpdateService
 };
 
 export type {

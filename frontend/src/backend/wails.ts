@@ -6,6 +6,7 @@ import * as ProfileService from "../../bindings/github.com/MaimoryLab/OneAgent/i
 import * as ProviderService from "../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/providerservice.js";
 import * as RuntimeService from "../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/runtimeservice.js";
 import * as StatusService from "../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/statusservice.js";
+import * as UpdateService from "../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/updateservice.js";
 import type {
   ActivateAgentResponse,
   DesktopAgentActionResult,
@@ -33,6 +34,7 @@ import { currentLocale, translate } from "../i18n";
 import { isCancellationError, OneAgentApiError } from "./errors";
 
 export const INSTALL_OUTPUT_EVENT = "oneagent:install-output";
+export const OTA_PROGRESS_TARGET = "oneagent-update";
 
 export function onInstallOutput(listener: (output: InstallOutput) => void): () => void {
   return Events.On(INSTALL_OUTPUT_EVENT, (event) => {
@@ -98,6 +100,9 @@ function call<T>(operation: () => PromiseLike<T>): CancellableRequest<T> {
 export const wailsApi = {
   onInstallOutput,
   status: (): Promise<StatusResponse> => call(() => StatusService.GetStatus()) as Promise<StatusResponse>,
+  checkUpdate: (): Promise<string> => call(() => UpdateService.Check()) as Promise<string>,
+  downloadUpdate: (): CancellableRequest<void> => call(() => UpdateService.DownloadAndInstall()) as CancellableRequest<void>,
+  restartUpdate: (): Promise<void> => call(() => UpdateService.Restart()).then(() => undefined),
   desktopAgentStatus: (agentId: string): Promise<DesktopAgentStatus> =>
     call(() => DesktopAgentService.GetStatus({ agent_id: agentId })) as Promise<DesktopAgentStatus>,
   installDesktopAgent: (agentId: string): CancellableRequest<DesktopAgentActionResult> =>

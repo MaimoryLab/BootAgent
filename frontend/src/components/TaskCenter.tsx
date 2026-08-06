@@ -1,4 +1,4 @@
-import { CheckCircle2, ChevronDown, CircleAlert, CircleStop, LoaderCircle, ListChecks, X } from "lucide-react";
+import { CheckCircle2, ChevronDown, CircleAlert, CircleStop, LoaderCircle, ListChecks, RefreshCw, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useInRouterContext, useNavigate } from "react-router-dom";
 
@@ -16,7 +16,7 @@ function TaskCard({ task, onOpen, onCancel, onDismiss }: { task: TaskRecord; onO
   const percent = knownTotal && progress ? Math.min(100, Math.round((progress.received / progress.total) * 100)) : 0;
   const status = task.state === "running" ? t("进行中") : task.state === "success" ? t("已完成") : task.state === "failure" ? t("失败") : t("已取消");
   return (
-    <article className={`task-card is-${task.state}`}>
+    <article className={`task-card is-${task.state}${task.action ? " has-action" : ""}`}>
       <button type="button" className="task-card-main" onClick={onOpen} aria-label={t("返回任务页面：{title}", { title: task.title })}>
         <span className="task-card-icon" aria-hidden="true">
           {task.state === "running" ? <LoaderCircle size={16} className="spin" /> : task.state === "success" ? <CheckCircle2 size={16} /> : task.state === "failure" ? <CircleAlert size={16} /> : <CircleStop size={16} />}
@@ -38,6 +38,12 @@ function TaskCard({ task, onOpen, onCancel, onDismiss }: { task: TaskRecord; onO
           ) : null}
         </span>
       </button>
+      {task.state !== "running" && task.action ? (
+        <button type="button" className="task-card-action" onClick={() => { void task.action?.run(); }}>
+          <RefreshCw size={13} aria-hidden="true" />
+          {task.action.label}
+        </button>
+      ) : null}
       {task.state === "running" ? (
         <button type="button" className="task-card-dismiss is-cancel" onClick={onCancel} aria-label={t("取消任务")} title={t("取消任务")}>
           <CircleStop size={14} aria-hidden="true" />
