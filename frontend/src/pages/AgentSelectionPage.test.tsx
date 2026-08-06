@@ -25,6 +25,7 @@ const CATALOG: AgentCatalogItem[] = [
   { rank: 3, id: "opencode", name: "OpenCode", group: "auto", configMode: "auto", guideOnly: false },
   { rank: 4, id: "kilo-cli", name: "Kilo CLI", group: "auto", configMode: "auto", guideOnly: false },
   { rank: 5, id: "aider", name: "Aider", group: "auto", configMode: "auto", guideOnly: false },
+  { rank: 6, id: "openclaw", name: "OpenClaw", group: "auto", configMode: "auto", guideOnly: false },
 ].map((item) => ({
   ...item,
   group: item.group as AgentCatalogItem["group"],
@@ -96,12 +97,14 @@ describe("AgentSelectionPage", () => {
       "选择 OpenCode",
       "选择 Kilo CLI",
       "选择 Aider",
+      "选择 OpenClaw",
     ]);
   });
 
   it("does not promise one-click configuration for the whole first screen", () => {
-    // The first screen now mixes both kinds, so the old "可一键配置" heading
-    // would be claiming something untrue of Cursor, OpenClaw and Hermes.
+    // Every catalog Agent is one-click configurable today, but the heading is
+    // still wrong to promise it: OpenClaw is configured only as far as its model
+    // provider, and a guide-only Agent can return to the catalog at any time.
     renderPage();
     expect(screen.getByRole("heading", { name: "选择 Agent", level: 2 })).toBeTruthy();
     expect(screen.queryByRole("heading", { name: "可一键配置" })).toBeNull();

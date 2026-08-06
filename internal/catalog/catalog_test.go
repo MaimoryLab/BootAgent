@@ -24,8 +24,12 @@ func TestEmbeddedManifestMatchesCurrentCatalogContract(t *testing.T) {
 			}
 		}
 	}
-	if automatic != 5 {
-		t.Fatalf("automatic Agent count = %d, want 5", automatic)
+	// A deliberate tripwire, not a fact about the world: 363550c removed three
+	// entries as a side effect of an unrelated commit and nothing failed, while
+	// the README went on describing them. Changing this number is fine; changing
+	// it without noticing is what this prevents.
+	if automatic != 6 {
+		t.Fatalf("automatic Agent count = %d, want 6", automatic)
 	}
 	items := PublicCatalog(manifest, "windows")
 	if len(items) != len(manifest.Agents) {

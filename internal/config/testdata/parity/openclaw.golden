@@ -1,0 +1,41 @@
+{
+  "channels": {
+    "discord": {
+      "allowFrom": [
+        "user#1"
+      ]
+    }
+  },
+  "models": {
+    "providers": {
+      "other": {
+        "apiKey": "keep"
+      },
+      "oneagent": {
+        "name": "PPIO",
+        "baseUrl": "https://api.ppio.com/openai/v1",
+        "apiKey": "sk-parity",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "model-new"
+          }
+        ]
+      }
+    }
+  },
+  "tools": {
+    "profile": "safe"
+  },
+  "agents": {
+    "defaults": {
+      "workspace": "~/w",
+      "model": {
+        "fallbacks": [
+          "other/m"
+        ],
+        "primary": "oneagent/model-new"
+      }
+    }
+  }
+}

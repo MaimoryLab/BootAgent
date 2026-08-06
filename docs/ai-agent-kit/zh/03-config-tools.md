@@ -58,7 +58,8 @@ Key:      只放在本机安全存储中
 | 第一次使用 | OneAgent 内置配置 |
 | 单一 PPIO 账号 | OneAgent 内置配置 |
 | 多个 Provider | CC Switch 或同类 Profile 工具 |
-| OpenClaw / Hermes Gateway | 官方文档和人工确认 |
+| OpenClaw 的模型供应商 | OneAgent 内置配置 |
+| OpenClaw 的渠道、工具与 daemon | `openclaw onboard` 等官方命令 |
 | IDE 扩展 | 扩展自己的 Provider 设置 |
 | 不确定工具来源 | 手动配置或 OneAgent 内置配置 |
 

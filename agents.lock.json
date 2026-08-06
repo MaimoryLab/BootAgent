@@ -132,6 +132,31 @@
         "windows"
       ],
       "rank": 5
+    },
+    "openclaw": {
+      "name": "OpenClaw",
+      "group": "auto",
+      "command": "openclaw",
+      "config_mode": "auto",
+      "config_adapter": "openclaw",
+      "config_path": ".openclaw/openclaw.json",
+      "package": {
+        "manager": "npm",
+        "name": "openclaw",
+        "source": "https://github.com/openclaw/openclaw",
+        "license": "MIT",
+        "license_url": "https://github.com/openclaw/openclaw/blob/main/LICENSE"
+      },
+      "version_args": [
+        "--version"
+      ],
+      "platforms": [
+        "macos",
+        "linux",
+        "windows"
+      ],
+      "guide": "OneAgent installs OpenClaw and writes its model provider. Starting the gateway and pairing channels stay with OpenClaw's own commands: openclaw onboard.",
+      "rank": 6
     }
   }
 }

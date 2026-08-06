@@ -62,7 +62,8 @@ Key:      local secure storage only
 | First run | OneAgent built-in configuration |
 | A single PPIO account | OneAgent built-in configuration |
 | Several Providers | CC Switch or a comparable profile tool |
-| OpenClaw / Hermes gateway | Official docs, verified by hand |
+| OpenClaw's model provider | OneAgent built-in configuration |
+| OpenClaw's channels, tools, and daemon | Its own commands, such as `openclaw onboard` |
 | IDE extensions | The extension's own Provider settings |
 | Unsure where a tool came from | Manual or OneAgent built-in configuration |
 

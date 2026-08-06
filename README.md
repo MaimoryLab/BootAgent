@@ -103,14 +103,18 @@ Automatically configured agents:
 | OpenCode | `opencode-ai` | npm | OpenAI-compatible |
 | Kilo CLI | `@kilocode/cli` | npm | OpenAI-compatible |
 | Aider | `aider-chat` | uv tool | OpenAI-compatible |
+| OpenClaw | `openclaw` | npm | OpenAI-compatible |
 
 By default the installer lets npm or uv resolve the latest version. To reproduce a
 specific one, pass `--agent-version VERSION`, for example
 `oneagent --agent codex --install-agent --check-agent-only --agent-version 0.145.0`.
 
-OpenClaw, Hermes, and Cursor are guide only: OneAgent shows the official install steps
-without installing a package, writing private configuration, or starting a background
-service.
+OpenClaw is a gateway, and OneAgent's scope for it stops at the model provider. It
+installs the package and writes the provider and default model into
+`~/.openclaw/openclaw.json`, leaving `channels`, `tools`, and every other section
+untouched. Starting the gateway, registering it as a service, and pairing chat
+channels stay with OpenClaw's own commands: run `openclaw onboard` afterwards.
+OneAgent never starts a background service.
 
 PPIO and Novita are built in, and Providers can be added, edited, or removed on the
 Provider page. After configuration, each agent is probed over the protocol it actually

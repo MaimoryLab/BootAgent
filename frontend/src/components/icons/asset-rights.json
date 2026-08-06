@@ -25,14 +25,6 @@
       "copyrightOwner": "LobeHub contributors",
       "sha256": "365a70a7eb3956d9b9a96086058ebe04e1dbd8e291a756ad964e8a283fbd6d38"
     },
-    "cursor": {
-      "file": "assets/cursor.svg",
-      "source": "https://github.com/lobehub/lobe-icons/blob/master/packages/static-svg/icons/cursor.svg",
-      "license": "MIT",
-      "licenseSource": "licenses/lobehub/LICENSE",
-      "copyrightOwner": "LobeHub contributors",
-      "sha256": "0cb51bddf264ae108926fd554c063ef40fc1aac3c5c921ddb39ad184e4e5d0ef"
-    },
     "kilo-cli": {
       "file": "assets/kilo-cli.svg",
       "source": "https://github.com/lobehub/lobe-icons/blob/master/packages/static-svg/icons/kilocode.svg",

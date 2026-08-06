@@ -42,11 +42,15 @@ Third-party trademarks
 
 The application identifies supported Agents in a row using either a generic
 OneAgent UI symbol or a separately audited image asset. Generic Lucide symbols
-are used for Claude Code, Cursor, Hermes, Kilo CLI, and Aider so their website
-favicons are not copied into the release. The three retained image assets are
-listed with source, license, owner, and SHA-256 in
+are used for Aider and OpenClaw, so no website favicon is copied into the
+release: neither has a mark in lobe-icons, and the only SVG of OpenClaw's logo
+in circulation was drawn by an unrelated project, which conveys no right to
+redistribute it. The four retained image assets, for Codex, Claude Code,
+OpenCode, and Kilo CLI, are listed with source, license, owner, and SHA-256 in
 frontend/src/components/icons/asset-rights.json.
 
 This is nominative use: the labels identify the referenced products and do not
-imply endorsement, affiliation or sponsorship. The image assets are not
-recoloured or restyled and remain the property of their respective owners.
+imply endorsement, affiliation or sponsorship. The image assets keep their
+published geometry and are not re-drawn. Each is distributed as a single-colour
+glyph painted with fill="currentColor", so it takes the surrounding text colour
+by design rather than carrying a brand colour that is being altered.

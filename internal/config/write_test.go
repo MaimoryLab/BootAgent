@@ -138,6 +138,107 @@ func TestWriteJSONAdaptersPreserveFieldsAndRejectJSONC(t *testing.T) {
 	}
 }
 
+// OpenClaw is a gateway: OneAgent installs it and points its model provider at
+// a Provider, and everything about running it stays with OpenClaw's own
+// commands. So the sections a user configures through `openclaw onboard` --
+// channels, tools, the daemon -- must come back out of a write untouched. That
+// separation is the whole reason this adapter is allowed to exist without
+// widening the product boundary, which makes it worth a test of its own rather
+// than only a golden file.
+func TestWriteOpenClawConfiguresProviderWithoutOwningTheGateway(t *testing.T) {
+	home := t.TempDir()
+	writer := testWriter(t, home, "linux")
+	path := filepath.Join(home, ".openclaw", "openclaw.json")
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	existing := `{"channels":{"discord":{"allowFrom":["user#1"]}},` +
+		`"tools":{"profile":"safe","deny":["shell"]},` +
+		`"models":{"providers":{"other":{"apiKey":"keep-me"}}},` +
+		`"agents":{"defaults":{"workspace":"~/w","model":{"fallbacks":["other/m"]}}}}`
+	if err := os.WriteFile(path, []byte(existing), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := writer.WriteOpenClaw(context.Background(), path, "PPIO", "https://api.ppio.com/openai", "sk-openclaw-secret", "model-a"); err != nil {
+		t.Fatal(err)
+	}
+
+	data, _ := os.ReadFile(path)
+	var config map[string]any
+	if err := json.Unmarshal(data, &config); err != nil {
+		t.Fatalf("OpenClaw config = %s, %v", data, err)
+	}
+
+	// Nothing about pairing or tool permissions is OneAgent's to decide.
+	channels, _ := config["channels"].(map[string]any)
+	discord, _ := channels["discord"].(map[string]any)
+	if allow, _ := discord["allowFrom"].([]any); len(allow) != 1 || allow[0] != "user#1" {
+		t.Fatalf("paired channel was rewritten: %s", data)
+	}
+	tools, _ := config["tools"].(map[string]any)
+	if tools["profile"] != "safe" {
+		t.Fatalf("tools profile was rewritten: %s", data)
+	}
+	if deny, _ := tools["deny"].([]any); len(deny) != 1 || deny[0] != "shell" {
+		t.Fatalf("tool denials were rewritten: %s", data)
+	}
+
+	models, _ := config["models"].(map[string]any)
+	providers, _ := models["providers"].(map[string]any)
+	other, _ := providers["other"].(map[string]any)
+	if other["apiKey"] != "keep-me" {
+		t.Fatalf("another provider's credential was lost: %s", data)
+	}
+	entry, _ := providers["oneagent"].(map[string]any)
+	if entry["name"] != "PPIO" || entry["api"] != "openai-completions" {
+		t.Fatalf("OpenClaw provider entry = %#v", entry)
+	}
+	// camelCase, and /v1 appended: this is what OpenClaw reads, and it differs
+	// from the snake_case other adapters in this file use.
+	if entry["baseUrl"] != "https://api.ppio.com/openai/v1" {
+		t.Fatalf("OpenClaw baseUrl = %#v", entry["baseUrl"])
+	}
+	if entry["apiKey"] != "sk-openclaw-secret" {
+		t.Fatalf("OpenClaw config lost its credential: %s", data)
+	}
+	entryModels, _ := entry["models"].([]any)
+	first, _ := entryModels[0].(map[string]any)
+	if len(entryModels) != 1 || first["id"] != "model-a" {
+		t.Fatalf("OpenClaw model list = %#v", entryModels)
+	}
+
+	// A gateway addresses a model as "<provider-key>/<model-id>", so a bare model
+	// id here would leave OpenClaw pointing at nothing. The user's own fallbacks
+	// must survive alongside it.
+	agents, _ := config["agents"].(map[string]any)
+	defaults, _ := agents["defaults"].(map[string]any)
+	if defaults["workspace"] != "~/w" {
+		t.Fatalf("workspace was rewritten: %s", data)
+	}
+	model, _ := defaults["model"].(map[string]any)
+	if model["primary"] != "oneagent/model-a" {
+		t.Fatalf("default model = %#v", model)
+	}
+	if fallbacks, _ := model["fallbacks"].([]any); len(fallbacks) != 1 || fallbacks[0] != "other/m" {
+		t.Fatalf("user fallbacks were dropped: %s", data)
+	}
+
+	// The file holds a live credential.
+	info, err := os.Stat(path)
+	if err != nil || info.Mode().Perm() != 0o600 {
+		t.Fatalf("OpenClaw config mode = %v, err=%v", info.Mode().Perm(), err)
+	}
+
+	// openclaw.json is documented as JSON5, so comments are expected in the wild
+	// and silently dropping them would lose real user content.
+	if err := os.WriteFile(path, []byte("{\n // keep\n \"tools\": {}\n}\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := writer.WriteOpenClaw(context.Background(), path, "PPIO", "https://api.ppio.com/openai", "k", "m"); err == nil || !strings.Contains(err.Error(), "JSONC comments") {
+		t.Fatalf("JSONC write error = %v", err)
+	}
+}
+
 func TestWriteWorkBuddyUpdatesModelArrayAndPreservesOtherModels(t *testing.T) {
 	home := t.TempDir()
 	path := filepath.Join(home, ".workbuddy", "models.json")

@@ -77,8 +77,8 @@ func (u *UseCases) activateAgentLocked(ctx context.Context, options ActivateAgen
 			fmt.Sprintf("%s is not supported on %s", agent.Name, u.status.Platform.OS),
 		)
 	}
-	if agent.ConfigMode != "auto" {
-		return ActivateAgentResult{}, oneerrors.New(oneerrors.InvalidRequest, fmt.Sprintf("%s is guide-only and has no managed configuration", agentID))
+	if err := guideOnlyRejection(agentID, agent); err != nil {
+		return ActivateAgentResult{}, err
 	}
 
 	providerID := strings.TrimSpace(options.Provider)
@@ -149,6 +149,17 @@ func (u *UseCases) activateAgentLocked(ctx context.Context, options ActivateAgen
 	}, nil
 }
 
+// guideOnlyRejection refuses to write a managed configuration for an Agent the
+// catalog only documents. Named rather than inlined because the catalog currently
+// holds no guide-only Agent to reach it through, and an unreachable guard with no
+// test is one refactor away from being deleted as dead code.
+func guideOnlyRejection(agentID string, agent catalog.Agent) error {
+	if agent.ConfigMode == "auto" {
+		return nil
+	}
+	return oneerrors.New(oneerrors.InvalidRequest, fmt.Sprintf("%s is guide-only and has no managed configuration", agentID))
+}
+
 func contextError(ctx context.Context, message string) error {
 	if err := ctx.Err(); err != nil {
 		return oneerrors.New(oneerrors.Timeout, message, oneerrors.WithRetryable(true), oneerrors.WithCause(err))
@@ -166,6 +177,8 @@ func writeManagedAgentConfig(ctx context.Context, writer configWriter.Writer, ag
 		return writer.WriteOpenAICompatible(ctx, path, "https://opencode.ai/config.json", providerName, baseURL, apiKey, model)
 	case "kilo-cli":
 		return writer.WriteOpenAICompatible(ctx, path, "https://app.kilo.ai/config.json", providerName, baseURL, apiKey, model)
+	case "openclaw":
+		return writer.WriteOpenClaw(ctx, path, providerName, baseURL, apiKey, model)
 	case "aider":
 		return writer.WriteAider(ctx, path, baseURL, apiKey)
 	case "workbuddy":
@@ -182,6 +195,12 @@ func restartHint(agentID string, agent catalog.Agent) string {
 	if agentID == "aider" {
 		return "Quit any running " + agent.Command + " process, then launch it again from OneAgent"
 	}
+	// OpenClaw's gateway is a long-lived process, often registered as a launchd
+	// or systemd user service, so "quit and start again" would be wrong advice:
+	// the config is re-read on restart of the gateway, not of a foreground CLI.
+	if agentID == "openclaw" {
+		return fmt.Sprintf("Restart the gateway so it re-reads the config: %s gateway restart", agent.Command)
+	}
 	return fmt.Sprintf("Quit any running %s process, then start it again", agent.Command)
 }
 
@@ -195,6 +214,13 @@ func nextStep(osID, agentID string, agent catalog.Agent, model string) string {
 			envFile = `"%USERPROFILE%\.oneagent\aider.env"`
 		}
 		return fmt.Sprintf("%s --env-file %s --model openai/%s", agent.Command, envFile, model)
+	}
+	// The model provider is configured, but a gateway still needs its channels
+	// paired before it can do anything. That step is OpenClaw's own interactive
+	// flow and stays with the user, so point at it rather than at a bare command
+	// that would appear to be all that is left.
+	if agentID == "openclaw" {
+		return agent.Command + " onboard"
 	}
 	return agent.Command
 }

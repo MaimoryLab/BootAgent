@@ -18,6 +18,10 @@ func TestJSONWritersMatchGoldenFiles(t *testing.T) {
 		{"claude", filepath.Join(".claude", "settings.json"), `{"keep":true,"env":{"CUSTOM":"value","ANTHROPIC_MODEL":"old"},"other":true}`},
 		{"opencode", filepath.Join(".config", "opencode", "opencode.json"), `{"keep":true,"provider":{"other":{"x":1}},"theme":"dark"}`},
 		{"kilo", filepath.Join(".config", "kilo", "kilo.jsonc"), `{"provider":{"other":{"x":1}},"keep":true}`},
+		// The existing file carries the parts of an OpenClaw config OneAgent must
+		// not own: a paired channel, a tools profile, and another model provider.
+		// The golden file is what proves they survive.
+		{"openclaw", filepath.Join(".openclaw", "openclaw.json"), `{"channels":{"discord":{"allowFrom":["user#1"]}},"models":{"providers":{"other":{"apiKey":"keep"}}},"tools":{"profile":"safe"},"agents":{"defaults":{"workspace":"~/w","model":{"fallbacks":["other/m"]}}}}`},
 	}
 
 	for _, testCase := range cases {
@@ -54,6 +58,8 @@ func jsonWriterOutput(t *testing.T, kind, relative, existing string) []byte {
 		err = writer.WriteOpenAICompatible(context.Background(), path, "https://opencode.ai/config.json", "PPIO", "https://api.ppio.com/openai", "sk-parity", "model-new")
 	case "kilo":
 		err = writer.WriteOpenAICompatible(context.Background(), path, "https://app.kilo.ai/config.json", "PPIO", "https://api.ppio.com/openai", "sk-parity", "model-new")
+	case "openclaw":
+		err = writer.WriteOpenClaw(context.Background(), path, "PPIO", "https://api.ppio.com/openai", "sk-parity", "model-new")
 	default:
 		t.Fatalf("unknown writer kind %q", kind)
 	}

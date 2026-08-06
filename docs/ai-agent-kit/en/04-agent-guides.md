@@ -48,21 +48,29 @@
 
 ### OpenClaw
 
-OneAgent V1 only detects the install and describes the official flow. It does not install
-a gateway daemon, expose a port, or enable plugins by default.
+OneAgent installs the `openclaw` package, writes the Provider into
+`models.providers.oneagent` in `~/.openclaw/openclaw.json`, and points
+`agents.defaults.model.primary` at `oneagent/<model>`.
 
-### Hermes
+**Those two places only.** `channels`, `tools`, the other fields under
+`agents.defaults`, and any other provider you already have are left exactly as they
+were. Those are what you decide through `openclaw onboard`, and OneAgent has no
+basis to change them.
 
-OneAgent only provides install and model configuration guidance. It does not write
-private configuration or start a gateway.
+The following stay with OpenClaw's own commands:
 
-## Agents with their own accounts
+- Starting or stopping the gateway, and registering a launchd or systemd service
+- Pairing chat channels (Discord, Telegram, WhatsApp, and the rest)
+- The Control UI port and its access control
+- Enabling plugins
 
-### Cursor
+Run `openclaw onboard` afterwards to pair channels. To make the gateway pick up a
+changed config, run `openclaw gateway restart`: it is a long-lived process, so
+reopening a foreground command is not enough.
 
-Prefer the official account, subscription, and login flow. Do not force a Provider base
-URL into a tool that has no stable official configuration contract, and OneAgent will not
-write private configuration for one either.
+`openclaw.json` is JSON5 and may contain comments. If yours does, OneAgent refuses
+the write and reports it rather than dropping the comments; fill in the fields above
+by hand in that case.
 
 ## Other tools
 
