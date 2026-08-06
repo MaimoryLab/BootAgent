@@ -62,7 +62,13 @@ export function ActivationPage() {
   );
 
   const startActivationTasks = useCallback((agentIds: string[]) => {
-    const targets = isDesktop && desktop ? [desktop.id] : agentIds;
+    const officialScriptAgents = new Set(
+      (state.status?.catalog ?? [])
+        .filter((agent) => agent.packageManager === "official-script")
+        .map((agent) => agent.id),
+    );
+    const selectedTargets = isDesktop && desktop ? [desktop.id] : agentIds;
+    const targets = selectedTargets.filter((target) => !officialScriptAgents.has(target));
     const group = `activation:${Date.now()}:${targets.join(",")}`;
     const startedAgents: string[] = [];
     for (const target of targets) {

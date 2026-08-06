@@ -143,7 +143,7 @@ func validate(manifest Manifest) error {
 }
 
 func validatePackage(agentID string, pkg Package) error {
-	if pkg.Manager != "npm" && pkg.Manager != "uv" {
+	if pkg.Manager != "npm" && pkg.Manager != "uv" && pkg.Manager != "official-script" {
 		return invalidManifest(agentID, "package manager is not allowlisted")
 	}
 	if pkg.Name == "" || pkg.License == "" {
@@ -151,6 +151,9 @@ func validatePackage(agentID string, pkg Package) error {
 	}
 	if !httpsURL(pkg.Source) || !httpsURL(pkg.LicenseURL) {
 		return invalidManifest(agentID, "package source and license URL must use HTTPS")
+	}
+	if pkg.Manager == "official-script" && (pkg.InstallCommand == "" || pkg.WindowsInstallCommand == "") {
+		return invalidManifest(agentID, "official-script package is missing an install command")
 	}
 	return nil
 }

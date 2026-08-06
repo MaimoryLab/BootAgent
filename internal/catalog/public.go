@@ -14,6 +14,7 @@ var adapterProtocols = map[string]string{
 	"opencode":    ProtocolOpenAI,
 	"kilo-cli":    ProtocolOpenAI,
 	"aider":       ProtocolOpenAI,
+	"hermes":      ProtocolOpenAI,
 }
 
 var groups = []Group{

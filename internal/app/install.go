@@ -172,8 +172,12 @@ func (u *UseCases) validateInstall(ctx context.Context, manifest catalog.Manifes
 		}
 	}
 	for _, id := range options.Agents {
-		if _, present := manifest.Agents[id]; !present {
+		agent, present := manifest.Agents[id]
+		if !present {
 			return options, oneerrors.New(oneerrors.InvalidRequest, "Unknown Agent: "+id)
+		}
+		if options.AgentVersion != "" && agent.Package != nil && agent.Package.Manager == "official-script" {
+			return options, oneerrors.New(oneerrors.InvalidRequest, agent.Name+" official installer does not accept --agent-version")
 		}
 	}
 	// Apply the stored mirror preference before validating, so one code path
@@ -331,7 +335,10 @@ func (r *installRun) configure(ctx context.Context, agentID string, agent catalo
 		}
 	}
 	installed := install.Result{Version: install.InstalledVersion(ctx, runtime, agent)}
-	if r.options.InstallAgent {
+	_, agentPresent := runtime.Runner.LookPath(agent.Command)
+	officialScript := agent.Package != nil && agent.Package.Manager == "official-script"
+	launchInstaller := r.options.InstallAgent && officialScript && !agentPresent
+	if r.options.InstallAgent && !officialScript {
 		// Install the package manager this Agent needs before installing the
 		// Agent itself, otherwise a machine without Node or uv fails on a
 		// prerequisite the user cannot resolve from this screen.
@@ -370,9 +377,8 @@ func (r *installRun) configure(ctx context.Context, agentID string, agent catalo
 		}
 	}
 	if r.options.CheckAgentOnly {
-		_, present := r.core.runner.LookPath(agent.Command)
 		status := "skipped"
-		if (agent.Command != "" && present) || installed.Installed {
+		if (agent.Command != "" && agentPresent) || installed.Installed {
 			status = "installed"
 		}
 		r.results = append(r.results, installResultFor(agentID, status, "", installed, true))
@@ -412,6 +418,12 @@ func (r *installRun) configure(ctx context.Context, agentID string, agent catalo
 			return err
 		}
 	}
+	if launchInstaller {
+		if err := r.launchOfficialInstaller(agent); err != nil {
+			return err
+		}
+		r.logs = append(r.logs, "## "+agentID+"\nOfficial installer opened in a new terminal.")
+	}
 	status := "skipped"
 	message := "Model configuration skipped"
 	if r.options.Configure {
@@ -422,6 +434,32 @@ func (r *installRun) configure(ctx context.Context, agentID string, agent catalo
 	r.logs = append(r.logs, "## "+agentID+"\n"+message+".")
 	if next := nextStep(r.core.status.Platform.OS, agentID, agent, r.options.Model); next != "" {
 		r.nextSteps = append(r.nextSteps, next)
+	}
+	return nil
+}
+
+func (r *installRun) launchOfficialInstaller(agent catalog.Agent) error {
+	if agent.Package == nil {
+		return oneerrors.New(oneerrors.AgentInstallFailed, agent.Name+" has no official installer")
+	}
+	command := agent.Package.InstallCommand
+	var argv []string
+	var err error
+	if r.core.status.Platform.OS == "windows" {
+		command = agent.Package.WindowsInstallCommand
+		argv = []string{"powershell.exe", "-NoExit", "-Command", command}
+	} else {
+		argv, err = terminalArgv(r.core.status.Platform.OS, command, r.core.runner.LookPath)
+		if err != nil {
+			return err
+		}
+	}
+	launcher, ok := process.AsLauncher(r.core.runner)
+	if !ok {
+		return oneerrors.New(oneerrors.InternalError, "This build cannot open a terminal window", oneerrors.WithStatus(501))
+	}
+	if err := launcher.Start(argv, r.core.installRuntime(nil).Env); err != nil {
+		return oneerrors.New(oneerrors.AgentInstallFailed, "Cannot open the official installer for "+agent.Name, oneerrors.WithRetryable(true), oneerrors.WithCause(err))
 	}
 	return nil
 }
@@ -571,6 +609,8 @@ func officialInstallCommand(agent catalog.Agent) string {
 		return "npm install -g " + agent.Package.Name
 	case "uv":
 		return "uv tool install --force --python " + install.AiderPythonVersion + " " + agent.Package.Name
+	case "official-script":
+		return agent.Package.InstallCommand
 	default:
 		manager := agent.Package.Manager
 		if manager == "" {

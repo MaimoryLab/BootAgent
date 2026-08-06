@@ -82,10 +82,13 @@ bin\oneagent.exe agent set codex --provider ppio --model your-model-id --api-key
 | Kilo CLI | `@kilocode/cli` | npm | OpenAI-compatible |
 | Aider | `aider-chat` | uv tool | OpenAI-compatible |
 | OpenClaw | `openclaw` | npm | OpenAI-compatible |
+| Hermes Agent | `hermes-agent` | 官方 Bash / PowerShell 脚本 | OpenAI-compatible |
 
-安装器默认让 npm 或 uv 解析最新版本。需要复现特定版本时可传 `--agent-version VERSION`，例如 `oneagent --agent codex --install-agent --check-agent-only --agent-version 0.145.0`。
+npm 和 uv 管理的 Agent 默认解析最新版本。需要复现特定版本时可传 `--agent-version VERSION`，例如 `oneagent --agent codex --install-agent --check-agent-only --agent-version 0.145.0`。Hermes 的版本选择由官方脚本负责，不接受这个参数。
 
 OpenClaw 是网关，OneAgent 对它的职责止于模型供应商：安装包，并把 provider 与默认模型写入 `~/.openclaw/openclaw.json`，不改动 `channels`、`tools` 等其余任何小节。启动网关、注册为系统服务、配对聊天渠道仍由 OpenClaw 自己的命令负责，配置完成后运行 `openclaw onboard`。OneAgent 不启动后台服务。
+
+Hermes 激活时，OneAgent 先安全写入模型配置，再打开新的 Bash 或 PowerShell 窗口运行 Hermes 官方安装脚本。官方 setup 阶段会跳过，避免重复询问已经在 OneAgent 中完成的 Provider 和模型设置。
 
 内置 PPIO、Novita，并支持在 Provider 页面增删改用户 Provider。配置后按 Agent 实际协议探测：Codex 使用 `/v1/responses`，Claude Code 使用 `/v1/messages`，其余自动配置 Agent 使用 `/v1/chat/completions`。协议不兼容时返回 `PROTOCOL_UNSUPPORTED`，不会先写入不可用配置。
 

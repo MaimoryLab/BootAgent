@@ -52,9 +52,15 @@ func TestInstallResultWirePreservesFieldPresence(t *testing.T) {
 }
 
 type installAppRunner struct {
-	paths map[string]string
-	calls [][]string
-	envs  []map[string]string
+	paths   map[string]string
+	calls   [][]string
+	envs    []map[string]string
+	started [][]string
+}
+
+func (r *installAppRunner) Start(argv []string, _ map[string]string) error {
+	r.started = append(r.started, append([]string(nil), argv...))
+	return nil
 }
 
 func (r *installAppRunner) LookPath(command string) (string, bool) {
@@ -140,6 +146,29 @@ func TestInstallAgentsWritesAllManagedAdaptersAndPublishesProfileLast(t *testing
 	}
 	if binding, err := core.profiles.ReadAgentBinding("codex"); err != nil || binding == nil || binding.ProfileRef != "default" {
 		t.Fatalf("default profile binding = %#v, %v", binding, err)
+	}
+}
+
+func TestInstallHermesWritesConfigThenOpensOfficialInstaller(t *testing.T) {
+	home := t.TempDir()
+	runner := &installAppRunner{paths: map[string]string{"x-terminal-emulator": "/usr/bin/x-terminal-emulator"}}
+	core := installCore(t, home, runner, nil)
+	options := installOptions("hermes")
+	options.InstallAgent = true
+	result, err := core.InstallAgents(context.Background(), options)
+	if err != nil || !result.OK || len(result.Results) != 1 || result.Results[0].Status != "configured" {
+		t.Fatalf("Hermes install = %#v, %v", result, err)
+	}
+	config, err := os.ReadFile(filepath.Join(home, ".hermes", "config.yaml"))
+	if err != nil || !strings.Contains(string(config), "api_key: install-secret") || !strings.Contains(string(config), "default: model-a") {
+		t.Fatalf("Hermes config = %q, %v", config, err)
+	}
+	if len(runner.started) != 1 {
+		t.Fatalf("installer launches = %#v", runner.started)
+	}
+	command := strings.Join(runner.started[0], " ")
+	if !strings.Contains(command, "hermes-agent.nousresearch.com/install.sh") || strings.Contains(command, "install-secret") {
+		t.Fatalf("installer command = %q", command)
 	}
 }
 
@@ -259,6 +288,14 @@ func TestInstallAgentsRefusesInvalidRequestBeforeWriting(t *testing.T) {
 	}
 	if len(entries) != 0 {
 		t.Fatalf("invalid request left files: %v", entries)
+	}
+}
+
+func TestInstallHermesRejectsPackageVersion(t *testing.T) {
+	options := installOptions("hermes")
+	options.AgentVersion = "1.2.3"
+	if _, err := installCore(t, t.TempDir(), &installAppRunner{}, nil).InstallAgents(context.Background(), options); err == nil {
+		t.Fatal("Hermes accepted an agent version its official installer cannot pin")
 	}
 }
 

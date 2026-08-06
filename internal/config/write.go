@@ -16,6 +16,7 @@ import (
 	"github.com/MaimoryLab/OneAgent/internal/provider"
 	"github.com/MaimoryLab/OneAgent/internal/securefs"
 	"github.com/pelletier/go-toml/v2"
+	"gopkg.in/yaml.v3"
 )
 
 type Writer struct {
@@ -227,6 +228,68 @@ func (w Writer) WriteAider(ctx context.Context, path, baseURL, apiKey string) er
 	content := "OPENAI_API_BASE=" + dotenvQuote(base) + "\n" +
 		"OPENAI_API_KEY=" + dotenvQuote(apiKey) + "\n"
 	return w.write(ctx, path, []byte(content), true)
+}
+
+func (w Writer) WriteHermes(ctx context.Context, path, baseURL, apiKey, model string) error {
+	text, err := readText(path)
+	if err != nil {
+		return configError("Cannot read existing YAML configuration %s: %v", path, err)
+	}
+	root := &yaml.Node{}
+	if strings.TrimSpace(text) == "" {
+		root = &yaml.Node{Kind: yaml.DocumentNode, Content: []*yaml.Node{{Kind: yaml.MappingNode}}}
+	} else if err := yaml.Unmarshal([]byte(text), root); err != nil {
+		return configError("Existing YAML configuration is invalid: %s: %v", path, err)
+	}
+	if len(root.Content) != 1 || root.Content[0].Kind != yaml.MappingNode {
+		return configError("Existing YAML configuration must contain an object: %s", path)
+	}
+	modelConfig, err := yamlMapping(root.Content[0], "model")
+	if err != nil {
+		return configError("Existing Hermes model configuration must contain an object: %s", path)
+	}
+	for _, item := range []struct{ key, value string }{
+		{"default", model},
+		{"provider", "custom"},
+		{"api_key", apiKey},
+		{"base_url", provider.OpenAIBaseURL(baseURL)},
+	} {
+		yamlSet(modelConfig, item.key, item.value)
+	}
+	data, err := yaml.Marshal(root)
+	if err != nil {
+		return configError("Cannot encode YAML configuration %s: %v", path, err)
+	}
+	return w.write(ctx, path, data, true)
+}
+
+func yamlMapping(parent *yaml.Node, key string) (*yaml.Node, error) {
+	for index := 0; index < len(parent.Content); index += 2 {
+		if parent.Content[index].Value != key {
+			continue
+		}
+		value := parent.Content[index+1]
+		if value.Kind != yaml.MappingNode {
+			return nil, fmt.Errorf("%s is not a mapping", key)
+		}
+		return value, nil
+	}
+	value := &yaml.Node{Kind: yaml.MappingNode}
+	parent.Content = append(parent.Content, &yaml.Node{Kind: yaml.ScalarNode, Value: key}, value)
+	return value, nil
+}
+
+func yamlSet(parent *yaml.Node, key, value string) {
+	for index := 0; index < len(parent.Content); index += 2 {
+		if parent.Content[index].Value == key {
+			parent.Content[index+1] = &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: value}
+			return
+		}
+	}
+	parent.Content = append(parent.Content,
+		&yaml.Node{Kind: yaml.ScalarNode, Value: key},
+		&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: value},
+	)
 }
 
 func (w Writer) write(ctx context.Context, path string, data []byte, secret bool) error {

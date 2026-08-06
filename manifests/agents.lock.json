@@ -157,6 +157,34 @@
       ],
       "guide": "OneAgent installs OpenClaw and writes its model provider. Starting the gateway and pairing channels stay with OpenClaw's own commands: openclaw onboard.",
       "rank": 6
+    },
+    "hermes": {
+      "name": "Hermes Agent",
+      "group": "auto",
+      "command": "hermes",
+      "config_mode": "auto",
+      "config_adapter": "hermes",
+      "config_path": ".hermes/config.yaml",
+      "windows_config_path": "AppData/Local/hermes/config.yaml",
+      "package": {
+        "manager": "official-script",
+        "name": "hermes-agent",
+        "source": "https://github.com/NousResearch/hermes-agent",
+        "license": "MIT",
+        "license_url": "https://github.com/NousResearch/hermes-agent/blob/main/LICENSE",
+        "install_command": "curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash -s -- --skip-setup",
+        "windows_install_command": "& ([scriptblock]::Create((irm https://hermes-agent.nousresearch.com/install.ps1))) -SkipSetup"
+      },
+      "version_args": [
+        "--version"
+      ],
+      "platforms": [
+        "macos",
+        "linux",
+        "windows"
+      ],
+      "windows_note": "The official PowerShell installer provides Hermes and its isolated prerequisites without requiring WSL.",
+      "rank": 7
     }
   }
 }

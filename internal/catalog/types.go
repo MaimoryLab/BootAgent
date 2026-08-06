@@ -36,11 +36,13 @@ type Agent struct {
 }
 
 type Package struct {
-	Manager    string `json:"manager"`
-	Name       string `json:"name"`
-	Source     string `json:"source"`
-	License    string `json:"license"`
-	LicenseURL string `json:"license_url"`
+	Manager               string `json:"manager"`
+	Name                  string `json:"name"`
+	Source                string `json:"source"`
+	License               string `json:"license"`
+	LicenseURL            string `json:"license_url"`
+	InstallCommand        string `json:"install_command"`
+	WindowsInstallCommand string `json:"windows_install_command"`
 }
 
 type CatalogItem struct {

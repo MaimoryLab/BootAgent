@@ -320,3 +320,36 @@ func TestWriteAiderQuotesSecretsOnUnixAndWindows(t *testing.T) {
 		t.Fatalf("Windows Aider config = %q", data)
 	}
 }
+
+func TestWriteHermesPreservesExistingConfig(t *testing.T) {
+	home := t.TempDir()
+	path := filepath.Join(home, ".hermes", "config.yaml")
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	existing := "tools:\n  enabled: true\nmodel:\n  default: old\n  context_length: 32000\n"
+	if err := os.WriteFile(path, []byte(existing), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := testWriter(t, home, "linux").WriteHermes(context.Background(), path, "https://api.example/openai", "hermes-secret", "model-a"); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(data)
+	for _, want := range []string{"enabled: true", "context_length: 32000", "default: model-a", "provider: custom", "api_key: hermes-secret", "base_url: https://api.example/openai/v1"} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("Hermes config missing %q:\n%s", want, text)
+		}
+	}
+	detected := ReadHermesConfig(text)
+	if detected.BaseURL != "https://api.example/openai/v1" || detected.Model != "model-a" || !detected.ManagedByOneAgent {
+		t.Fatalf("Hermes round-trip = %#v", detected)
+	}
+	info, err := os.Stat(path)
+	if err != nil || info.Mode().Perm() != 0o600 {
+		t.Fatalf("Hermes config mode = %v, err=%v", info.Mode().Perm(), err)
+	}
+}

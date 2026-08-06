@@ -44,6 +44,14 @@
 - When using the `openai/<model>` form, follow the guidance for your installed Aider
   version.
 
+### Hermes Agent
+
+- OneAgent writes `~/.hermes/config.yaml`; native Windows uses
+  `%LOCALAPPDATA%\hermes\config.yaml`.
+- It then opens a new Bash or PowerShell window running Hermes's official installer.
+- The upstream setup stage is skipped. Browser tooling, skills, the gateway, and channel
+  pairing remain under Hermes's control.
+
 ## Gateway agents
 
 ### OpenClaw

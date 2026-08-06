@@ -94,6 +94,23 @@ func TestLaunchAgentUsesCmdOnWindows(t *testing.T) {
 	}
 }
 
+func TestOfficialInstallerUsesPowerShellOnWindows(t *testing.T) {
+	runner := &launchRunner{}
+	core := launchCore(t, "windows", runner)
+	manifest, err := catalog.LoadEmbedded()
+	if err != nil {
+		t.Fatal(err)
+	}
+	run := installRun{core: core}
+	if err := run.launchOfficialInstaller(manifest.Agents["hermes"]); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"powershell.exe", "-NoExit", "-Command", "& ([scriptblock]::Create((irm https://hermes-agent.nousresearch.com/install.ps1))) -SkipSetup"}
+	if len(runner.started) != 1 || !slices.Equal(runner.started[0], want) {
+		t.Fatalf("started = %#v, want %#v", runner.started, want)
+	}
+}
+
 func TestLaunchAgentUsesAnAvailableLinuxTerminal(t *testing.T) {
 	runner := &launchRunner{paths: map[string]string{"konsole": "/usr/bin/konsole"}}
 	core := launchCore(t, "linux", runner)

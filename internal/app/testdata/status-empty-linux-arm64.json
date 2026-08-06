@@ -10,6 +10,7 @@
       "aider": false,
       "claude-code": false,
       "codex": false,
+      "hermes": true,
       "kilo-cli": false,
       "openclaw": false,
       "opencode": false
@@ -28,7 +29,8 @@
       "opencode",
       "kilo-cli",
       "aider",
-      "openclaw"
+      "openclaw",
+      "hermes"
     ]
   },
   "agents": {
@@ -73,6 +75,22 @@
       "lockedVersion": null,
       "latestVersion": null,
       "canInstall": false,
+      "provider": null,
+      "profileId": null,
+      "model": null,
+      "baseUrl": null,
+      "updatedAt": null,
+      "detected": null
+    },
+    "hermes": {
+      "installed": false,
+      "configured": false,
+      "guideOnly": false,
+      "config": "${HOME}/.hermes/config.yaml",
+      "version": null,
+      "lockedVersion": null,
+      "latestVersion": null,
+      "canInstall": true,
       "provider": null,
       "profileId": null,
       "model": null,
@@ -237,6 +255,24 @@
       "rank": 6,
       "packageManager": "npm",
       "packageName": "openclaw"
+    },
+    {
+      "id": "hermes",
+      "name": "Hermes Agent",
+      "group": "auto",
+      "configMode": "auto",
+      "guideOnly": false,
+      "lockedVersion": null,
+      "protocol": "openai",
+      "platforms": [
+        "macos",
+        "linux",
+        "windows"
+      ],
+      "platformNote": "",
+      "rank": 7,
+      "packageManager": "official-script",
+      "packageName": "hermes-agent"
     }
   ],
   "groups": [
@@ -291,6 +327,7 @@
     "aider_config": "${HOME}/.oneagent/aider.env",
     "claude-code_config": "${HOME}/.claude/settings.json",
     "codex_config": "${HOME}/.codex/config.toml",
+    "hermes_config": "${HOME}/.hermes/config.yaml",
     "kilo-cli_config": "${HOME}/.config/kilo/kilo.jsonc",
     "logs": "${HOME}/.oneagent/logs",
     "openclaw_config": "${HOME}/.openclaw/openclaw.json",
@@ -301,6 +338,7 @@
     "aider": false,
     "claude-code": false,
     "codex": false,
+    "hermes": false,
     "kilo-cli": false,
     "openclaw": false,
     "opencode": false,

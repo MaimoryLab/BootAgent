@@ -326,6 +326,7 @@ describe("updateOffer", () => {
   it("offers no update for Agents npm does not manage", () => {
     // Aider comes from PyPI through uv; a guide-only entry has no package at all.
     expect(updateOffer({ ...npm, packageManager: "uv", packageName: "aider-chat" }, agentStatus()).npm).toBe(false);
+    expect(updateOffer({ ...npm, packageManager: "official-script", packageName: "hermes-agent" }, agentStatus()).npm).toBe(false);
     expect(updateOffer({ ...npm, packageManager: undefined, packageName: undefined }, agentStatus()).npm).toBe(false);
     expect(updateOffer(undefined, agentStatus()).npm).toBe(false);
   });
@@ -349,6 +350,14 @@ describe("the update affordance in the row", () => {
 
   it("hides the update button entirely when the Agent is not installed", () => {
     renderRow({ installed: false, version: null, latestVersion: "9.9.9" });
+    expect(screen.queryByRole("button", { name: /更新/ })).toBeNull();
+  });
+
+  it("hides the update button for official-script Agents", () => {
+    renderRow({ version: "1.0.0", latestVersion: "2.0.0" }, "团队 PPIO", {
+      packageManager: "official-script",
+      packageName: "hermes-agent",
+    });
     expect(screen.queryByRole("button", { name: /更新/ })).toBeNull();
   });
 
