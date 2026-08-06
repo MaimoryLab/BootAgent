@@ -1230,6 +1230,31 @@
   filter: brightness(0.94);
 }
 
+/* Anchor for the update dot. overflow stays visible because the dot sits
+   outside the border box, so it cannot reflow the label beside it. */
+.agent-update-button {
+  position: relative;
+  overflow: visible;
+}
+
+/* A newer version is published. Deliberately wordless: the button's title
+   carries the version for anyone who wants it, and five rows each spelling out
+   "update available" is noise. The ring matches the surface behind the button so
+   the dot reads as a badge rather than a smudge over the border it overlaps.
+   The ring is --surface-subtle because that is the row's own background, and it
+   tracks the theme with it. */
+.agent-update-dot {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--blue);
+  box-shadow: 0 0 0 2px var(--surface-subtle);
+  pointer-events: none;
+}
+
 .agent-manage-details {
   grid-area: details;
   align-self: end;

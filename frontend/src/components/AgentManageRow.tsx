@@ -9,13 +9,28 @@ import type { AgentCatalogItem, AgentStatus, ProfileSummary, StatusResponse } fr
 import { AgentIcon, agentTagline } from "./icons/agents";
 
 type Providers = StatusResponse["providers"];
-const npmAgents = new Set(["codex", "claude-code", "opencode", "kilo-cli"]);
-const npmPackages: Record<string, string> = {
-  codex: "@openai/codex",
-  "claude-code": "@anthropic-ai/claude-code",
-  opencode: "opencode-ai",
-  "kilo-cli": "@kilocode/cli",
-};
+
+/**
+ * Whether an update can be offered, and the newer version if the registry named
+ * one.
+ *
+ * The npm-managed set used to be a literal in this file, alongside a second
+ * literal mapping each Agent to its package name. Both had already drifted:
+ * OpenClaw shipped as an npm Agent and was in neither, so it silently lost its
+ * update button and its package name in the details. The catalog carries both
+ * facts now, from the same agents.lock.json the installer reads.
+ */
+export function updateOffer(agent: AgentCatalogItem | undefined, status: AgentStatus): { npm: boolean; behind: string } {
+  // Not installed means there is nothing to update. `npm update -g` on a package
+  // that was never installed exits 0 and does nothing, so offering the button
+  // would report success while leaving the Agent missing.
+  const npm = agent?.packageManager === "npm" && status.installed;
+  if (!npm || !status.version || !status.latestVersion) return { npm: Boolean(npm), behind: "" };
+  // Only an older local version is an update. A newer one is normal -- the user
+  // upgraded the Agent themselves -- and flagging it would invite a downgrade.
+  const behind = compareVersions(status.version, status.latestVersion) < 0 ? status.latestVersion : "";
+  return { npm: true, behind };
+}
 
 /** -1, 0 or 1 comparing dotted numeric versions; non-numeric parts sort last. */
 export function compareVersions(left: string, right: string): number {
@@ -135,6 +150,7 @@ export function AgentManageRow({
   // installed is true only when the Agent's command resolved on the managed
   // PATH, so it is already the precise "there is something to launch" signal.
   const canLaunch = status.installed;
+  const offer = updateOffer(catalog, status);
 
   const launch = async () => {
     setLaunching(true);
@@ -211,10 +227,19 @@ export function AgentManageRow({
         {/* Always in the row, not only when the Agent cannot launch. Configuring
             an installed Agent was previously reachable only by opening <details>,
             which made the common case the hidden one. */}
-        {npmAgents.has(agentId) ? (
-          <button className="button button-secondary" type="button" onClick={() => void update()} disabled={updating || launching || isTaskRunning(taskKey("install", agentId))} title={t("执行 npm update")}>
+        {offer.npm ? (
+          <button
+            className="button button-secondary agent-update-button"
+            type="button"
+            onClick={() => void update()}
+            disabled={updating || launching || isTaskRunning(taskKey("install", agentId))}
+            title={offer.behind ? t("有新版本 {version}，点击更新", { version: offer.behind }) : t("执行 npm update")}
+          >
             <RefreshCw size={15} className={updating ? "spin" : ""} aria-hidden="true" />
             {updating ? t("更新中") : t("更新")}
+            {/* The dot is decoration; the title above is what carries the new
+                version to a screen reader, so this is not announced twice. */}
+            {offer.behind && !updating ? <span className="agent-update-dot" aria-hidden="true" /> : null}
           </button>
         ) : null}
         <Link
@@ -260,8 +285,8 @@ export function AgentManageRow({
           {target.note ? (
             <div className="agent-manage-detail-note"><small>{t("备注")}</small><span>{target.note}</span></div>
           ) : null}
-          {npmPackages[agentId] ? (
-            <div><small>npm</small><span className="agent-manage-detail-code">{npmPackages[agentId]}</span></div>
+          {catalog?.packageManager === "npm" && catalog.packageName ? (
+            <div><small>npm</small><span className="agent-manage-detail-code">{catalog.packageName}</span></div>
           ) : null}
         </div>
       </details>

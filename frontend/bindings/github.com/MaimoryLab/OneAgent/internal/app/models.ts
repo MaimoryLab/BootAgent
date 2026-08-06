@@ -21,6 +21,14 @@ export interface AgentStatus {
     "config": string;
     "version": string | null;
     "lockedVersion": string | null;
+
+    /**
+     * LatestVersion is the newest version published to the package registry, or
+     * nil when it is not knowable -- offline, rate limited, or not an npm
+     * package. It drives the update dot only, so nil means "say nothing" rather
+     * than "up to date".
+     */
+    "latestVersion": string | null;
     "canInstall": boolean;
     "provider": string | null;
     "profileId": string | null;

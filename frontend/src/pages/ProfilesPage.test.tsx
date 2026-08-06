@@ -29,6 +29,7 @@ function statusWith(profiles: ProfileSummary[]): StatusResponse {
         config: "/c",
         version: "1.0.0",
         lockedVersion: "1.0.0",
+        latestVersion: null,
         canInstall: true,
         provider: "ppio",
         profileId: "team-ppio",
