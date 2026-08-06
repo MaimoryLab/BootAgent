@@ -24,6 +24,8 @@ const english = {
   "删除": "Delete",
   "名称": "Name",
   "模型": "Model",
+  "API 类型": "API type",
+  "请选择 API 类型": "Select an API type",
   "版本": "Version",
   "未知": "Unknown",
   "暂无": "None",

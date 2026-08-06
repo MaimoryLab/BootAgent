@@ -128,19 +128,50 @@ describe("ProfilesPage", () => {
     expect(screen.getByTestId("profile-unused").textContent).toContain("暂无 Agent 使用");
   });
 
-  it("sends Profile creation through onboarding instead of an inline form", async () => {
-    // The old form collected a Provider, model and Agent list without ever
-    // testing the key. Onboarding collects the same fields in order, probes the
-    // connection, and the install writes the Profile.
-    const save = vi.spyOn(api, "saveProfile");
+  it("creates a Profile inline without entering onboarding", async () => {
+    const save = vi.spyOn(api, "saveProfile").mockResolvedValue(profile({
+      id: "profile-ppio",
+      label: "Codex Profile",
+    }));
     renderPage([]);
     expect(screen.getByText(/还没有 Profile/)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "新增 Profile" }));
 
-    expect(await screen.findByRole("heading", { name: "onboarding" })).toBeTruthy();
-    // A stale run's Agent and model must not be inherited by the new Profile.
-    expect(dispatch).toHaveBeenCalledWith({ type: "START_SETUP" });
+    expect(screen.queryByRole("heading", { name: "onboarding" })).toBeNull();
+    expect(screen.getByLabelText("Profile ID")).toHaveValue("profile-ppio");
+    expect(screen.getByRole("combobox", { name: "API 类型" })).toHaveTextContent("请选择 API 类型");
+    expect(dispatch).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByLabelText("模型"), { target: { value: "model-a" } });
+    fireEvent.click(screen.getByRole("combobox", { name: "API 类型" }));
+    fireEvent.click(screen.getByRole("option", { name: "OpenAI Responses" }));
+    fireEvent.click(screen.getByRole("button", { name: "保存 Profile" }));
+
+    await waitFor(() => expect(save).toHaveBeenCalledWith(expect.objectContaining({
+      id: "profile-ppio",
+      provider: "ppio",
+      model: "model-a",
+      protocol: "responses",
+      apiKey: "",
+    })));
+  });
+
+  it("chooses the next available Profile ID", () => {
+    renderPage([profile({ id: "codex-ppio" })]);
+    fireEvent.click(screen.getByRole("button", { name: "新增 Profile" }));
+
+    expect(screen.getByLabelText("Profile ID")).toHaveValue("profile-ppio");
+  });
+
+  it("requires a manually selected API type", async () => {
+    const save = vi.spyOn(api, "saveProfile").mockResolvedValue(profile({ id: "profile-ppio" }));
+    renderPage([]);
+    fireEvent.click(screen.getByRole("button", { name: "新增 Profile" }));
+    expect(screen.getByRole("button", { name: "保存 Profile" })).toBeDisabled();
+    fireEvent.change(screen.getByLabelText("模型"), { target: { value: "model-a" } });
     expect(save).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("combobox", { name: "API 类型" }));
+    fireEvent.click(screen.getByRole("option", { name: "OpenAI Chat Completions" }));
+    expect(screen.getByRole("button", { name: "保存 Profile" })).not.toBeDisabled();
   });
 
   it("points at the Provider page when its key is missing", async () => {

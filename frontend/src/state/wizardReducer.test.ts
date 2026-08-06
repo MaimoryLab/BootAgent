@@ -42,6 +42,16 @@ describe("wizardReducer", () => {
     expect(state.statusError).toBe("offline");
   });
 
+  it("defaults setup to the newest Provider", () => {
+    const providers = {
+      ppio: { name: "PPIO", home: "", base_url: "", custom: false, created_at: "" },
+      newer: { name: "Newer", home: "", base_url: "", custom: true, created_at: "2026-02-01T00:00:00Z" },
+    } satisfies StatusResponse["providers"];
+    const loaded = wizardReducer(initialWizardState, { type: "STATUS_LOADED", status: { ...status, providers } });
+    expect(loaded.provider).toBe("newer");
+    expect(wizardReducer(loaded, { type: "START_SETUP" }).provider).toBe("newer");
+  });
+
   it("selects exactly one Agent and cannot be emptied by re-selecting", () => {
     // Onboarding installs one Agent per run, and every step after this one
     // requires a selection: a toggle-off would only produce a dead end.

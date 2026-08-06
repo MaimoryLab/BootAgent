@@ -7,6 +7,7 @@ import type {
   StatusResponse,
   InstallOutput,
 } from "../types/api";
+import { byProviderCreatedAt } from "./ranking";
 
 export type AsyncState = "idle" | "loading" | "success" | "error";
 export type SetupKind = "cli" | "desktop";
@@ -81,6 +82,10 @@ export const initialWizardState: WizardState = {
   activationNext: "",
 };
 
+function latestProvider(status: StatusResponse | null): ProviderId {
+  return byProviderCreatedAt(status?.providers ?? {})[0]?.[0] || "ppio";
+}
+
 export type WizardAction =
   | { type: "STATUS_LOADING" }
   | { type: "STATUS_LOADED"; status: StatusResponse }
@@ -150,7 +155,13 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
     case "STATUS_LOADING":
       return { ...state, statusState: "loading", statusError: "" };
     case "STATUS_LOADED":
-      return { ...state, status: action.status, statusState: "success", statusError: "" };
+      return {
+        ...state,
+        status: action.status,
+        statusState: "success",
+        statusError: "",
+        ...(state.status === null ? { provider: latestProvider(action.status) } : {}),
+      };
     case "STATUS_FAILED":
       return { ...state, statusState: "error", statusError: action.message };
     case "START_DESKTOP_SETUP":
@@ -160,6 +171,7 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
         statusState: state.statusState,
         statusError: state.statusError,
         setupKind: "desktop",
+        provider: latestProvider(state.status),
       };
     case "SELECT_AGENT":
       // Single select, and re-clicking the current row keeps it selected: the
@@ -221,6 +233,7 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
         statusState: state.statusState,
         statusError: state.statusError,
         setupKind: "cli",
+        provider: latestProvider(state.status),
         profileId: action.profileId ?? "",
         profileLabel: action.profileLabel ?? "",
       };

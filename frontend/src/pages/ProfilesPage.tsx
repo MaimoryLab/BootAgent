@@ -7,8 +7,10 @@ import { PageScaffold } from "../components/PageScaffold";
 import { ProviderSegment } from "../components/ProviderSegment";
 import { useI18n } from "../i18n";
 import { taskCanceller, taskKey, useTaskCenter, useTaskRoute } from "../state/TaskCenterContext";
+import { byProviderCreatedAt } from "../state/ranking";
 import { useWizard } from "../state/WizardContext";
-import type { ProfileSummary, ProviderId } from "../types/api";
+import { PROTOCOL_LABELS, type ProfileSummary, type ProtocolId, type ProviderId } from "../types/api";
+import { SelectField } from "../components/SelectField";
 
 // A Profile no longer carries its own key: the Provider it points at owns one,
 // and asking twice for the same secret was the bug worth deleting.
@@ -34,8 +36,8 @@ function editDraft(profile: ProfileSummary, protocol: string): ProfileDraft {
 
 export function ProfilesPage() {
   const navigate = useNavigate();
-  const { locale, t } = useI18n();
-  const { state, dispatch, refreshStatus } = useWizard();
+  const { t } = useI18n();
+  const { state, refreshStatus } = useWizard();
   const { startTask, finishTask, setTaskCanceller } = useTaskCenter();
   const route = useTaskRoute();
   const status = state.status;
@@ -59,14 +61,24 @@ export function ProfilesPage() {
   const providerHasKey = Boolean(editor && status.providers[editor.provider]?.has_key);
   // label is absent on purpose: the backend fills it in from the existing value
   // or the ID, so demanding it here was stricter than the write path.
-  const canSave = Boolean(editor?.id.trim() && editor.model.trim());
+  const canSave = Boolean(editor?.id.trim() && editor.model.trim() && editor.protocol);
 
-  // Creating a Profile goes through onboarding: it collects the Agent, Provider,
-  // model and name in order, tests the saved Provider connection, and the
-  // install writes the Profile itself.
-  const startSetup = () => {
-    dispatch({ type: "START_SETUP" });
-    navigate("/setup/agents");
+  const openCreate = () => {
+    const [provider = "ppio", providerMeta] = byProviderCreatedAt(status.providers)[0] || [];
+    const baseID = `profile-${provider}`.toLowerCase().replace(/[^a-z0-9_-]/g, "-");
+    const ids = new Set(profiles.map((profile) => profile.id.toLowerCase()));
+    let id = baseID;
+    let suffix = 2;
+    while (ids.has(id)) id = `${baseID}-${suffix++}`;
+    setFailure("");
+    setEditor({
+      id,
+      label: `${providerMeta?.name || provider} Profile`,
+      provider,
+      model: "",
+      protocol: "",
+      originalId: "",
+    });
   };
 
   const save = async (event: FormEvent) => {
@@ -76,7 +88,7 @@ export function ProfilesPage() {
     setFailure("");
     try {
       await api.saveProfile({
-        id: editor.id.trim(),
+        id: editor.id.trim().toLowerCase(),
         label: editor.label.trim(),
         provider: editor.provider,
         apiBaseUrl: "",
@@ -151,7 +163,7 @@ export function ProfilesPage() {
   return (
     <PageScaffold title={t("配置模板")} description={t("在这里创建 Profile，再将它应用到所选 Agent。")}>
       <div className="profile-toolbar">
-        <button className="button button-secondary" type="button" onClick={startSetup}>
+        <button className="button button-secondary" type="button" onClick={openCreate} disabled={Boolean(editor)}>
           <Plus size={15} />
           {t("新增 Profile")}
         </button>
@@ -160,7 +172,7 @@ export function ProfilesPage() {
       {editor ? (
         <form className="profile-editor" onSubmit={(event) => void save(event)}>
           <header>
-            <strong>{t("编辑 {name}", { name: editor.label || editor.id })}</strong>
+            <strong>{editor.originalId ? t("编辑 {name}", { name: editor.label || editor.id }) : t("创建 Profile")}</strong>
             <button className="icon-button" type="button" onClick={() => setEditor(null)} aria-label={t("关闭编辑")} title={t("关闭编辑")}>
               <X size={16} />
             </button>
@@ -193,6 +205,21 @@ export function ProfilesPage() {
                 aria-describedby="profile-label-hint"
               />
               <small id="profile-label-hint">{t("留空则使用 Profile ID")}</small>
+            </div>
+            <div className="profile-editor-wide">
+              <div className="field-stack">
+                <label htmlFor="profile-protocol">{t("API 类型")}</label>
+                <SelectField
+                  id="profile-protocol"
+                  label={t("API 类型")}
+                  value={editor.protocol}
+                  onChange={(protocol) => setEditor({ ...editor, protocol })}
+                  options={[
+                    { value: "", label: t("请选择 API 类型") },
+                    ...(Object.keys(PROTOCOL_LABELS) as ProtocolId[]).map((protocol) => ({ value: protocol, label: PROTOCOL_LABELS[protocol] })),
+                  ]}
+                />
+              </div>
             </div>
             <div className="profile-editor-wide">
               <ProviderSegment
@@ -235,7 +262,7 @@ export function ProfilesPage() {
         <div className="empty-overview">
           <Layers size={26} />
           <strong>{t("还没有 Profile")}</strong>
-          <span>{t("走一遍安装引导，它会保存 Provider、模型和 API mode。")}</span>
+          <span>{t("在这里创建 Profile，再将它应用到所选 Agent。")}</span>
         </div>
       ) : (
         <div className="profile-list">

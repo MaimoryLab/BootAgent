@@ -808,6 +808,8 @@
   gap: 22px;
 }
 
+.review-columns + .field-stack { margin-top: 22px; }
+
 .review-group {
   display: grid;
   gap: 8px;
@@ -1588,6 +1590,8 @@
 
 .provider-editor-grid > *,
 .profile-editor-grid > * { min-width: 0; }
+
+.profile-editor-grid > .field-stack { align-self: start; }
 
 .provider-editor-wide,
 .profile-editor-wide { grid-column: 1 / -1; }
