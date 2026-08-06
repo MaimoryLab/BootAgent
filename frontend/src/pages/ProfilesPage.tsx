@@ -5,12 +5,12 @@ import { useNavigate } from "react-router-dom";
 import { api, describeError, isCancellationError } from "../backend/api";
 import { PageScaffold } from "../components/PageScaffold";
 import { ProviderSegment } from "../components/ProviderSegment";
+import { SelectField } from "../components/SelectField";
 import { useI18n } from "../i18n";
-import { taskCanceller, taskKey, useTaskCenter, useTaskRoute } from "../state/TaskCenterContext";
 import { byProviderCreatedAt } from "../state/ranking";
+import { taskCanceller, taskKey, useTaskCenter, useTaskRoute } from "../state/TaskCenterContext";
 import { useWizard } from "../state/WizardContext";
 import { PROTOCOL_LABELS, type ProfileSummary, type ProtocolId, type ProviderId } from "../types/api";
-import { SelectField } from "../components/SelectField";
 
 // A Profile no longer carries its own key: the Provider it points at owns one,
 // and asking twice for the same secret was the bug worth deleting.
@@ -186,7 +186,7 @@ export function ProfilesPage() {
   };
 
   return (
-    <PageScaffold title={t("配置模板")} description={t("在这里创建 Profile，再将它应用到所选 Agent。")}>
+    <PageScaffold title={t("配置模板")} description={t("在这里创建 Profile，再将它应用到所选 Agent")}>
       <div className="profile-toolbar">
         <button className="button button-secondary" type="button" onClick={openCreate} disabled={Boolean(editor)}>
           <Plus size={15} />
@@ -262,7 +262,7 @@ export function ProfilesPage() {
             {/* The key is the Provider's, so this only reports whether that
                 Provider has one and links to where it is set. */}
             <p className="profile-key-hint profile-editor-wide">
-              {providerHasKey ? t("将使用 Provider 已保存的 Key。") : t("这个 Provider 还没有 Key，先到 Provider 页面填写。")}
+              {providerHasKey ? t("将使用 Provider 已保存的 Key") : t("这个 Provider 还没有 Key，先到 Provider 页面填写")}
               {providerHasKey ? null : (
                 <>
                   {" "}
@@ -288,7 +288,7 @@ export function ProfilesPage() {
         <div className="empty-overview">
           <Layers size={26} />
           <strong>{t("还没有 Profile")}</strong>
-          <span>{t("在这里创建 Profile，再将它应用到所选 Agent。")}</span>
+          <span>{t("在这里创建 Profile，再将它应用到所选 Agent")}</span>
         </div>
       ) : (
         <div className="profile-list">

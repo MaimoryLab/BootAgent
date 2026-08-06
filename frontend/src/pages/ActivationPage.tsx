@@ -8,8 +8,8 @@ import { DownloadProgress } from "../components/DownloadProgress";
 import { LogDisclosure } from "../components/LogDisclosure";
 import { PageScaffold } from "../components/PageScaffold";
 import { useI18n } from "../i18n";
-import { taskCanceller, taskKey, type TaskCanceller, useTaskCenter, useTaskRoute } from "../state/TaskCenterContext";
 import { desktopProtocol, profileAgentIdForDesktop, selectedDesktopApp } from "../state/desktopSetup";
+import { taskCanceller, taskKey, useTaskCenter, useTaskRoute, type TaskCanceller } from "../state/TaskCenterContext";
 import { useWizard } from "../state/WizardContext";
 import type { AgentInstallResult, InstallRequest } from "../types/api";
 
@@ -263,7 +263,7 @@ export function ActivationPage() {
     return (
       <PageScaffold
         title={loading ? t("正在安装") : restoredTask.state === "success" ? t("安装完成") : cancelled ? t("已取消") : t("需要处理部分问题")}
-        description={restoredTask.message || (cancelled ? t("已取消") : t("每个 Agent 的结果彼此独立，失败项可以单独重试。"))}
+        description={restoredTask.message || (cancelled ? t("已取消") : t("每个 Agent 的结果彼此独立，失败项可以单独重试"))}
         primaryLabel={t("进入总览")}
         onPrimary={() => navigate("/overview")}
         footerNote={loading ? t("请保持此窗口打开") : undefined}
@@ -288,7 +288,7 @@ export function ActivationPage() {
   return (
     <PageScaffold
       title={activationLoading ? t("正在安装") : allDone ? t("安装完成") : activationCancelled ? t("已取消") : t("需要处理部分问题")}
-      description={activationLoading ? t("安装请求同步执行，完成后将显示每个 Agent 的最终状态。") : activationCancelled ? t("已取消") : t("每个 Agent 的结果彼此独立，失败项可以单独重试。")}
+      description={activationLoading ? t("安装请求同步执行，完成后将显示每个 Agent 的最终状态") : activationCancelled ? t("已取消") : t("每个 Agent 的结果彼此独立，失败项可以单独重试")}
       stepper
       onBack={activationLoading ? undefined : () => navigate("/setup/review")}
       primaryLabel={allDone ? t("进入总览") : undefined}

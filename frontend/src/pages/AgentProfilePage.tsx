@@ -7,9 +7,9 @@ import { PageScaffold } from "../components/PageScaffold";
 import { ProviderSegment } from "../components/ProviderSegment";
 import { useI18n } from "../i18n";
 import { desktopApps, desktopProfileUsable, desktopProfiles, desktopProtocol, profileAgentIdForDesktop } from "../state/desktopSetup";
-import { useWizard } from "../state/WizardContext";
 import { byProfileCreatedAt, byProviderCreatedAt } from "../state/ranking";
-import type { ProfileSummary, ProviderId, ProtocolId } from "../types/api";
+import { useWizard } from "../state/WizardContext";
+import type { ProfileSummary, ProtocolId, ProviderId } from "../types/api";
 
 interface ProfileDraft {
   id: string;
@@ -166,7 +166,7 @@ export function AgentProfilePage() {
   return (
     <PageScaffold
       title={t("选择配置模板")}
-      description={t("为 {name} 选择关联的 Profile。", { name: targetName })}
+      description={t("为 {name} 选择关联的 Profile", { name: targetName })}
       backLabel={t("返回总览")}
       onBack={() => navigate("/overview")}
       primaryLabel={busy ? t("应用中") : t("应用")}
@@ -216,9 +216,9 @@ export function AgentProfilePage() {
           </div>
           <p className="profile-key-hint">
             {status.providers[draft.provider]?.has_key
-              ? t("将使用 Provider 已保存的 Key。")
+              ? t("将使用 Provider 已保存的 Key")
               : <>
-                  {t("这个 Provider 还没有 Key，请先到 Provider 页面填写。")} {" "}
+                  {t("这个 Provider 还没有 Key，请先到 Provider 页面填写")} {" "}
                   <button className="provider-link" type="button" onClick={() => navigate("/providers")}>{t("前往 Provider")}</button>
                 </>}
           </p>
@@ -251,7 +251,7 @@ export function AgentProfilePage() {
       ) : (
         <div className="empty-overview">
           <strong>{t("还没有可用的 Profile")}</strong>
-          <span>{t("创建一个 Profile 后即可应用到这个 Agent。")}</span>
+          <span>{t("创建一个 Profile 后即可应用到这个 Agent")}</span>
         </div>
       )}
     </PageScaffold>

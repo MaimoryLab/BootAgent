@@ -277,14 +277,14 @@
       "name": "官方源",
       "registry": "https://registry.npmjs.org/",
       "upstream": "https://registry.npmjs.org/",
-      "note": "npm 官方 registry，默认使用。"
+      "note": "npm 官方 registry，默认使用"
     },
     {
       "id": "npmmirror",
       "name": "npmmirror（阿里云）",
       "registry": "https://registry.npmmirror.com/",
       "upstream": "https://registry.npmjs.org/",
-      "note": "npm 官方源的公开只读镜像；官方源不可达时可用。"
+      "note": "npm 官方源的公开只读镜像；官方源不可达时可用"
     }
   ],
   "paths": {

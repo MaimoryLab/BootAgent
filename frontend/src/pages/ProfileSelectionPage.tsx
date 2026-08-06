@@ -54,7 +54,7 @@ export function ProfileSelectionPage() {
   return (
     <PageScaffold
       title={t("Profile选择")}
-      description={t("选择一个已有 Profile，或新建 Profile。")}
+      description={t("选择一个已有 Profile，或新建 Profile")}
       stepper
       onBack={() => navigate("/setup/agents")}
       primaryLabel={t("继续")}

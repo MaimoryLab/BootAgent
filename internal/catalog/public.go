@@ -31,14 +31,14 @@ var mirrors = []Mirror{
 		Name:     "官方源",
 		Registry: officialNPMRegistry,
 		Upstream: officialNPMRegistry,
-		Note:     "npm 官方 registry，默认使用。",
+		Note:     "npm 官方 registry，默认使用",
 	},
 	{
 		ID:       "npmmirror",
 		Name:     "npmmirror（阿里云）",
 		Registry: "https://registry.npmmirror.com/",
 		Upstream: officialNPMRegistry,
-		Note:     "npm 官方源的公开只读镜像；官方源不可达时可用。",
+		Note:     "npm 官方源的公开只读镜像；官方源不可达时可用",
 	},
 }
 

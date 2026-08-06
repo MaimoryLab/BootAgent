@@ -31,7 +31,7 @@ export function SecureKeyField({ value, onChange }: { value: string; onChange: (
           {visible ? <EyeOff size={17} /> : <Eye size={17} />}
         </button>
       </div>
-      <small>{t("密钥只发送到当前本机服务，并保存在本机私有配置中。")}</small>
+      <small>{t("密钥只发送到当前本机服务，并保存在本机私有配置中")}</small>
     </div>
   );
 }

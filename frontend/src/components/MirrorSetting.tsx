@@ -64,10 +64,10 @@ export function MirrorSetting({ label }: { label?: string }) {
   // on a machine that is about to use the mirror would be worse than saying
   // nothing.
   const hint = fromRegion
-    ? t("已根据系统地区设置默认使用镜像。可以改回官方源。")
+    ? t("已根据系统地区设置默认使用镜像。可以改回官方源")
     : preferMirror
-      ? t("正在优先使用国内镜像。")
-      : t("默认使用官方源。国内网络较慢时可以改用镜像。");
+      ? t("正在优先使用国内镜像")
+      : t("默认使用官方源。国内网络较慢时可以改用镜像");
 
   return (
     <AdvancedSection label={label ?? t("下载源")} hint={hint}>
@@ -77,8 +77,8 @@ export function MirrorSetting({ label }: { label?: string }) {
           <strong>{t("优先使用国内镜像")}</strong>
           <small>
             {fromRegion
-              ? t("已根据系统语言/地区自动开启。运行时仍校验固定哈希，npm 使用镜像 registry 的包元数据。")
-              : t("同时作用于运行时下载和 npm 安装的 Agent；运行时仍校验固定哈希并在下载失败时回退。Aider（uv）不受影响。")}
+              ? t("已根据系统语言/地区自动开启。运行时仍校验固定哈希，npm 使用镜像 registry 的包元数据")
+              : t("同时作用于运行时下载和 npm 安装的 Agent；运行时仍校验固定哈希并在下载失败时回退。Aider（uv）不受影响")}
           </small>
         </span>
         <input
