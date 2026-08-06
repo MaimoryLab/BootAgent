@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/MaimoryLab/OneAgent/internal/catalog"
 	"github.com/MaimoryLab/OneAgent/internal/desktopapp"
@@ -57,13 +58,9 @@ func (u *UseCases) ProbeProvider(ctx context.Context, options ProviderProbeOptio
 	if err != nil {
 		return ProviderProbeResult{}, err
 	}
-	results := make(map[string]provider.ProbeResult, len(protocols))
-	for _, protocolID := range protocols {
-		result, probeErr := u.provider.Probe(ctx, protocolID, "custom", apiKey, model, target.BaseFor(protocolID))
-		if probeErr != nil {
-			return ProviderProbeResult{}, probeErr
-		}
-		results[protocolID] = result
+	results, err := u.probeProtocols(ctx, protocols, apiKey, model, target.BaseFor)
+	if err != nil {
+		return ProviderProbeResult{}, err
 	}
 	primary := results[protocols[0]]
 	allOK := true
@@ -77,6 +74,34 @@ func (u *UseCases) ProbeProvider(ctx context.Context, options ProviderProbeOptio
 	}
 	primary.OK = allOK
 	return ProviderProbeResult{Primary: primary, Protocols: results}, nil
+}
+
+func (u *UseCases) probeProtocols(ctx context.Context, protocols []string, apiKey, model string, baseFor func(string) string) (map[string]provider.ProbeResult, error) {
+	results := make(map[string]provider.ProbeResult, len(protocols))
+	errorsByProtocol := make(map[string]error)
+	var mu sync.Mutex
+	var group sync.WaitGroup
+	for _, protocolID := range protocols {
+		group.Add(1)
+		go func(protocolID string) {
+			defer group.Done()
+			result, err := u.provider.Probe(ctx, protocolID, "custom", apiKey, model, baseFor(protocolID))
+			mu.Lock()
+			defer mu.Unlock()
+			if err != nil {
+				errorsByProtocol[protocolID] = err
+				return
+			}
+			results[protocolID] = result
+		}(protocolID)
+	}
+	group.Wait()
+	for _, protocolID := range protocols {
+		if err := errorsByProtocol[protocolID]; err != nil {
+			return results, err
+		}
+	}
+	return results, nil
 }
 
 func (u *UseCases) ListProviderModels(ctx context.Context, providerID, apiKey, customBase string) (provider.ModelsResult, error) {

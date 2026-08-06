@@ -3,13 +3,18 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
+	"sync/atomic"
 	"testing"
+	"time"
 
+	"github.com/MaimoryLab/OneAgent/internal/catalog"
 	"github.com/MaimoryLab/OneAgent/internal/platform"
+	"github.com/MaimoryLab/OneAgent/internal/process"
 	"github.com/MaimoryLab/OneAgent/internal/provider"
 )
 
@@ -299,6 +304,35 @@ func TestStatusReportsInstalledVersionFromVersionCommand(t *testing.T) {
 	if !found {
 		t.Fatalf("version command was not invoked: %#v", runner.calls)
 	}
+}
+
+func TestInstalledVersionsProbeConcurrentlyWithBoundedFanout(t *testing.T) {
+	runner := &versionProbeRunner{}
+	core := NewUseCases(StatusOptions{Runner: runner, Platform: platform.For("linux", "amd64")})
+	manifest := catalog.Manifest{Agents: map[string]catalog.Agent{}}
+	for index := 0; index < versionProbeConcurrency+1; index++ {
+		manifest.Agents[fmt.Sprintf("agent-%d", index)] = catalog.Agent{Command: fmt.Sprintf("cmd-%d", index), ConfigMode: "auto"}
+	}
+	versions := core.installedVersions(context.Background(), manifest, runner.LookPath)
+	if len(versions) != versionProbeConcurrency+1 || runner.peak.Load() != versionProbeConcurrency {
+		t.Fatalf("versions=%d peak=%d, want %d and %d", len(versions), runner.peak.Load(), versionProbeConcurrency+1, versionProbeConcurrency)
+	}
+}
+
+type versionProbeRunner struct {
+	inFlight atomic.Int32
+	peak     atomic.Int32
+}
+
+func (r *versionProbeRunner) LookPath(command string) (string, bool) { return "/fake/" + command, true }
+
+func (r *versionProbeRunner) Run(_ context.Context, argv []string, _ map[string]string, _ time.Duration) (process.Result, error) {
+	current := r.inFlight.Add(1)
+	for current > r.peak.Load() && !r.peak.CompareAndSwap(r.peak.Load(), current) {
+	}
+	time.Sleep(10 * time.Millisecond)
+	r.inFlight.Add(-1)
+	return process.Result{Stdout: "tool 1.0.0"}, nil
 }
 
 func TestStatusMatchesEmptyLinuxARM64Fixture(t *testing.T) {
