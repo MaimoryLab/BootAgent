@@ -32,6 +32,16 @@
       "licenseSource": "licenses/lobehub/LICENSE",
       "copyrightOwner": "LobeHub contributors",
       "sha256": "a2aef0e0bb992ebe768bfb8c3a3ab6ff2c2638448b09dd88db27877de1c07a22"
+    },
+    "openclaw": {
+      "file": "assets/openclaw.svg",
+      "source": "https://github.com/farion1231/cc-switch/blob/main/src/icons/extracted/claw.svg",
+      "license": "MIT",
+      "licenseSource": "licenses/cc-switch/LICENSE",
+      "copyrightOwner": "Jason Young (cc-switch contributors)",
+      "sha256": "9eac78bcfa8e106ed3267293235281743e161b5accf2ff5c676700b64cfcdbbc",
+      "modified": true,
+      "modificationNote": "Recoloured to a single currentColor glyph for theme adaptation: the linearGradient (#ff4d4d to #991b1b), the antenna stroke colour and the cyan eye highlights were removed, and the eyes became a mask cut-out. Geometry is unchanged. Not an official OpenClaw mark; drawn by the cc-switch project."
     }
   }
 }

@@ -41,20 +41,27 @@ Third-party trademarks
 ================================================================================
 
 The application identifies supported Agents in a row using either a generic
-OneAgent UI symbol or a separately audited image asset. Generic Lucide symbols
-are used for Aider and OpenClaw, so no website favicon is copied into the
-release: neither has a mark in lobe-icons, and the only SVG of OpenClaw's logo
-in circulation was drawn by an unrelated project, which conveys no right to
-redistribute it. The four retained image assets, for Codex, Claude Code,
-OpenCode, and Kilo CLI, are listed with source, license, owner, and SHA-256 in
+OneAgent UI symbol or a separately audited image asset. A generic Lucide symbol
+is used for Aider, which has no mark in lobe-icons, so no website favicon is
+copied into the release. The five retained image assets are listed with source,
+license, owner, and SHA-256 in
 frontend/src/components/icons/asset-rights.json.
+
+Four of those five -- for Codex, Claude Code, OpenCode, and Kilo CLI -- come
+from lobe-icons and are redistributed unmodified. The fifth, for OpenClaw, is
+not the vendor's own artwork: no official vector is published, so the mark is
+the lobster drawn by the cc-switch project (MIT, Copyright (c) 2025 Jason
+Young), and OneAgent has modified it. The red gradient, the coloured antenna
+stroke, and the cyan eye highlights were removed so the mark is a single glyph
+painted with fill="currentColor"; its geometry is unchanged. That modification
+is recorded in the manifest entry, and the cc-switch license text travels with
+it at frontend/src/components/icons/licenses/cc-switch/LICENSE.
 
 The Agent marks described above are nominative use: the labels identify the
 referenced products and do not imply endorsement, affiliation or sponsorship.
-The image assets keep their published geometry and are not re-drawn. Each is
-distributed as a single-colour glyph painted with fill="currentColor", so it
-takes the surrounding text colour by design rather than carrying a brand colour
-that is being altered.
+Every mark is distributed as a single-colour glyph painted with
+fill="currentColor", so it takes the surrounding text colour rather than
+carrying a brand colour.
 
 Sponsor marks are a separate case and are not nominative use. The PPIO and
 Novita logos under docs/assets/sponsors/ are reproduced with each owner's

@@ -28,7 +28,7 @@ describe("AgentIcon", () => {
     // set rather than one example is what makes an unregistered mark fail here:
     // shipping artwork without a source, licence and hash is the defect.
     const assetIds = AGENT_ICON_IDS.filter((id) => agentMarkKind(id) === "asset");
-    expect(assetIds.sort()).toEqual(["claude-code", "codex", "kilo-cli", "opencode"]);
+    expect(assetIds.sort()).toEqual(["claude-code", "codex", "kilo-cli", "openclaw", "opencode"]);
     for (const id of assetIds) {
       const rights = agentMarkRights(id);
       expect(agentMarkKind(id)).toBe("asset");
@@ -100,12 +100,47 @@ describe("AgentIcon", () => {
   });
 
   it("keeps the published geometry of every licensed mark", () => {
-    // The compliance note in agents.tsx states the marks are not re-drawn.
-    // The viewBox is the check: inlining must not rescale or crop the artwork.
-    for (const id of AGENT_ICON_IDS.filter((value) => agentMarkKind(value) === "asset")) {
+    // The compliance note in agents.tsx states the marks are not re-drawn. The
+    // viewBox is the check: inlining must not rescale or crop the artwork.
+    //
+    // Each mark is checked against its own source coordinate system rather than
+    // one shared value. The four vendor marks come from lobe-icons at 24x24;
+    // OpenClaw's is the cc-switch drawing at 120x120, and normalising it to 24
+    // would be the re-drawing this test exists to prevent. The recolouring
+    // recorded in asset-rights.json does not touch geometry.
+    const PUBLISHED_VIEWBOX: Record<string, string> = {
+      codex: "0 0 24 24",
+      opencode: "0 0 24 24",
+      "claude-code": "0 0 24 24",
+      "kilo-cli": "0 0 24 24",
+      openclaw: "0 0 120 120",
+    };
+    const assetIds = AGENT_ICON_IDS.filter((value) => agentMarkKind(value) === "asset");
+    // Guards the map itself: a new asset with no entry would otherwise be skipped
+    // rather than reported.
+    expect(Object.keys(PUBLISHED_VIEWBOX).sort()).toEqual([...assetIds].sort());
+    for (const id of assetIds) {
       const { container } = render(<AgentIcon agentId={id} />);
       const svg = container.querySelector('[data-mark-kind="asset"] svg');
-      expect(svg!.getAttribute("viewBox"), id).toBe("0 0 24 24");
+      expect(svg!.getAttribute("viewBox"), id).toBe(PUBLISHED_VIEWBOX[id]);
+    }
+  });
+
+  it("records that the one modified asset was modified", () => {
+    // MIT lets a copy be changed, but the change has to be stated. OpenClaw's
+    // mark was recoloured from a red gradient to currentColor, so shipping it as
+    // if it were untouched vendor artwork is the defect this catches -- in both
+    // directions, since claiming an unmodified mark was modified is also wrong.
+    for (const id of AGENT_ICON_IDS.filter((value) => agentMarkKind(value) === "asset")) {
+      const rights = agentMarkRights(id)!;
+      if (id === "openclaw") {
+        expect(rights.modified, id).toBe(true);
+        expect(rights.modificationNote, id).toMatch(/currentColor/);
+        // Not the vendor's own artwork, so the owner must not read as OpenClaw's.
+        expect(rights.copyrightOwner, id).toMatch(/cc-switch/);
+      } else {
+        expect("modified" in rights, `${id} should not claim a modification`).toBe(false);
+      }
     }
   });
 

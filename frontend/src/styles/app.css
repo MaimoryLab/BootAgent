@@ -13,9 +13,14 @@
   background: var(--window-bg);
 }
 
+/* The bottom padding clears the viewport-docked task centre. It is not spacing:
+   .task-center is position: fixed and contributes no height here, so without it
+   the theme and language rows -- pushed down by margin-top: auto -- sit behind
+   the overlay. They stay visible and focusable while every click lands on the
+   overlay instead, which reads as a control that vanished. */
 .navigation-sidebar {
   min-height: 0;
-  padding: 22px 12px 16px;
+  padding: 22px 12px calc(16px + var(--task-center-reserve));
   display: flex;
   flex-direction: column;
   border-right: 1px solid var(--border);
@@ -123,13 +128,18 @@
   flex: 1;
 }
 
+/* background-color, not the background shorthand: the shorthand resets the arrow
+   image base.css sets on every select. Same below for the language picker and
+   the Provider picker. */
 .theme-picker select {
   width: 82px;
   min-width: 0;
-  padding: 5px 6px;
+  padding: 5px 22px 5px 6px;
   border: 1px solid var(--border);
   border-radius: var(--radius-control);
-  background: var(--window-bg);
+  background-color: var(--window-bg);
+  background-position: right 5px center;
+  background-size: 11px 11px;
   color: var(--text-primary);
   font: inherit;
 }
@@ -141,10 +151,12 @@
 .language-picker select {
   width: 82px;
   min-width: 0;
-  padding: 5px 6px;
+  padding: 5px 22px 5px 6px;
   border: 1px solid var(--border);
   border-radius: var(--radius-control);
-  background: var(--window-bg);
+  background-color: var(--window-bg);
+  background-position: right 5px center;
+  background-size: 11px 11px;
   color: var(--text-primary);
   font: inherit;
 }
@@ -637,11 +649,11 @@
 .provider-picker select {
   width: 100%;
   min-height: 42px;
-  padding: 0 12px;
+  padding: 0 30px 0 12px;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-control);
   color: var(--text-primary);
-  background: var(--window-bg);
+  background-color: var(--window-bg);
 }
 
 .provider-picker select:focus {
@@ -1016,11 +1028,26 @@
   .sidebar-link.is-active::before { left: -12px; }
   .language-picker { padding: 0; }
   .language-select-wide { display: none; }
-  .language-select-compact { display: block; width: 48px; padding-inline: 3px; font-size: 10px; }
+  .language-select-compact { display: block; }
 
   /* Centre what is left, now that the flex: 1 spacer spans are gone. */
   .theme-picker { padding: 0; justify-content: center; }
-  .theme-picker select { width: 48px; padding-inline: 3px; font-size: 10px; }
+
+  /* 48px of column has no room for both the value and the arrow, so the arrow
+     goes and the value keeps the width. Position and behaviour still identify
+     the control as a select, and its aria-label is unchanged.
+
+     Both selectors are (0,1,1), matching `.language-picker select` in the base
+     layer. Written as `.language-picker .language-select-compact` rather than the
+     bare class because that base rule would otherwise win on specificity and
+     keep the wide padding, leaving the arrow's 22px gap with no arrow in it. */
+  .language-picker .language-select-compact,
+  .theme-picker select {
+    width: 48px;
+    padding-inline: 3px;
+    font-size: 10px;
+    background-image: none;
+  }
 }
 
 @media (max-height: 760px) {

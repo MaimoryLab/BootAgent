@@ -2,23 +2,27 @@
  * Agent marks used to identify rows in OneAgent.
  *
  * Five image assets are shipped because their exact source, MIT license text,
- * copyright owner, and SHA-256 are tracked in asset-rights.json. Agents whose
- * published artwork does not have an auditable redistribution basis use generic
- * Lucide marks instead; those marks identify a row without copying a vendor
- * favicon into the release.
+ * copyright owner, and SHA-256 are tracked in asset-rights.json. An Agent with
+ * no such basis uses a generic Lucide mark instead, which identifies a row
+ * without copying a vendor favicon into the release.
  *
  * Trademark note: the labels identify which Agent a row refers to. The generic
- * marks are OneAgent UI symbols, not vendor artwork. The licensed marks keep
- * their published geometry unchanged; none is restyled or re-drawn. Each is
- * distributed as a single-colour glyph painted with fill="currentColor", so it
- * takes the surrounding text colour by design rather than carrying a brand
- * colour we would be altering -- that is what makes them legible on both
- * themes.
+ * marks are OneAgent UI symbols, not vendor artwork. Every mark is a
+ * single-colour glyph painted with fill="currentColor", so it takes the
+ * surrounding text colour rather than carrying a brand colour -- that is what
+ * makes the set legible on both themes.
+ *
+ * Four of the five are the vendors' own artwork, redistributed with their
+ * published geometry unchanged and not re-drawn. OpenClaw is the exception on
+ * both counts: no official vector exists, so the mark is the lobster the
+ * cc-switch project drew, and OneAgent recoloured it from a red gradient to a
+ * single currentColor glyph to match the set. Its geometry is still unchanged.
+ * asset-rights.json carries `modified: true` and the specifics, because MIT
+ * requires a modified copy to travel with its licence and state the change.
  */
 import {
   Bot,
   GitBranch,
-  Waypoints,
   type LucideIcon
 } from "lucide-react";
 
@@ -28,9 +32,20 @@ import assetRightsManifest from "./asset-rights.json";
 import claudeCodeMark from "./assets/claude-code.svg?raw";
 import codexMark from "./assets/codex.svg?raw";
 import kiloCliMark from "./assets/kilo-cli.svg?raw";
+import openclawMark from "./assets/openclaw.svg?raw";
 import opencodeMark from "./assets/opencode.svg?raw";
 
-type AssetRights = (typeof assetRightsManifest.assets)[keyof typeof assetRightsManifest.assets];
+/**
+ * The union of every manifest entry, widened so the two fields that exist only
+ * on a modified asset are readable without narrowing at each use. They stay
+ * optional: `modified` present and true is the claim, and its absence is the
+ * claim that the artwork is untouched -- a distinction agents.test.tsx asserts
+ * in both directions.
+ */
+type AssetRights = (typeof assetRightsManifest.assets)[keyof typeof assetRightsManifest.assets] & {
+  modified?: boolean;
+  modificationNote?: string;
+};
 type AssetMark = { kind: "asset"; markup: string; source: string; rights: AssetRights };
 type GenericMark = { kind: "generic"; Icon: LucideIcon; source: string };
 type Mark = AssetMark | GenericMark;
@@ -65,12 +80,18 @@ const MARKS: Record<string, Mark> = {
   // Aider has no mark in lobe-icons, so it keeps a generic symbol rather than a
   // vendor favicon copied in without an auditable redistribution basis.
   aider: { kind: "generic", Icon: GitBranch, source: GENERIC_SOURCE },
-  // OpenClaw's real logo is a lobster, and the only SVG version available is one
-  // CC Switch drew itself (see docs/internal/cc-switch-reference-notes.md) -- a
-  // third party's redrawing is not the vendor's artwork and gives OneAgent no
-  // right to redistribute it. lobe-icons has no OpenClaw mark either, so it takes
-  // a generic symbol until an official asset with a licence appears.
-  openclaw: { kind: "generic", Icon: Waypoints, source: GENERIC_SOURCE },
+  // Unlike the four above, this mark is not the vendor's own artwork: it is the
+  // lobster the cc-switch project drew, MIT, and OneAgent recoloured it to a
+  // single currentColor glyph so it adapts to the theme like the rest of the set.
+  // asset-rights.json records both facts, because MIT requires a modified copy to
+  // carry its licence and state the change. lobe-icons has no OpenClaw mark, and
+  // no official vector exists to prefer instead.
+  openclaw: {
+    kind: "asset",
+    markup: openclawMark,
+    source: assetRightsManifest.assets.openclaw.source,
+    rights: assetRightsManifest.assets.openclaw,
+  },
 };
 
 /** One-line positioning shown on hover; never a restatement of the name. */

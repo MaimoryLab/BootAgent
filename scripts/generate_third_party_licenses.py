@@ -52,6 +52,11 @@ class Dependency:
     license: str
     platforms: tuple[str, ...]
     license_files: tuple[str, ...]
+    # Set only for a dependency OneAgent ships in altered form. MIT and similar
+    # permissive licences allow the change but require it to be stated, and this
+    # file is what reaches the user, so the statement has to be here rather than
+    # only in the source manifest. Empty means redistributed unmodified.
+    modification: str = ""
 
     def as_json(self) -> dict[str, Any]:
         return dataclasses.asdict(self)
@@ -218,6 +223,14 @@ def collect_asset_dependencies(output: Path) -> list[Dependency]:
             destination_directory=output / "licenses" / "assets" / safe_component(name),
             relative_root=output,
         )
+        # An asset may be shipped altered, so long as the change is declared.
+        # Requiring the note whenever the flag is set keeps "modified: true" from
+        # reaching the notices as an unexplained assertion.
+        modification = ""
+        if rights.get("modified"):
+            modification = str(rights.get("modificationNote", "")).strip()
+            if not modification:
+                raise RuntimeError(f"asset {name} is marked modified but records no modificationNote")
         dependencies.append(
             Dependency(
                 ecosystem="asset",
@@ -226,6 +239,7 @@ def collect_asset_dependencies(output: Path) -> list[Dependency]:
                 license=str(rights["license"]),
                 platforms=("frontend",),
                 license_files=copied,
+                modification=modification,
             )
         )
     return dependencies
@@ -281,6 +295,18 @@ def render_notice(dependencies: Iterable[Dependency]) -> str:
             f"| {dependency.ecosystem} | `{dependency.name}` | `{dependency.version}` | "
             f"{platforms} | {dependency.license} | {files} |"
         )
+    modified = [dependency for dependency in rows if dependency.modification]
+    if modified:
+        lines.extend([
+            "",
+            "## Modified third-party material",
+            "",
+            "Everything above is redistributed unmodified except the entries listed",
+            "here. Their licenses permit modification and require it to be stated.",
+            "",
+        ])
+        for dependency in modified:
+            lines.append(f"- `{dependency.name}` ({dependency.ecosystem}): {dependency.modification}")
     lines.append("")
     return "\n".join(lines)
 
