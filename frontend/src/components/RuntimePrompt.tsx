@@ -84,7 +84,7 @@ export function RuntimePrompt({ runtimes, missingRuntime, selectedAgentIds, agen
         <strong>{t("需要先安装运行时")}</strong>
       </div>
       <div className="runtime-prompt-body">
-        <span>{t("所选 Agent 通过 {runtimes} 安装，本机还没有。现在安装，或在激活时自动安装。", { runtimes: required.map((runtime) => runtime.name).join("、") })}</span>
+        <span>{t("所选 Agent 通过 {runtimes} 安装，本机还没有。现在安装，或在激活时自动安装", { runtimes: required.map((runtime) => runtime.name).join("、") })}</span>
         <div className="runtime-prompt-actions">
           {required.map((runtime) => (
             <button

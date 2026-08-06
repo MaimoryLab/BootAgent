@@ -115,7 +115,7 @@ export function ProvidersPage({ create = false }: { create?: boolean }) {
   }
 
   return (
-    <PageScaffold title={create ? t("新增 Provider") : "Provider"} description={t("管理模型服务、端点与本机保存的 API Key。")}>
+    <PageScaffold title={create ? t("新增 Provider") : "Provider"} description={t("管理模型服务、端点与本机保存的 API Key")}>
       {!create ? (
         <div className="provider-toolbar">
           <button className="button button-secondary" type="button" onClick={() => { setEditor({ ...emptyProvider }); setFailure(""); setApplied(""); }}>
@@ -228,7 +228,7 @@ export function ProvidersPage({ create = false }: { create?: boolean }) {
         })}
       </div> : null}
 
-      {!create ? <p className="provider-note">{t("用户 Provider 的协议兼容性由你自己保证，OneAgent 不会为它降级或改写请求。")}</p> : null}
+      {!create ? <p className="provider-note">{t("用户 Provider 的协议兼容性由你自己保证，OneAgent 不会为它降级或改写请求")}</p> : null}
     </PageScaffold>
   );
 }

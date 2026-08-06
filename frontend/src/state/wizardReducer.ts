@@ -10,7 +10,7 @@ import type {
 import { byProviderCreatedAt } from "./ranking";
 
 export type AsyncState = "idle" | "loading" | "success" | "error";
-export type SetupKind = "cli" | "desktop";
+type SetupKind = "cli" | "desktop";
 
 export interface WizardState {
   status: StatusResponse | null;

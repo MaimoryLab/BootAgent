@@ -50,7 +50,7 @@ export function ReviewPage() {
   return (
     <PageScaffold
       title={t("确认激活")}
-      description={t("核对安装、配置和备份范围。API Key 不会显示在此页。")}
+      description={t("核对安装、配置和备份范围。API Key 不会显示在此页")}
       stepper
       onBack={() => navigate(state.profileId ? "/setup/profile" : "/setup/model")}
       primaryLabel={t("开始安装")}

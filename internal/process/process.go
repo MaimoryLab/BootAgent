@@ -176,12 +176,6 @@ func (r OSRunner) WithEnvironment(env map[string]string) Runner {
 	return r
 }
 
-func New(env map[string]string) OSRunner {
-	values := make(map[string]string, len(env))
-	maps.Copy(values, env)
-	return OSRunner{Env: values}
-}
-
 // LookPath resolves a command against this runner's own PATH rather than the
 // OneAgent process PATH. That distinction is what makes a runtime installed
 // into a private directory usable: Run() passes r.Env to the child, so a lookup

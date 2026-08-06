@@ -40,8 +40,8 @@ func TestValidateIDAndPathsRejectTraversal(t *testing.T) {
 
 func TestEmptyStoreAndStableListProjection(t *testing.T) {
 	store := NewStore(t.TempDir(), "linux")
-	if got := store.List(); len(got) != 0 {
-		t.Fatalf("empty List() = %#v", got)
+	if got, err := store.List(); err != nil || len(got) != 0 {
+		t.Fatalf("empty List() = %#v, %v", got, err)
 	}
 	if result := store.LoadActive(); result.Profile != nil || result.ID != "" || result.Error != "" {
 		t.Fatalf("empty LoadActive() = %#v", result)
@@ -58,7 +58,10 @@ func TestEmptyStoreAndStableListProjection(t *testing.T) {
 	if err := os.WriteFile(secret, []byte("export ONEAGENT_API_KEY=hidden\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	profiles := store.List()
+	profiles, err := store.List()
+	if err != nil {
+		t.Fatal(err)
+	}
 	if len(profiles) != 2 || profiles[0].ID != "a-profile" || profiles[1].ID != "b-profile" || !profiles[0].HasKey || profiles[1].HasKey {
 		t.Fatalf("stable profile list = %#v", profiles)
 	}
@@ -89,7 +92,7 @@ func TestLoadActiveV2PreservesPointerAndStripsSecrets(t *testing.T) {
 	}
 }
 
-func TestListSkipsCorruptAndSecretContentsNeverEnterSummary(t *testing.T) {
+func TestListRejectsCorruptProfile(t *testing.T) {
 	store := NewStore(t.TempDir(), "linux")
 	if err := os.MkdirAll(store.ProfilesPath(), 0o700); err != nil {
 		t.Fatal(err)
@@ -100,9 +103,7 @@ func TestListSkipsCorruptAndSecretContentsNeverEnterSummary(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(store.ProfilesPath(), "noid.json"), []byte(`{"schema_version":2,"provider":"ppio"}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	writeProfileFixture(t, store, "real", `{"schema_version":2,"id":"real","provider":"ppio","model":"m"}`)
-	profiles := store.List()
-	if len(profiles) != 1 || profiles[0].ID != "real" {
-		t.Fatalf("filtered profiles = %#v", profiles)
+	if _, err := store.List(); err == nil {
+		t.Fatal("corrupt Profile was ignored")
 	}
 }

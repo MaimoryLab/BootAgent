@@ -85,8 +85,8 @@ export function RuntimeSection({ runtimes, onInstalled }: RuntimeSectionProps) {
   };
 
   const summary = missing.length
-    ? t("缺少 {count} 个运行时，安装后即可自动安装对应 Agent。", { count: missing.length })
-    : t("Agent 安装所需的运行时都已就绪。");
+    ? t("缺少 {count} 个运行时，安装后即可自动安装对应 Agent", { count: missing.length })
+    : t("Agent 安装所需的运行时都已就绪");
   const body = (
     <>
       {failure ? <div className="notice notice-error">{failure}</div> : null}
@@ -137,8 +137,8 @@ export function RuntimeSection({ runtimes, onInstalled }: RuntimeSectionProps) {
       {missing.length ? (
         <p className="runtime-note">
           {root
-            ? t("运行时会安装到 {dir}，并写入登录 PATH，不需要管理员权限。").replace("{dir}", root)
-            : t("运行时会安装到 OneAgent 的托管目录，并写入登录 PATH，不需要管理员权限。")}
+            ? t("运行时会安装到 {dir}，并写入登录 PATH，不需要管理员权限").replace("{dir}", root)
+            : t("运行时会安装到 OneAgent 的托管目录，并写入登录 PATH，不需要管理员权限")}
         </p>
       ) : null}
       <MirrorSetting label={t("下载源")} />

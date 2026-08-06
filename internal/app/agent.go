@@ -111,7 +111,11 @@ func (u *UseCases) activateAgentLocked(ctx context.Context, options ActivateAgen
 
 	protocol := provider.ProtocolForAdapter(agent.ConfigAdapter)
 	if profileID != "" {
-		for _, saved := range u.profiles.List() {
+		profiles, err := u.profiles.List()
+		if err != nil {
+			return ActivateAgentResult{}, err
+		}
+		for _, saved := range profiles {
 			if saved.ID == profileID && saved.Protocol != "" && saved.Protocol != protocol {
 				return ActivateAgentResult{}, oneerrors.New(oneerrors.InvalidRequest, fmt.Sprintf("Profile %s uses %s API mode, but %s requires %s", profileID, saved.Protocol, agentID, protocol))
 			}

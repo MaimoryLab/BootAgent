@@ -31,7 +31,7 @@ func settingsCore(t *testing.T, home string, locale ...string) *UseCases {
 		Home:        home,
 		Platform:    platform.For("linux", "x64"),
 		Environment: environment,
-		Runner:      process.New(environment),
+		Runner:      process.OSRunner{Env: environment},
 	})
 }
 
@@ -260,7 +260,7 @@ func TestTheRegionalDefaultReachesTheDownload(t *testing.T) {
 func TestTheRegionProbeRunsOnlyOnce(t *testing.T) {
 	home := t.TempDir()
 	environment := map[string]string{"HOME": home, "PATH": filepath.Join(home, "empty")}
-	counter := &countingRunner{Runner: process.New(environment)}
+	counter := &countingRunner{Runner: process.OSRunner{Env: environment}}
 	core := NewUseCases(StatusOptions{
 		// macOS needs a lookup, so this exercises the cached subprocess path.
 		Home: home, Platform: platform.For("darwin", "arm64"),

@@ -115,7 +115,7 @@
       "ecosystem": "go",
       "license": "MIT",
       "license_files": [
-        "licenses/go/github.com_wailsapp_wails_v3@v3.0.0-beta.3/LICENSE"
+        "licenses/go/github.com_wailsapp_wails_v3@v3.0.0-beta.4/LICENSE"
       ],
       "modification": "",
       "name": "github.com/wailsapp/wails/v3",
@@ -125,13 +125,13 @@
         "windows-arm64",
         "windows-x64"
       ],
-      "version": "v3.0.0-beta.3"
+      "version": "v3.0.0-beta.4"
     },
     {
       "ecosystem": "go",
       "license": "BSD-3-Clause",
       "license_files": [
-        "licenses/go/golang.org_x_mod@v0.35.0/LICENSE"
+        "licenses/go/golang.org_x_mod@v0.38.0/LICENSE"
       ],
       "modification": "",
       "name": "golang.org/x/mod",
@@ -141,7 +141,7 @@
         "windows-arm64",
         "windows-x64"
       ],
-      "version": "v0.35.0"
+      "version": "v0.38.0"
     },
     {
       "ecosystem": "go",
@@ -161,14 +161,14 @@
       "ecosystem": "npm",
       "license": "MIT",
       "license_files": [
-        "licenses/npm/wailsio_runtime@3.0.0-alpha2.117/LICENSE"
+        "licenses/npm/wailsio_runtime@3.0.0-beta.1/LICENSE"
       ],
       "modification": "",
       "name": "@wailsio/runtime",
       "platforms": [
         "frontend"
       ],
-      "version": "3.0.0-alpha2.117"
+      "version": "3.0.0-beta.1"
     },
     {
       "ecosystem": "npm",
@@ -187,14 +187,14 @@
       "ecosystem": "npm",
       "license": "ISC",
       "license_files": [
-        "licenses/npm/lucide-react@1.25.0/LICENSE"
+        "licenses/npm/lucide-react@1.28.0/LICENSE"
       ],
       "modification": "",
       "name": "lucide-react",
       "platforms": [
         "frontend"
       ],
-      "version": "1.25.0"
+      "version": "1.28.0"
     },
     {
       "ecosystem": "npm",
@@ -226,27 +226,27 @@
       "ecosystem": "npm",
       "license": "MIT",
       "license_files": [
-        "licenses/npm/react-router@7.18.1/LICENSE.md"
+        "licenses/npm/react-router@7.18.2/LICENSE.md"
       ],
       "modification": "",
       "name": "react-router",
       "platforms": [
         "frontend"
       ],
-      "version": "7.18.1"
+      "version": "7.18.2"
     },
     {
       "ecosystem": "npm",
       "license": "MIT",
       "license_files": [
-        "licenses/npm/react-router-dom@7.18.1/LICENSE.md"
+        "licenses/npm/react-router-dom@7.18.2/LICENSE.md"
       ],
       "modification": "",
       "name": "react-router-dom",
       "platforms": [
         "frontend"
       ],
-      "version": "7.18.1"
+      "version": "7.18.2"
     },
     {
       "ecosystem": "npm",

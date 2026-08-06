@@ -156,17 +156,23 @@ func (u *UseCases) SaveProvider(ctx context.Context, entry provider.Entry) (Save
 		before.BaseURL == saved.BaseURL && before.APIKey == saved.APIKey {
 		return result, nil
 	}
-	result.Reapplied, result.Failures = u.reapplyProviderLocked(ctx, saved)
+	result.Reapplied, result.Failures, err = u.reapplyProviderLocked(ctx, saved)
+	if err != nil {
+		return result, err
+	}
 	return result, nil
 }
 
 // reapplyProviderLocked rewrites each configured Agent that points at this
 // Provider, keeping its own model and Profile reference. Callers must hold
 // writeMu.
-func (u *UseCases) reapplyProviderLocked(ctx context.Context, target provider.Entry) ([]string, map[string]string) {
+func (u *UseCases) reapplyProviderLocked(ctx context.Context, target provider.Entry) ([]string, map[string]string, error) {
 	var reapplied []string
 	var failures map[string]string
-	bindings := u.profiles.ListAgentBindings()
+	bindings, err := u.profiles.ListAgentBindings()
+	if err != nil {
+		return nil, nil, err
+	}
 	agentIDs := make([]string, 0, len(bindings))
 	for agentID := range bindings {
 		agentIDs = append(agentIDs, agentID)
@@ -222,7 +228,7 @@ func (u *UseCases) reapplyProviderLocked(ctx context.Context, target provider.En
 		}
 		reapplied = append(reapplied, agentID)
 	}
-	return reapplied, failures
+	return reapplied, failures, nil
 }
 
 func (u *UseCases) DeleteProvider(ctx context.Context, providerID string) error {
@@ -235,7 +241,11 @@ func (u *UseCases) DeleteProvider(ctx context.Context, providerID string) error 
 	u.writeMu.Lock()
 	defer u.writeMu.Unlock()
 	var users []string
-	for agentID, binding := range u.catalogAgentBindings(false) {
+	bindings, err := u.catalogAgentBindings(false)
+	if err != nil {
+		return err
+	}
+	for agentID, binding := range bindings {
 		if binding.Provider == strings.TrimSpace(providerID) {
 			users = append(users, agentID)
 		}

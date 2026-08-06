@@ -8,8 +8,8 @@ import { PageScaffold } from "../components/PageScaffold";
 import { RuntimePrompt } from "../components/RuntimePrompt";
 import { useI18n } from "../i18n";
 import { byRank } from "../state/ranking";
-import type { AgentCatalogItem } from "../types/api";
 import { useWizard } from "../state/WizardContext";
+import type { AgentCatalogItem } from "../types/api";
 import { DesktopAgentSelectionPage } from "./DesktopAgentSelectionPage";
 
 export function AgentSelectionPage() {
@@ -52,7 +52,7 @@ export function AgentSelectionPage() {
   return (
     <PageScaffold
       title={t("选择 Agent")}
-      description={t("选择这次要安装并配置的开发工具，每次安装一个。")}
+      description={t("选择这次要安装并配置的开发工具，每次安装一个")}
       stepper
       primaryLabel={t("继续")}
       onPrimary={continueSetup}
@@ -68,7 +68,7 @@ export function AgentSelectionPage() {
             <div className="section-heading">
               <div>
                 <h2>{t("选择 Agent")}</h2>
-                <p>{t("选择这次要安装并配置的开发工具，每次安装一个。")}</p>
+                <p>{t("选择这次要安装并配置的开发工具，每次安装一个")}</p>
                 {/* Guide-only rows stay selectable: install_many answers them
                     with a guide-only result and writes nothing. */}
               </div>

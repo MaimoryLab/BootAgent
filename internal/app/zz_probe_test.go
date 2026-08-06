@@ -23,7 +23,7 @@ func TestProbeRealMachineAfterFix(t *testing.T) {
 	info := platform.Current()
 	home := t.TempDir()
 	env := map[string]string{"HOME": home, "PATH": filepath.Join(home, "empty")}
-	core := NewUseCases(StatusOptions{Home: home, Platform: info, Environment: env, Runner: process.New(env)})
+	core := NewUseCases(StatusOptions{Home: home, Platform: info, Environment: env, Runner: process.OSRunner{Env: env}})
 
 	cancelled, cancel := context.WithCancel(context.Background())
 	cancel()

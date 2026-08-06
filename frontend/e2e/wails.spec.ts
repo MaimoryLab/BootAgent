@@ -66,7 +66,7 @@ test("every sidebar control at the bottom is actually clickable", async ({ page 
 
 test("a machine with no OneAgent state opens onboarding from the landing route", async ({ page }) => {
   await page.goto("/#/");
-  await expect(page.getByRole("heading", { name: "选择命令行 Agent" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "选择 Agent", level: 1 })).toBeVisible();
 });
 
 test("onboarding installs one Agent end to end and writes its Profile", async ({ page }) => {
@@ -88,10 +88,10 @@ test("onboarding installs one Agent end to end and writes its Profile", async ({
   await expect(page.getByTestId("provider-ppio")).toContainText("已保存 Key");
 
   await page.goto("/#/overview");
-  await expect(page.getByText("尚未安装任何 Agent")).toBeVisible();
-  await page.getByRole("button", { name: "安装 Agent" }).click();
+  await expect(page.getByText("尚未安装任何命令行 Agent")).toBeVisible();
+  await page.getByRole("button", { name: "安装命令行 Agent" }).click();
 
-  await expect(page.getByRole("heading", { name: "选择命令行 Agent" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "选择 Agent", level: 1 })).toBeVisible();
   await page.getByLabel("选择 Codex").check();
   await page.getByRole("button", { name: "继续" }).click();
 
@@ -119,8 +119,8 @@ test("onboarding installs one Agent end to end and writes its Profile", async ({
 
   // The Profile the install wrote is editable from the Agent row, without any
   // credential or endpoint fields on the edit page.
-  await page.getByRole("link", { name: "编辑配置" }).click();
-  await expect(page.getByText("团队默认")).toBeVisible();
+  await page.getByRole("link", { name: "配置", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "选择配置模板" })).toBeVisible();
   await expect(page.getByLabel("API Key")).toHaveCount(0);
   await expect(page.getByText("Base URL")).toHaveCount(0);
   expect(bindingMethodIDs.size).toBeGreaterThanOrEqual(3);

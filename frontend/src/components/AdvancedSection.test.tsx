@@ -5,7 +5,7 @@ import { AdvancedSection } from "./AdvancedSection";
 
 function renderSection() {
   render(
-    <AdvancedSection hint="包含认证字段与分模型指定。大多数情况保持默认即可。">
+    <AdvancedSection hint="包含认证字段与分模型指定。大多数情况保持默认即可">
       <label htmlFor="x">认证字段</label>
       <input id="x" />
     </AdvancedSection>,

@@ -37,7 +37,7 @@ export function DesktopAgentSelectionPage() {
   return (
     <PageScaffold
       title={t("选择 Agent")}
-      description={t("选择要安装的桌面 Agent，每次安装一个。")}
+      description={t("选择要安装的桌面 Agent，每次安装一个")}
       stepper
       primaryLabel={t("继续")}
       onPrimary={continueSetup}
@@ -48,7 +48,7 @@ export function DesktopAgentSelectionPage() {
         <div className="section-heading">
           <div>
             <h2>{t("桌面 Agent")}</h2>
-            <p>{t("安装应用后，会把选定的 Profile 应用到对应的配置。")}</p>
+            <p>{t("安装应用后，会把选定的 Profile 应用到对应的配置")}</p>
           </div>
           <AppWindow size={20} aria-hidden="true" />
         </div>

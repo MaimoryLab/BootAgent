@@ -6,7 +6,7 @@
 
 **Architecture:** Wails' `pkg/updater` owns release comparison, GitHub asset selection, checksum verification, archive extraction, staging, swapping, and relaunch. A narrow `internal/binding.UpdateService` adapts that concrete updater to three cancellable Wails methods. A frontend-only `AppUpdater` checks once at startup, uses `@wailsio/runtime`'s native `Dialogs.Question` for consent, and drives the existing task-center state and progress event pipeline.
 
-**Tech Stack:** Go 1.26, Wails v3.0.0-beta.3 `pkg/updater`, GitHub Releases API, React 19, TypeScript, Vitest, pnpm, GitHub Actions.
+**Tech Stack:** Go 1.26, Wails v3.0.0-beta.4 `pkg/updater`, GitHub Releases API, React 19, TypeScript, Vitest, pnpm, GitHub Actions.
 
 ---
 

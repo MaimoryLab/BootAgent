@@ -59,10 +59,10 @@ func helperRunner(t *testing.T) OSRunner {
 	   lands in the captured output and in the listener — failing assertions about
 	   what the command produced for a reason that has nothing to do with the
 	   runner. Giving the child a scratch directory keeps its stderr its own. */
-	runner := New(map[string]string{
+	runner := OSRunner{Env: map[string]string{
 		"ONEAGENT_PROCESS_HELPER": "1",
 		"GOCOVERDIR":              t.TempDir(),
-	})
+	}}
 	runner.Lookup = func(command string) (string, bool) {
 		if command == "helper" {
 			return path, true

@@ -84,7 +84,7 @@ export function ProviderKeyPage() {
   return (
     <PageScaffold
       title={t("连接模型服务")}
-      description={t("将使用 Provider 已保存的 Key。")}
+      description={t("将使用 Provider 已保存的 Key")}
       stepper
       onBack={() => navigate("/setup/agents")}
       primaryLabel={t("继续选择模型")}
@@ -103,7 +103,7 @@ export function ProviderKeyPage() {
       <div className="provider-form">
         {!providerHasKey ? (
           <div className="notice notice-warning">
-            <span>{t("这个 Provider 还没有 Key，先到 Provider 页面填写。")}</span>
+            <span>{t("这个 Provider 还没有 Key，先到 Provider 页面填写")}</span>
             <button className="button button-secondary" type="button" onClick={() => navigate(`/providers?returnTo=${encodeURIComponent("/setup/provider")}`)}>
               <ExternalLink size={15} />
               {t("前往 Provider")}
@@ -133,7 +133,7 @@ export function ProviderKeyPage() {
             placeholder={t("例如 deepseek/deepseek-v3")}
             spellCheck={false}
           />
-          <small>{t("可选，仅用于测试连接；实际配置模型在下一步选择。")}</small>
+          <small>{t("可选，仅用于测试连接；实际配置模型在下一步选择")}</small>
         </div>
 
         <div className="connection-row">
@@ -144,7 +144,7 @@ export function ProviderKeyPage() {
           <ConnectionStatus state={state.connectionState} result={state.connection} />
         </div>
         {providerHasKey && state.connectionState === "idle" && (
-          <small>{t("连接测试是可选的，可以直接继续选择模型。")}</small>
+          <small>{t("连接测试是可选的，可以直接继续选择模型")}</small>
         )}
       </div>
     </PageScaffold>

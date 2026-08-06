@@ -177,9 +177,9 @@ func TestListModelsTransportTimeoutAndSizeLimit(t *testing.T) {
 	if err != nil || result.ErrorCode == nil || *result.ErrorCode != oneerrors.Timeout {
 		t.Fatalf("timeout result = %#v, err=%v", result, err)
 	}
-	large := NewClientWithLimits(fakeDoer(func(*http.Request) (*http.Response, error) {
+	large := &Client{doer: fakeDoer(func(*http.Request) (*http.Response, error) {
 		return fakeResponse(http.StatusOK, strings.Repeat("x", 32)), nil
-	}), time.Second, 8)
+	}), timeout: time.Second, maxBody: 8}
 	result, err = large.ListModels(context.Background(), "ppio", "key", "")
 	if err != nil || result.ErrorCode == nil || *result.ErrorCode != oneerrors.ModelsUnsupported {
 		t.Fatalf("large response result = %#v, err=%v", result, err)

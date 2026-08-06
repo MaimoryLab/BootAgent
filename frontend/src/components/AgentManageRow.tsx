@@ -50,7 +50,7 @@ export function isBehind(installed: string, locked: string): boolean {
   return compareVersions(installed, locked) < 0;
 }
 
-export function versionNote(status: AgentStatus, t: Translate = sourceTranslate): { text: string; behind: boolean } | null {
+function versionNote(status: AgentStatus, t: Translate = sourceTranslate): { text: string; behind: boolean } | null {
   if (!status.installed || !status.version) return null;
   if (!status.lockedVersion || status.version === status.lockedVersion) {
     // Being current is the normal case and needs no words: the bare version is

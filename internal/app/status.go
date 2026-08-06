@@ -280,7 +280,10 @@ func (u *UseCases) GetStatus(ctx context.Context) (StatusResponse, error) {
 	runtimes, runtimeLookup := u.runtimeCapability(ctx)
 	agentLookup := runtimeLookup.lookup
 	statuses := make(map[string]AgentStatus, len(manifest.Agents))
-	bindings := u.profiles.ListAgentBindings()
+	bindings, err := u.profiles.ListAgentBindings()
+	if err != nil {
+		return StatusResponse{}, err
+	}
 	latestVersions := u.latestAgentVersions(ctx, manifest, agentLookup)
 	installedVersions := u.installedVersions(ctx, manifest, agentLookup)
 	for _, id := range catalog.AgentIDs(manifest) {
@@ -349,7 +352,10 @@ func (u *UseCases) GetStatus(ctx context.Context) (StatusResponse, error) {
 	if err != nil {
 		return StatusResponse{}, err
 	}
-	profiles, activeProfile, environment, environmentError := u.profileStatus(ctx)
+	profiles, activeProfile, environment, environmentError, err := u.profileStatus(ctx)
+	if err != nil {
+		return StatusResponse{}, err
+	}
 	desktopAgents := u.desktopAgentStatuses(ctx)
 	return StatusResponse{
 		APIVersion:       1,
@@ -470,7 +476,7 @@ func (u *UseCases) ListProfiles(ctx context.Context) ([]ProfileSummary, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, oneerrors.New(oneerrors.Timeout, "Profile request was cancelled", oneerrors.WithRetryable(true), oneerrors.WithCause(err))
 	}
-	return u.profileSummaries(), nil
+	return u.profileSummaries()
 }
 
 // ListAgentBindings returns the public per-Agent routing records used by the
@@ -482,7 +488,7 @@ func (u *UseCases) ListAgentBindings(ctx context.Context) (map[string]profileSto
 	if err := contextError(ctx, "Agent listing request was cancelled"); err != nil {
 		return nil, err
 	}
-	return u.profiles.ListAgentBindings(), nil
+	return u.profiles.ListAgentBindings()
 }
 
 type SaveProfileOptions struct {
@@ -549,7 +555,11 @@ func (u *UseCases) DeleteProfile(ctx context.Context, id string) error {
 	defer u.writeMu.Unlock()
 	id = strings.TrimSpace(id)
 	var users []string
-	for agentID, binding := range u.catalogAgentBindings(true) {
+	bindings, err := u.catalogAgentBindings(true)
+	if err != nil {
+		return err
+	}
+	for agentID, binding := range bindings {
 		if binding.ProfileRef == id {
 			users = append(users, agentID)
 		}
@@ -563,27 +573,34 @@ func (u *UseCases) DeleteProfile(ctx context.Context, id string) error {
 
 // catalogAgentBindings mirrors the management pages' user lists. Profiles only
 // show auto-configured Agents; Providers show every catalog Agent.
-func (u *UseCases) catalogAgentBindings(autoOnly bool) map[string]profileStore.AgentBinding {
+func (u *UseCases) catalogAgentBindings(autoOnly bool) (map[string]profileStore.AgentBinding, error) {
 	manifest, err := catalog.LoadEmbedded()
 	if err != nil {
-		return map[string]profileStore.AgentBinding{}
+		return nil, err
+	}
+	bindings, err := u.profiles.ListAgentBindings()
+	if err != nil {
+		return nil, err
 	}
 	result := map[string]profileStore.AgentBinding{}
-	for agentID, binding := range u.profiles.ListAgentBindings() {
+	for agentID, binding := range bindings {
 		agent, ok := manifest.Agents[agentID]
 		if !ok || (autoOnly && agent.ConfigMode != "auto") {
 			continue
 		}
 		result[agentID] = binding
 	}
-	return result
+	return result, nil
 }
 
-func (u *UseCases) profileStatus(ctx context.Context) ([]ProfileSummary, *string, any, *string) {
+func (u *UseCases) profileStatus(ctx context.Context) ([]ProfileSummary, *string, any, *string, error) {
 	u.writeMu.Lock()
 	defer u.writeMu.Unlock()
 	active := u.profiles.LoadActiveContext(ctx)
-	profiles := u.profileSummaries()
+	profiles, err := u.profileSummaries()
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
 	var activeID *string
 	if active.ID != "" {
 		id := active.ID
@@ -598,16 +615,19 @@ func (u *UseCases) profileStatus(ctx context.Context) ([]ProfileSummary, *string
 		errorText := active.Error
 		environmentError = &errorText
 	}
-	return profiles, activeID, environment, environmentError
+	return profiles, activeID, environment, environmentError, nil
 }
 
-func (u *UseCases) profileSummaries() []ProfileSummary {
-	stored := u.profiles.List()
+func (u *UseCases) profileSummaries() ([]ProfileSummary, error) {
+	stored, err := u.profiles.List()
+	if err != nil {
+		return nil, err
+	}
 	result := make([]ProfileSummary, 0, len(stored))
 	for _, item := range stored {
 		result = append(result, profileSummary(item))
 	}
-	return result
+	return result, nil
 }
 
 func profileSummary(item profileStore.Profile) ProfileSummary {

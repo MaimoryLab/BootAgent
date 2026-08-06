@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { DesktopAgentActionResult, DesktopAgentProfileResult, DesktopAgentStatus, InstallResponse, ModelsResponse, ProbeResponse, ProfileSummary, ProviderEntry, StatusResponse } from "../types/api";
 import { LOCALE_STORAGE_KEY } from "../i18n";
+import type { DesktopAgentActionResult, DesktopAgentProfileResult, DesktopAgentStatus, InstallResponse, ModelsResponse, ProbeResponse, ProfileSummary, ProviderEntry, StatusResponse } from "../types/api";
 
 const bridge = vi.hoisted(() => ({
   status: vi.fn(),
@@ -28,7 +28,15 @@ const bridge = vi.hoisted(() => ({
 }));
 
 vi.mock("@wailsio/runtime", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@wailsio/runtime")>()),
+  ...await (async () => {
+    const domWindow = globalThis.window;
+    vi.stubGlobal("window", undefined);
+    try {
+      return await importOriginal<typeof import("@wailsio/runtime")>();
+    } finally {
+      vi.stubGlobal("window", domWindow);
+    }
+  })(),
   Events: { On: bridge.eventsOn },
 }));
 vi.mock("../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/statusservice.js", () => ({ GetStatus: bridge.status }));

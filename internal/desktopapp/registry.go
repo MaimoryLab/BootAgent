@@ -69,34 +69,12 @@ func Definitions() []Definition {
 	return result
 }
 
-func IDs() []string {
-	result := make([]string, 0, len(implementations))
-	for _, agent := range implementations {
-		result = append(result, agent.ID)
-	}
-	return result
-}
-
 func DefinitionFor(agentID string) (Definition, bool) {
 	agent, ok := implementationFor(agentID)
 	if !ok {
 		return Definition{}, false
 	}
 	return agent.Definition, true
-}
-
-func ProfileAgentID(agentID string) string {
-	agentID = strings.TrimSpace(agentID)
-	if definition, ok := DefinitionFor(agentID); ok && definition.ProfileAgentID != "" {
-		return definition.ProfileAgentID
-	}
-	return agentID
-}
-
-func SharesProfile(agentID string) bool {
-	agentID = strings.TrimSpace(agentID)
-	definition, ok := DefinitionFor(agentID)
-	return ok && definition.ProfileAgentID != "" && definition.ProfileAgentID != agentID
 }
 
 func implementationFor(agentID string) (implementation, bool) {

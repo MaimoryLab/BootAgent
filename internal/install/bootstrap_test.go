@@ -137,7 +137,7 @@ func digestOf(data []byte) string {
 
 func bootstrapRuntime(t *testing.T, home, osID string) Runtime {
 	t.Helper()
-	runner := process.New(map[string]string{"HOME": home, "PATH": filepath.Join(home, "empty")})
+	runner := process.OSRunner{Env: map[string]string{"HOME": home, "PATH": filepath.Join(home, "empty")}}
 	return NewRuntime(home, platform.For(osID, "arm64"), runner, runner.Env)
 }
 

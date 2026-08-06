@@ -39,11 +39,11 @@ export function EnvironmentOverviewPage() {
 
   if (!status) {
     return (
-      <PageScaffold title={t("环境总览")} description={t("本机已安装 Agent 及其当前配置。")}>
+      <PageScaffold title={t("环境总览")} description={t("本机已安装 Agent 及其当前配置")}>
         <div className="empty-overview">
           <PackageOpen size={28} />
           <strong>{t("无法读取环境状态")}</strong>
-          <span>{state.statusError || t("请刷新后重试。")}</span>
+          <span>{state.statusError || t("请刷新后重试")}</span>
         </div>
       </PageScaffold>
     );
@@ -66,7 +66,7 @@ export function EnvironmentOverviewPage() {
   return (
     <PageScaffold
       title={t("环境总览")}
-      description={t("本机已安装 Agent 及其当前配置。")}
+      description={t("本机已安装 Agent 及其当前配置")}
       secondaryAction={
         <>
           <button

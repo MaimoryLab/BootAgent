@@ -75,51 +75,6 @@ func managedNPM(runtime Runtime, npm string) bool {
 	return err == nil && relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator))
 }
 
-// ResolveAiderPython312 reports an existing Python 3.12 when the host has one.
-// It is retained for the CLI's diagnostics; installation itself no longer needs
-// it because uv provisions the interpreter.
-func ResolveAiderPython312(ctx context.Context, runtime Runtime) (string, error) {
-	if err := checkContext(ctx); err != nil {
-		return "", err
-	}
-	if runtime.Runner == nil {
-		return "", prerequisiteError("An existing Python 3.12 installation is required for Aider; OneAgent will not download Python automatically")
-	}
-	if executable, ok := runtime.Runner.LookPath("python3.12"); ok && executable != "" {
-		return executable, nil
-	}
-	for _, command := range []string{"python3", "python"} {
-		executable, ok := runtime.Runner.LookPath(command)
-		if !ok || executable == "" {
-			continue
-		}
-		result, err := runtime.command(ctx, []string{executable, "--version"}, nil, VersionCommandTimeout)
-		if err != nil || result.ExitCode != 0 {
-			if isContextError(err) {
-				return "", timeoutError("Checking for Python 3.12 was cancelled", err)
-			}
-			continue
-		}
-		version := VersionFromOutput(result.Stdout + "\n" + result.Stderr)
-		if strings.HasPrefix(version, "3.12.") {
-			return executable, nil
-		}
-	}
-	if runtime.Platform.OS == "windows" {
-		if launcher, ok := runtime.Runner.LookPath("py"); ok && launcher != "" {
-			result, err := runtime.command(ctx, []string{launcher, "-3.12", "--version"}, nil, VersionCommandTimeout)
-			if err != nil {
-				if isContextError(err) {
-					return "", timeoutError("Checking for Python 3.12 was cancelled", err)
-				}
-			} else if result.ExitCode == 0 {
-				return "3.12", nil
-			}
-		}
-	}
-	return "", prerequisiteError("An existing Python 3.12 installation is required for Aider; OneAgent will not download Python automatically")
-}
-
 func ResolveRegistry(value string) (string, error) {
 	official := officialRegistry()
 	if value == "" {

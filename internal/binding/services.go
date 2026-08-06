@@ -286,10 +286,6 @@ func (s *AgentService) Update(ctx context.Context, request UpdateRequest) (app.A
 	return s.core.UpdateAgent(ctx, request.AgentID)
 }
 
-func NewAgentService(core *app.UseCases) *AgentService {
-	return &AgentService{core: core}
-}
-
 func (s *AgentService) Install(ctx context.Context, request InstallRequest) (InstallResponse, error) {
 	if err := contextError(ctx); err != nil {
 		return InstallResponse{}, err

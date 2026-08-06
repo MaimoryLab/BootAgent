@@ -15,7 +15,7 @@ import (
 func testStore(t *testing.T, home, osID string) Store {
 	t.Helper()
 	filesystem := securefs.New(securefs.Options{OS: osID, Now: fixedProfileClock})
-	return NewStoreWithDependencies(home, osID, filesystem, fixedProfileClock)
+	return Store{Home: home, OS: osID, FS: &filesystem, Now: fixedProfileClock}
 }
 
 func fixedProfileClock() time.Time {
@@ -53,8 +53,8 @@ func TestSaveProfileIsolatesSecretAndPreservesHistory(t *testing.T) {
 	if err != nil || !strings.Contains(string(secretData), "ONEAGENT_API_KEY") {
 		t.Fatalf("secret file = %q, err=%v", secretData, err)
 	}
-	if got := store.List(); len(got) != 1 || !got[0].HasKey {
-		t.Fatalf("List() = %#v", got)
+	if got, err := store.List(); err != nil || len(got) != 1 || !got[0].HasKey {
+		t.Fatalf("List() = %#v, %v", got, err)
 	}
 	created := profile.CreatedAt
 	updated, err := store.Save(context.Background(), SaveRequest{
@@ -187,7 +187,7 @@ func TestWindowsSecretUsesPowerShellQuoting(t *testing.T) {
 		Run:      func(context.Context, []string) error { return nil },
 		Now:      fixedProfileClock,
 	})
-	store = NewStoreWithDependencies(store.Home, "windows", filesystem, fixedProfileClock)
+	store = Store{Home: store.Home, OS: "windows", FS: &filesystem, Now: fixedProfileClock}
 	if _, err := store.Save(context.Background(), SaveRequest{ID: "win", Provider: "ppio", Model: "m", APIKey: "key'value"}); err != nil {
 		t.Fatal(err)
 	}

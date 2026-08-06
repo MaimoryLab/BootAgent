@@ -140,7 +140,11 @@ func (u *UseCases) ConfigureDesktopAgent(ctx context.Context, agentID, profileID
 	}
 	definition, _ := desktopapp.DefinitionFor(agentID)
 	var selected profileStore.Profile
-	for _, candidate := range u.profiles.List() {
+	profiles, err := u.profiles.List()
+	if err != nil {
+		return DesktopAgentProfileResult{}, err
+	}
+	for _, candidate := range profiles {
 		if candidate.ID == profileID {
 			selected = candidate
 			break

@@ -249,8 +249,33 @@ func TestDeleteProfileRejectsBoundAgents(t *testing.T) {
 	if _, err := core.profiles.ProfilePath("team"); err != nil {
 		t.Fatal(err)
 	}
-	if len(core.profiles.List()) != 1 {
+	profiles, listErr := core.profiles.List()
+	if listErr != nil || len(profiles) != 1 {
 		t.Fatal("in-use Profile was deleted")
+	}
+}
+
+func TestDeleteProfileStopsOnCorruptAgentBinding(t *testing.T) {
+	home := t.TempDir()
+	core := activationCore(t, home, provider.NewClient(nil), "linux")
+	if _, err := core.SaveProfile(context.Background(), SaveProfileOptions{
+		ID: "team", Provider: "ppio", Model: "model-a", ConfigMode: "provider",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	bindingPath, _ := core.profiles.AgentBindingPath("codex")
+	if err := os.MkdirAll(filepath.Dir(bindingPath), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(bindingPath, []byte("{"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := core.DeleteProfile(context.Background(), "team"); err == nil {
+		t.Fatal("corrupt Agent binding did not stop Profile deletion")
+	}
+	profilePath, _ := core.profiles.ProfilePath("team")
+	if _, err := os.Stat(profilePath); err != nil {
+		t.Fatalf("Profile was deleted: %v", err)
 	}
 }
 
