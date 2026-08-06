@@ -9,6 +9,15 @@ export interface Entry {
     "id": string;
     "name": string;
     "home": string;
+
+    /**
+     * Both derived from the built-in catalog, not user-editable: a user who adds
+     * a Provider supplies Home, and a custom endpoint has no model we can vouch
+     * for. Serialized so the frontend can pre-fill the model field and aim the
+     * key button at a key page instead of a marketing site.
+     */
+    "key_management_url"?: string;
+    "default_model"?: string;
     "base_url": string;
     "anthropic_base_url": string;
     "api_key": string;

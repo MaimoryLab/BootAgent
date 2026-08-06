@@ -22,14 +22,22 @@ var userProviderIDPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,63}$`)
 // Entry is the editable local Provider record. APIKey is returned only by the
 // explicit Provider CRUD service; status projections expose HasKey instead.
 type Entry struct {
-	ID               string `json:"id"`
-	Name             string `json:"name"`
-	Home             string `json:"home"`
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	Home string `json:"home"`
+	// Both derived from the built-in catalog, not user-editable: a user who adds
+	// a Provider supplies Home, and a custom endpoint has no model we can vouch
+	// for. Serialized so the frontend can pre-fill the model field and aim the
+	// key button at a key page instead of a marketing site.
+	KeyManagementURL string `json:"key_management_url,omitempty"`
+	DefaultModel     string `json:"default_model,omitempty"`
 	BaseURL          string `json:"base_url"`
 	AnthropicBaseURL string `json:"anthropic_base_url"`
 	APIKey           string `json:"api_key"`
 	BuiltIn          bool   `json:"built_in"`
-	FallbackModel    string `json:"-"`
+	// Excluded from JSON: the probe model is an internal detail and must not
+	// reach the frontend, where it would read as a recommendation.
+	FallbackModel string `json:"-"`
 }
 
 type storedProvider struct {
@@ -73,7 +81,9 @@ func (s Store) Get(id string) (Entry, error) {
 		return Entry{
 			ID: id, Name: builtIn.Name, Home: builtIn.Home, BaseURL: builtIn.BaseURL,
 			AnthropicBaseURL: builtIn.AnthropicBaseURL, BuiltIn: true,
-			FallbackModel: catalog.FallbackProbeModel(id),
+			KeyManagementURL: catalog.KeyManagementURL(id),
+			DefaultModel:     catalog.DefaultModel(id),
+			FallbackModel:    catalog.FallbackProbeModel(id),
 		}, nil
 	}
 	return Entry{}, oneerrors.New(oneerrors.InvalidRequest, "Unknown Provider: "+id)
@@ -86,6 +96,9 @@ func (s Store) Resolve(id, explicitBase string) (Entry, error) {
 		if err != nil {
 			return Entry{}, err
 		}
+		// No DefaultModel: "custom" is an endpoint we know nothing about, so the
+		// user still has to name a model. FallbackModel resolves to the manifest
+		// default, which is only ever used to probe.
 		return Entry{ID: id, Name: "Custom", BaseURL: base, FallbackModel: catalog.FallbackProbeModel(id)}, nil
 	}
 	entry, err := s.Get(id)
@@ -117,6 +130,11 @@ func (s Store) Public() (map[string]catalog.Provider, error) {
 		result[id] = catalog.Provider{
 			Name: saved.Name, Home: saved.Home, BaseURL: saved.BaseURL,
 			AnthropicBaseURL: saved.AnthropicBaseURL, Custom: !builtIn, HasKey: saved.APIKey != "", CreatedAt: saved.CreatedAt,
+			// This overlay replaces the catalog entry wholesale, so the manifest
+			// fields have to be re-read here or a built-in Provider silently
+			// loses its default model the moment the user saves a key against it.
+			KeyManagementURL: catalog.KeyManagementURL(id),
+			DefaultModel:     catalog.DefaultModel(id),
 		}
 	}
 	return result, nil
@@ -147,6 +165,8 @@ func (s Store) Save(ctx context.Context, entry Entry) (Entry, error) {
 		return Entry{}, err
 	}
 	_, entry.BuiltIn = catalog.ProviderByID(entry.ID)
+	entry.KeyManagementURL = catalog.KeyManagementURL(entry.ID)
+	entry.DefaultModel = catalog.DefaultModel(entry.ID)
 	entry.FallbackModel = catalog.FallbackProbeModel(entry.ID)
 	return entry, nil
 }
@@ -242,6 +262,11 @@ func entryFromStored(id string, saved storedProvider, builtIn bool) Entry {
 	return Entry{
 		ID: id, Name: saved.Name, Home: saved.Home, BaseURL: saved.BaseURL,
 		AnthropicBaseURL: saved.AnthropicBaseURL, APIKey: saved.APIKey, BuiltIn: builtIn,
-		FallbackModel: catalog.FallbackProbeModel(id),
+		// Read from the catalog rather than the stored record, so a user overlay
+		// on a built-in Provider keeps the manifest's model and key page. Both
+		// resolve to empty for a purely user-added Provider.
+		KeyManagementURL: catalog.KeyManagementURL(id),
+		DefaultModel:     catalog.DefaultModel(id),
+		FallbackModel:    catalog.FallbackProbeModel(id),
 	}
 }

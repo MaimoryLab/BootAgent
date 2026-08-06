@@ -258,17 +258,28 @@ func (s *ProviderService) OpenRegistration(ctx context.Context, request OpenRegi
 		return OpenRegistrationResponse{}, notReady("Provider service is not configured")
 	}
 	entry, err := s.core.GetProvider(ctx, request.Provider)
-	if err != nil || entry.Home == "" {
+	if err != nil {
+		return OpenRegistrationResponse{}, oneerrors.New(oneerrors.InvalidRequest, "Registration is only available for a configured Provider")
+	}
+	// Prefer the key page: it is where a user actually obtains a key, whereas
+	// Home is a marketing site they then have to navigate. Home remains the
+	// fallback so a Provider without a published key page still opens something,
+	// and so a user-added Provider keeps working unchanged.
+	target := entry.KeyManagementURL
+	if target == "" {
+		target = entry.Home
+	}
+	if target == "" {
 		return OpenRegistrationResponse{}, oneerrors.New(oneerrors.InvalidRequest, "Registration is only available for a Provider with a home URL")
 	}
-	parsed, err := url.Parse(entry.Home)
+	parsed, err := url.Parse(target)
 	if err != nil || parsed.User != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" {
 		return OpenRegistrationResponse{}, oneerrors.New(oneerrors.InvalidRequest, "Provider registration URL is invalid")
 	}
-	if err := s.opener(entry.Home); err != nil {
+	if err := s.opener(target); err != nil {
 		return OpenRegistrationResponse{}, oneerrors.New(oneerrors.InternalError, "Unable to open Provider registration", oneerrors.WithStatus(500), oneerrors.WithRetryable(true), oneerrors.WithCause(err))
 	}
-	return OpenRegistrationResponse{OK: true, URL: entry.Home, Message: "Provider registration opened"}, nil
+	return OpenRegistrationResponse{OK: true, URL: target, Message: "Provider registration opened"}, nil
 }
 
 type AgentService struct {

@@ -75,7 +75,10 @@ export function ProfilesPage() {
       id,
       label: `${providerMeta?.name || provider} Profile`,
       provider,
-      model: "",
+      // Pre-filled from the Provider so a first-time user is not asked to invent
+      // a model ID. Empty for a custom Provider, whose endpoint we know nothing
+      // about, which leaves the field required exactly as before.
+      model: providerMeta?.default_model || "",
       protocol: "",
       originalId: "",
     });
@@ -84,6 +87,19 @@ export function ProfilesPage() {
   const providerForProtocol = (protocol: string, current: ProviderId) => {
     if (!protocol || (status.providers[current] && (protocol === "anthropic" ? status.providers[current].anthropic_base_url : status.providers[current].base_url))) return current;
     return byProviderCreatedAt(status.providers).find(([, provider]) => protocol === "anthropic" ? provider.anthropic_base_url : provider.base_url)?.[0] || current;
+  };
+
+  // Switching Provider re-seeds the model, but only when the field still holds
+  // the old Provider's default or nothing at all. A model the user typed is
+  // theirs to keep -- silently replacing it would be the more annoying bug, and
+  // model IDs are not portable between Providers, so leaving a stale default
+  // behind would be equally wrong.
+  const changeProvider = (draft: ProfileDraft, provider: ProviderId): ProfileDraft => {
+    const previous = status.providers[draft.provider]?.default_model || "";
+    const model = draft.model.trim() && draft.model !== previous
+      ? draft.model
+      : status.providers[provider]?.default_model || "";
+    return { ...draft, provider, model };
   };
 
   const save = async (event: FormEvent) => {
@@ -242,7 +258,7 @@ export function ProfilesPage() {
                   id="profile-protocol"
                   label={t("API 类型")}
                   value={editor.protocol}
-                  onChange={(protocol) => setEditor({ ...editor, protocol, provider: providerForProtocol(protocol, editor.provider) })}
+                  onChange={(protocol) => setEditor({ ...changeProvider(editor, providerForProtocol(protocol, editor.provider)), protocol })}
                   options={[
                     { value: "", label: t("请选择 API 类型") },
                     ...(Object.keys(PROTOCOL_LABELS) as ProtocolId[]).map((protocol) => ({ value: protocol, label: PROTOCOL_LABELS[protocol] })),
@@ -255,7 +271,7 @@ export function ProfilesPage() {
                 value={editor.provider}
                 providers={status.providers}
                 onAdd={() => navigate(`/providers/new?returnTo=${encodeURIComponent("/profiles")}`)}
-                onChange={(provider) => setEditor({ ...editor, provider })}
+                onChange={(provider) => setEditor(changeProvider(editor, provider))}
                 protocol={editor.protocol as ProtocolId}
               />
             </div>

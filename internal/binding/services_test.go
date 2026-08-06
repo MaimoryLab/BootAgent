@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"github.com/MaimoryLab/OneAgent/internal/app"
+	"github.com/MaimoryLab/OneAgent/internal/catalog"
 	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
 	"github.com/MaimoryLab/OneAgent/internal/platform"
 	"github.com/MaimoryLab/OneAgent/internal/provider"
@@ -97,13 +98,47 @@ func TestOpenRegistrationUsesConfiguredProviderURL(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if opened != "https://ppio.com/" || response.URL != opened {
-		t.Fatalf("unexpected registration URL: opened=%q response=%#v", opened, response)
+	// The key page, not Home: a user pressing this button wants a key, and
+	// landing them on the marketing site leaves them to find it themselves.
+	want := catalog.KeyManagementURL("ppio")
+	if want == "" {
+		t.Fatal("ppio has no key management URL to open")
+	}
+	if opened != want || response.URL != opened {
+		t.Fatalf("unexpected registration URL: opened=%q want=%q response=%#v", opened, want, response)
 	}
 
 	_, err = service.OpenRegistration(context.Background(), OpenRegistrationRequest{Provider: "https://example.com"})
 	if err == nil || oneerrors.As(err).Code != oneerrors.InvalidRequest {
 		t.Fatalf("arbitrary URL was not rejected: %v", err)
+	}
+}
+
+// A user-added Provider has no key page, only whatever Home they typed. The
+// button has to keep working for them, so absence falls back rather than
+// disabling the affordance.
+func TestOpenRegistrationFallsBackToHomeWithoutAKeyPage(t *testing.T) {
+	home := t.TempDir()
+	core := app.NewUseCases(app.StatusOptions{
+		Home: home, Platform: platform.For("linux", "amd64"),
+		Lookup: func(string) (string, bool) { return "", false },
+	})
+	if _, err := core.SaveProvider(context.Background(), provider.Entry{
+		ID: "acme", Name: "Acme", Home: "https://acme.example.com/", BaseURL: "https://api.acme.example.com/openai",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	var opened string
+	service := NewProviderService(core, func(value string) error {
+		opened = value
+		return nil
+	})
+	response, err := service.OpenRegistration(context.Background(), OpenRegistrationRequest{Provider: "acme"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if opened != "https://acme.example.com/" || response.URL != opened {
+		t.Fatalf("custom Provider did not fall back to its home URL: opened=%q response=%#v", opened, response)
 	}
 }
 

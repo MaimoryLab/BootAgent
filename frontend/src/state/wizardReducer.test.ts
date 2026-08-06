@@ -321,3 +321,74 @@ describe("wizardReducer", () => {
     expect(after).toBe(before);
   });
 });
+
+describe("provider default model", () => {
+  // Two Providers with different defaults, plus one with none, which is what a
+  // user-added Provider looks like.
+  const withDefaults = {
+    ...status,
+    providers: {
+      ppio: { name: "PPIO", home: "https://ppio.com/", base_url: "https://api.ppio.com/openai", default_model: "ppio/model-a" },
+      novita: { name: "Novita", home: "https://novita.ai/", base_url: "https://api.novita.ai/openai", default_model: "novita/model-b" },
+      acme: { name: "Acme", home: "https://acme.test/", base_url: "https://api.acme.test/openai", custom: true },
+    },
+  } satisfies StatusResponse;
+
+  it("seeds the model from the Provider and re-seeds when the Provider changes", () => {
+    let state = wizardReducer({ ...initialWizardState, status: withDefaults, provider: "ppio" }, { type: "SET_PROVIDER", value: "ppio" });
+    expect(state.model).toBe("ppio/model-a");
+    state = wizardReducer(state, { type: "SET_PROVIDER", value: "novita" });
+    // Not carried over: a model ID from one Provider is rarely valid at another.
+    expect(state.model).toBe("novita/model-b");
+  });
+
+  it("leaves the model empty for a Provider that publishes no default", () => {
+    // A custom endpoint gets no guess, so the field stays required as before.
+    const state = wizardReducer({ ...initialWizardState, status: withDefaults }, { type: "SET_PROVIDER", value: "acme" });
+    expect(state.model).toBe("");
+  });
+
+  it("keeps a probe model the user typed instead of the seeded default", () => {
+    const seeded = wizardReducer({ ...initialWizardState, status: withDefaults }, { type: "SET_PROVIDER", value: "ppio" });
+    const typed = wizardReducer(seeded, { type: "SET_PROBE_MODEL", value: "ppio/hand-picked" });
+    const state = wizardReducer(typed, {
+      type: "MODELS_RESULT",
+      result: { ok: true, reachable: true, status: 200, message: "", error_code: null, retryable: false, models: ["ppio/discovered"] } satisfies ModelsResponse,
+    });
+    expect(state.model).toBe("ppio/hand-picked");
+  });
+
+  it("keeps a model chosen on the model step when discovery finishes later", () => {
+    // The seeded default must not win over an explicit pick, which is the trap
+    // in resolving this with a plain `state.model ||` now that it is never empty.
+    const seeded = wizardReducer({ ...initialWizardState, status: withDefaults }, { type: "SET_PROVIDER", value: "ppio" });
+    const chosen = wizardReducer(seeded, { type: "SET_MODEL", value: "ppio/chosen" });
+    const state = wizardReducer(chosen, {
+      type: "MODELS_RESULT",
+      result: { ok: true, reachable: true, status: 200, message: "", error_code: null, retryable: false, models: ["ppio/discovered"] } satisfies ModelsResponse,
+    });
+    expect(state.model).toBe("ppio/chosen");
+  });
+
+  it("seeds on first status load and on starting a new run", () => {
+    // byProviderCreatedAt puts user-added Providers ahead of built-ins, so the
+    // initially selected Provider here is the one without a default. The point
+    // is that the seed follows whichever Provider was picked, not that it is
+    // always non-empty.
+    const builtInOnly = { ...withDefaults, providers: { ppio: withDefaults.providers.ppio, novita: withDefaults.providers.novita } } satisfies StatusResponse;
+    const loaded = wizardReducer(initialWizardState, { type: "STATUS_LOADED", status: builtInOnly });
+    expect(loaded.model).toBe(builtInOnly.providers[loaded.provider as "ppio" | "novita"].default_model);
+    // Starting over resets to the default rather than to an empty field.
+    const restarted = wizardReducer({ ...loaded, model: "leftover" }, { type: "START_SETUP" });
+    expect(restarted.model).toBe(loaded.model);
+    const fresh = wizardReducer({ ...loaded, model: "leftover" }, { type: "START_NEW_PROFILE" });
+    expect(fresh.model).toBe(loaded.model);
+  });
+
+  it("does not overwrite a model the user is editing when status refreshes", () => {
+    // A refresh re-enters STATUS_LOADED; seeding there must be first-load only.
+    const loaded = wizardReducer(initialWizardState, { type: "STATUS_LOADED", status: withDefaults });
+    const editing = wizardReducer({ ...loaded, model: "half-typed" }, { type: "STATUS_LOADED", status: withDefaults });
+    expect(editing.model).toBe("half-typed");
+  });
+});
