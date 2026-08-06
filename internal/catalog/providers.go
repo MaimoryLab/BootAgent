@@ -18,10 +18,20 @@ const ProviderSchemaVersion = 1
 var providerDefinitions, defaultFallbackProbeModel = mustLoadEmbeddedProviders()
 
 type providerFileEntry struct {
-	Name               string `json:"name"`
-	Home               string `json:"home"`
-	BaseURL            string `json:"base_url"`
-	AnthropicBaseURL   string `json:"anthropic_base_url"`
+	Name string `json:"name"`
+	Home string `json:"home"`
+	// Where a signed-in user creates or copies a key. Distinct from Home,
+	// which is the marketing site and stays the target of the "Website" link.
+	KeyManagementURL string `json:"key_management_url"`
+	BaseURL          string `json:"base_url"`
+	AnthropicBaseURL string `json:"anthropic_base_url"`
+	// DefaultModel is user-facing: it pre-fills the model field so a first-time
+	// user does not have to invent a model ID. FallbackProbeModel is internal
+	// and answers a different question -- the cheapest model that proves the
+	// endpoint and key work. They are deliberately separate fields because the
+	// cheapest model to test with is not the best one to hand someone for
+	// coding, and neither should silently become the other.
+	DefaultModel       string `json:"default_model"`
 	FallbackProbeModel string `json:"fallback_probe_model"`
 }
 
@@ -64,8 +74,10 @@ func ParseProviders(data []byte) (ProviderManifest, error) {
 		manifest.Providers[id] = Provider{
 			Name:             entry.Name,
 			Home:             entry.Home,
+			KeyManagementURL: entry.KeyManagementURL,
 			BaseURL:          entry.BaseURL,
 			AnthropicBaseURL: entry.AnthropicBaseURL,
+			DefaultModel:     entry.DefaultModel,
 			fallbackModel:    entry.FallbackProbeModel,
 		}
 	}
@@ -94,6 +106,18 @@ func validateProviders(source providerFile) error {
 		}
 		if entry.AnthropicBaseURL != "" && !httpsURL(entry.AnthropicBaseURL) {
 			return invalidProvider(id, "anthropic_base_url must use HTTPS")
+		}
+		// Optional: a built-in Provider without a dedicated key page falls back
+		// to Home. Required to be HTTPS when present, like every other URL here,
+		// because this one is opened in the user's browser.
+		if entry.KeyManagementURL != "" && !httpsURL(entry.KeyManagementURL) {
+			return invalidProvider(id, "key_management_url must use HTTPS")
+		}
+		// Required, unlike KeyManagementURL: this is the field that spares a
+		// first-time user from inventing a model ID, and a built-in Provider
+		// that cannot name one working model is not ready to ship.
+		if strings.TrimSpace(entry.DefaultModel) == "" {
+			return invalidProvider(id, "default_model is required")
 		}
 		if strings.TrimSpace(entry.FallbackProbeModel) == "" {
 			return invalidProvider(id, "fallback_probe_model is required")
