@@ -128,40 +128,36 @@
   flex: 1;
 }
 
-/* background-color, not the background shorthand: the shorthand resets the arrow
-   image base.css sets on every select. Same below for the language picker and
-   the Provider picker. */
-.theme-picker select {
-  width: 82px;
-  min-width: 0;
-  padding: 5px 22px 5px 6px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-control);
-  background-color: var(--window-bg);
-  background-position: right 5px center;
-  background-size: 11px 11px;
-  color: var(--text-primary);
-  font: inherit;
-}
-
 .language-picker span {
   flex: 1;
 }
 
-.language-picker select {
+/* The two sidebar pickers are the same control at the same size. A lighter
+   border than SelectField's default, because these sit on the sidebar's tinted
+   background rather than on a form. */
+.theme-select,
+.language-select {
   width: 82px;
-  min-width: 0;
-  padding: 5px 22px 5px 6px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-control);
-  background-color: var(--window-bg);
-  background-position: right 5px center;
-  background-size: 11px 11px;
-  color: var(--text-primary);
-  font: inherit;
+  flex: 0 0 auto;
 }
 
-.language-select-compact { display: none; }
+.theme-select .select-field-trigger,
+.language-select .select-field-trigger {
+  min-height: 26px;
+  padding: 0 6px;
+  border-color: var(--border);
+  font-size: 12px;
+}
+
+/* The trigger is 82px, but a list constrained to it would clip "跟随系统". It
+   grows rightward instead, which the sidebar has room for. */
+.theme-select .select-field-list,
+.language-select .select-field-list {
+  right: auto;
+  min-width: 100%;
+  width: max-content;
+  max-width: 160px;
+}
 
 .app-main {
   min-width: 0;
@@ -635,7 +631,7 @@
   gap: 7px;
 }
 
-.provider-picker > label {
+.provider-picker-label {
   font-size: 13px;
   font-weight: 600;
 }
@@ -646,20 +642,11 @@
   gap: 8px;
 }
 
-.provider-picker select {
-  width: 100%;
+/* 42px to match the add button beside it and the text fields on the same form,
+   rather than SelectField's 38px default. */
+.provider-picker .select-field-trigger {
   min-height: 42px;
-  padding: 0 30px 0 12px;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-control);
-  color: var(--text-primary);
-  background-color: var(--window-bg);
-}
-
-.provider-picker select:focus {
-  border-color: var(--blue);
-  box-shadow: 0 0 0 3px var(--blue-soft);
-  outline: none;
+  padding: 0 12px;
 }
 
 .provider-add-button {
@@ -1026,27 +1013,30 @@
   .theme-picker > svg { display: none; }
   .sidebar-link { justify-content: center; padding: 0; }
   .sidebar-link.is-active::before { left: -12px; }
-  .language-picker { padding: 0; }
-  .language-select-wide { display: none; }
-  .language-select-compact { display: block; }
-
   /* Centre what is left, now that the flex: 1 spacer spans are gone. */
+  .language-picker,
   .theme-picker { padding: 0; justify-content: center; }
 
-  /* 48px of column has no room for both the value and the arrow, so the arrow
-     goes and the value keeps the width. Position and behaviour still identify
-     the control as a select, and its aria-label is unchanged.
+  /* 48px of column fits the arrow alone. The value is dropped from the trigger
+     rather than truncated to an unreadable sliver -- the option list still shows
+     it in full, and each control keeps its aria-label either way. */
+  .theme-select,
+  .language-select {
+    width: 40px;
+  }
 
-     Both selectors are (0,1,1), matching `.language-picker select` in the base
-     layer. Written as `.language-picker .language-select-compact` rather than the
-     bare class because that base rule would otherwise win on specificity and
-     keep the wide padding, leaving the arrow's 22px gap with no arrow in it. */
-  .language-picker .language-select-compact,
-  .theme-picker select {
-    width: 48px;
-    padding-inline: 3px;
-    font-size: 10px;
-    background-image: none;
+  .theme-select .select-field-value,
+  .language-select .select-field-value { display: none; }
+
+  .theme-select .select-field-trigger,
+  .language-select .select-field-trigger { justify-content: center; padding: 0; }
+
+  /* The trigger is now narrower than the list needs, and the sidebar is only
+     72px wide, so the list breaks out to the right of the rail instead. */
+  .theme-select .select-field-list,
+  .language-select .select-field-list {
+    left: 0;
+    max-width: none;
   }
 }
 

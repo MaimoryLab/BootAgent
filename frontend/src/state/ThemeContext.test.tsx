@@ -33,6 +33,19 @@ function mount() {
   return screen.getByRole("combobox", { name: "外观" });
 }
 
+/**
+ * Opens the picker and clicks an option.
+ *
+ * Replaces userEvent.selectOptions, which only drives a native <select>. The
+ * picker is now a custom listbox, so these tests go through the same two steps a
+ * user does -- which is also what makes them cover the component's open/commit
+ * path rather than just the provider's reducer.
+ */
+async function choose(trigger: HTMLElement, label: string) {
+  await userEvent.click(trigger);
+  await userEvent.click(screen.getByRole("option", { name: label }));
+}
+
 const classes = () => document.documentElement.className;
 
 beforeEach(() => {
@@ -56,7 +69,7 @@ describe("ThemeProvider", () => {
   it("forces a palette independently of the desktop", async () => {
     stubSystem(true);
     const select = mount();
-    await userEvent.selectOptions(select, "light");
+    await choose(select, "浅色");
     // theme-light on a dark desktop is the case that needs the :not() in the
     // media query, otherwise the dark block still wins.
     expect(document.documentElement.classList.contains("theme-light")).toBe(true);
@@ -65,7 +78,7 @@ describe("ThemeProvider", () => {
 
   it("persists the choice", async () => {
     stubSystem(false);
-    await userEvent.selectOptions(mount(), "dark");
+    await choose(mount(), "深色");
     expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe("dark");
     expect(storedPreference()).toBe("dark");
   });
@@ -80,7 +93,7 @@ describe("ThemeProvider", () => {
 
   it("keeps an explicit choice when the desktop flips", async () => {
     const flip = stubSystem(false);
-    await userEvent.selectOptions(mount(), "light");
+    await choose(mount(), "浅色");
     flip(true);
     expect(document.documentElement.classList.contains("theme-light")).toBe(true);
   });
@@ -88,8 +101,8 @@ describe("ThemeProvider", () => {
   it("returns to the system palette when asked", async () => {
     stubSystem(true);
     const select = mount();
-    await userEvent.selectOptions(select, "dark");
-    await userEvent.selectOptions(select, "system");
+    await choose(select, "深色");
+    await choose(select, "跟随系统");
     expect(classes()).toBe("");
     expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe("system");
   });
@@ -98,7 +111,7 @@ describe("ThemeProvider", () => {
     // index.html's two theme-color tags are media-driven and cannot see a forced
     // palette, so the window chrome would keep the desktop's colour.
     stubSystem(false);
-    await userEvent.selectOptions(mount(), "dark");
+    await choose(mount(), "深色");
     expect(document.head.querySelector<HTMLMetaElement>("meta#theme-color-resolved")?.content).toBe("#151517");
   });
 
