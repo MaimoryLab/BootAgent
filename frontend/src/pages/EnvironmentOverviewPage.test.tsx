@@ -40,6 +40,7 @@ function status(): StatusResponse {
     baseUrl: installed ? "https://api.ppio.com/openai" : null,
     updatedAt: null,
     detected: null,
+    latestVersion: null,
   });
   return {
     apiVersion: 1,

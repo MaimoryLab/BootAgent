@@ -215,6 +215,7 @@ const english = {
   "更新完成": "Update complete",
   "更新 {name}": "Update {name}",
   "执行 npm update": "Run npm update",
+  "有新版本 {version}，点击更新": "Version {version} is available; click to update",
   "无法更新 Agent": "Could not update the agent",
   "运行时": "Runtimes",
   "缺少 {count} 个运行时，安装后即可自动安装对应 Agent。": "{count} runtime(s) missing. Install them to enable automatic agent installation.",

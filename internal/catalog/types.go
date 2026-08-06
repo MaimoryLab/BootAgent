@@ -54,6 +54,13 @@ type CatalogItem struct {
 	Platforms     []string `json:"platforms"`
 	PlatformNote  string   `json:"platformNote"`
 	Rank          int      `json:"rank"`
+	// PackageManager and PackageName describe how this Agent is installed, so the
+	// UI can decide whether to offer an update without keeping its own list of
+	// npm Agents. That list existed and had already drifted: OpenClaw shipped as
+	// an npm Agent and was missing from it, so it silently lost its update
+	// button. Empty means the Agent has no package contract.
+	PackageManager string `json:"packageManager,omitempty"`
+	PackageName    string `json:"packageName,omitempty"`
 }
 
 type Group struct {

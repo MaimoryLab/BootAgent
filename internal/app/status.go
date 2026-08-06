@@ -64,6 +64,9 @@ type UseCases struct {
 	regionMu        sync.Mutex
 	regionKnown     bool
 	regionIsChinese bool
+	// Registry answers for the update dot, cached so a status poll does not spend
+	// a request per Agent every time it runs.
+	latestVersions latestVersionCache
 }
 
 // SetRuntimeDownloader overrides the HTTP client used for internal downloads.
@@ -200,12 +203,17 @@ type Capabilities struct {
 }
 
 type AgentStatus struct {
-	Installed     bool            `json:"installed"`
-	Configured    bool            `json:"configured"`
-	GuideOnly     bool            `json:"guideOnly"`
-	Config        string          `json:"config"`
-	Version       *string         `json:"version"`
-	LockedVersion *string         `json:"lockedVersion"`
+	Installed     bool    `json:"installed"`
+	Configured    bool    `json:"configured"`
+	GuideOnly     bool    `json:"guideOnly"`
+	Config        string  `json:"config"`
+	Version       *string `json:"version"`
+	LockedVersion *string `json:"lockedVersion"`
+	// LatestVersion is the newest version published to the package registry, or
+	// nil when it is not knowable -- offline, rate limited, or not an npm
+	// package. It drives the update dot only, so nil means "say nothing" rather
+	// than "up to date".
+	LatestVersion *string         `json:"latestVersion"`
 	CanInstall    bool            `json:"canInstall"`
 	Provider      *string         `json:"provider"`
 	ProfileID     *string         `json:"profileId"`
@@ -269,6 +277,7 @@ func (u *UseCases) GetStatus(ctx context.Context) (StatusResponse, error) {
 	agentLookup := runtimeLookup.lookup
 	statuses := make(map[string]AgentStatus, len(manifest.Agents))
 	bindings := u.profiles.ListAgentBindings()
+	latestVersions := u.latestAgentVersions(ctx, manifest, agentLookup)
 	for _, id := range catalog.AgentIDs(manifest) {
 		agent := manifest.Agents[id]
 		configPath := configPath(options.Home, options.Platform.OS, agent)
@@ -322,6 +331,7 @@ func (u *UseCases) GetStatus(ctx context.Context) (StatusResponse, error) {
 			Config:        configPath,
 			Version:       installedVersion,
 			LockedVersion: nil,
+			LatestVersion: latestVersions[id],
 			CanInstall:    canInstall,
 			Provider:      boundProvider,
 			ProfileID:     boundProfileID,

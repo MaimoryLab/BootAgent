@@ -12,6 +12,16 @@ export interface CatalogItem {
     "platforms": string[] | null;
     "platformNote": string;
     "rank": number;
+
+    /**
+     * PackageManager and PackageName describe how this Agent is installed, so the
+     * UI can decide whether to offer an update without keeping its own list of
+     * npm Agents. That list existed and had already drifted: OpenClaw shipped as
+     * an npm Agent and was missing from it, so it silently lost its update
+     * button. Empty means the Agent has no package contract.
+     */
+    "packageManager"?: string;
+    "packageName"?: string;
 }
 
 export interface Group {

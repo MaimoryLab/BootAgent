@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { OneAgentApiError } from "../backend/errors";
 import type { AgentCatalogItem, AgentStatus } from "../types/api";
-import { AgentManageRow, compareVersions, isBehind, targetSummary } from "./AgentManageRow";
+import { AgentManageRow, compareVersions, isBehind, targetSummary, updateOffer } from "./AgentManageRow";
 
 const launchAgent = vi.fn();
 
@@ -33,6 +33,11 @@ const catalogAgent: AgentCatalogItem = {
   platforms: ["macos", "linux", "windows"],
   platformNote: "",
   rank: 1,
+  // The package contract comes from the catalog, which reads agents.lock.json.
+  // It used to be a literal in the component, which is how OpenClaw ended up
+  // without an update button after shipping as an npm Agent.
+  packageManager: "npm",
+  packageName: "@openai/codex",
 };
 
 function agentStatus(over: Partial<AgentStatus> = {}): AgentStatus {
@@ -43,6 +48,7 @@ function agentStatus(over: Partial<AgentStatus> = {}): AgentStatus {
     config: "/home/u/.codex/config.toml",
     version: "0.145.0",
     lockedVersion: "0.145.0",
+    latestVersion: null,
     canInstall: true,
     provider: "ppio",
     profileId: "team",
@@ -54,12 +60,12 @@ function agentStatus(over: Partial<AgentStatus> = {}): AgentStatus {
   };
 }
 
-function renderRow(over: Partial<AgentStatus> = {}, profileName = "团队 PPIO") {
+function renderRow(over: Partial<AgentStatus> = {}, profileName = "团队 PPIO", catalogOver: Partial<AgentCatalogItem> = {}) {
   render(
     <MemoryRouter>
       <AgentManageRow
         agentId="codex"
-        catalog={catalogAgent}
+        catalog={{ ...catalogAgent, ...catalogOver }}
         status={agentStatus(over)}
         providers={{
           ppio: { name: "PPIO", home: "https://ppio.com/", base_url: "https://api.ppio.com/openai" },
@@ -285,5 +291,72 @@ describe("targetSummary", () => {
       providers,
     );
     expect(summary.text).toBe("未配置");
+  });
+});
+
+describe("updateOffer", () => {
+  const npm = catalogAgent;
+
+  it("marks an Agent behind the registry", () => {
+    const offer = updateOffer(npm, agentStatus({ version: "0.145.0", latestVersion: "0.150.0" }));
+    expect(offer).toEqual({ npm: true, behind: "0.150.0" });
+  });
+
+  it("says nothing when the installed version is current or newer", () => {
+    // A newer local version is normal -- the user upgraded the Agent themselves
+    // -- and flagging it would invite a downgrade.
+    for (const [version, latest] of [["1.2.3", "1.2.3"], ["2.0.0", "1.9.9"]]) {
+      expect(updateOffer(npm, agentStatus({ version, latestVersion: latest })).behind).toBe("");
+    }
+  });
+
+  it("says nothing when the registry could not be reached", () => {
+    // Offline or rate limited. The dot is an affordance, so an unknown answer
+    // leaves the row exactly as it was rather than claiming either state.
+    expect(updateOffer(npm, agentStatus({ version: "1.0.0", latestVersion: null })).behind).toBe("");
+  });
+
+  it("offers no update for an Agent that is not installed", () => {
+    // `npm update -g` on a package that was never installed exits 0 and does
+    // nothing, so the button would report success while the Agent stayed missing.
+    const offer = updateOffer(npm, agentStatus({ installed: false, version: null, latestVersion: "9.9.9" }));
+    expect(offer.npm).toBe(false);
+  });
+
+  it("offers no update for Agents npm does not manage", () => {
+    // Aider comes from PyPI through uv; a guide-only entry has no package at all.
+    expect(updateOffer({ ...npm, packageManager: "uv", packageName: "aider-chat" }, agentStatus()).npm).toBe(false);
+    expect(updateOffer({ ...npm, packageManager: undefined, packageName: undefined }, agentStatus()).npm).toBe(false);
+    expect(updateOffer(undefined, agentStatus()).npm).toBe(false);
+  });
+});
+
+describe("the update affordance in the row", () => {
+  it("puts a dot on the update button when a newer version exists", async () => {
+    renderRow({ version: "0.145.0", latestVersion: "0.150.0" });
+    const button = screen.getByRole("button", { name: /更新/ });
+    expect(button.querySelector(".agent-update-dot")).toBeTruthy();
+    // The version reaches assistive technology through the title, so the dot
+    // itself is decoration and must not be announced.
+    expect(button.getAttribute("title")).toContain("0.150.0");
+  });
+
+  it("leaves the button bare when the Agent is current", () => {
+    renderRow({ version: "0.145.0", latestVersion: "0.145.0" });
+    const button = screen.getByRole("button", { name: /更新/ });
+    expect(button.querySelector(".agent-update-dot")).toBeNull();
+  });
+
+  it("hides the update button entirely when the Agent is not installed", () => {
+    renderRow({ installed: false, version: null, latestVersion: "9.9.9" });
+    expect(screen.queryByRole("button", { name: /更新/ })).toBeNull();
+  });
+
+  it("reads the npm package name from the catalog, not a list of its own", async () => {
+    // OpenClaw shipped as an npm Agent and was missing from that list, so it
+    // lost both its update button and its package name here.
+    renderRow({}, "团队 PPIO", { packageName: "openclaw" });
+    await userEvent.click(screen.getByText("详情"));
+    expect(screen.getByText("openclaw")).toBeTruthy();
   });
 });

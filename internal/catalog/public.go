@@ -105,17 +105,24 @@ func PublicCatalog(manifest Manifest, platformID string) []CatalogItem {
 		if platformID == "windows" {
 			platformNote = agent.WindowsNote
 		}
+		packageManager, packageName := "", ""
+		if agent.Package != nil {
+			packageManager = agent.Package.Manager
+			packageName = agent.Package.Name
+		}
 		items = append(items, CatalogItem{
-			ID:            id,
-			Name:          agent.Name,
-			Group:         agent.Group,
-			ConfigMode:    agent.ConfigMode,
-			GuideOnly:     agent.ConfigMode == "guide",
-			LockedVersion: nil,
-			Protocol:      protocol,
-			Platforms:     append([]string(nil), agent.Platforms...),
-			PlatformNote:  platformNote,
-			Rank:          agent.Rank,
+			ID:             id,
+			Name:           agent.Name,
+			Group:          agent.Group,
+			ConfigMode:     agent.ConfigMode,
+			GuideOnly:      agent.ConfigMode == "guide",
+			LockedVersion:  nil,
+			Protocol:       protocol,
+			Platforms:      append([]string(nil), agent.Platforms...),
+			PlatformNote:   platformNote,
+			Rank:           agent.Rank,
+			PackageManager: packageManager,
+			PackageName:    packageName,
 		})
 	}
 	sort.Slice(items, func(i, j int) bool {
