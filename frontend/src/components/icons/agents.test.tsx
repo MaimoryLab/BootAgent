@@ -6,7 +6,7 @@ import { AGENT_ICON_IDS, AgentIcon, agentMarkKind, agentMarkRights, agentMarkSou
 // Every Agent in agents.lock.json, all of which reach the first screen. Keep in
 // step with the catalog: an Agent with no mark falls back to a shared symbol and
 // stops being identifiable without reading its label.
-const ALL = ["codex", "claude-code", "opencode", "kilo-cli", "aider", "openclaw"];
+const ALL = ["codex", "claude-code", "opencode", "kilo-cli", "aider", "openclaw", "hermes"];
 
 describe("AgentIcon", () => {
   it("has a distinct mark for every Agent on the first screen", () => {

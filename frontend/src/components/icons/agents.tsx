@@ -90,6 +90,7 @@ const MARKS: Record<string, Mark> = {
   // Aider has no mark in lobe-icons, so it keeps a generic symbol rather than a
   // vendor favicon copied in without an auditable redistribution basis.
   aider: { kind: "generic", Icon: GitBranch, source: GENERIC_SOURCE },
+  hermes: { kind: "generic", Icon: Bot, source: GENERIC_SOURCE },
   // Unlike the four above, this mark is not the vendor's own artwork: it is the
   // lobster the cc-switch project drew, MIT, and OneAgent recoloured it to a
   // single currentColor glyph so it adapts to the theme like the rest of the set.
@@ -111,6 +112,7 @@ const TAGLINES: Record<string, TranslationKey> = {
   opencode: "开源终端编码代理",
   "kilo-cli": "多模型编排的命令行代理",
   aider: "结对编程式的仓库编辑代理",
+  hermes: "可扩展的多渠道智能代理",
   openclaw: "把聊天工具接到编码代理的自建网关",
 };
 

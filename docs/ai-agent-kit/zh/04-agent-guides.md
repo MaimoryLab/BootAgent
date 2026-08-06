@@ -36,6 +36,12 @@
 - 启动时通过 `aider --env-file ~/.oneagent/aider.env` 由 Aider 自己加载，不需要在 shell 中 source。
 - 使用 `openai/<model>` 形式时，以 Aider 当前版本说明为准。
 
+### Hermes Agent
+
+- OneAgent 写入 `~/.hermes/config.yaml`；Windows 原生安装写入 `%LOCALAPPDATA%\hermes\config.yaml`。
+- 写入完成后，OneAgent 打开新的 Bash 或 PowerShell 窗口运行 Hermes 官方安装脚本。
+- 官方安装器的 setup 阶段会跳过；浏览器、skills、gateway 和渠道配对仍由 Hermes 管理。
+
 ## Gateway 型 Agent
 
 ### OpenClaw

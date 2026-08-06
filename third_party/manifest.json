@@ -158,6 +158,23 @@
       "version": "v0.47.0"
     },
     {
+      "ecosystem": "go",
+      "license": "MIT AND Apache-2.0",
+      "license_files": [
+        "licenses/go/gopkg.in_yaml.v3@v3.0.1/LICENSE",
+        "licenses/go/gopkg.in_yaml.v3@v3.0.1/NOTICE"
+      ],
+      "modification": "",
+      "name": "gopkg.in/yaml.v3",
+      "platforms": [
+        "macos-arm64",
+        "macos-x64",
+        "windows-arm64",
+        "windows-x64"
+      ],
+      "version": "v3.0.1"
+    },
+    {
       "ecosystem": "npm",
       "license": "MIT",
       "license_files": [

@@ -184,6 +184,9 @@ type runtimeCapabilityLookup struct {
 // runtime counts even when the host PATH has no such command, because installs
 // run with the managed directory prepended.
 func (l runtimeCapabilityLookup) available(manager string) bool {
+	if manager == "official-script" {
+		return true
+	}
 	if state, known := l.byCommand[manager]; known {
 		if state.Installed || state.Managed {
 			return true

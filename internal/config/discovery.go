@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/pelletier/go-toml/v2"
+	"gopkg.in/yaml.v3"
 )
 
 type Detected struct {
@@ -141,6 +142,19 @@ func ReadAiderConfig(text string) Detected {
 	return Detected{BaseURL: baseURL}
 }
 
+func ReadHermesConfig(text string) Detected {
+	var parsed struct {
+		Model struct {
+			Default string `yaml:"default"`
+			BaseURL string `yaml:"base_url"`
+		} `yaml:"model"`
+	}
+	if err := yaml.Unmarshal([]byte(text), &parsed); err != nil {
+		return unreadable(fmt.Sprintf("YAML 无法解析：%v", err))
+	}
+	return Detected{BaseURL: parsed.Model.BaseURL, Model: parsed.Model.Default, ManagedByOneAgent: parsed.Model.BaseURL != ""}
+}
+
 // DetectFile returns nil only when the file is absent. Any present but empty,
 // unreadable, or unknown-format file gets a local diagnostic so one bad Agent
 // cannot fail the entire status request.
@@ -189,6 +203,8 @@ func readerFor(adapter string, envVars map[string]string) reader {
 		return ReadOpenClawConfig
 	case "aider":
 		return ReadAiderConfig
+	case "hermes":
+		return ReadHermesConfig
 	default:
 		return nil
 	}
