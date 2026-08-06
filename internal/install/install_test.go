@@ -146,7 +146,7 @@ func TestInstallAgentDefaultsToLatestAndSupportsExactVersion(t *testing.T) {
 	}
 }
 
-func TestInstallAgentSupportsAiderRuntimeBoundary(t *testing.T) {
+func TestInstallAgentSupportsTheUVRuntimeBoundary(t *testing.T) {
 	manifest := mustManifest()
 	agent := manifest.Agents["aider"]
 	runner := &fakeInstallRunner{paths: map[string]string{"uv": "/fake/uv", "python3.12": "/fake/python"}}
@@ -166,6 +166,25 @@ func TestInstallAgentSupportsAiderRuntimeBoundary(t *testing.T) {
 	}
 	if !strings.HasSuffix(installEnv["UV_TOOL_BIN_DIR"], "/.oneagent/runtimes/global/bin") {
 		t.Fatalf("uv tool bin dir = %q", installEnv["UV_TOOL_BIN_DIR"])
+	}
+
+	// Hermes takes the same boundary, and uv is the only thing it needs. Its
+	// vendor installer also lays down Node, a Chromium engine, ripgrep and
+	// ffmpeg, so it is worth pinning that none of those is a prerequisite here:
+	// a bare PATH runs the Agent, and those extras only gate browser tools,
+	// faster search and voice transcription.
+	hermesRunner := &fakeInstallRunner{paths: map[string]string{"uv": "/fake/uv"}}
+	hermesRuntime := runtimeForInstall(hermesRunner, "linux", nil)
+	hermesResult, hermesErr := InstallAgent(context.Background(), hermesRuntime, manifest.Agents["hermes"], Options{})
+	if hermesErr != nil || !hermesResult.Installed {
+		t.Fatalf("Hermes install with only uv present = %#v, err=%v", hermesResult, hermesErr)
+	}
+	if !reflect.DeepEqual(hermesRunner.lastCall, []string{"/fake/uv", "tool", "install", "--force", "--python", PythonToolVersion, "hermes-agent"}) {
+		t.Fatalf("Hermes uv command = %#v", hermesRunner.lastCall)
+	}
+	// The pin exists because Hermes caps at <3.14 while the host may be newer.
+	if PythonToolVersion != "3.12" {
+		t.Fatalf("Python pin = %q; Hermes requires >=3.11,<3.14", PythonToolVersion)
 	}
 
 	pythonRunner := &fakeInstallRunner{paths: map[string]string{"python3": "/fake/python3"}}

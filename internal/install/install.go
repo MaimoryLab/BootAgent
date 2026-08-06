@@ -70,6 +70,25 @@ func InstalledVersion(ctx context.Context, runtime Runtime, agent catalog.Agent)
 // -- a machine whose python3 is 3.14 would fail to install Hermes.
 const PythonToolVersion = "3.12"
 
+// A note on what a uv install of Hermes does and does not provide, because the
+// vendor's own installer also lays down Node, a Chromium engine, ripgrep and
+// ffmpeg, and it is reasonable to wonder whether the Agent runs without them.
+//
+// It does. Verified on a PATH holding only /usr/bin, /bin, /usr/sbin and /sbin --
+// no Homebrew, no node, no rg, no ffmpeg -- where a full inference round trip
+// succeeded with 17 tools registered. Hermes' own dependency descriptions place
+// each extra outside the coding path: Node is "required for browser tools and
+// TUI", the browser engine is for web browsing, ripgrep is "fast file search"
+// and degrades to grep, and ffmpeg is for "TTS voice messages". Only git is
+// genuinely needed, and every platform OneAgent supports has it.
+//
+// `hermes postinstall` is the vendor's own remedy for a pip/uv install, and
+// OneAgent deliberately does not call it: it runs the interactive `hermes setup`
+// wizard when no provider is configured, and its dependency work is a shell out
+// to `brew install` that simply gives up when Homebrew is absent. If OneAgent
+// ever wants ripgrep for Hermes, runtimes.lock.json is the mechanism that fits
+// -- pinned, checksummed, and installed the same way on all three platforms.
+
 // managedNPM reports whether this npm came from OneAgent's runtime root.
 func managedNPM(runtime Runtime, npm string) bool {
 	if npm == "" {
@@ -279,7 +298,7 @@ func requirePrerequisites(runtime Runtime, agent catalog.Agent) error {
 	}
 	if packageInfo.Manager == "uv" {
 		if _, ok := runtime.Runner.LookPath("uv"); !ok {
-			return prerequisiteError("uv is required to install Aider. Install the uv runtime first.")
+			return prerequisiteError(fmt.Sprintf("uv is required to install %s. Install the uv runtime first.", agent.Name))
 		}
 	}
 	if runtime.Platform.OS == "windows" {

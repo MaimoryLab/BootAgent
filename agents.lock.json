@@ -181,7 +181,7 @@
         "linux",
         "windows"
       ],
-      "guide": "OneAgent installs Hermes and points its model provider at your Profile. Hermes' own login, skills and gateway stay with its commands: hermes setup.",
+      "guide": "OneAgent installs Hermes through uv and points its model provider at your Profile. Coding, file, terminal and memory tools work from that alone. Hermes' browser tools additionally need Node.js and a Chromium engine, and its voice-message transcription needs ffmpeg; without them Hermes runs and reports those tools as unavailable. Its own login, skills and gateway stay with its commands: hermes setup.",
       "rank": 7
     }
   }
