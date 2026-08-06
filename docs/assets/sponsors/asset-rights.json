@@ -1,0 +1,21 @@
+{
+  "note": "Sponsor logos reproduced with the owner's permission to identify a sponsor of this project. Unlike the Agent marks in frontend/src/components/icons/asset-rights.json, these are not nominative use and they keep their published brand colours. They appear only in README.md and README_ZH.md, never in the application interface, and are not compiled into any release binary.",
+  "assets": {
+    "ppio": {
+      "file": "ppio-color.png",
+      "owner": "PPIO",
+      "home": "https://ppio.com/",
+      "basis": "permission-from-owner",
+      "usage": "readme-only",
+      "sha256": "de34cd65b95756a7438feef7731e3f661cb16ed896750e2db74c4adb17bfa875"
+    },
+    "novita": {
+      "file": "novita-color.png",
+      "owner": "Novita",
+      "home": "https://novita.ai/",
+      "basis": "permission-from-owner",
+      "usage": "readme-only",
+      "sha256": "6546afdf0ae4a374e13e884fdb2f34264db81303dd50640f1fe902686dc10f5f"
+    }
+  }
+}

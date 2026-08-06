@@ -208,6 +208,23 @@ maintainer-facing and stays in Chinese.
   past work. Commands in there may have stopped working as tools were removed; that
   directory's README names the current entry points.
 
+## Sponsors
+
+OneAgent's development is supported by:
+
+<p>
+  <a href="https://ppio.com/"><img src="docs/assets/sponsors/ppio-color.png" alt="PPIO" height="48"></a>
+  &nbsp;&nbsp;
+  <a href="https://novita.ai/"><img src="docs/assets/sponsors/novita-color.png" alt="Novita" height="48"></a>
+</p>
+
+Both are also built-in Providers in OneAgent. Sponsorship does not change which
+Provider is recommended or how one is verified: every Provider is probed against
+the protocol its Agent actually speaks, and the built-in list is ordered in
+`providers.lock.json` independently of any commercial relationship. See
+[providers.lock.json](providers.lock.json) for each entry's declared
+relationship and disclosure.
+
 ## Licence
 
 Apache License 2.0. See [LICENSE](LICENSE).

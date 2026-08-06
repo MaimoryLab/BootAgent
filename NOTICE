@@ -49,8 +49,19 @@ redistribute it. The four retained image assets, for Codex, Claude Code,
 OpenCode, and Kilo CLI, are listed with source, license, owner, and SHA-256 in
 frontend/src/components/icons/asset-rights.json.
 
-This is nominative use: the labels identify the referenced products and do not
-imply endorsement, affiliation or sponsorship. The image assets keep their
-published geometry and are not re-drawn. Each is distributed as a single-colour
-glyph painted with fill="currentColor", so it takes the surrounding text colour
-by design rather than carrying a brand colour that is being altered.
+The Agent marks described above are nominative use: the labels identify the
+referenced products and do not imply endorsement, affiliation or sponsorship.
+The image assets keep their published geometry and are not re-drawn. Each is
+distributed as a single-colour glyph painted with fill="currentColor", so it
+takes the surrounding text colour by design rather than carrying a brand colour
+that is being altered.
+
+Sponsor marks are a separate case and are not nominative use. The PPIO and
+Novita logos under docs/assets/sponsors/ are reproduced with each owner's
+permission to identify a sponsor of this project, and they do carry their brand
+colours as published. They appear only in README.md and README_ZH.md, never in
+the application interface, and are listed with source, owner, and SHA-256 in
+docs/assets/sponsors/asset-rights.json. Each logo remains the property of its
+owner. Sponsorship does not affect Agent rank, compatibility conclusions,
+default selection, or connection tests; the commercial relationship for each
+Provider is declared in providers.lock.json.
