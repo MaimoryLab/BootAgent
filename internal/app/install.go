@@ -236,15 +236,12 @@ func (u *UseCases) probeInstallProtocols(ctx context.Context, options InstallAge
 		ordered = append(ordered, protocolID)
 	}
 	sort.Strings(ordered)
-	for _, protocolID := range ordered {
-		if u.provider == nil {
-			return nil, oneerrors.New(oneerrors.InternalError, "Provider probing is not configured", oneerrors.WithStatus(501))
-		}
-		verdict, err := u.provider.Probe(ctx, protocolID, "custom", options.APIKey, options.Model, target.BaseFor(protocolID))
-		if err != nil {
-			return nil, err
-		}
-		probes[protocolID] = verdict
+	if u.provider == nil {
+		return nil, oneerrors.New(oneerrors.InternalError, "Provider probing is not configured", oneerrors.WithStatus(501))
+	}
+	probes, err = u.probeProtocols(ctx, ordered, options.APIKey, options.Model, target.BaseFor)
+	if err != nil {
+		return nil, err
 	}
 	u.sharpenInstallModelDiagnosis(ctx, probes, options)
 	return probes, nil

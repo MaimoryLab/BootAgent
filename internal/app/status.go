@@ -27,6 +27,8 @@ import (
 
 type CommandLookup func(string) (string, bool)
 
+const versionProbeConcurrency = 3
+
 type StatusOptions struct {
 	Home     string
 	Platform platform.Info
@@ -280,6 +282,7 @@ func (u *UseCases) GetStatus(ctx context.Context) (StatusResponse, error) {
 	statuses := make(map[string]AgentStatus, len(manifest.Agents))
 	bindings := u.profiles.ListAgentBindings()
 	latestVersions := u.latestAgentVersions(ctx, manifest, agentLookup)
+	installedVersions := u.installedVersions(ctx, manifest, agentLookup)
 	for _, id := range catalog.AgentIDs(manifest) {
 		agent := manifest.Agents[id]
 		configPath := configPath(options.Home, options.Platform.OS, agent)
@@ -287,9 +290,8 @@ func (u *UseCases) GetStatus(ctx context.Context) (StatusResponse, error) {
 			paths[id+"_config"] = configPath
 		}
 		installed := false
-		executable := ""
 		if agent.Command != "" {
-			executable, installed = agentLookup(agent.Command)
+			_, installed = agentLookup(agent.Command)
 		}
 		canInstall := false
 		if agent.Package != nil {
@@ -324,7 +326,7 @@ func (u *UseCases) GetStatus(ctx context.Context) (StatusResponse, error) {
 		}
 		var installedVersion *string
 		if installed && agent.ConfigMode == "auto" {
-			installedVersion = u.installedVersion(ctx, executable, agent.VersionArgs)
+			installedVersion = installedVersions[id]
 		}
 		statuses[id] = AgentStatus{
 			Installed:     installed,
@@ -368,6 +370,50 @@ func (u *UseCases) GetStatus(ctx context.Context) (StatusResponse, error) {
 		FirstRun:         !fileExists(filepath.Join(options.Home, ".oneagent")),
 		DesktopAgents:    desktopAgents,
 	}, nil
+}
+
+func (u *UseCases) installedVersions(ctx context.Context, manifest catalog.Manifest, lookup func(string) (string, bool)) map[string]*string {
+	queries := make([]struct {
+		id, executable string
+		args           []string
+	}, 0, len(manifest.Agents))
+	for id, agent := range manifest.Agents {
+		if agent.ConfigMode != "auto" || agent.Command == "" {
+			continue
+		}
+		executable, installed := lookup(agent.Command)
+		if installed {
+			queries = append(queries, struct {
+				id, executable string
+				args           []string
+			}{id, executable, agent.VersionArgs})
+		}
+	}
+	if len(queries) == 0 {
+		return nil
+	}
+	versions := make(map[string]*string, len(queries))
+	var mu sync.Mutex
+	var group sync.WaitGroup
+	tokens := make(chan struct{}, versionProbeConcurrency)
+	for _, query := range queries {
+		group.Add(1)
+		go func(query struct {
+			id, executable string
+			args           []string
+		}) {
+			defer group.Done()
+			tokens <- struct{}{}
+			defer func() { <-tokens }()
+			if version := u.installedVersion(ctx, query.executable, query.args); version != nil {
+				mu.Lock()
+				versions[query.id] = version
+				mu.Unlock()
+			}
+		}(query)
+	}
+	group.Wait()
+	return versions
 }
 
 var versionPattern = regexp.MustCompile(`(^|[^\d])(\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?)`)

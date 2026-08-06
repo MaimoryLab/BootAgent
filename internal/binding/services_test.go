@@ -10,6 +10,7 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/MaimoryLab/OneAgent/internal/app"
@@ -331,7 +332,10 @@ func TestInstallResultBindingPreservesFieldPresence(t *testing.T) {
 
 func TestProviderServiceAggregatesSelectedAgentProtocols(t *testing.T) {
 	seen := make([]string, 0)
+	var seenMu sync.Mutex
 	client := provider.NewClient(providerFakeDoer(func(request *http.Request) (*http.Response, error) {
+		seenMu.Lock()
+		defer seenMu.Unlock()
 		seen = append(seen, request.URL.Path)
 		return providerResponse(http.StatusNoContent, ""), nil
 	}))
