@@ -1,5 +1,5 @@
 import { ExternalLink, KeyRound, Pencil, Plus, Save, Trash2, X } from "lucide-react";
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { api, describeError } from "../backend/api";
@@ -31,7 +31,9 @@ export function ProvidersPage({ create = false }: { create?: boolean }) {
   const [failure, setFailure] = useState("");
   const [applied, setApplied] = useState("");
   const requestedReturn = searchParams.get("returnTo");
+  const requestedProvider = searchParams.get("provider");
   const returnTo = requestedReturn?.startsWith("/") && !requestedReturn.startsWith("//") ? requestedReturn : "/providers";
+  const openedProvider = useRef("");
   const nameOf = (agentId: string) =>
     status?.catalog.find((item) => item.id === agentId)?.name || agentId;
 
@@ -52,6 +54,13 @@ export function ProvidersPage({ create = false }: { create?: boolean }) {
       setBusy(false);
     }
   };
+
+  useEffect(() => {
+    if (!create && !editor && requestedProvider && requestedProvider !== openedProvider.current && status?.providers[requestedProvider]) {
+      openedProvider.current = requestedProvider;
+      void edit(requestedProvider);
+    }
+  }, [create, editor, requestedProvider, status]);
 
   const save = async (event: FormEvent) => {
     event.preventDefault();

@@ -316,6 +316,7 @@ button:active:not(:disabled) {
 }
 
 .notice-warning {
+  gap: 12px;
   color: var(--orange);
   background: var(--orange-soft);
   border-color: rgba(178, 80, 0, 0.2);

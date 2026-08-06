@@ -139,6 +139,24 @@ describe("ProvidersPage", () => {
     await waitFor(() => expect(save).toHaveBeenCalledWith(expect.objectContaining({ id: "ppio", name: "PPIO Cloud", api_key: "sk-saved" })));
   });
 
+  it("opens the requested Provider editor", async () => {
+    const entry = {
+      id: "ppio", name: "PPIO", home: "https://ppio.com/", base_url: "https://api.ppio.com/openai",
+      anthropic_base_url: "", api_key: "sk-saved", built_in: true,
+    };
+    const get = vi.spyOn(api, "getProvider").mockResolvedValue(entry);
+    mockState = { status: statusWith({ codex: "ppio" }), statusState: "success" };
+
+    render(
+      <MemoryRouter initialEntries={["/providers?provider=ppio"]}>
+        <ProvidersPage />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => expect(get).toHaveBeenCalledWith("ppio"));
+    expect(await screen.findByLabelText("API Key")).toHaveValue("sk-saved");
+  });
+
   it("names the Agents rewritten after an endpoint or key edit", async () => {
     // A Provider edit re-applies to every Agent bound to it, so the page has to
     // say which ones changed rather than leaving it invisible.

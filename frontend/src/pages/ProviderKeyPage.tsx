@@ -106,7 +106,7 @@ export function ProviderKeyPage() {
         {!providerHasKey ? (
           <div className="notice notice-warning">
             <span>{t("这个 Provider 还没有 Key，先到 Provider 页面填写")}</span>
-            <button className="button button-secondary" type="button" onClick={() => navigate(`/providers?returnTo=${encodeURIComponent("/setup/provider")}`)}>
+            <button className="button button-secondary" type="button" onClick={() => navigate(`/providers?provider=${encodeURIComponent(state.provider)}&returnTo=${encodeURIComponent("/setup/provider")}`)}>
               <ExternalLink size={15} />
               {t("前往 Provider")}
             </button>
