@@ -6,6 +6,8 @@ import { OTA_PROGRESS_TARGET } from "../backend/wails";
 import { useI18n } from "../i18n";
 import { taskCanceller, taskKey, useTaskCenter } from "../state/TaskCenterContext";
 
+const OTA_TASK_ID = taskKey("update", OTA_PROGRESS_TARGET);
+
 export function AppUpdater() {
   const { t } = useI18n();
   const taskCenter = useTaskCenter();
@@ -18,6 +20,7 @@ export function AppUpdater() {
     active.current = true;
     if (checked.current) return () => { active.current = false; };
     checked.current = true;
+    if (latest.current.isTaskRunning(OTA_TASK_ID)) return () => { active.current = false; };
 
     void (async () => {
       let version: string;
@@ -26,8 +29,7 @@ export function AppUpdater() {
       } catch {
         return;
       }
-      const id = taskKey("update", OTA_PROGRESS_TARGET);
-      if (!active.current || !version || latest.current.isTaskRunning(id)) return;
+      if (!active.current || !version || latest.current.isTaskRunning(OTA_TASK_ID)) return;
 
       const updateLabel = t("更新");
       let choice: string;
@@ -44,7 +46,7 @@ export function AppUpdater() {
         return;
       }
       if (!active.current || choice !== updateLabel || !latest.current.startTask({
-        id,
+        id: OTA_TASK_ID,
         kind: "update",
         target: OTA_PROGRESS_TARGET,
         progressTarget: OTA_PROGRESS_TARGET,
@@ -54,21 +56,21 @@ export function AppUpdater() {
 
       try {
         const request = api.downloadUpdate();
-        latest.current.setTaskCanceller(id, taskCanceller(request));
+        latest.current.setTaskCanceller(OTA_TASK_ID, taskCanceller(request));
         await request;
-        latest.current.finishTask(id, { kind: "success", message: t("更新已下载") });
-        latest.current.setTaskAction(id, {
+        latest.current.finishTask(OTA_TASK_ID, { kind: "success", message: t("更新已下载") });
+        latest.current.setTaskAction(OTA_TASK_ID, {
           label: t("重启并更新"),
           run: async () => {
             try {
               await api.restartUpdate();
             } catch (error) {
-              latest.current.setTaskMessage(id, describeError(error, t("无法重启并更新")).message);
+              latest.current.setTaskMessage(OTA_TASK_ID, describeError(error, t("无法重启并更新")).message);
             }
           },
         });
       } catch (error) {
-        latest.current.finishTask(id, isCancellationError(error)
+        latest.current.finishTask(OTA_TASK_ID, isCancellationError(error)
           ? { kind: "cancelled", message: t("已取消") }
           : { kind: "failure", message: describeError(error, t("更新失败")).message });
       }

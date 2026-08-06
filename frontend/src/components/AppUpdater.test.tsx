@@ -43,17 +43,18 @@ function deferredDownload() {
 }
 
 function ExistingUpdate() {
-  const { startTask } = useTaskCenter();
+  const { isTaskRunning, startTask } = useTaskCenter();
+  const id = taskKey("update", OTA_PROGRESS_TARGET);
   useEffect(() => {
     startTask({
-      id: taskKey("update", OTA_PROGRESS_TARGET),
+      id,
       kind: "update",
       target: OTA_PROGRESS_TARGET,
       title: "Existing update",
       route: "/overview",
     });
-  }, [startTask]);
-  return null;
+  }, [id, startTask]);
+  return isTaskRunning(id) ? <AppUpdater /> : null;
 }
 
 function mount({ strict = false, existing = false } = {}) {
@@ -61,7 +62,7 @@ function mount({ strict = false, existing = false } = {}) {
     <I18nProvider>
       <TaskCenterProvider>
         {existing ? <ExistingUpdate /> : null}
-        <AppUpdater />
+        {existing ? null : <AppUpdater />}
         <TaskCenter />
       </TaskCenterProvider>
     </I18nProvider>
@@ -98,7 +99,8 @@ describe("AppUpdater", () => {
   it("does nothing when the OTA task is already running", async () => {
     mocks.checkUpdate.mockResolvedValue("v2.0.0");
     mount({ existing: true });
-    await waitFor(() => expect(mocks.checkUpdate).toHaveBeenCalledTimes(1));
+    expect(await screen.findByText("Existing update")).toBeTruthy();
+    expect(mocks.checkUpdate).not.toHaveBeenCalled();
     expect(mocks.question).not.toHaveBeenCalled();
     expect(mocks.downloadUpdate).not.toHaveBeenCalled();
   });
