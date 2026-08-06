@@ -150,7 +150,7 @@ export function ProvidersPage({ create = false }: { create?: boolean }) {
                 <input id="provider-base-url" type="url" value={editor.base_url} onChange={(event) => setEditor({ ...editor, base_url: event.target.value })} placeholder="https://api.example.com/openai" />
             </div>
             <div className="field-stack provider-editor-wide">
-              <label htmlFor="provider-anthropic-url">{t("Anthropic 兼容 Base URL（可选）")}</label>
+              <label htmlFor="provider-anthropic-url">{t("Anthropic 兼容 Base URL")}</label>
               <input id="provider-anthropic-url" type="url" value={editor.anthropic_base_url} onChange={(event) => setEditor({ ...editor, anthropic_base_url: event.target.value })} placeholder="https://api.example.com/anthropic" />
             </div>
             <div className="field-stack provider-editor-wide">
