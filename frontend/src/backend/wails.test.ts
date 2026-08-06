@@ -20,6 +20,9 @@ const bridge = vi.hoisted(() => ({
   desktopConfigure: vi.fn(),
   profiles: vi.fn(),
   saveProfile: vi.fn(),
+  updateCheck: vi.fn(),
+  updateDownload: vi.fn(),
+  updateRestart: vi.fn(),
   eventsOn: vi.fn(),
 }));
 
@@ -50,6 +53,11 @@ vi.mock("../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/desktopa
 vi.mock("../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/profileservice.js", () => ({
   ListProfiles: bridge.profiles,
   SaveProfile: bridge.saveProfile,
+}));
+vi.mock("../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/updateservice.js", () => ({
+  Check: bridge.updateCheck,
+  DownloadAndInstall: bridge.updateDownload,
+  Restart: bridge.updateRestart,
 }));
 
 import { CancellablePromise } from "@wailsio/runtime";
@@ -148,6 +156,23 @@ describe("Wails backend adapter", () => {
     await request.cancel?.();
     expect(oncancelled).toHaveBeenCalledOnce();
     await expect(rejection).resolves.toMatchObject({ name: "CancelError" });
+  });
+
+  it("forwards OTA calls and preserves download cancellation", async () => {
+    const oncancelled = vi.fn();
+    bridge.updateCheck.mockResolvedValue("1.2.3");
+    bridge.updateDownload.mockReturnValue(new CancellablePromise<void>(() => {}, oncancelled));
+    bridge.updateRestart.mockResolvedValue(undefined);
+
+    await expect(wailsApi.checkUpdate()).resolves.toBe("1.2.3");
+    const request = wailsApi.downloadUpdate();
+    expect(typeof request.cancel).toBe("function");
+    await request.cancel?.();
+    await expect(wailsApi.restartUpdate()).resolves.toBeUndefined();
+    expect(oncancelled).toHaveBeenCalledOnce();
+    expect(bridge.updateCheck).toHaveBeenCalledWith();
+    expect(bridge.updateDownload).toHaveBeenCalledWith();
+    expect(bridge.updateRestart).toHaveBeenCalledWith();
   });
 
   it("subscribes to and filters installation output events", () => {
