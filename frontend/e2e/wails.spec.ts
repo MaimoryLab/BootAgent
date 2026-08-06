@@ -12,6 +12,51 @@ test("language selection switches to English and persists", async ({ page }) => 
   await expect(page.getByRole("combobox", { name: "Language" })).toHaveValue("en");
 });
 
+// The task centre is position: fixed at the viewport's lower-left corner, so it
+// takes no space in the sidebar's flex column. When the sidebar did not reserve
+// room for it, the rows margin-top: auto pushes to the bottom ended up
+// underneath: still rendered, still visible, still in the accessibility tree,
+// with every click landing on the overlay. The language picker was the one that
+// lost, because the theme row cleared it by 2px.
+//
+// This has to be an e2e test. jsdom reports every rect as 0x0, so a unit test
+// cannot see the collision, and asserting display or visibility would have
+// passed throughout -- both were correct the whole time.
+test("every sidebar control at the bottom is actually clickable", async ({ page }) => {
+  // Both sidebar widths: 204px above the 900px breakpoint, and the 72px icon
+  // rail below it, where the task centre and the selects change size.
+  for (const viewport of [{ width: 1180, height: 760 }, { width: 860, height: 600 }]) {
+    await page.setViewportSize(viewport);
+    await page.goto("/#/overview");
+    const label = `${viewport.width}x${viewport.height}`;
+
+    const covered = await page.evaluate(() => {
+      const selectors = [".theme-picker select", ".language-select-wide", ".language-select-compact", ".task-center-trigger"];
+      const blocked: Array<{ selector: string; coveredBy: string }> = [];
+      for (const selector of selectors) {
+        const element = document.querySelector(selector);
+        if (!element) continue;
+        const box = element.getBoundingClientRect();
+        // The sidebar swaps the wide and compact selects per breakpoint; the
+        // hidden one of the pair is not a failure.
+        if (box.width === 0 || box.height === 0) continue;
+        const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
+        if (hit !== element && !element.contains(hit)) {
+          blocked.push({ selector, coveredBy: hit ? `${hit.tagName}.${hit.className}` : "nothing" });
+        }
+      }
+      return blocked;
+    });
+    expect(covered, `controls covered at ${label}`).toEqual([]);
+
+    // A real pointer click, not selectOption: the regression was that the
+    // element stayed reachable programmatically while being unreachable by
+    // pointer, so dispatching events directly would have passed.
+    await page.locator(".language-select-wide, .language-select-compact").locator("visible=true").click({ timeout: 2000 });
+    await page.keyboard.press("Escape");
+  }
+});
+
 test("a machine with no OneAgent state opens onboarding from the landing route", async ({ page }) => {
   await page.goto("/#/");
   await expect(page.getByRole("heading", { name: "选择命令行 Agent" })).toBeVisible();

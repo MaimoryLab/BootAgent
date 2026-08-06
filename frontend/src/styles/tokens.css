@@ -40,6 +40,13 @@
   --radius-window: 12px;
   --sidebar-width: 232px;
   --footer-height: 68px;
+  /* The task centre is position: fixed, so it contributes no height to the
+     sidebar's flex column. The sidebar reserves this much at its bottom instead,
+     or the rows margin-top: auto pushes down end up underneath it -- which is
+     what made the language picker impossible to click. Collapsed trigger height
+     (34px) plus its offset from the viewport (16px) plus a 10px gap; changing
+     any of those means changing this. */
+  --task-center-reserve: 60px;
 }
 
 /* The dark palette is declared twice below, once per selector, because CSS has

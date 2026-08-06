@@ -6,6 +6,7 @@
       "license_files": [
         "licenses/assets/claude-code/LICENSE"
       ],
+      "modification": "",
       "name": "claude-code",
       "platforms": [
         "frontend"
@@ -18,6 +19,7 @@
       "license_files": [
         "licenses/assets/codex/LICENSE"
       ],
+      "modification": "",
       "name": "codex",
       "platforms": [
         "frontend"
@@ -30,6 +32,7 @@
       "license_files": [
         "licenses/assets/kilo-cli/LICENSE"
       ],
+      "modification": "",
       "name": "kilo-cli",
       "platforms": [
         "frontend"
@@ -40,8 +43,22 @@
       "ecosystem": "asset",
       "license": "MIT",
       "license_files": [
+        "licenses/assets/openclaw/LICENSE"
+      ],
+      "modification": "Recoloured to a single currentColor glyph for theme adaptation: the linearGradient (#ff4d4d to #991b1b), the antenna stroke colour and the cyan eye highlights were removed, and the eyes became a mask cut-out. Geometry is unchanged. Not an official OpenClaw mark; drawn by the cc-switch project.",
+      "name": "openclaw",
+      "platforms": [
+        "frontend"
+      ],
+      "version": "9eac78bcfa8e106ed3267293235281743e161b5accf2ff5c676700b64cfcdbbc"
+    },
+    {
+      "ecosystem": "asset",
+      "license": "MIT",
+      "license_files": [
         "licenses/assets/opencode/LICENSE"
       ],
+      "modification": "",
       "name": "opencode",
       "platforms": [
         "frontend"
@@ -54,6 +71,7 @@
       "license_files": [
         "licenses/go/github.com_adrg_xdg@v0.5.3/LICENSE"
       ],
+      "modification": "",
       "name": "github.com/adrg/xdg",
       "platforms": [
         "macos-arm64",
@@ -69,6 +87,7 @@
       "license_files": [
         "licenses/go/github.com_go-ole_go-ole@v1.3.0/LICENSE"
       ],
+      "modification": "",
       "name": "github.com/go-ole/go-ole",
       "platforms": [
         "windows-arm64",
@@ -82,6 +101,7 @@
       "license_files": [
         "licenses/go/github.com_pelletier_go-toml_v2@v2.4.3/LICENSE"
       ],
+      "modification": "",
       "name": "github.com/pelletier/go-toml/v2",
       "platforms": [
         "macos-arm64",
@@ -97,6 +117,7 @@
       "license_files": [
         "licenses/go/github.com_wailsapp_wails_v3@v3.0.0-beta.3/LICENSE"
       ],
+      "modification": "",
       "name": "github.com/wailsapp/wails/v3",
       "platforms": [
         "macos-arm64",
@@ -112,6 +133,7 @@
       "license_files": [
         "licenses/go/golang.org_x_sys@v0.47.0/LICENSE"
       ],
+      "modification": "",
       "name": "golang.org/x/sys",
       "platforms": [
         "windows-arm64",
@@ -125,6 +147,7 @@
       "license_files": [
         "licenses/npm/wailsio_runtime@3.0.0-alpha2.117/LICENSE"
       ],
+      "modification": "",
       "name": "@wailsio/runtime",
       "platforms": [
         "frontend"
@@ -137,6 +160,7 @@
       "license_files": [
         "licenses/npm/cookie@1.0.1/LICENSE"
       ],
+      "modification": "",
       "name": "cookie",
       "platforms": [
         "frontend"
@@ -149,6 +173,7 @@
       "license_files": [
         "licenses/npm/lucide-react@1.25.0/LICENSE"
       ],
+      "modification": "",
       "name": "lucide-react",
       "platforms": [
         "frontend"
@@ -161,6 +186,7 @@
       "license_files": [
         "licenses/npm/react@19.2.8/LICENSE"
       ],
+      "modification": "",
       "name": "react",
       "platforms": [
         "frontend"
@@ -173,6 +199,7 @@
       "license_files": [
         "licenses/npm/react-dom@19.2.8/LICENSE"
       ],
+      "modification": "",
       "name": "react-dom",
       "platforms": [
         "frontend"
@@ -185,6 +212,7 @@
       "license_files": [
         "licenses/npm/react-router@7.18.1/LICENSE.md"
       ],
+      "modification": "",
       "name": "react-router",
       "platforms": [
         "frontend"
@@ -197,6 +225,7 @@
       "license_files": [
         "licenses/npm/react-router-dom@7.18.1/LICENSE.md"
       ],
+      "modification": "",
       "name": "react-router-dom",
       "platforms": [
         "frontend"
@@ -209,6 +238,7 @@
       "license_files": [
         "licenses/npm/scheduler@0.27.0/LICENSE"
       ],
+      "modification": "",
       "name": "scheduler",
       "platforms": [
         "frontend"
@@ -221,6 +251,7 @@
       "license_files": [
         "licenses/npm/set-cookie-parser@2.6.0/LICENSE"
       ],
+      "modification": "",
       "name": "set-cookie-parser",
       "platforms": [
         "frontend"

@@ -12,6 +12,7 @@ the embedded frontend. Full license and notice texts are included under
 | asset | `claude-code` | `365a70a7eb3956d9b9a96086058ebe04e1dbd8e291a756ad964e8a283fbd6d38` | frontend | MIT | `licenses/assets/claude-code/LICENSE` |
 | asset | `codex` | `a595df6b423920c67a7f8f73c063e4bfb72d415948097b6cac063a2366bb5186` | frontend | MIT | `licenses/assets/codex/LICENSE` |
 | asset | `kilo-cli` | `a2aef0e0bb992ebe768bfb8c3a3ab6ff2c2638448b09dd88db27877de1c07a22` | frontend | MIT | `licenses/assets/kilo-cli/LICENSE` |
+| asset | `openclaw` | `9eac78bcfa8e106ed3267293235281743e161b5accf2ff5c676700b64cfcdbbc` | frontend | MIT | `licenses/assets/openclaw/LICENSE` |
 | asset | `opencode` | `7cfa6e9d6726f7c9fa26c7d9aef0dfec52d20a137380454340f30f12ccbfd302` | frontend | MIT | `licenses/assets/opencode/LICENSE` |
 | go | `github.com/adrg/xdg` | `v0.5.3` | macos-arm64, macos-x64, windows-arm64, windows-x64 | MIT | `licenses/go/github.com_adrg_xdg@v0.5.3/LICENSE` |
 | go | `github.com/go-ole/go-ole` | `v1.3.0` | windows-arm64, windows-x64 | MIT | `licenses/go/github.com_go-ole_go-ole@v1.3.0/LICENSE` |
@@ -27,3 +28,10 @@ the embedded frontend. Full license and notice texts are included under
 | npm | `react-router-dom` | `7.18.1` | frontend | MIT | `licenses/npm/react-router-dom@7.18.1/LICENSE.md` |
 | npm | `scheduler` | `0.27.0` | frontend | MIT | `licenses/npm/scheduler@0.27.0/LICENSE` |
 | npm | `set-cookie-parser` | `2.6.0` | frontend | MIT | `licenses/npm/set-cookie-parser@2.6.0/LICENSE` |
+
+## Modified third-party material
+
+Everything above is redistributed unmodified except the entries listed
+here. Their licenses permit modification and require it to be stated.
+
+- `openclaw` (asset): Recoloured to a single currentColor glyph for theme adaptation: the linearGradient (#ff4d4d to #991b1b), the antenna stroke colour and the cyan eye highlights were removed, and the eyes became a mask cut-out. Geometry is unchanged. Not an official OpenClaw mark; drawn by the cc-switch project.
