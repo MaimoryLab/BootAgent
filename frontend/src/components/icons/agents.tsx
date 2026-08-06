@@ -77,6 +77,16 @@ const MARKS: Record<string, Mark> = {
     source: assetRightsManifest.assets["kilo-cli"].source,
     rights: assetRightsManifest.assets["kilo-cli"],
   },
+  // ChatGPT Desktop is OpenAI's own product and shares Codex's configuration, so
+  // it reuses the same OpenAI mark rather than registering a second copy of one
+  // asset. Keyed by desktop Agent id because the desktop card looks itself up by
+  // id; passing a literal here is what put this mark on WorkBuddy.
+  "chatgpt-desktop": {
+    kind: "asset",
+    markup: codexMark,
+    source: assetRightsManifest.assets.codex.source,
+    rights: assetRightsManifest.assets.codex,
+  },
   // Aider has no mark in lobe-icons, so it keeps a generic symbol rather than a
   // vendor favicon copied in without an auditable redistribution basis.
   aider: { kind: "generic", Icon: GitBranch, source: GENERIC_SOURCE },

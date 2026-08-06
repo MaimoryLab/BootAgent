@@ -119,7 +119,12 @@ export function DesktopAppSection({ app: desktopApp, onChanged, onSetup, onConfi
         ) : null}
         <div className="desktop-app-summary">
           <div className="desktop-app-identity">
-            <span className="desktop-app-icon"><AgentIcon agentId="codex" size={20} /></span>
+            {/* The Agent's own id, never a literal. This rendered agentId="codex"
+                for every desktop Agent, so WorkBuddy -- a different vendor's
+                product -- displayed OpenAI's mark. A literal also bypasses
+                AgentIcon's fallback, which is what handles an Agent that has no
+                mark of its own. */}
+            <span className="desktop-app-icon"><AgentIcon agentId={desktopApp.id} size={20} /></span>
             <span>
               <strong>{desktopApp.name}</strong>
             </span>
