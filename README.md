@@ -162,19 +162,15 @@ documentation link and language check.
 
 ## Releasing
 
-Release packages are built by `.github/workflows/build-artifacts.yml`, triggered manually
-via `workflow_dispatch`. It builds x64 and arm64 Wails desktop binaries and pure Go CLIs
-for macOS and Windows, packaging the macOS artifacts as `.app`.
+Pushing a stable `vX.Y.Z` tag triggers `.github/workflows/build-artifacts.yml` and publishes
+macOS and Windows OTA archives for amd64 and arm64, plus `SHA256SUMS`, to the matching
+GitHub Release. Each macOS archive contains `OneAgent.app`; each Windows archive contains
+`oneagent-desktop.exe`. The workflow can also be run manually with a required version.
 
-Wails is still in Alpha, so there is no Stable release, and no platform signing,
-notarization, or store distribution. The signing gate for Stable is deferred to a later
-release stage.
+Wails is still in Alpha, with no platform signing, notarization, or store distribution.
 
 To reproduce an equivalent artifact locally, use the desktop build steps under Quick
-start. Channel labels, the SHA-256 manifest, and third-party notices were once generated
-by `cmd/oneagent-release`; that tool was removed in `23805b0` when the build moved to
-GitHub Actions. Third-party attribution now lives in [NOTICE](NOTICE) at the repository
-root.
+start. Third-party attribution lives in [NOTICE](NOTICE) at the repository root.
 
 ## Documentation
 
