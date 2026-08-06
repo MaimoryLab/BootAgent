@@ -18,6 +18,7 @@
 import {
   Bot,
   GitBranch,
+  Waypoints,
   type LucideIcon
 } from "lucide-react";
 
@@ -26,7 +27,6 @@ import { sourceTranslate, type Translate, type TranslationKey } from "../../i18n
 import assetRightsManifest from "./asset-rights.json";
 import claudeCodeMark from "./assets/claude-code.svg?raw";
 import codexMark from "./assets/codex.svg?raw";
-import cursorMark from "./assets/cursor.svg?raw";
 import kiloCliMark from "./assets/kilo-cli.svg?raw";
 import opencodeMark from "./assets/opencode.svg?raw";
 
@@ -56,12 +56,6 @@ const MARKS: Record<string, Mark> = {
     source: assetRightsManifest.assets["claude-code"].source,
     rights: assetRightsManifest.assets["claude-code"],
   },
-  cursor: {
-    kind: "asset",
-    markup: cursorMark,
-    source: assetRightsManifest.assets.cursor.source,
-    rights: assetRightsManifest.assets.cursor,
-  },
   "kilo-cli": {
     kind: "asset",
     markup: kiloCliMark,
@@ -71,6 +65,12 @@ const MARKS: Record<string, Mark> = {
   // Aider has no mark in lobe-icons, so it keeps a generic symbol rather than a
   // vendor favicon copied in without an auditable redistribution basis.
   aider: { kind: "generic", Icon: GitBranch, source: GENERIC_SOURCE },
+  // OpenClaw's real logo is a lobster, and the only SVG version available is one
+  // CC Switch drew itself (see docs/internal/cc-switch-reference-notes.md) -- a
+  // third party's redrawing is not the vendor's artwork and gives OneAgent no
+  // right to redistribute it. lobe-icons has no OpenClaw mark either, so it takes
+  // a generic symbol until an official asset with a licence appears.
+  openclaw: { kind: "generic", Icon: Waypoints, source: GENERIC_SOURCE },
 };
 
 /** One-line positioning shown on hover; never a restatement of the name. */
@@ -80,6 +80,7 @@ const TAGLINES: Record<string, TranslationKey> = {
   opencode: "开源终端编码代理",
   "kilo-cli": "多模型编排的命令行代理",
   aider: "结对编程式的仓库编辑代理",
+  openclaw: "把聊天工具接到编码代理的自建网关",
 };
 
 export const AGENT_ICON_IDS = Object.keys(MARKS);

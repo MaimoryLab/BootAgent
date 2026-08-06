@@ -167,6 +167,61 @@ func (w Writer) WriteWorkBuddy(ctx context.Context, path, baseURL, apiKey, model
 	return w.write(ctx, path, append(data, '\n'), true)
 }
 
+// WriteOpenClaw points OpenClaw's model provider at the Provider, writing one
+// named entry under models.providers in ~/.openclaw/openclaw.json.
+//
+// Scope is deliberately narrower than the rest of the file: this writes the
+// provider and the default model, and nothing else. OpenClaw is a gateway whose
+// own commands own the daemon, the channel pairing and the Control UI, so
+// OneAgent does not touch `agents`, `channels` or `tools` here -- those are the
+// parts a user configures through `openclaw onboard`, and rewriting them from a
+// Provider record would overwrite decisions OneAgent has no input on.
+//
+// Credentials sit at the top of the provider entry in camelCase (baseUrl,
+// apiKey), matching what OpenClaw reads. `api` names the wire protocol; the
+// catalog maps this adapter to OpenAI Chat Completions, so it is fixed here
+// rather than derived, and changing one without the other would write a config
+// whose declared protocol does not match the endpoint OneAgent probed.
+func (w Writer) WriteOpenClaw(ctx context.Context, path, providerName, baseURL, apiKey, model string) error {
+	document, err := loadJSON(path)
+	if err != nil {
+		return err
+	}
+	models, err := document.Child("models")
+	if err != nil {
+		return configError("Existing OpenClaw models configuration must contain an object: %s", path)
+	}
+	providers, err := models.Child("providers")
+	if err != nil {
+		return configError("Existing OpenClaw provider configuration must contain an object: %s", path)
+	}
+	entry := jsonorder.NewObject()
+	entry.Set("name", providerName)
+	entry.Set("baseUrl", provider.OpenAIBaseURL(baseURL))
+	entry.Set("apiKey", apiKey)
+	entry.Set("api", "openai-completions")
+	modelEntry := jsonorder.NewObject()
+	modelEntry.Set("id", model)
+	entry.Set("models", []any{modelEntry})
+	providers.Set("oneagent", entry)
+	// OpenClaw addresses a model as "<provider-key>/<model-id>", so the default
+	// has to name the entry written above, not the bare model id.
+	agents, err := document.Child("agents")
+	if err != nil {
+		return configError("Existing OpenClaw agents configuration must contain an object: %s", path)
+	}
+	defaults, err := agents.Child("defaults")
+	if err != nil {
+		return configError("Existing OpenClaw agent defaults must contain an object: %s", path)
+	}
+	defaultModel, err := defaults.Child("model")
+	if err != nil {
+		return configError("Existing OpenClaw default model must contain an object: %s", path)
+	}
+	defaultModel.Set("primary", "oneagent/"+model)
+	return w.writeJSON(ctx, path, document, true)
+}
+
 func (w Writer) WriteAider(ctx context.Context, path, baseURL, apiKey string) error {
 	base := provider.OpenAIBaseURL(baseURL)
 	content := "OPENAI_API_BASE=" + dotenvQuote(base) + "\n" +

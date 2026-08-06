@@ -3,9 +3,10 @@ import { describe, expect, it } from "vitest";
 
 import { AGENT_ICON_IDS, AgentIcon, agentMarkKind, agentMarkRights, agentMarkSource, agentTagline } from "./agents";
 
-// Shown on the first screen alongside them, so they need marks of their own even
-// though OneAgent does not configure them.
-const ALL = ["codex", "claude-code", "opencode", "kilo-cli", "aider"];
+// Every Agent in agents.lock.json, all of which reach the first screen. Keep in
+// step with the catalog: an Agent with no mark falls back to a shared symbol and
+// stops being identifiable without reading its label.
+const ALL = ["codex", "claude-code", "opencode", "kilo-cli", "aider", "openclaw"];
 
 describe("AgentIcon", () => {
   it("has a distinct mark for every Agent on the first screen", () => {
@@ -27,7 +28,7 @@ describe("AgentIcon", () => {
     // set rather than one example is what makes an unregistered mark fail here:
     // shipping artwork without a source, licence and hash is the defect.
     const assetIds = AGENT_ICON_IDS.filter((id) => agentMarkKind(id) === "asset");
-    expect(assetIds.sort()).toEqual(["claude-code", "codex", "cursor", "kilo-cli", "opencode"]);
+    expect(assetIds.sort()).toEqual(["claude-code", "codex", "kilo-cli", "opencode"]);
     for (const id of assetIds) {
       const rights = agentMarkRights(id);
       expect(agentMarkKind(id)).toBe("asset");

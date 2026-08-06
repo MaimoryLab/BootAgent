@@ -28,18 +28,6 @@
       "ecosystem": "asset",
       "license": "MIT",
       "license_files": [
-        "licenses/assets/cursor/LICENSE"
-      ],
-      "name": "cursor",
-      "platforms": [
-        "frontend"
-      ],
-      "version": "0cb51bddf264ae108926fd554c063ef40fc1aac3c5c921ddb39ad184e4e5d0ef"
-    },
-    {
-      "ecosystem": "asset",
-      "license": "MIT",
-      "license_files": [
         "licenses/assets/kilo-cli/LICENSE"
       ],
       "name": "kilo-cli",

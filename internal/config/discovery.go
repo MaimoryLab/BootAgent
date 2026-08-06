@@ -94,6 +94,38 @@ func ReadOpenAICompatibleConfig(text string) Detected {
 	return Detected{BaseURL: baseURL, Model: bareModel, ManagedByOneAgent: managed}
 }
 
+// ReadOpenClawConfig reads back what WriteOpenClaw wrote: the provider entry
+// under models.providers and the default model under agents.defaults.
+//
+// The model is stored as "<provider-key>/<model-id>", so the key is stripped to
+// report the bare id the rest of OneAgent uses. Only the entry OneAgent owns is
+// consulted -- a user's other providers are none of its business, and reporting
+// one of those as the current binding would misdescribe the file.
+func ReadOpenClawConfig(text string) Detected {
+	var parsed map[string]any
+	if err := json.Unmarshal([]byte(text), &parsed); err != nil {
+		return unreadable("配置文件不是有效的 JSON")
+	}
+	models, _ := parsed["models"].(map[string]any)
+	providers, _ := models["providers"].(map[string]any)
+	entry, managed := providers["oneagent"].(map[string]any)
+	baseURL := ""
+	if managed {
+		baseURL, _ = entry["baseUrl"].(string)
+	}
+	agents, _ := parsed["agents"].(map[string]any)
+	defaults, _ := agents["defaults"].(map[string]any)
+	defaultModel, _ := defaults["model"].(map[string]any)
+	primary, _ := defaultModel["primary"].(string)
+	// Only strip the prefix when it names OneAgent's own entry. A primary pointing
+	// at another provider is that provider's model, not this binding's.
+	model := ""
+	if suffix, ok := strings.CutPrefix(primary, "oneagent/"); ok {
+		model = suffix
+	}
+	return Detected{BaseURL: baseURL, Model: model, ManagedByOneAgent: managed}
+}
+
 func ReadAiderConfig(text string) Detected {
 	baseURL := ""
 	for line := range strings.SplitSeq(text, "\n") {
@@ -153,6 +185,8 @@ func readerFor(adapter string, envVars map[string]string) reader {
 		return func(text string) Detected { return ReadClaudeConfig(text, envVars) }
 	case "opencode", "kilo-cli":
 		return ReadOpenAICompatibleConfig
+	case "openclaw":
+		return ReadOpenClawConfig
 	case "aider":
 		return ReadAiderConfig
 	default:

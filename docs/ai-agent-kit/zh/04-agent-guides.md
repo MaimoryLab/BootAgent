@@ -40,17 +40,20 @@
 
 ### OpenClaw
 
-OneAgent V1 只做安装检测和官方流程说明，不默认执行 Gateway daemon 安装、端口暴露或插件启用。
+OneAgent 安装 `openclaw` 包，并把 Provider 与默认模型写入 `~/.openclaw/openclaw.json` 的 `models.providers.oneagent`，同时把 `agents.defaults.model.primary` 指向 `oneagent/<model>`。
 
-### Hermes
+**只写这两处。** `channels`、`tools`、`agents.defaults` 的其他字段、以及你已有的其他 provider 都会原样保留 —— 这些是你通过 `openclaw onboard` 决定的内容，OneAgent 没有依据去改。
 
-OneAgent 只提供安装和模型配置说明，不自动写入私有配置或启动 Gateway。
+以下动作不在范围内，仍由 OpenClaw 自己的命令负责：
 
-## 官方账号型 Agent
+- 启动或停止 Gateway，注册 launchd / systemd 服务
+- 配对聊天渠道（Discord、Telegram、WhatsApp 等）
+- Control UI 的端口与访问控制
+- 插件启用
 
-### Cursor
+配置完成后运行 `openclaw onboard` 完成渠道配对。改完配置需要让 Gateway 重读，运行 `openclaw gateway restart` —— 它是常驻进程，不像前台 CLI 那样重开一次就生效。
 
-优先使用官方账号、订阅或登录流程。不要把 Provider 的 Base URL 强行写进没有稳定官方配置契约的工具，OneAgent 也不会为它写私有配置。
+`openclaw.json` 是 JSON5，允许注释。如果你的文件里有注释，OneAgent 会拒绝写入并报错，而不是把注释丢掉。这种情况下按上面的字段手工填写。
 
 ## 其他工具
 

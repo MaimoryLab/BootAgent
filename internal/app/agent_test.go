@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/MaimoryLab/OneAgent/internal/catalog"
+	"github.com/MaimoryLab/OneAgent/internal/config"
 	"github.com/MaimoryLab/OneAgent/internal/platform"
 	"github.com/MaimoryLab/OneAgent/internal/provider"
 )
@@ -188,7 +190,12 @@ func TestActivateAgentRejectsInvalidInputsAndDoesNotPublishFailedBinding(t *test
 	home := t.TempDir()
 	core := activationCore(t, home, provider.NewClient(nil), "linux")
 	for _, options := range []ActivateAgentOptions{
-		{AgentID: "cursor", Provider: "ppio", APIKey: "key", Model: "model"},
+		// Was {AgentID: "cursor"}, standing for "a guide-only Agent cannot be
+		// activated". Cursor is no longer in the catalog, which made it a duplicate
+		// of the no-such-agent case below and stopped covering the guide-only rule.
+		// There is no guide-only Agent in the catalog to name in its place, so the
+		// rule is exercised through the real code path in
+		// TestActivateAgentRejectsGuideOnlyAgents instead.
 		{AgentID: "no-such-agent", Provider: "ppio", APIKey: "key", Model: "model"},
 		{AgentID: "../escape", Provider: "ppio", APIKey: "key", Model: "model"},
 		{AgentID: "codex", Provider: "ppio", Model: "model"},
@@ -236,5 +243,103 @@ func TestActivateAgentRejectsUnsupportedPlatform(t *testing.T) {
 	_, err := core.ActivateAgent(context.Background(), ActivateAgentOptions{AgentID: "codex", Provider: "ppio", APIKey: "key", Model: "model"})
 	if err == nil || !strings.Contains(err.Error(), "not supported") {
 		t.Fatalf("unsupported platform error = %v", err)
+	}
+}
+
+// Every auto Agent needs both halves of its adapter: a writer, so activation can
+// configure it, and a reader, so the overview can report what was configured.
+// Adding only the writer is a silent half-failure -- activation succeeds, then
+// the row reports "没有可用的配置解析器" and the binding looks broken. The catalog
+// declares the adapter name, and nothing else connects it to either dispatch, so
+// this walks the real manifest rather than a hand-kept list of ids.
+func TestEveryAutoAgentAdapterCanBeWrittenAndReadBack(t *testing.T) {
+	manifest, err := catalog.LoadEmbedded()
+	if err != nil {
+		t.Fatal(err)
+	}
+	home := t.TempDir()
+	core := activationCore(t, home, provider.NewClient(nil), "linux")
+	for agentID, agent := range manifest.Agents {
+		if agent.ConfigMode != "auto" {
+			continue
+		}
+		path := configPath(home, "linux", agent)
+		if path == "" {
+			t.Errorf("auto Agent %s has no configuration path", agentID)
+			continue
+		}
+		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := core.ActivateAgent(context.Background(), ActivateAgentOptions{
+			AgentID:  agentID,
+			Provider: "ppio",
+			APIKey:   "sk-adapter-probe",
+			Model:    "model-probe",
+		}); err != nil {
+			t.Errorf("activate %s: %v", agentID, err)
+			continue
+		}
+		detected := config.DetectFile(path, agent.ConfigAdapter, agent.EnvVars)
+		if detected == nil {
+			t.Errorf("%s wrote no config to %s", agentID, path)
+			continue
+		}
+		if detected.Unreadable != nil {
+			t.Errorf("%s wrote a config its own reader rejects: %s", agentID, *detected.Unreadable)
+			continue
+		}
+		// Aider is the standing exception: its file is a two-line .env holding only
+		// the endpoint and the key, so there is no field to carry a model or an
+		// ownership marker. The model reaches Aider through the --model argument in
+		// nextStep instead. Listed explicitly so a *new* adapter cannot land here
+		// silently on the strength of Aider's precedent.
+		if agentID == "aider" {
+			if detected.BaseURL == "" {
+				t.Errorf("aider config did not read back an endpoint")
+			}
+			continue
+		}
+		if !detected.ManagedByOneAgent {
+			t.Errorf("%s config does not read back as managed by OneAgent", agentID)
+		}
+		if detected.Model != "model-probe" {
+			t.Errorf("%s model round-trip = %q, want model-probe", agentID, detected.Model)
+		}
+	}
+}
+
+// The guide-only rejection in activateAgentLocked has no Agent in the catalog to
+// trigger it any more: 363550c removed the last three, and OpenClaw was restored
+// as config_mode "auto". The rule still has to hold for the next guide-only entry
+// added, so this drives the same code path through a manifest of its own rather
+// than leaving the branch uncovered until someone rediscovers it in the UI.
+func TestActivateAgentRejectsGuideOnlyAgents(t *testing.T) {
+	manifest, err := catalog.LoadEmbedded()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for id, agent := range manifest.Agents {
+		if agent.ConfigMode != "auto" {
+			t.Fatalf("catalog gained guide-only Agent %s; point this test at it instead", id)
+		}
+	}
+
+	home := t.TempDir()
+	core := activationCore(t, home, provider.NewClient(nil), "linux")
+	// codex is auto, so this proves the guard is what rejects it: same inputs,
+	// only ConfigMode differs.
+	if _, err := core.ActivateAgent(context.Background(), ActivateAgentOptions{
+		AgentID: "codex", Provider: "ppio", APIKey: "sk-guard", Model: "model",
+	}); err != nil {
+		t.Fatalf("auto Agent should activate: %v", err)
+	}
+	if got := guideOnlyRejection("codex", catalog.Agent{ConfigMode: "guide"}); got == nil {
+		t.Fatal("a guide-only Agent must be rejected before any config is written")
+	} else if !strings.Contains(got.Error(), "guide-only") {
+		t.Fatalf("guide-only rejection = %v", got)
+	}
+	if got := guideOnlyRejection("codex", catalog.Agent{ConfigMode: "auto"}); got != nil {
+		t.Fatalf("auto Agent must not be rejected: %v", got)
 	}
 }
