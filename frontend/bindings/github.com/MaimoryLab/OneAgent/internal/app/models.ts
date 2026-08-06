@@ -155,9 +155,8 @@ export interface SaveProviderResult {
 }
 
 /**
- * Settings holds machine-level preferences that are not part of a profile and
- * not secret. It is deliberately tiny: a preference belongs here only when both
- * the desktop app and the CLI need it and it must outlive one request.
+ * Settings holds non-secret machine-level preferences that must outlive one
+ * request and do not belong to a profile.
  */
 export interface Settings {
     "schema_version": number;

@@ -2,7 +2,7 @@
 
 [English](README.md) · **简体中文**
 
-OneAgent 是一个本地 AI 开发环境激活器。React 向导和纯 Go CLI 共用同一套 Go 用例，负责检测 Agent、安装最新版本、探测 Provider、合并配置、创建备份并收紧权限。桌面应用使用 Wails v3 binding；生产进程不监听业务 TCP 端口。
+OneAgent 是一个本地 AI 开发环境激活器。React 向导通过 Wails v3 binding 检测 Agent、安装最新版本、探测 Provider、合并配置、创建备份并收紧权限；生产进程不监听业务 TCP 端口。
 
 OneAgent 不重新分发 Agent 包，也不捆绑 Node.js、系统 WebView、Git 或 API Key。缺少运行前置条件时返回明确错误和官方安装指引。
 
@@ -25,8 +25,6 @@ Status / Provider / Agent / Profile services
       Go application use cases
           |
   catalog / provider / install / config / profile / securefs
-
-Pure Go CLI --------------------^
 ```
 
 公开站不在这张图里，也不在这个仓库里：它已迁出到
@@ -35,8 +33,7 @@ GitHub Releases API 读取下载信息，并把 `agents.lock.json`、`providers.
 vendor 到自己仓库，从发行 tag 刷新——改本仓库这两个文件不会自动改变站上内容，也不应该：站描述的是已发布版本支持什么。
 
 - `cmd/oneagent-desktop`：Wails 桌面入口。
-- `cmd/oneagent`：纯 Go headless CLI。
-- `internal/`：桌面和 CLI 共用的 Go 核心。
+- `internal/`：Go 应用核心。
 - `frontend/`：React 应用；发行包只携带构建后的静态资源。
 - `agents.lock.json`：Agent 包名、来源、配置适配器和许可证的唯一清单；不固定 Agent 版本或包哈希。
 - `providers.lock.json`：内置 Provider 端点、fallback probe model 和公开站披露字段清单；用户 Provider 保存在本机 `~/.oneagent/providers.json`。
@@ -55,21 +52,6 @@ go run -tags wails ./cmd/oneagent-desktop
 
 生产构建需要目标平台的 Wails/WebView 依赖。Linux 当前使用 `gtk3` tag（Ubuntu 22.04 cleanroom）；macOS 使用系统 WKWebView；Windows 使用 WebView2 Runtime。
 
-### CLI
-
-```bash
-go build -o bin/oneagent ./cmd/oneagent
-```
-
-Windows CMD：
-
-```cmd
-go build -o bin\oneagent.exe .\cmd\oneagent
-bin\oneagent.exe agent set codex --provider ppio --model your-model-id --api-key your-api-key
-```
-
-日常使用优先通过桌面粘贴或已保存 profile 传递凭据；`ONEAGENT_API_KEY` 和 `--api-key` 仅保留给受控脚本。`--registry` 默认是官方 npm registry，镜像必须显式选择并使用 HTTPS。
-
 ## Agent 与 Provider
 
 自动配置 Agent：
@@ -84,7 +66,7 @@ bin\oneagent.exe agent set codex --provider ppio --model your-model-id --api-key
 | OpenClaw | `openclaw` | npm | OpenAI-compatible |
 | Hermes Agent | `hermes-agent` | 官方 Bash / PowerShell 脚本 | OpenAI-compatible |
 
-npm 和 uv 管理的 Agent 默认解析最新版本。需要复现特定版本时可传 `--agent-version VERSION`，例如 `oneagent --agent codex --install-agent --check-agent-only --agent-version 0.145.0`。Hermes 的版本选择由官方脚本负责，不接受这个参数。
+npm 和 uv 管理的 Agent 默认解析最新版本。Hermes 的版本选择由官方脚本负责。
 
 OpenClaw 是网关，OneAgent 对它的职责止于模型供应商：安装包，并把 provider 与默认模型写入 `~/.openclaw/openclaw.json`，不改动 `channels`、`tools` 等其余任何小节。启动网关、注册为系统服务、配对聊天渠道仍由 OpenClaw 自己的命令负责，配置完成后运行 `openclaw onboard`。OneAgent 不启动后台服务。
 
@@ -127,7 +109,7 @@ python3 scripts/check-docs.py
 
 ## 发行
 
-发行包由 `.github/workflows/build-artifacts.yml` 构建，手动触发（`workflow_dispatch`）。它为 macOS 与 Windows 各构建 x64/arm64 的 Wails 桌面二进制和纯 Go CLI，macOS 产物打成 `.app`。
+发行包由 `.github/workflows/build-artifacts.yml` 构建，手动触发（`workflow_dispatch`）。它为 macOS 与 Windows 各构建 x64/arm64 的 Wails 桌面应用，macOS 产物打成 `.app`。
 
 Wails 仍处于 Alpha，当前不发布 Stable，不做平台签名、公证或商店分发。Stable 的签名门禁保留在后续发行阶段。
 

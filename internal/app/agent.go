@@ -26,8 +26,8 @@ type ActivateAgentOptions struct {
 	SmallFastModel string
 }
 
-// ActivateAgentResult contains only the public outcome needed by the UI and
-// CLI. The binding itself is persisted separately and is not repeated here.
+// ActivateAgentResult contains only the public outcome needed by the UI. The
+// binding itself is persisted separately and is not repeated here.
 type ActivateAgentResult struct {
 	AgentID  string                    `json:"agent"`
 	Config   string                    `json:"config"`

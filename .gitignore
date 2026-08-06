@@ -23,7 +23,7 @@ __pycache__/
 output/
 .qoder/
 
-# Go CLI 与桌面壳的本地构建产物；scripts/install.* 只转发，不构建。
+# Go 桌面应用的本地构建产物。
 bin/
 
 # 公开站已迁出到 MaimoryLab/OneAgent-site。这一条留着是因为迁出前克隆过本仓库的

@@ -1,6 +1,5 @@
-// Package install contains the transport-independent Agent installation
-// workflow. It is intentionally separate from Wails bindings so the CLI can
-// use the same checks and command construction.
+// Package install contains the Agent installation workflow. It stays separate
+// from Wails bindings so checks and command construction remain in the core.
 package install
 
 import (

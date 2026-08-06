@@ -40,7 +40,7 @@ func NewServicesWithOptions(core *app.UseCases, opener BrowserOpener, options Se
 }
 
 // DesktopAgentService exposes the configured desktop Agent lifecycle. Every
-// operation names its target explicitly, just like the CLI Agent service.
+// operation names its target explicitly.
 type DesktopAgentService struct {
 	core     *app.UseCases
 	onOutput process.OutputListener

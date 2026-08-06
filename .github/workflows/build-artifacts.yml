@@ -111,7 +111,6 @@ jobs:
           mkdir -p bin
           version_ldflag="-X github.com/MaimoryLab/OneAgent/internal/version.Version=$RELEASE_VERSION"
           go build -tags wails,production -trimpath -buildvcs=false -ldflags="${{ matrix.target.desktop_ldflags }} $version_ldflag" -o "bin/oneagent-desktop${{ matrix.target.suffix }}" ./cmd/oneagent-desktop
-          go build -trimpath -buildvcs=false -ldflags="-w -s $version_ldflag" -o "bin/oneagent${{ matrix.target.suffix }}" ./cmd/oneagent
 
       - name: Package macOS app
         if: matrix.target.platform == 'macos'

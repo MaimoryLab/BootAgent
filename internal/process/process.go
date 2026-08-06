@@ -1,6 +1,6 @@
-// Package process provides the narrow subprocess boundary shared by the Go
-// installer and CLI. It accepts argv arrays only and keeps command output
-// bounded before higher layers decide what may be shown to a user.
+// Package process provides the installer's narrow subprocess boundary. It
+// accepts argv arrays only and bounds command output before higher layers
+// decide what may be shown to a user.
 package process
 
 import (
