@@ -235,8 +235,8 @@ jobs:
           test "$(wc -l < release-assets/SHA256SUMS)" -eq 4
 
           if gh release view "$RELEASE_VERSION" >/dev/null 2>&1; then
-            gh release edit "$RELEASE_VERSION" --draft=false --prerelease=false
             gh release upload "$RELEASE_VERSION" release-assets/* --clobber
+            gh release edit "$RELEASE_VERSION" --draft=false --prerelease=false
           else
             gh release create "$RELEASE_VERSION" release-assets/* --verify-tag --title "$RELEASE_VERSION" --generate-notes
           fi
