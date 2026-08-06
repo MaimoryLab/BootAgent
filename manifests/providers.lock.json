@@ -1,13 +1,15 @@
 {
   "schema_version": 1,
-  "default_fallback_probe_model": "deepseek/deepseek-v4-pro",
+  "default_fallback_probe_model": "deepseek/deepseek-v4-flash",
   "providers": {
     "ppio": {
       "name": "PPIO",
       "home": "https://ppio.com/",
+      "key_management_url": "https://ppio.com/settings/key-management",
       "base_url": "https://api.ppio.com/openai",
       "anthropic_base_url": "https://api.ppio.com/anthropic",
-      "fallback_probe_model": "deepseek/deepseek-v4-pro",
+      "default_model": "deepseek/deepseek-v4-pro",
+      "fallback_probe_model": "deepseek/deepseek-v4-flash",
       "relationship": "sponsor",
       "disclosure": "PPIO sponsors OneAgent development. Sponsorship does not affect Agent rank, compatibility conclusions, default selection, or connection tests.",
       "referral_url": "",
@@ -21,9 +23,11 @@
     "novita": {
       "name": "Novita",
       "home": "https://novita.ai/",
+      "key_management_url": "https://novita.ai/settings/key-management",
       "base_url": "https://api.novita.ai/openai",
       "anthropic_base_url": "https://api.novita.ai/anthropic",
-      "fallback_probe_model": "deepseek/deepseek-v4-pro",
+      "default_model": "deepseek/deepseek-v4-pro",
+      "fallback_probe_model": "deepseek/deepseek-v4-flash",
       "relationship": "sponsor",
       "disclosure": "Novita sponsors OneAgent development. Sponsorship does not affect Agent rank, compatibility conclusions, default selection, or connection tests.",
       "referral_url": "",

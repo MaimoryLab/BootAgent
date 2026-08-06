@@ -235,6 +235,39 @@ describe("ProfilesPage", () => {
     expect(save).not.toHaveBeenCalled();
   });
 
+  it("pre-fills the model from the Provider and leaves it editable", () => {
+    // The whole point of the field being pre-filled is that a first-time user
+    // never has to invent a model ID, so this asserts the value is present
+    // before any typing -- and that typing still replaces it.
+    mockState = {
+      status: {
+        ...statusWith([]),
+        providers: { ppio: { name: "PPIO", home: "https://ppio.com/", base_url: "https://api.ppio.com/openai", default_model: "ppio/default-model" } },
+      },
+      statusState: "success",
+    };
+    dispatch.mockClear();
+    render(
+      <MemoryRouter initialEntries={["/profiles"]}>
+        <Routes>
+          <Route path="/profiles" element={<ProfilesPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "新增 Profile" }));
+    expect(screen.getByLabelText("模型")).toHaveValue("ppio/default-model");
+    fireEvent.change(screen.getByLabelText("模型"), { target: { value: "mine" } });
+    expect(screen.getByLabelText("模型")).toHaveValue("mine");
+  });
+
+  it("leaves the model empty for a Provider with no default", () => {
+    // A user-added Provider is an endpoint we know nothing about; guessing a
+    // model for it would write a config that fails on the first request.
+    renderPage([]);
+    fireEvent.click(screen.getByRole("button", { name: "新增 Profile" }));
+    expect(screen.getByLabelText("模型")).toHaveValue("");
+  });
+
   it("applies one Profile to all of its Agents", async () => {
     const install = vi.spyOn(api, "install").mockResolvedValue({
       ok: true,

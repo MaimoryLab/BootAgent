@@ -73,7 +73,9 @@ export function ProviderKeyPage() {
   };
 
   const openRegistration = async () => {
-    if (!providerMeta?.home) return;
+    // Either URL is enough; the backend applies the same precedence and does the
+    // scheme validation, so no URL is passed from here.
+    if (!providerMeta?.key_management_url && !providerMeta?.home) return;
     try {
       await api.openRegister(state.provider, probeAgentIds);
     } catch (error) {
@@ -115,10 +117,10 @@ export function ProviderKeyPage() {
             <strong>{providerMeta?.name}</strong>
             <span>{providerMeta?.base_url}</span>
           </div>
-          {providerMeta?.home ? (
+          {providerMeta?.key_management_url || providerMeta?.home ? (
             <button className="button button-secondary" type="button" onClick={() => void openRegistration()}>
               <ExternalLink size={15} />
-              {t("注册并获取 Key")}
+              {t("获取 API Key")}
             </button>
           ) : null}
         </div>

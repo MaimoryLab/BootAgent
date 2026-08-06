@@ -71,14 +71,21 @@ type Group struct {
 }
 
 type Provider struct {
-	Name             string `json:"name"`
-	Home             string `json:"home"`
+	Name string `json:"name"`
+	Home string `json:"home"`
+	// KeyManagementURL and DefaultModel are public on purpose: the frontend
+	// needs both to spare a first-time user from hunting for a key page and
+	// inventing a model ID. Contrast fallbackModel below.
+	KeyManagementURL string `json:"key_management_url,omitempty"`
 	BaseURL          string `json:"base_url"`
 	AnthropicBaseURL string `json:"anthropic_base_url,omitempty"`
+	DefaultModel     string `json:"default_model,omitempty"`
 	Custom           bool   `json:"custom,omitempty"`
 	HasKey           bool   `json:"has_key,omitempty"`
 	CreatedAt        string `json:"created_at,omitempty"`
-	fallbackModel    string
+	// Unexported, and cleared again by PublicProviders: which model we probe
+	// with is an internal implementation detail, not a recommendation.
+	fallbackModel string
 }
 
 type Mirror struct {

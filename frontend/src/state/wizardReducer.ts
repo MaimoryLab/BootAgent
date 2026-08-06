@@ -86,6 +86,13 @@ function latestProvider(status: StatusResponse | null, protocol?: string): Provi
   return byProviderCreatedAt(status?.providers ?? {}).find(([, provider]) => !protocol || (protocol === "anthropic" ? provider.anthropic_base_url : provider.base_url))?.[0] || "ppio";
 }
 
+/** The model a Provider suggests, so the wizard can arrive at the model step
+ * already filled in. Empty for a custom Provider: we have never seen its
+ * endpoint, and a guessed model ID would only fail on the first request. */
+function providerDefaultModel(status: StatusResponse | null, provider: ProviderId): string {
+  return status?.providers[provider]?.default_model || "";
+}
+
 export type WizardAction =
   | { type: "STATUS_LOADING" }
   | { type: "STATUS_LOADED"; status: StatusResponse }
@@ -160,29 +167,46 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
         status: action.status,
         statusState: "success",
         statusError: "",
-        ...(state.status === null ? { provider: latestProvider(action.status) } : {}),
+        // First load only, and only when the user has not typed a model yet:
+        // this is where the initial Provider is chosen, so it is also where the
+        // very first default has to be seeded. A refresh must not overwrite a
+        // model the user is in the middle of editing.
+        ...(state.status === null
+          ? {
+              provider: latestProvider(action.status),
+              ...(state.model ? {} : { model: providerDefaultModel(action.status, latestProvider(action.status)) }),
+            }
+          : {}),
       };
     case "STATUS_FAILED":
       return { ...state, statusState: "error", statusError: action.message };
     case "START_DESKTOP_SETUP":
-      return {
-        ...initialWizardState,
-        status: state.status,
-        statusState: state.statusState,
-        statusError: state.statusError,
-        setupKind: "desktop",
-        provider: latestProvider(state.status),
-      };
+      {
+        const provider = latestProvider(state.status);
+        return {
+          ...initialWizardState,
+          status: state.status,
+          statusState: state.statusState,
+          statusError: state.statusError,
+          setupKind: "desktop",
+          provider,
+          model: providerDefaultModel(state.status, provider),
+        };
+      }
     case "SELECT_AGENT":
       // Single select, and re-clicking the current row keeps it selected: the
       // step cannot continue with nothing chosen, so a toggle-off would only
       // ever produce a dead end.
       {
         const changed = state.selectedAgentIds[0] !== action.agentId;
+        // Selecting an Agent can change the Provider, because the Agent's
+        // protocol decides which Providers can serve it. The model is seeded
+        // from whichever Provider that lands on, below.
+        const provider = latestProvider(state.status, state.status?.catalog.find((item) => item.id === action.agentId)?.protocol || undefined);
         return {
           ...state,
           selectedAgentIds: [action.agentId],
-          provider: latestProvider(state.status, state.status?.catalog.find((item) => item.id === action.agentId)?.protocol || undefined),
+          provider,
           desktopProfileId: state.selectedAgentIds[0] === action.agentId ? state.desktopProfileId : "",
           // Profile IDs and labels are derived from the selected Agent and
           // Provider. Do not carry a prior run's profile into a new pairing.
@@ -198,7 +222,7 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
             models: [],
             modelsState: "idle" as const,
             modelsMessage: "",
-            model: "",
+            model: providerDefaultModel(state.status, provider),
           } : {}),
         };
       }
@@ -207,7 +231,7 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
     case "SET_PROFILE_LABEL":
       return { ...state, profileLabel: action.value };
     case "START_NEW_PROFILE":
-      return { ...state, profileId: "", profileLabel: "", model: "", reusedProfile: false, keyVerified: false, connection: null, connectionState: "idle", models: [], modelsState: "idle", modelsMessage: "" };
+      return { ...state, profileId: "", profileLabel: "", model: providerDefaultModel(state.status, state.provider), reusedProfile: false, keyVerified: false, connection: null, connectionState: "idle", models: [], modelsState: "idle", modelsMessage: "" };
     case "SET_PROFILE_STEP_SKIPPED":
       return { ...state, profileStepSkipped: action.value };
     case "SELECT_PROFILE":
@@ -227,17 +251,22 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
       return { ...state, desktopProfileId: action.value };
     case "START_SETUP":
       // Entering onboarding from the overview or the Profile page must not
-      // inherit a previous run's Agent, model or install log.
-      return {
-        ...initialWizardState,
-        status: state.status,
-        statusState: state.statusState,
-        statusError: state.statusError,
-        setupKind: "cli",
-        provider: latestProvider(state.status),
-        profileId: action.profileId ?? "",
-        profileLabel: action.profileLabel ?? "",
-      };
+      // inherit a previous run's Agent, model or install log. The model resets
+      // to the Provider's default rather than to nothing.
+      {
+        const provider = latestProvider(state.status);
+        return {
+          ...initialWizardState,
+          status: state.status,
+          statusState: state.statusState,
+          statusError: state.statusError,
+          setupKind: "cli",
+          provider,
+          model: providerDefaultModel(state.status, provider),
+          profileId: action.profileId ?? "",
+          profileLabel: action.profileLabel ?? "",
+        };
+      }
     case "SET_PROVIDER":
       return {
         ...state,
@@ -252,7 +281,10 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
         models: [],
         modelsState: "idle",
         modelsMessage: "",
-        model: "",
+        // Seeded from the new Provider rather than cleared. Model IDs do not
+        // carry across Providers, so the previous value could not be kept, but
+        // clearing it put every user back in front of an empty required field.
+        model: providerDefaultModel(state.status, action.value),
       };
     case "SET_PROBE_MODEL":
       return {
@@ -299,15 +331,23 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
     case "MODELS_LOADING":
       return { ...state, modelsState: "loading", modelsMessage: "" };
     case "MODELS_RESULT":
-      return {
-        ...state,
-        models: action.result.models,
-        modelsState: action.result.ok ? "success" : "error",
-        modelsMessage: action.result.message,
-        // Keep a model manually entered for the connection probe; it is often
-        // the only valid model when discovery is incomplete or unsupported.
-        model: state.model || state.probeModel.trim() || action.result.models[0] || "",
-      };
+      {
+        // Precedence, most explicit first. A model typed for the probe outranks
+        // the seeded default: the user named it, and it is often the only model
+        // that works when discovery is incomplete. But it must not outrank a
+        // model chosen on this step, hence the seeded check rather than a plain
+        // `state.model ||`, which would let the default win over everything now
+        // that it is never empty for a built-in Provider.
+        const seeded = providerDefaultModel(state.status, state.provider);
+        const chosen = state.model && state.model !== seeded ? state.model : "";
+        return {
+          ...state,
+          models: action.result.models,
+          modelsState: action.result.ok ? "success" : "error",
+          modelsMessage: action.result.message,
+          model: chosen || state.probeModel.trim() || seeded || action.result.models[0] || "",
+        };
+      }
     case "MODELS_FAILED":
       return {
         ...state,
