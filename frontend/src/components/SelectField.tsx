@@ -4,6 +4,7 @@ import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 export interface SelectOption {
   value: string;
   label: string;
+  disabled?: boolean;
 }
 
 interface SelectFieldProps {
@@ -62,7 +63,7 @@ export function SelectField({ value, options, onChange, label, id, className = "
 
   const commit = (index: number) => {
     const option = options[index];
-    if (option) onChange(option.value);
+    if (option && !option.disabled) onChange(option.value);
     close(true);
   };
 
@@ -202,7 +203,8 @@ export function SelectField({ value, options, onChange, label, id, className = "
               id={`${listId}-${index}`}
               role="option"
               aria-selected={option.value === value}
-              className={`select-field-option${index === activeIndex ? " is-active" : ""}`}
+              className={`select-field-option${index === activeIndex ? " is-active" : ""}${option.disabled ? " is-disabled" : ""}`}
+              aria-disabled={option.disabled || undefined}
               // Mouse move rather than hover in CSS, so the keyboard's active
               // option and the pointer's cannot disagree.
               onMouseMove={() => setActiveIndex(index)}

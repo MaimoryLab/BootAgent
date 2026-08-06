@@ -82,8 +82,8 @@ export const initialWizardState: WizardState = {
   activationNext: "",
 };
 
-function latestProvider(status: StatusResponse | null): ProviderId {
-  return byProviderCreatedAt(status?.providers ?? {})[0]?.[0] || "ppio";
+function latestProvider(status: StatusResponse | null, protocol?: string): ProviderId {
+  return byProviderCreatedAt(status?.providers ?? {}).find(([, provider]) => !protocol || (protocol === "anthropic" ? provider.anthropic_base_url : provider.base_url))?.[0] || "ppio";
 }
 
 export type WizardAction =
@@ -182,6 +182,7 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
         return {
           ...state,
           selectedAgentIds: [action.agentId],
+          provider: latestProvider(state.status, state.status?.catalog.find((item) => item.id === action.agentId)?.protocol || undefined),
           desktopProfileId: state.selectedAgentIds[0] === action.agentId ? state.desktopProfileId : "",
           // Profile IDs and labels are derived from the selected Agent and
           // Provider. Do not carry a prior run's profile into a new pairing.

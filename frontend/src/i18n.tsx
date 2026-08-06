@@ -286,7 +286,7 @@ const english = {
   "官网（可选）": "Website (optional)",
   "OpenAI 兼容 Base URL": "OpenAI-compatible base URL",
   "API 地址：": "API URL: ",
-  "Anthropic 兼容 Base URL（可选）": "Anthropic-compatible base URL (optional)",
+  "Anthropic 兼容 Base URL": "Anthropic-compatible base URL",
   "OpenAI 兼容": "OpenAI-compatible",
   "Anthropic 兼容": "Anthropic-compatible",
   "删除 {name}": "Delete {name}",
