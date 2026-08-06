@@ -1,4 +1,4 @@
-import { CheckCircle2, ChevronDown, CircleAlert, LoaderCircle, ListChecks, X } from "lucide-react";
+import { CheckCircle2, ChevronDown, CircleAlert, CircleStop, LoaderCircle, ListChecks, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useInRouterContext, useNavigate } from "react-router-dom";
 
@@ -9,17 +9,17 @@ function megabytes(bytes: number): string {
   return (bytes / (1024 * 1024)).toFixed(1);
 }
 
-function TaskCard({ task, onOpen, onDismiss }: { task: TaskRecord; onOpen: () => void; onDismiss: () => void }) {
+function TaskCard({ task, onOpen, onCancel, onDismiss }: { task: TaskRecord; onOpen: () => void; onCancel: () => void; onDismiss: () => void }) {
   const { t } = useI18n();
   const progress = task.progress;
   const knownTotal = Boolean(progress && progress.total > 0);
   const percent = knownTotal && progress ? Math.min(100, Math.round((progress.received / progress.total) * 100)) : 0;
-  const status = task.state === "running" ? t("进行中") : task.state === "success" ? t("已完成") : t("失败");
+  const status = task.state === "running" ? t("进行中") : task.state === "success" ? t("已完成") : task.state === "failure" ? t("失败") : t("已取消");
   return (
     <article className={`task-card is-${task.state}`}>
       <button type="button" className="task-card-main" onClick={onOpen} aria-label={t("返回任务页面：{title}", { title: task.title })}>
         <span className="task-card-icon" aria-hidden="true">
-          {task.state === "running" ? <LoaderCircle size={16} className="spin" /> : task.state === "success" ? <CheckCircle2 size={16} /> : <CircleAlert size={16} />}
+          {task.state === "running" ? <LoaderCircle size={16} className="spin" /> : task.state === "success" ? <CheckCircle2 size={16} /> : task.state === "failure" ? <CircleAlert size={16} /> : <CircleStop size={16} />}
         </span>
         <span className="task-card-copy">
           <strong>{task.title}</strong>
@@ -38,18 +38,22 @@ function TaskCard({ task, onOpen, onDismiss }: { task: TaskRecord; onOpen: () =>
           ) : null}
         </span>
       </button>
-      {task.state !== "running" ? (
+      {task.state === "running" ? (
+        <button type="button" className="task-card-dismiss is-cancel" onClick={onCancel} aria-label={t("取消任务")} title={t("取消任务")}>
+          <CircleStop size={14} aria-hidden="true" />
+        </button>
+      ) : (
         <button type="button" className="task-card-dismiss" onClick={onDismiss} aria-label={t("关闭任务")} title={t("关闭任务")}>
           <X size={14} aria-hidden="true" />
         </button>
-      ) : null}
+      )}
     </article>
   );
 }
 
 function TaskCenterBody({ navigate }: { navigate: (route: string) => void }) {
   const { t } = useI18n();
-  const { tasks, dismissTask } = useTaskCenter();
+  const { tasks, cancelTask, dismissTask } = useTaskCenter();
   return (
     <div className="task-center-body">
       {tasks.length ? tasks.map((task) => (
@@ -57,6 +61,7 @@ function TaskCenterBody({ navigate }: { navigate: (route: string) => void }) {
           key={task.id}
           task={task}
           onOpen={() => navigate(task.route)}
+          onCancel={() => cancelTask(task.id)}
           onDismiss={() => dismissTask(task.id)}
         />
       )) : <p className="task-center-empty">{t("暂无任务")}</p>}

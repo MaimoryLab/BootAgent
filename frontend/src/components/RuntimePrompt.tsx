@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 
 import { api, describeError } from "../backend/api";
 import { useI18n } from "../i18n";
-import { taskKey, useTaskCenter, useTaskRoute } from "../state/TaskCenterContext";
+import { taskCanceller, taskKey, useTaskCenter, useTaskRoute } from "../state/TaskCenterContext";
 import type { AgentStatus, RuntimeStatus } from "../types/api";
 import { DownloadProgress } from "./DownloadProgress";
 
@@ -23,7 +23,7 @@ interface RuntimePromptProps {
  */
 export function RuntimePrompt({ runtimes, missingRuntime, selectedAgentIds, agents, onInstalled }: RuntimePromptProps) {
   const { t } = useI18n();
-  const { startTask, finishTask, taskFor } = useTaskCenter();
+  const { startTask, finishTask, setTaskCanceller, taskFor } = useTaskCenter();
   const route = useTaskRoute();
   const [pending, setPending] = useState("");
 
@@ -65,7 +65,9 @@ export function RuntimePrompt({ runtimes, missingRuntime, selectedAgentIds, agen
     })) return;
     setPending(runtimeId);
     try {
-      await api.installRuntime(runtimeId);
+      const request = api.installRuntime(runtimeId);
+      setTaskCanceller(id, taskCanceller(request));
+      await request;
       finishTask(id, { kind: "success", message: t("安装完成") });
       await onInstalled();
     } catch (error) {

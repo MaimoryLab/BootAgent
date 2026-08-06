@@ -20,11 +20,17 @@ export interface TaskProgress {
 }
 
 export type TaskKind = "install" | "update" | "download";
-export type TaskState = "running" | "success" | "failure";
+export type TaskState = "running" | "success" | "failure" | "cancelled";
 
 export interface TaskOutcome {
-  kind: "success" | "failure";
+  kind: Exclude<TaskState, "running">;
   message: string;
+}
+
+export type TaskCanceller = () => void | PromiseLike<void>;
+
+export function taskCanceller(request: { cancel?: (cause?: unknown) => void | PromiseLike<void> }): TaskCanceller | undefined {
+  return typeof request.cancel === "function" ? () => request.cancel?.() : undefined;
 }
 
 export interface TaskInput {
@@ -37,6 +43,8 @@ export interface TaskInput {
   route: string;
   /** Progress events use this when it differs from target. */
   progressTarget?: string;
+  /** Cards backed by one request are cancelled together. */
+  group?: string;
 }
 
 export interface TaskRecord extends TaskInput {
@@ -94,6 +102,8 @@ export interface TaskCenterValue {
   startTask: (task: TaskInput | string) => boolean;
   /** Finishes one card. `id` may be a card id or a target for old callers. */
   finishTask: (id: string, outcome: TaskOutcome) => void;
+  setTaskCanceller: (id: string, cancel?: TaskCanceller) => void;
+  cancelTask: (id: string, message?: string) => void;
   /** Compatibility removal for a terminal task. */
   clearOutcome: (id: string) => void;
   dismissTask: (id: string) => void;
@@ -111,6 +121,8 @@ const TaskCenterContext = createContext<TaskCenterValue>({
   // it simply cannot display a durable card in that embedding.
   startTask: () => true,
   finishTask: () => {},
+  setTaskCanceller: () => {},
+  cancelTask: () => {},
   clearOutcome: () => {},
   dismissTask: () => {},
   taskFor: () => undefined,
@@ -129,6 +141,8 @@ export function TaskCenterProvider({ children }: PropsWithChildren) {
   const [tasks, setTasks] = useState<TaskRecord[]>([]);
   const [progress, setProgress] = useState<Record<string, TaskProgress>>({});
   const tasksRef = useRef<TaskRecord[]>([]);
+  const cancellersRef = useRef(new Map<string, TaskCanceller>());
+  const pendingCancelsRef = useRef(new Set<string>());
   const updateTasks = useCallback((update: (current: TaskRecord[]) => TaskRecord[]) => {
     const next = update(tasksRef.current);
     tasksRef.current = next;
@@ -160,6 +174,8 @@ export function TaskCenterProvider({ children }: PropsWithChildren) {
     const progressTarget = input.progressTarget || input.target;
     const lock = taskLockKey(input.kind, input.target);
     if (tasksRef.current.some((task) => task.state === "running" && taskLockKey(task.kind, task.target) === lock)) return false;
+    cancellersRef.current.delete(id);
+    pendingCancelsRef.current.delete(id);
     setProgress((current) => {
       const target = progressTarget;
       if (!(target in current)) return current;
@@ -174,6 +190,24 @@ export function TaskCenterProvider({ children }: PropsWithChildren) {
     });
     return true;
   }, [updateTasks]);
+
+  const setTaskCanceller = useCallback((id: string, cancel?: TaskCanceller) => {
+    const task = tasksRef.current.find((item) => item.id === id || item.target === id);
+    const taskID = task?.id || id;
+    if (!cancel) {
+      cancellersRef.current.delete(taskID);
+      return;
+    }
+    if (pendingCancelsRef.current.delete(taskID) || task?.state === "cancelled") {
+      try {
+        void Promise.resolve(cancel()).catch(() => {});
+      } catch {
+        // The card is already cancelled; a failing bridge cancellation cannot restore it.
+      }
+      return;
+    }
+    if (task?.state === "running") cancellersRef.current.set(taskID, cancel);
+  }, []);
 
   const resetProgress = useCallback((target: string) => {
     setProgress((current) => {
@@ -195,7 +229,12 @@ export function TaskCenterProvider({ children }: PropsWithChildren) {
   const finishTask = useCallback((id: string, outcome: TaskOutcome) => {
     const hasExactID = tasksRef.current.some((task) => task.id === id);
     const matches = (task: TaskRecord) => (hasExactID ? task.id === id : task.target === id) && task.state === "running";
-    const progressTargets = new Set(tasksRef.current.filter(matches).map((task) => task.progressTarget));
+    const matched = tasksRef.current.filter(matches);
+    const progressTargets = new Set(matched.map((task) => task.progressTarget));
+    for (const task of matched) {
+      cancellersRef.current.delete(task.id);
+      pendingCancelsRef.current.delete(task.id);
+    }
     setProgress((current) => {
       if (!progressTargets.size) return current;
       const next = { ...current };
@@ -207,7 +246,48 @@ export function TaskCenterProvider({ children }: PropsWithChildren) {
       : task));
   }, [updateTasks]);
 
+  const cancelTask = useCallback((id: string, message = "") => {
+    const root = tasksRef.current.find((task) => task.state === "running" && task.id === id)
+      || tasksRef.current.find((task) => task.state === "running" && task.target === id);
+    if (!root) return;
+    const matched = tasksRef.current.filter((task) => task.state === "running" && (
+      root.group ? task.group === root.group : task.id === root.id
+    ));
+    const progressTargets = new Set(matched.map((task) => task.progressTarget));
+    const cancellers = new Set<TaskCanceller>();
+    for (const task of matched) {
+      const cancel = cancellersRef.current.get(task.id);
+      if (cancel) cancellers.add(cancel);
+      cancellersRef.current.delete(task.id);
+    }
+    if (!cancellers.size) {
+      for (const task of matched) pendingCancelsRef.current.add(task.id);
+    }
+    setProgress((current) => {
+      const next = { ...current };
+      for (const target of progressTargets) delete next[target];
+      return next;
+    });
+    const ids = new Set(matched.map((task) => task.id));
+    updateTasks((current) => current.map((task) => ids.has(task.id)
+      ? { ...task, state: "cancelled", message, progress: undefined }
+      : task));
+    for (const cancel of cancellers) {
+      try {
+        void Promise.resolve(cancel()).catch(() => {});
+      } catch {
+        // The request may already have settled between the click and cancellation.
+      }
+    }
+  }, [updateTasks]);
+
   const clearOutcome = useCallback((id: string) => {
+    for (const task of tasksRef.current) {
+      if (task.state !== "running" && (task.id === id || task.target === id)) {
+        cancellersRef.current.delete(task.id);
+        pendingCancelsRef.current.delete(task.id);
+      }
+    }
     updateTasks((current) => current.filter((task) => {
       if (task.state === "running") return true;
       return task.id !== id && task.target !== id;
@@ -215,6 +295,8 @@ export function TaskCenterProvider({ children }: PropsWithChildren) {
   }, [updateTasks]);
 
   const dismissTask = useCallback((id: string) => {
+    cancellersRef.current.delete(id);
+    pendingCancelsRef.current.delete(id);
     updateTasks((current) => current.filter((task) => task.id !== id || task.state === "running"));
   }, [updateTasks]);
 
@@ -242,8 +324,8 @@ export function TaskCenterProvider({ children }: PropsWithChildren) {
   }, [tasks]);
 
   const value = useMemo<TaskCenterValue>(
-    () => ({ tasks, progress, resetProgress, running, outcomes, startTask, finishTask, clearOutcome, dismissTask, taskFor, isTaskRunning }),
-    [clearOutcome, dismissTask, finishTask, isTaskRunning, outcomes, progress, resetProgress, running, startTask, taskFor, tasks],
+    () => ({ tasks, progress, resetProgress, running, outcomes, startTask, finishTask, setTaskCanceller, cancelTask, clearOutcome, dismissTask, taskFor, isTaskRunning }),
+    [cancelTask, clearOutcome, dismissTask, finishTask, isTaskRunning, outcomes, progress, resetProgress, running, setTaskCanceller, startTask, taskFor, tasks],
   );
   return <TaskCenterContext.Provider value={value}>{children}</TaskCenterContext.Provider>;
 }

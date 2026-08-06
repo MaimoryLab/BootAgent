@@ -243,6 +243,9 @@ func installRuntime(ctx context.Context, runtime Runtime, client Doer, runtimeID
 		return "", err
 	}
 	defer os.Remove(archive)
+	if err := checkContext(ctx); err != nil {
+		return "", err
+	}
 
 	// Extract beside the final directory so a partial or corrupt tree is never
 	// visible under the versioned path, then swap it in with one rename.
@@ -252,6 +255,9 @@ func installRuntime(ctx context.Context, runtime Runtime, client Doer, runtimeID
 	}
 	defer os.RemoveAll(staging)
 	if err := extract(archive, staging, artifact); err != nil {
+		return "", err
+	}
+	if err := checkContext(ctx); err != nil {
 		return "", err
 	}
 	root := staging
@@ -271,6 +277,9 @@ func installRuntime(ctx context.Context, runtime Runtime, client Doer, runtimeID
 	// tree. Its presence is what makes a directory count as a managed install.
 	if err := os.WriteFile(filepath.Join(binDir, ".oneagent-runtime-ok"), []byte(entry.Version+"\n"), 0o600); err != nil {
 		return "", runtimeError(fmt.Sprintf("Cannot finalize the %s installation", entry.Name), err)
+	}
+	if err := checkContext(ctx); err != nil {
+		return "", err
 	}
 	if err := os.RemoveAll(target); err != nil {
 		return "", runtimeError(fmt.Sprintf("Cannot replace the existing %s directory", entry.Name), err)
@@ -297,6 +306,9 @@ func downloadArtifact(ctx context.Context, client Doer, entry catalog.Runtime, a
 		path, err := fetchTo(downloadCtx, client, source, artifact.SHA256, directory, listener, target)
 		if err == nil {
 			return path, nil
+		}
+		if err := downloadCtx.Err(); err != nil {
+			return "", err
 		}
 		lastErr = err
 	}
@@ -346,6 +358,10 @@ func fetchTo(ctx context.Context, client Doer, source, expected, directory strin
 			return "", copyErr
 		}
 		return "", closeErr
+	}
+	if err := ctx.Err(); err != nil {
+		os.Remove(path)
+		return "", err
 	}
 	if actual := hex.EncodeToString(digest.Sum(nil)); actual != expected {
 		os.Remove(path)

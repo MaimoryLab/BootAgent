@@ -2045,6 +2045,7 @@
 .task-card-icon { flex: 0 0 auto; margin-top: 1px; color: var(--blue); }
 .task-card.is-success .task-card-icon { color: var(--green); }
 .task-card.is-failure .task-card-icon { color: var(--red); }
+.task-card.is-cancelled .task-card-icon { color: var(--text-tertiary); }
 .task-card-copy { min-width: 0; display: grid; gap: 3px; }
 .task-card-copy > strong { overflow-wrap: anywhere; font-size: 12px; line-height: 1.35; }
 .task-card-copy > small { color: var(--text-secondary); font-size: 11px; line-height: 1.35; overflow-wrap: anywhere; }
@@ -2069,6 +2070,7 @@
   cursor: pointer;
 }
 .task-card-dismiss:hover { color: var(--text-primary); background: var(--surface-pressed); }
+.task-card-dismiss.is-cancel:hover { color: var(--red); background: var(--red-soft); }
 
 .download-progress {
   /* Spans the whole install row so the bar is not squeezed into one cell. */

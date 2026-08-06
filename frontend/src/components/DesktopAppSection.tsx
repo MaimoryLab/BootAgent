@@ -3,7 +3,7 @@ import { useState } from "react";
 
 import { api, describeError } from "../backend/api";
 import { useI18n } from "../i18n";
-import { taskKey, useTaskCenter, useTaskRoute } from "../state/TaskCenterContext";
+import { taskCanceller, taskKey, useTaskCenter, useTaskRoute } from "../state/TaskCenterContext";
 import type { DesktopAgentStatus, ProfileSummary } from "../types/api";
 import { DownloadProgress } from "./DownloadProgress";
 import { AgentIcon } from "./icons/agents";
@@ -25,7 +25,7 @@ type Action = "install" | "open";
 
 export function DesktopAppSection({ app: desktopApp, onChanged, onSetup, onConfigure, profile, providerName, model, showUninstalled = true, showHeading = true }: DesktopAppSectionProps) {
   const { t } = useI18n();
-  const { startTask, finishTask, taskFor } = useTaskCenter();
+  const { startTask, finishTask, setTaskCanceller, taskFor } = useTaskCenter();
   const route = useTaskRoute();
   const [pending, setPending] = useState<Action | "">("");
   const [localNotice, setLocalNotice] = useState("");
@@ -60,7 +60,9 @@ export function DesktopAppSection({ app: desktopApp, onChanged, onSetup, onConfi
     // Opening the app is not a download, so it gets no shared bar. Terminal
     // install cards stay in the center until the user dismisses them.
     try {
-      const result = action === "install" ? await api.installDesktopAgent(desktopApp.id) : null;
+      const request = action === "install" ? api.installDesktopAgent(desktopApp.id) : null;
+      if (request) setTaskCanceller(installTaskID, taskCanceller(request));
+      const result = request ? await request : null;
       let message: string;
       if (action === "open") {
         await api.openDesktopAgent(desktopApp.id);

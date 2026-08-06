@@ -20,6 +20,9 @@ func TestProcessHelper(_ *testing.T) {
 		os.Exit(7)
 	}
 	if os.Getenv("ONEAGENT_PROCESS_WAIT") == "1" {
+		if os.Getenv("ONEAGENT_PROCESS_READY") == "1" {
+			os.Stdout.WriteString("ready")
+		}
 		// Long enough that the caller's deadline always fires first; the runner
 		// kills this process, so the sleep never runs to completion.
 		<-time.After(10 * time.Second)
@@ -146,6 +149,41 @@ func TestOSRunnerHonorsCancellationAndRejectsEmptyArgv(t *testing.T) {
 	}
 	if _, err := runner.Run(context.Background(), nil, nil, helperTimeout); err == nil {
 		t.Fatal("empty argv unexpectedly succeeded")
+	}
+}
+
+func TestOSRunnerKillsARunningProcessWhenCancelled(t *testing.T) {
+	runner := helperRunner(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	started := make(chan struct{}, 1)
+	done := make(chan error, 1)
+	go func() {
+		_, err := runner.RunWithOutput(ctx, []string{os.Args[0], "-test.run=TestProcessHelper"}, map[string]string{
+			"ONEAGENT_PROCESS_WAIT":  "1",
+			"ONEAGENT_PROCESS_READY": "1",
+		}, helperTimeout, func(output Output) {
+			if output.Text == "ready" {
+				select {
+				case started <- struct{}{}:
+				default:
+				}
+			}
+		})
+		done <- err
+	}()
+	select {
+	case <-started:
+		cancel()
+	case <-time.After(5 * time.Second):
+		t.Fatal("helper process did not start")
+	}
+	select {
+	case err := <-done:
+		if err != context.Canceled {
+			t.Fatalf("cancelled running process error = %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("cancelled helper process was not killed")
 	}
 }
 

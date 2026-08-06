@@ -42,6 +42,37 @@ type fakeDownloader struct {
 	hits   []string
 }
 
+type cancelAtEOFBody struct {
+	cancel  context.CancelFunc
+	content []byte
+}
+
+func (b *cancelAtEOFBody) Read(buffer []byte) (int, error) {
+	if len(b.content) == 0 {
+		return 0, io.EOF
+	}
+	written := copy(buffer, b.content)
+	b.content = b.content[written:]
+	if len(b.content) == 0 {
+		b.cancel()
+		return written, io.EOF
+	}
+	return written, nil
+}
+
+func (*cancelAtEOFBody) Close() error { return nil }
+
+type cancellingDownloader struct {
+	cancel  context.CancelFunc
+	content []byte
+}
+
+func (d cancellingDownloader) Do(request *http.Request) (*http.Response, error) {
+	return &http.Response{
+		StatusCode: http.StatusOK, Body: &cancelAtEOFBody{cancel: d.cancel, content: d.content}, ContentLength: int64(len(d.content)), Request: request,
+	}, nil
+}
+
 type routeDownloader struct {
 	routes map[string][]byte
 	hits   []string
@@ -452,6 +483,19 @@ func TestWindowsInstallDoesNotOpenInstallerAfterCancellation(t *testing.T) {
 	_, err := Install(ctx, ChatGPTDesktopID, Options{Platform: platform.For("windows", "amd64"), Runner: runner})
 	if err == nil || runner.started {
 		t.Fatalf("install error=%v, installer started=%v", err, runner.started)
+	}
+}
+
+func TestDownloadFileDeletesTheFileWhenCancellationWinsAtEOF(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	destination := filepath.Join(t.TempDir(), "installer.exe")
+	content := []byte("partial desktop installer")
+	err := downloadFile(ctx, Options{Downloader: cancellingDownloader{cancel: cancel, content: content}}, "https://example.test/installer", destination, ChatGPTDesktopID)
+	if err != context.Canceled {
+		t.Fatalf("cancelled download error = %v", err)
+	}
+	if _, statErr := os.Stat(destination); !os.IsNotExist(statErr) {
+		t.Fatalf("cancelled download left %s behind: %v", destination, statErr)
 	}
 }
 

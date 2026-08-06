@@ -2,13 +2,13 @@ import { Download } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { api, describeError } from "../backend/api";
+import { api, describeError, isCancellationError } from "../backend/api";
 import { AgentProgressRow } from "../components/AgentProgressRow";
 import { DownloadProgress } from "../components/DownloadProgress";
 import { LogDisclosure } from "../components/LogDisclosure";
 import { PageScaffold } from "../components/PageScaffold";
 import { useI18n } from "../i18n";
-import { taskKey, useTaskCenter, useTaskRoute } from "../state/TaskCenterContext";
+import { taskCanceller, taskKey, type TaskCanceller, useTaskCenter, useTaskRoute } from "../state/TaskCenterContext";
 import { desktopProtocol, profileAgentIdForDesktop, selectedDesktopApp } from "../state/desktopSetup";
 import { useWizard } from "../state/WizardContext";
 import type { AgentInstallResult, InstallRequest } from "../types/api";
@@ -17,7 +17,7 @@ export function ActivationPage() {
   const navigate = useNavigate();
   const { t } = useI18n();
   const { state, dispatch, refreshStatus } = useWizard();
-  const { tasks, startTask, finishTask, taskFor } = useTaskCenter();
+  const { tasks, startTask, finishTask, setTaskCanceller, taskFor } = useTaskCenter();
   const route = useTaskRoute();
   const started = useRef(false);
   const [retrying, setRetrying] = useState<string | null>(null);
@@ -63,6 +63,7 @@ export function ActivationPage() {
 
   const startActivationTasks = useCallback((agentIds: string[]) => {
     const targets = isDesktop && desktop ? [desktop.id] : agentIds;
+    const group = `activation:${Date.now()}:${targets.join(",")}`;
     const startedAgents: string[] = [];
     for (const target of targets) {
       const id = taskKey("install", target);
@@ -72,6 +73,7 @@ export function ActivationPage() {
         target,
         title: t("安装 {name}", { name: selectedNames[target] || target }),
         route,
+        group,
       })) {
         for (const started of startedAgents) finishTask(started, { kind: "failure", message: t("任务正在运行") });
         return null;
@@ -96,10 +98,15 @@ export function ActivationPage() {
         title: t("安装 {name} {version}", { name: byID.get(runtimeID)?.name || runtimeID, version: byID.get(runtimeID)?.lockedVersion || "" }),
         route,
         progressTarget: runtimeID,
+        group,
       })) ownedRuntimes.push(id);
     }
     return { agents: startedAgents, runtimes: ownedRuntimes };
   }, [desktop, finishTask, isDesktop, route, selectedNames, startTask, state.status, t, taskFor]);
+
+  const registerActivationCanceller = useCallback((started: { agents: string[]; runtimes: string[] }, cancel?: TaskCanceller) => {
+    for (const id of [...started.agents, ...started.runtimes]) setTaskCanceller(id, cancel);
+  }, [setTaskCanceller]);
 
   const finishActivationTasks = useCallback((
     started: { agents: string[]; runtimes: string[] },
@@ -117,12 +124,12 @@ export function ActivationPage() {
     for (const id of started.runtimes) finishTask(id, ok ? { kind: "success", message: t("安装完成") } : { kind: "failure", message: fallback });
   }, [finishTask, t]);
 
-  const installDesktop = useCallback(async (): Promise<{ results: AgentInstallResult[]; log: string; next: string }> => {
+  const installDesktop = useCallback(async (register: (cancel?: TaskCanceller) => void): Promise<{ results: AgentInstallResult[]; log: string; next: string }> => {
     if (!desktop) throw new Error(t("找不到桌面 Agent"));
     const owner = profileAgentIdForDesktop(desktop);
     const profileID = state.profileId || `${owner}-${state.provider}`.toLowerCase().replace(/[^a-z0-9_-]/g, "-");
     const profileLabel = state.profileLabel || `${desktop.name} · ${state.provider}`;
-    const profile = await api.saveProfile({
+    const profileRequest = api.saveProfile({
       id: profileID,
       label: profileLabel,
       provider: state.provider,
@@ -132,8 +139,14 @@ export function ActivationPage() {
       configMode: "provider",
       protocol: desktopProtocol(desktop),
     });
-    const installed = desktop.installed ? undefined : await api.installDesktopAgent(desktop.id);
-    const configured = await api.configureDesktopAgent(desktop.id, profile.id);
+    register(taskCanceller(profileRequest));
+    const profile = await profileRequest;
+    const installRequest = desktop.installed ? undefined : api.installDesktopAgent(desktop.id);
+    if (installRequest) register(taskCanceller(installRequest));
+    const installed = installRequest ? await installRequest : undefined;
+    const configureRequest = api.configureDesktopAgent(desktop.id, profile.id);
+    register(taskCanceller(configureRequest));
+    const configured = await configureRequest;
     return {
       results: [{
         agent: desktop.id,
@@ -156,9 +169,15 @@ export function ActivationPage() {
     }
     dispatch({ type: "ACTIVATION_LOADING", agentIds: state.selectedAgentIds });
     try {
-      const response = isDesktop
-        ? await installDesktop().then((result) => ({ ...result, ok: true, probe: null }))
-        : await api.install(requestFor(state.selectedAgentIds));
+      let response;
+      if (isDesktop) {
+        response = await installDesktop((cancel) => registerActivationCanceller(startedTasks, cancel))
+          .then((result) => ({ ...result, ok: true, probe: null }));
+      } else {
+        const request = api.install(requestFor(state.selectedAgentIds));
+        registerActivationCanceller(startedTasks, taskCanceller(request));
+        response = await request;
+      }
       dispatch({
         type: "ACTIVATION_RESULT",
         ok: response.ok,
@@ -173,11 +192,11 @@ export function ActivationPage() {
         await refreshStatus();
       }
     } catch (error) {
-      const message = describeError(error, t("激活失败")).message;
+      const message = isCancellationError(error) ? t("已取消") : describeError(error, t("激活失败")).message;
       finishActivationTasks(startedTasks, [], false, message);
       dispatch({ type: "ACTIVATION_FAILED", message });
     }
-  }, [dispatch, finishActivationTasks, installDesktop, isDesktop, refreshStatus, requestFor, startActivationTasks, state.selectedAgentIds, t]);
+  }, [dispatch, finishActivationTasks, installDesktop, isDesktop, refreshStatus, registerActivationCanceller, requestFor, startActivationTasks, state.selectedAgentIds, t]);
 
   useEffect(
     () =>
@@ -202,9 +221,15 @@ export function ActivationPage() {
     if (!startedTasks) return;
     setRetrying(agentId);
     try {
-      const response = isDesktop
-        ? await installDesktop().then((result) => ({ ...result, ok: true, probe: null }))
-        : await api.install(requestFor([agentId]));
+      let response;
+      if (isDesktop) {
+        response = await installDesktop((cancel) => registerActivationCanceller(startedTasks, cancel))
+          .then((result) => ({ ...result, ok: true, probe: null }));
+      } else {
+        const request = api.install(requestFor([agentId]));
+        registerActivationCanceller(startedTasks, taskCanceller(request));
+        response = await request;
+      }
       dispatch({
         type: "ACTIVATION_RESULT",
         ok: response.ok,
@@ -220,7 +245,7 @@ export function ActivationPage() {
         await refreshStatus();
       }
     } catch (error) {
-      const message = describeError(error, t("重试失败")).message;
+      const message = isCancellationError(error) ? t("已取消") : describeError(error, t("重试失败")).message;
       finishActivationTasks(startedTasks, [], false, message);
       dispatch({ type: "ACTIVATION_FAILED", message });
     } finally {
@@ -234,10 +259,11 @@ export function ActivationPage() {
   const restoredTask = tasks.find((task) => task.kind === "install" && task.route.split("?", 1)[0] === "/setup/activation");
   if (!state.selectedAgentIds.length && restoredTask) {
     const loading = restoredTask.state === "running";
+    const cancelled = restoredTask.state === "cancelled";
     return (
       <PageScaffold
-        title={loading ? t("正在安装") : restoredTask.state === "success" ? t("安装完成") : t("需要处理部分问题")}
-        description={restoredTask.message || t("每个 Agent 的结果彼此独立，失败项可以单独重试。")}
+        title={loading ? t("正在安装") : restoredTask.state === "success" ? t("安装完成") : cancelled ? t("已取消") : t("需要处理部分问题")}
+        description={restoredTask.message || (cancelled ? t("已取消") : t("每个 Agent 的结果彼此独立，失败项可以单独重试。"))}
         primaryLabel={t("进入总览")}
         onPrimary={() => navigate("/overview")}
         footerNote={loading ? t("请保持此窗口打开") : undefined}
@@ -245,7 +271,7 @@ export function ActivationPage() {
         <div className="progress-list">
           <AgentProgressRow
             name={restoredTask.title}
-            result={restoredTask.state === "failure" ? { agent: restoredTask.target, status: "failed", message: restoredTask.message, retryable: true } : restoredTask.state === "success" ? { agent: restoredTask.target, status: "configured", message: restoredTask.message, retryable: false } : undefined}
+            result={restoredTask.state === "failure" ? { agent: restoredTask.target, status: "failed", message: restoredTask.message, retryable: true } : restoredTask.state === "success" ? { agent: restoredTask.target, status: "configured", message: restoredTask.message, retryable: false } : cancelled ? { agent: restoredTask.target, status: "skipped", message: t("已取消"), retryable: false } : undefined}
             loading={loading}
           />
         </div>
@@ -253,18 +279,21 @@ export function ActivationPage() {
     );
   }
 
-  const allDone = state.activationState === "success";
+  const taskTarget = (agentId: string) => isDesktop && desktop ? desktop.id : agentId;
+  const activationCancelled = state.selectedAgentIds.some((agentId) => taskFor(taskKey("install", taskTarget(agentId)))?.state === "cancelled");
+  const activationLoading = state.activationState === "loading" && !activationCancelled;
+  const allDone = state.activationState === "success" && !activationCancelled;
   const runtimeDownloadActive = runtimeDownloads.some(({ id }) => taskFor(taskKey("download", id))?.state === "running")
     && (state.activationState === "loading" || retrying !== null);
   return (
     <PageScaffold
-      title={state.activationState === "loading" ? t("正在安装") : allDone ? t("安装完成") : t("需要处理部分问题")}
-      description={state.activationState === "loading" ? t("安装请求同步执行，完成后将显示每个 Agent 的最终状态。") : t("每个 Agent 的结果彼此独立，失败项可以单独重试。")}
+      title={activationLoading ? t("正在安装") : allDone ? t("安装完成") : activationCancelled ? t("已取消") : t("需要处理部分问题")}
+      description={activationLoading ? t("安装请求同步执行，完成后将显示每个 Agent 的最终状态。") : activationCancelled ? t("已取消") : t("每个 Agent 的结果彼此独立，失败项可以单独重试。")}
       stepper
-      onBack={state.activationState === "loading" ? undefined : () => navigate("/setup/review")}
+      onBack={activationLoading ? undefined : () => navigate("/setup/review")}
       primaryLabel={allDone ? t("进入总览") : undefined}
       onPrimary={allDone ? () => navigate("/overview") : undefined}
-      footerNote={state.activationState === "loading" ? t("请保持此窗口打开") : undefined}
+      footerNote={activationLoading ? t("请保持此窗口打开") : undefined}
     >
       {runtimeDownloadActive && runtimeDownloads.length ? (
         <section className="runtime-download-card" aria-live="polite">
@@ -284,13 +313,16 @@ export function ActivationPage() {
       ) : null}
       <div className="progress-list">
         {state.selectedAgentIds.map((agentId) => {
-          const result = state.activationResults.find((item) => item.agent === agentId);
+          const cancelled = taskFor(taskKey("install", taskTarget(agentId)))?.state === "cancelled";
+          const result = cancelled
+            ? { agent: agentId, status: "skipped" as const, message: t("已取消"), retryable: false }
+            : state.activationResults.find((item) => item.agent === agentId);
           return (
             <AgentProgressRow
               key={agentId}
               name={selectedNames[agentId] || agentId}
               result={result}
-              loading={state.activationState === "loading" || retrying === agentId}
+              loading={!cancelled && (state.activationState === "loading" || retrying === agentId)}
               // One retry at a time: concurrent retries each observe a stale
               // snapshot of the other rows and would skip the final cleanup.
               onRetry={result?.status === "failed" && result.retryable && !retrying ? () => void retry(agentId) : undefined}

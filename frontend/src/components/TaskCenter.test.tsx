@@ -11,6 +11,7 @@ import { TaskCenter } from "./TaskCenter";
 
 let emit: ((output: InstallOutput) => void) | null = null;
 const unsubscribe = vi.fn();
+const cancelRequest = vi.fn();
 
 vi.mock("../backend/api", async () => {
   const errors = await import("../backend/errors");
@@ -40,13 +41,22 @@ const installTask: TaskInput = {
 };
 
 function TaskHarness() {
-  const { startTask, finishTask } = useTaskCenter();
+  const { startTask, finishTask, setTaskCanceller } = useTaskCenter();
   return (
     <div>
-      <button type="button" onClick={() => { startTask(installTask); }}>启动安装</button>
+      <button type="button" onClick={() => {
+        if (startTask(installTask)) setTaskCanceller(installTask.id!, cancelRequest);
+      }}>启动安装</button>
       <button type="button" onClick={() => finishTask(installTask.id!, { kind: "success", message: "安装完成" })}>完成安装</button>
       <button type="button" onClick={() => { startTask(installTask); }}>再次启动</button>
       <button type="button" onClick={() => { startTask({ kind: "update", target: "codex", title: "更新 Codex", route: "/overview" }); }}>更新同一 Agent</button>
+      <button type="button" onClick={() => {
+        for (const target of ["node", "uv"]) {
+          const id = taskKey("download", target);
+          startTask({ id, kind: "download", target, title: `下载 ${target}`, route: "/overview", group: "runtime-batch" });
+          setTaskCanceller(id, cancelRequest);
+        }
+      }}>启动批量下载</button>
     </div>
   );
 }
@@ -74,6 +84,7 @@ describe("TaskCenter", () => {
   beforeEach(() => {
     emit = null;
     unsubscribe.mockReset();
+    cancelRequest.mockReset();
   });
 
   it("shows task cards and never renders command output", async () => {
@@ -128,6 +139,29 @@ describe("TaskCenter", () => {
     await user.click(screen.getByRole("button", { name: "更新同一 Agent" }));
     expect(screen.getAllByText("安装 Codex")).toHaveLength(1);
     expect(screen.queryByText("更新 Codex")).toBeNull();
+  });
+
+  it("cancels the request once, keeps the terminal state, and releases the lock", async () => {
+    const user = userEvent.setup();
+    renderTaskCenter();
+    await user.click(screen.getByRole("button", { name: "启动安装" }));
+    await user.click(screen.getByRole("button", { name: "取消任务" }));
+    expect(cancelRequest).toHaveBeenCalledTimes(1);
+    expect(screen.getByText("已取消")).toBeTruthy();
+
+    await user.click(screen.getByRole("button", { name: "完成安装" }));
+    expect(screen.queryByText("已完成")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "更新同一 Agent" }));
+    expect(screen.getByText("更新 Codex")).toBeTruthy();
+  });
+
+  it("cancels every card backed by one request", async () => {
+    const user = userEvent.setup();
+    renderTaskCenter();
+    await user.click(screen.getByRole("button", { name: "启动批量下载" }));
+    await user.click(screen.getAllByRole("button", { name: "取消任务" })[0]);
+    expect(cancelRequest).toHaveBeenCalledTimes(1);
+    expect(screen.getAllByText("已取消")).toHaveLength(2);
   });
 });
 
