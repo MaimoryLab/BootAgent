@@ -1,4 +1,4 @@
-import { KeyRound, Layers, Pencil, Play, Plus, Save, X } from "lucide-react";
+import { KeyRound, Layers, Pencil, Play, Plus, Save, Trash2, X } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -36,7 +36,7 @@ function editDraft(profile: ProfileSummary, protocol: string): ProfileDraft {
 
 export function ProfilesPage() {
   const navigate = useNavigate();
-  const { t } = useI18n();
+  const { locale, t } = useI18n();
   const { state, refreshStatus } = useWizard();
   const { startTask, finishTask, setTaskCanceller } = useTaskCenter();
   const route = useTaskRoute();
@@ -162,6 +162,26 @@ export function ProfilesPage() {
       if (!cancelled) setFailure(message);
     } finally {
       setApplying("");
+    }
+  };
+
+  const remove = async (profile: ProfileSummary, users: typeof configurableAgents) => {
+    if (users.length) {
+      setFailure(t("Profile 正在被 {agents} 使用，无法删除", {
+        agents: users.map((agent) => agent.name).join(locale === "en" ? ", " : "、"),
+      }));
+      return;
+    }
+    setBusy(true);
+    setFailure("");
+    try {
+      await api.deleteProfile(profile.id);
+      if (editor?.originalId === profile.id) setEditor(null);
+      await refreshStatus();
+    } catch (error) {
+      setFailure(describeError(error, t("无法删除 Profile")).message);
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -292,6 +312,9 @@ export function ProfilesPage() {
                     </span>
                     <button className="icon-button" type="button" onClick={() => { setEditor(editDraft(profile, protocolOf(profile))); setFailure(""); }} aria-label={t("编辑 {name}", { name: profile.label })} title={t("编辑")}>
                       <Pencil size={14} />
+                    </button>
+                    <button className="icon-button is-danger" type="button" onClick={() => void remove(profile, users)} aria-label={t("删除 {name}", { name: profile.label })} title={users.length ? t("Profile 正在被 {agents} 使用，无法删除", { agents: users.map((agent) => agent.name).join(locale === "en" ? ", " : "、") }) : t("删除")}>
+                      <Trash2 size={14} />
                     </button>
                   </span>
                 </header>

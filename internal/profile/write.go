@@ -99,6 +99,36 @@ func (s Store) Save(ctx context.Context, request SaveRequest) (Profile, error) {
 	return profile, nil
 }
 
+// Delete removes a Profile and its sibling secret. Deleting the active Profile
+// also clears the active pointer so status returns to an unconfigured state.
+func (s Store) Delete(ctx context.Context, id string) error {
+	if err := requestContext(ctx); err != nil {
+		return err
+	}
+	if err := ValidateID(id); err != nil {
+		return err
+	}
+	profilePath, _ := s.ProfilePath(id)
+	if err := os.Remove(profilePath); err != nil {
+		if os.IsNotExist(err) {
+			return oneerrors.New(oneerrors.InvalidRequest, "Unknown Profile: "+id)
+		}
+		return writeError("Cannot delete Profile %s: %v", id, err)
+	}
+	if secretPath, err := s.SecretPath(id); err == nil {
+		if err := os.Remove(secretPath); err != nil && !os.IsNotExist(err) {
+			return writeError("Cannot delete Profile secret %s: %v", id, err)
+		}
+	}
+	active := s.LoadActive()
+	if active.ID == id {
+		if err := os.Remove(s.PointerPath()); err != nil && !os.IsNotExist(err) {
+			return writeError("Cannot clear active Profile: %v", err)
+		}
+	}
+	return nil
+}
+
 // WriteActive updates the v2 profile record and active pointer used by the
 // installation workflow.
 func (s Store) WriteActive(ctx context.Context, request ActiveRequest) (string, error) {

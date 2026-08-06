@@ -19,6 +19,7 @@ const bridge = vi.hoisted(() => ({
   desktopOpen: vi.fn(),
   desktopConfigure: vi.fn(),
   profiles: vi.fn(),
+  deleteProfile: vi.fn(),
   saveProfile: vi.fn(),
   updateCheck: vi.fn(),
   updateDownload: vi.fn(),
@@ -52,6 +53,7 @@ vi.mock("../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/desktopa
 }));
 vi.mock("../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/profileservice.js", () => ({
   ListProfiles: bridge.profiles,
+  DeleteProfile: bridge.deleteProfile,
   SaveProfile: bridge.saveProfile,
 }));
 vi.mock("../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/updateservice.js", () => ({
@@ -93,6 +95,7 @@ describe("Wails backend adapter", () => {
     bridge.activate.mockResolvedValue({ ok: true, agent: "codex", config: "/c", provider: "ppio", model: "m", restart: "restart", next: "next" });
     bridge.launch.mockResolvedValue({ ok: true, agent: "codex", command: "codex" });
     bridge.profiles.mockResolvedValue([profile]);
+    bridge.deleteProfile.mockResolvedValue({ ok: true });
     bridge.saveProfile.mockResolvedValue(profile);
     bridge.getProvider.mockResolvedValue(provider);
     bridge.saveProvider.mockResolvedValue(provider);
@@ -117,6 +120,7 @@ describe("Wails backend adapter", () => {
     await wailsApi.activateAgent("codex", { provider: "ppio", apiBaseUrl: "", apiKey: "secret", model: "m" });
     await wailsApi.launchAgent("codex");
     await expect(wailsApi.listProfiles()).resolves.toEqual([profile]);
+    await expect(wailsApi.deleteProfile("team")).resolves.toBeUndefined();
     await expect(wailsApi.saveProfile({ id: "team", label: "Team", provider: "ppio", apiBaseUrl: "", apiKey: "secret", model: "m", configMode: "provider" })).resolves.toBe(profile);
 
     expect(bridge.probe).toHaveBeenCalledWith({ provider: "custom", api_base_url: "https://proxy.test/v1", api_key: "secret", model: "m", agents: null });
@@ -131,6 +135,7 @@ describe("Wails backend adapter", () => {
     expect(bridge.desktopOpen).toHaveBeenCalledWith({ agent_id: "chatgpt-desktop" });
     expect(bridge.desktopConfigure).toHaveBeenCalledWith({ agent_id: "chatgpt-desktop", profile_id: "team" });
     expect(bridge.saveProfile).toHaveBeenCalledWith(expect.objectContaining({ api_base_url: "", api_key: "secret" }));
+    expect(bridge.deleteProfile).toHaveBeenCalledWith({ id: "team" });
   });
 
   it("restores structured Wails errors without exposing raw bridge details", async () => {

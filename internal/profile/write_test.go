@@ -100,6 +100,28 @@ func TestSaveProfileValidatesInputAndCustomBase(t *testing.T) {
 	}
 }
 
+func TestDeleteProfileRemovesRecordSecretAndActivePointer(t *testing.T) {
+	store := testStore(t, t.TempDir(), "linux")
+	if _, err := store.WriteActive(context.Background(), ActiveRequest{
+		ProfileID: "team", Configure: true, Provider: "ppio", Model: "m", APIKey: "sk", Protocol: "openai",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	profilePath, _ := store.ProfilePath("team")
+	secretPath, _ := store.SecretPath("team")
+	if err := store.Delete(context.Background(), "team"); err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{profilePath, secretPath, store.PointerPath()} {
+		if _, err := os.Stat(path); !os.IsNotExist(err) {
+			t.Errorf("%s still exists: %v", path, err)
+		}
+	}
+	if err := store.Delete(context.Background(), "team"); err == nil || oneerrors.As(err).Code != oneerrors.InvalidRequest {
+		t.Fatalf("deleting missing Profile returned %v", err)
+	}
+}
+
 func TestWriteActiveReplacesProfileAndSupportsExistingAccount(t *testing.T) {
 	store := testStore(t, t.TempDir(), "linux")
 	if _, err := store.WriteActive(context.Background(), ActiveRequest{

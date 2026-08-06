@@ -129,6 +129,22 @@ describe("ProfilesPage", () => {
     expect(screen.getByTestId("profile-unused").textContent).toContain("暂无 Agent 使用");
   });
 
+  it("deletes a Profile after confirmation", async () => {
+	vi.spyOn(window, "confirm").mockReturnValue(true);
+	const remove = vi.spyOn(api, "deleteProfile").mockResolvedValue();
+	renderPage([profile({ id: "unused", label: "未使用" })]);
+
+	fireEvent.click(screen.getByRole("button", { name: "删除 未使用" }));
+	await waitFor(() => expect(remove).toHaveBeenCalledWith("unused"));
+	expect(refreshStatus).toHaveBeenCalled();
+  });
+
+  it("explains why an in-use Profile cannot be deleted", () => {
+    renderPage([profile()]);
+    fireEvent.click(screen.getByRole("button", { name: "删除 团队 PPIO" }));
+    expect(screen.getByText(/Profile 正在被.*使用，无法删除/)).toBeTruthy();
+  });
+
   it("creates a Profile inline without entering onboarding", async () => {
     const save = vi.spyOn(api, "saveProfile").mockResolvedValue(profile({
       id: "profile-ppio",

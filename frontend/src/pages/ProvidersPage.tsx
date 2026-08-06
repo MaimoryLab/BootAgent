@@ -85,8 +85,13 @@ export function ProvidersPage({ create = false }: { create?: boolean }) {
     }
   };
 
-  const remove = async (providerId: string, name: string) => {
-    if (!window.confirm(t("删除 Provider“{name}”？", { name }))) return;
+  const remove = async (providerId: string, name: string, users: string[]) => {
+    if (users.length) {
+      setFailure(t("Provider 正在被 {agents} 使用，无法删除", {
+        agents: users.map(nameOf).join(locale === "en" ? ", " : "、"),
+      }));
+      return;
+    }
     setBusy(true);
     setFailure("");
     setApplied("");
@@ -198,7 +203,7 @@ export function ProvidersPage({ create = false }: { create?: boolean }) {
                     <Pencil size={14} />
                   </button>
                   {meta.custom ? (
-                    <button className="icon-button is-danger" type="button" onClick={() => void remove(providerId, meta.name)} aria-label={t("删除 {name}", { name: meta.name })} title={t("删除")}>
+                      <button className="icon-button is-danger" type="button" onClick={() => void remove(providerId, meta.name, users)} aria-label={t("删除 {name}", { name: meta.name })} title={users.length ? t("Provider 正在被 {agents} 使用，无法删除", { agents: users.map(nameOf).join(locale === "en" ? ", " : "、") }) : t("删除")}>
                       <Trash2 size={14} />
                     </button>
                   ) : null}

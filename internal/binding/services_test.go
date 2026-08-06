@@ -45,7 +45,7 @@ func TestServiceMethodAllowlist(t *testing.T) {
 		{&StatusService{}, []string{"GetStatus"}},
 		{&ProviderService{}, []string{"DeleteProvider", "GetProvider", "ListModels", "OpenRegistration", "Probe", "SaveProvider"}},
 		{&AgentService{}, []string{"Activate", "Install", "Launch", "Update"}},
-		{&ProfileService{}, []string{"ListProfiles", "SaveProfile"}},
+		{&ProfileService{}, []string{"DeleteProfile", "ListProfiles", "SaveProfile"}},
 		{&RuntimeService{}, []string{"GetSettings", "InstallRuntime", "ListRuntimes", "SaveSettings"}},
 		{&DesktopAgentService{}, []string{"Configure", "GetStatus", "Install", "Open"}},
 		{&UpdateService{}, []string{"Check", "DownloadAndInstall", "Restart"}},
@@ -200,6 +200,27 @@ func TestProfileServiceSavesWithoutReturningSecret(t *testing.T) {
 	wire, err := json.Marshal(summary)
 	if err != nil || strings.Contains(string(wire), "sk-secret") || strings.Contains(string(wire), "api_key") {
 		t.Fatalf("binding response leaked secret data: %s (%v)", wire, err)
+	}
+}
+
+func TestProfileServiceDeletesProfile(t *testing.T) {
+	core := app.NewUseCases(app.StatusOptions{
+		Home: t.TempDir(), Platform: platform.For("linux", "amd64"),
+		Lookup: func(string) (string, bool) { return "", false },
+	})
+	service := NewProfileService(core)
+	if _, err := service.SaveProfile(context.Background(), SaveProfileRequest{
+		ID: "team", Provider: "ppio", Model: "model-a", ConfigMode: "provider",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	deleted, err := service.DeleteProfile(context.Background(), ProviderIDRequest{ID: "team"})
+	if err != nil || !deleted.OK {
+		t.Fatalf("delete Profile = %#v, err=%v", deleted, err)
+	}
+	profiles, err := service.ListProfiles(context.Background())
+	if err != nil || len(profiles) != 0 {
+		t.Fatalf("profiles after delete = %#v, err=%v", profiles, err)
 	}
 }
 

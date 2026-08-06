@@ -175,6 +175,8 @@ export const wailsApi = {
   saveSettings: (settings: Settings): Promise<Settings> =>
     call(() => RuntimeService.SaveSettings(settings)) as Promise<Settings>,
   listProfiles: (): Promise<ProfileSummary[]> => call(() => ProfileService.ListProfiles()) as Promise<ProfileSummary[]>,
+  deleteProfile: (id: string): Promise<void> =>
+    call(() => ProfileService.DeleteProfile({ id })).then(() => undefined),
   saveProfile: (input: {
     id: string;
     label: string;
