@@ -186,13 +186,17 @@ export function ProfilesPage() {
   };
 
   return (
-    <PageScaffold title={t("配置模板")} description={t("在这里创建 Profile，再将它应用到所选 Agent")}>
-      <div className="profile-toolbar">
+    <PageScaffold
+      title={t("配置模板")}
+      description={t("在这里创建 Profile，再将它应用到所选 Agent")}
+      bodyClassName="management-page"
+      secondaryAction={(
         <button className="button button-secondary" type="button" onClick={openCreate} disabled={Boolean(editor)}>
           <Plus size={15} />
           {t("新增 Profile")}
         </button>
-      </div>
+      )}
+    >
 
       {editor ? (
         <form className="profile-editor" onSubmit={(event) => void save(event)}>

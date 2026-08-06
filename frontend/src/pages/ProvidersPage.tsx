@@ -115,15 +115,17 @@ export function ProvidersPage({ create = false }: { create?: boolean }) {
   }
 
   return (
-    <PageScaffold title={create ? t("新增 Provider") : "Provider"} description={t("管理模型服务、端点与本机保存的 API Key")}>
-      {!create ? (
-        <div className="provider-toolbar">
-          <button className="button button-secondary" type="button" onClick={() => { setEditor({ ...emptyProvider }); setFailure(""); setApplied(""); }}>
-            <Plus size={15} />
-            {t("新增 Provider")}
-          </button>
-        </div>
+    <PageScaffold
+      title={create ? t("新增 Provider") : "Provider"}
+      description={t("管理模型服务、端点与本机保存的 API Key")}
+      bodyClassName="management-page"
+      secondaryAction={!create ? (
+        <button className="button button-secondary" type="button" onClick={() => { setEditor({ ...emptyProvider }); setFailure(""); setApplied(""); }}>
+          <Plus size={15} />
+          {t("新增 Provider")}
+        </button>
       ) : null}
+    >
 
       {editor ? (
         <form className="provider-editor" onSubmit={(event) => void save(event)}>

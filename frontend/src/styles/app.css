@@ -207,6 +207,8 @@
   scrollbar-gutter: stable;
 }
 
+.management-page { padding-top: 50px; }
+
 .page-footer {
   padding: 0 42px;
   border-top: 1px solid var(--border);
@@ -1002,6 +1004,7 @@
   :root { --sidebar-width: 204px; }
   .page-header { padding: 22px 30px 16px; }
   .page-body { padding: 20px 30px 28px; }
+  .management-page { padding-top: 46px; }
   .page-footer { padding: 0 30px; }
   .summary-item:nth-child(3) { border-left: 0; border-top: 1px solid var(--border); }
   .summary-item:nth-child(4) { border-top: 1px solid var(--border); }
@@ -1056,6 +1059,7 @@
   .page-header h1 { font-size: 23px; }
   .setup-stepper { margin-top: 14px; }
   .page-body { padding-top: 16px; padding-bottom: 20px; }
+  .management-page { padding-top: 42px; }
 }
 
 /* Deferrable news sits beside the title rather than in a banner of its own:
@@ -1583,13 +1587,6 @@
 }
 
 /* Provider and template management use the same quiet editor rhythm. */
-.provider-toolbar,
-.profile-toolbar {
-  margin-bottom: 12px;
-  display: flex;
-  justify-content: flex-end;
-}
-
 .provider-editor,
 .profile-editor {
   margin-bottom: 14px;
