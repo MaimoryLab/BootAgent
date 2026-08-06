@@ -11,6 +11,9 @@ const child = spawn("go", ["run", "-tags", "wails,server,e2e", "./cmd/oneagent-d
   cwd: root,
   env: {
     ...process.env,
+    // Server-mode tests do not use a native WebView; keep Linux CI independent
+    // of GTK/WebKitGTK development packages.
+    CGO_ENABLED: "0",
     ONEAGENT_HOME: home,
   },
   stdio: "inherit",
