@@ -310,7 +310,7 @@ func TestInstalledVersionsProbeConcurrentlyWithBoundedFanout(t *testing.T) {
 	runner := &versionProbeRunner{}
 	core := NewUseCases(StatusOptions{Runner: runner, Platform: platform.For("linux", "amd64")})
 	manifest := catalog.Manifest{Agents: map[string]catalog.Agent{}}
-	for index := 0; index < versionProbeConcurrency+1; index++ {
+	for index := range versionProbeConcurrency + 1 {
 		manifest.Agents[fmt.Sprintf("agent-%d", index)] = catalog.Agent{Command: fmt.Sprintf("cmd-%d", index), ConfigMode: "auto"}
 	}
 	versions := core.installedVersions(context.Background(), manifest, runner.LookPath)

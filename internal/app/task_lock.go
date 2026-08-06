@@ -1,6 +1,7 @@
 package app
 
 import (
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -45,8 +46,8 @@ func (u *UseCases) lockTasks(prefix string, targets []string) func() {
 		unlockers = append(unlockers, u.lockTask(key))
 	}
 	return func() {
-		for index := len(unlockers) - 1; index >= 0; index-- {
-			unlockers[index]()
+		for _, unlocker := range slices.Backward(unlockers) {
+			unlocker()
 		}
 	}
 }
