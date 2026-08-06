@@ -133,6 +133,7 @@
       "license_files": [
         "licenses/go/golang.org_x_mod@v0.35.0/LICENSE"
       ],
+      "modification": "",
       "name": "golang.org/x/mod",
       "platforms": [
         "macos-arm64",
