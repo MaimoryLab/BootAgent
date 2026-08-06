@@ -14,7 +14,7 @@ const dispatch = vi.fn((action: WizardAction) => {
 });
 
 const status = {
-  providers: { ppio: { name: "PPIO", home: "", base_url: "https://api.ppinfra.com/openai", has_key: true } },
+  providers: { ppio: { name: "PPIO", home: "", base_url: "https://api.ppio.com/openai", has_key: true } },
   catalog: [],
 } as unknown as StatusResponse;
 
@@ -71,5 +71,33 @@ describe("ProviderKeyPage", () => {
     render(<MemoryRouter><ProviderKeyPage /></MemoryRouter>);
 
     expect(screen.getByRole("button", { name: "继续选择模型" })).not.toBeDisabled();
+  });
+
+  it("offers the key button for a Provider with only a key page", () => {
+    // No home URL, so the pre-change guard would have hidden the button. The
+    // backend picks the URL; the page only decides whether to offer the action.
+    state = {
+      ...initialWizardState,
+      status: {
+        ...status,
+        providers: { ppio: { ...status.providers.ppio, home: "", key_management_url: "https://ppio.com/settings/key-management" } },
+      } as unknown as StatusResponse,
+      statusState: "success",
+      hasApiKey: true,
+    };
+    const open = vi.spyOn(api, "openRegister").mockResolvedValue({ ok: true, url: "", message: "" });
+    render(<MemoryRouter><ProviderKeyPage /></MemoryRouter>);
+
+    fireEvent.click(screen.getByRole("button", { name: "获取 API Key" }));
+    // No URL is passed: the backend re-resolves it, so a tampered frontend
+    // cannot choose what gets opened.
+    expect(open).toHaveBeenCalledWith("ppio", expect.anything());
+  });
+
+  it("hides the key button when the Provider publishes neither URL", () => {
+    state = { ...initialWizardState, status, statusState: "success", hasApiKey: true };
+    render(<MemoryRouter><ProviderKeyPage /></MemoryRouter>);
+
+    expect(screen.queryByRole("button", { name: "获取 API Key" })).toBeNull();
   });
 });

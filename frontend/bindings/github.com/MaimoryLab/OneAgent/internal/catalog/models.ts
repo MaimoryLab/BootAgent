@@ -40,8 +40,16 @@ export interface Mirror {
 export interface Provider {
     "name": string;
     "home": string;
+
+    /**
+     * KeyManagementURL and DefaultModel are public on purpose: the frontend
+     * needs both to spare a first-time user from hunting for a key page and
+     * inventing a model ID. Contrast fallbackModel below.
+     */
+    "key_management_url"?: string;
     "base_url": string;
     "anthropic_base_url"?: string;
+    "default_model"?: string;
     "custom"?: boolean;
     "has_key"?: boolean;
     "created_at"?: string;

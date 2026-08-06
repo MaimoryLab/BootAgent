@@ -56,6 +56,21 @@ func FallbackProbeModel(providerID string) string {
 	return defaultFallbackProbeModel
 }
 
+// DefaultModel is the model a Provider suggests when the user has not chosen
+// one. Unlike FallbackProbeModel there is no global default: a custom Provider
+// is an endpoint we know nothing about, and guessing a model ID for it would
+// produce a config that fails on first use. An empty result means the caller
+// must ask.
+func DefaultModel(providerID string) string {
+	return providerDefinitions[providerID].DefaultModel
+}
+
+// KeyManagementURL is where a signed-in user creates an API key. Empty when the
+// Provider publishes no such page, in which case callers fall back to Home.
+func KeyManagementURL(providerID string) string {
+	return providerDefinitions[providerID].KeyManagementURL
+}
+
 func PublicProviders() map[string]Provider {
 	result := make(map[string]Provider, len(providerDefinitions))
 	for id, provider := range providerDefinitions {

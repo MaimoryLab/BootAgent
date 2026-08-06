@@ -139,7 +139,10 @@ const english = {
   "连接模型服务": "Connect a model provider",
   "Key 不会进入日志、URL 或前端持久化状态": "The key is never written to logs, URLs, or persistent frontend state",
   "继续选择模型": "Continue to model selection",
-  "注册并获取 Key": "Register and get a key",
+  // The button opens the Provider's key management page, which needs an account
+  // the user may not have yet. "Register and get a key" promised the sign-up
+  // flow; this wording covers both arriving signed in and having to sign up.
+  "获取 API Key": "Get an API key",
   "自定义模型名称（可选）": "Custom model name (optional)",
   "填写后将用此模型测试连接；留空时自动选择": "When provided, this model is used for the connection test. Leave blank to select automatically",
   "可选，仅用于测试连接；实际配置模型在下一步选择": "Optional; used only for the connection test. Choose the configured model in the next step",

@@ -274,8 +274,13 @@ func resolveCLIKey(options installCLIFlags, stderr io.Writer) (string, error) {
 	}
 	registration := options.RegisterURL
 	if registration == "" {
-		if home, ok := catalog.ProviderByID(options.Provider); ok {
-			registration = home.Home
+		if meta, ok := catalog.ProviderByID(options.Provider); ok {
+			// Same precedence as the desktop OpenRegistration: the key page is
+			// where a key is actually created, Home is the fallback.
+			registration = meta.KeyManagementURL
+			if registration == "" {
+				registration = meta.Home
+			}
 		} else {
 			registration, _ = provider.ProviderHome("ppio")
 		}
