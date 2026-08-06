@@ -2,6 +2,7 @@ package binding
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
 
 	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
@@ -38,6 +39,9 @@ func (s *UpdateService) Check(ctx context.Context) (string, error) {
 	}
 	if release == nil {
 		return "", nil
+	}
+	if release.Verification == nil || release.Verification.DigestAlgo != "sha256" || len(release.Verification.Digest) != sha256.Size {
+		return "", updateError(errors.New("invalid update verification"), "Unable to check for updates")
 	}
 	return release.Version, nil
 }

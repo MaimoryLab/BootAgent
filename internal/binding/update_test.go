@@ -2,6 +2,7 @@ package binding
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
 	"reflect"
 	"testing"
@@ -69,7 +70,7 @@ func TestUpdateServiceDelegatesWithCallerContext(t *testing.T) {
 				t.Fatalf("Check context = %v, want caller context", got)
 			}
 			calls = append(calls, "check")
-			return &updater.Release{Version: "1.2.3"}, nil
+			return &updater.Release{Version: "1.2.3", Verification: &updater.Verification{DigestAlgo: "sha256", Digest: make([]byte, sha256.Size)}}, nil
 		},
 		downloadAndInstall: func(got context.Context) error {
 			if got != ctx {
@@ -100,6 +101,30 @@ func TestUpdateServiceDelegatesWithCallerContext(t *testing.T) {
 	}
 	if want := []string{"check", "download", "restart"}; !reflect.DeepEqual(calls, want) {
 		t.Fatalf("calls = %v, want %v", calls, want)
+	}
+}
+
+func TestUpdateServiceCheckRejectsInvalidVerification(t *testing.T) {
+	tests := map[string]*updater.Verification{
+		"missing":           nil,
+		"wrong algorithm":   {DigestAlgo: "sha512", Digest: make([]byte, sha256.Size)},
+		"wrong digest size": {DigestAlgo: "sha256", Digest: make([]byte, sha256.Size-1)},
+	}
+	for name, verification := range tests {
+		t.Run(name, func(t *testing.T) {
+			service := NewUpdateService(&updateBackendFake{check: func(context.Context) (*updater.Release, error) {
+				return &updater.Release{Version: "1.2.3", Verification: verification}, nil
+			}})
+
+			version, err := service.Check(context.Background())
+			got := oneerrors.As(err)
+			if version != "" || got.Code != oneerrors.InternalError || got.Message != "Unable to check for updates" || got.Status != 500 || !got.Retryable {
+				t.Fatalf("Check() = %q, %#v", version, got)
+			}
+			if errors.Unwrap(err) == nil || err.Error() != "Unable to check for updates" {
+				t.Fatalf("public error = %q, private cause = %v", err, errors.Unwrap(err))
+			}
+		})
 	}
 }
 
