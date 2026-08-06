@@ -37,7 +37,7 @@ export function storedPreference(): ThemePreference {
  * tokens.css decide. Exported so the pre-hydration script and the provider apply
  * it exactly the same way.
  */
-export function applyPreference(preference: ThemePreference): void {
+function applyPreference(preference: ThemePreference): void {
   const root = document.documentElement;
   root.classList.toggle("theme-dark", preference === "dark");
   root.classList.toggle("theme-light", preference === "light");

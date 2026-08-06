@@ -115,7 +115,7 @@
       "ecosystem": "go",
       "license": "MIT",
       "license_files": [
-        "licenses/go/github.com_wailsapp_wails_v3@v3.0.0-beta.3/LICENSE"
+        "licenses/go/github.com_wailsapp_wails_v3@v3.0.0-beta.4/LICENSE"
       ],
       "modification": "",
       "name": "github.com/wailsapp/wails/v3",
@@ -125,7 +125,7 @@
         "windows-arm64",
         "windows-x64"
       ],
-      "version": "v3.0.0-beta.3"
+      "version": "v3.0.0-beta.4"
     },
     {
       "ecosystem": "go",

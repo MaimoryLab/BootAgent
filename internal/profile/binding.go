@@ -31,17 +31,6 @@ type BindingWriteRequest struct {
 	ProfileRef string
 }
 
-type storedBinding struct {
-	SchemaVersion int    `json:"schema_version"`
-	AgentID       string `json:"agent_id"`
-	Provider      string `json:"provider"`
-	BaseURL       string `json:"base_url"`
-	Model         string `json:"model"`
-	ProfileRef    string `json:"profile_ref"`
-	CreatedAt     string `json:"created_at"`
-	UpdatedAt     string `json:"updated_at"`
-}
-
 func (s Store) AgentsPath() string {
 	return filepath.Join(s.Root(), "agents")
 }
@@ -65,7 +54,7 @@ func (s Store) ReadAgentBinding(agentID string) (*AgentBinding, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot read Agent binding for %s: %w", agentID, err)
 	}
-	var stored storedBinding
+	var stored AgentBinding
 	if err := json.Unmarshal(data, &stored); err != nil {
 		return nil, fmt.Errorf("Agent binding for %s is corrupt", agentID)
 	}
@@ -75,22 +64,16 @@ func (s Store) ReadAgentBinding(agentID string) (*AgentBinding, error) {
 	if stored.AgentID != agentID {
 		return nil, fmt.Errorf("Agent binding for %s is corrupt", agentID)
 	}
-	return &AgentBinding{
-		SchemaVersion: stored.SchemaVersion,
-		AgentID:       stored.AgentID,
-		Provider:      stored.Provider,
-		BaseURL:       stored.BaseURL,
-		Model:         stored.Model,
-		ProfileRef:    stored.ProfileRef,
-		CreatedAt:     stored.CreatedAt,
-		UpdatedAt:     stored.UpdatedAt,
-	}, nil
+	return &stored, nil
 }
 
-func (s Store) ListAgentBindings() map[string]AgentBinding {
+func (s Store) ListAgentBindings() (map[string]AgentBinding, error) {
 	entries, err := os.ReadDir(s.AgentsPath())
+	if os.IsNotExist(err) {
+		return map[string]AgentBinding{}, nil
+	}
 	if err != nil {
-		return map[string]AgentBinding{}
+		return nil, fmt.Errorf("cannot list Agent bindings: %w", err)
 	}
 	result := make(map[string]AgentBinding)
 	ids := make([]string, 0, len(entries))
@@ -107,11 +90,14 @@ func (s Store) ListAgentBindings() map[string]AgentBinding {
 	sort.Strings(ids)
 	for _, id := range ids {
 		binding, err := s.ReadAgentBinding(id)
-		if err == nil && binding != nil {
+		if err != nil {
+			return nil, err
+		}
+		if binding != nil {
 			result[id] = *binding
 		}
 	}
-	return result
+	return result, nil
 }
 
 func (s Store) WriteAgentBinding(ctx context.Context, agentID string, request BindingWriteRequest) (AgentBinding, error) {
@@ -125,7 +111,10 @@ func (s Store) WriteAgentBinding(ctx context.Context, agentID string, request Bi
 	if strings.TrimSpace(request.Provider) == "" || strings.TrimSpace(request.BaseURL) == "" || strings.TrimSpace(request.Model) == "" {
 		return AgentBinding{}, oneerrors.New(oneerrors.InvalidRequest, "Agent binding requires provider, base URL, and model")
 	}
-	existing, _ := s.ReadAgentBinding(agentID)
+	existing, err := s.ReadAgentBinding(agentID)
+	if err != nil {
+		return AgentBinding{}, err
+	}
 	now := s.clock().UTC().Format(time.RFC3339)
 	profileRef := request.ProfileRef
 	created := now
@@ -137,7 +126,7 @@ func (s Store) WriteAgentBinding(ctx context.Context, agentID string, request Bi
 			created = existing.CreatedAt
 		}
 	}
-	stored := storedBinding{
+	stored := AgentBinding{
 		SchemaVersion: 1,
 		AgentID:       agentID,
 		Provider:      request.Provider,
@@ -155,5 +144,5 @@ func (s Store) WriteAgentBinding(ctx context.Context, agentID string, request Bi
 	if _, err := s.filesystem().AtomicWrite(ctx, path, data, false); err != nil {
 		return AgentBinding{}, err
 	}
-	return AgentBinding(stored), nil
+	return stored, nil
 }

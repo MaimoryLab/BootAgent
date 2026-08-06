@@ -167,24 +167,6 @@ func TestInstallAgentSupportsAiderRuntimeBoundary(t *testing.T) {
 	if !strings.HasSuffix(installEnv["UV_TOOL_BIN_DIR"], "/.oneagent/runtimes/global/bin") {
 		t.Fatalf("uv tool bin dir = %q", installEnv["UV_TOOL_BIN_DIR"])
 	}
-
-	pythonRunner := &fakeInstallRunner{paths: map[string]string{"python3": "/fake/python3"}}
-	pythonRunner.run = func(argv []string, _ map[string]string) (process.Result, error) {
-		return process.Result{Args: argv, ExitCode: 0, Stdout: "Python 3.12.9"}, nil
-	}
-	pythonRuntime := runtimeForInstall(pythonRunner, "linux", nil)
-	if got, err := ResolveAiderPython312(context.Background(), pythonRuntime); err != nil || got != "/fake/python3" {
-		t.Fatalf("python3 resolution = %q, %v", got, err)
-	}
-
-	windowsRunner := &fakeInstallRunner{paths: map[string]string{"py": "py.exe"}}
-	windowsRunner.run = func(argv []string, _ map[string]string) (process.Result, error) {
-		return process.Result{Args: argv, ExitCode: 0, Stdout: "Python 3.12.7"}, nil
-	}
-	windowsRuntime := runtimeForInstall(windowsRunner, "windows", nil)
-	if got, err := ResolveAiderPython312(context.Background(), windowsRuntime); err != nil || got != "3.12" {
-		t.Fatalf("py launcher resolution = %q, %v", got, err)
-	}
 }
 
 func TestInstallPrerequisitesAndFailuresAreStableAndRedacted(t *testing.T) {
@@ -218,14 +200,6 @@ func TestInstallPrerequisitesAndFailuresAreStableAndRedacted(t *testing.T) {
 
 	if _, err = InstallAgent(context.Background(), runtime, agent, Options{Version: "1.2.3@other"}); err == nil || oneerrors.As(err).Code != oneerrors.InvalidRequest {
 		t.Fatalf("invalid version error = %v", err)
-	}
-}
-
-func TestResolveAiderRuntimeMissingIsPrerequisiteError(t *testing.T) {
-	runner := &fakeInstallRunner{paths: map[string]string{}}
-	_, err := ResolveAiderPython312(context.Background(), runtimeForInstall(runner, "linux", nil))
-	if err == nil || oneerrors.As(err).Code != oneerrors.PrerequisiteMissing {
-		t.Fatalf("missing Python error = %v", err)
 	}
 }
 

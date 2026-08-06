@@ -232,7 +232,7 @@ func TestAgentServiceActivatesThroughGoUseCase(t *testing.T) {
 		Platform: platform.For("linux", "amd64"),
 		Lookup:   func(string) (string, bool) { return "", false },
 	})
-	service := NewAgentService(core)
+	service := &AgentService{core: core}
 	response, err := service.Activate(context.Background(), ActivateRequest{
 		AgentID:  "codex",
 		Provider: "ppio",
@@ -261,7 +261,7 @@ func TestAgentServiceInstallsThroughGoUseCase(t *testing.T) {
 		Platform: platform.For("linux", "amd64"),
 		Lookup:   func(string) (string, bool) { return "", false },
 	})
-	service := NewAgentService(core)
+	service := &AgentService{core: core}
 	response, err := service.Install(context.Background(), InstallRequest{
 		Agents:    []string{"codex"},
 		Provider:  "ppio",

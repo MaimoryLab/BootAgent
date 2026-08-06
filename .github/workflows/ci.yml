@@ -83,6 +83,11 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+
       - uses: pnpm/action-setup@v6
         with:
           version: 11.17.0
@@ -110,3 +115,11 @@ jobs:
       - name: Build
         working-directory: frontend
         run: pnpm run build
+
+      - name: Install browser
+        working-directory: frontend
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Wails E2E
+        working-directory: frontend
+        run: pnpm run test:e2e

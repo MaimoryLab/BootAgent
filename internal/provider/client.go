@@ -40,19 +40,6 @@ func NewClient(doer HTTPDoer) *Client {
 	return &Client{doer: doer, timeout: defaultTimeout, maxBody: defaultMaxBody}
 }
 
-// NewClientWithLimits is useful for integration tests and keeps operational
-// limits explicit at the one place where requests are created.
-func NewClientWithLimits(doer HTTPDoer, timeout time.Duration, maxBody int64) *Client {
-	client := NewClient(doer)
-	if timeout > 0 {
-		client.timeout = timeout
-	}
-	if maxBody > 0 {
-		client.maxBody = maxBody
-	}
-	return client
-}
-
 type ProbeResult struct {
 	OK        bool    `json:"ok"`
 	Reachable bool    `json:"reachable"`

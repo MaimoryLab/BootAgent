@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strings"
 	"testing"
 )
@@ -46,7 +45,7 @@ func TestAgentBindingWriteReadAndPreserveProfileReference(t *testing.T) {
 	assertProfileMode(t, func() string { path, _ := store.AgentBindingPath("codex"); return path }(), 0o600)
 }
 
-func TestAgentBindingListSkipsCorruptAndInvalidFiles(t *testing.T) {
+func TestAgentBindingListRejectsCorruptFiles(t *testing.T) {
 	store := testStore(t, t.TempDir(), "linux")
 	if err := os.MkdirAll(store.AgentsPath(), 0o700); err != nil {
 		t.Fatal(err)
@@ -65,12 +64,28 @@ func TestAgentBindingListSkipsCorruptAndInvalidFiles(t *testing.T) {
 	if _, err := store.WriteAgentBinding(context.Background(), "opencode", BindingWriteRequest{Provider: "ppio", BaseURL: "https://api.ppio.com/openai", Model: "m"}); err != nil {
 		t.Fatal(err)
 	}
-	bindings := store.ListAgentBindings()
-	if len(bindings) != 1 || bindings["opencode"].Model != "m" {
-		t.Fatalf("bindings = %#v", bindings)
+	if _, err := store.ListAgentBindings(); err == nil {
+		t.Fatal("corrupt Agent binding was ignored")
 	}
 	if _, err := store.ReadAgentBinding("../escape"); err == nil {
 		t.Fatal("traversal Agent ID unexpectedly accepted")
+	}
+}
+
+func TestAgentBindingWriteDoesNotOverwriteCorruptFile(t *testing.T) {
+	store := testStore(t, t.TempDir(), "linux")
+	path, _ := store.AgentBindingPath("codex")
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte("{"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.WriteAgentBinding(context.Background(), "codex", BindingWriteRequest{Provider: "p", BaseURL: "x", Model: "m"}); err == nil {
+		t.Fatal("write overwrote corrupt Agent binding")
+	}
+	if data, err := os.ReadFile(path); err != nil || string(data) != "{" {
+		t.Fatalf("binding changed to %q, err=%v", data, err)
 	}
 }
 
@@ -86,7 +101,7 @@ func TestAgentBindingRejectsInvalidInputAndHonorsCancellation(t *testing.T) {
 	if _, err := store.WriteAgentBinding(ctx, "codex", BindingWriteRequest{Provider: "p", BaseURL: "x", Model: "m"}); err == nil {
 		t.Fatal("cancelled binding write succeeded")
 	}
-	if got := store.ListAgentBindings(); !reflect.DeepEqual(got, map[string]AgentBinding{}) {
-		t.Fatalf("cancelled write changed bindings = %#v", got)
+	if got, err := store.ListAgentBindings(); err != nil || len(got) != 0 {
+		t.Fatalf("cancelled write changed bindings = %#v, %v", got, err)
 	}
 }

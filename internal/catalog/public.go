@@ -76,15 +76,6 @@ func ProviderByID(providerID string) (Provider, bool) {
 	return provider, true
 }
 
-func ProviderIDs() []string {
-	ids := make([]string, 0, len(providerDefinitions))
-	for id := range providerDefinitions {
-		ids = append(ids, id)
-	}
-	sort.Strings(ids)
-	return ids
-}
-
 func Groups() []Group {
 	return append([]Group(nil), groups...)
 }

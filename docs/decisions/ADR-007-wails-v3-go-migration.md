@@ -7,16 +7,16 @@
 ## Context
 
 The migration plan called for a Wails v3 desktop shell, a transport-independent
-Go core, and a separate headless CLI. Wails v3 is still Alpha, so the shipped
-channel remains an unsigned technical preview.
+Go core, and a separate headless CLI. Wails v3 is still pre-release, so the
+shipped channel remains an unsigned technical preview.
 
 ## Decision
 
 1. The migration line uses Go 1.26+ and pins Wails v3 to
-   `v3.0.0-beta.3` for the initial native spike. The matching CLI uses the
-   same module version. The browser runtime candidate is pinned separately to
-   `3.0.0-alpha2.117`, the version shipped by that Wails module and present in
-   the frontend lockfile used by the production bundle.
+   `v3.0.0-beta.4` for the initial native spike. The matching CLI uses the
+   same module version. The browser runtime is pinned separately to
+   `3.0.0-beta.1`, the version embedded in that Wails module and present in the
+   frontend lockfile used by the production bundle.
 2. `agents.lock.json` remains the only hand-edited Agent catalog source. The
    root Go package embeds that file once, and `internal/catalog` parses the
    embedded bytes for both the CLI and desktop shell.

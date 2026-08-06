@@ -3,7 +3,6 @@ package catalog
 import (
 	"encoding/json"
 	"reflect"
-	"sort"
 	"testing"
 )
 
@@ -54,15 +53,6 @@ func TestEmbeddedProvidersMatchCurrentCatalogContract(t *testing.T) {
 		if provider.Name == "" || provider.BaseURL == "" || provider.fallbackModel == "" {
 			t.Fatalf("provider %q is incomplete: %#v", id, provider)
 		}
-	}
-	ids := ProviderIDs()
-	wantIDs := make([]string, 0, len(manifest.Providers))
-	for id := range manifest.Providers {
-		wantIDs = append(wantIDs, id)
-	}
-	sort.Strings(wantIDs)
-	if !reflect.DeepEqual(ids, wantIDs) {
-		t.Fatalf("ProviderIDs() = %v, want %v", ids, wantIDs)
 	}
 	if got := FallbackProbeModel("unknown"); got != manifest.DefaultFallbackProbeModel {
 		t.Fatalf("unknown fallback = %q, want %q", got, manifest.DefaultFallbackProbeModel)

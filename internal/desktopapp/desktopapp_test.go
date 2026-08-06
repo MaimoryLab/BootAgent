@@ -604,21 +604,6 @@ func TestCompareVersionHandlesMissingComponents(t *testing.T) {
 	}
 }
 
-func TestProfileAgentIDKeepsChatGPTOnCodexAndScopesOtherApps(t *testing.T) {
-	if got := ProfileAgentID(ChatGPTDesktopID); got != CodexAgentID || !SharesProfile(ChatGPTDesktopID) {
-		t.Fatalf("ChatGPT profile mapping = %q, shared=%v", got, SharesProfile(ChatGPTDesktopID))
-	}
-	if got := ProfileAgentID("  " + ChatGPTDesktopID + " "); got != CodexAgentID || !SharesProfile("  "+ChatGPTDesktopID+" ") {
-		t.Fatalf("trimmed ChatGPT profile mapping = %q, shared=%v", got, SharesProfile("  "+ChatGPTDesktopID+" "))
-	}
-	if got := ProfileAgentID("workbuddy"); got != "workbuddy" || SharesProfile("workbuddy") {
-		t.Fatalf("other desktop mapping = %q, shared=%v", got, SharesProfile("workbuddy"))
-	}
-	if SharesProfile("  workbuddy ") {
-		t.Fatal("whitespace around a non-shared desktop ID changed its ownership")
-	}
-}
-
 func TestVerifyMacOSAppRequiresExpectedTeamAndNotarization(t *testing.T) {
 	runner := &scriptedRunner{results: []process.Result{
 		{ExitCode: 0},

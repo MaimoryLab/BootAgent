@@ -17,7 +17,7 @@ the embedded frontend. Full license and notice texts are included under
 | go | `github.com/adrg/xdg` | `v0.5.3` | macos-arm64, macos-x64, windows-arm64, windows-x64 | MIT | `licenses/go/github.com_adrg_xdg@v0.5.3/LICENSE` |
 | go | `github.com/go-ole/go-ole` | `v1.3.0` | windows-arm64, windows-x64 | MIT | `licenses/go/github.com_go-ole_go-ole@v1.3.0/LICENSE` |
 | go | `github.com/pelletier/go-toml/v2` | `v2.4.3` | macos-arm64, macos-x64, windows-arm64, windows-x64 | MIT | `licenses/go/github.com_pelletier_go-toml_v2@v2.4.3/LICENSE` |
-| go | `github.com/wailsapp/wails/v3` | `v3.0.0-beta.3` | macos-arm64, macos-x64, windows-arm64, windows-x64 | MIT | `licenses/go/github.com_wailsapp_wails_v3@v3.0.0-beta.3/LICENSE` |
+| go | `github.com/wailsapp/wails/v3` | `v3.0.0-beta.4` | macos-arm64, macos-x64, windows-arm64, windows-x64 | MIT | `licenses/go/github.com_wailsapp_wails_v3@v3.0.0-beta.4/LICENSE` |
 | go | `golang.org/x/mod` | `v0.35.0` | macos-arm64, macos-x64, windows-arm64, windows-x64 | BSD-3-Clause | `licenses/go/golang.org_x_mod@v0.35.0/LICENSE` |
 | go | `golang.org/x/sys` | `v0.47.0` | windows-arm64, windows-x64 | BSD-3-Clause | `licenses/go/golang.org_x_sys@v0.47.0/LICENSE` |
 | npm | `@wailsio/runtime` | `3.0.0-alpha2.117` | frontend | MIT | `licenses/npm/wailsio_runtime@3.0.0-alpha2.117/LICENSE` |

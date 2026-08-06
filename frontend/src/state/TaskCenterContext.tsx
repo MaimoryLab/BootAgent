@@ -20,7 +20,7 @@ export interface TaskProgress {
 }
 
 export type TaskKind = "install" | "update" | "download";
-export type TaskState = "running" | "success" | "failure" | "cancelled";
+type TaskState = "running" | "success" | "failure" | "cancelled";
 
 export interface TaskOutcome {
   kind: Exclude<TaskState, "running">;
@@ -76,7 +76,7 @@ function taskLockKey(kind: TaskKind, target: string): string {
 }
 
 /** HashRouter is used by the desktop shell; this also works in browser tests. */
-export function taskRoute(): string {
+function taskRoute(): string {
   if (typeof window === "undefined") return "/overview";
   const hash = window.location.hash;
   return hash.startsWith("#") && hash.slice(1) ? hash.slice(1) : `${window.location.pathname}${window.location.search}`;

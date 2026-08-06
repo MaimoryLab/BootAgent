@@ -83,13 +83,6 @@ func NewStore(home, osID string) Store {
 	return Store{Home: home, OS: osID, FS: &filesystem, Now: time.Now}
 }
 
-func NewStoreWithDependencies(home, osID string, filesystem securefs.Store, now func() time.Time) Store {
-	if now == nil {
-		now = time.Now
-	}
-	return Store{Home: home, OS: osID, FS: &filesystem, Now: now}
-}
-
 func ValidateID(id string) error {
 	if !profileIDPattern.MatchString(id) {
 		return oneerrors.New(oneerrors.InvalidRequest, "Profile ID must start with a lowercase letter or digit and use only lowercase letters, digits, '-' or '_'")
@@ -127,10 +120,13 @@ func (s Store) SecretPath(id string) (string, error) {
 	return filepath.Join(s.Root(), "secrets", id+"."+suffix), nil
 }
 
-func (s Store) List() []Profile {
+func (s Store) List() ([]Profile, error) {
 	entries, err := os.ReadDir(s.ProfilesPath())
+	if os.IsNotExist(err) {
+		return []Profile{}, nil
+	}
 	if err != nil {
-		return []Profile{}
+		return nil, fmt.Errorf("cannot list Profiles: %w", err)
 	}
 	profiles := make([]Profile, 0, len(entries))
 	for _, entry := range entries {
@@ -140,20 +136,27 @@ func (s Store) List() []Profile {
 		path := filepath.Join(s.ProfilesPath(), entry.Name())
 		data, err := os.ReadFile(path)
 		if err != nil {
-			continue
+			return nil, fmt.Errorf("cannot read Profile %s: %w", strings.TrimSuffix(entry.Name(), ".json"), err)
 		}
 		profile, err := decodeStored(data)
-		if err != nil || ValidateID(profile.ID) != nil {
-			continue
+		if err != nil {
+			return nil, fmt.Errorf("Profile %s is corrupt: %w", strings.TrimSuffix(entry.Name(), ".json"), err)
+		}
+		if err := ValidateID(profile.ID); err != nil {
+			return nil, fmt.Errorf("Profile %s is corrupt: %w", strings.TrimSuffix(entry.Name(), ".json"), err)
 		}
 		secret, err := s.SecretPath(profile.ID)
-		if err == nil {
-			_, statErr := os.Stat(secret)
-			profile.HasKey = statErr == nil
+		if err != nil {
+			return nil, err
 		}
+		_, statErr := os.Stat(secret)
+		if statErr != nil && !os.IsNotExist(statErr) {
+			return nil, fmt.Errorf("cannot inspect Profile secret %s: %w", profile.ID, statErr)
+		}
+		profile.HasKey = statErr == nil
 		profiles = append(profiles, profile)
 	}
-	return profiles
+	return profiles, nil
 }
 
 func (s Store) LoadActive() ActiveResult {
