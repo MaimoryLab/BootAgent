@@ -2,6 +2,8 @@ package app
 
 import (
 	"context"
+	"fmt"
+	"os"
 	"strings"
 
 	"github.com/MaimoryLab/OneAgent/internal/catalog"
@@ -20,7 +22,7 @@ type LaunchAgentResult struct {
 // LaunchAgent opens a terminal window running one configured Agent. It reuses
 // nextStep, so the window gets the same command the activation screen tells the
 // user to run, including Aider's env file when that is what the Agent needs.
-func (u *UseCases) LaunchAgent(ctx context.Context, agentID string) (LaunchAgentResult, error) {
+func (u *UseCases) LaunchAgent(ctx context.Context, agentID string, directories ...string) (LaunchAgentResult, error) {
 	if u == nil {
 		return LaunchAgentResult{}, oneerrors.New(oneerrors.InternalError, "Agent service is not configured", oneerrors.WithStatus(501))
 	}
@@ -51,6 +53,17 @@ func (u *UseCases) LaunchAgent(ctx context.Context, agentID string) (LaunchAgent
 		// still the right thing to run.
 		line = agent.Command
 	}
+	workingDirectory := ""
+	if len(directories) > 0 {
+		workingDirectory = directories[0]
+	}
+	if workingDirectory != "" {
+		info, err := os.Stat(workingDirectory)
+		if err != nil || !info.IsDir() {
+			return LaunchAgentResult{}, oneerrors.New(oneerrors.InvalidRequest, fmt.Sprintf("Invalid launch directory: %s", workingDirectory))
+		}
+		line = launchInDirectory(u.status.Platform.OS, workingDirectory, line)
+	}
 	launcher, ok := process.AsLauncher(u.runner)
 	if !ok {
 		return LaunchAgentResult{}, oneerrors.New(oneerrors.InternalError, "This build cannot open a terminal window", oneerrors.WithStatus(501))
@@ -71,6 +84,17 @@ func (u *UseCases) LaunchAgent(ctx context.Context, agentID string) (LaunchAgent
 		)
 	}
 	return LaunchAgentResult{Agent: agentID, Command: line}, nil
+}
+
+func launchInDirectory(osID, directory, line string) string {
+	if osID == "windows" {
+		return `cd /d "` + strings.ReplaceAll(directory, `"`, `\"`) + `" && ` + line
+	}
+	return "cd " + shellQuote(directory) + " && " + line
+}
+
+func shellQuote(value string) string {
+	return "'" + strings.ReplaceAll(value, "'", "'\\\"'\\\"'") + "'"
 }
 
 // linuxTerminals lists the emulators to try and how each takes a command. The

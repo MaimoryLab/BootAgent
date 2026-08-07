@@ -1,4 +1,5 @@
-import { Play, RefreshCw, SlidersHorizontal } from "lucide-react";
+import { Dialogs } from "@wailsio/runtime";
+import { FolderOpen, Play, RefreshCw, SlidersHorizontal } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 
@@ -116,6 +117,7 @@ export function AgentManageRow({
   profileName,
   profile,
   onChanged,
+  defaultDirectory,
 }: {
   agentId: string;
   catalog: AgentCatalogItem | undefined;
@@ -124,6 +126,7 @@ export function AgentManageRow({
   profileName: string;
   profile?: ProfileSummary;
   onChanged?: () => void | Promise<void>;
+  defaultDirectory?: string;
 }) {
   const { t } = useI18n();
   const { startTask, finishTask, setTaskCanceller, taskFor, isTaskRunning } = useTaskCenter();
@@ -131,6 +134,9 @@ export function AgentManageRow({
   const [launching, setLaunching] = useState(false);
   const [localUpdating, setLocalUpdating] = useState(false);
   const [failure, setFailure] = useState("");
+  const [launchDirectory, setLaunchDirectory] = useState("");
+  const [rememberDirectory, setRememberDirectory] = useState(false);
+  const [directoryDialog, setDirectoryDialog] = useState(false);
   const updateTaskID = taskKey("update", agentId);
   const updateTask = taskFor(updateTaskID);
   const updating = updateTask?.state === "running" || localUpdating;
@@ -152,11 +158,28 @@ export function AgentManageRow({
   const canLaunch = status.installed;
   const offer = updateOffer(catalog, status);
 
-  const launch = async () => {
+  const launch = () => {
+    const stored = localStorage.getItem(`oneagent:launch-directory:${agentId}`);
+    setLaunchDirectory(stored || defaultDirectory || "");
+    setRememberDirectory(Boolean(stored));
+    setDirectoryDialog(true);
+  };
+  const chooseDirectory = async () => {
+    try {
+      const selected = await Dialogs.OpenFile({ Title: t("选择启动目录"), Directory: launchDirectory || defaultDirectory || undefined, CanChooseDirectories: true, CanChooseFiles: false }) as unknown as string | string[];
+      const directory = Array.isArray(selected) ? selected[0] : selected;
+      if (directory) setLaunchDirectory(directory);
+    } catch { /* cancelled */ }
+  };
+  const confirmLaunch = async () => {
+    if (!launchDirectory.trim()) return;
+    if (rememberDirectory) localStorage.setItem(`oneagent:launch-directory:${agentId}`, launchDirectory.trim());
+    else localStorage.removeItem(`oneagent:launch-directory:${agentId}`);
+    setDirectoryDialog(false);
     setLaunching(true);
     setFailure("");
     try {
-      await api.launchAgent(agentId);
+      await api.launchAgent(agentId, launchDirectory.trim());
     } catch (error) {
       setFailure(describeError(error, t("无法启动 Agent")).message);
     } finally {
@@ -223,6 +246,20 @@ export function AgentManageRow({
           {statusLabel ? <span className={`agent-manage-state${failure || updateFailure ? " is-error" : ""}`}>{statusLabel}</span> : null}
         </div>
       </div>
+      {directoryDialog ? (
+        <dialog className="transfer-password-dialog" open>
+          <form onSubmit={(event) => { event.preventDefault(); void confirmLaunch(); }}>
+            <h2>{t("选择启动目录")}</h2>
+            <label className="launch-directory-label" htmlFor={`launch-directory-${agentId}`}>{t("启动目录")}</label>
+            <div className="launch-directory-input-row">
+              <input id={`launch-directory-${agentId}`} value={launchDirectory} onChange={(event) => setLaunchDirectory(event.target.value)} autoFocus />
+              <button className="icon-button" type="button" onClick={() => void chooseDirectory()} title={t("选择目录")} aria-label={t("选择目录")}><FolderOpen size={18} /></button>
+            </div>
+            <label className="launch-remember-row"><input type="checkbox" checked={rememberDirectory} onChange={(event) => setRememberDirectory(event.target.checked)} /><span>{t("记住此 Agent 的目录")}</span></label>
+            <footer><button className="button button-secondary" type="button" onClick={() => setDirectoryDialog(false)}>{t("取消")}</button><button className="button button-primary" type="submit">{t("启动")}</button></footer>
+          </form>
+        </dialog>
+      ) : null}
       <div className="agent-manage-actions">
         {/* Always in the row, not only when the Agent cannot launch. Configuring
             an installed Agent was previously reachable only by opening <details>,

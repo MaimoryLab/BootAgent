@@ -111,6 +111,7 @@ export function EnvironmentOverviewPage() {
                 providers={status.providers}
                 profileName={profile?.label || profile?.id || ""}
                 profile={profile}
+                defaultDirectory={status.paths.launch_directory}
                 onChanged={refreshStatus}
               />;
             })}

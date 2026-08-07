@@ -81,6 +81,7 @@ export interface InstallRuntimeRequest {
 
 export interface LaunchRequest {
     "agent_id": string;
+    "working_directory": string;
 }
 
 export interface LaunchResponse {

@@ -94,6 +94,18 @@ func TestLaunchAgentUsesCmdOnWindows(t *testing.T) {
 	}
 }
 
+func TestLaunchAgentChangesWorkingDirectory(t *testing.T) {
+	directory := t.TempDir()
+	core := launchCore(t, "linux", &launchRunner{paths: map[string]string{"x-terminal-emulator": "/usr/bin/x-terminal-emulator"}})
+	result, err := core.LaunchAgent(context.Background(), "codex", directory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(result.Command, "cd '") || !strings.Contains(result.Command, directory) {
+		t.Fatalf("launch command = %q", result.Command)
+	}
+}
+
 func TestOfficialInstallerUsesPowerShellOnWindows(t *testing.T) {
 	runner := &launchRunner{}
 	core := launchCore(t, "windows", runner)

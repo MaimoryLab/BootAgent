@@ -1,5 +1,5 @@
 import { CheckCircle2, ChevronDown, CircleAlert, CircleStop, LoaderCircle, ListChecks, RefreshCw, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useInRouterContext, useNavigate } from "react-router-dom";
 
 import { useI18n } from "../i18n";
@@ -84,14 +84,24 @@ function TaskCenterShell({ navigate }: { navigate: (route: string) => void }) {
   const { t } = useI18n();
   const { tasks } = useTaskCenter();
   const [open, setOpen] = useState(false);
+  const centerRef = useRef<HTMLElement>(null);
   const active = tasks.some((task) => task.state === "running");
 
   useEffect(() => {
     if (active) setOpen(true);
   }, [active]);
 
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (event: PointerEvent) => {
+      if (!centerRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [open]);
+
   return (
-    <section className={`task-center${open ? " is-open" : ""}`}>
+    <section ref={centerRef} className={`task-center${open ? " is-open" : ""}`}>
       <button
         type="button"
         className="task-center-trigger"

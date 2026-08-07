@@ -363,6 +363,11 @@ func TestStatusMatchesEmptyLinuxARM64Fixture(t *testing.T) {
 		t.Fatal(err)
 	}
 	actual = normalizeFixtureHome(actual, home)
+	// The launch directory is the process working directory, which is not stable
+	// across test runners and is not part of this frozen environment fixture.
+	if paths, ok := actual.(map[string]any)["paths"].(map[string]any); ok {
+		delete(paths, "launch_directory")
+	}
 	if !reflect.DeepEqual(actual, expected) {
 		actualPretty, _ := json.MarshalIndent(actual, "", "  ")
 		expectedPretty, _ := json.MarshalIndent(expected, "", "  ")

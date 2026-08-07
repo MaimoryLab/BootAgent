@@ -148,7 +148,7 @@ describe("Wails backend adapter", () => {
     expect(bridge.install).toHaveBeenCalledWith(expect.objectContaining({ agents: ["codex"], timeout: 0, agent_version: "" }));
     expect(bridge.register).toHaveBeenCalledWith({ provider: "ppio", agents: null });
     expect(bridge.activate).toHaveBeenCalledWith(expect.objectContaining({ agent_id: "codex", profile_id: "", small_fast_model: "" }));
-    expect(bridge.launch).toHaveBeenCalledWith({ agent_id: "codex" });
+    expect(bridge.launch).toHaveBeenCalledWith({ agent_id: "codex", working_directory: "" });
     expect(bridge.desktopStatus).toHaveBeenCalledWith({ agent_id: "chatgpt-desktop" });
     expect(bridge.desktopInstall).toHaveBeenCalledWith({ agent_id: "chatgpt-desktop" });
     expect(bridge.desktopOpen).toHaveBeenCalledWith({ agent_id: "chatgpt-desktop" });
