@@ -4,15 +4,22 @@ package binding
 
 import (
 	"context"
+	"fmt"
 	"net/url"
 	"strings"
 	"time"
 
 	"github.com/MaimoryLab/OneAgent/internal/app"
 	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
+	"github.com/MaimoryLab/OneAgent/internal/install"
 	"github.com/MaimoryLab/OneAgent/internal/process"
 	"github.com/MaimoryLab/OneAgent/internal/provider"
 )
+
+// maxInstallTimeoutSeconds caps an explicitly requested timeout. It sits above
+// DefaultCommandTimeout on purpose: a ceiling equal to the default would mean a
+// caller could not ask for the default explicitly.
+const maxInstallTimeoutSeconds = 6 * 60 * 60
 
 type Services struct {
 	Status       *StatusService
@@ -306,9 +313,12 @@ func (s *AgentService) Install(ctx context.Context, request InstallRequest) (Ins
 	if s == nil || s.core == nil {
 		return InstallResponse{}, notReady("Agent installation is not configured")
 	}
-	timeout := 180 * time.Second
-	if request.Timeout < 0 || request.Timeout > 3600 {
-		return InstallResponse{}, oneerrors.New(oneerrors.InvalidRequest, "timeout must be an integer between 1 and 3600")
+	// The default lives in internal/install so Go owns it alone. The frontend used
+	// to send a hardcoded 180, which made this a second source of truth that could
+	// disagree silently.
+	timeout := install.DefaultCommandTimeout
+	if request.Timeout < 0 || request.Timeout > maxInstallTimeoutSeconds {
+		return InstallResponse{}, oneerrors.New(oneerrors.InvalidRequest, fmt.Sprintf("timeout must be an integer between 0 and %d, where 0 selects the default", maxInstallTimeoutSeconds))
 	}
 	if request.Timeout > 0 {
 		timeout = time.Duration(request.Timeout) * time.Second

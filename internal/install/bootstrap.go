@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -18,9 +19,39 @@ import (
 	"github.com/MaimoryLab/OneAgent/internal/process"
 )
 
-// RuntimeDownloadTimeout bounds one runtime archive download. Node is roughly
-// 50 MB, so this is generous enough for a slow link but still terminates.
-const RuntimeDownloadTimeout = 10 * time.Minute
+// RuntimeDownloadTimeout is a backstop for one runtime archive download, not the
+// working limit. DownloadStallTimeout is what ends a dead transfer; this only
+// has to exceed any legitimate download. At 10 minutes it was cutting off Node's
+// ~50 MB archive on genuinely slow links, and as an http.Client.Timeout it
+// bounded the whole request including the body, so a transfer that was still
+// making progress died anyway.
+const RuntimeDownloadTimeout = 60 * time.Minute
+
+// DownloadStallTimeout is how long a download may receive nothing before it is
+// abandoned. Shorter than the command stall window because a stalled socket is
+// unambiguous: unlike npm, an HTTP body has no reason to go quiet for a minute
+// and then recover.
+const DownloadStallTimeout = 120 * time.Second
+
+// dialTimeout and responseHeaderTimeout bound the phases that should be fast
+// even on a slow link. Only the body transfer is unbounded, and stall detection
+// covers that.
+const (
+	dialTimeout           = 30 * time.Second
+	responseHeaderTimeout = 60 * time.Second
+)
+
+// defaultDownloadClient deliberately sets no Client.Timeout. That field bounds
+// the entire request including reading the body, which is exactly the wall-clock
+// limit this change removes; the phase timeouts above plus stall detection
+// replace it.
+func defaultDownloadClient() *http.Client {
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.DialContext = (&net.Dialer{Timeout: dialTimeout}).DialContext
+	transport.TLSHandshakeTimeout = dialTimeout
+	transport.ResponseHeaderTimeout = responseHeaderTimeout
+	return &http.Client{Transport: transport}
+}
 
 // Doer is the narrow HTTP boundary so runtime downloads are testable without a
 // network. It matches internal/provider's client boundary on purpose.
@@ -152,6 +183,17 @@ type RuntimeOptions struct {
 	// PreferMirror tries the locked mirror before the official source. The
 	// checksum gate is identical either way, so this only chooses a host.
 	PreferMirror bool
+	// StallTimeout overrides DownloadStallTimeout for one request. Zero takes the
+	// default and negative disables the check, matching OSRunner.StallTimeout.
+	// Tests set it so they need not wait out the real window.
+	StallTimeout time.Duration
+}
+
+func (o RuntimeOptions) stallTimeout() time.Duration {
+	if o.StallTimeout != 0 {
+		return o.StallTimeout
+	}
+	return DownloadStallTimeout
 }
 
 // EnsureRuntime installs a locked runtime when its command is not already
@@ -296,14 +338,14 @@ func installRuntime(ctx context.Context, runtime Runtime, client Doer, runtimeID
 
 func downloadArtifact(ctx context.Context, client Doer, entry catalog.Runtime, artifact catalog.RuntimeArtifact, directory string, options RuntimeOptions, listener process.OutputListener, target string) (string, error) {
 	if client == nil {
-		client = &http.Client{Timeout: RuntimeDownloadTimeout}
+		client = defaultDownloadClient()
 	}
 	downloadCtx, cancel := context.WithTimeout(ctx, RuntimeDownloadTimeout)
 	defer cancel()
 
 	var lastErr error
 	for _, source := range downloadSources(artifact, options.PreferMirror) {
-		path, err := fetchTo(downloadCtx, client, source, artifact.SHA256, directory, listener, target)
+		path, err := fetchTo(downloadCtx, client, source, artifact.SHA256, directory, listener, target, options.stallTimeout())
 		if err == nil {
 			return path, nil
 		}
@@ -329,7 +371,7 @@ func downloadSources(artifact catalog.RuntimeArtifact, preferMirror bool) []stri
 	return []string{artifact.URL, artifact.MirrorURL}
 }
 
-func fetchTo(ctx context.Context, client Doer, source, expected, directory string, listener process.OutputListener, target string) (string, error) {
+func fetchTo(ctx context.Context, client Doer, source, expected, directory string, listener process.OutputListener, target string, stallTimeout time.Duration) (string, error) {
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, source, nil)
 	if err != nil {
 		return "", err
@@ -350,7 +392,7 @@ func fetchTo(ctx context.Context, client Doer, source, expected, directory strin
 	digest := sha256.New()
 	// A retry against the fallback host starts the bar over rather than
 	// resuming: the mirror's byte count says nothing about the official source's.
-	_, copyErr := process.CopyWithProgress(io.MultiWriter(file, digest), response.Body, response.ContentLength, target, listener)
+	_, copyErr := process.CopyWithStallTimeout(ctx, io.MultiWriter(file, digest), response.Body, response.ContentLength, target, listener, stallTimeout)
 	closeErr := file.Close()
 	if copyErr != nil || closeErr != nil {
 		os.Remove(path)

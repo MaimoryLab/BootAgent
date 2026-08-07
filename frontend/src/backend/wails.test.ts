@@ -144,7 +144,8 @@ describe("Wails backend adapter", () => {
     expect(bridge.probe).toHaveBeenCalledWith({ provider: "custom", api_base_url: "https://proxy.test/v1", api_key: "secret", model: "m", agents: null });
     expect(bridge.getProvider).toHaveBeenCalledWith({ id: "acme" });
     expect(bridge.deleteProvider).toHaveBeenCalledWith({ id: "acme" });
-    expect(bridge.install).toHaveBeenCalledWith(expect.objectContaining({ agents: ["codex"], timeout: 180, agent_version: "" }));
+    // 0 means "use the Go default" rather than a duplicated number here.
+    expect(bridge.install).toHaveBeenCalledWith(expect.objectContaining({ agents: ["codex"], timeout: 0, agent_version: "" }));
     expect(bridge.register).toHaveBeenCalledWith({ provider: "ppio", agents: null });
     expect(bridge.activate).toHaveBeenCalledWith(expect.objectContaining({ agent_id: "codex", profile_id: "", small_fast_model: "" }));
     expect(bridge.launch).toHaveBeenCalledWith({ agent_id: "codex" });

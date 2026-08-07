@@ -728,6 +728,8 @@
   padding: 0 10px;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-control);
+  color: var(--text-primary);
+  background: var(--window-bg);
   display: grid;
   grid-template-columns: 20px minmax(0, 1fr) 30px;
   align-items: center;
@@ -742,11 +744,19 @@
 
 .secure-field > svg { color: var(--text-tertiary); }
 
+/* The background belongs to .secure-field, which draws the border and the focus
+   ring; this input is only the text surface inside it. Both declarations are
+   required rather than inherited: an <input> takes neither its parent's colour
+   nor a transparent background from the UA sheet, so without them the field
+   rendered white-on-white in dark mode. .field-stack > input does not reach here
+   because .secure-field sits between them. */
 .secure-field input {
   min-width: 0;
   height: 40px;
   border: 0;
   outline: none;
+  color: inherit;
+  background: transparent;
 }
 
 .secure-field button {
@@ -794,6 +804,8 @@
   padding: 0 11px;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-control);
+  color: var(--text-primary);
+  background: var(--window-bg);
   display: grid;
   grid-template-columns: 20px minmax(0, 1fr);
   align-items: center;
@@ -801,7 +813,10 @@
 }
 
 .search-field svg { color: var(--text-tertiary); }
-.search-field input { height: 36px; border: 0; outline: 0; }
+/* Same wrapper pattern as .secure-field: the box owns the border and background,
+   the input is only the text surface, so it needs both declarations to stop the
+   UA sheet painting it white. */
+.search-field input { height: 36px; border: 0; outline: 0; color: inherit; background: transparent; }
 
 .model-list {
   max-height: 270px;

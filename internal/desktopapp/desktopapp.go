@@ -79,7 +79,17 @@ type Options struct {
 
 const (
 	inspectTimeout = 10 * time.Second
+	// installTimeout bounds local work: hdiutil, ditto, codesign, spctl. These are
+	// disk and CPU bound, so elapsed time is a fair limit for them.
 	installTimeout = 20 * time.Minute
+	// downloadTimeout is the backstop for fetching an installer, where elapsed
+	// time is not a fair limit — a 200 MB DMG on a slow link is healthy, and
+	// downloadStallTimeout is what distinguishes that from a dead transfer.
+	downloadTimeout = 60 * time.Minute
+	// Matches install.DownloadStallTimeout. Not imported from there because this
+	// package does not otherwise depend on internal/install, and a desktop
+	// installer download has the same characteristics as a runtime archive.
+	downloadStallTimeout = 120 * time.Second
 )
 
 var packageVersionPattern = regexp.MustCompile(`^[0-9]+(?:\.[0-9]+){1,3}$`)
@@ -654,7 +664,7 @@ func installChatGPTWindowsInstaller(ctx context.Context, options Options, status
 }
 
 func downloadFile(ctx context.Context, options Options, url, destination, target string) error {
-	downloadCtx, cancel := context.WithTimeout(ctx, installTimeout)
+	downloadCtx, cancel := context.WithTimeout(ctx, downloadTimeout)
 	defer cancel()
 	request, err := http.NewRequestWithContext(downloadCtx, http.MethodGet, url, nil)
 	if err != nil {
@@ -662,6 +672,8 @@ func downloadFile(ctx context.Context, options Options, url, destination, target
 	}
 	client := options.Downloader
 	if client == nil {
+		// http.DefaultClient sets no Timeout, which is what we want here: the
+		// stall check below is the limit on the body transfer.
 		client = http.DefaultClient
 	}
 	response, err := client.Do(request)
@@ -676,7 +688,7 @@ func downloadFile(ctx context.Context, options Options, url, destination, target
 	if err != nil {
 		return err
 	}
-	written, copyErr := process.CopyWithProgress(file, response.Body, response.ContentLength, target, options.Output)
+	written, copyErr := process.CopyWithStallTimeout(downloadCtx, file, response.Body, response.ContentLength, target, options.Output, downloadStallTimeout)
 	closeErr := file.Close()
 	contextErr := downloadCtx.Err()
 	if copyErr != nil || closeErr != nil || contextErr != nil || written == 0 {

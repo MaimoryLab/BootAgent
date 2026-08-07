@@ -147,7 +147,9 @@ export const wailsApi = {
       agent_version: input.agent_version ?? "",
       skip_test: input.skip_test,
       registry: input.registry ?? "",
-      timeout: input.timeout ?? 180,
+      // 0 asks Go for its own default. Repeating a number here made this a second
+      // source of truth that silently disagreed when the Go side changed.
+      timeout: input.timeout ?? 0,
     })) as CancellableRequest<InstallResponse>,
   openRegister: (provider: ProviderId, agents: string[]): Promise<OpenRegistrationResponse> =>
     call(() => ProviderService.OpenRegistration({ provider, agents: agents.length ? agents : null })) as Promise<OpenRegistrationResponse>,

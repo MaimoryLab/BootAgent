@@ -14,7 +14,12 @@ import (
 )
 
 const (
-	DefaultCommandTimeout = 180 * time.Second
+	// DefaultCommandTimeout is a backstop, not the working limit. Stall detection
+	// in internal/process is what actually ends a hung install, so this only has
+	// to be larger than any legitimate install: at 180s it was cutting off
+	// perfectly healthy `npm install -g` runs on slow links, and the user saw
+	// "timed out" rather than anything pointing at the registry.
+	DefaultCommandTimeout = 60 * time.Minute
 	VersionCommandTimeout = 30 * time.Second
 )
 
