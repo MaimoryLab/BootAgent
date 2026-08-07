@@ -102,6 +102,7 @@ export const wailsApi = {
   onInstallOutput,
   status: (): Promise<StatusResponse> => call(() => StatusService.GetStatus()) as Promise<StatusResponse>,
   checkUpdate: (): Promise<string> => call(() => UpdateService.Check()) as Promise<string>,
+  version: (): Promise<string> => call(() => UpdateService.Version()) as Promise<string>,
   downloadUpdate: (): CancellableRequest<void> => call(() => UpdateService.DownloadAndInstall()) as CancellableRequest<void>,
   restartUpdate: (): Promise<void> => call(() => UpdateService.Restart()).then(() => undefined),
   desktopAgentStatus: (agentId: string): Promise<DesktopAgentStatus> =>

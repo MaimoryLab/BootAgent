@@ -108,7 +108,12 @@ jobs:
         run: |
           mkdir -p bin
           version_ldflag="-X github.com/MaimoryLab/OneAgent/internal/version.Version=$RELEASE_VERSION"
+          if [ "${{ matrix.target.platform }}" = windows ]; then
+            go run github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.4 generate icons -input build/appicon.png -macfilename "" -windowsfilename build/windows/icon.ico
+            go run github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.4 generate syso -arch "${GOARCH}" -icon build/windows/icon.ico -manifest build/windows/wails.exe.manifest -out "cmd/oneagent-desktop/wails_windows_${GOARCH}.syso"
+          fi
           go build -tags wails,production -trimpath -buildvcs=false -ldflags="${{ matrix.target.desktop_ldflags }} $version_ldflag" -o "bin/oneagent-desktop${{ matrix.target.suffix }}" ./cmd/oneagent-desktop
+          rm -f "cmd/oneagent-desktop/wails_windows_${GOARCH}.syso"
 
       - name: Package macOS app
         if: matrix.target.platform == 'macos'

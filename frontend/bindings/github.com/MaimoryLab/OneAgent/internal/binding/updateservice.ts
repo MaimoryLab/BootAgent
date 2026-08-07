@@ -16,3 +16,7 @@ export function DownloadAndInstall(): $CancellablePromise<void> {
 export function Restart(): $CancellablePromise<void> {
     return $Call.ByID(841440456);
 }
+
+export function Version(): $CancellablePromise<string> {
+    return $Call.ByID(4072212011);
+}

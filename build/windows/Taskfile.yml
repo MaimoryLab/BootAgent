@@ -12,8 +12,15 @@ tasks:
         vars:
           DEV:
             ref: .DEV
+      - task: generate:syso
+        vars:
+          ARCH: '{{.ARCH | default ARCH}}'
     cmds:
       - go build {{.BUILD_FLAGS}} -o "{{.OUTPUT}}" ./cmd/oneagent-desktop
+      - cmd: powershell Remove-item "cmd/oneagent-desktop/wails_windows_{{.ARCH | default ARCH}}.syso"
+        platforms: [windows]
+      - cmd: rm -f "cmd/oneagent-desktop/wails_windows_{{.ARCH | default ARCH}}.syso"
+        platforms: [linux, darwin]
     vars:
       BUILD_FLAGS: '{{if eq .DEV "true"}}-tags wails -buildvcs=false -gcflags=all="-l"{{else}}-tags wails,production -trimpath -buildvcs=false -ldflags="-w -s -H windowsgui{{if .VERSION}} -X github.com/MaimoryLab/OneAgent/internal/version.Version={{.VERSION}}{{end}}"{{end}}'
       OUTPUT: '{{.OUTPUT | default (printf "%s/%s.exe" .BIN_DIR .APP_NAME)}}'
@@ -21,6 +28,14 @@ tasks:
       GOOS: windows
       CGO_ENABLED: 0
       GOARCH: '{{.ARCH | default ARCH}}'
+
+  generate:syso:
+    summary: Generates Windows resources with the application icon
+    dir: '{{.ROOT_DIR}}'
+    deps:
+      - task: common:generate:windows:icon
+    cmds:
+      - '{{.WAILS3}} generate syso -arch {{.ARCH | default ARCH}} -icon build/windows/icon.ico -manifest build/windows/wails.exe.manifest -out cmd/oneagent-desktop/wails_windows_{{.ARCH | default ARCH}}.syso'
 
   package:
     summary: Builds an NSIS installer

@@ -7,6 +7,7 @@ import (
 
 	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
 	"github.com/MaimoryLab/OneAgent/internal/process"
+	"github.com/MaimoryLab/OneAgent/internal/version"
 	"github.com/wailsapp/wails/v3/pkg/updater"
 )
 
@@ -24,6 +25,10 @@ type UpdateService struct {
 
 func NewUpdateService(backend UpdateBackend) *UpdateService {
 	return &UpdateService{backend: backend}
+}
+
+func (s *UpdateService) Version() string {
+	return version.Version
 }
 
 func (s *UpdateService) Check(ctx context.Context) (string, error) {

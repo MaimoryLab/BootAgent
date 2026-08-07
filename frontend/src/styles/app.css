@@ -229,7 +229,7 @@
 .launch-remember-row input[type="checkbox"]:checked { border-color: var(--blue); background: var(--blue); }
 .launch-remember-row input[type="checkbox"]:checked::before { transform: rotate(-45deg) scale(1); }
 
-.settings-page { padding-top: 24px; display: grid; align-content: start; gap: 28px; }
+.settings-page { padding-top: 24px; display: flex; flex-direction: column; gap: 28px; }
 .settings-section { width: 100%; max-width: none; }
 .settings-section h2 { margin: 0 0 10px; color: var(--text-secondary); font-size: 12px; font-weight: 600; }
 .settings-row,
@@ -245,6 +245,10 @@
 .settings-link strong { font-size: 13px; }
 .settings-link small { color: var(--text-secondary); font-size: 11px; }
 .settings-link > svg:last-child { color: var(--text-tertiary); }
+.settings-about { margin-top: auto; padding-top: 20px; display: flex; align-items: center; flex-wrap: wrap; gap: 12px 18px; border-top: 1px solid var(--border); }
+.settings-about-meta { display: flex; flex-wrap: wrap; gap: 4px 16px; color: var(--text-secondary); font-size: 11px; }
+.settings-update-message { flex-basis: 100%; color: var(--text-secondary); }
+.settings-about .spin { animation: spin 900ms linear infinite; }
 
 .page-footer {
   padding: 0 42px;
