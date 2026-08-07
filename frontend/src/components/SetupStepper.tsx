@@ -6,10 +6,10 @@ import { useWizard } from "../state/WizardContext";
 
 // Single source of truth for the onboarding sequence: order and labels. Pages
 // no longer pass step numbers; the current step is derived from the route.
-const steps: Array<{ path: string; label: TranslationKey | "Agent" | "Provider" }> = [
+const steps: Array<{ path: string; label: TranslationKey | "Agent" }> = [
   { path: "/setup/agents", label: "Agent" },
-  { path: "/setup/profile", label: "Profile选择" },
-  { path: "/setup/provider", label: "Provider" },
+  { path: "/setup/profile", label: "选择配置模版" },
+  { path: "/setup/provider", label: "模型服务" },
   { path: "/setup/model", label: "模型" },
   { path: "/setup/review", label: "确认" },
   { path: "/setup/activation", label: "安装" },
@@ -41,7 +41,7 @@ export function SetupStepper() {
             aria-current={active ? "step" : undefined}
           >
             <span className="stepper-marker">{complete ? <Check size={14} /> : number}</span>
-            <span className="stepper-label">{step.label === "Agent" || step.label === "Provider" ? step.label : t(step.label)}</span>
+            <span className="stepper-label">{step.label === "Agent" ? step.label : t(step.label)}</span>
           </li>
         );
       })}

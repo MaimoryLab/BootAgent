@@ -72,7 +72,7 @@ export function SettingsPage() {
         <h2>{t("数据")}</h2>
         <button className="settings-link" type="button" onClick={() => navigate("/settings/transfer")}>
           <Import size={18} aria-hidden="true" />
-          <span><strong>{t("导入导出")}</strong><small>{t("选择要迁移的 Provider 和 Profile")}</small></span>
+          <span><strong>{t("导入导出")}</strong><small>{t("选择要迁移的模型服务和配置模版")}</small></span>
           <ChevronRight size={16} aria-hidden="true" />
         </button>
       </section>

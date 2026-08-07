@@ -150,7 +150,7 @@ export function TransferPage() {
   return (
     <PageScaffold
       title={t("导入导出")}
-      description={t("选择要迁移的 Provider 和 Profile")}
+      description={t("选择要迁移的模型服务和配置模版")}
       bodyClassName="transfer-page"
       backLabel={t("设置")}
       onBack={() => navigate("/settings")}
@@ -197,16 +197,16 @@ export function TransferPage() {
       </div>
       <div className="transfer-grid">
         <section className="transfer-section">
-          <header><div><h2>Provider</h2><p>{t("已选择 {count} 项", { count: exportProviders.size })}</p></div></header>
+          <header><div><h2>{t("模型服务")}</h2><p>{t("已选择 {count} 项", { count: exportProviders.size })}</p></div></header>
           <div className="transfer-list">
             {providers.map(([id, provider]) => {
               const required = requiredProviders.has(id);
-              return <label className="transfer-row" key={id}><input type="checkbox" checked={selectedProviders.has(id) || required} disabled={required} onChange={() => setSelectedProviders(toggle(selectedProviders, id))} /><span><strong>{provider.name}</strong><small>{id}</small></span>{required ? <em>{t("Profile 依赖")}</em> : null}</label>;
+              return <label className="transfer-row" key={id}><input type="checkbox" checked={selectedProviders.has(id) || required} disabled={required} onChange={() => setSelectedProviders(toggle(selectedProviders, id))} /><span><strong>{provider.name}</strong><small>{id}</small></span>{required ? <em>{t("配置模版依赖")}</em> : null}</label>;
             })}
           </div>
         </section>
         <section className="transfer-section">
-          <header><div><h2>Profile</h2><p>{t("已选择 {count} 项", { count: selectedProfiles.size })}</p></div></header>
+          <header><div><h2>{t("配置模版")}</h2><p>{t("已选择 {count} 项", { count: selectedProfiles.size })}</p></div></header>
           <div className="transfer-list">
             {profiles.map((profile) => <label className="transfer-row" key={profile.id}><input type="checkbox" checked={selectedProfiles.has(profile.id)} onChange={() => setSelectedProfiles(toggle(selectedProfiles, profile.id))} /><span><strong>{profile.label || profile.id}</strong><small>{profile.id} · {status.providers[profile.provider]?.name || profile.provider}</small></span></label>)}
           </div>

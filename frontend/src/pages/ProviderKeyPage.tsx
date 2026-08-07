@@ -79,7 +79,7 @@ export function ProviderKeyPage() {
       await refreshStatus();
       navigate("/setup/model");
     } catch (error) {
-      setSaveFailure(describeError(error, t("无法保存 Provider")).message);
+      setSaveFailure(describeError(error, t("无法保存模型服务")).message);
     } finally {
       setSavingKey(false);
     }
@@ -118,7 +118,7 @@ export function ProviderKeyPage() {
   return (
     <PageScaffold
       title={t("连接模型服务")}
-      description={t("将使用 Provider 已保存的 Key")}
+      description={t("将使用模型服务已保存的 Key")}
       stepper
       onBack={() => navigate("/setup/agents")}
       primaryLabel={t("继续选择模型")}
@@ -140,10 +140,10 @@ export function ProviderKeyPage() {
           <SecureKeyField value="" onChange={secret.setApiKey} />
         ) : !providerHasKey ? (
           <div className="notice notice-warning">
-            <span>{t("这个 Provider 还没有 Key，先到 Provider 页面填写")}</span>
+            <span>{t("这个模型服务还没有 Key，先到模型服务页面填写")}</span>
             <button className="button button-secondary" type="button" onClick={() => navigate(`/providers?provider=${encodeURIComponent(state.provider)}&returnTo=${encodeURIComponent("/setup/provider")}`)}>
               <ExternalLink size={15} />
-              {t("前往 Provider")}
+              {t("前往模型服务")}
             </button>
           </div>
         ) : null}

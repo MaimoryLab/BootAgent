@@ -226,12 +226,12 @@ export function AgentManageRow({
             left, so the same field sat in a different position from row to row
             and the strip could not be read down the column. */}
         <div className="agent-manage-meta" aria-label={t("状态")}>
-          <span className={`agent-manage-pill${profileLabel ? "" : " is-muted"}`} title={t("配置模板")}>
-            {profileLabel || t("无 Profile")}
+          <span className={`agent-manage-pill${profileLabel ? "" : " is-muted"}`} title={t("配置模版")}>
+            {profileLabel || t("无配置模版")}
           </span>
           <span className={`agent-manage-pill${providerName ? "" : " is-muted"}`} title={t("模型服务")}>
             {providerName ? <i aria-hidden="true" /> : null}
-            {providerName || t("无 Provider")}
+            {providerName || t("无模型服务")}
           </span>
           {model ? (
             <span className="agent-manage-pill agent-manage-model" title={t("模型")}>
@@ -282,7 +282,7 @@ export function AgentManageRow({
         <Link
           className="button button-secondary"
           to={`/agents/${agentId}`}
-          title={t("编辑这个 Agent 关联的 Profile")}
+          title={t("编辑这个 Agent 关联的配置模版")}
         >
           <SlidersHorizontal size={15} aria-hidden="true" />
           {t("配置")}
@@ -308,7 +308,7 @@ export function AgentManageRow({
             <div><small>{t("模型服务")}</small><span>{providerName}</span></div>
           ) : null}
           {profileLabel ? (
-            <div><small>{t("配置模板")}</small><span>{profileLabel}</span></div>
+            <div><small>{t("配置模版")}</small><span>{profileLabel}</span></div>
           ) : null}
           {model ? (
             <div><small>{t("模型")}</small><span className="agent-manage-detail-code">{model}</span></div>

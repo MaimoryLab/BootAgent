@@ -87,7 +87,7 @@ export function ReviewPage() {
       </div>
 
       {!state.reusedProfile ? <div className="field-stack">
-        <label htmlFor="review-profile-label">{t("配置模板名称")}</label>
+        <label htmlFor="review-profile-label">{t("配置模版名称")}</label>
         <input
           id="review-profile-label"
           className="text-field"
@@ -97,7 +97,7 @@ export function ReviewPage() {
           autoCorrect="off"
           autoCapitalize="none"
         />
-        <small>{t("这次安装会保存为一个配置模板，之后可以直接应用")}</small>
+        <small>{t("这次安装会保存为一个配置模版，之后可以直接应用")}</small>
       </div> : null}
     </PageScaffold>
   );

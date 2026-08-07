@@ -60,7 +60,7 @@ function renderPage(over: Partial<WizardState> = {}) {
 describe("ReviewPage", () => {
   it("names the Profile after the Agent and Provider, and lets the user override it", () => {
     renderPage();
-    const field = screen.getByLabelText("配置模板名称") as HTMLInputElement;
+    const field = screen.getByLabelText("配置模版名称") as HTMLInputElement;
     expect(field.value).toBe("Codex · PPIO");
     fireEvent.change(field, { target: { value: "团队 PPIO" } });
     expect(dispatch).toHaveBeenCalledWith({ type: "SET_PROFILE_LABEL", value: "团队 PPIO" });

@@ -113,7 +113,7 @@ describe("ProvidersPage", () => {
     const remove = vi.spyOn(api, "deleteProvider");
     render(<MemoryRouter><ProvidersPage /></MemoryRouter>);
     fireEvent.click(screen.getByRole("button", { name: "删除 Acme" }));
-    expect(screen.getByText(/Provider 正在被.*使用，无法删除/)).toBeTruthy();
+    expect(screen.getByText(/模型服务正在被.*使用，无法删除/)).toBeTruthy();
     expect(remove).not.toHaveBeenCalled();
   });
 
@@ -126,7 +126,7 @@ describe("ProvidersPage", () => {
     // ADR-003 puts protocol compatibility on the user; the UI has to
     // say it rather than leave it in a document.
     renderPage({ codex: "ppio" });
-    expect(screen.getByText(/用户 Provider/)).toBeTruthy();
+    expect(screen.getByText(/用户模型服务/)).toBeTruthy();
   });
 
   it("loads the saved API key when editing and sends updates", async () => {
@@ -213,8 +213,8 @@ describe("ProvidersPage", () => {
       failures: null,
     });
     renderPage({ codex: null });
-    fireEvent.click(screen.getByRole("button", { name: "新增 Provider" }));
-    fireEvent.change(screen.getByLabelText("Provider ID"), { target: { value: "acme" } });
+    fireEvent.click(screen.getByRole("button", { name: "新增模型服务" }));
+    fireEvent.change(screen.getByLabelText("模型服务 ID"), { target: { value: "acme" } });
     fireEvent.change(screen.getByLabelText("名称"), { target: { value: "Acme" } });
     fireEvent.change(screen.getByLabelText("OpenAI 兼容 Base URL"), { target: { value: "https://api.acme.test" } });
     fireEvent.change(screen.getByLabelText("API Key"), { target: { value: "sk-acme" } });
@@ -227,8 +227,8 @@ describe("ProvidersPage", () => {
   // be one that is actually free.
   it("prefills a free Provider ID and states the rule", () => {
     renderPage({ codex: null });
-    fireEvent.click(screen.getByRole("button", { name: "新增 Provider" }));
-    const id = screen.getByLabelText("Provider ID") as HTMLInputElement;
+    fireEvent.click(screen.getByRole("button", { name: "新增模型服务" }));
+    const id = screen.getByLabelText("模型服务 ID") as HTMLInputElement;
     expect(id.value).toMatch(/^[a-z0-9][a-z0-9-]*$/);
     expect(Object.keys(mockState.status?.providers ?? {})).not.toContain(id.value);
     expect(screen.getByText(/小写字母、数字或连字符/)).toBeTruthy();

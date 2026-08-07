@@ -133,12 +133,12 @@ export function DesktopAppSection({ app: desktopApp, onChanged, onSetup, onConfi
               this card twice the height of the rows beneath it for the same
               four values. */}
           <div className="desktop-app-meta">
-            <span className={`agent-manage-pill${profile?.label || desktopApp.profileId ? "" : " is-muted"}`} title={t("配置模板")}>
-              {profile?.label || desktopApp.profileId || t("无 Profile")}
+            <span className={`agent-manage-pill${profile?.label || desktopApp.profileId ? "" : " is-muted"}`} title={t("配置模版")}>
+              {profile?.label || desktopApp.profileId || t("无配置模版")}
             </span>
             <span className={`agent-manage-pill${providerName || profile?.provider ? "" : " is-muted"}`} title={t("模型服务")}>
               {providerName || profile?.provider ? <i aria-hidden="true" /> : null}
-              {providerName || profile?.provider || t("无 Provider")}
+              {providerName || profile?.provider || t("无模型服务")}
             </span>
             {model || profile?.model ? (
               <span className="agent-manage-pill agent-manage-model" title={t("模型")}>

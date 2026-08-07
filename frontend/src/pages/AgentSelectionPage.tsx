@@ -85,7 +85,7 @@ export function AgentSelectionPage() {
                   return <label key={app.id} className={`agent-row${selected ? " is-selected" : ""}${!app.supported ? " is-disabled" : ""}`}>
                     <input type="radio" name="desktop-agent-choice" checked={selected} disabled={!app.supported} onChange={() => dispatch({ type: "SELECT_AGENT", agentId: app.id })} aria-label={t("选择 {name}", { name: app.name })} />
                     <span className="agent-icon"><AppWindow size={20} aria-hidden="true" /></span>
-                    <span className="agent-copy"><span className="agent-name-line"><strong>{app.name}</strong></span><span>{app.installed ? t("已安装，可直接应用 Profile") : t("安装官方桌面应用")}</span></span>
+                    <span className="agent-copy"><span className="agent-name-line"><strong>{app.name}</strong></span><span>{app.installed ? t("已安装，可直接应用配置模版") : t("安装官方桌面应用")}</span></span>
                     <StatusBadge tone={app.installed ? "success" : app.supported ? "warning" : "neutral"}>{app.installed ? t("已安装") : app.supported ? t("待安装") : t("不支持")}</StatusBadge>
                   </label>;
                 })}

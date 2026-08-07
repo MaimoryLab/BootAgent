@@ -8,10 +8,10 @@ import { TaskCenter } from "./TaskCenter";
 // Only real destinations belong here. /setup/* are wizard steps behind
 // SetupGuard: listing them made the sidebar look broken, because clicking one
 // without a selected Agent bounced straight back to the first step.
-const navItems: Array<{ to: string; label: TranslationKey | "Provider"; icon: typeof Gauge }> = [
+const navItems: Array<{ to: string; label: TranslationKey; icon: typeof Gauge }> = [
   { to: "/overview", label: "环境总览", icon: Gauge },
-  { to: "/providers", label: "Provider", icon: Layers3 },
-  { to: "/profiles", label: "配置模板", icon: FolderCog },
+  { to: "/providers", label: "模型服务", icon: Layers3 },
+  { to: "/profiles", label: "配置模版", icon: FolderCog },
 ];
 
 export function NavigationSidebar() {
@@ -36,7 +36,7 @@ export function NavigationSidebar() {
         {navItems.map(({ to, label, icon: Icon }) => (
           <NavLink key={to} to={to} className={({ isActive }) => `sidebar-link${isActive ? " is-active" : ""}`}>
             <Icon size={18} strokeWidth={1.8} />
-            <span>{label === "Provider" ? label : t(label)}</span>
+            <span>{t(label)}</span>
           </NavLink>
         ))}
       </nav>

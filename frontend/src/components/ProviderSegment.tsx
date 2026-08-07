@@ -36,7 +36,7 @@ export function ProviderSegment({
             disabled: Boolean(protocol) && (protocol === "anthropic" ? !provider.anthropic_base_url : !provider.base_url),
           }))}
         />
-        <button className="provider-add-button" type="button" onClick={onAdd} aria-label={t("新增 Provider")} title={t("新增 Provider")}>
+        <button className="provider-add-button" type="button" onClick={onAdd} aria-label={t("新增模型服务")} title={t("新增模型服务")}>
           <Plus size={17} />
         </button>
       </div>

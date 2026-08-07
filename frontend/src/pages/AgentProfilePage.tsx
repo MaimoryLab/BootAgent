@@ -67,7 +67,7 @@ export function AgentProfilePage() {
 
   if (!status) {
     return (
-      <PageScaffold title={t("选择配置模板")}>
+      <PageScaffold title={t("选择配置模版")}>
         <div className="loading-block"><span className="spinner" />{t("正在读取环境状态")}</div>
       </PageScaffold>
     );
@@ -75,7 +75,7 @@ export function AgentProfilePage() {
 
   if (!agentId || (!app && (!catalog || catalog.configMode !== "auto"))) {
     return (
-      <PageScaffold title={t("选择配置模板")} primaryLabel={t("返回总览")} onPrimary={() => navigate("/overview")}>
+      <PageScaffold title={t("选择配置模版")} primaryLabel={t("返回总览")} onPrimary={() => navigate("/overview")}>
         <div className="empty-overview"><strong>{t("找不到可配置的 Agent")}</strong></div>
       </PageScaffold>
     );
@@ -98,7 +98,7 @@ export function AgentProfilePage() {
     setApplied("");
     setDraft({
       id,
-      label: `${targetName} Profile`,
+      label: t("{name} 配置模版", { name: targetName }),
       provider,
       model: current?.model || currentAgent?.model || "",
       originalId: "",
@@ -131,7 +131,7 @@ export function AgentProfilePage() {
       setDraft(null);
       await refreshStatus();
     } catch (error) {
-      setFailure(describeError(error, t("无法保存 Profile")).message);
+      setFailure(describeError(error, t("无法保存配置模版")).message);
     } finally {
       setBusy(false);
     }
@@ -158,7 +158,7 @@ export function AgentProfilePage() {
       setApplied(t("{name} 已应用", { name: selected.label || selected.id }));
       await refreshStatus();
     } catch (error) {
-      setFailure(describeError(error, t("应用 Profile 失败")).message);
+      setFailure(describeError(error, t("应用配置模版失败")).message);
     } finally {
       setBusy(false);
     }
@@ -166,17 +166,17 @@ export function AgentProfilePage() {
 
   return (
     <PageScaffold
-      title={t("选择配置模板")}
-      description={t("为 {name} 选择关联的 Profile", { name: targetName })}
+      title={t("选择配置模版")}
+      description={t("为 {name} 选择关联的配置模版", { name: targetName })}
       backLabel={t("返回总览")}
       onBack={() => navigate("/overview")}
       primaryLabel={busy ? t("应用中") : t("应用")}
       onPrimary={() => void apply()}
       primaryDisabled={!canApply || busy}
-      footerNote={selected?.label || t("选择一个 Profile")}
+      footerNote={selected?.label || t("选择一个配置模版")}
       secondaryAction={(
         <button className="button button-secondary" type="button" onClick={openCreate} disabled={Boolean(draft)}>
-          <Plus size={15} />{t("创建 Profile")}
+          <Plus size={15} />{t("创建配置模版")}
         </button>
       )}
     >
@@ -186,14 +186,14 @@ export function AgentProfilePage() {
       {draft ? (
         <form className="profile-editor desktop-profile-editor" onSubmit={(event) => void save(event)}>
           <header>
-            <strong>{t("编辑 Profile")}</strong>
+            <strong>{t("编辑配置模版")}</strong>
             <button className="icon-button" type="button" onClick={() => setDraft(null)} aria-label={t("关闭编辑")} title={t("关闭编辑")}>
               <X size={16} />
             </button>
           </header>
           <div className="profile-editor-grid">
             <div className="field-stack">
-              <label htmlFor="agent-profile-id">Profile ID</label>
+              <label htmlFor="agent-profile-id">{t("配置模版 ID")}</label>
               {/* Escaped hyphen: compiled with the `v` flag, a literal `-` inside
                   a character class throws and the attribute then accepts anything. */}
               <input id="agent-profile-id" value={draft.id} pattern="[a-z0-9][a-z0-9_\-]{0,63}" onChange={(event) => setDraft({ ...draft, id: event.target.value })} disabled={Boolean(draft.originalId)} spellCheck={false} autoCorrect="off" autoCapitalize="none" required />
@@ -223,15 +223,15 @@ export function AgentProfilePage() {
           </div>
           <p className="profile-key-hint">
             {status.providers[draft.provider]?.has_key
-              ? t("将使用 Provider 已保存的 Key")
+              ? t("将使用模型服务已保存的 Key")
               : <>
-                  {t("这个 Provider 还没有 Key，请先到 Provider 页面填写")} {" "}
-                  <button className="provider-link" type="button" onClick={() => navigate("/providers")}>{t("前往 Provider")}</button>
+                  {t("这个模型服务还没有 Key，请先到模型服务页面填写")} {" "}
+                  <button className="provider-link" type="button" onClick={() => navigate("/providers")}>{t("前往模型服务")}</button>
                 </>}
           </p>
           <footer>
             <button className="button button-secondary" type="button" onClick={() => setDraft(null)}>{t("取消")}</button>
-            <button className="button button-primary" type="submit" disabled={!canSave || busy}><Save size={15} />{busy ? t("保存中") : t("保存 Profile")}</button>
+            <button className="button button-primary" type="submit" disabled={!canSave || busy}><Save size={15} />{busy ? t("保存中") : t("保存配置模版")}</button>
           </footer>
         </form>
       ) : null}
@@ -249,7 +249,7 @@ export function AgentProfilePage() {
                   {active ? <Check size={16} aria-hidden="true" /> : null}
                 </label>
                 <p>{status.providers[profile.provider]?.name || profile.provider} · {profile.model || t("未指定模型")}</p>
-                {!usable ? <small className="profile-key-hint">{t("这个 Profile 还缺少 Provider Key 或模型")}</small> : null}
+                {!usable ? <small className="profile-key-hint">{t("这个配置模版还缺少模型服务 Key 或模型")}</small> : null}
                 <button className="icon-button" type="button" onClick={() => openEdit(profile)} aria-label={t("编辑 {name}", { name: profile.label })} title={t("编辑")}><Pencil size={14} /></button>
               </article>
             );
@@ -257,8 +257,8 @@ export function AgentProfilePage() {
         </div>
       ) : (
         <div className="empty-overview">
-          <strong>{t("还没有可用的 Profile")}</strong>
-          <span>{t("创建一个 Profile 后即可应用到这个 Agent")}</span>
+          <strong>{t("还没有可用的配置模版")}</strong>
+          <span>{t("创建一个配置模版后即可应用到这个 Agent")}</span>
         </div>
       )}
     </PageScaffold>

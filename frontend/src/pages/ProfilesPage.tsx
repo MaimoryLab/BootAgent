@@ -49,7 +49,7 @@ export function ProfilesPage() {
 
   if (!status) {
     return (
-      <PageScaffold title={t("配置模板")}>
+      <PageScaffold title={t("配置模版")}>
         <div className="loading-block"><span className="spinner" />{t("正在读取环境状态")}</div>
       </PageScaffold>
     );
@@ -74,7 +74,7 @@ export function ProfilesPage() {
     setFailure("");
     setEditor({
       id,
-      label: `${providerMeta?.name || provider} Profile`,
+      label: t("{name} 配置模版", { name: providerMeta?.name || provider }),
       provider,
       // Pre-filled from the Provider so a first-time user is not asked to invent
       // a model ID. Empty for a custom Provider, whose endpoint we know nothing
@@ -122,7 +122,7 @@ export function ProfilesPage() {
       await refreshStatus();
       setEditor(null);
     } catch (error) {
-      setFailure(describeError(error, t("无法保存 Profile")).message);
+      setFailure(describeError(error, t("无法保存配置模版")).message);
     } finally {
       setBusy(false);
     }
@@ -160,7 +160,7 @@ export function ProfilesPage() {
           });
           finishTask(taskKey("install", agentId), { kind: "success", message: t("{name} 已应用", { name: profile.label || profile.id }) });
         } catch (error) {
-          finishTask(taskKey("install", agentId), { kind: "failure", message: describeError(error, t("应用 Profile 失败")).message });
+          finishTask(taskKey("install", agentId), { kind: "failure", message: describeError(error, t("应用配置模版失败")).message });
           throw error;
         }
       }));
@@ -172,7 +172,7 @@ export function ProfilesPage() {
       navigate("/overview", { replace: true });
     } catch (error) {
       const cancelled = isCancellationError(error);
-      const message = cancelled ? "" : describeError(error, t("无法应用 Profile")).message;
+      const message = cancelled ? "" : describeError(error, t("无法应用配置模版")).message;
       if (!cancelled) setFailure(message);
     } finally {
       setApplying("");
@@ -181,7 +181,7 @@ export function ProfilesPage() {
 
   const remove = async (profile: ProfileSummary, users: typeof configurableAgents) => {
     if (users.length) {
-      setFailure(t("Profile 正在被 {agents} 使用，无法删除", {
+      setFailure(t("配置模版正在被 {agents} 使用，无法删除", {
         agents: users.map((agent) => agent.name).join(locale === "en" ? ", " : "、"),
       }));
       return;
@@ -189,8 +189,8 @@ export function ProfilesPage() {
     // Asked after the in-use check, so a Profile that cannot be deleted anyway
     // explains itself rather than prompting first and refusing afterwards.
     if (!await confirmDelete({
-      title: t("删除 Profile"),
-      message: t("确定删除 Profile「{name}」吗？该操作无法撤销。", { name: profile.label }),
+      title: t("删除配置模版"),
+      message: t("确定删除配置模版「{name}」吗？该操作无法撤销。", { name: profile.label }),
       confirmLabel: t("删除"),
       cancelLabel: t("取消"),
     })) return;
@@ -201,7 +201,7 @@ export function ProfilesPage() {
       if (editor?.originalId === profile.id) setEditor(null);
       await refreshStatus();
     } catch (error) {
-      setFailure(describeError(error, t("无法删除 Profile")).message);
+      setFailure(describeError(error, t("无法删除配置模版")).message);
     } finally {
       setBusy(false);
     }
@@ -209,13 +209,13 @@ export function ProfilesPage() {
 
   return (
     <PageScaffold
-      title={t("配置模板")}
-      description={t("在这里创建 Profile，再将它应用到所选 Agent")}
+      title={t("配置模版")}
+      description={t("在这里创建配置模版，再将它应用到所选 Agent")}
       bodyClassName="management-page"
       secondaryAction={(
         <button className="button button-secondary" type="button" onClick={openCreate} disabled={Boolean(editor)}>
           <Plus size={15} />
-          {t("新增 Profile")}
+          {t("新增配置模版")}
         </button>
       )}
     >
@@ -223,7 +223,7 @@ export function ProfilesPage() {
       {editor ? (
         <form className="profile-editor" onSubmit={(event) => void save(event)}>
           <header>
-            <strong>{editor.originalId ? t("编辑 {name}", { name: editor.label || editor.id }) : t("创建 Profile")}</strong>
+            <strong>{editor.originalId ? t("编辑 {name}", { name: editor.label || editor.id }) : t("创建配置模版")}</strong>
             <button className="icon-button" type="button" onClick={() => setEditor(null)} aria-label={t("关闭编辑")} title={t("关闭编辑")}>
               <X size={16} />
             </button>
@@ -231,7 +231,7 @@ export function ProfilesPage() {
 
           <div className="profile-editor-grid">
             <div className="field-stack">
-              <label htmlFor="profile-id">Profile ID</label>
+              <label htmlFor="profile-id">{t("配置模版 ID")}</label>
               <input
                 id="profile-id"
                 value={editor.id}
@@ -264,7 +264,7 @@ export function ProfilesPage() {
                 autoCorrect="off"
                 autoCapitalize="none"
               />
-              <small id="profile-label-hint">{t("留空则使用 Profile ID")}</small>
+              <small id="profile-label-hint">{t("留空则使用配置模版 ID")}</small>
             </div>
             <div className="profile-editor-wide">
               <div className="field-stack">
@@ -302,11 +302,11 @@ export function ProfilesPage() {
             {/* The key is the Provider's, so this only reports whether that
                 Provider has one and links to where it is set. */}
             <p className="profile-key-hint profile-editor-wide">
-              {providerHasKey ? t("将使用 Provider 已保存的 Key") : t("这个 Provider 还没有 Key，先到 Provider 页面填写")}
+              {providerHasKey ? t("将使用模型服务已保存的 Key") : t("这个模型服务还没有 Key，先到模型服务页面填写")}
               {providerHasKey ? null : (
                 <>
                   {" "}
-                  <button className="provider-link" type="button" onClick={() => navigate("/providers")}>{t("前往 Provider")}</button>
+                  <button className="provider-link" type="button" onClick={() => navigate("/providers")}>{t("前往模型服务")}</button>
                 </>
               )}
             </p>
@@ -316,7 +316,7 @@ export function ProfilesPage() {
             <button className="button button-secondary" type="button" onClick={() => setEditor(null)}>{t("取消")}</button>
             <button className="button button-primary" type="submit" disabled={!canSave || busy}>
               <Save size={15} />
-              {busy ? t("保存中") : t("保存 Profile")}
+              {busy ? t("保存中") : t("保存配置模版")}
             </button>
           </footer>
         </form>
@@ -327,8 +327,8 @@ export function ProfilesPage() {
       {!profiles.length && !editor ? (
         <div className="empty-overview">
           <Layers size={26} />
-          <strong>{t("还没有 Profile")}</strong>
-          <span>{t("在这里创建 Profile，再将它应用到所选 Agent")}</span>
+          <strong>{t("还没有配置模版")}</strong>
+          <span>{t("在这里创建配置模版，再将它应用到所选 Agent")}</span>
         </div>
       ) : (
         <div className="profile-list">
@@ -348,7 +348,7 @@ export function ProfilesPage() {
                         keyed Provider cannot be applied, and that is what to show. */}
                     <span className={`profile-key${status.providers[profile.provider]?.has_key ? " has-key" : ""}`}>
                       <KeyRound size={12} aria-hidden="true" />
-                      {status.providers[profile.provider]?.has_key ? t("Provider 已有 Key") : t("Provider 缺少 Key")}
+                      {status.providers[profile.provider]?.has_key ? t("模型服务已有 Key") : t("模型服务缺少 Key")}
                     </span>
                     <button className="icon-button" type="button" onClick={() => { setEditor(editDraft(profile, protocolOf(profile))); setFailure(""); }} aria-label={t("编辑 {name}", { name: profile.label })} title={t("编辑")}>
                       <Pencil size={14} />
@@ -356,7 +356,7 @@ export function ProfilesPage() {
                     {/* disabled while busy: without it a double-click sent two
                         deletes, and the second one used to report the Profile it
                         had just removed as unknown. */}
-                    <button className="icon-button is-danger" type="button" disabled={busy} onClick={() => void remove(profile, users)} aria-label={t("删除 {name}", { name: profile.label })} title={users.length ? t("Profile 正在被 {agents} 使用，无法删除", { agents: users.map((agent) => agent.name).join(locale === "en" ? ", " : "、") }) : t("删除")}>
+                    <button className="icon-button is-danger" type="button" disabled={busy} onClick={() => void remove(profile, users)} aria-label={t("删除 {name}", { name: profile.label })} title={users.length ? t("配置模版正在被 {agents} 使用，无法删除", { agents: users.map((agent) => agent.name).join(locale === "en" ? ", " : "、") }) : t("删除")}>
                       <Trash2 size={14} />
                     </button>
                   </span>
@@ -383,7 +383,7 @@ export function ProfilesPage() {
                     type="button"
                     onClick={() => void apply(profile)}
                     disabled={!canApply || Boolean(applying)}
-                    title={canApply ? t("应用 Profile") : t("请先补全模型和 API mode，并为 Provider 保存 Key")}
+                    title={canApply ? t("应用配置模版") : t("请先补全模型和 API mode，并为模型服务保存 Key")}
                   >
                     <Play size={14} />
                     {applying === profile.id ? t("应用中") : t("应用到 Agent")}

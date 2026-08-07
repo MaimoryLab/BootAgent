@@ -96,7 +96,7 @@ describe("ProviderKeyPage", () => {
     };
     render(<MemoryRouter><ProviderKeyPage /></MemoryRouter>);
 
-    expect(screen.getByRole("button", { name: "前往 Provider" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "前往模型服务" })).toBeTruthy();
     expect(screen.queryByLabelText("API Key")).toBeNull();
   });
 

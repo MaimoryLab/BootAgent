@@ -68,7 +68,7 @@ export async function parseTransfer(text: string, password = ""): Promise<{ prov
   });
   const providers: ProviderEntry[] = [];
   for (const provider of file.providers) {
-    if (Object.hasOwn(provider, "api_key")) throw new Error("Provider 文件格式无效");
+    if (Object.hasOwn(provider, "api_key")) throw new Error("模型服务文件格式无效");
     const { apikey, key_encrypted, ...publicProvider } = provider;
     const apiKey = typeof key_encrypted === "number" ? await decryptKey(encrypted[key_encrypted], password) : apikey || "";
     providers.push({ ...publicProvider, api_key: apiKey });

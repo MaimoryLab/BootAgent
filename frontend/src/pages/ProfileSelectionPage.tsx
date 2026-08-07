@@ -53,14 +53,14 @@ export function ProfileSelectionPage() {
 
   return (
     <PageScaffold
-      title={t("Profile选择")}
-      description={t("选择一个已有 Profile，或新建 Profile")}
+      title={t("选择配置模版")}
+      description={t("选择一个已有配置模版，或新建配置模版")}
       stepper
       onBack={() => navigate("/setup/agents")}
       primaryLabel={t("继续")}
       onPrimary={choose}
       primaryDisabled={!selected}
-      secondaryAction={<button className="button button-secondary" type="button" onClick={() => { dispatch({ type: "START_NEW_PROFILE" }); navigate("/setup/provider"); }}><Plus size={15} />{t("新建 Profile")}</button>}
+      secondaryAction={<button className="button button-secondary" type="button" onClick={() => { dispatch({ type: "START_NEW_PROFILE" }); navigate("/setup/provider"); }}><Plus size={15} />{t("新建配置模版")}</button>}
     >
       <div className="profile-list">
         {profiles.map((profile) => {

@@ -48,7 +48,7 @@ export function DesktopAgentSelectionPage() {
         <div className="section-heading">
           <div>
             <h2>{t("桌面 Agent")}</h2>
-            <p>{t("安装应用后，会把选定的 Profile 应用到对应的配置")}</p>
+            <p>{t("安装应用后，会把选定的配置模版应用到对应的配置")}</p>
           </div>
           <AppWindow size={20} aria-hidden="true" />
         </div>
@@ -68,7 +68,7 @@ export function DesktopAgentSelectionPage() {
                 <span className="desktop-app-icon"><AppWindow size={20} aria-hidden="true" /></span>
                 <span className="agent-copy">
                   <span className="agent-name-line"><strong>{candidate.name}</strong></span>
-                  <span>{candidate.installed ? t("已安装，可直接应用 Profile") : t("安装官方桌面应用")}</span>
+                  <span>{candidate.installed ? t("已安装，可直接应用配置模版") : t("安装官方桌面应用")}</span>
                   {candidate.configSharedWith ? <small>{t("与 {name} 共用配置", { name: candidate.configSharedWith })}</small> : null}
                 </span>
                 <StatusBadge tone={candidate.installed ? "success" : candidate.supported ? "warning" : "neutral"}>

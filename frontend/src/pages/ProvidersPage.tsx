@@ -77,7 +77,7 @@ export function ProvidersPage({ create = false }: { create?: boolean }) {
       setEditor(await api.getProvider(providerId));
       setCreating(false);
     } catch (error) {
-      setFailure(describeError(error, t("无法读取 Provider")).message);
+      setFailure(describeError(error, t("无法读取模型服务")).message);
     } finally {
       setBusy(false);
     }
@@ -129,7 +129,7 @@ export function ProvidersPage({ create = false }: { create?: boolean }) {
       if (create) navigate(returnTo);
       else setEditor(null);
     } catch (error) {
-      setFailure(describeError(error, t("无法保存 Provider")).message);
+      setFailure(describeError(error, t("无法保存模型服务")).message);
     } finally {
       setBusy(false);
     }
@@ -137,15 +137,15 @@ export function ProvidersPage({ create = false }: { create?: boolean }) {
 
   const remove = async (providerId: string, name: string, users: string[]) => {
     if (users.length) {
-      setFailure(t("Provider 正在被 {agents} 使用，无法删除", {
+      setFailure(t("模型服务正在被 {agents} 使用，无法删除", {
         agents: users.map(nameOf).join(locale === "en" ? ", " : "、"),
       }));
       return;
     }
     // The saved API key goes with it, which is the part a user does not get back.
     if (!await confirmDelete({
-      title: t("删除 Provider"),
-      message: t("确定删除 Provider「{name}」吗？已保存的 API Key 会一并删除，该操作无法撤销。", { name }),
+      title: t("删除模型服务"),
+      message: t("确定删除模型服务「{name}」吗？已保存的 API Key 会一并删除，该操作无法撤销。", { name }),
       confirmLabel: t("删除"),
       cancelLabel: t("取消"),
     })) return;
@@ -157,7 +157,7 @@ export function ProvidersPage({ create = false }: { create?: boolean }) {
       if (editor?.id === providerId) setEditor(null);
       await refreshStatus();
     } catch (error) {
-      setFailure(describeError(error, t("无法删除 Provider")).message);
+      setFailure(describeError(error, t("无法删除模型服务")).message);
     } finally {
       setBusy(false);
     }
@@ -165,7 +165,7 @@ export function ProvidersPage({ create = false }: { create?: boolean }) {
 
   if (!status) {
     return (
-      <PageScaffold title={create ? t("新增 Provider") : "Provider"}>
+      <PageScaffold title={create ? t("新增模型服务") : t("模型服务")}>
         <div className="loading-block"><span className="spinner" />{t("正在读取环境状态")}</div>
       </PageScaffold>
     );
@@ -173,13 +173,13 @@ export function ProvidersPage({ create = false }: { create?: boolean }) {
 
   return (
     <PageScaffold
-      title={create ? t("新增 Provider") : "Provider"}
+      title={create ? t("新增模型服务") : t("模型服务")}
       description={t("管理模型服务、端点与本机保存的 API Key")}
       bodyClassName="management-page"
       secondaryAction={!create ? (
         <button className="button button-secondary" type="button" onClick={() => { setEditor({ ...emptyProvider, id: suggestProviderID(Object.keys(status.providers)) }); setCreating(true); setFailure(""); setApplied(""); }}>
           <Plus size={15} />
-          {t("新增 Provider")}
+          {t("新增模型服务")}
         </button>
       ) : null}
     >
@@ -187,14 +187,14 @@ export function ProvidersPage({ create = false }: { create?: boolean }) {
       {editor ? (
         <form className="provider-editor" onSubmit={(event) => void save(event)}>
           <header>
-            <strong>{editor.id ? t("编辑 {name}", { name: editor.name || editor.id }) : t("新增 Provider")}</strong>
+            <strong>{editor.id ? t("编辑 {name}", { name: editor.name || editor.id }) : t("新增模型服务")}</strong>
             <button className="icon-button" type="button" onClick={closeEditor} aria-label={t("关闭编辑")} title={t("关闭编辑")}>
               <X size={16} />
             </button>
           </header>
           <div className="provider-editor-grid">
             <div className="field-stack">
-              <label htmlFor="provider-id">Provider ID</label>
+              <label htmlFor="provider-id">{t("模型服务 ID")}</label>
               <input
                 id="provider-id"
                 value={editor.id}
@@ -274,7 +274,7 @@ export function ProvidersPage({ create = false }: { create?: boolean }) {
                     <Pencil size={14} />
                   </button>
                   {meta.custom ? (
-                      <button className="icon-button is-danger" type="button" disabled={busy} onClick={() => void remove(providerId, meta.name, users)} aria-label={t("删除 {name}", { name: meta.name })} title={users.length ? t("Provider 正在被 {agents} 使用，无法删除", { agents: users.map(nameOf).join(locale === "en" ? ", " : "、") }) : t("删除")}>
+                      <button className="icon-button is-danger" type="button" disabled={busy} onClick={() => void remove(providerId, meta.name, users)} aria-label={t("删除 {name}", { name: meta.name })} title={users.length ? t("模型服务正在被 {agents} 使用，无法删除", { agents: users.map(nameOf).join(locale === "en" ? ", " : "、") }) : t("删除")}>
                       <Trash2 size={14} />
                     </button>
                   ) : null}
@@ -299,7 +299,7 @@ export function ProvidersPage({ create = false }: { create?: boolean }) {
         })}
       </div> : null}
 
-      {!create ? <p className="provider-note">{t("用户 Provider 的协议兼容性由你自己保证，OneAgent 不会为它降级或改写请求")}</p> : null}
+      {!create ? <p className="provider-note">{t("用户模型服务的协议兼容性由你自己保证，OneAgent 不会为它降级或改写请求")}</p> : null}
     </PageScaffold>
   );
 }

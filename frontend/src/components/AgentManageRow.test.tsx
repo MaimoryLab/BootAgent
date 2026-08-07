@@ -132,8 +132,8 @@ describe("AgentManageRow", () => {
     // Each token names its own field. A shared "未绑定" on both, plus a separate
     // "未配置" badge, said the same thing three times without saying which of
     // the two was actually absent.
-    expect(screen.getByTitle("配置模板").textContent).toBe("无 Profile");
-    expect(screen.getByTitle("模型服务").textContent).toBe("无 Provider");
+    expect(screen.getByTitle("配置模版").textContent).toBe("无配置模版");
+    expect(screen.getByTitle("模型服务").textContent).toBe("无模型服务");
     expect(screen.queryByText("未配置")).toBeNull();
     expect(screen.queryByText("未绑定")).toBeNull();
   });
@@ -144,7 +144,7 @@ describe("AgentManageRow", () => {
     renderRow({ provider: null, model: "m-1", version: "1.0.0" }, "prod");
     const order = [...document.querySelectorAll(".agent-manage-meta .agent-manage-pill")]
       .map((pill) => pill.getAttribute("title"));
-    expect(order).toEqual(["配置模板", "模型服务", "模型", "版本"]);
+    expect(order).toEqual(["配置模版", "模型服务", "模型", "版本"]);
   });
 
   it("flags a version behind the locked one", () => {

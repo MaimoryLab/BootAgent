@@ -118,7 +118,7 @@ describe("ProfilesPage", () => {
     );
     expect(screen.getByText("团队 PPIO")).toBeTruthy();
     expect(screen.getByText(/deepseek\/deepseek-v3/)).toBeTruthy();
-    expect(screen.getByText(/Provider 已有 Key/)).toBeTruthy();
+    expect(screen.getByText(/模型服务已有 Key/)).toBeTruthy();
     expect(document.body.innerHTML).not.toMatch(/sk-[A-Za-z0-9]/);
   });
 
@@ -182,7 +182,7 @@ describe("ProfilesPage", () => {
   it("explains why an in-use Profile cannot be deleted", () => {
     renderPage([profile()]);
     fireEvent.click(screen.getByRole("button", { name: "删除 团队 PPIO" }));
-    expect(screen.getByText(/Profile 正在被.*使用，无法删除/)).toBeTruthy();
+    expect(screen.getByText(/配置模版正在被.*使用，无法删除/)).toBeTruthy();
   });
 
   it("creates a Profile inline without entering onboarding", async () => {
@@ -191,17 +191,17 @@ describe("ProfilesPage", () => {
       label: "Codex Profile",
     }));
     renderPage([]);
-    expect(screen.getByText(/还没有 Profile/)).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "新增 Profile" }));
+    expect(screen.getByText(/还没有配置模版/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "新增配置模版" }));
 
     expect(screen.queryByRole("heading", { name: "onboarding" })).toBeNull();
-    expect(screen.getByLabelText("Profile ID")).toHaveValue("profile-ppio");
+    expect(screen.getByLabelText("配置模版 ID")).toHaveValue("profile-ppio");
     expect(screen.getByRole("combobox", { name: "API 类型" })).toHaveTextContent("请选择 API 类型");
     expect(dispatch).not.toHaveBeenCalled();
     fireEvent.change(screen.getByLabelText("模型"), { target: { value: "model-a" } });
     fireEvent.click(screen.getByRole("combobox", { name: "API 类型" }));
     fireEvent.click(screen.getByRole("option", { name: "OpenAI Responses" }));
-    fireEvent.click(screen.getByRole("button", { name: "保存 Profile" }));
+    fireEvent.click(screen.getByRole("button", { name: "保存配置模版" }));
 
     await waitFor(() => expect(save).toHaveBeenCalledWith(expect.objectContaining({
       id: "profile-ppio",
@@ -214,31 +214,31 @@ describe("ProfilesPage", () => {
 
   it("chooses the next available Profile ID", () => {
     renderPage([profile({ id: "codex-ppio" })]);
-    fireEvent.click(screen.getByRole("button", { name: "新增 Profile" }));
+    fireEvent.click(screen.getByRole("button", { name: "新增配置模版" }));
 
-    expect(screen.getByLabelText("Profile ID")).toHaveValue("profile-ppio");
+    expect(screen.getByLabelText("配置模版 ID")).toHaveValue("profile-ppio");
   });
 
   it("requires a manually selected API type", async () => {
     const save = vi.spyOn(api, "saveProfile").mockResolvedValue(profile({ id: "profile-ppio" }));
     renderPage([]);
-    fireEvent.click(screen.getByRole("button", { name: "新增 Profile" }));
-    expect(screen.getByRole("button", { name: "保存 Profile" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "新增配置模版" }));
+    expect(screen.getByRole("button", { name: "保存配置模版" })).toBeDisabled();
     fireEvent.change(screen.getByLabelText("模型"), { target: { value: "model-a" } });
     expect(save).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("combobox", { name: "API 类型" }));
     fireEvent.click(screen.getByRole("option", { name: "OpenAI Chat Completions" }));
-    expect(screen.getByRole("button", { name: "保存 Profile" })).not.toBeDisabled();
+    expect(screen.getByRole("button", { name: "保存配置模版" })).not.toBeDisabled();
   });
 
   it("points at the Provider page when its key is missing", async () => {
     const save = vi.spyOn(api, "saveProfile").mockResolvedValue(profile({ label: "团队默认" }));
     renderPage([profile()]);
     fireEvent.click(screen.getByRole("button", { name: "编辑 团队 PPIO" }));
-    expect(screen.getByLabelText("Profile ID").hasAttribute("disabled")).toBe(true);
-    expect(screen.getByText(/这个 Provider 还没有 Key/)).toBeTruthy();
+    expect(screen.getByLabelText("配置模版 ID").hasAttribute("disabled")).toBe(true);
+    expect(screen.getByText(/这个模型服务还没有 Key/)).toBeTruthy();
     fireEvent.change(screen.getByLabelText("名称"), { target: { value: "团队默认" } });
-    fireEvent.click(screen.getByRole("button", { name: "保存 Profile" }));
+    fireEvent.click(screen.getByRole("button", { name: "保存配置模版" }));
 
     await waitFor(() => expect(save).toHaveBeenCalledWith(expect.objectContaining({
       id: "team-ppio",
@@ -258,7 +258,7 @@ describe("ProfilesPage", () => {
     expect(label.hasAttribute("required")).toBe(false);
     fireEvent.change(label, { target: { value: "" } });
 
-    const button = screen.getByRole("button", { name: "保存 Profile" });
+    const button = screen.getByRole("button", { name: "保存配置模版" });
     expect(button.hasAttribute("disabled")).toBe(false);
     fireEvent.click(button);
     await waitFor(() => expect(save).toHaveBeenCalledWith(expect.objectContaining({ id: "team-ppio", label: "" })));
@@ -271,7 +271,7 @@ describe("ProfilesPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "编辑 团队 PPIO" }));
     fireEvent.change(screen.getByLabelText("模型"), { target: { value: "" } });
 
-    expect(screen.getByRole("button", { name: "保存 Profile" }).hasAttribute("disabled")).toBe(true);
+    expect(screen.getByRole("button", { name: "保存配置模版" }).hasAttribute("disabled")).toBe(true);
     expect(save).not.toHaveBeenCalled();
   });
 
@@ -294,7 +294,7 @@ describe("ProfilesPage", () => {
         </Routes>
       </MemoryRouter>,
     );
-    fireEvent.click(screen.getByRole("button", { name: "新增 Profile" }));
+    fireEvent.click(screen.getByRole("button", { name: "新增配置模版" }));
     expect(screen.getByLabelText("模型")).toHaveValue("ppio/default-model");
     fireEvent.change(screen.getByLabelText("模型"), { target: { value: "mine" } });
     expect(screen.getByLabelText("模型")).toHaveValue("mine");
@@ -304,7 +304,7 @@ describe("ProfilesPage", () => {
     // A user-added Provider is an endpoint we know nothing about; guessing a
     // model for it would write a config that fails on the first request.
     renderPage([]);
-    fireEvent.click(screen.getByRole("button", { name: "新增 Profile" }));
+    fireEvent.click(screen.getByRole("button", { name: "新增配置模版" }));
     expect(screen.getByLabelText("模型")).toHaveValue("");
   });
 
@@ -322,7 +322,7 @@ describe("ProfilesPage", () => {
     if (!mockState.status) throw new Error("missing status");
     mockState.status.providers.ppio.has_key = true;
     render(<MemoryRouter><ProfilesPage /></MemoryRouter>);
-    fireEvent.click(screen.getByRole("button", { name: "新增 Profile" }));
+    fireEvent.click(screen.getByRole("button", { name: "新增配置模版" }));
     fireEvent.click(screen.getByRole("combobox", { name: "API 类型" }));
     fireEvent.click(screen.getByRole("option", { name: "OpenAI Responses" }));
     await waitFor(() => expect(models).toHaveBeenCalledWith({ provider: "ppio", apiBaseUrl: "", apiKey: "" }));
