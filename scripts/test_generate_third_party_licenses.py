@@ -58,16 +58,25 @@ class AssetDependencyTests(unittest.TestCase):
                 for license_file in dependency.license_files:
                     self.assertTrue((Path(output_dir) / license_file).is_file())
 
-    def test_every_shipped_image_asset_is_registered(self) -> None:
+    def test_every_shipped_image_asset_is_accounted_for(self) -> None:
         # The generator walks the manifest, never the directory, so an asset file
         # that nobody registered is redistributed with no source, licence or hash
         # recorded -- and --check still passes. That is the failure this guards:
         # docs/distribution-compliance-policy.md makes the rights inventory a
         # release precondition.
+        #
+        # `firstPartyAssets` is a separate list because the two cases need
+        # different evidence. A third-party file needs a source, licence text,
+        # owner and hash. Our own artwork has none of those to give -- it is
+        # covered by the repository's own licence -- and putting it in `assets`
+        # to satisfy the gate would assert a vendor provenance that does not
+        # exist. What still matters is that no file is in neither list, which is
+        # what this checks.
         manifest = json.loads(ASSET_RIGHTS_MANIFEST.read_text(encoding="utf-8"))
-        registered = {
-            (ICON_ROOT / str(rights["file"])).resolve()
-            for rights in manifest["assets"].values()
+        accounted = {
+            (ICON_ROOT / str(entry["file"])).resolve()
+            for group in ("assets", "firstPartyAssets")
+            for entry in manifest.get(group, {}).values()
         }
         on_disk = {
             path.resolve()
@@ -75,14 +84,35 @@ class AssetDependencyTests(unittest.TestCase):
             if path.is_file() and path.suffix.lower() in {".svg", ".png", ".jpg", ".jpeg", ".webp"}
         }
 
-        unregistered = sorted(path.name for path in on_disk - registered)
+        unaccounted = sorted(path.name for path in on_disk - accounted)
         self.assertEqual(
-            unregistered,
+            unaccounted,
             [],
             "image assets present but absent from asset-rights.json: "
-            f"{unregistered}. Register each with its source, licence, copyright "
-            "owner and SHA-256, or delete it.",
+            f"{unaccounted}. Register a third-party asset under `assets` with its "
+            "source, licence, copyright owner and SHA-256; record our own artwork "
+            "under `firstPartyAssets`; or delete it.",
         )
+
+    def test_first_party_assets_claim_no_third_party_rights(self) -> None:
+        # The two groups must not blur together. A first-party entry carrying a
+        # licence or owner field would read as an attribution, and a file listed
+        # in both would make it ambiguous which basis applies.
+        manifest = json.loads(ASSET_RIGHTS_MANIFEST.read_text(encoding="utf-8"))
+        third_party_files = {str(entry["file"]) for entry in manifest["assets"].values()}
+        for name, entry in manifest.get("firstPartyAssets", {}).items():
+            self.assertNotIn(
+                str(entry["file"]),
+                third_party_files,
+                f"{name} is listed as both first-party and third-party",
+            )
+            self.assertTrue(str(entry.get("note", "")).strip(), f"{name} records no note")
+            for field in ("source", "license", "licenseSource", "copyrightOwner", "sha256"):
+                self.assertNotIn(
+                    field,
+                    entry,
+                    f"{name} is first-party but carries the third-party field {field!r}",
+                )
 
 
 class NoticeRenderingTests(unittest.TestCase):
