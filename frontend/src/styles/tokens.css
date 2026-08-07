@@ -60,6 +60,13 @@
    --footer-height) live in :root above and must stay there: duplicating them
    would mean every future change had to be made twice, and forcing light mode
    would drop whichever copy was missed. */
+/* The mirror of .theme-dark below: forcing light on a dark desktop otherwise
+   leaves color-scheme at `light dark`, so the engine keeps painting controls
+   dark against the light palette. */
+:root.theme-light {
+  color-scheme: light;
+}
+
 @media (prefers-color-scheme: dark) {
   /* Skipped when the user forced light: the class wins over the desktop. */
   :root:not(.theme-light) {
@@ -95,7 +102,14 @@
 }
 
 /* An explicit choice, independent of the desktop setting. */
+/* An explicit choice has to move color-scheme too, not just the custom
+   properties. color-scheme is what tells the engine how to paint the parts of a
+   control we do not draw ourselves: the dots in a password field, the caret, and
+   the autofill background. Left at the :root default of `light dark` it follows
+   the desktop, so forcing dark on a light desktop produced a dark field with a
+   light caret and light autofill -- the API Key row still reading as white. */
 :root.theme-dark {
+    color-scheme: dark;
     --page-bg: #151517;
     --window-bg: #1e1e20;
     --sidebar-bg: rgba(24, 24, 26, 0.94);
