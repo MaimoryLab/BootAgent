@@ -137,13 +137,9 @@ jobs:
 
       - name: Install NSIS
         if: matrix.target.platform == 'windows'
-        shell: pwsh
-        run: |
-          iwr -useb get.scoop.sh -outfile 'install.ps1'
-          .\install.ps1 -RunAsAdmin
-          scoop update
-          scoop bucket add extras
-          scoop install nsis
+        uses: repolevedavaj/install-nsis@v1.2.1
+        with:
+          nsis-version: '3.12'
 
       - name: Package Windows NSIS installer
         if: matrix.target.platform == 'windows'
