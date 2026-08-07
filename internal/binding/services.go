@@ -21,6 +21,7 @@ type Services struct {
 	Profile      *ProfileService
 	Runtime      *RuntimeService
 	DesktopAgent *DesktopAgentService
+	Transfer     *TransferService
 }
 
 type ServicesOptions struct {
@@ -36,6 +37,7 @@ func NewServicesWithOptions(core *app.UseCases, opener BrowserOpener, options Se
 		Profile:      NewProfileService(core),
 		Runtime:      &RuntimeService{core: core, onOutput: options.InstallOutput},
 		DesktopAgent: NewDesktopAgentService(core, options.InstallOutput),
+		Transfer:     &TransferService{},
 	}
 }
 

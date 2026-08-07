@@ -13,19 +13,16 @@
   background: var(--window-bg);
 }
 
-/* The bottom padding clears the viewport-docked task centre. It is not spacing:
-   .task-center is position: fixed and contributes no height here, so without it
-   the theme and language rows -- pushed down by margin-top: auto -- sit behind
-   the overlay. They stay visible and focusable while every click lands on the
-   overlay instead, which reads as a control that vanished. */
 .navigation-sidebar {
   min-height: 0;
-  padding: 22px 12px calc(16px + var(--task-center-reserve));
+  padding: 22px 12px 16px;
   display: flex;
   flex-direction: column;
   border-right: 1px solid var(--border);
   background: var(--sidebar-bg);
 }
+
+.sidebar-bottom { margin-top: auto; display: grid; gap: 4px; }
 
 .brand-lockup {
   min-height: 50px;
@@ -106,13 +103,6 @@
   text-transform: uppercase;
 }
 
-/* The appearance and language rows are one group. `margin-top: auto` sits on the
-   first of them so the pair is pushed to the bottom together; putting it on the
-   language row would let the theme row float up on its own. */
-.theme-picker {
-  margin-top: auto;
-}
-
 .theme-picker,
 .language-picker {
   min-height: 38px;
@@ -132,9 +122,7 @@
   flex: 1;
 }
 
-/* The two sidebar pickers are the same control at the same size. A lighter
-   border than SelectField's default, because these sit on the sidebar's tinted
-   background rather than on a form. */
+/* Appearance and language use the same compact select treatment. */
 .theme-select,
 .language-select {
   width: 82px;
@@ -142,11 +130,12 @@
 }
 
 .theme-select .select-field-trigger,
-.language-select .select-field-trigger {
-  min-height: 26px;
-  padding: 0 6px;
-  border-color: var(--border);
-  font-size: 12px;
+.language-select .select-field-trigger,
+.provider-picker .select-field-trigger {
+  min-height: 42px;
+  padding: 0 12px;
+  border-color: var(--border-strong);
+  font-size: 13px;
 }
 
 /* The trigger is 82px, but a list constrained to it would clip "跟随系统". It
@@ -208,6 +197,45 @@
 }
 
 .management-page { padding-top: 50px; }
+
+.transfer-page { padding-top: 24px; }
+.transfer-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+.transfer-section { min-width: 0; }
+.transfer-section > header { display: flex; align-items: end; justify-content: space-between; margin-bottom: 10px; }
+.transfer-section h2 { margin: 0; font-size: 15px; }
+.transfer-section header p { margin: 3px 0 0; color: var(--text-secondary); font-size: 12px; }
+.transfer-list { border-top: 1px solid var(--border); }
+.transfer-row { min-height: 54px; display: flex; align-items: center; gap: 11px; border-bottom: 1px solid var(--border); cursor: pointer; }
+.transfer-row:has(input:disabled) { cursor: default; }
+.transfer-row input { flex: 0 0 auto; }
+.transfer-row span { min-width: 0; display: grid; gap: 2px; }
+.transfer-row strong, .transfer-row small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.transfer-row strong { font-size: 13px; }
+.transfer-row small { color: var(--text-secondary); font-size: 11px; }
+.transfer-row em { margin-left: auto; color: var(--blue); font-size: 11px; font-style: normal; white-space: nowrap; }
+.transfer-password-dialog { width: min(360px, calc(100vw - 32px)); padding: 20px; border: 1px solid var(--border-strong); border-radius: var(--radius-control); background: var(--window-bg); color: var(--text-primary); box-shadow: 0 18px 50px rgba(0, 0, 0, 0.24); }
+.transfer-password-dialog::backdrop { background: rgba(0, 0, 0, 0.28); }
+.transfer-password-dialog form { display: grid; gap: 16px; }
+.transfer-password-dialog h2 { margin: 0; font-size: 15px; }
+.transfer-password-dialog input { width: 100%; }
+.transfer-password-dialog footer { display: flex; justify-content: flex-end; gap: 8px; }
+
+.settings-page { padding-top: 24px; display: grid; align-content: start; gap: 28px; }
+.settings-section { width: 100%; max-width: none; }
+.settings-section h2 { margin: 0 0 10px; color: var(--text-secondary); font-size: 12px; font-weight: 600; }
+.settings-row,
+.settings-link { min-height: 54px; border-top: 1px solid var(--border); }
+.settings-section > :last-child { border-bottom: 1px solid var(--border); }
+.settings-row { display: flex; align-items: center; }
+.settings-row .theme-picker,
+.settings-row.language-picker { width: 100%; margin: 0; padding: 0 10px; }
+.settings-row .theme-select,
+.settings-row .language-select { width: 180px; }
+.settings-link { width: 100%; padding: 0 10px; display: flex; align-items: center; gap: 12px; border-right: 0; border-left: 0; background: transparent; color: var(--text-primary); cursor: pointer; text-align: left; }
+.settings-link > span { min-width: 0; display: grid; flex: 1; gap: 3px; }
+.settings-link strong { font-size: 13px; }
+.settings-link small { color: var(--text-secondary); font-size: 11px; }
+.settings-link > svg:last-child { color: var(--text-tertiary); }
 
 .page-footer {
   padding: 0 42px;
@@ -653,13 +681,6 @@
   gap: 8px;
 }
 
-/* 42px to match the add button beside it and the text fields on the same form,
-   rather than SelectField's 38px default. */
-.provider-picker .select-field-trigger {
-  min-height: 42px;
-  padding: 0 12px;
-}
-
 .provider-add-button {
   width: 42px;
   height: 42px;
@@ -1013,45 +1034,12 @@
 @media (max-width: 900px) {
   :root { --sidebar-width: 72px; }
   .brand-lockup { justify-content: center; padding-inline: 0; }
-  /* Every text label in the rail is hidden at 72px. Each surviving control
-     keeps its own aria-label, so the accessible name does not depend on the
-     visible text. Anything added to the sidebar with a text label belongs in
-     this list: 12px of column forces CJK to one glyph per line, which is how
-     "外观" and "任务中心" ended up stacked vertically. */
+  /* Every text label in the rail is hidden at 72px. */
   .brand-lockup > div,
   .sidebar-link span,
-  .sidebar-section-label,
-  .language-picker > span,
-  .language-picker > svg,
-  .theme-picker > span,
-  .theme-picker > svg { display: none; }
+  .sidebar-section-label { display: none; }
   .sidebar-link { justify-content: center; padding: 0; }
   .sidebar-link.is-active::before { left: -12px; }
-  /* Centre what is left, now that the flex: 1 spacer spans are gone. */
-  .language-picker,
-  .theme-picker { padding: 0; justify-content: center; }
-
-  /* 48px of column fits the arrow alone. The value is dropped from the trigger
-     rather than truncated to an unreadable sliver -- the option list still shows
-     it in full, and each control keeps its aria-label either way. */
-  .theme-select,
-  .language-select {
-    width: 40px;
-  }
-
-  .theme-select .select-field-value,
-  .language-select .select-field-value { display: none; }
-
-  .theme-select .select-field-trigger,
-  .language-select .select-field-trigger { justify-content: center; padding: 0; }
-
-  /* The trigger is now narrower than the list needs, and the sidebar is only
-     72px wide, so the list breaks out to the right of the rail instead. */
-  .theme-select .select-field-list,
-  .language-select .select-field-list {
-    left: 0;
-    max-width: none;
-  }
 }
 
 @media (max-height: 760px) {
@@ -2004,11 +1992,9 @@
 }
 
 .task-center {
-  position: fixed;
-  left: 12px;
-  bottom: 16px;
+  position: relative;
   z-index: 20;
-  width: calc(var(--sidebar-width) - 24px);
+  width: 100%;
   border: 1px solid var(--border);
   border-radius: var(--radius-control);
   background: var(--window-bg);

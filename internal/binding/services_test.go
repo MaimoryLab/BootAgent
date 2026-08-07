@@ -50,6 +50,7 @@ func TestServiceMethodAllowlist(t *testing.T) {
 		{&ProfileService{}, []string{"DeleteProfile", "ListProfiles", "SaveProfile"}},
 		{&RuntimeService{}, []string{"GetSettings", "InstallRuntime", "ListRuntimes", "SaveSettings"}},
 		{&DesktopAgentService{}, []string{"Configure", "GetStatus", "Install", "Open"}},
+		{&TransferService{}, []string{"Read", "Write"}},
 		{&UpdateService{}, []string{"Check", "DownloadAndInstall", "Restart"}},
 	}
 	for _, test := range tests {

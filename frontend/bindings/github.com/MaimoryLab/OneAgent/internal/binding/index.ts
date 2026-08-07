@@ -7,6 +7,7 @@ import * as ProfileService from "./profileservice.js";
 import * as ProviderService from "./providerservice.js";
 import * as RuntimeService from "./runtimeservice.js";
 import * as StatusService from "./statusservice.js";
+import * as TransferService from "./transferservice.js";
 import * as UpdateService from "./updateservice.js";
 export {
     AgentService,
@@ -15,6 +16,7 @@ export {
     ProviderService,
     RuntimeService,
     StatusService,
+    TransferService,
     UpdateService
 };
 
@@ -24,6 +26,7 @@ export type {
     AgentInstallResult,
     DesktopAgentProfileRequest,
     DesktopAgentRequest,
+    FilePathRequest,
     InstallRequest,
     InstallResponse,
     InstallRuntimeRequest,
@@ -39,5 +42,6 @@ export type {
     ProviderMutationResponse,
     SaveProfileRequest,
     SaveProviderRequest,
-    UpdateRequest
+    UpdateRequest,
+    WriteFileRequest
 } from "./models.js";

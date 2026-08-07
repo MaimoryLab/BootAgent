@@ -86,6 +86,7 @@ func main() {
 			application.NewServiceWithOptions(services.Profile, application.ServiceOptions{MarshalError: oneerrors.Marshal}),
 			application.NewServiceWithOptions(services.Runtime, application.ServiceOptions{MarshalError: oneerrors.Marshal}),
 			application.NewServiceWithOptions(services.DesktopAgent, application.ServiceOptions{MarshalError: oneerrors.Marshal}),
+			application.NewServiceWithOptions(services.Transfer, application.ServiceOptions{MarshalError: oneerrors.Marshal}),
 		},
 		MarshalError: oneerrors.Marshal,
 		Assets: application.AssetOptions{
