@@ -135,7 +135,10 @@ export function ProfilesPage() {
       id: taskKey("install", agentId),
       kind: "install",
       target: agentId,
-      title: t("安装 {name}", { name: status.catalog.find((agent) => agent.id === agentId)?.name || agentId }),
+      title: t("应用 {profile} 到 {agent}", {
+        profile: profile.label || profile.id,
+        agent: status.catalog.find((agent) => agent.id === agentId)?.name || agentId,
+      }),
       route,
       progressTarget: status.capabilities.missingRuntime[agentId],
       group,

@@ -260,6 +260,7 @@ const english = {
   "本机已有": "Already on this machine",
   "安装": "Install",
   "安装 {name}": "Install {name}",
+  "应用 {profile} 到 {agent}": "Apply {profile} to {agent}",
   "安装中": "Installing",
   "运行时会安装到 {dir}，并写入登录 PATH，不需要管理员权限": "Runtimes install into {dir} and are added to your login PATH. No administrator rights needed",
   "运行时会安装到 OneAgent 的托管目录，并写入登录 PATH，不需要管理员权限": "Runtimes install into OneAgent's managed directory and are added to your login PATH. No administrator rights needed",
