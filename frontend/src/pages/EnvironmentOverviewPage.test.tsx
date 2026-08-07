@@ -113,8 +113,8 @@ describe("EnvironmentOverviewPage", () => {
     renderPage();
     expect(screen.getByText("尚未安装任何命令行 Agent")).toBeTruthy();
     // With nothing installed the empty state owns the single call to action.
-    expect(screen.getAllByRole("button", { name: "安装命令行 Agent" })).toHaveLength(1);
-    fireEvent.click(screen.getByRole("button", { name: "安装命令行 Agent" }));
+    expect(screen.getAllByRole("button", { name: "安装 Agent" })).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: "安装 Agent" }));
     expect(await screen.findByRole("heading", { name: "onboarding" })).toBeTruthy();
     // A second run must not inherit the previous Agent, model or log.
     expect(dispatch).toHaveBeenCalledWith({ type: "START_SETUP" });
@@ -135,11 +135,11 @@ describe("EnvironmentOverviewPage", () => {
     expect(within(desktopSection!).getByText("ChatGPT Desktop")).toBeTruthy();
     expect(screen.queryByText("按引导安装桌面 Agent")).toBeNull();
     const footer = within(screen.getByRole("contentinfo"));
-    expect(footer.getByRole("button", { name: "安装桌面 Agent" })).toBeTruthy();
-    expect(screen.getAllByRole("button", { name: "安装桌面 Agent" })).toHaveLength(1);
+    expect(footer.getByRole("button", { name: "安装 Agent" })).toBeTruthy();
+    expect(screen.getAllByRole("button", { name: "安装 Agent" })).toHaveLength(1);
 
-    fireEvent.click(screen.getByRole("button", { name: "安装桌面 Agent" }));
-    expect(dispatch).toHaveBeenCalledWith({ type: "START_DESKTOP_SETUP" });
+    fireEvent.click(screen.getByRole("button", { name: "安装 Agent" }));
+    expect(dispatch).toHaveBeenCalledWith({ type: "START_SETUP" });
     expect(dispatch).not.toHaveBeenCalledWith(expect.objectContaining({ type: "SELECT_AGENT" }));
     expect(await screen.findByRole("heading", { name: "onboarding" })).toBeTruthy();
   });
@@ -158,9 +158,8 @@ describe("EnvironmentOverviewPage", () => {
     expect(desktopSection).toBeTruthy();
     expect(within(desktopSection!).getByText("共 0 个")).toBeTruthy();
     expect(within(desktopSection!).getByText("按引导安装桌面 Agent")).toBeTruthy();
-    expect(within(desktopSection!).getByRole("button", { name: "安装桌面 Agent" })).toBeTruthy();
     const footer = within(screen.getByRole("contentinfo"));
-    expect(footer.queryByRole("button", { name: "安装桌面 Agent" })).toBeNull();
-    expect(screen.getAllByRole("button", { name: "安装桌面 Agent" })).toHaveLength(1);
+    expect(footer.getByRole("button", { name: "安装 Agent" })).toBeTruthy();
+    expect(screen.getAllByRole("button", { name: "安装 Agent" })).toHaveLength(1);
   });
 });
