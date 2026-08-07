@@ -109,7 +109,7 @@ python3 scripts/check-docs.py
 
 ## 发行
 
-发行包由 `.github/workflows/build-artifacts.yml` 构建，手动触发（`workflow_dispatch`）。它为 macOS 与 Windows 各构建 x64/arm64 的 Wails 桌面应用，macOS 产物打成 `.app`。
+发行包由 `.github/workflows/build-artifacts.yml` 构建，手动触发（`workflow_dispatch`）。它为 macOS 与 Windows 各构建 x64/arm64 的 Wails 桌面应用，macOS 产物打成 `.app`，Windows 额外生成两个 NSIS 安装包。
 
 Wails 仍处于 Alpha，当前不发布 Stable，不做平台签名、公证或商店分发。Stable 的签名门禁保留在后续发行阶段。
 

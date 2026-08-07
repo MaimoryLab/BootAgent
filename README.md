@@ -146,9 +146,10 @@ documentation link and language check.
 ## Releasing
 
 Pushing a stable `vX.Y.Z` tag triggers `.github/workflows/build-artifacts.yml` and publishes
-macOS and Windows OTA archives for amd64 and arm64, plus `SHA256SUMS`, to the matching
-GitHub Release. Each macOS archive contains `OneAgent.app`; each Windows archive contains
-`oneagent-desktop.exe`. The workflow can also be run manually with a required version.
+macOS and Windows OTA archives for amd64 and arm64, two Windows NSIS installers, plus
+`SHA256SUMS`, to the matching GitHub Release. Each macOS archive contains `OneAgent.app`;
+each Windows OTA archive contains `oneagent-desktop.exe`. The workflow can also be run
+manually with a required version.
 
 Wails is still in Alpha, so there is no Stable release, and no platform signing,
 notarization, or store distribution. The signing gate for Stable is deferred to a later
