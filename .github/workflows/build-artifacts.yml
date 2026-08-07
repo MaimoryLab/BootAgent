@@ -124,6 +124,17 @@ jobs:
           codesign --force --deep --sign - "bin/OneAgent.app"
           rm "bin/oneagent-desktop"
 
+      - name: Package macOS DMG
+        if: matrix.target.platform == 'macos'
+        shell: bash
+        run: |
+          hdiutil create \
+            -volname OneAgent \
+            -srcfolder "bin/OneAgent.app" \
+            -ov \
+            -format UDZO \
+            "bin/OneAgent-darwin-${{ matrix.arch.ota }}.dmg"
+
       - name: Install NSIS
         if: matrix.target.platform == 'windows'
         shell: pwsh
@@ -183,6 +194,14 @@ jobs:
           path: bin/OneAgent-${{ matrix.target.platform == 'macos' && 'darwin' || 'windows' }}-${{ matrix.arch.ota }}.zip
           if-no-files-found: error
 
+      - name: Upload macOS DMG
+        if: matrix.target.platform == 'macos'
+        uses: actions/upload-artifact@v7
+        with:
+          name: installer-macos-${{ matrix.arch.label }}
+          path: bin/OneAgent-darwin-${{ matrix.arch.ota }}.dmg
+          if-no-files-found: error
+
       - name: Upload Windows NSIS installer
         if: matrix.target.platform == 'windows'
         uses: actions/upload-artifact@v7
@@ -209,6 +228,13 @@ jobs:
           path: release-assets
           merge-multiple: true
 
+      - name: Download macOS DMGs
+        uses: actions/download-artifact@v8
+        with:
+          pattern: installer-macos-*
+          path: release-assets
+          merge-multiple: true
+
       - name: Download Windows NSIS installers
         uses: actions/download-artifact@v8
         with:
@@ -223,16 +249,18 @@ jobs:
           expected=(
             OneAgent-darwin-amd64.zip
             OneAgent-darwin-arm64.zip
+            OneAgent-darwin-amd64.dmg
+            OneAgent-darwin-arm64.dmg
             OneAgent-windows-amd64.zip
             OneAgent-windows-arm64.zip
             OneAgent-windows-amd64-installer.exe
             OneAgent-windows-arm64-installer.exe
           )
           mapfile -t assets < <(find release-assets -maxdepth 1 -type f -name 'OneAgent-*' -printf '%f\n' | sort)
-          test "${#assets[@]}" -eq 6
+          test "${#assets[@]}" -eq 8
           diff <(printf '%s\n' "${expected[@]}" | sort) <(printf '%s\n' "${assets[@]}")
           (cd release-assets && sha256sum OneAgent-* > SHA256SUMS)
-          test "$(wc -l < release-assets/SHA256SUMS)" -eq 6
+          test "$(wc -l < release-assets/SHA256SUMS)" -eq 8
 
           if gh release view "$RELEASE_VERSION" >/dev/null 2>&1; then
             gh release upload "$RELEASE_VERSION" release-assets/* --clobber
