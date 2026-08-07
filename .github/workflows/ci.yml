@@ -35,6 +35,8 @@ jobs:
       # libraries. The default package graph still checks the portable Go code;
       # target-specific release builds run in build-artifacts.yml.
       - uses: dominikh/staticcheck-action@v1.4.1
+        with:
+          install-go: false
 
   compliance:
     name: Release compliance
