@@ -63,6 +63,17 @@ Every mark is distributed as a single-colour glyph painted with
 fill="currentColor", so it takes the surrounding text colour rather than
 carrying a brand colour.
 
+OneAgent's own mark is not part of that inventory and is not third-party
+material. It is MaimoryLab's work, distributed under this repository's Apache-2.0
+license, and appears at frontend/src/components/icons/assets/oneagent-mark.svg
+in the interface and at build/appicon.png, build/darwin/icons.icns, and
+build/windows/icon.ico as the application icon. It is recorded under
+`firstPartyAssets` in frontend/src/components/icons/asset-rights.json, kept
+separate from the `assets` inventory above because it has no third-party source,
+licence text or copyright owner to record -- listing it there would assert a
+provenance it does not have. It is named here so the inventory above is not read
+as covering every image in the release.
+
 Sponsor marks are a separate case and are not nominative use. The PPIO and
 Novita logos under docs/assets/sponsors/ are reproduced with each owner's
 permission to identify a sponsor of this project, and they do carry their brand

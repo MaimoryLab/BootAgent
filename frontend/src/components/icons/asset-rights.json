@@ -43,5 +43,11 @@
       "modified": true,
       "modificationNote": "Recoloured to a single currentColor glyph for theme adaptation: the linearGradient (#ff4d4d to #991b1b), the antenna stroke colour and the cyan eye highlights were removed, and the eyes became a mask cut-out. Geometry is unchanged. Not an official OpenClaw mark; drawn by the cc-switch project."
     }
+  },
+  "firstPartyAssets": {
+    "oneagent-mark": {
+      "file": "assets/oneagent-mark.svg",
+      "note": "OneAgent's own mark, traced from the master raster in MaimoryLab/OneAgent-site (public/images/brand/oneagent-logo.png). MaimoryLab's work under this repository's Apache-2.0 license, so it carries no third-party source, licence text or copyright owner and is deliberately absent from `assets` above -- registering it there would assert a provenance it does not have. Listed here so the compliance gate can tell a first-party asset apart from one nobody attributed."
+    }
   }
 }

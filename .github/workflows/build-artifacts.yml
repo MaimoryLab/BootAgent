@@ -103,14 +103,36 @@ jobs:
           name: frontend-dist
           path: frontend/dist
 
+      # The icon, version strings, and DPI manifest reach a Windows binary only
+      # through a .syso the linker finds inside the package being built. This
+      # workflow calls `go build` directly rather than going through
+      # build/windows/Taskfile.yml, so the step has to be repeated here -- doing
+      # it only in the Taskfile would leave every released .exe on the default
+      # executable icon while local builds looked correct.
+      - name: Compile Windows resources
+        if: matrix.target.platform == 'windows'
+        shell: bash
+        working-directory: build
+        run: |
+          go run github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.4 generate syso \
+            -icon windows/icon.ico \
+            -manifest windows/wails.exe.manifest \
+            -info windows/info.json \
+            -arch "$GOARCH" \
+            -out "../cmd/oneagent-desktop/rsrc_windows_${GOARCH}.syso"
+
       - name: Build binaries
         shell: bash
         run: |
           mkdir -p bin
           version_ldflag="-X github.com/MaimoryLab/OneAgent/internal/version.Version=$RELEASE_VERSION"
           if [ "${{ matrix.target.platform }}" = windows ]; then
-            GOARCH=amd64 go run github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.4 generate icons -input build/appicon.png -macfilename "" -windowsfilename build/windows/icon.ico
-            GOARCH=amd64 go run github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.4 generate syso -arch "${GOARCH}" -icon build/windows/icon.ico -manifest build/windows/wails.exe.manifest -out "cmd/oneagent-desktop/wails_windows_${GOARCH}.syso"
+            # No `generate icons` step: build/windows/icon.ico is tracked. That
+            # generator scales every entry from appicon.png, and its 16x16 -- the
+            # size Explorer and the taskbar use -- collapses into a solid block,
+            # so the tracked file carries a hand-drawn entry there. Regenerating
+            # would have replaced it on every release build.
+            GOARCH=amd64 go run github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.4 generate syso -arch "${GOARCH}" -icon build/windows/icon.ico -manifest build/windows/wails.exe.manifest -info build/windows/info.json -out "cmd/oneagent-desktop/wails_windows_${GOARCH}.syso"
           fi
           go build -tags wails,production -trimpath -buildvcs=false -ldflags="${{ matrix.target.desktop_ldflags }} $version_ldflag" -o "bin/oneagent-desktop${{ matrix.target.suffix }}" ./cmd/oneagent-desktop
           rm -f "cmd/oneagent-desktop/wails_windows_${GOARCH}.syso"

@@ -40,3 +40,7 @@ site/
 
 # 对竞品的定向调研笔记：含内部评价措辞，保留本机参考但不随开源仓库分发。
 docs/internal/cc-switch-reference-notes.md
+
+# Windows 资源产物：图标、版本号和 DPI manifest 由 build/windows/ 下的源文件
+# 在构建时编译进 .syso。它必须落在被构建的包目录里链接器才认，构建完即删除。
+cmd/oneagent-desktop/*.syso
