@@ -105,6 +105,10 @@ const english = {
   "尚未测试连接": "Connection not tested",
   "正在验证端点和 Key": "Validating endpoint and key",
   "连接失败": "Connection failed",
+  // Shown when the probe failed on a model OneAgent picked rather than one the
+  // user typed. Without it, a video or image model rejecting a chat request reads
+  // as a rejected API key.
+  "测试使用的模型 {model} 由 OneAgent 自动选择，可能不支持对话。可在上方自定义模型名称后重试": "OneAgent chose the model {model} for this test, and it may not support chat. Enter a model name above and try again",
   "查看安装日志": "View installation log",
   "任务中心": "Task center",
   "有任务正在运行": "A task is running",

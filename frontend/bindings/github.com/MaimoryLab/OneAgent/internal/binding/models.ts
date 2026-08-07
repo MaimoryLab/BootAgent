@@ -105,6 +105,14 @@ export interface ModelsResponse {
     "retryable": boolean;
     "protocol"?: string | null;
     "protocols"?: { [_ in string]?: ProbeResponse } | null;
+
+    /**
+     * Model is the ID that was probed, and AutoSelectedModel says OneAgent chose
+     * it rather than the user. A failure on a model we picked is not evidence
+     * about the user's key, and the UI has to be able to say which it is.
+     */
+    "model"?: string;
+    "auto_selected_model"?: boolean;
     "models": string[] | null;
 }
 
@@ -136,6 +144,14 @@ export interface ProbeResponse {
     "retryable": boolean;
     "protocol"?: string | null;
     "protocols"?: { [_ in string]?: ProbeResponse } | null;
+
+    /**
+     * Model is the ID that was probed, and AutoSelectedModel says OneAgent chose
+     * it rather than the user. A failure on a model we picked is not evidence
+     * about the user's key, and the UI has to be able to say which it is.
+     */
+    "model"?: string;
+    "auto_selected_model"?: boolean;
 }
 
 export interface ProviderIDRequest {

@@ -18,7 +18,13 @@ const (
 	ProtocolResponses = catalog.ProtocolResponses
 )
 
-var nonChatModel = regexp.MustCompile(`(?i)(^|[-_/.])(embed(ding)?s?|rerank(er)?s?|ocr|whisper|asr|tts|speech|vl|vision|image|sdx?|flux|guard(rail)?s?|moderation|sql)([-_/.]|$)`)
+// nonChatModel matches IDs that clearly name a non-chat endpoint. It is defence
+// in depth, not the primary guard: a denylist over third-party model IDs always
+// lags the vendors, so callers that have a reviewed model for the Provider should
+// prefer that (see app.resolveProviderModel). The video, audio and music terms
+// were added after a t2v model returned first by an aggregator got probed with a
+// chat payload and the failure read as a bad API key.
+var nonChatModel = regexp.MustCompile(`(?i)(^|[-_/.])(embed(ding)?s?|rerank(er)?s?|ocr|whisper|asr|tts|speech|voice|audio|music|bark|vl|vision|image|img|sdx?|flux|video|t2v|i2v|v2v|t2i|i2t|t2a|sora|veo|kling|hailuo|seedance|cogvideox?|wan[0-9.]*|guard(rail)?s?|moderation|sql)([-_/.]|$)`)
 
 // ValidateBaseURL accepts an explicit HTTP(S) origin or path and rejects the
 // forms that could smuggle credentials or control characters into requests.

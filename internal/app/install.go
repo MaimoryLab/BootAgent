@@ -194,7 +194,7 @@ func (u *UseCases) validateInstall(ctx context.Context, manifest catalog.Manifes
 			if u.provider == nil {
 				return options, oneerrors.New(oneerrors.InternalError, "Model discovery is not configured", oneerrors.WithStatus(501))
 			}
-			model, err := u.resolveProviderModel(ctx, target, options.APIKey, "")
+			model, _, err := u.resolveProviderModel(ctx, target, options.APIKey, "")
 			if err != nil {
 				return options, err
 			}
