@@ -218,7 +218,6 @@
 .transfer-password-dialog::backdrop { background: rgba(0, 0, 0, 0.28); }
 .transfer-password-dialog form { display: grid; gap: 16px; }
 .transfer-password-dialog h2 { margin: 0; font-size: 15px; }
-.transfer-password-dialog input { width: 100%; }
 .transfer-password-dialog footer { display: flex; justify-content: flex-end; gap: 8px; }
 
 .settings-page { padding-top: 24px; display: grid; align-content: start; gap: 28px; }

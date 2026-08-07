@@ -1,5 +1,5 @@
 import { Dialogs } from "@wailsio/runtime";
-import { CheckCheck, Upload } from "lucide-react";
+import { CheckCheck, Eye, EyeOff, KeyRound, Upload } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -16,6 +16,8 @@ const toggle = (selected: Set<string>, id: string) => {
   return next;
 };
 
+const isDialogCancellation = (error: unknown) => error instanceof Error && /cancelled by user/i.test(error.message);
+
 export function TransferPage() {
   const { t } = useI18n();
   const navigate = useNavigate();
@@ -26,8 +28,11 @@ export function TransferPage() {
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState("");
   const [success, setSuccess] = useState("");
+  const [encryptionRequest, setEncryptionRequest] = useState(false);
   const [passwordRequest, setPasswordRequest] = useState<"export" | "import" | null>(null);
   const [passwordValue, setPasswordValue] = useState("");
+  const [passwordVisible, setPasswordVisible] = useState(false);
+  const encryptionResolver = useRef<((value: boolean | null) => void) | null>(null);
   const passwordResolver = useRef<((value: string | null) => void) | null>(null);
 
   const profiles = status?.profiles ?? [];
@@ -50,13 +55,28 @@ export function TransferPage() {
   const askPassword = (mode: "export" | "import") => new Promise<string | null>((resolve) => {
     passwordResolver.current = resolve;
     setPasswordValue("");
+    setPasswordVisible(false);
     setPasswordRequest(mode);
   });
+  const askEncryption = () => new Promise<boolean | null>((resolve) => {
+    encryptionResolver.current = resolve;
+    setEncryptionRequest(true);
+  });
+  const finishEncryption = (value: boolean | null) => {
+    if (value) {
+      setPasswordValue("");
+      setPasswordRequest("export");
+    }
+    encryptionResolver.current?.(value);
+    encryptionResolver.current = null;
+    setEncryptionRequest(false);
+  };
   const finishPassword = (value: string | null) => {
     passwordResolver.current?.(value);
     passwordResolver.current = null;
     setPasswordRequest(null);
     setPasswordValue("");
+    setPasswordVisible(false);
   };
 
   const exportFile = async () => {
@@ -65,21 +85,22 @@ export function TransferPage() {
     setFailure("");
     setSuccess("");
     try {
-      const choice = await Dialogs.Question({
-        Title: t("导出设置"),
-        Message: "是否加密apikey",
-        Buttons: [{ Label: t("加密"), IsDefault: true }, { Label: t("不加密") }, { Label: t("取消"), IsCancel: true }],
-      });
-      if (choice === t("取消") || !choice) return;
-      const encrypt = choice === t("加密");
+      const encrypt = await askEncryption();
+      if (encrypt === null) return;
       const password = encrypt ? await askPassword("export") : "";
       if (encrypt && !password) return;
-      const path = await Dialogs.SaveFile({
-        Title: t("选择导出位置"),
-        Filename: "oneagent-settings.json",
-        CanCreateDirectories: true,
-        Filters: [{ DisplayName: "JSON", Pattern: "*.json" }],
-      });
+      let path: string;
+      try {
+        path = await Dialogs.SaveFile({
+          Title: t("选择导出位置"),
+          Filename: "oneagent-settings.json",
+          CanCreateDirectories: true,
+          Filters: [{ DisplayName: "JSON", Pattern: "*.json" }],
+        });
+      } catch (error) {
+        if (isDialogCancellation(error)) return;
+        throw error;
+      }
       if (!path) return;
       const entries = await Promise.all([...exportProviders].map((id) => api.getProvider(id)));
       const selected = profiles.filter((profile) => selectedProfiles.has(profile.id));
@@ -97,7 +118,13 @@ export function TransferPage() {
     setFailure("");
     setSuccess("");
     try {
-      const path = await Dialogs.OpenFile({ Title: t("选择导入文件"), Filters: [{ DisplayName: "JSON", Pattern: "*.json" }] });
+      let path: string | string[];
+      try {
+        path = await Dialogs.OpenFile({ Title: t("选择导入文件"), Filters: [{ DisplayName: "JSON", Pattern: "*.json" }] });
+      } catch (error) {
+        if (isDialogCancellation(error)) return;
+        throw error;
+      }
       if (!path || Array.isArray(path)) return;
       const raw = await api.readTransferFile(path);
       const encrypted = (JSON.parse(raw) as { encrypted?: unknown }).encrypted;
@@ -136,8 +163,27 @@ export function TransferPage() {
         <dialog className="transfer-password-dialog" open>
           <form onSubmit={(event) => { event.preventDefault(); finishPassword(passwordValue.trim() || null); }}>
             <h2>{passwordRequest === "export" ? t("请输入导出密码") : t("请输入导入密码")}</h2>
-            <input autoFocus type="password" value={passwordValue} onChange={(event) => setPasswordValue(event.target.value)} required />
+            <div className="secure-field">
+              <KeyRound size={17} aria-hidden="true" />
+              <input autoFocus type={passwordVisible ? "text" : "password"} value={passwordValue} onChange={(event) => setPasswordValue(event.target.value)} autoComplete="new-password" spellCheck={false} required />
+              <button type="button" onClick={() => setPasswordVisible((current) => !current)} aria-label={passwordVisible ? t("隐藏密钥") : t("显示密钥")}>
+                {passwordVisible ? <EyeOff size={17} /> : <Eye size={17} />}
+              </button>
+            </div>
             <footer><button className="button button-secondary" type="button" onClick={() => finishPassword(null)}>{t("取消")}</button><button className="button button-primary" type="submit">{t("确认")}</button></footer>
+          </form>
+        </dialog>
+      ) : null}
+      {encryptionRequest ? (
+        <dialog className="transfer-password-dialog" open>
+          <form onSubmit={(event) => { event.preventDefault(); finishEncryption(true); }}>
+            <h2>{t("导出设置")}</h2>
+            <p>是否加密apikey</p>
+            <footer>
+              <button className="button button-secondary" type="button" onClick={() => finishEncryption(null)}>{t("取消")}</button>
+              <button className="button button-secondary" type="button" onClick={() => finishEncryption(false)}>{t("不加密")}</button>
+              <button className="button button-primary" type="submit">{t("加密")}</button>
+            </footer>
           </form>
         </dialog>
       ) : null}

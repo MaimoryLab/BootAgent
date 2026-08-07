@@ -6,7 +6,7 @@ import { api } from "../backend/api";
 import type { ProviderEntry, StatusResponse } from "../types/api";
 import { TransferPage } from "./TransferPage";
 
-const dialogs = vi.hoisted(() => ({ Question: vi.fn(), SaveFile: vi.fn(), OpenFile: vi.fn() }));
+const dialogs = vi.hoisted(() => ({ SaveFile: vi.fn(), OpenFile: vi.fn() }));
 vi.mock("@wailsio/runtime", async (importOriginal) => ({ ...await importOriginal<typeof import("@wailsio/runtime")>(), Dialogs: dialogs }));
 
 const refreshStatus = vi.fn<() => Promise<void>>();
@@ -27,7 +27,6 @@ describe("TransferPage", () => {
     const provider = { id: "ppio", name: "PPIO", home: "", base_url: "https://api.example.test", anthropic_base_url: "", api_key: "secret", built_in: true } satisfies ProviderEntry;
     vi.spyOn(api, "getProvider").mockResolvedValue(provider);
     const write = vi.spyOn(api, "writeTransferFile").mockResolvedValue();
-    dialogs.Question.mockResolvedValue("不加密");
     dialogs.SaveFile.mockResolvedValue("/tmp/selected.json");
 
     render(<MemoryRouter><TransferPage /></MemoryRouter>);
@@ -36,6 +35,7 @@ describe("TransferPage", () => {
     expect(required).toBeChecked();
     expect(required).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "导出" }));
+    fireEvent.click(screen.getByRole("button", { name: "不加密" }));
 
     await waitFor(() => expect(write).toHaveBeenCalledOnce());
     expect(dialogs.SaveFile).toHaveBeenCalledOnce();
@@ -53,11 +53,11 @@ describe("TransferPage", () => {
   it("continues encrypted export through the in-app password form", async () => {
     vi.spyOn(api, "getProvider").mockResolvedValue({ id: "ppio", name: "PPIO", home: "", base_url: "https://api.example.test", anthropic_base_url: "", api_key: "secret", built_in: true });
     const write = vi.spyOn(api, "writeTransferFile").mockResolvedValue();
-    dialogs.Question.mockResolvedValue("加密");
     dialogs.SaveFile.mockResolvedValue("/tmp/selected.json");
     render(<MemoryRouter><TransferPage /></MemoryRouter>);
     fireEvent.click(screen.getByRole("checkbox", { name: /团队/ }));
     fireEvent.click(screen.getByRole("button", { name: "导出" }));
+    fireEvent.click(screen.getByRole("button", { name: "加密" }));
     const password = await screen.findByDisplayValue("");
     fireEvent.change(password, { target: { value: "passphrase" } });
     fireEvent.click(screen.getByRole("button", { name: "确认" }));
@@ -65,5 +65,15 @@ describe("TransferPage", () => {
     const exported = JSON.parse(write.mock.calls[0][1]);
     expect(exported.encrypted).toHaveLength(1);
     expect(exported.providers[0].key_encrypted).toBe(0);
+  });
+
+  it("treats a Windows file-dialog cancellation as a no-op", async () => {
+    dialogs.SaveFile.mockRejectedValue(new Error("cancelled by user"));
+    render(<MemoryRouter><TransferPage /></MemoryRouter>);
+    fireEvent.click(screen.getByRole("checkbox", { name: /团队/ }));
+    fireEvent.click(screen.getByRole("button", { name: "导出" }));
+    fireEvent.click(screen.getByRole("button", { name: "不加密" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "导出" })).not.toBeDisabled());
+    expect(screen.queryByText("cancelled by user")).toBeNull();
   });
 });
