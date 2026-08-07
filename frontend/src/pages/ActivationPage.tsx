@@ -9,7 +9,7 @@ import { LogDisclosure } from "../components/LogDisclosure";
 import { PageScaffold } from "../components/PageScaffold";
 import { useI18n } from "../i18n";
 import { desktopProtocol, profileAgentIdForDesktop, selectedDesktopApp } from "../state/desktopSetup";
-import { taskCanceller, taskKey, useTaskCenter, useTaskRoute, type TaskCanceller } from "../state/TaskCenterContext";
+import { installTaskRoute, taskCanceller, taskKey, useTaskCenter, useTaskRoute, type TaskCanceller } from "../state/TaskCenterContext";
 import { useWizard } from "../state/WizardContext";
 import type { AgentInstallResult, InstallRequest } from "../types/api";
 
@@ -78,7 +78,7 @@ export function ActivationPage() {
         kind: "install",
         target,
         title: t("安装 {name}", { name: selectedNames[target] || target }),
-        route,
+        route: installTaskRoute(target),
         group,
       })) {
         for (const started of startedAgents) finishTask(started, { kind: "failure", message: t("任务正在运行") });
@@ -174,6 +174,8 @@ export function ActivationPage() {
       return;
     }
     dispatch({ type: "ACTIVATION_LOADING", agentIds: state.selectedAgentIds });
+    const firstAgent = startedTasks.agents[0]?.slice("install:".length);
+    if (firstAgent) navigate(installTaskRoute(firstAgent));
     try {
       let response;
       if (isDesktop) {
@@ -202,7 +204,7 @@ export function ActivationPage() {
       finishActivationTasks(startedTasks, [], false, message);
       dispatch({ type: "ACTIVATION_FAILED", message });
     }
-  }, [dispatch, finishActivationTasks, installDesktop, isDesktop, refreshStatus, registerActivationCanceller, requestFor, startActivationTasks, state.selectedAgentIds, t]);
+  }, [dispatch, finishActivationTasks, installDesktop, isDesktop, navigate, refreshStatus, registerActivationCanceller, requestFor, startActivationTasks, state.selectedAgentIds, t]);
 
   useEffect(
     () =>
@@ -262,7 +264,7 @@ export function ActivationPage() {
   // The task card is also a recovery path after another setup run replaced the
   // wizard draft. Render the durable task directly instead of bouncing through
   // the setup guards with an empty selection.
-  const restoredTask = tasks.find((task) => task.kind === "install" && task.route.split("?", 1)[0] === "/setup/activation");
+  const restoredTask = tasks.find((task) => task.kind === "install" && task.route.startsWith("/tasks/install/"));
   if (!state.selectedAgentIds.length && restoredTask) {
     const loading = restoredTask.state === "running";
     const cancelled = restoredTask.state === "cancelled";

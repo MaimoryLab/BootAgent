@@ -59,6 +59,7 @@ export interface TaskRecord extends TaskInput {
   state: TaskState;
   progress?: TaskProgress;
   message?: string;
+  log?: string;
   startedAt: number;
 }
 
@@ -143,6 +144,20 @@ function taskInputFor(value: TaskInput | string): TaskInput {
   return typeof value === "string" ? defaultTask(value) : value;
 }
 
+export function installTaskRoute(target: string): string {
+  return `/tasks/install/${encodeURIComponent(target)}`;
+}
+
+export function updateTaskRoute(target: string): string {
+  return `/tasks/update/${encodeURIComponent(target)}`;
+}
+
+function outputText(output: InstallOutput): string {
+  if (output.kind === "progress") return "";
+  if (output.kind === "command") return `$ ${output.args.join(" ")}\n`;
+  return output.text;
+}
+
 /**
  * The provider is mounted above the route content. A page can therefore unmount while
  * its Go request is still running without losing the card or its progress.
@@ -162,16 +177,20 @@ export function TaskCenterProvider({ children }: PropsWithChildren) {
   useEffect(
     () =>
       api.onInstallOutput((output: InstallOutput) => {
-        if (output.kind !== "progress") return;
-        const targetTasks = tasksRef.current.filter((task) => task.progressTarget === output.target || task.target === output.target);
-        if (targetTasks.length && !targetTasks.some((task) => task.state === "running")) return;
-        setProgress((current) => ({
-          ...current,
-          [output.target]: { received: output.received, total: output.total },
-        }));
+        const matchesTask = (task: TaskRecord) => task.state === "running" && (output.agent
+          ? task.target === output.agent
+          : output.kind === "progress" && (task.progressTarget === output.target || task.target === output.target));
+        const targetTasks = tasksRef.current.filter(matchesTask);
+        if (output.kind === "progress") {
+          setProgress((current) => ({
+            ...current,
+            [output.target]: { received: output.received, total: output.total },
+          }));
+        }
+        if (!targetTasks.length) return;
         updateTasks((current) => current.map((task) => (
-          task.state === "running" && (task.progressTarget === output.target || task.target === output.target)
-            ? { ...task, progress: { received: output.received, total: output.total } }
+          matchesTask(task)
+            ? { ...task, ...(output.kind === "progress" ? { progress: { received: output.received, total: output.total } } : {}), ...(outputText(output) ? { log: `${task.log || ""}${outputText(output)}` } : {}) }
             : task
         )));
       }),

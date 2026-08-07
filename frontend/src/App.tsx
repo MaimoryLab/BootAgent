@@ -3,6 +3,7 @@ import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { AppWindow } from "./components/AppWindow";
 import { AppUpdater } from "./components/AppUpdater";
 import { ActivationPage } from "./pages/ActivationPage";
+import { InstallTaskPage } from "./pages/InstallTaskPage";
 import { AgentProfilePage } from "./pages/AgentProfilePage";
 import { AgentSelectionPage } from "./pages/AgentSelectionPage";
 import { EnvironmentOverviewPage } from "./pages/EnvironmentOverviewPage";
@@ -78,6 +79,8 @@ function WorkspaceRoutes() {
         <Route path="/setup/model" element={<SetupGuard stage="model"><ModelSelectionPage /></SetupGuard>} />
         <Route path="/setup/review" element={<SetupGuard stage="review"><ReviewPage /></SetupGuard>} />
         <Route path="/setup/activation" element={<SetupGuard stage="activation"><ActivationPage /></SetupGuard>} />
+        <Route path="/tasks/install/:agentId" element={<InstallTaskPage />} />
+        <Route path="/tasks/update/:agentId" element={<InstallTaskPage />} />
         <Route path="/overview" element={<EnvironmentOverviewPage />} />
         <Route path="/agents/:agentId" element={<AgentProfilePage />} />
         <Route path="/providers" element={<ProvidersPage />} />

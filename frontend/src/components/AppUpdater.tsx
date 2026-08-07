@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 import { api, describeError, isCancellationError } from "../backend/api";
 import { OTA_PROGRESS_TARGET } from "../backend/wails";
 import { useI18n } from "../i18n";
-import { taskCanceller, taskKey, useTaskCenter } from "../state/TaskCenterContext";
+import { taskCanceller, taskKey, updateTaskRoute, useTaskCenter } from "../state/TaskCenterContext";
 
 const OTA_TASK_ID = taskKey("update", OTA_PROGRESS_TARGET);
 
@@ -52,7 +52,7 @@ export function AppUpdater() {
         target: OTA_PROGRESS_TARGET,
         progressTarget: OTA_PROGRESS_TARGET,
         title: t("更新 OneAgent {version}", { version }),
-        route: "/overview",
+        route: updateTaskRoute(OTA_PROGRESS_TARGET),
       })) return;
 
       try {

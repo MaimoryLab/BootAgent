@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 
 import { api, describeError } from "../backend/api";
 import { sourceTranslate, type Translate, useI18n } from "../i18n";
-import { taskCanceller, taskKey, useTaskCenter, useTaskRoute } from "../state/TaskCenterContext";
+import { taskCanceller, taskKey, updateTaskRoute, useTaskCenter, useTaskRoute } from "../state/TaskCenterContext";
 import type { AgentCatalogItem, AgentStatus, ProfileSummary, StatusResponse } from "../types/api";
 import { AgentIcon, agentTagline } from "./icons/agents";
 
@@ -169,7 +169,7 @@ export function AgentManageRow({
       kind: "update",
       target: agentId,
       title: t("更新 {name}", { name: catalog?.name || agentId }),
-      route,
+      route: updateTaskRoute(agentId),
     })) return;
     setLocalUpdating(true);
     setFailure("");
