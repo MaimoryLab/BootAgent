@@ -128,7 +128,7 @@ func TestOpenRegistrationFallsBackToHomeWithoutAKeyPage(t *testing.T) {
 	})
 	if _, err := core.SaveProvider(context.Background(), provider.Entry{
 		ID: "acme", Name: "Acme", Home: "https://acme.example.com/", BaseURL: "https://api.acme.example.com/openai",
-	}); err != nil {
+	}, true); err != nil {
 		t.Fatal(err)
 	}
 	var opened string

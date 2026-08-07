@@ -140,6 +140,44 @@ func (s Store) Public() (map[string]catalog.Provider, error) {
 	return result, nil
 }
 
+// Create saves a Provider that must not exist yet, and is what the "add
+// Provider" form goes through.
+//
+// Save is an upsert, which is correct for editing but wrong for creating: an ID
+// that collided with an existing entry silently replaced its endpoints and key,
+// and because only "custom" was reserved, an ID matching a built-in Provider
+// shadowed the catalog entry. SaveProvider then reapplies the Provider to every
+// Agent bound to that ID, so a typo could repoint working Agents at another
+// vendor's endpoint with no prompt.
+func (s Store) Create(ctx context.Context, entry Entry) (Entry, error) {
+	entry.ID = strings.TrimSpace(entry.ID)
+	if err := s.checkIDAvailable(entry.ID); err != nil {
+		return Entry{}, err
+	}
+	return s.Save(ctx, entry)
+}
+
+// checkIDAvailable reports whether an ID is free for a new Provider. Built-in IDs
+// are refused as firmly as user ones: overriding a built-in endpoint is a real
+// need, but it belongs behind editing that Provider, not behind reusing its name
+// by accident.
+func (s Store) checkIDAvailable(id string) error {
+	if id == "" {
+		return nil // validateEntry owns the shape of the ID; this only owns collisions.
+	}
+	if _, builtIn := catalog.ProviderByID(id); builtIn {
+		return oneerrors.New(oneerrors.InvalidRequest, fmt.Sprintf("Provider ID %q is already used by a built-in Provider. Pick a different ID, or edit that Provider instead.", id))
+	}
+	file, err := s.load()
+	if err != nil {
+		return err
+	}
+	if _, exists := file.Providers[id]; exists {
+		return oneerrors.New(oneerrors.InvalidRequest, fmt.Sprintf("Provider ID %q is already in use. Pick a different ID, or edit that Provider instead.", id))
+	}
+	return nil
+}
+
 func (s Store) Save(ctx context.Context, entry Entry) (Entry, error) {
 	entry.ID = strings.TrimSpace(entry.ID)
 	entry.Name = strings.TrimSpace(entry.Name)

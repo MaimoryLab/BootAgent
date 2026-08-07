@@ -243,7 +243,7 @@ func (s *ProviderService) SaveProvider(ctx context.Context, request SaveProvider
 	return s.core.SaveProvider(ctx, provider.Entry{
 		ID: request.ID, Name: request.Name, Home: request.Home,
 		BaseURL: request.BaseURL, AnthropicBaseURL: request.AnthropicBaseURL, APIKey: request.APIKey,
-	})
+	}, request.Create)
 }
 
 func (s *ProviderService) DeleteProvider(ctx context.Context, request ProviderIDRequest) (ProviderMutationResponse, error) {
@@ -486,6 +486,10 @@ type SaveProviderRequest struct {
 	BaseURL          string `json:"base_url"`
 	AnthropicBaseURL string `json:"anthropic_base_url"`
 	APIKey           string `json:"api_key"`
+	// Create refuses an ID that already exists rather than overwriting it. It
+	// defaults to false so an edit, which legitimately writes over an existing
+	// entry, is the behaviour a caller gets without asking.
+	Create bool `json:"create"`
 }
 
 type ProviderMutationResponse struct {

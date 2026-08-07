@@ -94,7 +94,7 @@ func TestConfigureWorkBuddyWritesModelsJSONFromProvider(t *testing.T) {
 	}
 	reapplied, err := core.SaveProvider(context.Background(), provider.Entry{
 		ID: "ppio", Name: "PPIO", BaseURL: "https://relay.example/openai", APIKey: "rotated-key",
-	})
+	}, false)
 	if err != nil || len(reapplied.Failures) != 0 || len(reapplied.Reapplied) != 1 || reapplied.Reapplied[0] != desktopapp.WorkBuddyID {
 		t.Fatalf("WorkBuddy Provider reapply = %#v, err=%v", reapplied, err)
 	}

@@ -163,6 +163,13 @@ export interface SaveProviderRequest {
     "base_url": string;
     "anthropic_base_url": string;
     "api_key": string;
+
+    /**
+     * Create refuses an ID that already exists rather than overwriting it. It
+     * defaults to false so an edit, which legitimately writes over an existing
+     * entry, is the behaviour a caller gets without asking.
+     */
+    "create": boolean;
 }
 
 export interface UpdateRequest {
