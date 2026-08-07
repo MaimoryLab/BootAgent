@@ -15,12 +15,42 @@ tasks:
     cmds:
       - go build {{.BUILD_FLAGS}} -o "{{.OUTPUT}}" ./cmd/oneagent-desktop
     vars:
-      BUILD_FLAGS: '{{if eq .DEV "true"}}-tags wails -buildvcs=false -gcflags=all="-l"{{else}}-tags wails,production -trimpath -buildvcs=false -ldflags="-w -s -H windowsgui"{{end}}'
+      BUILD_FLAGS: '{{if eq .DEV "true"}}-tags wails -buildvcs=false -gcflags=all="-l"{{else}}-tags wails,production -trimpath -buildvcs=false -ldflags="-w -s -H windowsgui{{if .VERSION}} -X github.com/MaimoryLab/OneAgent/internal/version.Version={{.VERSION}}{{end}}"{{end}}'
       OUTPUT: '{{.OUTPUT | default (printf "%s/%s.exe" .BIN_DIR .APP_NAME)}}'
     env:
       GOOS: windows
       CGO_ENABLED: 0
       GOARCH: '{{.ARCH | default ARCH}}'
+
+  package:
+    summary: Builds an NSIS installer
+    dir: build/windows/nsis
+    deps:
+      - task: build
+        vars:
+          ARCH: '{{.ARCH}}'
+          VERSION: '{{.VERSION}}'
+      - task: common:generate:windows:icon
+    preconditions:
+      - sh: command -v makensis >/dev/null 2>&1
+        msg: "makensis not found. Install NSIS first."
+      - sh: '[ "{{.INSTALL_SCOPE}}" = "user" ] || [ "{{.INSTALL_SCOPE}}" = "machine" ]'
+        msg: "INSTALL_SCOPE must be 'user' or 'machine'."
+      - sh: echo '{{.VERSION}}' | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'
+        msg: "VERSION must match X.Y.Z."
+    cmds:
+      - '{{.WAILS3}} generate webview2bootstrapper -dir "{{.ROOT_DIR}}/build/windows/nsis"'
+      - >-
+        makensis
+        -DINFO_PRODUCTVERSION={{.VERSION}}
+        {{if eq .INSTALL_SCOPE "user"}}-DWAILS_INSTALL_SCOPE=user -DREQUEST_EXECUTION_LEVEL=user{{end}}
+        -DARG_WAILS_{{.ARG_FLAG}}_BINARY="{{.ROOT_DIR}}/{{.BIN_DIR}}/{{.APP_NAME}}.exe"
+        project.nsi
+    vars:
+      ARCH: '{{.ARCH | default ARCH}}'
+      ARG_FLAG: '{{if eq .ARCH "amd64"}}AMD64{{else}}ARM64{{end}}'
+      INSTALL_SCOPE: '{{.INSTALL_SCOPE | default "machine"}}'
+      VERSION: '{{.VERSION | default "0.3.0"}}'
 
   run:
     cmds:
