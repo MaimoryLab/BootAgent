@@ -43,6 +43,11 @@ jobs:
           runtime: node@26
           cache: true
           cache-dependency-path: frontend/pnpm-lock.yaml
+          install: false
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
 
       - name: Build frontend
         working-directory: frontend

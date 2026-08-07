@@ -55,6 +55,11 @@ jobs:
           runtime: node@26
           cache: true
           cache-dependency-path: frontend/pnpm-lock.yaml
+          install: false
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
 
       - name: Test license generator
         run: python3 -m unittest scripts/test_generate_third_party_licenses.py
@@ -89,6 +94,11 @@ jobs:
           runtime: node@26
           cache: true
           cache-dependency-path: frontend/pnpm-lock.yaml
+          install: false
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
 
       # Includes src/styles/cascade.test.ts, which is the only gate that reads
       # CSS. Three layout bugs reached main through duplicate selectors silently
