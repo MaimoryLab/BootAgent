@@ -393,6 +393,10 @@
   overflow-y: auto;
 }
 
+.agent-tabs { position: relative; z-index: 1; display: flex; gap: 4px; margin: 0 0 10px; border-bottom: 1px solid var(--border); }
+.agent-tab { min-height: 38px; border: 0; border-bottom: 2px solid transparent; padding: 8px 12px; color: var(--text-secondary); background: transparent; cursor: pointer; }
+.agent-tab.is-active { border-bottom-color: var(--blue); color: var(--blue); font-weight: 650; }
+
 .agent-row {
   min-height: 68px;
   padding: 10px 14px;
@@ -582,7 +586,7 @@
 .agent-selection-body > .content-section {
   min-height: 0;
   flex: 1 1 auto;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr);
 }
 
 .disclosure-section {
