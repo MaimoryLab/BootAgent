@@ -92,6 +92,7 @@ test("onboarding installs one Agent end to end and writes its Profile", async ({
   await page.getByRole("button", { name: "安装 Agent" }).click();
 
   await expect(page.getByRole("heading", { name: "选择 Agent", level: 1 })).toBeVisible();
+  await page.getByRole("tab", { name: "命令行 Agent" }).click();
   await page.getByLabel("选择 Codex").check();
   await page.getByRole("button", { name: "继续" }).click();
 
@@ -128,9 +129,9 @@ test("onboarding installs one Agent end to end and writes its Profile", async ({
 
 test("Provider CRUD persists keys", async ({ page }) => {
   await page.goto("/#/providers");
-  await page.getByRole("button", { name: "新增 Provider" }).click();
-  await expect(page.getByLabel("Provider ID")).toBeVisible();
-  await page.getByLabel("Provider ID").fill("acme");
+  await page.getByRole("button", { name: "新增模型服务" }).click();
+  await expect(page.getByLabel("模型服务 ID")).toBeVisible();
+  await page.getByLabel("模型服务 ID").fill("acme");
   await page.getByLabel("名称").fill("Acme");
   await page.getByLabel("OpenAI 兼容 Base URL").fill("https://api.acme.test/openai");
   await page.getByLabel("API Key").fill("sk-acme");
