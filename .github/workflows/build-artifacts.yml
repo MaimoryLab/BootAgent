@@ -152,21 +152,9 @@ jobs:
           go run github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.4 generate webview2bootstrapper -dir "$env:GITHUB_WORKSPACE/build/windows/nsis"
           $version = $env:RELEASE_VERSION.TrimStart('v')
           $arch = '${{ matrix.arch.ota }}'
-          $makensis = (Get-Command makensis -ErrorAction SilentlyContinue).Source
-          if (-not $makensis) {
-            $makensis = Join-Path ([Environment]::GetEnvironmentVariable('ProgramFiles(x86)')) 'NSIS\makensis.exe'
-          }
           Set-Location "$env:GITHUB_WORKSPACE/build/windows/nsis"
-          & $makensis "-DINFO_PRODUCTVERSION=$version" "-DARG_WAILS_${{ matrix.arch.goarch == 'amd64' && 'AMD64' || 'ARM64' }}_BINARY=$env:GITHUB_WORKSPACE\bin\oneagent-desktop.exe" project.nsi
+          makensis "-DINFO_PRODUCTVERSION=$version" "-DARG_WAILS_${{ matrix.arch.goarch == 'amd64' && 'AMD64' || 'ARM64' }}_BINARY=$env:GITHUB_WORKSPACE\bin\oneagent-desktop.exe" project.nsi
           Rename-Item "..\..\..\bin\oneagent-desktop-$arch-installer.exe" "OneAgent-windows-$arch-installer.exe"
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: OneAgent-${{ matrix.target.platform }}-${{ matrix.arch.label }}
-          path: bin/*
-          if-no-files-found: error
-          compression-level: 0
 
       - name: Package macOS OTA archive
         if: matrix.target.platform == 'macos'
