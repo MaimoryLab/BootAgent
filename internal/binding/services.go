@@ -202,6 +202,10 @@ func (s *ProviderService) Probe(ctx context.Context, request ProbeRequest) (Prob
 		return ProbeResponse{}, err
 	}
 	response := probeResponse(result.Primary)
+	// Set on the top-level response only: the per-protocol entries all probed the
+	// same model, so repeating it there would suggest they could differ.
+	response.Model = result.Model
+	response.AutoSelectedModel = result.AutoSelectedModel
 	response.Protocols = make(map[string]ProbeResponse, len(result.Protocols))
 	for protocolID, protocolResult := range result.Protocols {
 		response.Protocols[protocolID] = probeResponse(protocolResult)
@@ -511,6 +515,11 @@ type ProbeResponse struct {
 	Retryable bool                     `json:"retryable"`
 	Protocol  *string                  `json:"protocol,omitempty"`
 	Protocols map[string]ProbeResponse `json:"protocols,omitempty"`
+	// Model is the ID that was probed, and AutoSelectedModel says OneAgent chose
+	// it rather than the user. A failure on a model we picked is not evidence
+	// about the user's key, and the UI has to be able to say which it is.
+	Model             string `json:"model,omitempty"`
+	AutoSelectedModel bool   `json:"auto_selected_model,omitempty"`
 }
 
 type ModelsResponse struct {

@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -25,6 +26,13 @@ type ProviderProbeOptions struct {
 type ProviderProbeResult struct {
 	Primary   provider.ProbeResult
 	Protocols map[string]provider.ProbeResult
+	// Model is the ID actually probed, and AutoSelectedModel says we chose it
+	// rather than the user. Together they let a failure distinguish "your key is
+	// wrong" from "we picked a model this endpoint does not serve for chat" --
+	// indistinguishable before, which is what made a bad auto-pick read as a
+	// credential problem.
+	Model             string
+	AutoSelectedModel bool
 }
 
 // SaveProviderResult reports which Agents were rewritten after the edit so the
@@ -50,7 +58,7 @@ func (u *UseCases) ProbeProvider(ctx context.Context, options ProviderProbeOptio
 	if apiKey == "" {
 		apiKey = target.APIKey
 	}
-	model, err := u.resolveProviderModel(ctx, target, apiKey, options.Model)
+	model, autoSelected, err := u.resolveProviderModel(ctx, target, apiKey, options.Model)
 	if err != nil {
 		return ProviderProbeResult{}, err
 	}
@@ -73,7 +81,7 @@ func (u *UseCases) ProbeProvider(ctx context.Context, options ProviderProbeOptio
 		}
 	}
 	primary.OK = allOK
-	return ProviderProbeResult{Primary: primary, Protocols: results}, nil
+	return ProviderProbeResult{Primary: primary, Protocols: results, Model: model, AutoSelectedModel: autoSelected}, nil
 }
 
 func (u *UseCases) probeProtocols(ctx context.Context, protocols []string, apiKey, model string, baseFor func(string) string) (map[string]provider.ProbeResult, error) {
@@ -265,21 +273,37 @@ func (u *UseCases) DeleteProvider(ctx context.Context, providerID string) error 
 	return u.providers.Delete(ctx, providerID)
 }
 
-func (u *UseCases) resolveProviderModel(ctx context.Context, target provider.Entry, apiKey, model string) (string, error) {
+// resolveProviderModel decides which model the connection probe sends a chat
+// payload to. The second return value reports whether the choice was ours rather
+// than the user's, so a failure can say which of the two it is describing.
+//
+// Preference order, and why: a model the user typed wins outright, because the
+// probe model is explicitly their override and a failure on it is the answer they
+// asked for. Otherwise the Provider's manifest model wins over anything picked out
+// of the live catalogue — it is a reviewed, known-chat ID for that Provider, while
+// the catalogue of an aggregator is mostly video, image and audio generators whose
+// names no denylist will ever fully enumerate. PickChatModel is the last resort,
+// for a custom endpoint or a Provider whose manifest model it no longer serves.
+func (u *UseCases) resolveProviderModel(ctx context.Context, target provider.Entry, apiKey, model string) (string, bool, error) {
 	if model = strings.TrimSpace(model); model != "" {
-		return model, nil
+		return model, false, nil
 	}
 	if apiKey == "" {
-		return target.FallbackModel, nil
+		return target.FallbackModel, true, nil
 	}
 	listing, err := u.provider.ListModels(ctx, "custom", apiKey, target.BaseURL)
 	if err != nil {
-		return "", err
+		return "", true, err
 	}
 	if listing.OK && len(listing.Models) > 0 {
-		return provider.PickChatModel(listing.Models), nil
+		// Only when the Provider actually serves it: probing a manifest model the
+		// endpoint has dropped would fail for a reason the user cannot act on.
+		if fallback := strings.TrimSpace(target.FallbackModel); fallback != "" && slices.Contains(listing.Models, fallback) {
+			return fallback, true, nil
+		}
+		return provider.PickChatModel(listing.Models), true, nil
 	}
-	return target.FallbackModel, nil
+	return target.FallbackModel, true, nil
 }
 
 func protocolsForAgents(agentIDs []string) ([]string, error) {

@@ -801,6 +801,28 @@
 .inline-status.status-warning { color: var(--orange); background: transparent; }
 .inline-status.status-error { color: var(--red); }
 
+/* A failure can carry a second line explaining that the probed model was chosen
+   for the user. align-items moves to the top so the icon stays beside the first
+   line rather than centring against a two-line block. */
+.inline-status:has(small) {
+  align-items: flex-start;
+  padding: 9px 0;
+}
+
+.inline-status > span {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+/* Inherits neither the colour nor the weight of the error above it: the
+   explanation is context, not a second alarm. */
+.inline-status small {
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 .model-picker {
   width: 100%;
   display: grid;

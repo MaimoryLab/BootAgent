@@ -304,3 +304,57 @@ func TestDeleteIgnoresStaleBindingWithoutAgentConfig(t *testing.T) {
 		t.Fatalf("stale binding blocked Provider deletion: %v", err)
 	}
 }
+
+// A built-in Provider's catalogue is mostly not chat models. With an empty probe
+// model the live list used to win outright, so a video generator returned first
+// became the model the connection test sent a chat payload to -- and the failure
+// read as "your key is broken" during first-run setup.
+func TestProbeProviderPrefersTheManifestModelOverAVideoModel(t *testing.T) {
+	var probed string
+	core := providerUseCases(t, appProviderDoer(func(request *http.Request) (*http.Response, error) {
+		if request.URL.Path == "/openai/v1/models" {
+			// Ordered as an aggregator really does: generators first.
+			return appProviderResponse(http.StatusOK, `{"data":[
+				{"id":"wan-ai/wan2.1-t2v-14b"},
+				{"id":"kwai/kling-v1-video"},
+				{"id":"deepseek/deepseek-v4-flash"},
+				{"id":"deepseek/deepseek-v4-pro"}
+			]}`), nil
+		}
+		body, _ := io.ReadAll(request.Body)
+		probed = string(body)
+		return appProviderResponse(http.StatusNoContent, ""), nil
+	}))
+	result, err := core.ProbeProvider(context.Background(), ProviderProbeOptions{
+		Provider: "ppio", APIKey: "key", AgentIDs: []string{"opencode"},
+	})
+	if err != nil || !result.Primary.OK {
+		t.Fatalf("probe = %#v, err=%v", result, err)
+	}
+	// The manifest's reviewed chat model, not the first survivor of the denylist.
+	if !strings.Contains(probed, "deepseek/deepseek-v4-flash") {
+		t.Fatalf("probed payload did not use the manifest model: %s", probed)
+	}
+}
+
+// A model the user typed is their override and must be probed verbatim, even when
+// it is one the denylist would reject: a failure they asked for is information.
+func TestProbeProviderKeepsAModelTheUserTyped(t *testing.T) {
+	var probed string
+	core := providerUseCases(t, appProviderDoer(func(request *http.Request) (*http.Response, error) {
+		if request.URL.Path == "/openai/v1/models" {
+			t.Fatal("discovery ran even though the user named a model")
+		}
+		body, _ := io.ReadAll(request.Body)
+		probed = string(body)
+		return appProviderResponse(http.StatusNoContent, ""), nil
+	}))
+	if _, err := core.ProbeProvider(context.Background(), ProviderProbeOptions{
+		Provider: "ppio", APIKey: "key", Model: "kwai/kling-v1-video", AgentIDs: []string{"opencode"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(probed, "kwai/kling-v1-video") {
+		t.Fatalf("user's model was replaced: %s", probed)
+	}
+}

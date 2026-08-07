@@ -101,7 +101,9 @@ func (u *UseCases) activateAgentLocked(ctx context.Context, options ActivateAgen
 		return ActivateAgentResult{}, err
 	}
 
-	model, err := u.resolveProviderModel(ctx, target, apiKey, options.Model)
+	// The auto-selected flag only matters to the probe, which has to explain a
+	// failure; activation just needs a usable model.
+	model, _, err := u.resolveProviderModel(ctx, target, apiKey, options.Model)
 	if err != nil {
 		return ActivateAgentResult{}, err
 	}

@@ -94,3 +94,35 @@ func TestInvalidProtocolErrorIsStable(t *testing.T) {
 		t.Fatalf("invalid protocol error = %v", err)
 	}
 }
+
+// The generator IDs the aggregators OneAgent ships actually return. Before the
+// video and audio terms were added, every one of these was treated as a chat
+// model, so an aggregator listing one first had it probed with a chat payload.
+func TestPickChatModelSkipsGeneratorModels(t *testing.T) {
+	generators := []string{
+		"wan-ai/wan2.1-t2v-14b", "kwai/kling-v1-video", "sora-2", "veo-3.0-generate-001",
+		"zai-org/cogvideox-5b", "tencent/hunyuan-video", "bytedance/seedance-1-0-pro",
+		"minimaxai/minimax-hailuo-02", "stabilityai/stable-video-diffusion", "suno/bark",
+		"black-forest-labs/flux-1-schnell", "qwen/qwen-image-edit", "minimaxai/minimax-speech-02",
+	}
+	for _, id := range generators {
+		if got := PickChatModel([]string{id, "deepseek/deepseek-v4-pro"}); got != "deepseek/deepseek-v4-pro" {
+			t.Errorf("PickChatModel picked the generator %q", got)
+		}
+	}
+}
+
+// The other half of the denylist's contract, and the reason it cannot simply be
+// made broader: a term like "wan" or "veo" that matched real chat model families
+// would push the probe onto models[0] and reintroduce the bug from the other side.
+func TestPickChatModelKeepsRealChatModels(t *testing.T) {
+	for _, id := range []string{
+		"deepseek/deepseek-v4-pro", "deepseek/deepseek-v4-flash", "gpt-5.6-terra", "claude-fable-5",
+		"qwen/qwen3-235b-a22b", "moonshotai/kimi-k2", "meta-llama/llama-4-maverick",
+		"zai-org/glm-4.6", "minimaxai/minimax-m2", "openai/gpt-oss-120b",
+	} {
+		if got := PickChatModel([]string{id}); got != id {
+			t.Errorf("chat model %q was classified as non-chat", id)
+		}
+	}
+}
