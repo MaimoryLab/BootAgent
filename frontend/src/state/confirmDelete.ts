@@ -16,27 +16,43 @@ import { Dialogs } from "@wailsio/runtime";
  * Neither button is marked IsDefault. A default button is the one Enter
  * activates, and for an irreversible delete the safe outcome of an accidental
  * keypress is "nothing happened".
+ *
+ * Falls back to window.confirm when the native dialog does not answer, which is a
+ * real environment difference rather than a test affordance. Dialogs.Question
+ * needs a WebView to host the dialog, and under `-tags server` — the browser
+ * preview and the E2E build — there is none: the call neither resolves nor
+ * rejects, it simply never settles. A rejection could be caught, but a hang
+ * cannot, so the request is raced against a timer. Without this the delete button
+ * silently did nothing in server mode, with no error to explain why.
  */
+const NATIVE_DIALOG_TIMEOUT_MS = 1500;
+
 export async function confirmDelete(options: {
   title: string;
   message: string;
   confirmLabel: string;
   cancelLabel: string;
 }): Promise<boolean> {
-  let choice: string;
-  try {
-    choice = await Dialogs.Question({
-      Title: options.title,
-      Message: options.message,
-      Buttons: [
-        { Label: options.confirmLabel },
-        { Label: options.cancelLabel, IsCancel: true },
-      ],
-    });
-  } catch {
-    // A dialog that could not be shown must not be read as approval. Returning
-    // false leaves the record in place, which is the recoverable direction.
-    return false;
-  }
-  return choice === options.confirmLabel;
+  const pending = Dialogs.Question({
+    Title: options.title,
+    Message: options.message,
+    Buttons: [
+      { Label: options.confirmLabel },
+      { Label: options.cancelLabel, IsCancel: true },
+    ],
+  }).then(
+    (choice) => ({ answered: true, approved: choice === options.confirmLabel }),
+    () => ({ answered: false, approved: false }),
+  );
+  // The sentinel is a distinct object rather than a boolean so a real answer of
+  // "declined" is not confused with "never answered": one must not fall through
+  // to a second prompt.
+  const unanswered = { answered: false, approved: false };
+  const timer = new Promise<typeof unanswered>((resolve) => setTimeout(() => resolve(unanswered), NATIVE_DIALOG_TIMEOUT_MS));
+  const outcome = await Promise.race([pending, timer]);
+  if (outcome.answered) return outcome.approved;
+  // window.confirm is absent in some hardened webviews. Where neither prompt can
+  // be shown, "cannot ask" has to mean "do not delete".
+  if (typeof window.confirm !== "function") return false;
+  return window.confirm(options.message);
 }
