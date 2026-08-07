@@ -356,7 +356,7 @@ export function ProfilesPage() {
                     type="button"
                     onClick={() => void apply(profile)}
                     disabled={!canApply || Boolean(applying)}
-                    title={canApply ? t("直接应用此 Profile") : t("请先补全模型和 API mode，并为 Provider 保存 Key")}
+                    title={canApply ? t("应用 Profile") : t("请先补全模型和 API mode，并为 Provider 保存 Key")}
                   >
                     <Play size={14} />
                     {applying === profile.id ? t("应用中") : t("应用到 Agent")}

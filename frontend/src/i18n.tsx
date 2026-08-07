@@ -285,6 +285,7 @@ const english = {
   "应用配置失败": "Could not apply configuration",
   "应用中": "Applying",
   "应用": "Apply",
+  "应用 Profile": "Apply profile",
   "{name} 已应用": "{name} applied",
   "当前指向": "Current target",
   "配置文件": "Configuration file",
