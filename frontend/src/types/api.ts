@@ -96,10 +96,10 @@ export type InstallResponse = Omit<BindingModels.InstallResponse, "results" | "p
 };
 
 export type InstallOutput =
-  | { kind: "command"; args: string[] }
-  | { kind: "output"; stream: "stdout" | "stderr"; text: string }
+	| { kind: "command"; agent?: string; args: string[] }
+	| { kind: "output"; agent?: string; stream: "stdout" | "stderr"; text: string }
   /** total is 0 when the server sent no Content-Length. */
-  | { kind: "progress"; target: string; received: number; total: number };
+	| { kind: "progress"; agent?: string; target: string; received: number; total: number };
 
 export type InstallRequest = Pick<
   BindingModels.InstallRequest,

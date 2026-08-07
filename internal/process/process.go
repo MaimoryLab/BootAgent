@@ -33,6 +33,9 @@ type Result struct {
 // uses Target, Received and Total.
 type Output struct {
 	Kind   string   `json:"kind"`
+	// Agent identifies the install request that produced command/output events.
+	// Progress keeps Target for runtime downloads and uses Agent for ownership.
+	Agent  string   `json:"agent,omitempty"`
 	Args   []string `json:"args,omitempty"`
 	Stream string   `json:"stream,omitempty"`
 	Text   string   `json:"text,omitempty"`

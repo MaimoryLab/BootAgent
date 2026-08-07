@@ -8,7 +8,7 @@ import { ProviderSegment } from "../components/ProviderSegment";
 import { SelectField } from "../components/SelectField";
 import { useI18n } from "../i18n";
 import { byProviderCreatedAt } from "../state/ranking";
-import { taskCanceller, taskKey, useTaskCenter, useTaskRoute } from "../state/TaskCenterContext";
+import { installTaskRoute, taskCanceller, taskKey, useTaskCenter } from "../state/TaskCenterContext";
 import { useWizard } from "../state/WizardContext";
 import { PROTOCOL_LABELS, type ProfileSummary, type ProtocolId, type ProviderId } from "../types/api";
 
@@ -39,7 +39,6 @@ export function ProfilesPage() {
   const { locale, t } = useI18n();
   const { state, refreshStatus } = useWizard();
   const { startTask, finishTask, setTaskCanceller } = useTaskCenter();
-  const route = useTaskRoute();
   const status = state.status;
   const [editor, setEditor] = useState<ProfileDraft | null>(null);
   const [busy, setBusy] = useState(false);
@@ -139,7 +138,7 @@ export function ProfilesPage() {
         profile: profile.label || profile.id,
         agent: status.catalog.find((agent) => agent.id === agentId)?.name || agentId,
       }),
-      route,
+      route: installTaskRoute(agentId),
       progressTarget: status.capabilities.missingRuntime[agentId],
       group,
     }));

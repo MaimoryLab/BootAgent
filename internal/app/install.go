@@ -325,6 +325,7 @@ func (r *installRun) configure(ctx context.Context, agentID string, agent catalo
 	// being reported missing and downloaded again.
 	runtime := r.core.installRuntime(nil)
 	runtime.OnOutput = func(output process.Output) {
+		output.Agent = agentID
 		output.Text = install.Redact(output.Text, []string{r.options.APIKey})
 		for index, argument := range output.Args {
 			output.Args[index] = install.Redact(argument, []string{r.options.APIKey})
