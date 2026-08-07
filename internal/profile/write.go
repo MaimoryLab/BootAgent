@@ -90,6 +90,12 @@ func (s Store) Save(ctx context.Context, request SaveRequest) (Profile, error) {
 
 // Delete removes a Profile and its sibling secret. Deleting the active Profile
 // also clears the active pointer so status returns to an unconfigured state.
+//
+// A Profile that is already gone is not an error: the caller asked for it to not
+// exist, and it does not. Reporting failure there made a double-clicked delete
+// button surface "Unknown Profile" for the second click, and it would also have
+// left a Profile whose record vanished out-of-band undeletable — the secret and
+// the active pointer below are cleaned up either way.
 func (s Store) Delete(ctx context.Context, id string) error {
 	if err := requestContext(ctx); err != nil {
 		return err
@@ -98,10 +104,7 @@ func (s Store) Delete(ctx context.Context, id string) error {
 		return err
 	}
 	profilePath, _ := s.ProfilePath(id)
-	if err := os.Remove(profilePath); err != nil {
-		if os.IsNotExist(err) {
-			return oneerrors.New(oneerrors.InvalidRequest, "Unknown Profile: "+id)
-		}
+	if err := os.Remove(profilePath); err != nil && !os.IsNotExist(err) {
 		return writeError("Cannot delete Profile %s: %v", id, err)
 	}
 	if secretPath, err := s.SecretPath(id); err == nil {

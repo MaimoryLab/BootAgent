@@ -206,7 +206,7 @@ func TestSaveProfileCanSwitchAKeylessProfileProvider(t *testing.T) {
 
 func TestSaveProfileUsesProtocolEndpoint(t *testing.T) {
 	core := NewUseCases(StatusOptions{Home: t.TempDir(), Platform: platform.For("linux", "amd64"), Lookup: func(string) (string, bool) { return "", false }})
-	if _, err := core.SaveProvider(context.Background(), provider.Entry{ID: "anthropic-only", Name: "Anthropic", AnthropicBaseURL: "https://api.example.test/anthropic"}); err != nil {
+	if _, err := core.SaveProvider(context.Background(), provider.Entry{ID: "anthropic-only", Name: "Anthropic", AnthropicBaseURL: "https://api.example.test/anthropic"}, true); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := core.SaveProfile(context.Background(), SaveProfileOptions{ID: "anthropic", Provider: "anthropic-only", Model: "model", ConfigMode: "provider", Protocol: "anthropic"}); err != nil {
@@ -427,5 +427,51 @@ func TestStatusReportsFirstRunUntilOneAgentDirExists(t *testing.T) {
 	}
 	if status.FirstRun {
 		t.Fatal("firstRun must clear once ~/.oneagent exists")
+	}
+}
+
+// DeleteProfile had no coverage at all, which is how the double-click bug in the
+// UI reached a user: the second click hit a Profile whose file was already gone
+// and got "Unknown Profile" back.
+func TestDeleteProfileRemovesTheProfileAndItsSecret(t *testing.T) {
+	home := t.TempDir()
+	core := NewUseCases(StatusOptions{Home: home, Platform: platform.For("linux", "amd64"), Lookup: func(string) (string, bool) { return "", false }})
+	if _, err := core.SaveProfile(context.Background(), SaveProfileOptions{
+		ID: "team", Provider: "ppio", Model: "model-a", APIKey: "stored-secret",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := core.DeleteProfile(context.Background(), "team"); err != nil {
+		t.Fatalf("delete = %v", err)
+	}
+	profiles, err := core.ListProfiles(context.Background())
+	if err != nil || len(profiles) != 0 {
+		t.Fatalf("profiles after delete = %#v, err=%v", profiles, err)
+	}
+	// The secret is a separate file, so a delete that only unlinked the Profile
+	// would leave a credential behind for an ID the user believes is gone.
+	if entries, _ := os.ReadDir(filepath.Join(home, ".oneagent", "profiles")); len(entries) != 0 {
+		t.Fatalf("profile directory still holds %d entries", len(entries))
+	}
+}
+
+// Deleting something that is already absent is what the user asked for, so it
+// succeeds. This is the assertion that pins the double-click fix.
+func TestDeleteProfileSucceedsWhenTheProfileIsAlreadyGone(t *testing.T) {
+	home := t.TempDir()
+	core := NewUseCases(StatusOptions{Home: home, Platform: platform.For("linux", "amd64"), Lookup: func(string) (string, bool) { return "", false }})
+	if _, err := core.SaveProfile(context.Background(), SaveProfileOptions{
+		ID: "team", Provider: "ppio", Model: "model-a",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := core.DeleteProfile(context.Background(), "team"); err != nil {
+		t.Fatalf("first delete = %v", err)
+	}
+	if err := core.DeleteProfile(context.Background(), "team"); err != nil {
+		t.Fatalf("second delete of the same Profile = %v, want nil", err)
+	}
+	if err := core.DeleteProfile(context.Background(), "never-existed"); err != nil {
+		t.Fatalf("delete of an unknown Profile = %v, want nil", err)
 	}
 }
