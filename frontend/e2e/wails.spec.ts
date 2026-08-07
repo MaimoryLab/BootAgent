@@ -8,10 +8,10 @@ import { expect, test } from "@playwright/test";
 // combobox role is unchanged, so they are still found the same way, but choosing
 // takes the two steps a user takes.
 test("language selection switches to English and persists", async ({ page }) => {
-  await page.goto("/#/overview");
+  await page.goto("/#/settings");
   await page.getByRole("combobox", { name: "语言" }).click();
   await page.getByRole("option", { name: "English" }).click();
-  await expect(page.getByRole("heading", { name: "Environment overview" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
 
   await page.reload();
   // The trigger shows the current value, which is also the check that the choice
@@ -34,7 +34,7 @@ test("every sidebar control at the bottom is actually clickable", async ({ page 
   // rail below it, where the task centre and the selects change size.
   for (const viewport of [{ width: 1180, height: 760 }, { width: 860, height: 600 }]) {
     await page.setViewportSize(viewport);
-    await page.goto("/#/overview");
+    await page.goto("/#/settings");
     const label = `${viewport.width}x${viewport.height}`;
 
     const covered = await page.evaluate(() => {
