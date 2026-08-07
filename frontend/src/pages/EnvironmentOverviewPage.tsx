@@ -21,7 +21,7 @@ export function EnvironmentOverviewPage() {
     if (agentId) navigate(`/agents/${agentId}`);
   };
   const openInstall = () => {
-    dispatch({ type: "START_SETUP" });
+    dispatch({ type: "START_DESKTOP_SETUP" });
     navigate("/setup/agents");
   };
 

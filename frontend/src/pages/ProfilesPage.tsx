@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 
 import { api, describeError, isCancellationError } from "../backend/api";
 import { PageScaffold } from "../components/PageScaffold";
+import { ProviderModelPicker } from "../components/ProviderModelPicker";
 import { ProviderSegment } from "../components/ProviderSegment";
 import { SelectField } from "../components/SelectField";
 import { useI18n } from "../i18n";
@@ -283,10 +284,15 @@ export function ProfilesPage() {
                 protocol={editor.protocol as ProtocolId}
               />
             </div>
-            <div className="field-stack profile-editor-wide">
-              <label htmlFor="profile-model">{t("模型")}</label>
-              <input id="profile-model" value={editor.model} onChange={(event) => setEditor({ ...editor, model: event.target.value })} placeholder={t("例如 deepseek/deepseek-v4-pro")} required />
-            </div>
+            <ProviderModelPicker
+              key={`${editor.protocol}:${editor.provider}`}
+              provider={editor.provider}
+              protocol={editor.protocol}
+              hasKey={providerHasKey}
+              value={editor.model}
+              onChange={(model) => setEditor({ ...editor, model })}
+              inputId="profile-model"
+            />
             {/* The key is the Provider's, so this only reports whether that
                 Provider has one and links to where it is set. */}
             <p className="profile-key-hint profile-editor-wide">

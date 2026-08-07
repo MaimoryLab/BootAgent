@@ -2,7 +2,7 @@ import type { DesktopAgentStatus, ProfileSummary, StatusResponse } from "../type
 
 export function desktopApps(status: StatusResponse): DesktopAgentStatus[] {
   const seen = new Set<string>();
-  return status.desktopAgents.filter((app) => {
+  return (status.desktopAgents ?? []).filter((app) => {
     if (!app?.id || seen.has(app.id)) return false;
     seen.add(app.id);
     return true;
