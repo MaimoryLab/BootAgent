@@ -258,7 +258,8 @@ func (u *UseCases) GetStatus(ctx context.Context) (StatusResponse, error) {
 	}
 	options := u.status
 	paths := map[string]string{
-		"profile": filepath.Join(options.Home, ".oneagent", "profile.json"),
+		"launch_directory": currentDirectory(),
+		"profile":          filepath.Join(options.Home, ".oneagent", "profile.json"),
 		// The Task Center points users at this directory when a command fails.
 		// It has to come from here rather than being spelled out in the UI: a
 		// hardcoded "~/.oneagent/logs" names a path that does not exist on
@@ -373,6 +374,14 @@ func (u *UseCases) GetStatus(ctx context.Context) (StatusResponse, error) {
 		FirstRun:         !fileExists(filepath.Join(options.Home, ".oneagent")),
 		DesktopAgents:    desktopAgents,
 	}, nil
+}
+
+func currentDirectory() string {
+	directory, err := os.Getwd()
+	if err != nil {
+		return ""
+	}
+	return filepath.Clean(directory)
 }
 
 func (u *UseCases) installedVersions(ctx context.Context, manifest catalog.Manifest, lookup func(string) (string, bool)) map[string]*string {

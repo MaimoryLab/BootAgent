@@ -386,7 +386,7 @@ func (s *AgentService) Launch(ctx context.Context, request LaunchRequest) (Launc
 	if s == nil || s.core == nil {
 		return LaunchResponse{}, notReady("Agent launch is not configured")
 	}
-	result, err := s.core.LaunchAgent(ctx, strings.TrimSpace(request.AgentID))
+	result, err := s.core.LaunchAgent(ctx, strings.TrimSpace(request.AgentID), strings.TrimSpace(request.WorkingDirectory))
 	if err != nil {
 		return LaunchResponse{}, err
 	}
@@ -576,7 +576,8 @@ type ActivateResponse struct {
 }
 
 type LaunchRequest struct {
-	AgentID string `json:"agent_id"`
+	AgentID          string `json:"agent_id"`
+	WorkingDirectory string `json:"working_directory"`
 }
 
 type UpdateRequest struct {

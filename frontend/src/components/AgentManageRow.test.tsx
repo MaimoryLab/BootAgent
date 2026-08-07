@@ -12,7 +12,7 @@ const launchAgent = vi.fn();
 vi.mock("../backend/api", async () => {
   const errors = await import("../backend/errors");
   return {
-    api: { launchAgent: (agentId: string) => launchAgent(agentId) },
+    api: { launchAgent: (agentId: string, directory: string) => launchAgent(agentId, directory) },
     describeError: errors.describeError,
   };
 });
@@ -71,6 +71,7 @@ function renderRow(over: Partial<AgentStatus> = {}, profileName = "团队 PPIO",
           ppio: { name: "PPIO", home: "https://ppio.com/", base_url: "https://api.ppio.com/openai" },
         }}
         profileName={profileName}
+        defaultDirectory="/tmp"
       />
     </MemoryRouter>,
   );
@@ -202,7 +203,8 @@ describe("AgentManageRow", () => {
   it("launches the Agent it belongs to", async () => {
     renderRow();
     await userEvent.click(screen.getByRole("button", { name: /启动/ }));
-    await waitFor(() => expect(launchAgent).toHaveBeenCalledWith("codex"));
+    await userEvent.click(screen.getByRole("dialog").querySelector("button[type=submit]") as HTMLElement);
+    await waitFor(() => expect(launchAgent).toHaveBeenCalledWith("codex", expect.any(String)));
   });
 
   it("offers no launch for an Agent that is not installed", () => {
@@ -214,6 +216,7 @@ describe("AgentManageRow", () => {
     launchAgent.mockRejectedValue(new OneAgentApiError("没有可用的终端", "PREREQUISITE_MISSING", false, 500));
     renderRow();
     await userEvent.click(screen.getByRole("button", { name: /启动/ }));
+    await userEvent.click(screen.getByRole("dialog").querySelector("button[type=submit]") as HTMLElement);
     expect(await screen.findByText("没有可用的终端")).toBeTruthy();
   });
 });

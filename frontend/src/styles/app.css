@@ -219,6 +219,15 @@
 .transfer-password-dialog form { display: grid; gap: 16px; }
 .transfer-password-dialog h2 { margin: 0; font-size: 15px; }
 .transfer-password-dialog footer { display: flex; justify-content: flex-end; gap: 8px; }
+.transfer-password-dialog .launch-directory-label { margin-bottom: -10px; font-size: 13px; font-weight: 600; }
+.launch-directory-input-row { display: flex; align-items: center; gap: 6px; }
+.launch-directory-input-row input { min-width: 0; flex: 1; }
+.launch-directory-input-row .icon-button { flex: 0 0 34px; width: 34px; height: 34px; border: 1px solid var(--border-strong); background: var(--surface-subtle); }
+.launch-remember-row { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+.launch-remember-row input[type="checkbox"] { appearance: none; width: 17px; height: 17px; margin: 0; border: 1px solid var(--border-strong); border-radius: 4px; background: var(--window-bg); display: grid; place-content: center; cursor: pointer; }
+.launch-remember-row input[type="checkbox"]::before { content: ""; width: 9px; height: 5px; border-left: 2px solid white; border-bottom: 2px solid white; transform: rotate(-45deg) scale(0); transition: transform 100ms ease-in-out; }
+.launch-remember-row input[type="checkbox"]:checked { border-color: var(--blue); background: var(--blue); }
+.launch-remember-row input[type="checkbox"]:checked::before { transform: rotate(-45deg) scale(1); }
 
 .settings-page { padding-top: 24px; display: grid; align-content: start; gap: 28px; }
 .settings-section { width: 100%; max-width: none; }

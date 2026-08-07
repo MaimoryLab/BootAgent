@@ -166,8 +166,8 @@ export const wailsApi = {
       profile_id: input.profileId ?? "",
       small_fast_model: input.smallFastModel ?? "",
     })) as Promise<ActivateAgentResponse>,
-  launchAgent: (agentId: string): Promise<LaunchAgentResponse> =>
-    call(() => AgentService.Launch({ agent_id: agentId })) as Promise<LaunchAgentResponse>,
+  launchAgent: (agentId: string, workingDirectory = ""): Promise<LaunchAgentResponse> =>
+    call(() => AgentService.Launch({ agent_id: agentId, working_directory: workingDirectory })) as Promise<LaunchAgentResponse>,
   updateAgent: (agentId: string): CancellableRequest<AgentUpdateResult> =>
     call(() => AgentService.Update({ agent_id: agentId })) as CancellableRequest<AgentUpdateResult>,
   listRuntimes: (): Promise<RuntimeStatus[]> =>

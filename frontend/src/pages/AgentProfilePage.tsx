@@ -173,15 +173,14 @@ export function AgentProfilePage() {
       onPrimary={() => void apply()}
       primaryDisabled={!canApply || busy}
       footerNote={selected?.label || t("选择一个 Profile")}
-    >
-      {failure ? <div className="notice notice-error">{failure}</div> : null}
-      {applied ? <div className="notice notice-success">{applied}</div> : null}
-
-      <div className="profile-toolbar">
+      secondaryAction={(
         <button className="button button-secondary" type="button" onClick={openCreate} disabled={Boolean(draft)}>
           <Plus size={15} />{t("创建 Profile")}
         </button>
-      </div>
+      )}
+    >
+      {failure ? <div className="notice notice-error">{failure}</div> : null}
+      {applied ? <div className="notice notice-success">{applied}</div> : null}
 
       {draft ? (
         <form className="profile-editor desktop-profile-editor" onSubmit={(event) => void save(event)}>
