@@ -8,7 +8,7 @@ import { ProviderSegment } from "../components/ProviderSegment";
 import { SelectField } from "../components/SelectField";
 import { useI18n } from "../i18n";
 import { byProviderCreatedAt } from "../state/ranking";
-import { installTaskRoute, taskCanceller, taskKey, useTaskCenter } from "../state/TaskCenterContext";
+import { installTaskRoute, taskKey, useTaskCenter } from "../state/TaskCenterContext";
 import { useWizard } from "../state/WizardContext";
 import { PROTOCOL_LABELS, type ProfileSummary, type ProtocolId, type ProviderId } from "../types/api";
 
@@ -128,7 +128,8 @@ export function ProfilesPage() {
 
   const apply = async (profile: ProfileSummary) => {
     const candidates = configurableAgents.filter((agent) => agent.protocol === protocolOf(profile)).map((agent) => agent.id);
-    if (!profile.model || !candidates.length) return;
+    const model = profile.model;
+    if (!model || !candidates.length) return;
     const group = `profile:${profile.id}:${Date.now()}`;
     const agents = candidates.filter((agentId) => startTask({
       id: taskKey("install", agentId),
@@ -146,37 +147,30 @@ export function ProfilesPage() {
     setApplying(profile.id);
     setFailure("");
     try {
-      const request = api.install({
-        agents,
-        provider: profile.provider,
-        // The endpoint belongs to the Provider. Do not replay a stale copy
-        // retained by an older Profile record.
-        api_base_url: "",
-        api_key: "",
-        model: profile.model,
-        profile_id: profile.id,
-        configure: true,
-        install_agent: true,
-        skip_test: false,
-      });
-      const cancel = taskCanceller(request);
-      for (const agentId of agents) setTaskCanceller(taskKey("install", agentId), cancel);
-      const result = await request;
-      for (const agentId of agents) {
-        const item = result.results.find((candidate) => candidate.agent === agentId);
-        finishTask(taskKey("install", agentId), !item || item.status === "failed"
-          ? { kind: "failure", message: item?.message || t("应用 Profile 失败") }
-          : { kind: "success", message: t("{name} 已应用", { name: profile.label || profile.id }) });
-      }
-      if (!result.ok) {
-        throw new Error(result.results.find((item) => item.status === "failed")?.message || t("应用 Profile 失败"));
+      const outcomes = await Promise.allSettled(agents.map(async (agentId) => {
+        try {
+          await api.activateAgent(agentId, {
+            provider: profile.provider,
+            apiBaseUrl: "",
+            apiKey: "",
+            model,
+            profileId: profile.id,
+          });
+          finishTask(taskKey("install", agentId), { kind: "success", message: t("{name} 已应用", { name: profile.label || profile.id }) });
+        } catch (error) {
+          finishTask(taskKey("install", agentId), { kind: "failure", message: describeError(error, t("应用 Profile 失败")).message });
+          throw error;
+        }
+      }));
+      const failure = outcomes.find((outcome): outcome is PromiseRejectedResult => outcome.status === "rejected");
+      if (failure) {
+        throw failure.reason;
       }
       await refreshStatus();
       navigate("/overview", { replace: true });
     } catch (error) {
       const cancelled = isCancellationError(error);
       const message = cancelled ? "" : describeError(error, t("无法应用 Profile")).message;
-      for (const agentId of agents) finishTask(taskKey("install", agentId), { kind: cancelled ? "cancelled" : "failure", message });
       if (!cancelled) setFailure(message);
     } finally {
       setApplying("");
@@ -362,7 +356,7 @@ export function ProfilesPage() {
                     type="button"
                     onClick={() => void apply(profile)}
                     disabled={!canApply || Boolean(applying)}
-                    title={canApply ? t("安装缺失的 Agent 并应用此 Profile") : t("请先补全模型和 API mode，并为 Provider 保存 Key")}
+                    title={canApply ? t("直接应用此 Profile") : t("请先补全模型和 API mode，并为 Provider 保存 Key")}
                   >
                     <Play size={14} />
                     {applying === profile.id ? t("应用中") : t("应用到 Agent")}

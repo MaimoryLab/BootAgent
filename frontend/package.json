@@ -4,7 +4,7 @@
   "version": "0.2.0-dev",
   "license": "Apache-2.0",
   "type": "module",
-  "packageManager": "pnpm@11.17.0",
+  "packageManager": "pnpm@11.20.0",
   "scripts": {
     "dev": "vite",
     "build": "pnpm run typecheck && vite build",

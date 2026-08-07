@@ -268,14 +268,14 @@ describe("ProfilesPage", () => {
   });
 
   it("applies one Profile to all of its Agents", async () => {
-    const install = vi.spyOn(api, "install").mockResolvedValue({
+    const activate = vi.spyOn(api, "activateAgent").mockResolvedValue({
       ok: true,
-      code: 0,
-      results: [{ agent: "codex", status: "configured", retryable: false }],
-      log: "",
-      next: "",
-      probe: null,
-      probes: {},
+      agent: "codex",
+      config: "/c",
+      provider: "ppio",
+      model: "deepseek/deepseek-v3",
+      restart: "restart",
+      next: "next",
     });
     mockState = { status: statusWith([profile()]), statusState: "success" };
     if (!mockState.status) throw new Error("missing status");
@@ -287,13 +287,10 @@ describe("ProfilesPage", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "应用到 Agent" }));
 
-    await waitFor(() => expect(install).toHaveBeenCalledWith(expect.objectContaining({
-      agents: ["codex"],
-      profile_id: "team-ppio",
+    await waitFor(() => expect(activate).toHaveBeenCalledWith("codex", expect.objectContaining({
       provider: "ppio",
-      api_key: "",
       model: "deepseek/deepseek-v3",
-      install_agent: true,
+      profileId: "team-ppio",
     })));
     expect(await screen.findByRole("heading", { name: "overview" })).toBeTruthy();
   });

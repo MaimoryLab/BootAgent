@@ -49,9 +49,7 @@ jobs:
           go-version-file: go.mod
           cache-dependency-path: go.sum
 
-      - uses: pnpm/action-setup@v6
-        with:
-          version: 11.17.0
+      - uses: pnpm/setup@v2
 
       - uses: actions/setup-node@v7
         with:
@@ -90,9 +88,7 @@ jobs:
           go-version-file: go.mod
           cache-dependency-path: go.sum
 
-      - uses: pnpm/action-setup@v6
-        with:
-          version: 11.17.0
+      - uses: pnpm/setup@v2
 
       - uses: actions/setup-node@v7
         with:
