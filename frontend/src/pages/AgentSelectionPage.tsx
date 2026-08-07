@@ -6,12 +6,12 @@ import { AgentRow } from "../components/AgentRow";
 import { MirrorSetting } from "../components/MirrorSetting";
 import { PageScaffold } from "../components/PageScaffold";
 import { RuntimePrompt } from "../components/RuntimePrompt";
+import { StatusBadge } from "../components/StatusBadge";
 import { useI18n } from "../i18n";
-import { byRank } from "../state/ranking";
 import { desktopApps, desktopProtocol } from "../state/desktopSetup";
+import { byRank } from "../state/ranking";
 import { useWizard } from "../state/WizardContext";
 import type { AgentCatalogItem } from "../types/api";
-import { StatusBadge } from "../components/StatusBadge";
 
 export function AgentSelectionPage() {
   const navigate = useNavigate();
@@ -75,8 +75,8 @@ export function AgentSelectionPage() {
               <PackageCheck size={19} aria-hidden="true" />
             </div>
             <div className="agent-tabs" role="tablist" aria-label={t("Agent 类型")}>
-              <button className={`agent-tab${state.setupKind !== "desktop" ? " is-active" : ""}`} role="tab" aria-selected={state.setupKind !== "desktop"} type="button" onClick={() => dispatch({ type: "START_SETUP" })}>{t("命令行 Agent")}</button>
               <button className={`agent-tab${state.setupKind === "desktop" ? " is-active" : ""}`} role="tab" aria-selected={state.setupKind === "desktop"} type="button" onClick={() => dispatch({ type: "START_DESKTOP_SETUP" })}>{t("桌面 Agent")}</button>
+              <button className={`agent-tab${state.setupKind !== "desktop" ? " is-active" : ""}`} role="tab" aria-selected={state.setupKind !== "desktop"} type="button" onClick={() => dispatch({ type: "START_SETUP" })}>{t("命令行 Agent")}</button>
             </div>
             {state.setupKind !== "desktop" ? renderRows(agents) : (
               <div className="agent-list agent-selection-list">

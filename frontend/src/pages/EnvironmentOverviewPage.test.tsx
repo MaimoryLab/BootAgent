@@ -117,7 +117,7 @@ describe("EnvironmentOverviewPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "安装 Agent" }));
     expect(await screen.findByRole("heading", { name: "onboarding" })).toBeTruthy();
     // A second run must not inherit the previous Agent, model or log.
-    expect(dispatch).toHaveBeenCalledWith({ type: "START_SETUP" });
+    expect(dispatch).toHaveBeenCalledWith({ type: "START_DESKTOP_SETUP" });
   });
 
   it("counts and shows only installed desktop Agents", async () => {
@@ -139,7 +139,7 @@ describe("EnvironmentOverviewPage", () => {
     expect(screen.getAllByRole("button", { name: "安装 Agent" })).toHaveLength(1);
 
     fireEvent.click(screen.getByRole("button", { name: "安装 Agent" }));
-    expect(dispatch).toHaveBeenCalledWith({ type: "START_SETUP" });
+    expect(dispatch).toHaveBeenCalledWith({ type: "START_DESKTOP_SETUP" });
     expect(dispatch).not.toHaveBeenCalledWith(expect.objectContaining({ type: "SELECT_AGENT" }));
     expect(await screen.findByRole("heading", { name: "onboarding" })).toBeTruthy();
   });

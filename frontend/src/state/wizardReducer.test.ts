@@ -33,6 +33,10 @@ const successProbe = {
 } satisfies ProbeResponse;
 
 describe("wizardReducer", () => {
+  it("defaults Agent selection to desktop", () => {
+    expect(initialWizardState.setupKind).toBe("desktop");
+  });
+
   it("loads status and reports status errors", () => {
     let state = wizardReducer(initialWizardState, { type: "STATUS_LOADING" });
     expect(state.statusState).toBe("loading");

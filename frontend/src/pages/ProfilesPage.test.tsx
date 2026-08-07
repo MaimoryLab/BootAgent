@@ -308,6 +308,30 @@ describe("ProfilesPage", () => {
     expect(screen.getByLabelText("模型")).toHaveValue("");
   });
 
+  it("discovers and searches the selected Provider's models", async () => {
+    const models = vi.spyOn(api, "models").mockResolvedValue({
+      ok: true,
+      reachable: true,
+      status: 200,
+      message: "Found 2 models.",
+      error_code: null,
+      retryable: false,
+      models: ["model-alpha", "model-beta"],
+    });
+    mockState = { status: statusWith([]), statusState: "success" };
+    if (!mockState.status) throw new Error("missing status");
+    mockState.status.providers.ppio.has_key = true;
+    render(<MemoryRouter><ProfilesPage /></MemoryRouter>);
+    fireEvent.click(screen.getByRole("button", { name: "新增 Profile" }));
+    fireEvent.click(screen.getByRole("combobox", { name: "API 类型" }));
+    fireEvent.click(screen.getByRole("option", { name: "OpenAI Responses" }));
+    await waitFor(() => expect(models).toHaveBeenCalledWith({ provider: "ppio", apiBaseUrl: "", apiKey: "" }));
+    expect(screen.getByText("model-alpha")).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("模型"), { target: { value: "beta" } });
+    expect(screen.queryByText("model-alpha")).toBeNull();
+    expect(screen.getByText("model-beta")).toBeTruthy();
+  });
+
   it("applies one Profile to all of its Agents", async () => {
     const activate = vi.spyOn(api, "activateAgent").mockResolvedValue({
       ok: true,

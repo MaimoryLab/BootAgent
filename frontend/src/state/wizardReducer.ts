@@ -57,7 +57,7 @@ export const initialWizardState: WizardState = {
   status: null,
   statusState: "idle",
   statusError: "",
-  setupKind: "cli",
+  setupKind: "desktop",
   selectedAgentIds: [],
   provider: "ppio",
   probeModel: "",

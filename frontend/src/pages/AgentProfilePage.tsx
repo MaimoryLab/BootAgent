@@ -4,6 +4,7 @@ import { useNavigate, useParams } from "react-router-dom";
 
 import { api, describeError } from "../backend/api";
 import { PageScaffold } from "../components/PageScaffold";
+import { ProviderModelPicker } from "../components/ProviderModelPicker";
 import { ProviderSegment } from "../components/ProviderSegment";
 import { useI18n } from "../i18n";
 import { desktopApps, desktopProfileUsable, desktopProfiles, desktopProtocol, profileAgentIdForDesktop } from "../state/desktopSetup";
@@ -210,10 +211,15 @@ export function AgentProfilePage() {
                 protocol={protocol}
               />
             </div>
-            <div className="field-stack profile-editor-wide">
-              <label htmlFor="agent-profile-model">{t("模型")}</label>
-              <input id="agent-profile-model" value={draft.model} onChange={(event) => setDraft({ ...draft, model: event.target.value })} placeholder={t("例如 deepseek/deepseek-v4-pro")} required />
-            </div>
+            <ProviderModelPicker
+              key={`${protocol}:${draft.provider}`}
+              provider={draft.provider}
+              protocol={protocol}
+              hasKey={Boolean(status.providers[draft.provider]?.has_key)}
+              value={draft.model}
+              onChange={(model) => setDraft({ ...draft, model })}
+              inputId="agent-profile-model"
+            />
           </div>
           <p className="profile-key-hint">
             {status.providers[draft.provider]?.has_key
