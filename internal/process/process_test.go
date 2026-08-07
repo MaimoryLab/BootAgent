@@ -2,6 +2,7 @@ package process
 
 import (
 	"context"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -26,6 +27,38 @@ func TestProcessHelper(_ *testing.T) {
 		// Long enough that the caller's deadline always fires first; the runner
 		// kills this process, so the sleep never runs to completion.
 		<-time.After(10 * time.Second)
+	}
+	// Keeps talking for longer than the caller's stall timeout while never going
+	// quiet for as long as it. A healthy slow install looks like this, and it must
+	// not be killed.
+	if os.Getenv("ONEAGENT_PROCESS_DRIP") == "1" {
+		// Total runtime (~3s) must exceed the caller's stall window while each
+		// individual gap (300ms) stays well inside it. Otherwise the case would
+		// pass simply by finishing before the watchdog first looked.
+		for range 10 {
+			os.Stdout.WriteString("tick ")
+			<-time.After(300 * time.Millisecond)
+		}
+		os.Exit(0)
+	}
+	// Writes past MaxOutputBytes so boundedBuffer starts discarding and the
+	// listener stops being called, then keeps writing. Liveness must still be
+	// observed, or a chatty install dies once it crosses 1 MB.
+	if os.Getenv("ONEAGENT_PROCESS_FLOOD") == "1" {
+		chunk := strings.Repeat("x", 64*1024)
+		// 1.5 MB up front to push boundedBuffer past MaxOutputBytes, so everything
+		// after this point is written while the buffer accepts nothing and the
+		// listener is no longer called.
+		for range 24 {
+			os.Stdout.WriteString(chunk)
+		}
+		// Then keep writing past the caller's stall window. Only an activity
+		// signal taken before the buffer decides what to keep can see these.
+		for range 10 {
+			os.Stdout.WriteString(chunk)
+			<-time.After(300 * time.Millisecond)
+		}
+		os.Exit(0)
 	}
 	// Interleaves both streams so the runner's stdout and stderr copiers are
 	// active at the same time. Real installs look like this — npm reports progress
@@ -238,5 +271,159 @@ func TestOSRunnerUsesExecutableWithoutShell(t *testing.T) {
 	result, err := runner.Run(context.Background(), []string{exec.Command("true").Path}, nil, helperTimeout)
 	if err != nil || result.ExitCode != 0 {
 		t.Fatalf("direct executable result = %#v, err=%v", result, err)
+	}
+}
+
+// The point of stall detection: a command that keeps producing output runs to
+// completion even though it takes far longer than the stall window, because the
+// limit is on silence, not on elapsed time.
+func TestOSRunnerLetsASlowButTalkingCommandFinish(t *testing.T) {
+	runner := helperRunner(t)
+	// Has to absorb process start-up, not just the gaps between writes: a
+	// race-instrumented helper needs a few hundred ms before it prints anything,
+	// and that silence counts against the stall window like any other.
+	runner.StallTimeout = 2 * time.Second
+	result, err := runner.RunWithOutput(context.Background(), []string{os.Args[0], "-test.run=TestProcessHelper"}, map[string]string{
+		"ONEAGENT_PROCESS_DRIP": "1",
+	}, helperTimeout, nil)
+	if err != nil {
+		t.Fatalf("slow but talking command error = %v", err)
+	}
+	if result.ExitCode != 0 {
+		t.Fatalf("slow but talking command result = %#v", result)
+	}
+	// 12 ticks at 50ms is ~600ms, comfortably past the 200ms stall window, so a
+	// pass here cannot be explained by the command finishing before the watchdog
+	// ever looked.
+	if count := strings.Count(result.Stdout, "tick"); count != 10 {
+		t.Fatalf("drip output had %d ticks, want all 10: %q", count, result.Stdout)
+	}
+}
+
+// Guards the trap this change is most likely to introduce: boundedBuffer stops
+// accepting at MaxOutputBytes and streamWriter then stops calling the listener,
+// so keying liveness off accepted bytes or off listener calls would kill a
+// healthy command the moment its output passed 1 MB.
+func TestOSRunnerDoesNotMistakeAFloodedBufferForASilentCommand(t *testing.T) {
+	runner := helperRunner(t)
+	// Same start-up allowance as the drip case above.
+	runner.StallTimeout = 2 * time.Second
+	events := 0
+	result, err := runner.RunWithOutput(context.Background(), []string{os.Args[0], "-test.run=TestProcessHelper"}, map[string]string{
+		"ONEAGENT_PROCESS_FLOOD": "1",
+	}, helperTimeout, func(Output) { events++ })
+	if err != nil {
+		t.Fatalf("flooding command error = %v", err)
+	}
+	if result.ExitCode != 0 {
+		t.Fatalf("flooding command result exit = %d", result.ExitCode)
+	}
+	// Confirms the command really did exceed the buffer, so this test would in
+	// fact catch a liveness signal that depends on accepted bytes.
+	if !strings.Contains(result.Stdout, "[output truncated]") {
+		t.Fatal("helper did not exceed MaxOutputBytes, so the case proves nothing")
+	}
+	if events == 0 {
+		t.Fatal("listener never fired")
+	}
+}
+
+// A genuinely hung command still ends, and reports ErrStalled rather than the
+// bare context error, so callers can tell a stall from a user cancellation.
+func TestOSRunnerStopsACommandThatGoesSilent(t *testing.T) {
+	runner := helperRunner(t)
+	runner.StallTimeout = 300 * time.Millisecond
+	started := time.Now()
+	_, err := runner.RunWithOutput(context.Background(), []string{os.Args[0], "-test.run=TestProcessHelper"}, map[string]string{
+		"ONEAGENT_PROCESS_WAIT":  "1",
+		"ONEAGENT_PROCESS_READY": "1",
+	}, helperTimeout, nil)
+	if !errors.Is(err, ErrStalled) {
+		t.Fatalf("stalled command error = %v, want ErrStalled", err)
+	}
+	// The helper sleeps 10s and helperTimeout is 60s, so finishing quickly is the
+	// evidence that the stall watchdog ended it rather than either deadline.
+	if elapsed := time.Since(started); elapsed > 5*time.Second {
+		t.Fatalf("stall detection took %v, so a deadline ended this instead", elapsed)
+	}
+}
+
+// Stall detection must not change what cancellation looks like. The Task Center's
+// stop button is the only way out of a long install now that the wall-clock
+// budget is an hour, so this staying context.Canceled is load-bearing.
+func TestOSRunnerStillReportsCancellationDistinctlyFromAStall(t *testing.T) {
+	runner := helperRunner(t)
+	runner.StallTimeout = 30 * time.Second
+	ctx, cancel := context.WithCancel(context.Background())
+	ready := make(chan struct{}, 1)
+	done := make(chan error, 1)
+	go func() {
+		_, err := runner.RunWithOutput(ctx, []string{os.Args[0], "-test.run=TestProcessHelper"}, map[string]string{
+			"ONEAGENT_PROCESS_WAIT":  "1",
+			"ONEAGENT_PROCESS_READY": "1",
+		}, helperTimeout, func(output Output) {
+			if strings.Contains(output.Text, "ready") {
+				select {
+				case ready <- struct{}{}:
+				default:
+				}
+			}
+		})
+		done <- err
+	}()
+	select {
+	case <-ready:
+		cancel()
+	case <-time.After(10 * time.Second):
+		cancel()
+		t.Fatal("helper process did not start")
+	}
+	err := <-done
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("cancelled command error = %v, want context.Canceled", err)
+	}
+	if errors.Is(err, ErrStalled) {
+		t.Fatal("a user cancellation was reported as a stall")
+	}
+}
+
+// stallTimeout's contract: zero takes the default, negative disables. Disabling
+// matters for the version probes, which have their own short deadline and would
+// be pointless to also watch for silence.
+func TestStallTimeoutZeroTakesTheDefaultAndNegativeDisables(t *testing.T) {
+	if got := (OSRunner{}).stallTimeout(); got != DefaultStallTimeout {
+		t.Fatalf("zero stallTimeout = %v, want %v", got, DefaultStallTimeout)
+	}
+	if got := (OSRunner{StallTimeout: -1}).stallTimeout(); got >= 0 {
+		t.Fatalf("negative stallTimeout = %v, want it preserved as negative", got)
+	}
+	runner := helperRunner(t)
+	runner.StallTimeout = -1
+	// With the watchdog off, a silent command is bounded only by the deadline.
+	_, err := runner.Run(context.Background(), []string{os.Args[0], "-test.run=TestProcessHelper"}, map[string]string{
+		"ONEAGENT_PROCESS_WAIT": "1",
+	}, 300*time.Millisecond)
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("disabled watchdog error = %v, want DeadlineExceeded", err)
+	}
+}
+
+// A stall must still hand back what the command managed to say. The whole point
+// of distinguishing a stall from a timeout is that the user gets a diagnosable
+// failure, and the last few lines before a command went quiet are the only
+// evidence of where it got stuck -- an npm registry URL, a partial download, a
+// permissions warning. Returning a bare error throws that away.
+func TestOSRunnerKeepsOutputProducedBeforeAStall(t *testing.T) {
+	runner := helperRunner(t)
+	runner.StallTimeout = 300 * time.Millisecond
+	result, err := runner.RunWithOutput(context.Background(), []string{os.Args[0], "-test.run=TestProcessHelper"}, map[string]string{
+		"ONEAGENT_PROCESS_WAIT":  "1",
+		"ONEAGENT_PROCESS_READY": "1",
+	}, helperTimeout, nil)
+	if !errors.Is(err, ErrStalled) {
+		t.Fatalf("stalled command error = %v, want ErrStalled", err)
+	}
+	if !strings.Contains(result.Stdout, "ready") {
+		t.Fatalf("stdout before the stall was dropped: Stdout = %q", result.Stdout)
 	}
 }

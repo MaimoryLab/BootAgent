@@ -8,12 +8,15 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/MaimoryLab/OneAgent/internal/catalog"
 	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
@@ -25,6 +28,94 @@ import (
 type fakeDownloader struct {
 	bodies map[string][]byte
 	hits   []string
+}
+
+// drippingBody hands back one chunk per Read with a pause between them, which is
+// what a slow-but-alive CDN looks like. Close is recorded so a test can prove the
+// stall watchdog is what unblocked the read.
+type drippingBody struct {
+	content []byte
+	chunk   int
+	pause   time.Duration
+	mu      sync.Mutex
+	closed  bool
+}
+
+func (b *drippingBody) Read(buffer []byte) (int, error) {
+	if b.isClosed() {
+		return 0, errors.New("body closed")
+	}
+	if len(b.content) == 0 {
+		return 0, io.EOF
+	}
+	time.Sleep(b.pause)
+	if b.isClosed() {
+		return 0, errors.New("body closed")
+	}
+	size := min(min(b.chunk, len(buffer)), len(b.content))
+	written := copy(buffer, b.content[:size])
+	b.content = b.content[written:]
+	return written, nil
+}
+
+func (b *drippingBody) isClosed() bool {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.closed
+}
+
+func (b *drippingBody) Close() error {
+	b.mu.Lock()
+	b.closed = true
+	b.mu.Unlock()
+	return nil
+}
+
+// stalledBody blocks in Read until it is closed, standing in for a TCP socket
+// that stops delivering. Nothing but closing the body can end this read, which is
+// precisely why stall detection has to close it rather than only set a flag.
+type stalledBody struct {
+	release chan struct{}
+	once    sync.Once
+}
+
+func (b *stalledBody) Read([]byte) (int, error) {
+	<-b.release
+	return 0, errors.New("body closed")
+}
+
+func (b *stalledBody) Close() error {
+	b.once.Do(func() { close(b.release) })
+	return nil
+}
+
+type bodyDownloader struct {
+	body io.ReadCloser
+	// total is what the server claims in Content-Length, which may exceed what the
+	// body will actually deliver.
+	total int64
+}
+
+// sequencedDownloader answers each request with the next prepared response, so a
+// test can make the first host stall and the second succeed.
+type sequencedDownloader struct {
+	responses []*http.Response
+	hits      []string
+}
+
+func (d *sequencedDownloader) Do(request *http.Request) (*http.Response, error) {
+	d.hits = append(d.hits, request.URL.String())
+	if len(d.responses) == 0 {
+		return &http.Response{StatusCode: http.StatusNotFound, Body: io.NopCloser(strings.NewReader("")), Request: request}, nil
+	}
+	response := d.responses[0]
+	d.responses = d.responses[1:]
+	response.Request = request
+	return response, nil
+}
+
+func (d bodyDownloader) Do(request *http.Request) (*http.Response, error) {
+	return &http.Response{StatusCode: http.StatusOK, Body: d.body, ContentLength: d.total, Request: request}, nil
 }
 
 type cancelAtEOFBody struct {
@@ -252,13 +343,81 @@ func TestFetchToDeletesTheFileWhenCancellationWinsAtEOF(t *testing.T) {
 	directory := t.TempDir()
 	ctx, cancel := context.WithCancel(context.Background())
 	content := []byte("partial runtime archive")
-	_, err := fetchTo(ctx, cancellingDownloader{cancel: cancel, content: content}, "https://example.test/runtime", digestOf(content), directory, nil, "node")
+	// Stall detection off: this case is about cancellation losing a race with EOF,
+	// and a watchdog would only add a second way for it to end.
+	_, err := fetchTo(ctx, cancellingDownloader{cancel: cancel, content: content}, "https://example.test/runtime", digestOf(content), directory, nil, "node", -1)
 	if err != context.Canceled {
 		t.Fatalf("cancelled download error = %v", err)
 	}
 	entries, readErr := os.ReadDir(directory)
 	if readErr != nil || len(entries) != 0 {
 		t.Fatalf("cancelled download left files behind: %v, %v", entries, readErr)
+	}
+}
+
+// The reason this change exists: a download that keeps arriving slowly must run
+// to completion. Under the old whole-request http.Client.Timeout this was the
+// case that failed, because elapsed time alone decided the outcome.
+func TestFetchToAllowsASlowButProgressingDownload(t *testing.T) {
+	directory := t.TempDir()
+	content := []byte("a runtime archive delivered in small slow pieces")
+	body := &drippingBody{content: append([]byte(nil), content...), chunk: 4, pause: 40 * time.Millisecond}
+	// Each pause is well inside the window; the transfer as a whole takes several
+	// times longer than it.
+	path, err := fetchTo(context.Background(), bodyDownloader{body: body, total: int64(len(content))},
+		"https://example.test/runtime", digestOf(content), directory, nil, "node", 300*time.Millisecond)
+	if err != nil {
+		t.Fatalf("slow download error = %v", err)
+	}
+	written, readErr := os.ReadFile(path)
+	if readErr != nil || string(written) != string(content) {
+		t.Fatalf("slow download wrote %q, err=%v", written, readErr)
+	}
+}
+
+// The other half of the contract: a transfer that stops delivering ends on its
+// own instead of hanging until the hour-long backstop.
+func TestFetchToAbandonsAStalledDownloadAndLeavesNoFile(t *testing.T) {
+	directory := t.TempDir()
+	body := &stalledBody{release: make(chan struct{})}
+	started := time.Now()
+	_, err := fetchTo(context.Background(), bodyDownloader{body: body, total: 1024},
+		"https://example.test/runtime", "unused-digest", directory, nil, "node", 250*time.Millisecond)
+	if !errors.Is(err, process.ErrStalled) {
+		t.Fatalf("stalled download error = %v, want ErrStalled", err)
+	}
+	if elapsed := time.Since(started); elapsed > 10*time.Second {
+		t.Fatalf("stall detection took %v", elapsed)
+	}
+	// A half-written temp file would be picked up as a valid archive by nothing,
+	// but it would accumulate on every failed attempt.
+	entries, readErr := os.ReadDir(directory)
+	if readErr != nil || len(entries) != 0 {
+		t.Fatalf("stalled download left files behind: %v, %v", entries, readErr)
+	}
+}
+
+// A stalled first host must not consume the retry: the mirror is the whole point
+// of having two sources, and both are checked against the same locked digest.
+func TestDownloadArtifactFallsBackAfterAStalledHost(t *testing.T) {
+	directory := t.TempDir()
+	content := []byte("mirror copy of the archive")
+	stalled := &stalledBody{release: make(chan struct{})}
+	client := &sequencedDownloader{responses: []*http.Response{
+		{StatusCode: http.StatusOK, Body: stalled, ContentLength: 1024},
+		{StatusCode: http.StatusOK, Body: io.NopCloser(bytes.NewReader(content)), ContentLength: int64(len(content))},
+	}}
+	artifact := catalog.RuntimeArtifact{URL: "https://example.test/official.tar.gz", MirrorURL: "https://mirror.test/official.tar.gz", SHA256: digestOf(content)}
+	path, err := downloadArtifact(context.Background(), client, catalog.Runtime{Name: "Node.js", Version: "1"}, artifact, directory, RuntimeOptions{StallTimeout: 250 * time.Millisecond}, nil, "node")
+	if err != nil {
+		t.Fatalf("fallback after stall error = %v", err)
+	}
+	written, readErr := os.ReadFile(path)
+	if readErr != nil || string(written) != string(content) {
+		t.Fatalf("fallback wrote %q, err=%v", written, readErr)
+	}
+	if len(client.hits) != 2 {
+		t.Fatalf("expected both hosts to be tried, got %d", len(client.hits))
 	}
 }
 

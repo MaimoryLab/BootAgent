@@ -12,10 +12,12 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/MaimoryLab/OneAgent/internal/app"
 	"github.com/MaimoryLab/OneAgent/internal/catalog"
 	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
+	"github.com/MaimoryLab/OneAgent/internal/install"
 	"github.com/MaimoryLab/OneAgent/internal/platform"
 	"github.com/MaimoryLab/OneAgent/internal/provider"
 )
@@ -322,6 +324,52 @@ func TestAgentServiceInstallsThroughGoUseCase(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(home, ".oneagent", "profile.json")); err != nil {
 		t.Fatalf("Go install did not publish profile: %v", err)
+	}
+}
+
+// Timeout 0 has to mean "use the Go default", because that is what the frontend
+// now sends. Previously the frontend sent a hardcoded 180 and this branch was
+// never exercised, so the two sides could disagree without any test noticing.
+func TestAgentServiceTreatsZeroTimeoutAsTheGoDefault(t *testing.T) {
+	home := t.TempDir()
+	core := app.NewUseCases(app.StatusOptions{
+		Home:     home,
+		Platform: platform.For("linux", "amd64"),
+		Lookup:   func(string) (string, bool) { return "", false },
+	})
+	service := &AgentService{core: core}
+	response, err := service.Install(context.Background(), InstallRequest{
+		Agents: []string{"codex"}, Provider: "ppio", APIKey: "secret", Model: "model-a",
+		Configure: true, SkipTest: true, Timeout: 0,
+	})
+	if err != nil {
+		t.Fatalf("zero timeout was rejected instead of taking the default: %v", err)
+	}
+	if !response.OK {
+		t.Fatalf("zero timeout install response = %#v", response)
+	}
+}
+
+// The ceiling must exceed the default, or a caller could not request the default
+// value explicitly. Both rejections return InvalidRequest rather than silently
+// clamping, because a clamped timeout would be a surprise, not a fix.
+func TestAgentServiceRejectsOutOfRangeTimeouts(t *testing.T) {
+	service := &AgentService{core: app.NewUseCases(app.StatusOptions{
+		Home:     t.TempDir(),
+		Platform: platform.For("linux", "amd64"),
+		Lookup:   func(string) (string, bool) { return "", false },
+	})}
+	for _, timeout := range []int{-1, maxInstallTimeoutSeconds + 1} {
+		_, err := service.Install(context.Background(), InstallRequest{
+			Agents: []string{"codex"}, Provider: "ppio", APIKey: "secret", Model: "m", Timeout: timeout,
+		})
+		if err == nil {
+			t.Fatalf("timeout %d was accepted", timeout)
+		}
+	}
+	if int(install.DefaultCommandTimeout/time.Second) > maxInstallTimeoutSeconds {
+		t.Fatalf("the ceiling %d is below the default %v, so the default cannot be requested explicitly",
+			maxInstallTimeoutSeconds, install.DefaultCommandTimeout)
 	}
 }
 
