@@ -17,15 +17,11 @@ export function EnvironmentOverviewPage() {
   const status = state.status;
   // A fresh run each time: without the reset, the second install would inherit
   // the first one's Agent, model and log.
-  const startSetup = () => {
-    dispatch({ type: "START_SETUP" });
-    navigate("/setup/agents");
-  };
   const editDesktopProfile = (agentId: string) => {
     if (agentId) navigate(`/agents/${agentId}`);
   };
-  const openDesktopSetup = () => {
-    dispatch({ type: "START_DESKTOP_SETUP" });
+  const openInstall = () => {
+    dispatch({ type: "START_SETUP" });
     navigate("/setup/agents");
   };
 
@@ -54,7 +50,6 @@ export function EnvironmentOverviewPage() {
     .filter((item) => status.agents[item.id]?.installed);
   const desktopApplications = desktopApps(status).filter((app) => app.supported);
   const installedDesktopApplications = desktopApplications.filter((app) => app.installed);
-  const desktopInstallable = desktopApplications.some((app) => !app.installed);
   const profiles = new Map(status.profiles.map((profile) => [profile.id, profile]));
   const profileForAgent = (agentId: string, agent: AgentStatus) => {
     if (agent.profileId) return profiles.get(agent.profileId);
@@ -69,27 +64,14 @@ export function EnvironmentOverviewPage() {
       description={t("本机已安装 Agent 及其当前配置")}
       secondaryAction={
         <>
-          <button
-            className="button button-secondary"
-            type="button"
-            onClick={() => void refreshStatus()}
-            disabled={state.statusState === "loading"}
-          >
+          <button className="button button-secondary" type="button" onClick={() => void refreshStatus()} disabled={state.statusState === "loading"}>
             <RefreshCw size={15} className={state.statusState === "loading" ? "spin" : ""} />
             {t("刷新状态")}
           </button>
-          {installed.length || installedDesktopApplications.length ? (
-            <button className="button button-secondary" type="button" onClick={startSetup}>
-              <Plus size={15} />
-              {t("安装命令行 Agent")}
-            </button>
-          ) : null}
-          {installedDesktopApplications.length && desktopInstallable ? (
-            <button className="button button-secondary" type="button" onClick={openDesktopSetup}>
-              <Plus size={15} />
-              {t("安装桌面 Agent")}
-            </button>
-          ) : null}
+          <button className="button button-primary" type="button" onClick={openInstall}>
+            <Plus size={15} />
+            {t("安装 Agent")}
+          </button>
         </>
       }
     >
@@ -126,10 +108,6 @@ export function EnvironmentOverviewPage() {
             <span className="visually-hidden">{t("尚未安装任何命令行 Agent")}</span>
             <Terminal size={28} aria-hidden="true" />
             <span>{t("按引导安装命令行 Agent")}</span>
-            <button className="button button-primary" type="button" aria-label={t("安装命令行 Agent")} onClick={startSetup}>
-              <Plus size={16} />
-              {t("安装命令行 Agent")}
-            </button>
           </div>
         </section>
       )}
@@ -174,10 +152,6 @@ export function EnvironmentOverviewPage() {
           <div className="uninstalled-agent-action">
             <AppWindow size={28} aria-hidden="true" />
             <span>{t("按引导安装桌面 Agent")}</span>
-            <button className="button button-primary" type="button" aria-label={t("安装桌面 Agent")} onClick={openDesktopSetup}>
-              <Plus size={16} />
-              {t("安装桌面 Agent")}
-            </button>
           </div>
         </section>
       ) : null}

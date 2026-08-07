@@ -225,6 +225,7 @@ const english = {
   "安装完成": "Installation complete",
   "安装命令行 Agent": "Install CLI agent",
   "安装 Agent": "Install agent",
+  "Agent 类型": "Agent type",
   "尚未安装任何 Agent": "No agents installed yet",
   "需要处理部分问题": "Some items need attention",
   "安装请求同步执行，完成后将显示每个 Agent 的最终状态": "Installation runs synchronously. Each agent's final status appears when it completes",
