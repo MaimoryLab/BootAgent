@@ -79,7 +79,6 @@ func (s Store) Save(ctx context.Context, request SaveRequest) (Profile, error) {
 		ID:            request.ID,
 		Label:         label,
 		Provider:      request.Provider,
-		BaseURL:       optionalPointer(request.BaseURL, base),
 		Model:         stringPointer(model),
 		ConfigMode:    mode,
 		Protocol:      strings.TrimSpace(request.Protocol),
@@ -152,7 +151,6 @@ func (s Store) WriteActive(ctx context.Context, request ActiveRequest) (string, 
 			profileID = current.ID
 		}
 	}
-	var baseURL *string
 	var model *string
 	resolvedBase := ""
 	providerID := "existing-account"
@@ -165,7 +163,6 @@ func (s Store) WriteActive(ctx context.Context, request ActiveRequest) (string, 
 		resolvedBase = base
 		providerID = request.Provider
 		mode = "provider"
-		baseURL = stringPointer(base)
 		modelValue := strings.TrimSpace(request.Model)
 		if modelValue == "" {
 			return "", oneerrors.New(oneerrors.InvalidRequest, "model is required")
@@ -183,7 +180,6 @@ func (s Store) WriteActive(ctx context.Context, request ActiveRequest) (string, 
 		ID:            profileID,
 		Label:         valueOr(current.Label, valueOr(strings.TrimSpace(request.Label), profileID)),
 		Provider:      providerID,
-		BaseURL:       baseURL,
 		Model:         model,
 		ConfigMode:    mode,
 		Protocol:      strings.TrimSpace(request.Protocol),

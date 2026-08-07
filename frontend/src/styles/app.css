@@ -22,7 +22,7 @@
   background: var(--sidebar-bg);
 }
 
-.sidebar-bottom { margin-top: auto; display: grid; gap: 4px; }
+.sidebar-bottom { margin-top: auto; display: grid; gap: 10px; }
 
 .brand-lockup {
   min-height: 50px;

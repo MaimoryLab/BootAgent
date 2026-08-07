@@ -6,8 +6,11 @@ describe("settings transfer", () => {
   it("round-trips encrypted provider keys", async () => {
     const providers = [{ id: "demo", name: "Demo", home: "", base_url: "https://example.test", anthropic_base_url: "", api_key: "secret", built_in: false }];
     const file = await makeTransfer([], providers, true, "password");
-    expect(file.encrypted).toBeTruthy();
+    expect(file.encrypted).toHaveLength(1);
+    expect(file.providers[0]).toMatchObject({ key_encrypted: 0 });
+    expect(file.profiles).toEqual([]);
     expect(await parseTransfer(JSON.stringify(file), "password")).toMatchObject({ providers });
+    expect(file.timestamp).toBeTruthy();
     await expect(parseTransfer(JSON.stringify(file), "wrong")).rejects.toThrow();
   });
 });

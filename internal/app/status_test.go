@@ -84,7 +84,7 @@ func TestStatusProjectsProfilesAndActiveEnvironmentWithoutSecrets(t *testing.T) 
 	if err := os.MkdirAll(profilesDir, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	profileJSON := `{"schema_version":2,"id":"team","label":"Team","provider":"ppio","base_url":"https://api.ppio.com/openai","model":"model-a","config_mode":"provider","agent_ids":["codex","opencode"],"created_at":"created","activated_at":"active","api_key":"must-not-escape"}`
+	profileJSON := `{"schema_version":2,"id":"team","label":"Team","provider":"ppio","model":"model-a","config_mode":"provider","agent_ids":["codex","opencode"],"created_at":"created","activated_at":"active","api_key":"must-not-escape"}`
 	if err := os.WriteFile(filepath.Join(profilesDir, "team.json"), []byte(profileJSON), 0o600); err != nil {
 		t.Fatal(err)
 	}

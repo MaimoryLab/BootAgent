@@ -190,7 +190,7 @@ func TestProfileServiceListsPublicSummaries(t *testing.T) {
 	if err := os.MkdirAll(profilesDir, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(profilesDir, "team.json"), []byte(`{"schema_version":2,"id":"team","label":"Team","provider":"ppio","base_url":null,"model":"model","config_mode":"provider","agent_ids":["codex"]}`), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(profilesDir, "team.json"), []byte(`{"schema_version":2,"id":"team","label":"Team","provider":"ppio","model":"model","config_mode":"provider","agent_ids":["codex"]}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	secretDir := filepath.Join(home, ".oneagent", "secrets")

@@ -95,8 +95,13 @@ func TestSaveProfileValidatesInputAndCustomBase(t *testing.T) {
 		BaseURL:  "http://127.0.0.1:9000/",
 		Model:    "m", Protocol: "openai",
 	})
-	if err != nil || profile.BaseURL == nil || *profile.BaseURL != "http://127.0.0.1:9000" {
+	if err != nil || profile.BaseURL != nil {
 		t.Fatalf("custom profile = %#v, err=%v", profile, err)
+	}
+	profilePath, _ := store.ProfilePath("custom-local")
+	data, readErr := os.ReadFile(profilePath)
+	if readErr != nil || strings.Contains(string(data), "base_url") {
+		t.Fatalf("saved profile retained base_url: %s, %v", data, readErr)
 	}
 }
 
@@ -138,7 +143,7 @@ func TestWriteActiveReplacesProfileAndSupportsExistingAccount(t *testing.T) {
 	if active.Error != "" || active.Profile == nil || active.Profile.Protocol != "openai" {
 		t.Fatalf("updated active profile = %#v", active)
 	}
-	if active.Profile.BaseURL == nil || *active.Profile.BaseURL != "https://api.ppio.com/openai" {
+	if active.Profile.BaseURL != nil {
 		t.Fatalf("active base URL = %#v", active.Profile.BaseURL)
 	}
 	if _, err := store.WriteActive(context.Background(), ActiveRequest{

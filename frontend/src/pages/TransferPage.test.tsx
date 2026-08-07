@@ -54,6 +54,8 @@ describe("TransferPage", () => {
     fireEvent.change(password, { target: { value: "passphrase" } });
     fireEvent.click(screen.getByRole("button", { name: "确认" }));
     await waitFor(() => expect(write).toHaveBeenCalledOnce());
-    expect(JSON.parse(write.mock.calls[0][1]).encrypted).toBeTruthy();
+    const exported = JSON.parse(write.mock.calls[0][1]);
+    expect(exported.encrypted).toHaveLength(1);
+    expect(exported.providers[0].key_encrypted).toBe(0);
   });
 });

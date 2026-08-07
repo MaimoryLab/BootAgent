@@ -635,7 +635,7 @@ func profileSummary(item profileStore.Profile) ProfileSummary {
 		ID:          summary.ID,
 		Label:       summary.Label,
 		Provider:    summary.Provider,
-		BaseURL:     summary.BaseURL,
+		BaseURL:     nil,
 		Model:       summary.Model,
 		Protocol:    summary.Protocol,
 		ActivatedAt: summary.ActivatedAt,

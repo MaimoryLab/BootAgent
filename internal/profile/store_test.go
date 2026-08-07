@@ -46,8 +46,8 @@ func TestEmptyStoreAndStableListProjection(t *testing.T) {
 	if result := store.LoadActive(); result.Profile != nil || result.ID != "" || result.Error != "" {
 		t.Fatalf("empty LoadActive() = %#v", result)
 	}
-	writeProfileFixture(t, store, "b-profile", `{"schema_version":2,"id":"b-profile","label":"B","provider":"novita","base_url":null,"model":"m2","config_mode":"provider","agent_ids":["aider"],"created_at":"t2","activated_at":null}`)
-	writeProfileFixture(t, store, "a-profile", `{"schema_version":2,"id":"a-profile","label":"A","provider":"ppio","base_url":"https://api.ppio.com/openai","model":"m1","config_mode":"provider","agent_ids":["codex"],"created_at":"t1","activated_at":"t1"}`)
+	writeProfileFixture(t, store, "b-profile", `{"schema_version":2,"id":"b-profile","label":"B","provider":"novita","model":"m2","config_mode":"provider","agent_ids":["aider"],"created_at":"t2","activated_at":null}`)
+	writeProfileFixture(t, store, "a-profile", `{"schema_version":2,"id":"a-profile","label":"A","provider":"ppio","model":"m1","config_mode":"provider","agent_ids":["codex"],"created_at":"t1","activated_at":"t1"}`)
 	secret, err := store.SecretPath("a-profile")
 	if err != nil {
 		t.Fatal(err)
@@ -66,14 +66,14 @@ func TestEmptyStoreAndStableListProjection(t *testing.T) {
 		t.Fatalf("stable profile list = %#v", profiles)
 	}
 	summary := profiles[0].Summary()
-	if summary.HasKey != true || summary.BaseURL == nil || *summary.BaseURL != "https://api.ppio.com/openai" {
+	if summary.HasKey != true || summary.BaseURL != nil {
 		t.Fatalf("summary = %#v", summary)
 	}
 }
 
 func TestLoadActiveV2PreservesPointerAndStripsSecrets(t *testing.T) {
 	store := NewStore(t.TempDir(), "linux")
-	writeProfileFixture(t, store, "team", `{"schema_version":2,"id":"team","label":"Team","provider":"ppio","base_url":"https://api.ppio.com/openai","model":"m","config_mode":"provider","agent_ids":["codex"],"created_at":"created","activated_at":"active","api_key":"must-not-escape"}`)
+	writeProfileFixture(t, store, "team", `{"schema_version":2,"id":"team","label":"Team","provider":"ppio","model":"m","config_mode":"provider","agent_ids":["codex"],"created_at":"created","activated_at":"active","api_key":"must-not-escape"}`)
 	if err := os.MkdirAll(store.Root(), 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -86,6 +86,9 @@ func TestLoadActiveV2PreservesPointerAndStripsSecrets(t *testing.T) {
 	}
 	if result.Environment["api_key"] != nil {
 		t.Fatalf("environment exposed a secret: %#v", result.Environment)
+	}
+	if result.Environment["base_url"] != nil {
+		t.Fatalf("environment retained a Provider endpoint: %#v", result.Environment)
 	}
 	if result.Environment["provider"] != "ppio" || result.Environment["model"] != "m" {
 		t.Fatalf("environment projection = %#v", result.Environment)
