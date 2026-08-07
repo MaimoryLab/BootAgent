@@ -1,10 +1,8 @@
-import { Boxes, FolderCog, Gauge, Languages, Layers3 } from "lucide-react";
+import { Boxes, FolderCog, Gauge, Layers3, Settings } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
 import { type TranslationKey, useI18n } from "../i18n";
-import { SelectField } from "./SelectField";
 import { TaskCenter } from "./TaskCenter";
-import { ThemePicker } from "./ThemePicker";
 
 // Only real destinations belong here. /setup/* are wizard steps behind
 // SetupGuard: listing them made the sidebar look broken, because clicking one
@@ -16,7 +14,7 @@ const navItems: Array<{ to: string; label: TranslationKey | "Provider"; icon: ty
 ];
 
 export function NavigationSidebar() {
-  const { locale, setLocale, t } = useI18n();
+  const { t } = useI18n();
   return (
     <aside className="navigation-sidebar">
       <div className="brand-lockup">
@@ -39,31 +37,13 @@ export function NavigationSidebar() {
         ))}
       </nav>
 
-      {/* First of the bottom group, so its margin-top: auto pushes appearance
-          and language down together. The task centre is viewport-docked. */}
-      <ThemePicker />
-
-      {/* One picker, where there used to be two selects differing only in their
-          option text -- CSS showed one and hid the other per breakpoint. The
-          short labels now live in the option list, which stays readable at the
-          72px rail because the list is ours and is not clipped to the trigger. */}
-      <div className="language-picker">
-        <Languages size={16} aria-hidden="true" />
-        <span>{t("语言")}</span>
-        <SelectField
-          className="language-select"
-          label={t("语言")}
-          value={locale}
-          onChange={(next) => setLocale(next as "zh-CN" | "en")}
-          options={[
-            { value: "zh-CN", label: "中文" },
-            { value: "en", label: "English" },
-          ]}
-        />
+      <div className="sidebar-bottom">
+        <TaskCenter />
+        <NavLink to="/settings" className={({ isActive }) => `sidebar-link${isActive ? " is-active" : ""}`}>
+          <Settings size={18} strokeWidth={1.8} />
+          <span>{t("设置")}</span>
+        </NavLink>
       </div>
-
-      {/* The task centre is fixed to the viewport's lower-left corner. */}
-      <TaskCenter />
     </aside>
   );
 }

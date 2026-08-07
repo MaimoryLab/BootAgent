@@ -57,7 +57,7 @@ function status(): StatusResponse {
     mirrors: [],
     paths: {},
     backups: {},
-    profiles: [{ id: "team", label: "团队默认", provider: "ppio", baseUrl: null, model: "model-a", protocol: "responses", activatedAt: null, hasKey: true }],
+    profiles: [{ id: "team", label: "团队默认", provider: "ppio", baseUrl: null, model: "model-a", protocol: "responses", activatedAt: null }],
     activeProfile: "team",
     firstRun: false,
     environment: null,

@@ -25,6 +25,8 @@ const bridge = vi.hoisted(() => ({
   updateDownload: vi.fn(),
   updateRestart: vi.fn(),
   eventsOn: vi.fn(),
+  readTransfer: vi.fn(),
+  writeTransfer: vi.fn(),
 }));
 
 vi.mock("@wailsio/runtime", async (importOriginal) => ({
@@ -69,6 +71,10 @@ vi.mock("../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/updatese
   DownloadAndInstall: bridge.updateDownload,
   Restart: bridge.updateRestart,
 }));
+vi.mock("../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/transferservice.js", () => ({
+  Read: bridge.readTransfer,
+  Write: bridge.writeTransfer,
+}));
 
 import { CancellablePromise } from "@wailsio/runtime";
 import { INSTALL_OUTPUT_EVENT, normalizeWailsError, onInstallOutput, wailsApi } from "./wails";
@@ -89,7 +95,7 @@ describe("Wails backend adapter", () => {
     const probe = { ok: true, reachable: true, status: 204, message: "ok", error_code: null, retryable: false } satisfies ProbeResponse;
     const models = { ...probe, models: ["model-a"] } satisfies ModelsResponse;
     const install = { ok: true, code: 0, results: [], log: "", next: "", probe: null } satisfies InstallResponse;
-    const profile = { id: "team", label: "Team", provider: "ppio", baseUrl: null, model: "m", protocol: "responses", activatedAt: null, hasKey: true } satisfies ProfileSummary;
+    const profile = { id: "team", label: "Team", provider: "ppio", baseUrl: null, model: "m", protocol: "responses", activatedAt: null } satisfies ProfileSummary;
     const provider = { id: "acme", name: "Acme", home: "", base_url: "https://api.acme.test", anthropic_base_url: "", api_key: "secret", built_in: false } satisfies ProviderEntry;
     const desktopStatus = { id: "chatgpt-desktop", name: "ChatGPT Desktop", installed: false, supported: true, version: null, source: "macos-dmg", protocol: "responses", profileAgentId: "codex", profileId: null } satisfies DesktopAgentStatus;
     const desktopAction = { status: "installer-started", message: "started", refreshNeeded: true, app: desktopStatus } satisfies DesktopAgentActionResult;
@@ -112,6 +118,8 @@ describe("Wails backend adapter", () => {
     bridge.desktopInstall.mockResolvedValue(desktopAction);
     bridge.desktopOpen.mockResolvedValue(undefined);
     bridge.desktopConfigure.mockResolvedValue(desktopProfile);
+    bridge.readTransfer.mockResolvedValue("contents");
+    bridge.writeTransfer.mockResolvedValue(undefined);
 
     await expect(wailsApi.status()).resolves.toBe(status);
     await expect(wailsApi.desktopAgentStatus("chatgpt-desktop")).resolves.toBe(desktopStatus);
@@ -130,6 +138,8 @@ describe("Wails backend adapter", () => {
     await expect(wailsApi.listProfiles()).resolves.toEqual([profile]);
     await expect(wailsApi.deleteProfile("team")).resolves.toBeUndefined();
     await expect(wailsApi.saveProfile({ id: "team", label: "Team", provider: "ppio", apiBaseUrl: "", apiKey: "secret", model: "m", configMode: "provider" })).resolves.toBe(profile);
+    await expect(wailsApi.readTransferFile("/tmp/import.json")).resolves.toBe("contents");
+    await expect(wailsApi.writeTransferFile("/tmp/export.json", "contents")).resolves.toBeUndefined();
 
     expect(bridge.probe).toHaveBeenCalledWith({ provider: "custom", api_base_url: "https://proxy.test/v1", api_key: "secret", model: "m", agents: null });
     expect(bridge.getProvider).toHaveBeenCalledWith({ id: "acme" });
@@ -144,6 +154,8 @@ describe("Wails backend adapter", () => {
     expect(bridge.desktopConfigure).toHaveBeenCalledWith({ agent_id: "chatgpt-desktop", profile_id: "team" });
     expect(bridge.saveProfile).toHaveBeenCalledWith(expect.objectContaining({ api_base_url: "", api_key: "secret" }));
     expect(bridge.deleteProfile).toHaveBeenCalledWith({ id: "team" });
+    expect(bridge.readTransfer).toHaveBeenCalledWith({ path: "/tmp/import.json" });
+    expect(bridge.writeTransfer).toHaveBeenCalledWith({ path: "/tmp/export.json", data: "contents" });
   });
 
   it("restores structured Wails errors without exposing raw bridge details", async () => {

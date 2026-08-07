@@ -50,6 +50,7 @@ func TestServiceMethodAllowlist(t *testing.T) {
 		{&ProfileService{}, []string{"DeleteProfile", "ListProfiles", "SaveProfile"}},
 		{&RuntimeService{}, []string{"GetSettings", "InstallRuntime", "ListRuntimes", "SaveSettings"}},
 		{&DesktopAgentService{}, []string{"Configure", "GetStatus", "Install", "Open"}},
+		{&TransferService{}, []string{"Read", "Write"}},
 		{&UpdateService{}, []string{"Check", "DownloadAndInstall", "Restart"}},
 	}
 	for _, test := range tests {
@@ -189,7 +190,7 @@ func TestProfileServiceListsPublicSummaries(t *testing.T) {
 	if err := os.MkdirAll(profilesDir, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(profilesDir, "team.json"), []byte(`{"schema_version":2,"id":"team","label":"Team","provider":"ppio","base_url":null,"model":"model","config_mode":"provider","agent_ids":["codex"]}`), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(profilesDir, "team.json"), []byte(`{"schema_version":2,"id":"team","label":"Team","provider":"ppio","model":"model","config_mode":"provider","agent_ids":["codex"]}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	secretDir := filepath.Join(home, ".oneagent", "secrets")
@@ -206,7 +207,7 @@ func TestProfileServiceListsPublicSummaries(t *testing.T) {
 	})
 	service := NewProfileService(core)
 	profiles, err := service.ListProfiles(context.Background())
-	if err != nil || len(profiles) != 1 || profiles[0].ID != "team" || !profiles[0].HasKey {
+	if err != nil || len(profiles) != 1 || profiles[0].ID != "team" {
 		t.Fatalf("profiles = %#v, err=%v", profiles, err)
 	}
 	wire, err := json.Marshal(profiles)
@@ -230,7 +231,7 @@ func TestProfileServiceSavesWithoutReturningSecret(t *testing.T) {
 		APIKey:     "sk-secret",
 		ConfigMode: "provider",
 	})
-	if err != nil || summary.ID != "team" || !summary.HasKey {
+	if err != nil || summary.ID != "team" {
 		t.Fatalf("saved profile = %#v, err=%v", summary, err)
 	}
 	wire, err := json.Marshal(summary)

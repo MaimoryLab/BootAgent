@@ -124,8 +124,7 @@ export interface InstallRuntimeResult {
 }
 
 /**
- * ProfileSummary is intentionally a public projection. It has no credential
- * field; hasKey only reports whether a secret exists in the secure store.
+ * ProfileSummary is intentionally a public projection with no credential field.
  */
 export interface ProfileSummary {
     "id": string;
@@ -135,7 +134,6 @@ export interface ProfileSummary {
     "model": string | null;
     "protocol": string;
     "activatedAt": string | null;
-    "hasKey": boolean;
     "createdAt"?: string;
 }
 

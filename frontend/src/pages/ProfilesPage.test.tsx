@@ -75,7 +75,6 @@ function profile(over: Partial<ProfileSummary> = {}): ProfileSummary {
     model: "deepseek/deepseek-v3",
     baseUrl: null,
     protocol: "responses",
-    hasKey: true,
     activatedAt: null,
     ...over,
   };
@@ -278,7 +277,14 @@ describe("ProfilesPage", () => {
       probe: null,
       probes: {},
     });
-    renderPage([profile()]);
+    mockState = { status: statusWith([profile()]), statusState: "success" };
+    if (!mockState.status) throw new Error("missing status");
+    mockState.status.providers.ppio.has_key = true;
+    render(
+      <MemoryRouter initialEntries={["/profiles"]}>
+        <Routes><Route path="/profiles" element={<ProfilesPage />} /><Route path="/overview" element={<h1>overview</h1>} /></Routes>
+      </MemoryRouter>,
+    );
     fireEvent.click(screen.getByRole("button", { name: "应用到 Agent" }));
 
     await waitFor(() => expect(install).toHaveBeenCalledWith(expect.objectContaining({

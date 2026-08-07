@@ -6,6 +6,7 @@ import * as ProfileService from "../../bindings/github.com/MaimoryLab/OneAgent/i
 import * as ProviderService from "../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/providerservice.js";
 import * as RuntimeService from "../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/runtimeservice.js";
 import * as StatusService from "../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/statusservice.js";
+import * as TransferService from "../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/transferservice.js";
 import * as UpdateService from "../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/updateservice.js";
 import type {
   ActivateAgentResponse,
@@ -174,6 +175,8 @@ export const wailsApi = {
   getSettings: (): Promise<Settings> => call(() => RuntimeService.GetSettings()) as Promise<Settings>,
   saveSettings: (settings: Settings): Promise<Settings> =>
     call(() => RuntimeService.SaveSettings(settings)) as Promise<Settings>,
+  readTransferFile: (path: string): Promise<string> => call(() => TransferService.Read({ path })) as Promise<string>,
+  writeTransferFile: (path: string, data: string): Promise<void> => call(() => TransferService.Write({ path, data })).then(() => undefined),
   listProfiles: (): Promise<ProfileSummary[]> => call(() => ProfileService.ListProfiles()) as Promise<ProfileSummary[]>,
   deleteProfile: (id: string): Promise<void> =>
     call(() => ProfileService.DeleteProfile({ id })).then(() => undefined),

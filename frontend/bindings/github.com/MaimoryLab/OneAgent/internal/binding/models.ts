@@ -44,6 +44,10 @@ export interface DesktopAgentRequest {
     "agent_id": string;
 }
 
+export interface FilePathRequest {
+    "path": string;
+}
+
 export interface InstallRequest {
     "agents": string[] | null;
     "provider": string;
@@ -163,4 +167,9 @@ export interface SaveProviderRequest {
 
 export interface UpdateRequest {
     "agent_id": string;
+}
+
+export interface WriteFileRequest {
+    "path": string;
+    "data": string;
 }

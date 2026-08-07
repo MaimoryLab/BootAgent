@@ -12,6 +12,8 @@ import { ProfileSelectionPage } from "./pages/ProfileSelectionPage";
 import { ProviderKeyPage } from "./pages/ProviderKeyPage";
 import { ProvidersPage } from "./pages/ProvidersPage";
 import { ReviewPage } from "./pages/ReviewPage";
+import { SettingsPage } from "./pages/SettingsPage";
+import { TransferPage } from "./pages/TransferPage";
 import { I18nProvider, useI18n } from "./i18n";
 import { TaskCenterProvider, useTaskCenter } from "./state/TaskCenterContext";
 import { ThemeProvider } from "./state/ThemeContext";
@@ -81,6 +83,9 @@ function WorkspaceRoutes() {
         <Route path="/providers" element={<ProvidersPage />} />
         <Route path="/providers/new" element={<ProvidersPage create />} />
         <Route path="/profiles" element={<ProfilesPage />} />
+        <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/settings/transfer" element={<TransferPage />} />
+        <Route path="/transfer" element={<Navigate to="/settings/transfer" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </AppWindow>

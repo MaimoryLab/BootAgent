@@ -37,7 +37,7 @@ func TestSaveProfileIsolatesSecretAndPreservesHistory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if profile.ID != "ppio-deepseek" || !profile.HasKey || profile.Protocol != "openai" {
+	if profile.ID != "ppio-deepseek" || profile.Protocol != "openai" {
 		t.Fatalf("saved profile = %#v", profile)
 	}
 	profilePath, _ := store.ProfilePath("ppio-deepseek")
@@ -48,12 +48,7 @@ func TestSaveProfileIsolatesSecretAndPreservesHistory(t *testing.T) {
 	if strings.Contains(string(profileData), secret) || strings.Contains(string(profileData), "api_key") {
 		t.Fatalf("profile file leaked secret material: %s", profileData)
 	}
-	secretPath, _ := store.SecretPath("ppio-deepseek")
-	secretData, err := os.ReadFile(secretPath)
-	if err != nil || !strings.Contains(string(secretData), "ONEAGENT_API_KEY") {
-		t.Fatalf("secret file = %q, err=%v", secretData, err)
-	}
-	if got, err := store.List(); err != nil || len(got) != 1 || !got[0].HasKey {
+	if got, err := store.List(); err != nil || len(got) != 1 {
 		t.Fatalf("List() = %#v, %v", got, err)
 	}
 	created := profile.CreatedAt
@@ -66,16 +61,15 @@ func TestSaveProfileIsolatesSecretAndPreservesHistory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if updated.Label != "Team PPIO" || updated.CreatedAt != created || updated.Model == nil || *updated.Model != "model-b" || !updated.HasKey {
+	if updated.Label != "Team PPIO" || updated.CreatedAt != created || updated.Model == nil || *updated.Model != "model-b" {
 		t.Fatalf("updated profile = %#v", updated)
 	}
 	if _, err := store.Save(context.Background(), SaveRequest{
 		ID: "ppio-deepseek", Provider: "novita", Model: "model-b", Protocol: "openai",
-	}); err == nil || oneerrors.As(err).Code != oneerrors.InvalidRequest {
-		t.Fatalf("provider change without a new key returned %v", err)
+	}); err != nil {
+		t.Fatalf("provider change without a local key failed: %v", err)
 	}
 	assertProfileMode(t, profilePath, 0o600)
-	assertProfileMode(t, secretPath, 0o600)
 }
 
 func TestSaveProfileValidatesInputAndCustomBase(t *testing.T) {
@@ -95,8 +89,13 @@ func TestSaveProfileValidatesInputAndCustomBase(t *testing.T) {
 		BaseURL:  "http://127.0.0.1:9000/",
 		Model:    "m", Protocol: "openai",
 	})
-	if err != nil || profile.BaseURL == nil || *profile.BaseURL != "http://127.0.0.1:9000" {
+	if err != nil || profile.BaseURL != nil {
 		t.Fatalf("custom profile = %#v, err=%v", profile, err)
+	}
+	profilePath, _ := store.ProfilePath("custom-local")
+	data, readErr := os.ReadFile(profilePath)
+	if readErr != nil || strings.Contains(string(data), "base_url") {
+		t.Fatalf("saved profile retained base_url: %s, %v", data, readErr)
 	}
 }
 
@@ -138,7 +137,7 @@ func TestWriteActiveReplacesProfileAndSupportsExistingAccount(t *testing.T) {
 	if active.Error != "" || active.Profile == nil || active.Profile.Protocol != "openai" {
 		t.Fatalf("updated active profile = %#v", active)
 	}
-	if active.Profile.BaseURL == nil || *active.Profile.BaseURL != "https://api.ppio.com/openai" {
+	if active.Profile.BaseURL != nil {
 		t.Fatalf("active base URL = %#v", active.Profile.BaseURL)
 	}
 	if _, err := store.WriteActive(context.Background(), ActiveRequest{
@@ -174,27 +173,6 @@ func TestProfileWritesHonorCancellation(t *testing.T) {
 	_, err := store.Save(ctx, SaveRequest{ID: "team", Provider: "ppio", Model: "m"})
 	if err == nil || oneerrors.As(err).Code != oneerrors.Timeout {
 		t.Fatalf("cancelled Save() = %v", err)
-	}
-}
-
-func TestWindowsSecretUsesPowerShellQuoting(t *testing.T) {
-	store := testStore(t, t.TempDir(), "windows")
-	// Replace the default securefs command runner with a no-op runner while
-	// preserving the Windows ACL argument construction.
-	filesystem := securefs.New(securefs.Options{
-		OS:       "windows",
-		Username: "tester",
-		Run:      func(context.Context, []string) error { return nil },
-		Now:      fixedProfileClock,
-	})
-	store = Store{Home: store.Home, OS: "windows", FS: &filesystem, Now: fixedProfileClock}
-	if _, err := store.Save(context.Background(), SaveRequest{ID: "win", Provider: "ppio", Model: "m", APIKey: "key'value"}); err != nil {
-		t.Fatal(err)
-	}
-	path, _ := store.SecretPath("win")
-	data, _ := os.ReadFile(path)
-	if !strings.Contains(string(data), "$env:ONEAGENT_API_KEY = 'key''value'") {
-		t.Fatalf("PowerShell secret = %q", data)
 	}
 }
 

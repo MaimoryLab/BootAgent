@@ -36,7 +36,6 @@ type Profile struct {
 	Protocol      string
 	CreatedAt     string
 	ActivatedAt   *string
-	HasKey        bool
 }
 
 type Summary struct {
@@ -47,7 +46,6 @@ type Summary struct {
 	Model       *string
 	Protocol    string
 	ActivatedAt *string
-	HasKey      bool
 	CreatedAt   string
 }
 
@@ -63,7 +61,7 @@ type storedProfile struct {
 	ID            string  `json:"id"`
 	Label         string  `json:"label"`
 	Provider      string  `json:"provider"`
-	BaseURL       *string `json:"base_url"`
+	BaseURL       *string `json:"base_url,omitempty"`
 	Model         *string `json:"model"`
 	ConfigMode    string  `json:"config_mode"`
 	Protocol      string  `json:"protocol,omitempty"`
@@ -145,15 +143,6 @@ func (s Store) List() ([]Profile, error) {
 		if err := ValidateID(profile.ID); err != nil {
 			return nil, fmt.Errorf("Profile %s is corrupt: %w", strings.TrimSuffix(entry.Name(), ".json"), err)
 		}
-		secret, err := s.SecretPath(profile.ID)
-		if err != nil {
-			return nil, err
-		}
-		_, statErr := os.Stat(secret)
-		if statErr != nil && !os.IsNotExist(statErr) {
-			return nil, fmt.Errorf("cannot inspect Profile secret %s: %w", profile.ID, statErr)
-		}
-		profile.HasKey = statErr == nil
 		profiles = append(profiles, profile)
 	}
 	return profiles, nil
@@ -226,11 +215,10 @@ func (p Profile) Summary() Summary {
 		ID:          p.ID,
 		Label:       valueOr(p.Label, p.ID),
 		Provider:    p.Provider,
-		BaseURL:     p.BaseURL,
+		BaseURL:     nil,
 		Model:       p.Model,
 		Protocol:    p.Protocol,
 		ActivatedAt: p.ActivatedAt,
-		HasKey:      p.HasKey,
 		CreatedAt:   p.CreatedAt,
 	}
 }
@@ -241,7 +229,6 @@ func (p Profile) environment() map[string]any {
 		"id":             p.ID,
 		"label":          p.Label,
 		"provider":       p.Provider,
-		"base_url":       optionalStringValue(p.BaseURL),
 		"model":          optionalStringValue(p.Model),
 		"config_mode":    p.ConfigMode,
 		"protocol":       p.Protocol,
@@ -266,12 +253,14 @@ func decodeStored(data []byte) (Profile, error) {
 		ID:            stored.ID,
 		Label:         stored.Label,
 		Provider:      stored.Provider,
-		BaseURL:       stored.BaseURL,
-		Model:         stored.Model,
-		ConfigMode:    stored.ConfigMode,
-		Protocol:      stored.Protocol,
-		CreatedAt:     stored.CreatedAt,
-		ActivatedAt:   stored.ActivatedAt,
+		// Legacy base_url is intentionally ignored. Provider endpoints are resolved
+		// from the referenced Provider at use time.
+		BaseURL:     nil,
+		Model:       stored.Model,
+		ConfigMode:  stored.ConfigMode,
+		Protocol:    stored.Protocol,
+		CreatedAt:   stored.CreatedAt,
+		ActivatedAt: stored.ActivatedAt,
 	}, nil
 }
 

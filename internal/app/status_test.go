@@ -84,7 +84,7 @@ func TestStatusProjectsProfilesAndActiveEnvironmentWithoutSecrets(t *testing.T) 
 	if err := os.MkdirAll(profilesDir, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	profileJSON := `{"schema_version":2,"id":"team","label":"Team","provider":"ppio","base_url":"https://api.ppio.com/openai","model":"model-a","config_mode":"provider","agent_ids":["codex","opencode"],"created_at":"created","activated_at":"active","api_key":"must-not-escape"}`
+	profileJSON := `{"schema_version":2,"id":"team","label":"Team","provider":"ppio","model":"model-a","config_mode":"provider","agent_ids":["codex","opencode"],"created_at":"created","activated_at":"active","api_key":"must-not-escape"}`
 	if err := os.WriteFile(filepath.Join(profilesDir, "team.json"), []byte(profileJSON), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -107,7 +107,7 @@ func TestStatusProjectsProfilesAndActiveEnvironmentWithoutSecrets(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(status.Profiles) != 1 || status.Profiles[0].ID != "team" || !status.Profiles[0].HasKey {
+	if len(status.Profiles) != 1 || status.Profiles[0].ID != "team" {
 		t.Fatalf("profile summaries = %#v", status.Profiles)
 	}
 	if status.ActiveProfile == nil || *status.ActiveProfile != "team" {
@@ -148,7 +148,7 @@ func TestSaveProfileUseCaseWritesOnlyPublicSummary(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if summary.ID != "team" || !summary.HasKey || summary.Protocol != "openai" {
+	if summary.ID != "team" || summary.Protocol != "openai" {
 		t.Fatalf("saved summary = %#v", summary)
 	}
 	if err := core.providers.SaveKey(context.Background(), "ppio", "new-provider-key"); err != nil {

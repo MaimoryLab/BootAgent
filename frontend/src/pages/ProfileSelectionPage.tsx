@@ -46,7 +46,7 @@ export function ProfileSelectionPage() {
       profileId: selected.id,
       profileLabel: selected.label,
       model: selected.model || "",
-      keyVerified: Boolean(status.providers[selected.provider]?.has_key || selected.hasKey),
+      keyVerified: Boolean(status.providers[selected.provider]?.has_key),
     });
     navigate("/setup/review");
   };
