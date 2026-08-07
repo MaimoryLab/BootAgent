@@ -70,19 +70,14 @@ tasks:
     cmds:
       - '{{.WAILS3}} generate icons -input appicon.png -macfilename darwin/icons.icns -windowsfilename ""'
 
-  generate:windows:icon:
-    summary: Generate the Windows application icon
-    run: once
-    dir: build
-    sources:
-      - appicon.png
-    generates:
-      - windows/icon.ico
-    env:
-      # The generator runs on the host; GOARCH may be the cross-compile target.
-      GOARCH: amd64
-    cmds:
-      - '{{.WAILS3}} generate icons -input appicon.png -macfilename "" -windowsfilename windows/icon.ico'
+  # windows/icon.ico is tracked rather than generated, so there is deliberately no
+  # generate:windows:icon task. `wails3 generate icons` scales every entry from
+  # appicon.png, and at 16x16 -- the size Explorer and the taskbar use -- the ring
+  # stroke, its counter, and the inner form each land on under 2.4px and blend
+  # into a solid block, losing the break in the ring. That entry is hand-drawn.
+  # A task that regenerated the file would discard it on every `task package`,
+  # silently and without failing. Re-run `wails3 generate icons` by hand only if
+  # the mark itself changes, then restore the 16x16 entry.
 
   dev:frontend:
     summary: Runs the Vite dev server (used by `task dev`)

@@ -52,7 +52,12 @@
   font-size: 16px;
 }
 
-.brand-lockup span:last-child {
+/* Scoped to the tagline beside the wordmark. Written as `.brand-lockup
+   span:last-child` this matched any last-child span anywhere in the lockup,
+   including the one wrapping the product mark, and painted it --text-secondary
+   instead of the brand colour. It only stayed hidden while the mark was a Lucide
+   <svg> rather than a <span>. */
+.brand-lockup > div > span:last-child {
   color: var(--text-secondary);
   font-size: 11px;
 }
@@ -489,6 +494,21 @@
 }
 
 .agent-mark > svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* The product mark, painted in the theme's blue rather than the text colour the
+   Agent marks inherit. Those identify a row and should read as neutral UI; this
+   one is the brand and carries its colour. */
+.brand-mark-glyph {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  color: var(--blue);
+}
+
+.brand-mark-glyph > svg {
   width: 100%;
   height: 100%;
 }

@@ -1,0 +1,14 @@
+{
+  "fixed": {
+    "file_version": "0.3.0"
+  },
+  "info": {
+    "0000": {
+      "ProductVersion": "0.3.0",
+      "CompanyName": "MaimoryLab",
+      "FileDescription": "Local AI development environment activator",
+      "LegalCopyright": "(c) 2026 MaimoryLab",
+      "ProductName": "OneAgent"
+    }
+  }
+}

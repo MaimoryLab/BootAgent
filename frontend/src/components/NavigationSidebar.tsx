@@ -1,7 +1,8 @@
-import { Boxes, FolderCog, Gauge, Layers3, Settings } from "lucide-react";
+import { FolderCog, Gauge, Layers3, Settings } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
 import { type TranslationKey, useI18n } from "../i18n";
+import { BrandMark } from "./icons/BrandMark";
 import { TaskCenter } from "./TaskCenter";
 
 // Only real destinations belong here. /setup/* are wizard steps behind
@@ -18,8 +19,11 @@ export function NavigationSidebar() {
   return (
     <aside className="navigation-sidebar">
       <div className="brand-lockup">
+        {/* The product's own mark. This was lucide's generic <Boxes> glyph --
+            a stock icon from the icon library standing in for a brand that did
+            not exist yet. */}
         <span className="brand-mark" aria-hidden="true">
-          <Boxes size={21} strokeWidth={1.8} />
+          <BrandMark size={22} />
         </span>
         <div>
           <strong>OneAgent</strong>

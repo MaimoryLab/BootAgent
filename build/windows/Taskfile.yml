@@ -17,6 +17,9 @@ tasks:
           ARCH: '{{.ARCH | default ARCH}}'
     cmds:
       - go build {{.BUILD_FLAGS}} -o "{{.OUTPUT}}" ./cmd/oneagent-desktop
+      # The .syso is a build input for GOOS=windows only. Left in place it would
+      # be picked up by a native Windows build of any other target in this repo,
+      # and its arch suffix makes it wrong for the other architecture.
       - cmd: powershell Remove-item "cmd/oneagent-desktop/wails_windows_{{.ARCH | default ARCH}}.syso"
         platforms: [windows]
       - cmd: rm -f "cmd/oneagent-desktop/wails_windows_{{.ARCH | default ARCH}}.syso"
@@ -32,10 +35,12 @@ tasks:
   generate:syso:
     summary: Generates Windows resources with the application icon
     dir: '{{.ROOT_DIR}}'
-    deps:
-      - task: common:generate:windows:icon
+    # No common:generate:windows:icon dep: build/windows/icon.ico is tracked, and
+    # regenerating it from appicon.png would replace its hand-drawn 16x16 entry --
+    # the size Explorer and the taskbar use, where a scaled copy of the mark
+    # collapses into a solid block.
     cmds:
-      - '{{.WAILS3}} generate syso -arch {{.ARCH | default ARCH}} -icon build/windows/icon.ico -manifest build/windows/wails.exe.manifest -out cmd/oneagent-desktop/wails_windows_{{.ARCH | default ARCH}}.syso'
+      - '{{.WAILS3}} generate syso -arch {{.ARCH | default ARCH}} -icon build/windows/icon.ico -manifest build/windows/wails.exe.manifest -info build/windows/info.json -out cmd/oneagent-desktop/wails_windows_{{.ARCH | default ARCH}}.syso'
     env:
       # The generator runs on the host; GOARCH may be the cross-compile target.
       GOARCH: amd64
@@ -48,7 +53,8 @@ tasks:
         vars:
           ARCH: '{{.ARCH}}'
           VERSION: '{{.VERSION}}'
-      - task: common:generate:windows:icon
+      # nsis/project.nsi reads the tracked ../icon.ico directly through MUI_ICON,
+      # so the installer needs no icon-generation step of its own.
     preconditions:
       - sh: command -v makensis >/dev/null 2>&1
         msg: "makensis not found. Install NSIS first."
