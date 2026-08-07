@@ -108,7 +108,7 @@ func TestSavedProviderDrivesStatusAndProbeWithoutResendingKey(t *testing.T) {
 	core := NewUseCasesWithProviderClient(options, client)
 	if _, err := core.SaveProvider(context.Background(), provider.Entry{
 		ID: "acme", Name: "Acme", BaseURL: "https://api.acme.test/openai", APIKey: "saved-key",
-	}); err != nil {
+	}, true); err != nil {
 		t.Fatal(err)
 	}
 
@@ -152,7 +152,7 @@ func TestSaveProviderReappliesEveryAgentBoundToIt(t *testing.T) {
 
 	result, err := core.SaveProvider(context.Background(), provider.Entry{
 		ID: "ppio", Name: "PPIO", BaseURL: "https://relay.ppio.test/openai", APIKey: "rotated-key",
-	})
+	}, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -201,7 +201,7 @@ func TestSaveProviderSkipsReapplyWhenOnlyMetadataChanges(t *testing.T) {
 		t.Fatal(err)
 	}
 	entry.Name = "PPIO Cloud"
-	result, err := core.SaveProvider(context.Background(), entry)
+	result, err := core.SaveProvider(context.Background(), entry, false)
 	if err != nil || len(result.Reapplied) != 0 || len(result.Failures) != 0 {
 		t.Fatalf("metadata-only save reapplied: %#v, err=%v", result, err)
 	}
@@ -212,7 +212,7 @@ func TestDeleteProviderRejectsBoundAgents(t *testing.T) {
 	core := activationCore(t, home, provider.NewClient(nil), "linux")
 	if _, err := core.SaveProvider(context.Background(), provider.Entry{
 		ID: "acme", Name: "Acme", BaseURL: "https://api.acme.test", APIKey: "key",
-	}); err != nil {
+	}, true); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := core.ActivateAgent(context.Background(), ActivateAgentOptions{
@@ -284,7 +284,7 @@ func TestDeleteIgnoresStaleBindingWithoutAgentConfig(t *testing.T) {
 	core := activationCore(t, home, provider.NewClient(nil), "linux")
 	if _, err := core.SaveProvider(context.Background(), provider.Entry{
 		ID: "acme", Name: "Acme", BaseURL: "https://api.acme.test", APIKey: "key",
-	}); err != nil {
+	}, true); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := core.SaveProfile(context.Background(), SaveProfileOptions{

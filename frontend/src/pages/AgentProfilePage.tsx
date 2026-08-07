@@ -193,7 +193,9 @@ export function AgentProfilePage() {
           <div className="profile-editor-grid">
             <div className="field-stack">
               <label htmlFor="agent-profile-id">Profile ID</label>
-              <input id="agent-profile-id" value={draft.id} pattern="[a-z0-9][a-z0-9_-]{0,63}" onChange={(event) => setDraft({ ...draft, id: event.target.value })} disabled={Boolean(draft.originalId)} required />
+              {/* Escaped hyphen: compiled with the `v` flag, a literal `-` inside
+                  a character class throws and the attribute then accepts anything. */}
+              <input id="agent-profile-id" value={draft.id} pattern="[a-z0-9][a-z0-9_\-]{0,63}" onChange={(event) => setDraft({ ...draft, id: event.target.value })} disabled={Boolean(draft.originalId)} required />
             </div>
             <div className="field-stack">
               <label htmlFor="agent-profile-label">{t("名称")}</label>

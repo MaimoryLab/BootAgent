@@ -116,8 +116,13 @@ func TestDeleteProfileRemovesRecordSecretAndActivePointer(t *testing.T) {
 			t.Errorf("%s still exists: %v", path, err)
 		}
 	}
-	if err := store.Delete(context.Background(), "team"); err == nil || oneerrors.As(err).Code != oneerrors.InvalidRequest {
-		t.Fatalf("deleting missing Profile returned %v", err)
+	// Deleting it again succeeds. This asserted an InvalidRequest until the
+	// double-clicked delete button in the UI showed what that costs: the second
+	// click reported "Unknown Profile" for a Profile the user had just deleted
+	// successfully. Absence is the requested end state, so reaching it twice is
+	// not a failure.
+	if err := store.Delete(context.Background(), "team"); err != nil {
+		t.Fatalf("deleting an already-deleted Profile returned %v, want nil", err)
 	}
 }
 

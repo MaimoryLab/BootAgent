@@ -45,6 +45,14 @@ const english = {
   "编辑配置": "Edit configuration",
   "详情": "Details",
   "删除": "Delete",
+  // Delete confirmations. Both name the record and say the deletion cannot be
+  // undone; the Provider wording also names the API Key, because that is the part
+  // the user cannot recreate from what is on screen.
+  // "删除 Profile" is already defined further down, as the edit-form heading.
+  "确定删除 Profile「{name}」吗？该操作无法撤销。": "Delete the Profile “{name}”? This cannot be undone.",
+  "删除 Provider": "Delete Provider",
+  "确定删除 Provider「{name}」吗？已保存的 API Key 会一并删除，该操作无法撤销。": "Delete the Provider “{name}”? Its saved API key is deleted with it, and this cannot be undone.",
+  "仅供本机识别，可保留默认值。小写字母、数字或连字符": "Identifies this Provider on your machine; the default is fine. Lowercase letters, digits, or hyphens",
   "名称": "Name",
   "模型": "Model",
   "API 类型": "API type",

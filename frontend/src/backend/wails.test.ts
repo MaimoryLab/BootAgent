@@ -129,7 +129,7 @@ describe("Wails backend adapter", () => {
     await expect(wailsApi.probe({ provider: "custom", apiBaseUrl: "https://proxy.test/v1", apiKey: "secret", model: "m", agents: [] })).resolves.toBe(probe);
     await expect(wailsApi.models({ provider: "ppio", apiBaseUrl: "", apiKey: "secret" })).resolves.toBe(models);
     await expect(wailsApi.getProvider("acme")).resolves.toBe(provider);
-    await expect(wailsApi.saveProvider({ id: "acme", name: "Acme", home: "", base_url: "https://api.acme.test", anthropic_base_url: "", api_key: "secret" })).resolves.toBe(provider);
+    await expect(wailsApi.saveProvider({ id: "acme", name: "Acme", home: "", base_url: "https://api.acme.test", anthropic_base_url: "", api_key: "secret", create: true })).resolves.toBe(provider);
     await expect(wailsApi.deleteProvider("acme")).resolves.toBeUndefined();
     await expect(wailsApi.install({ agents: ["codex"], provider: "ppio", api_key: "secret", model: "m", configure: true, install_agent: false, skip_test: true })).resolves.toBe(install);
     await wailsApi.openRegister("ppio", []);

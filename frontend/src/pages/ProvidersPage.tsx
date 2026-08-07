@@ -6,6 +6,7 @@ import { api, describeError } from "../backend/api";
 import { PageScaffold } from "../components/PageScaffold";
 import { SecureKeyField } from "../components/SecureKeyField";
 import { useI18n } from "../i18n";
+import { confirmDelete } from "../state/confirmDelete";
 import { useWizard } from "../state/WizardContext";
 import { byProviderCreatedAt } from "../state/ranking";
 import type { ProviderEntry } from "../types/api";
@@ -20,6 +21,24 @@ const emptyProvider: ProviderEntry = {
   built_in: false,
 };
 
+/**
+ * A free ID for a new Provider.
+ *
+ * The ID is a storage key, not something a user should have to invent, but it
+ * still has to be unique and match the backend's pattern — and a collision is now
+ * refused rather than silently overwriting the existing Provider. Suggesting a
+ * valid unused value means the common path never has to think about it. The
+ * numeric suffix loop mirrors the one in ProfilesPage.openCreate.
+ */
+function suggestProviderID(taken: Iterable<string>, base = "provider"): string {
+  const slug = base.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/^-+/, "") || "provider";
+  const used = new Set([...taken].map((id) => id.toLowerCase()));
+  let id = slug;
+  let suffix = 2;
+  while (used.has(id)) id = `${slug}-${suffix++}`;
+  return id;
+}
+
 export function ProvidersPage({ create = false }: { create?: boolean }) {
   const navigate = useNavigate();
   const { locale, t } = useI18n();
@@ -27,6 +46,10 @@ export function ProvidersPage({ create = false }: { create?: boolean }) {
   const { state, refreshStatus } = useWizard();
   const status = state.status;
   const [editor, setEditor] = useState<ProviderEntry | null>(create ? { ...emptyProvider } : null);
+  // Tracks whether the open editor is creating rather than editing. Derived from
+  // the route on a /providers/new load, but set explicitly by the inline "add"
+  // button, which opens the same editor on the list route.
+  const [creating, setCreating] = useState(create);
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState("");
   const [applied, setApplied] = useState("");
@@ -34,12 +57,16 @@ export function ProvidersPage({ create = false }: { create?: boolean }) {
   const requestedProvider = searchParams.get("provider");
   const returnTo = requestedReturn?.startsWith("/") && !requestedReturn.startsWith("//") ? requestedReturn : "/providers";
   const openedProvider = useRef("");
+  const prefilled = useRef(false);
   const nameOf = (agentId: string) =>
     status?.catalog.find((item) => item.id === agentId)?.name || agentId;
 
   const closeEditor = () => {
     if (create) navigate(returnTo);
-    else setEditor(null);
+    else {
+      setEditor(null);
+      setCreating(false);
+    }
   };
 
   const edit = async (providerId: string) => {
@@ -48,12 +75,23 @@ export function ProvidersPage({ create = false }: { create?: boolean }) {
     setApplied("");
     try {
       setEditor(await api.getProvider(providerId));
+      setCreating(false);
     } catch (error) {
       setFailure(describeError(error, t("无法读取 Provider")).message);
     } finally {
       setBusy(false);
     }
   };
+
+  // Suggests an ID once status has loaded. The /providers/new route mounts the
+  // editor before status arrives, so this cannot be done where the state is
+  // initialised. The ref keeps it a suggestion: it fills the field once and never
+  // overwrites what the user typed, even though status refreshes on every save.
+  useEffect(() => {
+    if (!create || prefilled.current || !status) return;
+    prefilled.current = true;
+    setEditor((current) => (current && !current.id ? { ...current, id: suggestProviderID(Object.keys(status.providers)) } : current));
+  }, [create, status]);
 
   useEffect(() => {
     if (!create && !editor && requestedProvider && requestedProvider !== openedProvider.current && status?.providers[requestedProvider]) {
@@ -71,7 +109,10 @@ export function ProvidersPage({ create = false }: { create?: boolean }) {
     try {
       // Changing an endpoint or key rewrites every Agent already using this
       // Provider, so the outcome has to be reported rather than silently applied.
-      const result = await api.saveProvider(editor);
+      // create tells Go to refuse an ID that is taken instead of overwriting that
+      // Provider. Only the caller knows which of the two this is: a complete
+      // entry whose ID is not on disk looks the same either way.
+      const result = await api.saveProvider({ ...editor, create: creating });
       const reapplied = result.reapplied ?? [];
       const failures = Object.entries(result.failures ?? {});
       if (failures.length) {
@@ -101,6 +142,13 @@ export function ProvidersPage({ create = false }: { create?: boolean }) {
       }));
       return;
     }
+    // The saved API key goes with it, which is the part a user does not get back.
+    if (!await confirmDelete({
+      title: t("删除 Provider"),
+      message: t("确定删除 Provider「{name}」吗？已保存的 API Key 会一并删除，该操作无法撤销。", { name }),
+      confirmLabel: t("删除"),
+      cancelLabel: t("取消"),
+    })) return;
     setBusy(true);
     setFailure("");
     setApplied("");
@@ -129,7 +177,7 @@ export function ProvidersPage({ create = false }: { create?: boolean }) {
       description={t("管理模型服务、端点与本机保存的 API Key")}
       bodyClassName="management-page"
       secondaryAction={!create ? (
-        <button className="button button-secondary" type="button" onClick={() => { setEditor({ ...emptyProvider }); setFailure(""); setApplied(""); }}>
+        <button className="button button-secondary" type="button" onClick={() => { setEditor({ ...emptyProvider, id: suggestProviderID(Object.keys(status.providers)) }); setCreating(true); setFailure(""); setApplied(""); }}>
           <Plus size={15} />
           {t("新增 Provider")}
         </button>
@@ -151,11 +199,20 @@ export function ProvidersPage({ create = false }: { create?: boolean }) {
                 id="provider-id"
                 value={editor.id}
                 onChange={(event) => setEditor({ ...editor, id: event.target.value })}
-                pattern="[a-z0-9][a-z0-9-]{0,63}"
+                /* Escaped hyphen: the browser compiles `pattern` with the `v` flag,
+                   where a literal `-` in a character class is a syntax error. The
+                   unescaped form threw during validation and the error was
+                   swallowed, so this attribute accepted anything — "ACME!!"
+                   included — leaving Go as the only check. */
+                pattern="[a-z0-9][a-z0-9\-]{0,63}"
                 placeholder={t("例如 siliconflow")}
                 disabled={editor.built_in}
                 required
               />
+              {/* The rule was only enforced by `pattern`, so a user learned it by
+                  being rejected. Stated here instead, next to the prefilled value
+                  they are free to keep. */}
+              <small>{t("仅供本机识别，可保留默认值。小写字母、数字或连字符")}</small>
             </div>
             <div className="field-stack">
               <label htmlFor="provider-name">{t("名称")}</label>
@@ -214,7 +271,7 @@ export function ProvidersPage({ create = false }: { create?: boolean }) {
                     <Pencil size={14} />
                   </button>
                   {meta.custom ? (
-                      <button className="icon-button is-danger" type="button" onClick={() => void remove(providerId, meta.name, users)} aria-label={t("删除 {name}", { name: meta.name })} title={users.length ? t("Provider 正在被 {agents} 使用，无法删除", { agents: users.map(nameOf).join(locale === "en" ? ", " : "、") }) : t("删除")}>
+                      <button className="icon-button is-danger" type="button" disabled={busy} onClick={() => void remove(providerId, meta.name, users)} aria-label={t("删除 {name}", { name: meta.name })} title={users.length ? t("Provider 正在被 {agents} 使用，无法删除", { agents: users.map(nameOf).join(locale === "en" ? ", " : "、") }) : t("删除")}>
                       <Trash2 size={14} />
                     </button>
                   ) : null}

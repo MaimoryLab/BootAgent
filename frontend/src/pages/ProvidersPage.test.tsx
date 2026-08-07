@@ -6,6 +6,11 @@ import { api } from "../backend/api";
 import type { StatusResponse } from "../types/api";
 import { ProvidersPage } from "./ProvidersPage";
 
+// Hoisted so the module factory can close over it: vi.mock is lifted above the
+// imports, so a plain const here would not exist yet when the factory runs.
+const { question } = vi.hoisted(() => ({ question: vi.fn<(options: { Message: string }) => Promise<string>>() }));
+vi.mock("@wailsio/runtime", () => ({ Dialogs: { Question: question } }));
+
 vi.mock("../state/WizardContext", () => ({
   useWizard: () => ({ state: mockState, dispatch: vi.fn(), refreshStatus: vi.fn() }),
 }));
@@ -79,7 +84,10 @@ function renderPage(agents: Record<string, string | null>) {
 }
 
 describe("ProvidersPage", () => {
-  afterEach(() => vi.restoreAllMocks());
+  afterEach(() => {
+    vi.restoreAllMocks();
+    question.mockReset();
+  });
 
   it("lists each Provider with its endpoint", () => {
     renderPage({ codex: "ppio" });
@@ -211,21 +219,74 @@ describe("ProvidersPage", () => {
     fireEvent.change(screen.getByLabelText("OpenAI 兼容 Base URL"), { target: { value: "https://api.acme.test" } });
     fireEvent.change(screen.getByLabelText("API Key"), { target: { value: "sk-acme" } });
     fireEvent.click(screen.getByRole("button", { name: /^保存$/ }));
-    await waitFor(() => expect(save).toHaveBeenCalledWith(expect.objectContaining({ id: "acme", base_url: "https://api.acme.test", api_key: "sk-acme" })));
+    await waitFor(() => expect(save).toHaveBeenCalledWith(expect.objectContaining({ id: "acme", base_url: "https://api.acme.test", api_key: "sk-acme", create: true })));
   });
 
-  it("deletes a user Provider", async () => {
+  // The ID is a storage key the user should not have to invent, but a collision is
+  // now refused rather than silently overwriting -- so the suggested value has to
+  // be one that is actually free.
+  it("prefills a free Provider ID and states the rule", () => {
+    renderPage({ codex: null });
+    fireEvent.click(screen.getByRole("button", { name: "新增 Provider" }));
+    const id = screen.getByLabelText("Provider ID") as HTMLInputElement;
+    expect(id.value).toMatch(/^[a-z0-9][a-z0-9-]*$/);
+    expect(Object.keys(mockState.status?.providers ?? {})).not.toContain(id.value);
+    expect(screen.getByText(/小写字母、数字或连字符/)).toBeTruthy();
+  });
+
+  // create separates the two intents. An edit must keep overwriting, or saving a
+  // Provider you opened from the list would be refused as a duplicate of itself.
+  it("saves an edited Provider without the create flag", async () => {
+    const save = vi.spyOn(api, "saveProvider").mockResolvedValue({
+      entry: {
+        id: "ppio", name: "PPIO Cloud", home: "", base_url: "https://api.ppio.com/openai",
+        anthropic_base_url: "", api_key: "", built_in: true,
+      },
+      reapplied: null,
+      failures: null,
+    });
+    vi.spyOn(api, "getProvider").mockResolvedValue({
+      id: "ppio", name: "PPIO", home: "", base_url: "https://api.ppio.com/openai",
+      anthropic_base_url: "", api_key: "", built_in: true,
+    });
+    renderPage({ codex: "ppio" });
+    fireEvent.click(screen.getByRole("button", { name: "编辑 PPIO" }));
+    await waitFor(() => expect(screen.getByLabelText("名称")).toBeTruthy());
+    fireEvent.change(screen.getByLabelText("名称"), { target: { value: "PPIO Cloud" } });
+    fireEvent.click(screen.getByRole("button", { name: /^保存$/ }));
+    await waitFor(() => expect(save).toHaveBeenCalledWith(expect.objectContaining({ id: "ppio", create: false })));
+  });
+
+  // As on the Profiles page, this used to stub window.confirm, which the page
+  // never called -- so it passed against an unconfirmed delete. The declined case
+  // is what holds the confirmation in place.
+  const renderWithUserProvider = () => {
     renderPage({ codex: null });
     if (!mockState.status) throw new Error("missing status");
     mockState.status.providers.acme = { name: "Acme", home: "", base_url: "https://api.acme.test", custom: true };
-    vi.spyOn(window, "confirm").mockReturnValue(true);
-    const remove = vi.spyOn(api, "deleteProvider").mockResolvedValue();
     render(
       <MemoryRouter>
         <ProvidersPage />
       </MemoryRouter>,
     );
+  };
+
+  it("does not delete a Provider when the confirmation is declined", async () => {
+    question.mockResolvedValue("取消");
+    const remove = vi.spyOn(api, "deleteProvider").mockResolvedValue();
+    renderWithUserProvider();
+    fireEvent.click(screen.getByRole("button", { name: "删除 Acme" }));
+    await waitFor(() => expect(question).toHaveBeenCalled());
+    expect(remove).not.toHaveBeenCalled();
+  });
+
+  it("deletes a user Provider once the confirmation is accepted", async () => {
+    question.mockResolvedValue("删除");
+    const remove = vi.spyOn(api, "deleteProvider").mockResolvedValue();
+    renderWithUserProvider();
     fireEvent.click(screen.getByRole("button", { name: "删除 Acme" }));
     await waitFor(() => expect(remove).toHaveBeenCalledWith("acme"));
+    // The saved key going too is the part worth warning about.
+    expect(question.mock.calls[0][0].Message).toContain("API Key");
   });
 });

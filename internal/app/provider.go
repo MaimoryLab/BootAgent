@@ -136,7 +136,11 @@ func (u *UseCases) GetProvider(ctx context.Context, providerID string) (provider
 // without the user re-applying each Profile by hand. Reapply failures are
 // returned per Agent instead of failing the save: the Provider record is already
 // correct on disk, and reverting it would lose the edit.
-func (u *UseCases) SaveProvider(ctx context.Context, entry provider.Entry) (SaveProviderResult, error) {
+// create distinguishes the "add Provider" form from editing an existing entry.
+// The distinction has to come from the caller: both arrive here as a complete
+// Entry, and an ID that is not on disk is equally consistent with creating a new
+// Provider and with renaming one, so the store cannot infer the intent.
+func (u *UseCases) SaveProvider(ctx context.Context, entry provider.Entry, create bool) (SaveProviderResult, error) {
 	if u == nil {
 		return SaveProviderResult{}, oneerrors.New(oneerrors.InternalError, "Provider service is not configured", oneerrors.WithStatus(501))
 	}
@@ -146,7 +150,11 @@ func (u *UseCases) SaveProvider(ctx context.Context, entry provider.Entry) (Save
 	u.writeMu.Lock()
 	defer u.writeMu.Unlock()
 	before, _ := u.providers.Get(entry.ID)
-	saved, err := u.providers.Save(ctx, entry)
+	write := u.providers.Save
+	if create {
+		write = u.providers.Create
+	}
+	saved, err := write(ctx, entry)
 	if err != nil {
 		return SaveProviderResult{}, err
 	}

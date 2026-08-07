@@ -7,6 +7,7 @@ import { PageScaffold } from "../components/PageScaffold";
 import { ProviderSegment } from "../components/ProviderSegment";
 import { SelectField } from "../components/SelectField";
 import { useI18n } from "../i18n";
+import { confirmDelete } from "../state/confirmDelete";
 import { byProviderCreatedAt } from "../state/ranking";
 import { installTaskRoute, taskKey, useTaskCenter } from "../state/TaskCenterContext";
 import { useWizard } from "../state/WizardContext";
@@ -184,6 +185,14 @@ export function ProfilesPage() {
       }));
       return;
     }
+    // Asked after the in-use check, so a Profile that cannot be deleted anyway
+    // explains itself rather than prompting first and refusing afterwards.
+    if (!await confirmDelete({
+      title: t("删除 Profile"),
+      message: t("确定删除 Profile「{name}」吗？该操作无法撤销。", { name: profile.label }),
+      confirmLabel: t("删除"),
+      cancelLabel: t("取消"),
+    })) return;
     setBusy(true);
     setFailure("");
     try {
@@ -226,7 +235,10 @@ export function ProfilesPage() {
                 id="profile-id"
                 value={editor.id}
                 onChange={(event) => setEditor({ ...editor, id: event.target.value })}
-                pattern="[a-z0-9][a-z0-9_-]{0,63}"
+                /* Escaped hyphen: compiled with the `v` flag, a literal `-` in a
+                   character class throws, and that error left the attribute
+                   accepting every value. */
+                pattern="[a-z0-9][a-z0-9_\-]{0,63}"
                 placeholder={t("例如 team-ppio")}
                 disabled={Boolean(editor.originalId)}
                 required
@@ -329,7 +341,10 @@ export function ProfilesPage() {
                     <button className="icon-button" type="button" onClick={() => { setEditor(editDraft(profile, protocolOf(profile))); setFailure(""); }} aria-label={t("编辑 {name}", { name: profile.label })} title={t("编辑")}>
                       <Pencil size={14} />
                     </button>
-                    <button className="icon-button is-danger" type="button" onClick={() => void remove(profile, users)} aria-label={t("删除 {name}", { name: profile.label })} title={users.length ? t("Profile 正在被 {agents} 使用，无法删除", { agents: users.map((agent) => agent.name).join(locale === "en" ? ", " : "、") }) : t("删除")}>
+                    {/* disabled while busy: without it a double-click sent two
+                        deletes, and the second one used to report the Profile it
+                        had just removed as unknown. */}
+                    <button className="icon-button is-danger" type="button" disabled={busy} onClick={() => void remove(profile, users)} aria-label={t("删除 {name}", { name: profile.label })} title={users.length ? t("Profile 正在被 {agents} 使用，无法删除", { agents: users.map((agent) => agent.name).join(locale === "en" ? ", " : "、") }) : t("删除")}>
                       <Trash2 size={14} />
                     </button>
                   </span>

@@ -9,6 +9,11 @@ import { ProfilesPage } from "./ProfilesPage";
 const refreshStatus = vi.fn<() => Promise<void>>();
 const dispatch = vi.fn();
 
+// Hoisted so the module factory below can close over it: vi.mock is lifted above
+// the imports, so a plain const declared here would not exist yet when it runs.
+const { question } = vi.hoisted(() => ({ question: vi.fn<(options: { Message: string }) => Promise<string>>() }));
+vi.mock("@wailsio/runtime", () => ({ Dialogs: { Question: question } }));
+
 vi.mock("../state/WizardContext", () => ({
   useWizard: () => ({ state: mockState, dispatch, refreshStatus }),
 }));
@@ -99,6 +104,7 @@ describe("ProfilesPage", () => {
     vi.restoreAllMocks();
     refreshStatus.mockReset();
     refreshStatus.mockResolvedValue();
+    question.mockReset();
   });
 
   it("lists public Profile details and reports the Provider's key state", () => {
@@ -128,14 +134,49 @@ describe("ProfilesPage", () => {
     expect(screen.getByTestId("profile-unused").textContent).toContain("暂无 Agent 使用");
   });
 
-  it("deletes a Profile after confirmation", async () => {
-	vi.spyOn(window, "confirm").mockReturnValue(true);
-	const remove = vi.spyOn(api, "deleteProfile").mockResolvedValue();
-	renderPage([profile({ id: "unused", label: "未使用" })]);
+  // These two replace a test that stubbed window.confirm and asserted the delete
+  // went through. The page never called window.confirm, so the stub did nothing
+  // and the test passed against a delete button with no confirmation at all --
+  // exactly the bug it was named for. Asserting the cancel path is what makes the
+  // confirmation load-bearing: without it, deleting unconditionally still passes.
+  it("does not delete a Profile when the confirmation is declined", async () => {
+    question.mockResolvedValue("取消");
+    const remove = vi.spyOn(api, "deleteProfile").mockResolvedValue();
+    renderPage([profile({ id: "unused", label: "未使用" })]);
 
-	fireEvent.click(screen.getByRole("button", { name: "删除 未使用" }));
-	await waitFor(() => expect(remove).toHaveBeenCalledWith("unused"));
-	expect(refreshStatus).toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "删除 未使用" }));
+    await waitFor(() => expect(question).toHaveBeenCalled());
+    expect(remove).not.toHaveBeenCalled();
+    expect(refreshStatus).not.toHaveBeenCalled();
+  });
+
+  it("deletes a Profile once the confirmation is accepted", async () => {
+    question.mockResolvedValue("删除");
+    const remove = vi.spyOn(api, "deleteProfile").mockResolvedValue();
+    renderPage([profile({ id: "unused", label: "未使用" })]);
+
+    fireEvent.click(screen.getByRole("button", { name: "删除 未使用" }));
+    await waitFor(() => expect(remove).toHaveBeenCalledWith("unused"));
+    expect(refreshStatus).toHaveBeenCalled();
+    // The prompt names the Profile: "delete this?" with no subject is how a user
+    // confirms the wrong row.
+    expect(question.mock.calls[0][0].Message).toContain("未使用");
+  });
+
+  it("blocks a second delete while the first is still running", async () => {
+    question.mockResolvedValue("删除");
+    let release = () => {};
+    const remove = vi.spyOn(api, "deleteProfile").mockReturnValue(new Promise<void>((resolve) => { release = resolve; }));
+    renderPage([profile({ id: "unused", label: "未使用" })]);
+
+    const button = screen.getByRole("button", { name: "删除 未使用" });
+    fireEvent.click(button);
+    // Double-clicking sent two deletes, and the second one reported the Profile
+    // it had just removed as unknown.
+    await waitFor(() => expect(button).toBeDisabled());
+    fireEvent.click(button);
+    expect(remove).toHaveBeenCalledTimes(1);
+    release();
   });
 
   it("explains why an in-use Profile cannot be deleted", () => {

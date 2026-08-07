@@ -131,7 +131,10 @@ export function TransferPage() {
       const password = encrypted ? await askPassword("import") : "";
       if (encrypted && !password) return;
       const data = await parseTransfer(raw, password || "");
-      for (const provider of data.providers ?? []) await api.saveProvider(provider);
+      // create: false — an import restores Providers, so an ID that already
+      // exists is the expected case and overwriting it is the point. Refusing
+      // duplicates here would make re-importing a backup fail.
+      for (const provider of data.providers ?? []) await api.saveProvider({ ...provider, create: false });
       for (const profile of data.profiles ?? []) await api.saveProfile({ id: profile.id, label: profile.label, provider: profile.provider, apiBaseUrl: "", apiKey: "", model: profile.model || "", configMode: "provider", protocol: profile.protocol || "" });
       await refreshStatus();
       setSuccess(t("导入完成"));
