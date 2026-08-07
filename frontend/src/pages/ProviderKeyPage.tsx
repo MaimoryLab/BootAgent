@@ -1,11 +1,12 @@
 import { ExternalLink, FlaskConical, Link2 } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { api, describeError } from "../backend/api";
 import { ConnectionStatus } from "../components/ConnectionStatus";
 import { PageScaffold } from "../components/PageScaffold";
 import { ProviderSegment } from "../components/ProviderSegment";
+import { SecureKeyField } from "../components/SecureKeyField";
 import { useI18n } from "../i18n";
 import { desktopProtocol, profileAgentIdForDesktop, selectedDesktopApp } from "../state/desktopSetup";
 import { useWizard } from "../state/WizardContext";
@@ -15,10 +16,13 @@ import { PROTOCOL_LABELS } from "../types/api";
 export function ProviderKeyPage() {
   const navigate = useNavigate();
   const { t } = useI18n();
-  const { state, dispatch } = useWizard();
+  const { state, dispatch, secret, refreshStatus } = useWizard();
+  const [savingKey, setSavingKey] = useState(false);
+  const [saveFailure, setSaveFailure] = useState("");
   const providerMeta = state.status?.providers[state.provider];
   const apiBaseUrl = providerMeta?.base_url || "";
   const providerHasKey = Boolean(providerMeta?.has_key);
+  const builtInProvider = Boolean(providerMeta && !providerMeta.custom);
   const canProbe = providerHasKey;
   const desktop = state.setupKind === "desktop" && state.status
     ? selectedDesktopApp(state.status, state.selectedAgentIds)
@@ -26,10 +30,8 @@ export function ProviderKeyPage() {
   const probeAgentIds = desktop
     ? [profileAgentIdForDesktop(desktop)]
     : state.selectedAgentIds;
-  // Continuing requires a successful probe, not just a non-empty key: a wrong
-  // key must not reach the model step. canProbe stays separate so the test
-  // button remains clickable while the verdict is still outstanding.
-  const canContinue = canProbe;
+  // A new key is persisted before continuing; probing remains optional.
+  const canContinue = canProbe || (builtInProvider && state.hasApiKey);
 
   // The selected Agents decide which protocols get tested; a model that serves
   // Chat Completions may still refuse Responses, so do not imply a single one.
@@ -50,7 +52,37 @@ export function ProviderKeyPage() {
   }, [apiBaseUrl, protocols]);
 
   const changeProvider = (provider: ProviderId) => {
+    secret.clearApiKey();
+    setSaveFailure("");
     dispatch({ type: "SET_PROVIDER", value: provider });
+  };
+
+  const continueSetup = async () => {
+    if (providerHasKey) {
+      navigate("/setup/model");
+      return;
+    }
+    if (!providerMeta || !builtInProvider || !secret.keyRef.current) return;
+    setSavingKey(true);
+    setSaveFailure("");
+    try {
+      await api.saveProvider({
+        id: state.provider,
+        name: providerMeta.name,
+        home: providerMeta.home,
+        base_url: providerMeta.base_url,
+        anthropic_base_url: providerMeta.anthropic_base_url || "",
+        api_key: secret.keyRef.current,
+        create: false,
+      });
+      secret.clearApiKey();
+      await refreshStatus();
+      navigate("/setup/model");
+    } catch (error) {
+      setSaveFailure(describeError(error, t("无法保存 Provider")).message);
+    } finally {
+      setSavingKey(false);
+    }
   };
 
   const testConnection = async () => {
@@ -90,8 +122,9 @@ export function ProviderKeyPage() {
       stepper
       onBack={() => navigate("/setup/agents")}
       primaryLabel={t("继续选择模型")}
-      onPrimary={() => navigate("/setup/model")}
+      onPrimary={() => void continueSetup()}
       primaryDisabled={!canContinue || state.connectionState === "loading"}
+      primaryBusy={savingKey}
       footerNote={endpoint ? <span className="endpoint-note"><Link2 size={14} />{endpoint}</span> : undefined}
     >
       <ProviderSegment
@@ -103,7 +136,9 @@ export function ProviderKeyPage() {
       />
 
       <div className="provider-form">
-        {!providerHasKey ? (
+        {!providerHasKey && builtInProvider ? (
+          <SecureKeyField value="" onChange={secret.setApiKey} />
+        ) : !providerHasKey ? (
           <div className="notice notice-warning">
             <span>{t("这个 Provider 还没有 Key，先到 Provider 页面填写")}</span>
             <button className="button button-secondary" type="button" onClick={() => navigate(`/providers?provider=${encodeURIComponent(state.provider)}&returnTo=${encodeURIComponent("/setup/provider")}`)}>
@@ -112,6 +147,7 @@ export function ProviderKeyPage() {
             </button>
           </div>
         ) : null}
+        {saveFailure ? <p className="agent-manage-error">{saveFailure}</p> : null}
         <div className="provider-identity-row">
           <div>
             <strong>{providerMeta?.name}</strong>

@@ -9,6 +9,15 @@ import { ProviderKeyPage } from "./ProviderKeyPage";
 
 let state: WizardState;
 const keyRef = { current: "test-key" };
+const clearApiKey = vi.fn(() => {
+  keyRef.current = "";
+  dispatch({ type: "SET_HAS_API_KEY", value: false });
+});
+const setApiKey = vi.fn((value: string) => {
+  keyRef.current = value;
+  dispatch({ type: "SET_HAS_API_KEY", value: Boolean(value) });
+});
+const refreshStatus = vi.fn(async () => {});
 const dispatch = vi.fn((action: WizardAction) => {
   state = wizardReducer(state, action);
 });
@@ -22,7 +31,8 @@ vi.mock("../state/WizardContext", () => ({
   useWizard: () => ({
     state,
     dispatch,
-    secret: { keyRef, setApiKey: vi.fn(), clearApiKey: vi.fn() },
+    secret: { keyRef, setApiKey, clearApiKey },
+    refreshStatus,
   }),
 }));
 
@@ -53,15 +63,39 @@ describe("ProviderKeyPage", () => {
     );
   });
 
-  it("blocks probing when the Provider has no saved key", () => {
+  it("saves an inline key for a built-in Provider and continues", async () => {
     state = {
       ...initialWizardState,
       status: { ...status, providers: { ppio: { ...status.providers.ppio, has_key: false } } },
       statusState: "success",
     };
-    render(<MemoryRouter><ProviderKeyPage /></MemoryRouter>);
+    keyRef.current = "";
+    const save = vi.spyOn(api, "saveProvider").mockResolvedValue({
+      entry: { id: "ppio", name: "PPIO", home: "", base_url: "https://api.ppio.com/openai", anthropic_base_url: "", api_key: "", built_in: true },
+      reapplied: [],
+      failures: {},
+    });
+    const page = render(<MemoryRouter><ProviderKeyPage /></MemoryRouter>);
 
     expect(screen.getByRole("button", { name: "测试连接" })).toBeDisabled();
+    fireEvent.change(screen.getByLabelText("API Key"), { target: { value: "new-key" } });
+    page.rerender(<MemoryRouter><ProviderKeyPage /></MemoryRouter>);
+    fireEvent.click(screen.getByRole("button", { name: "继续选择模型" }));
+
+    await waitFor(() => expect(save).toHaveBeenCalledWith(expect.objectContaining({ id: "ppio", api_key: "new-key", create: false })));
+    expect(refreshStatus).toHaveBeenCalled();
+    expect(keyRef.current).toBe("");
+  });
+
+  it("keeps custom Providers on the management-page path", () => {
+    state = {
+      ...initialWizardState,
+      status: { ...status, providers: { custom: { ...status.providers.ppio, custom: true, has_key: false } } },
+      provider: "custom",
+      statusState: "success",
+    };
+    render(<MemoryRouter><ProviderKeyPage /></MemoryRouter>);
+
     expect(screen.getByRole("button", { name: "前往 Provider" })).toBeTruthy();
     expect(screen.queryByLabelText("API Key")).toBeNull();
   });
