@@ -114,10 +114,12 @@ jobs:
         shell: bash
         working-directory: build
         run: |
-          go run github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.4 generate syso \
+          version="${RELEASE_VERSION#v}"
+          sed "s/0.0.0/${version}/g" windows/info.json > windows/info.generated.json
+          GOARCH=amd64 go run github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.4 generate syso \
             -icon windows/icon.ico \
             -manifest windows/wails.exe.manifest \
-            -info windows/info.json \
+            -info windows/info.generated.json \
             -arch "$GOARCH" \
             -out "../cmd/oneagent-desktop/rsrc_windows_${GOARCH}.syso"
 
@@ -126,16 +128,11 @@ jobs:
         run: |
           mkdir -p bin
           version_ldflag="-X github.com/MaimoryLab/OneAgent/internal/version.Version=$RELEASE_VERSION"
-          if [ "${{ matrix.target.platform }}" = windows ]; then
-            # No `generate icons` step: build/windows/icon.ico is tracked. That
-            # generator scales every entry from appicon.png, and its 16x16 -- the
-            # size Explorer and the taskbar use -- collapses into a solid block,
-            # so the tracked file carries a hand-drawn entry there. Regenerating
-            # would have replaced it on every release build.
-            GOARCH=amd64 go run github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.4 generate syso -arch "${GOARCH}" -icon build/windows/icon.ico -manifest build/windows/wails.exe.manifest -info build/windows/info.json -out "cmd/oneagent-desktop/wails_windows_${GOARCH}.syso"
-          fi
           go build -tags wails,production -trimpath -buildvcs=false -ldflags="${{ matrix.target.desktop_ldflags }} $version_ldflag" -o "bin/oneagent-desktop${{ matrix.target.suffix }}" ./cmd/oneagent-desktop
-          rm -f "cmd/oneagent-desktop/wails_windows_${GOARCH}.syso"
+          rm -f "cmd/oneagent-desktop/rsrc_windows_${GOARCH}.syso"
+          if [ "${{ matrix.target.platform }}" = windows ]; then
+            rm -f build/windows/info.generated.json
+          fi
 
       - name: Package macOS app
         if: matrix.target.platform == 'macos'

@@ -15,6 +15,7 @@ tasks:
       - task: generate:syso
         vars:
           ARCH: '{{.ARCH | default ARCH}}'
+          VERSION: '{{.VERSION}}'
     cmds:
       - go build {{.BUILD_FLAGS}} -o "{{.OUTPUT}}" ./cmd/oneagent-desktop
       # The .syso is a build input for GOOS=windows only. Left in place it would
@@ -40,7 +41,15 @@ tasks:
     # the size Explorer and the taskbar use, where a scaled copy of the mark
     # collapses into a solid block.
     cmds:
-      - '{{.WAILS3}} generate syso -arch {{.ARCH | default ARCH}} -icon build/windows/icon.ico -manifest build/windows/wails.exe.manifest -info build/windows/info.json -out cmd/oneagent-desktop/wails_windows_{{.ARCH | default ARCH}}.syso'
+      - cmd: powershell -NoProfile -Command "(Get-Content build/windows/info.json -Raw) -replace '0.0.0','{{.VERSION | default "0.0.0"}}' | Set-Content build/windows/info.generated.json"
+        platforms: [windows]
+      - cmd: sed 's/0.0.0/{{.VERSION | default "0.0.0"}}/g' build/windows/info.json > build/windows/info.generated.json
+        platforms: [linux, darwin]
+      - '{{.WAILS3}} generate syso -arch {{.ARCH | default ARCH}} -icon build/windows/icon.ico -manifest build/windows/wails.exe.manifest -info build/windows/info.generated.json -out cmd/oneagent-desktop/wails_windows_{{.ARCH | default ARCH}}.syso'
+      - cmd: powershell Remove-item "build/windows/info.generated.json"
+        platforms: [windows]
+      - cmd: unlink build/windows/info.generated.json
+        platforms: [linux, darwin]
     env:
       # The generator runs on the host; GOARCH may be the cross-compile target.
       GOARCH: amd64
@@ -76,7 +85,7 @@ tasks:
       ARCH: '{{.ARCH | default ARCH}}'
       ARG_FLAG: '{{if eq .ARCH "amd64"}}AMD64{{else}}ARM64{{end}}'
       INSTALL_SCOPE: '{{.INSTALL_SCOPE | default "machine"}}'
-      VERSION: '{{.VERSION | default "0.3.0"}}'
+      VERSION: '{{.VERSION | default "0.0.0"}}'
 
   run:
     cmds:
