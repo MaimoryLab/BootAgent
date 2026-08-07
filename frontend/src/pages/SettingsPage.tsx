@@ -3,17 +3,21 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { api, describeError } from "../backend/api";
+import { OTA_PROGRESS_TARGET } from "../backend/wails";
 import { PageScaffold } from "../components/PageScaffold";
 import { SelectField } from "../components/SelectField";
 import { ThemePicker } from "../components/ThemePicker";
 import { useI18n } from "../i18n";
+import { taskCanceller, taskKey, updateTaskRoute, useTaskCenter } from "../state/TaskCenterContext";
 
 export function SettingsPage() {
   const navigate = useNavigate();
   const { locale, setLocale, t } = useI18n();
+  const taskCenter = useTaskCenter();
   const [version, setVersion] = useState("v0.0.0-dev");
   const [checking, setChecking] = useState(false);
   const [updateMessage, setUpdateMessage] = useState("");
+  const [latestVersion, setLatestVersion] = useState("");
 
   useEffect(() => { void api.version().then(setVersion).catch(() => {}); }, []);
 
@@ -22,11 +26,28 @@ export function SettingsPage() {
     setUpdateMessage("");
     try {
       const latest = await api.checkUpdate();
+      setLatestVersion(latest);
       setUpdateMessage(latest ? t("发现新版本 {version}", { version: latest }) : t("当前已是最新版本"));
     } catch (error) {
       setUpdateMessage(describeError(error, t("检查更新失败")).message);
     } finally {
       setChecking(false);
+    }
+  };
+
+  const installUpdate = async () => {
+    if (!latestVersion) return;
+    const taskID = taskKey("update", OTA_PROGRESS_TARGET);
+    if (!taskCenter.startTask({ id: taskID, kind: "update", target: OTA_PROGRESS_TARGET, progressTarget: OTA_PROGRESS_TARGET, title: t("更新 OneAgent {version}", { version: latestVersion }), route: updateTaskRoute(OTA_PROGRESS_TARGET) })) return;
+    try {
+      const request = api.downloadUpdate();
+      taskCenter.setTaskCanceller(taskID, taskCanceller(request));
+      await request;
+      taskCenter.finishTask(taskID, { kind: "success", message: t("更新已下载") });
+      taskCenter.setTaskAction(taskID, { label: t("重启并更新"), run: () => api.restartUpdate() });
+      setUpdateMessage(t("更新已下载"));
+    } catch (error) {
+      taskCenter.finishTask(taskID, { kind: "failure", message: describeError(error, t("更新失败")).message });
     }
   };
 
@@ -61,7 +82,7 @@ export function SettingsPage() {
           <RefreshCw size={15} aria-hidden="true" className={checking ? "spin" : undefined} />
           {checking ? t("正在检查") : t("检查更新")}
         </button>
-        {updateMessage ? <small className="settings-update-message" role="status">{updateMessage}</small> : null}
+        {updateMessage ? <div className="settings-update-message" role="status"><small>{updateMessage}</small>{latestVersion ? <button className="button button-primary button-compact" type="button" onClick={() => void installUpdate()}>{t("立即更新")}</button> : null}</div> : null}
       </section>
     </PageScaffold>
   );

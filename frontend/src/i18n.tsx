@@ -17,6 +17,7 @@ const english = {
   "当前已是最新版本": "You are up to date",
   "发现新版本 {version}": "Version {version} is available",
   "检查更新失败": "Could not check for updates",
+  "立即更新": "Update now",
   "选择要迁移的 Provider 和 Profile": "Choose the providers and profiles to transfer",
   "导入": "Import",
   "导出": "Export",
