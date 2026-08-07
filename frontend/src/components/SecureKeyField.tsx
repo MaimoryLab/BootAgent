@@ -25,6 +25,8 @@ export function SecureKeyField({ value, onChange }: { value: string; onChange: (
           }}
           autoComplete="off"
           spellCheck={false}
+          autoCorrect="off"
+          autoCapitalize="none"
           placeholder={t("粘贴你的 API Key")}
         />
         <button type="button" onClick={() => setVisible((current) => !current)} aria-label={visible ? t("隐藏密钥") : t("显示密钥")}>

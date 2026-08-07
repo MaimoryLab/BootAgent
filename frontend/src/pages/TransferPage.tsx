@@ -168,7 +168,7 @@ export function TransferPage() {
             <h2>{passwordRequest === "export" ? t("请输入导出密码") : t("请输入导入密码")}</h2>
             <div className="secure-field">
               <KeyRound size={17} aria-hidden="true" />
-              <input autoFocus type={passwordVisible ? "text" : "password"} value={passwordValue} onChange={(event) => setPasswordValue(event.target.value)} autoComplete="new-password" spellCheck={false} required />
+              <input autoFocus type={passwordVisible ? "text" : "password"} value={passwordValue} onChange={(event) => setPasswordValue(event.target.value)} autoComplete="new-password" spellCheck={false} autoCorrect="off" autoCapitalize="none" required />
               <button type="button" onClick={() => setPasswordVisible((current) => !current)} aria-label={passwordVisible ? t("隐藏密钥") : t("显示密钥")}>
                 {passwordVisible ? <EyeOff size={17} /> : <Eye size={17} />}
               </button>

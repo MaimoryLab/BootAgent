@@ -207,6 +207,9 @@ export function ProvidersPage({ create = false }: { create?: boolean }) {
                 pattern="[a-z0-9][a-z0-9\-]{0,63}"
                 placeholder={t("例如 siliconflow")}
                 disabled={editor.built_in}
+                spellCheck={false}
+                autoCorrect="off"
+                autoCapitalize="none"
                 required
               />
               {/* The rule was only enforced by `pattern`, so a user learned it by
@@ -216,19 +219,19 @@ export function ProvidersPage({ create = false }: { create?: boolean }) {
             </div>
             <div className="field-stack">
               <label htmlFor="provider-name">{t("名称")}</label>
-              <input id="provider-name" value={editor.name} onChange={(event) => setEditor({ ...editor, name: event.target.value })} required />
+              <input id="provider-name" value={editor.name} onChange={(event) => setEditor({ ...editor, name: event.target.value })} spellCheck={false} autoCorrect="off" autoCapitalize="none" required />
             </div>
             <div className="field-stack provider-editor-wide">
               <label htmlFor="provider-base-url">{t("OpenAI 兼容 Base URL")}</label>
-                <input id="provider-base-url" type="url" value={editor.base_url} onChange={(event) => setEditor({ ...editor, base_url: event.target.value })} placeholder="https://api.example.com/openai/v1" />
+                <input id="provider-base-url" type="url" value={editor.base_url} onChange={(event) => setEditor({ ...editor, base_url: event.target.value })} placeholder="https://api.example.com/openai/v1" spellCheck={false} autoCorrect="off" autoCapitalize="none" />
             </div>
             <div className="field-stack provider-editor-wide">
               <label htmlFor="provider-anthropic-url">{t("Anthropic 兼容 Base URL")}</label>
-              <input id="provider-anthropic-url" type="url" value={editor.anthropic_base_url} onChange={(event) => setEditor({ ...editor, anthropic_base_url: event.target.value })} placeholder="https://api.example.com/anthropic/v1" />
+              <input id="provider-anthropic-url" type="url" value={editor.anthropic_base_url} onChange={(event) => setEditor({ ...editor, anthropic_base_url: event.target.value })} placeholder="https://api.example.com/anthropic/v1" spellCheck={false} autoCorrect="off" autoCapitalize="none" />
             </div>
             <div className="field-stack provider-editor-wide">
               <label htmlFor="provider-home">{t("官网（可选）")}</label>
-              <input id="provider-home" type="url" value={editor.home} onChange={(event) => setEditor({ ...editor, home: event.target.value })} placeholder="https://example.com/" />
+              <input id="provider-home" type="url" value={editor.home} onChange={(event) => setEditor({ ...editor, home: event.target.value })} placeholder="https://example.com/" spellCheck={false} autoCorrect="off" autoCapitalize="none" />
             </div>
             {/* This is the only place a key is entered: the Profile reads it
                 from here instead of asking again. */}

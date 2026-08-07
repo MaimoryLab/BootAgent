@@ -26,10 +26,10 @@ export function ModelPicker({ models, value, onChange, inputId = "manual-model",
         {models.length ? (
           <div className="search-field">
             <Search size={17} />
-            <input id={inputId} value={value} onChange={(event) => onChange(event.target.value)} placeholder={t("搜索模型")} aria-label={inputLabel || t("搜索模型")} required={required} />
+            <input id={inputId} value={value} onChange={(event) => onChange(event.target.value)} placeholder={t("搜索模型")} aria-label={inputLabel || t("搜索模型")} spellCheck={false} autoCorrect="off" autoCapitalize="none" required={required} />
           </div>
         ) : (
-          <input id={inputId} className="text-field" value={value} onChange={(event) => onChange(event.target.value)} placeholder={t("例如 gpt-4.1")} required={required} />
+          <input id={inputId} className="text-field" value={value} onChange={(event) => onChange(event.target.value)} placeholder={t("例如 gpt-4.1")} spellCheck={false} autoCorrect="off" autoCapitalize="none" required={required} />
         )}
       </div>
       {models.length ? (

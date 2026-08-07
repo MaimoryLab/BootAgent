@@ -242,6 +242,9 @@ export function ProfilesPage() {
                 pattern="[a-z0-9][a-z0-9_\-]{0,63}"
                 placeholder={t("例如 team-ppio")}
                 disabled={Boolean(editor.originalId)}
+                spellCheck={false}
+                autoCorrect="off"
+                autoCapitalize="none"
                 required
               />
             </div>
@@ -257,6 +260,9 @@ export function ProfilesPage() {
                 onChange={(event) => setEditor({ ...editor, label: event.target.value })}
                 placeholder={t("例如 团队 PPIO")}
                 aria-describedby="profile-label-hint"
+                spellCheck={false}
+                autoCorrect="off"
+                autoCapitalize="none"
               />
               <small id="profile-label-hint">{t("留空则使用 Profile ID")}</small>
             </div>

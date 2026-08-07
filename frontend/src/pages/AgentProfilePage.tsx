@@ -196,11 +196,11 @@ export function AgentProfilePage() {
               <label htmlFor="agent-profile-id">Profile ID</label>
               {/* Escaped hyphen: compiled with the `v` flag, a literal `-` inside
                   a character class throws and the attribute then accepts anything. */}
-              <input id="agent-profile-id" value={draft.id} pattern="[a-z0-9][a-z0-9_\-]{0,63}" onChange={(event) => setDraft({ ...draft, id: event.target.value })} disabled={Boolean(draft.originalId)} required />
+              <input id="agent-profile-id" value={draft.id} pattern="[a-z0-9][a-z0-9_\-]{0,63}" onChange={(event) => setDraft({ ...draft, id: event.target.value })} disabled={Boolean(draft.originalId)} spellCheck={false} autoCorrect="off" autoCapitalize="none" required />
             </div>
             <div className="field-stack">
               <label htmlFor="agent-profile-label">{t("名称")}</label>
-              <input id="agent-profile-label" value={draft.label} onChange={(event) => setDraft({ ...draft, label: event.target.value })} />
+              <input id="agent-profile-label" value={draft.label} onChange={(event) => setDraft({ ...draft, label: event.target.value })} spellCheck={false} autoCorrect="off" autoCapitalize="none" />
             </div>
             <div className="profile-editor-wide">
               <ProviderSegment

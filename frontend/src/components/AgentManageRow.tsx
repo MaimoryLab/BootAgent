@@ -252,7 +252,7 @@ export function AgentManageRow({
             <h2>{t("选择启动目录")}</h2>
             <label className="launch-directory-label" htmlFor={`launch-directory-${agentId}`}>{t("启动目录")}</label>
             <div className="launch-directory-input-row">
-              <input id={`launch-directory-${agentId}`} value={launchDirectory} onChange={(event) => setLaunchDirectory(event.target.value)} autoFocus />
+              <input id={`launch-directory-${agentId}`} value={launchDirectory} onChange={(event) => setLaunchDirectory(event.target.value)} autoFocus spellCheck={false} autoCorrect="off" autoCapitalize="none" />
               <button className="icon-button" type="button" onClick={() => void chooseDirectory()} title={t("选择目录")} aria-label={t("选择目录")}><FolderOpen size={18} /></button>
             </div>
             <label className="launch-remember-row"><input type="checkbox" checked={rememberDirectory} onChange={(event) => setRememberDirectory(event.target.checked)} /><span>{t("记住此 Agent 的目录")}</span></label>

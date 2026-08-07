@@ -93,6 +93,9 @@ export function ReviewPage() {
           className="text-field"
           value={profileLabel}
           onChange={(event) => dispatch({ type: "SET_PROFILE_LABEL", value: event.target.value })}
+          spellCheck={false}
+          autoCorrect="off"
+          autoCapitalize="none"
         />
         <small>{t("这次安装会保存为一个配置模板，之后可以直接应用")}</small>
       </div> : null}

@@ -170,6 +170,8 @@ export function ProviderKeyPage() {
             onChange={(event) => dispatch({ type: "SET_PROBE_MODEL", value: event.target.value })}
             placeholder={t("例如 deepseek/deepseek-v4-pro")}
             spellCheck={false}
+            autoCorrect="off"
+            autoCapitalize="none"
           />
           <small>{t("可选，仅用于测试连接；实际配置模型在下一步选择")}</small>
         </div>
