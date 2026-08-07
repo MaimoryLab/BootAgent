@@ -51,6 +51,7 @@ function TaskHarness() {
       <button type="button" onClick={() => finishTask(installTask.id!, { kind: "success", message: "安装完成" })}>完成安装</button>
       <button type="button" onClick={() => setTaskAction(installTask.id!, { label: "重试安装", run: terminalAction })}>设置终端动作</button>
       <button type="button" onClick={() => { startTask(installTask); }}>再次启动</button>
+      <button type="button">外部区域</button>
       <button type="button" onClick={() => { startTask({ kind: "update", target: "codex", title: "更新 Codex", route: "/overview" }); }}>更新同一 Agent</button>
       <button type="button" onClick={() => {
         for (const target of ["node", "uv"]) {
@@ -104,6 +105,15 @@ describe("TaskCenter", () => {
     expect(screen.queryByText(/暂无任务日志|清空|完整日志/)).toBeNull();
   });
 
+  it("closes when the user clicks outside the task center", async () => {
+    const user = userEvent.setup();
+    renderTaskCenter();
+    await user.click(screen.getByRole("button", { name: "任务中心" }));
+    expect(screen.getByText("暂无任务")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "外部区域" }));
+    expect(screen.queryByText("暂无任务")).toBeNull();
+  });
+
   it("returns to the route recorded by a card after navigation", async () => {
     const user = userEvent.setup();
     renderTaskCenter();
@@ -117,6 +127,7 @@ describe("TaskCenter", () => {
     renderTaskCenter();
     await user.click(screen.getByRole("button", { name: "启动安装" }));
     await user.click(screen.getByRole("button", { name: "完成安装" }));
+    await user.click(screen.getByRole("button", { name: "任务中心" }));
     expect(await screen.findByText(/已完成/)).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "关闭任务" }));
     expect(screen.queryByText("安装 Codex")).toBeNull();
@@ -129,6 +140,7 @@ describe("TaskCenter", () => {
     await user.click(screen.getByRole("button", { name: "设置终端动作" }));
     expect(screen.queryByRole("button", { name: "重试安装" })).toBeNull();
     await user.click(screen.getByRole("button", { name: "完成安装" }));
+    await user.click(screen.getByRole("button", { name: "任务中心" }));
     await user.click(screen.getByRole("button", { name: "重试安装" }));
     expect(terminalAction).toHaveBeenCalledTimes(1);
   });
@@ -151,6 +163,7 @@ describe("TaskCenter", () => {
     await user.click(screen.getByRole("button", { name: "启动安装" }));
     await user.click(screen.getByRole("button", { name: "再次启动" }));
     await user.click(screen.getByRole("button", { name: "更新同一 Agent" }));
+    await user.click(screen.getByRole("button", { name: "任务中心" }));
     expect(screen.getAllByText("安装 Codex")).toHaveLength(1);
     expect(screen.queryByText("更新 Codex")).toBeNull();
   });
