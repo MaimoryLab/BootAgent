@@ -70,6 +70,17 @@ tasks:
     cmds:
       - '{{.WAILS3}} generate icons -input appicon.png -macfilename darwin/icons.icns -windowsfilename ""'
 
+  generate:windows:icon:
+    summary: Generate the Windows application icon
+    run: once
+    dir: build
+    sources:
+      - appicon.png
+    generates:
+      - windows/icon.ico
+    cmds:
+      - '{{.WAILS3}} generate icons -input appicon.png -macfilename "" -windowsfilename windows/icon.ico'
+
   dev:frontend:
     summary: Runs the Vite dev server (used by `task dev`)
     deps:

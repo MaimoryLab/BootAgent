@@ -9,6 +9,7 @@ release/
 # oneagent-release 的中间产物：notice、license 副本和打包暂存目录
 build/metadata/
 build/release-stage/
+build/windows/nsis/MicrosoftEdgeWebview2Setup.exe
 frontend/node_modules/
 !frontend/dist/.keep
 frontend/dist/*

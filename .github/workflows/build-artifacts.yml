@@ -124,6 +124,42 @@ jobs:
           codesign --force --deep --sign - "bin/OneAgent.app"
           rm "bin/oneagent-desktop"
 
+      - name: Package macOS DMG
+        if: matrix.target.platform == 'macos'
+        shell: bash
+        run: |
+          hdiutil create \
+            -volname OneAgent \
+            -srcfolder "bin/OneAgent.app" \
+            -ov \
+            -format UDZO \
+            "bin/OneAgent-darwin-${{ matrix.arch.ota }}.dmg"
+
+      - name: Install NSIS
+        if: matrix.target.platform == 'windows'
+        shell: pwsh
+        run: |
+          iwr -useb get.scoop.sh -outfile 'install.ps1'
+          .\install.ps1 -RunAsAdmin
+          scoop update
+          scoop bucket add extras
+          scoop install nsis
+
+      - name: Package Windows NSIS installer
+        if: matrix.target.platform == 'windows'
+        shell: pwsh
+        run: |
+          go run github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.4 generate webview2bootstrapper -dir "$env:GITHUB_WORKSPACE/build/windows/nsis"
+          $version = $env:RELEASE_VERSION.TrimStart('v')
+          $arch = '${{ matrix.arch.ota }}'
+          $makensis = (Get-Command makensis -ErrorAction SilentlyContinue).Source
+          if (-not $makensis) {
+            $makensis = Join-Path ([Environment]::GetEnvironmentVariable('ProgramFiles(x86)')) 'NSIS\makensis.exe'
+          }
+          Set-Location "$env:GITHUB_WORKSPACE/build/windows/nsis"
+          & $makensis "-DINFO_PRODUCTVERSION=$version" "-DARG_WAILS_${{ matrix.arch.goarch == 'amd64' && 'AMD64' || 'ARM64' }}_BINARY=$env:GITHUB_WORKSPACE\bin\oneagent-desktop.exe" project.nsi
+          Rename-Item "..\..\..\bin\oneagent-desktop-$arch-installer.exe" "OneAgent-windows-$arch-installer.exe"
+
       - name: Upload artifact
         uses: actions/upload-artifact@v7
         with:
@@ -158,6 +194,22 @@ jobs:
           path: bin/OneAgent-${{ matrix.target.platform == 'macos' && 'darwin' || 'windows' }}-${{ matrix.arch.ota }}.zip
           if-no-files-found: error
 
+      - name: Upload macOS DMG
+        if: matrix.target.platform == 'macos'
+        uses: actions/upload-artifact@v7
+        with:
+          name: installer-macos-${{ matrix.arch.label }}
+          path: bin/OneAgent-darwin-${{ matrix.arch.ota }}.dmg
+          if-no-files-found: error
+
+      - name: Upload Windows NSIS installer
+        if: matrix.target.platform == 'windows'
+        uses: actions/upload-artifact@v7
+        with:
+          name: installer-windows-${{ matrix.arch.label }}
+          path: bin/OneAgent-windows-${{ matrix.arch.ota }}-installer.exe
+          if-no-files-found: error
+
   release:
     needs: build
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
@@ -176,6 +228,20 @@ jobs:
           path: release-assets
           merge-multiple: true
 
+      - name: Download macOS DMGs
+        uses: actions/download-artifact@v8
+        with:
+          pattern: installer-macos-*
+          path: release-assets
+          merge-multiple: true
+
+      - name: Download Windows NSIS installers
+        uses: actions/download-artifact@v8
+        with:
+          pattern: installer-windows-*
+          path: release-assets
+          merge-multiple: true
+
       - name: Validate and publish release
         shell: bash
         run: |
@@ -183,14 +249,18 @@ jobs:
           expected=(
             OneAgent-darwin-amd64.zip
             OneAgent-darwin-arm64.zip
+            OneAgent-darwin-amd64.dmg
+            OneAgent-darwin-arm64.dmg
             OneAgent-windows-amd64.zip
             OneAgent-windows-arm64.zip
+            OneAgent-windows-amd64-installer.exe
+            OneAgent-windows-arm64-installer.exe
           )
-          mapfile -t archives < <(find release-assets -maxdepth 1 -type f -name 'OneAgent-*.zip' -printf '%f\n' | sort)
-          test "${#archives[@]}" -eq 4
-          diff <(printf '%s\n' "${expected[@]}" | sort) <(printf '%s\n' "${archives[@]}")
-          (cd release-assets && sha256sum OneAgent-*.zip > SHA256SUMS)
-          test "$(wc -l < release-assets/SHA256SUMS)" -eq 4
+          mapfile -t assets < <(find release-assets -maxdepth 1 -type f -name 'OneAgent-*' -printf '%f\n' | sort)
+          test "${#assets[@]}" -eq 8
+          diff <(printf '%s\n' "${expected[@]}" | sort) <(printf '%s\n' "${assets[@]}")
+          (cd release-assets && sha256sum OneAgent-* > SHA256SUMS)
+          test "$(wc -l < release-assets/SHA256SUMS)" -eq 8
 
           if gh release view "$RELEASE_VERSION" >/dev/null 2>&1; then
             gh release upload "$RELEASE_VERSION" release-assets/* --clobber

@@ -34,6 +34,8 @@ tasks:
       - task: '{{.GOOS}}:package'
         vars:
           ARCH: '{{.ARCH}}'
+          INSTALL_SCOPE: '{{.INSTALL_SCOPE}}'
+          VERSION: '{{.VERSION}}'
 
   run:
     summary: Runs the built desktop application
