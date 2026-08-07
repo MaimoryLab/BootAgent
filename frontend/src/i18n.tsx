@@ -26,6 +26,8 @@ const english = {
   "选择导出位置": "Choose export location",
   "选择导入文件": "Choose an import file",
   "已选择 {count} 项": "{count} selected",
+  "全选": "Select all",
+  "取消全选": "Clear selection",
   "Profile 依赖": "Required by profile",
   "语言": "Language",
   "外观": "Appearance",

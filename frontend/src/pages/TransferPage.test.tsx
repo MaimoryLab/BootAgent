@@ -42,6 +42,14 @@ describe("TransferPage", () => {
     expect(JSON.parse(write.mock.calls[0][1])).toMatchObject({ profiles: [{ id: "team" }], providers: [{ id: "ppio" }] });
   });
 
+  it("selects all providers and profiles", () => {
+    render(<MemoryRouter><TransferPage /></MemoryRouter>);
+    fireEvent.click(screen.getByRole("button", { name: "全选" }));
+    expect(screen.getByRole("checkbox", { name: /团队/ })).toBeChecked();
+    expect(screen.getAllByRole("checkbox", { name: /PPIO/ }).every((checkbox) => checkbox.checked)).toBe(true);
+    expect(screen.getByRole("button", { name: "取消全选" })).toBeTruthy();
+  });
+
   it("continues encrypted export through the in-app password form", async () => {
     vi.spyOn(api, "getProvider").mockResolvedValue({ id: "ppio", name: "PPIO", home: "", base_url: "https://api.example.test", anthropic_base_url: "", api_key: "secret", built_in: true });
     const write = vi.spyOn(api, "writeTransferFile").mockResolvedValue();

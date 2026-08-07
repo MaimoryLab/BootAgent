@@ -1,5 +1,5 @@
 import { Dialogs } from "@wailsio/runtime";
-import { Upload } from "lucide-react";
+import { CheckCheck, Upload } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -35,6 +35,17 @@ export function TransferPage() {
   const requiredProviders = useMemo(() => new Set(profiles.filter((profile) => selectedProfiles.has(profile.id)).map((profile) => profile.provider)), [profiles, selectedProfiles]);
   const exportProviders = new Set([...selectedProviders, ...requiredProviders]);
   const canExport = selectedProfiles.size > 0 || exportProviders.size > 0;
+  const allSelected = providers.length > 0 && profiles.length > 0
+    && selectedProviders.size === providers.length && selectedProfiles.size === profiles.length;
+  const toggleAll = () => {
+    if (allSelected) {
+      setSelectedProviders(new Set());
+      setSelectedProfiles(new Set());
+      return;
+    }
+    setSelectedProviders(new Set(providers.map(([id]) => id)));
+    setSelectedProfiles(new Set(profiles.map((profile) => profile.id)));
+  };
 
   const askPassword = (mode: "export" | "import") => new Promise<string | null>((resolve) => {
     passwordResolver.current = resolve;
@@ -130,6 +141,11 @@ export function TransferPage() {
           </form>
         </dialog>
       ) : null}
+      <div className="transfer-actions">
+        <button className="button button-secondary" type="button" onClick={toggleAll} disabled={busy || (!providers.length && !profiles.length)}>
+          <CheckCheck size={15} />{t(allSelected ? "取消全选" : "全选")}
+        </button>
+      </div>
       <div className="transfer-grid">
         <section className="transfer-section">
           <header><div><h2>Provider</h2><p>{t("已选择 {count} 项", { count: exportProviders.size })}</p></div></header>
