@@ -78,6 +78,9 @@ tasks:
       - appicon.png
     generates:
       - windows/icon.ico
+    env:
+      # The generator runs on the host; GOARCH may be the cross-compile target.
+      GOARCH: amd64
     cmds:
       - '{{.WAILS3}} generate icons -input appicon.png -macfilename "" -windowsfilename windows/icon.ico'
 

@@ -36,6 +36,9 @@ tasks:
       - task: common:generate:windows:icon
     cmds:
       - '{{.WAILS3}} generate syso -arch {{.ARCH | default ARCH}} -icon build/windows/icon.ico -manifest build/windows/wails.exe.manifest -out cmd/oneagent-desktop/wails_windows_{{.ARCH | default ARCH}}.syso'
+    env:
+      # The generator runs on the host; GOARCH may be the cross-compile target.
+      GOARCH: amd64
 
   package:
     summary: Builds an NSIS installer
@@ -54,7 +57,9 @@ tasks:
       - sh: echo '{{.VERSION}}' | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'
         msg: "VERSION must match X.Y.Z."
     cmds:
-      - '{{.WAILS3}} generate webview2bootstrapper -dir "{{.ROOT_DIR}}/build/windows/nsis"'
+      - cmd: '{{.WAILS3}} generate webview2bootstrapper -dir "{{.ROOT_DIR}}/build/windows/nsis"'
+        env:
+          GOARCH: amd64
       - |
         {{if eq OS "windows"}}
         makensis -DINFO_PRODUCTVERSION={{.VERSION}} {{if eq .INSTALL_SCOPE "user"}}-DWAILS_INSTALL_SCOPE=user -DREQUEST_EXECUTION_LEVEL=user {{end}}-DARG_WAILS_{{.ARG_FLAG}}_BINARY="{{.ROOT_DIR}}\{{.BIN_DIR}}\{{.APP_NAME}}.exe" project.nsi
