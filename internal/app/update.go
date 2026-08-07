@@ -7,6 +7,7 @@ import (
 
 	"github.com/MaimoryLab/OneAgent/internal/catalog"
 	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
+	"github.com/MaimoryLab/OneAgent/internal/process"
 )
 
 type AgentUpdateResult struct {
@@ -16,7 +17,7 @@ type AgentUpdateResult struct {
 }
 
 // UpdateAgent updates an npm-managed Agent through the same managed runtime as installs.
-func (u *UseCases) UpdateAgent(ctx context.Context, agentID string) (AgentUpdateResult, error) {
+func (u *UseCases) UpdateAgent(ctx context.Context, agentID string, listeners ...process.OutputListener) (AgentUpdateResult, error) {
 	if u == nil {
 		return AgentUpdateResult{}, oneerrors.New(oneerrors.InternalError, "Agent service is not configured", oneerrors.WithStatus(501))
 	}
@@ -33,7 +34,12 @@ func (u *UseCases) UpdateAgent(ctx context.Context, agentID string) (AgentUpdate
 	}
 	unlockTask := u.lockTask("agent-task:" + strings.TrimSpace(agentID))
 	defer unlockTask()
-	runtime := u.installRuntime(nil)
+	var output process.OutputListener
+	if len(listeners) > 0 && listeners[0] != nil {
+		base := listeners[0]
+		output = func(event process.Output) { event.Agent = agentID; base(event) }
+	}
+	runtime := u.installRuntime(output)
 	npm, present := runtime.Runner.LookPath("npm")
 	if !present || npm == "" {
 		return AgentUpdateResult{}, oneerrors.New(oneerrors.PrerequisiteMissing, "npm is required to update "+agent.Name)

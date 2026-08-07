@@ -80,6 +80,7 @@ function WorkspaceRoutes() {
         <Route path="/setup/review" element={<SetupGuard stage="review"><ReviewPage /></SetupGuard>} />
         <Route path="/setup/activation" element={<SetupGuard stage="activation"><ActivationPage /></SetupGuard>} />
         <Route path="/tasks/install/:agentId" element={<InstallTaskPage />} />
+        <Route path="/tasks/update/:agentId" element={<InstallTaskPage />} />
         <Route path="/overview" element={<EnvironmentOverviewPage />} />
         <Route path="/agents/:agentId" element={<AgentProfilePage />} />
         <Route path="/providers" element={<ProvidersPage />} />

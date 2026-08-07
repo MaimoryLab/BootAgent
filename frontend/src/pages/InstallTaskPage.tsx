@@ -9,15 +9,18 @@ import { installTaskRoute, useTaskCenter } from "../state/TaskCenterContext";
 export function InstallTaskPage() {
   const { t } = useI18n();
   const navigate = useNavigate();
-  const { agentId = "" } = useParams();
+  const { agentId = "", kind = "install" } = useParams();
   const { tasks, cancelTask, dismissTask } = useTaskCenter();
   const target = decodeURIComponent(agentId);
-  const task = tasks.find((item) => item.kind === "install" && item.target === target);
+  const task = tasks.find((item) => item.kind === kind && item.target === target);
   if (!task) {
     return <PageScaffold title={t("暂无任务")} primaryLabel={t("进入总览")} onPrimary={() => navigate("/overview")} />;
   }
   const running = task.state === "running";
-  const title = running ? t("正在安装") : task.state === "success" ? t("安装完成") : task.state === "cancelled" ? t("已取消") : t("需要处理部分问题");
+  const title = running
+    ? kind === "update" ? t("更新中") : t("正在安装")
+    : task.state === "success" ? kind === "update" ? t("更新完成") : t("安装完成")
+      : task.state === "cancelled" ? t("已取消") : t("需要处理部分问题");
   return (
     <PageScaffold
       title={`${title} · ${task.title}`}

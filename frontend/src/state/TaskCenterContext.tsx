@@ -148,6 +148,10 @@ export function installTaskRoute(target: string): string {
   return `/tasks/install/${encodeURIComponent(target)}`;
 }
 
+export function updateTaskRoute(target: string): string {
+  return `/tasks/update/${encodeURIComponent(target)}`;
+}
+
 function outputText(output: InstallOutput): string {
   if (output.kind === "progress") return "";
   if (output.kind === "command") return `$ ${output.args.join(" ")}\n`;

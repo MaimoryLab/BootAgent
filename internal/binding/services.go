@@ -296,7 +296,7 @@ func (s *AgentService) Update(ctx context.Context, request UpdateRequest) (app.A
 	if s == nil || s.core == nil {
 		return app.AgentUpdateResult{}, notReady("Agent update is not configured")
 	}
-	return s.core.UpdateAgent(ctx, request.AgentID)
+	return s.core.UpdateAgent(ctx, request.AgentID, s.onOutput)
 }
 
 func (s *AgentService) Install(ctx context.Context, request InstallRequest) (InstallResponse, error) {
