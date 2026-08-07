@@ -58,8 +58,8 @@ describe("ranking", () => {
 
   it("puts newest profiles first", () => {
     const sorted = byProfileCreatedAt([
-      { id: "old", label: "Old", provider: "ppio", baseUrl: null, model: "m", protocol: "openai", activatedAt: null, hasKey: true, createdAt: "2026-01-01T00:00:00Z" },
-      { id: "new", label: "New", provider: "ppio", baseUrl: null, model: "m", protocol: "openai", activatedAt: null, hasKey: true, createdAt: "2026-02-01T00:00:00Z" },
+      { id: "old", label: "Old", provider: "ppio", baseUrl: null, model: "m", protocol: "openai", activatedAt: null, createdAt: "2026-01-01T00:00:00Z" },
+      { id: "new", label: "New", provider: "ppio", baseUrl: null, model: "m", protocol: "openai", activatedAt: null, createdAt: "2026-02-01T00:00:00Z" },
     ]);
     expect(sorted.map((profile) => profile.id)).toEqual(["new", "old"]);
   });

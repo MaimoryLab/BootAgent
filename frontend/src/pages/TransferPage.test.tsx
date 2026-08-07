@@ -15,7 +15,7 @@ const status = {
   capabilities: { canInstall: {}, missingRuntime: {}, supportedAgentIds: [] }, agents: {}, catalog: [], groups: [],
   providers: { ppio: { name: "PPIO", home: "", base_url: "https://api.example.test", has_key: true } },
   mirrors: [], paths: {}, backups: {}, environment: null, environmentError: null, desktopAgents: [], activeProfile: null, firstRun: false,
-  profiles: [{ id: "team", label: "团队", provider: "ppio", model: "model", protocol: "responses", baseUrl: null, activatedAt: null, hasKey: true }],
+  profiles: [{ id: "team", label: "团队", provider: "ppio", model: "model", protocol: "responses", baseUrl: null, activatedAt: null }],
 } satisfies StatusResponse;
 
 vi.mock("../state/WizardContext", () => ({ useWizard: () => ({ state: { status }, refreshStatus }) }));

@@ -13,4 +13,15 @@ describe("settings transfer", () => {
     expect(file.timestamp).toBeTruthy();
     await expect(parseTransfer(JSON.stringify(file), "wrong")).rejects.toThrow();
   });
+
+  it("drops legacy profile endpoint and local key fields", async () => {
+    const parsed = await parseTransfer(JSON.stringify({
+      version: 1,
+      timestamp: "2026-01-01T00:00:00Z",
+      providers: [],
+      profiles: [{ id: "team", label: "Team", provider: "demo", model: "m", protocol: "openai", base_url: "https://old", api_key: "legacy", hasKey: true }],
+      encrypted: [],
+    }));
+    expect(parsed.profiles[0]).toEqual({ id: "team", label: "Team", provider: "demo", model: "m", protocol: "openai" });
+  });
 });

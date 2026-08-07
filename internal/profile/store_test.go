@@ -62,11 +62,11 @@ func TestEmptyStoreAndStableListProjection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(profiles) != 2 || profiles[0].ID != "a-profile" || profiles[1].ID != "b-profile" || !profiles[0].HasKey || profiles[1].HasKey {
+	if len(profiles) != 2 || profiles[0].ID != "a-profile" || profiles[1].ID != "b-profile" {
 		t.Fatalf("stable profile list = %#v", profiles)
 	}
 	summary := profiles[0].Summary()
-	if summary.HasKey != true || summary.BaseURL != nil {
+	if summary.BaseURL != nil {
 		t.Fatalf("summary = %#v", summary)
 	}
 }

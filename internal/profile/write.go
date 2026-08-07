@@ -57,14 +57,10 @@ func (s Store) Save(ctx context.Context, request SaveRequest) (Profile, error) {
 	if err != nil {
 		return Profile{}, err
 	}
-	base, err := provider.ProviderBase(request.Provider, request.BaseURL)
-	if err != nil {
+	if _, err := provider.ProviderBase(request.Provider, request.BaseURL); err != nil {
 		return Profile{}, err
 	}
 	existing := s.existing(request.ID)
-	if existing.ID != "" && existing.Provider != request.Provider && request.APIKey == "" && !request.ProviderKeyAvailable && s.secretExists(request.ID) {
-		return Profile{}, oneerrors.New(oneerrors.InvalidRequest, "API key is required when changing a Profile provider")
-	}
 	now := s.clock().UTC().Format(time.RFC3339)
 	label := strings.TrimSpace(request.Label)
 	if label == "" {
@@ -88,13 +84,7 @@ func (s Store) Save(ctx context.Context, request SaveRequest) (Profile, error) {
 	if err := s.writeStored(ctx, stored); err != nil {
 		return Profile{}, err
 	}
-	if request.APIKey != "" && mode == "provider" {
-		if err := s.writeSecret(ctx, request.ID, request.APIKey, base); err != nil {
-			return Profile{}, err
-		}
-	}
 	profile := profileFromStored(stored)
-	profile.HasKey = s.secretExists(request.ID)
 	return profile, nil
 }
 
@@ -152,15 +142,13 @@ func (s Store) WriteActive(ctx context.Context, request ActiveRequest) (string, 
 		}
 	}
 	var model *string
-	resolvedBase := ""
 	providerID := "existing-account"
 	mode := "existing-account"
 	if request.Configure {
-		base, providerErr := provider.ProviderBase(request.Provider, request.BaseURL)
+		_, providerErr := provider.ProviderBase(request.Provider, request.BaseURL)
 		if providerErr != nil {
 			return "", providerErr
 		}
-		resolvedBase = base
 		providerID = request.Provider
 		mode = "provider"
 		modelValue := strings.TrimSpace(request.Model)
@@ -189,11 +177,6 @@ func (s Store) WriteActive(ctx context.Context, request ActiveRequest) (string, 
 	if err := s.writeStored(ctx, stored); err != nil {
 		return "", err
 	}
-	if request.Configure && request.APIKey != "" {
-		if err := s.writeSecret(ctx, profileID, request.APIKey, resolvedBase); err != nil {
-			return "", err
-		}
-	}
 	pointer := activePointer{SchemaVersion: 2, Active: profileID}
 	data, err := json.MarshalIndent(pointer, "", "  ")
 	if err != nil {
@@ -220,16 +203,6 @@ func (s Store) writeStored(ctx context.Context, stored storedProfile) error {
 	return err
 }
 
-func (s Store) writeSecret(ctx context.Context, id, apiKey, base string) error {
-	path, err := s.SecretPath(id)
-	if err != nil {
-		return err
-	}
-	content := secretContent(s.OS, apiKey, base)
-	_, err = s.filesystem().AtomicWrite(ctx, path, []byte(content), true)
-	return err
-}
-
 func (s Store) existing(id string) Profile {
 	path, err := s.ProfilePath(id)
 	if err != nil {
@@ -244,15 +217,6 @@ func (s Store) existing(id string) Profile {
 		return Profile{}
 	}
 	return profile
-}
-
-func (s Store) secretExists(id string) bool {
-	path, err := s.SecretPath(id)
-	if err != nil {
-		return false
-	}
-	info, err := os.Stat(path)
-	return err == nil && !info.IsDir()
 }
 
 func (s Store) filesystem() securefs.Store {
@@ -292,42 +256,6 @@ func configMode(value string) (string, error) {
 		return "", oneerrors.New(oneerrors.InvalidRequest, "config_mode must be provider or existing-account")
 	}
 	return value, nil
-}
-
-func optionalPointer(input, resolved string) *string {
-	if input == "" {
-		return nil
-	}
-	return stringPointer(resolved)
-}
-
-func secretContent(osID, apiKey, base string) string {
-	if osID == "windows" {
-		return "$env:ONEAGENT_API_KEY = '" + powershellQuote(apiKey) + "'\n" +
-			"$env:ONEAGENT_API_BASE_URL = '" + powershellQuote(base) + "'\n"
-	}
-	return "export ONEAGENT_API_KEY=" + shellQuote(apiKey) + "\n" +
-		"export ONEAGENT_API_BASE_URL=" + shellQuote(base) + "\n"
-}
-
-func shellQuote(value string) string {
-	if value != "" {
-		safe := true
-		for _, character := range value {
-			if !strings.ContainsRune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_@%+=:,./-", character) {
-				safe = false
-				break
-			}
-		}
-		if safe {
-			return value
-		}
-	}
-	return "'" + strings.ReplaceAll(value, "'", "'\\''") + "'"
-}
-
-func powershellQuote(value string) string {
-	return strings.ReplaceAll(value, "'", "''")
 }
 
 func requestContext(ctx context.Context) error {

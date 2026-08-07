@@ -34,7 +34,7 @@ export function desktopProfiles(status: StatusResponse, app: DesktopAgentStatus)
 
 export function desktopProfileUsable(status: StatusResponse, profile: ProfileSummary): boolean {
   const provider = status.providers[profile.provider];
-  return Boolean(provider && profile.model?.trim() && (profile.hasKey || provider.has_key));
+  return Boolean(provider && profile.model?.trim() && provider.has_key);
 }
 
 export function desktopProfileIsShared(app: DesktopAgentStatus): boolean {

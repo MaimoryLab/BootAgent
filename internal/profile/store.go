@@ -36,7 +36,6 @@ type Profile struct {
 	Protocol      string
 	CreatedAt     string
 	ActivatedAt   *string
-	HasKey        bool
 }
 
 type Summary struct {
@@ -47,7 +46,6 @@ type Summary struct {
 	Model       *string
 	Protocol    string
 	ActivatedAt *string
-	HasKey      bool
 	CreatedAt   string
 }
 
@@ -145,15 +143,6 @@ func (s Store) List() ([]Profile, error) {
 		if err := ValidateID(profile.ID); err != nil {
 			return nil, fmt.Errorf("Profile %s is corrupt: %w", strings.TrimSuffix(entry.Name(), ".json"), err)
 		}
-		secret, err := s.SecretPath(profile.ID)
-		if err != nil {
-			return nil, err
-		}
-		_, statErr := os.Stat(secret)
-		if statErr != nil && !os.IsNotExist(statErr) {
-			return nil, fmt.Errorf("cannot inspect Profile secret %s: %w", profile.ID, statErr)
-		}
-		profile.HasKey = statErr == nil
 		profiles = append(profiles, profile)
 	}
 	return profiles, nil
@@ -230,7 +219,6 @@ func (p Profile) Summary() Summary {
 		Model:       p.Model,
 		Protocol:    p.Protocol,
 		ActivatedAt: p.ActivatedAt,
-		HasKey:      p.HasKey,
 		CreatedAt:   p.CreatedAt,
 	}
 }

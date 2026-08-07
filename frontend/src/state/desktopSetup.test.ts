@@ -19,7 +19,7 @@ function app(overrides: Partial<DesktopAgentStatus> = {}): DesktopAgentStatus {
 }
 
 function profile(id: string, protocol: ProfileSummary["protocol"]): ProfileSummary {
-  return { id, label: id, provider: "ppio", baseUrl: null, model: "model-a", protocol, activatedAt: null, hasKey: true };
+  return { id, label: id, provider: "ppio", baseUrl: null, model: "model-a", protocol, activatedAt: null };
 }
 
 function status(profiles: ProfileSummary[], agents: StatusResponse["agents"] = {}): StatusResponse {

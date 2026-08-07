@@ -56,8 +56,15 @@ export async function parseTransfer(text: string, password = ""): Promise<{ prov
   if (!Array.isArray(file.encrypted)) throw new Error("文件格式无效");
   const encrypted = file.encrypted;
   const profiles = file.profiles.map((profile) => {
-    if (Object.hasOwn(profile, "base_url") || Object.hasOwn(profile, "baseUrl")) throw new Error("Profile 文件格式无效");
-    return profile;
+    const {
+      base_url: _baseUrl,
+      baseUrl: _camelBaseUrl,
+      api_key: _apiKey,
+      apiKey: _camelApiKey,
+      hasKey: _hasKey,
+      ...rest
+    } = profile as TransferProfile & Record<string, unknown>;
+    return rest as TransferProfile;
   });
   const providers: ProviderEntry[] = [];
   for (const provider of file.providers) {

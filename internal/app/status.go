@@ -233,8 +233,7 @@ type DetectedConfig struct {
 	Unreadable        *string `json:"unreadable"`
 }
 
-// ProfileSummary is intentionally a public projection. It has no credential
-// field; hasKey only reports whether a secret exists in the secure store.
+// ProfileSummary is intentionally a public projection with no credential field.
 type ProfileSummary struct {
 	ID          string  `json:"id"`
 	Label       string  `json:"label"`
@@ -243,7 +242,6 @@ type ProfileSummary struct {
 	Model       *string `json:"model"`
 	Protocol    string  `json:"protocol"`
 	ActivatedAt *string `json:"activatedAt"`
-	HasKey      bool    `json:"hasKey"`
 	CreatedAt   string  `json:"createdAt,omitempty"`
 }
 
@@ -639,7 +637,6 @@ func profileSummary(item profileStore.Profile) ProfileSummary {
 		Model:       summary.Model,
 		Protocol:    summary.Protocol,
 		ActivatedAt: summary.ActivatedAt,
-		HasKey:      summary.HasKey,
 		CreatedAt:   summary.CreatedAt,
 	}
 }

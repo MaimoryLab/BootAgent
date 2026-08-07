@@ -317,7 +317,7 @@ export function ProfilesPage() {
             const users = configurableAgents.filter((agent) => status.agents[agent.id]?.profileId === profile.id);
             const canApply = Boolean(
               profile.model && agents.length
-                && (status.providers[profile.provider]?.has_key || profile.hasKey),
+                && status.providers[profile.provider]?.has_key,
             );
             return (
               <article className="profile-card" key={profile.id} data-testid={`profile-${profile.id}`}>

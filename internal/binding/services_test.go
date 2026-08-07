@@ -207,7 +207,7 @@ func TestProfileServiceListsPublicSummaries(t *testing.T) {
 	})
 	service := NewProfileService(core)
 	profiles, err := service.ListProfiles(context.Background())
-	if err != nil || len(profiles) != 1 || profiles[0].ID != "team" || !profiles[0].HasKey {
+	if err != nil || len(profiles) != 1 || profiles[0].ID != "team" {
 		t.Fatalf("profiles = %#v, err=%v", profiles, err)
 	}
 	wire, err := json.Marshal(profiles)
@@ -231,7 +231,7 @@ func TestProfileServiceSavesWithoutReturningSecret(t *testing.T) {
 		APIKey:     "sk-secret",
 		ConfigMode: "provider",
 	})
-	if err != nil || summary.ID != "team" || !summary.HasKey {
+	if err != nil || summary.ID != "team" {
 		t.Fatalf("saved profile = %#v, err=%v", summary, err)
 	}
 	wire, err := json.Marshal(summary)
