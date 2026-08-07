@@ -234,18 +234,7 @@ func (s Store) clock() time.Time {
 }
 
 func profileFromStored(stored storedProfile) Profile {
-	return Profile{
-		SchemaVersion: stored.SchemaVersion,
-		ID:            stored.ID,
-		Label:         stored.Label,
-		Provider:      stored.Provider,
-		BaseURL:       stored.BaseURL,
-		Model:         stored.Model,
-		ConfigMode:    stored.ConfigMode,
-		Protocol:      stored.Protocol,
-		CreatedAt:     stored.CreatedAt,
-		ActivatedAt:   stored.ActivatedAt,
-	}
+	return Profile(stored)
 }
 
 func configMode(value string) (string, error) {
