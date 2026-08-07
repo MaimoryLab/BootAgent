@@ -144,7 +144,7 @@ describe("EnvironmentOverviewPage", () => {
     expect(await screen.findByRole("heading", { name: "onboarding" })).toBeTruthy();
   });
 
-  it("uses one footer action when no desktop Agent is installed", () => {
+  it("shows desktop onboarding in the empty desktop section", () => {
     const current = status();
     current.agents.codex.installed = false;
     current.desktopAgents = [
@@ -154,9 +154,13 @@ describe("EnvironmentOverviewPage", () => {
     mockState = { status: current, statusState: "success", statusError: "" };
     renderPage();
 
-    expect(screen.queryByText("按引导安装桌面 Agent")).toBeNull();
+    const desktopSection = screen.getByRole("heading", { name: "桌面 Agent" }).closest("section");
+    expect(desktopSection).toBeTruthy();
+    expect(within(desktopSection!).getByText("共 0 个")).toBeTruthy();
+    expect(within(desktopSection!).getByText("按引导安装桌面 Agent")).toBeTruthy();
+    expect(within(desktopSection!).getByRole("button", { name: "安装桌面 Agent" })).toBeTruthy();
     const footer = within(screen.getByRole("contentinfo"));
-    expect(footer.getByRole("button", { name: "安装桌面 Agent" })).toBeTruthy();
+    expect(footer.queryByRole("button", { name: "安装桌面 Agent" })).toBeNull();
     expect(screen.getAllByRole("button", { name: "安装桌面 Agent" })).toHaveLength(1);
   });
 });

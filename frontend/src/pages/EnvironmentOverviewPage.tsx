@@ -1,4 +1,4 @@
-import { PackageOpen, Plus, RefreshCw, Terminal } from "lucide-react";
+import { AppWindow, PackageOpen, Plus, RefreshCw, Terminal } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import { AgentManageRow } from "../components/AgentManageRow";
@@ -84,7 +84,7 @@ export function EnvironmentOverviewPage() {
               {t("安装命令行 Agent")}
             </button>
           ) : null}
-          {desktopInstallable ? (
+          {installedDesktopApplications.length && desktopInstallable ? (
             <button className="button button-secondary" type="button" onClick={openDesktopSetup}>
               <Plus size={15} />
               {t("安装桌面 Agent")}
@@ -163,6 +163,20 @@ export function EnvironmentOverviewPage() {
                 />
               );
             })}
+          </div>
+        </section>
+      ) : desktopApplications.length ? (
+        <section className="overview-section desktop-app-section">
+          <div className="section-heading">
+            <div><h2>{t("桌面 Agent")}</h2><p>{t("共 {count} 个", { count: 0 })}</p></div>
+          </div>
+          <div className="uninstalled-agent-action">
+            <AppWindow size={28} aria-hidden="true" />
+            <span>{t("按引导安装桌面 Agent")}</span>
+            <button className="button button-primary" type="button" aria-label={t("安装桌面 Agent")} onClick={openDesktopSetup}>
+              <Plus size={16} />
+              {t("安装桌面 Agent")}
+            </button>
           </div>
         </section>
       ) : null}

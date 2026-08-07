@@ -1,3 +1,5 @@
+import { writeFileSync } from "node:fs";
+
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
 
@@ -7,10 +9,16 @@ export default defineConfig(({ command }) => ({
   // a relative base and will emit broken asset URLs (blank screen under
   // `wails3 dev`). Only apply it to the production build.
   base: command === "build" ? "./" : "/",
-  plugins: [react()],
+  plugins: [
+    react(),
+    {
+      name: "keep-dist-placeholder",
+      closeBundle: () => writeFileSync(new URL("./dist/.keep", import.meta.url), ""),
+    },
+  ],
   build: {
     outDir: "dist",
-    emptyOutDir: false,
+    emptyOutDir: true,
     sourcemap: false,
     // Inline every asset. The release policy forbids CDN or external
     // references in the frontend output, and a separately emitted icon file
