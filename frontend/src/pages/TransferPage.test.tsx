@@ -46,7 +46,7 @@ describe("TransferPage", () => {
     render(<MemoryRouter><TransferPage /></MemoryRouter>);
     fireEvent.click(screen.getByRole("button", { name: "全选" }));
     expect(screen.getByRole("checkbox", { name: /团队/ })).toBeChecked();
-    expect(screen.getAllByRole("checkbox", { name: /PPIO/ }).every((checkbox) => checkbox.checked)).toBe(true);
+    screen.getAllByRole("checkbox", { name: /PPIO/ }).forEach((checkbox) => expect(checkbox).toBeChecked());
     expect(screen.getByRole("button", { name: "取消全选" })).toBeTruthy();
   });
 
