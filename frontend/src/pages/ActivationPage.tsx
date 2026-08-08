@@ -196,7 +196,11 @@ export function ActivationPage() {
         replaceAgents: state.selectedAgentIds,
       });
       finishActivationTasks(startedTasks, response.results, response.ok, t("激活失败"));
-      if (response.ok) {
+      // Refreshed whenever any Agent got as far as being configured, not only on a
+      // wholly successful run. An Agent that really did install inside a run that
+      // was not `ok` stayed reported as missing until some later refresh, so the
+      // overview showed the wrong thing with no explanation.
+      if (response.ok || response.results.some((result) => result.status !== "failed" && result.status !== "skipped")) {
         await refreshStatus();
       }
     } catch (error) {
@@ -277,8 +281,10 @@ export function ActivationPage() {
         replaceAgents: [agentId],
       });
       finishActivationTasks(startedTasks, response.results, response.ok, t("重试失败"));
-      const otherFailures = state.activationResults.filter((item) => item.agent !== agentId && item.status === "failed");
-      if (response.ok && !otherFailures.length) {
+      // Unconditional, for the same reason as the first run: a successful retry
+      // changes what is on disk whether or not other rows are still failing, and
+      // suppressing the refresh left the overview describing the old state.
+      if (response.ok) {
         await refreshStatus();
       }
     } catch (error) {
@@ -320,6 +326,13 @@ export function ActivationPage() {
   const activationCancelled = state.selectedAgentIds.some((agentId) => taskFor(taskKey("install", taskTarget(agentId)))?.state === "cancelled");
   const activationLoading = state.activationState === "loading" && !activationCancelled;
   const allDone = state.activationState === "success" && !activationCancelled;
+  // A run where one Agent succeeded and another failed unretryably had no forward
+  // button and no retry button: the only exit was back to the review step, even
+  // though the Agent that succeeded is configured and usable. Any finished row is
+  // enough to offer the overview.
+  const anyConfigured = !activationLoading && state.activationResults.some(
+    (result) => result.status !== "failed" && result.status !== "skipped",
+  );
   const runtimeDownloadActive = runtimeDownloads.some(({ id }) => taskFor(taskKey("download", id))?.state === "running")
     && (state.activationState === "loading" || retrying !== null);
   return (
@@ -328,8 +341,8 @@ export function ActivationPage() {
       description={activationLoading ? t("安装请求同步执行，完成后将显示每个 Agent 的最终状态") : activationCancelled ? t("已取消") : t("每个 Agent 的结果彼此独立，失败项可以单独重试")}
       stepper
       onBack={activationLoading ? undefined : () => navigate("/setup/review")}
-      primaryLabel={allDone ? t("进入总览") : undefined}
-      onPrimary={allDone ? () => navigate("/overview") : undefined}
+      primaryLabel={allDone || anyConfigured ? t("进入总览") : undefined}
+      onPrimary={allDone || anyConfigured ? () => navigate("/overview") : undefined}
       footerNote={activationLoading ? t("请保持此窗口打开") : undefined}
     >
       {runtimeDownloadActive && runtimeDownloads.length ? (
@@ -375,8 +388,10 @@ export function ActivationPage() {
       </div>
       {state.activationProbe && !state.activationProbe.ok ? <div className="notice notice-warning">{state.activationProbe.message}</div> : null}
       {/* The launch commands belong to the moment installation finishes, not to
-          the overview a user opens every day. */}
-      {allDone && state.activationNext ? (
+          the overview a user opens every day. Shown for a partial run too: the
+          commands belong to the Agents that succeeded, and hiding them because a
+          different Agent failed withheld the next step for work that was done. */}
+      {(allDone || anyConfigured) && state.activationNext ? (
         <section className="next-command-section">
           <h2>{t("下一步命令")}</h2>
           <pre>{state.activationNext}</pre>
