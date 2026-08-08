@@ -58,7 +58,11 @@ export function ProviderKeyPage() {
   };
 
   const continueSetup = async () => {
-    if (providerHasKey) {
+    // Only when there is nothing to save. Returning early on providerHasKey alone
+    // discarded a key typed in this session -- the field is rendered when no key
+    // is saved yet, so a save that lands mid-visit (a probe, another tab) turned
+    // the user's input into a silent no-op.
+    if (providerHasKey && !secret.keyRef.current) {
       navigate("/setup/model");
       return;
     }
@@ -137,7 +141,7 @@ export function ProviderKeyPage() {
 
       <div className="provider-form">
         {!providerHasKey && builtInProvider ? (
-          <SecureKeyField value="" onChange={secret.setApiKey} />
+          <SecureKeyField value="" onChange={secret.setApiKey} resetKey={state.provider} />
         ) : !providerHasKey ? (
           <div className="notice notice-warning">
             <span>{t("这个模型服务还没有 Key，先到模型服务页面填写")}</span>

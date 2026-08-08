@@ -107,6 +107,37 @@ describe("ProviderKeyPage", () => {
     expect(screen.getByRole("button", { name: "继续选择模型" })).not.toBeDisabled();
   });
 
+  // Continuing used to return early on providerHasKey alone, before ever reading
+  // the ref -- so a key typed in this session was dropped with no save call and no
+  // message, while the page advanced as though it had worked.
+  it("saves a key typed in this session even when one is already stored", async () => {
+    state = { ...initialWizardState, status, statusState: "success", hasApiKey: true };
+    keyRef.current = "sk-rotated";
+    const save = vi.spyOn(api, "saveProvider").mockResolvedValue({
+      entry: {
+        id: "ppio", name: "PPIO", home: "", base_url: "https://api.ppio.com/openai",
+        anthropic_base_url: "", api_key: "sk-rotated", built_in: true,
+      },
+      reapplied: null,
+      failures: null,
+    });
+    render(<MemoryRouter><ProviderKeyPage /></MemoryRouter>);
+
+    fireEvent.click(screen.getByRole("button", { name: "继续选择模型" }));
+    await waitFor(() => expect(save).toHaveBeenCalledWith(expect.objectContaining({ api_key: "sk-rotated" })));
+  });
+
+  it("continues without a save when nothing was typed", async () => {
+    state = { ...initialWizardState, status, statusState: "success", hasApiKey: true };
+    keyRef.current = "";
+    const save = vi.spyOn(api, "saveProvider");
+    render(<MemoryRouter><ProviderKeyPage /></MemoryRouter>);
+
+    fireEvent.click(screen.getByRole("button", { name: "继续选择模型" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "继续选择模型" })).not.toBeDisabled());
+    expect(save).not.toHaveBeenCalled();
+  });
+
   it("offers the key button for a Provider with only a key page", () => {
     // No home URL, so the pre-change guard would have hidden the button. The
     // backend picks the URL; the page only decides whether to offer the action.

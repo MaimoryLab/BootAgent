@@ -1,15 +1,35 @@
 import { Eye, EyeOff, KeyRound } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { useI18n } from "../i18n";
 
-export function SecureKeyField({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+export function SecureKeyField({ value, onChange, resetKey }: {
+  value: string;
+  onChange: (value: string) => void;
+  /**
+   * Clears the field when it changes. The wizard passes a constant `value=""`,
+   * so the effect below cannot see a reset: the prop it depends on never
+   * changes. That left a key the user typed for one Provider still displayed
+   * after switching to another, while the ref behind it had been cleared -- the
+   * field showed a secret that was no longer going to be saved.
+   */
+  resetKey?: string;
+}) {
   const { t } = useI18n();
   const [visible, setVisible] = useState(false);
   // The wizard keeps the key in a ref, not in state, so the parent gives no
   // re-render guarantee per keystroke; echo must come from local state.
   const [draft, setDraft] = useState(value);
   useEffect(() => setDraft(value), [value]);
+  // Skips its own first run: on mount `draft` is already the incoming value, and
+  // clearing here would discard the saved key the Provider editor loads.
+  const seenReset = useRef(resetKey);
+  useEffect(() => {
+    if (seenReset.current === resetKey) return;
+    seenReset.current = resetKey;
+    setDraft("");
+    setVisible(false);
+  }, [resetKey]);
   return (
     <div className="field-stack">
       <label htmlFor="api-key">API Key</label>
