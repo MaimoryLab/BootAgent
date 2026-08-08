@@ -219,6 +219,7 @@ export function AgentProfilePage() {
               value={draft.model}
               onChange={(model) => setDraft({ ...draft, model })}
               inputId="agent-profile-model"
+              wide
             />
           </div>
           <p className="profile-key-hint">

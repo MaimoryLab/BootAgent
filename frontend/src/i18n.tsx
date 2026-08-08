@@ -248,6 +248,12 @@ const english = {
   // flow; this wording covers both arriving signed in and having to sign up.
   "获取 API Key": "Get an API key",
   "自定义模型名称（可选）": "Custom model name (optional)",
+  // The connection step's model field. It only decides what the probe requests --
+  // the configured model is chosen on the next step -- and saying so plainly is
+  // the difference between a user thinking they have configured something and
+  // knowing they have not.
+  "测试用模型（可选）": "Test model (optional)",
+  "仅用于测试这个模型服务是否连得通，不会写入任何配置。真正使用的模型在下一步选择": "Used only to test whether this provider is reachable; nothing is written to any configuration. The model you actually use is chosen in the next step",
   "填写后将用此模型测试连接；留空时自动选择": "When provided, this model is used for the connection test. Leave blank to select automatically",
   "可选，仅用于测试连接；实际配置模型在下一步选择": "Optional; used only for the connection test. Choose the configured model in the next step",
   "测试连接": "Test connection",

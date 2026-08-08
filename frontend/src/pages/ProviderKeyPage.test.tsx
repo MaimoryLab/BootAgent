@@ -53,7 +53,7 @@ describe("ProviderKeyPage", () => {
     });
     const page = render(<MemoryRouter><ProviderKeyPage /></MemoryRouter>);
 
-    fireEvent.change(screen.getByLabelText("自定义模型名称（可选）"), { target: { value: "vendor/custom-model" } });
+    fireEvent.change(screen.getByLabelText("测试用模型（可选）"), { target: { value: "vendor/custom-model" } });
     page.rerender(<MemoryRouter><ProviderKeyPage /></MemoryRouter>);
     expect(screen.queryByLabelText("API Key")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "测试连接" }));
@@ -85,6 +85,49 @@ describe("ProviderKeyPage", () => {
     await waitFor(() => expect(save).toHaveBeenCalledWith(expect.objectContaining({ id: "ppio", api_key: "new-key", create: false })));
     expect(refreshStatus).toHaveBeenCalled();
     expect(keyRef.current).toBe("");
+  });
+
+  // The field was a bare text input, so the models this Key can actually reach
+  // were invisible and had to be typed from memory.
+  it("offers the discovered models from the probe field", async () => {
+    // A selected Agent is what gives the step a protocol, and without one
+    // discovery does not run at all.
+    state = {
+      ...initialWizardState,
+      status: { ...status, catalog: [{ id: "codex", name: "Codex", protocol: "openai" }] } as unknown as StatusResponse,
+      statusState: "success",
+      selectedAgentIds: ["codex"],
+      hasApiKey: true,
+    };
+    keyRef.current = "";
+    vi.spyOn(api, "models").mockResolvedValue({
+      ok: true, reachable: true, status: 200, message: "Found 2 models.",
+      error_code: null, retryable: false, models: ["deepseek/deepseek-v4-pro", "qwen/qwen3-coder"],
+    });
+    render(<MemoryRouter><ProviderKeyPage /></MemoryRouter>);
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "展开模型列表" })).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "展开模型列表" }));
+    fireEvent.click(screen.getByRole("radio", { name: /qwen\/qwen3-coder/ }));
+    expect(dispatch).toHaveBeenCalledWith({ type: "SET_PROBE_MODEL", value: "qwen/qwen3-coder" });
+  });
+
+  // A model entered here is not configured anywhere, and a user who assumes it is
+  // will not understand why the next step asks again.
+  it("says the probe model configures nothing", () => {
+    state = { ...initialWizardState, status, statusState: "success", hasApiKey: true };
+    render(<MemoryRouter><ProviderKeyPage /></MemoryRouter>);
+
+    expect(screen.getByText(/不会写入任何配置/)).toBeTruthy();
+    expect(screen.getByText(/真正使用的模型在下一步选择/)).toBeTruthy();
+  });
+
+  it("leaves the probe model optional", () => {
+    // Empty is the common path: the backend picks a model for the probe.
+    state = { ...initialWizardState, status, statusState: "success", hasApiKey: true };
+    render(<MemoryRouter><ProviderKeyPage /></MemoryRouter>);
+
+    expect(screen.getByLabelText("测试用模型（可选）").hasAttribute("required")).toBe(false);
   });
 
   it("keeps custom Providers on the management-page path", () => {

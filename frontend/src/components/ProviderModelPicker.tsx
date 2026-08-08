@@ -11,9 +11,25 @@ interface ProviderModelPickerProps {
   value: string;
   onChange: (value: string) => void;
   inputId: string;
+  /** Overrides the field label; defaults to the Profile editors' "模型". */
+  inputLabel?: string;
+  /** The line under the field, for a caller whose model means something else. */
+  hint?: string;
+  /**
+   * Profile editors need a model to save. The wizard's connection step does not:
+   * the field there only picks what the probe requests, and leaving it empty lets
+   * the backend choose.
+   */
+  required?: boolean;
+  /**
+   * grid-column: 1 / -1, which only means anything inside the Profile editor
+   * grid. Off by default so a caller outside that grid is not handed a stray
+   * declaration.
+   */
+  wide?: boolean;
 }
 
-export function ProviderModelPicker({ provider, protocol, hasKey, value, onChange, inputId }: ProviderModelPickerProps) {
+export function ProviderModelPicker({ provider, protocol, hasKey, value, onChange, inputId, inputLabel, hint, required = true, wide = false }: ProviderModelPickerProps) {
   const { t } = useI18n();
   const [models, setModels] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
@@ -42,13 +58,14 @@ export function ProviderModelPicker({ provider, protocol, hasKey, value, onChang
   }, [hasKey, protocol, provider, t]);
 
   return (
-    <div className="field-stack profile-editor-wide">
+    <div className={`field-stack${wide ? " profile-editor-wide" : ""}`}>
       {loading ? <div className="loading-block"><span className="spinner" />{t("正在读取模型列表")}</div> : null}
       {message && !loading ? <div className={`notice ${success ? "notice-success" : "notice-warning"}`}>{message}</div> : null}
-      {/* collapsible: both callers are compact editors where an always-open list
+      {/* collapsible: every caller is a compact form where an always-open list
           pushed the footer off screen. The arrow is also the only affordance that
           said the discovered models were selectable at all. */}
-      <ModelPicker models={models} value={value} onChange={onChange} inputId={inputId} inputLabel={t("模型")} required collapsible />
+      <ModelPicker models={models} value={value} onChange={onChange} inputId={inputId} inputLabel={inputLabel || t("模型")} required={required} collapsible />
+      {hint ? <small>{hint}</small> : null}
     </div>
   );
 }

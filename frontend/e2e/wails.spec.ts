@@ -97,7 +97,7 @@ test("onboarding installs one Agent end to end and writes its Profile", async ({
   await page.getByRole("button", { name: "继续" }).click();
 
   await expect(page.getByRole("heading", { name: "连接模型服务" })).toBeVisible();
-  await page.getByLabel("自定义模型名称（可选）").fill("oneagent-e2e-model");
+  await page.getByLabel("测试用模型（可选）").fill("oneagent-e2e-model");
   await page.getByRole("button", { name: "测试连接" }).click();
   // The model step is gated on a passing Provider probe.
   await page.getByRole("button", { name: "继续选择模型" }).click();
