@@ -11,7 +11,7 @@ import {
   useRef,
 } from "react";
 
-import { api, describeError } from "../backend/api";
+import { api, describeFailure } from "../backend/api";
 import { useI18n } from "../i18n";
 import { initialWizardState, wizardReducer, type WizardAction, type WizardState } from "./wizardReducer";
 
@@ -50,7 +50,7 @@ export function WizardProvider({ children }: PropsWithChildren) {
     try {
       dispatch({ type: "STATUS_LOADED", status: await api.status() });
     } catch (error) {
-      dispatch({ type: "STATUS_FAILED", message: describeError(error, t("无法读取本机状态")).message });
+      dispatch({ type: "STATUS_FAILED", message: describeFailure(error, t("无法读取本机状态"), t).message });
     }
   }, [t]);
 

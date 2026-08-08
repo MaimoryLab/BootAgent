@@ -12,4 +12,4 @@ export type BackendApi = typeof wailsApi;
 
 export const api: BackendApi = wailsApi;
 
-export { describeError, isCancellationError } from "./errors";
+export { describeError, describeFailure, isCancellationError } from "./errors";

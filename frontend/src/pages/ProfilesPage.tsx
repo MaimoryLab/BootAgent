@@ -2,7 +2,7 @@ import { KeyRound, Layers, Pencil, Play, Plus, Save, Trash2, X } from "lucide-re
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { api, describeError, isCancellationError } from "../backend/api";
+import { api, describeFailure, isCancellationError } from "../backend/api";
 import { PageScaffold } from "../components/PageScaffold";
 import { ProviderModelPicker } from "../components/ProviderModelPicker";
 import { ProviderSegment } from "../components/ProviderSegment";
@@ -147,7 +147,7 @@ export function ProfilesPage() {
       await refreshStatus();
       setEditor(null);
     } catch (error) {
-      setFailure(describeError(error, t("无法保存配置模版")).message);
+      setFailure(describeFailure(error, t("无法保存配置模版"), t).message);
     } finally {
       setBusy(false);
     }
@@ -185,7 +185,7 @@ export function ProfilesPage() {
           });
           finishTask(taskKey("install", agentId), { kind: "success", message: t("{name} 已应用", { name: profile.label || profile.id }) });
         } catch (error) {
-          finishTask(taskKey("install", agentId), { kind: "failure", message: describeError(error, t("应用配置模版失败")).message });
+          finishTask(taskKey("install", agentId), { kind: "failure", message: describeFailure(error, t("应用配置模版失败"), t).message });
           throw error;
         }
       }));
@@ -197,7 +197,7 @@ export function ProfilesPage() {
       navigate("/overview", { replace: true });
     } catch (error) {
       const cancelled = isCancellationError(error);
-      const message = cancelled ? "" : describeError(error, t("无法应用配置模版")).message;
+      const message = cancelled ? "" : describeFailure(error, t("无法应用配置模版"), t).message;
       if (!cancelled) setFailure(message);
     } finally {
       setApplying("");
@@ -226,7 +226,7 @@ export function ProfilesPage() {
       if (editor?.originalId === profile.id) setEditor(null);
       await refreshStatus();
     } catch (error) {
-      setFailure(describeError(error, t("无法删除配置模版")).message);
+      setFailure(describeFailure(error, t("无法删除配置模版"), t).message);
     } finally {
       setBusy(false);
     }

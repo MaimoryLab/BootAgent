@@ -1,7 +1,7 @@
 import { AppWindow, Download, Play, Plus, RefreshCw, SlidersHorizontal, TriangleAlert } from "lucide-react";
 import { useState } from "react";
 
-import { api, describeError } from "../backend/api";
+import { api, describeFailure } from "../backend/api";
 import { useI18n } from "../i18n";
 import { taskCanceller, taskKey, useTaskCenter, useTaskRoute } from "../state/TaskCenterContext";
 import type { DesktopAgentStatus, ProfileSummary } from "../types/api";
@@ -80,7 +80,7 @@ export function DesktopAppSection({ app: desktopApp, onChanged, onSetup, onConfi
       else setLocalNotice(message);
       await onChanged();
     } catch (error) {
-      const message = describeError(error, t("{name} 操作失败", { name: desktopApp.name })).message;
+      const message = describeFailure(error, t("{name} 操作失败", { name: desktopApp.name }), t).message;
       if (downloads) finishTask(installTaskID, { kind: "failure", message });
       else setLocalFailure(message);
     } finally {

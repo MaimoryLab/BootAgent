@@ -2,7 +2,7 @@ import { ExternalLink, KeyRound, Pencil, Plus, Save, Trash2, X } from "lucide-re
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
-import { api, describeError } from "../backend/api";
+import { api, describeFailure } from "../backend/api";
 import { PageScaffold } from "../components/PageScaffold";
 import { SecureKeyField } from "../components/SecureKeyField";
 import { useI18n } from "../i18n";
@@ -77,7 +77,7 @@ export function ProvidersPage({ create = false }: { create?: boolean }) {
       setEditor(await api.getProvider(providerId));
       setCreating(false);
     } catch (error) {
-      setFailure(describeError(error, t("无法读取模型服务")).message);
+      setFailure(describeFailure(error, t("无法读取模型服务"), t).message);
     } finally {
       setBusy(false);
     }
@@ -129,7 +129,7 @@ export function ProvidersPage({ create = false }: { create?: boolean }) {
       if (create) navigate(returnTo);
       else setEditor(null);
     } catch (error) {
-      setFailure(describeError(error, t("无法保存模型服务")).message);
+      setFailure(describeFailure(error, t("无法保存模型服务"), t).message);
     } finally {
       setBusy(false);
     }
@@ -157,7 +157,7 @@ export function ProvidersPage({ create = false }: { create?: boolean }) {
       if (editor?.id === providerId) setEditor(null);
       await refreshStatus();
     } catch (error) {
-      setFailure(describeError(error, t("无法删除模型服务")).message);
+      setFailure(describeFailure(error, t("无法删除模型服务"), t).message);
     } finally {
       setBusy(false);
     }

@@ -2,7 +2,7 @@ import { Download } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { api, describeError, isCancellationError } from "../backend/api";
+import { api, describeFailure, isCancellationError } from "../backend/api";
 import { AgentProgressRow } from "../components/AgentProgressRow";
 import { DownloadProgress } from "../components/DownloadProgress";
 import { LogDisclosure } from "../components/LogDisclosure";
@@ -200,7 +200,7 @@ export function ActivationPage() {
         await refreshStatus();
       }
     } catch (error) {
-      const message = isCancellationError(error) ? t("已取消") : describeError(error, t("激活失败")).message;
+      const message = isCancellationError(error) ? t("已取消") : describeFailure(error, t("激活失败"), t).message;
       finishActivationTasks(startedTasks, [], false, message);
       dispatch({ type: "ACTIVATION_FAILED", message });
     }
@@ -249,7 +249,7 @@ export function ActivationPage() {
       finishTask(id, { kind: "success", message: t("安装完成") });
       await refreshStatus();
     } catch (error) {
-      finishTask(id, { kind: "failure", message: describeError(error, t("运行时安装失败")).message });
+      finishTask(id, { kind: "failure", message: describeFailure(error, t("运行时安装失败"), t).message });
     }
   };
 
@@ -282,7 +282,7 @@ export function ActivationPage() {
         await refreshStatus();
       }
     } catch (error) {
-      const message = isCancellationError(error) ? t("已取消") : describeError(error, t("重试失败")).message;
+      const message = isCancellationError(error) ? t("已取消") : describeFailure(error, t("重试失败"), t).message;
       finishActivationTasks(startedTasks, [], false, message);
       dispatch({ type: "ACTIVATION_FAILED", message });
     } finally {

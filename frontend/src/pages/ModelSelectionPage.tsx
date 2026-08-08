@@ -2,7 +2,7 @@ import { RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { api, describeError } from "../backend/api";
+import { api, describeFailure } from "../backend/api";
 import { ModelPicker } from "../components/ModelPicker";
 import { PageScaffold } from "../components/PageScaffold";
 import { useI18n } from "../i18n";
@@ -27,7 +27,7 @@ export function ModelSelectionPage() {
       });
       dispatch({ type: "MODELS_RESULT", result });
     } catch (error) {
-      dispatch({ type: "MODELS_FAILED", message: describeError(error, t("无法获取模型列表")).message });
+      dispatch({ type: "MODELS_FAILED", message: describeFailure(error, t("无法获取模型列表"), t).message });
     }
   }, [dispatch, state.provider, t]);
 

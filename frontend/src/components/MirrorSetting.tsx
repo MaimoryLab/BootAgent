@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import { api, describeError } from "../backend/api";
+import { api, describeFailure } from "../backend/api";
 import { useI18n } from "../i18n";
 import { AdvancedSection } from "./AdvancedSection";
 
@@ -56,7 +56,7 @@ export function MirrorSetting({ label }: { label?: string }) {
       // Put the switch back so it never shows a preference that was not stored.
       setPreferMirror(previous);
       setFromRegion(wasFromRegion);
-      setFailure(describeError(error, t("无法保存下载设置")).message);
+      setFailure(describeFailure(error, t("无法保存下载设置"), t).message);
     }
   };
 

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import { api, describeError } from "../backend/api";
+import { api, describeFailure } from "../backend/api";
 import { useI18n } from "../i18n";
 import { ModelPicker } from "./ModelPicker";
 
@@ -34,7 +34,7 @@ export function ProviderModelPicker({ provider, protocol, hasKey, value, onChang
       if (cancelled) return;
       setModels([]);
       setSuccess(false);
-      setMessage(describeError(error, t("无法获取模型列表")).message);
+      setMessage(describeFailure(error, t("无法获取模型列表"), t).message);
     }).finally(() => {
       if (!cancelled) setLoading(false);
     });

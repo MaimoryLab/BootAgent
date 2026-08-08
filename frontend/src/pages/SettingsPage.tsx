@@ -2,7 +2,7 @@ import { ChevronRight, Import, Languages, RefreshCw } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { api, describeError } from "../backend/api";
+import { api, describeFailure } from "../backend/api";
 import { OTA_PROGRESS_TARGET } from "../backend/wails";
 import { PageScaffold } from "../components/PageScaffold";
 import { SelectField } from "../components/SelectField";
@@ -29,7 +29,7 @@ export function SettingsPage() {
       setLatestVersion(latest);
       setUpdateMessage(latest ? t("发现新版本 {version}", { version: latest }) : t("当前已是最新版本"));
     } catch (error) {
-      setUpdateMessage(describeError(error, t("检查更新失败")).message);
+      setUpdateMessage(describeFailure(error, t("检查更新失败"), t).message);
     } finally {
       setChecking(false);
     }
@@ -47,7 +47,7 @@ export function SettingsPage() {
       taskCenter.setTaskAction(taskID, { label: t("重启并更新"), run: () => api.restartUpdate() });
       setUpdateMessage(t("更新已下载"));
     } catch (error) {
-      taskCenter.finishTask(taskID, { kind: "failure", message: describeError(error, t("更新失败")).message });
+      taskCenter.finishTask(taskID, { kind: "failure", message: describeFailure(error, t("更新失败"), t).message });
     }
   };
 
