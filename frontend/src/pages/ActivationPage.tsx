@@ -21,6 +21,9 @@ export function ActivationPage() {
   const route = useTaskRoute();
   const started = useRef(false);
   const [retrying, setRetrying] = useState<string | null>(null);
+  // Shown when a run could not start at all. Local state rather than the wizard:
+  // it describes this visit to the page, not the outcome of an install.
+  const [blockedMessage, setBlockedMessage] = useState("");
   const isDesktop = state.setupKind === "desktop";
   const desktop = isDesktop && state.status ? selectedDesktopApp(state.status, state.selectedAgentIds) : undefined;
   const selectedNames = useMemo(
@@ -81,7 +84,14 @@ export function ActivationPage() {
         route: installTaskRoute(target),
         group,
       })) {
-        for (const started of startedAgents) finishTask(started, { kind: "failure", message: t("任务正在运行") });
+        // The rollback names the Agent that is actually blocked. Reusing the
+        // collision message here reported "this task is already running" against
+        // Agents that were merely rolled back, which pointed the user at the wrong
+        // row -- and at a task that was never theirs.
+        const blockedBy = selectedNames[target] || target;
+        for (const started of startedAgents) {
+          finishTask(started, { kind: "failure", message: t("{name} 有任务正在运行，本次未开始", { name: blockedBy }) });
+        }
         return null;
       }
       startedAgents.push(id);
@@ -170,7 +180,10 @@ export function ActivationPage() {
   const activate = useCallback(async () => {
     const startedTasks = startActivationTasks(state.selectedAgentIds);
     if (!startedTasks) {
-      dispatch({ type: "ACTIVATION_FAILED", message: t("任务正在运行") });
+      setBlockedMessage(t("已有安装任务正在运行，请在任务中心查看后重试"));
+      // Names where to look. "任务正在运行" alone said a task existed without
+      // saying which, and the task centre is the only place to find it.
+      dispatch({ type: "ACTIVATION_FAILED", message: t("已有安装任务正在运行，请在任务中心查看后重试") });
       return;
     }
     dispatch({ type: "ACTIVATION_LOADING", agentIds: state.selectedAgentIds });
@@ -258,8 +271,14 @@ export function ActivationPage() {
   };
 
   const retry = async (agentId: string) => {
+    setBlockedMessage("");
     const startedTasks = startActivationTasks([agentId]);
-    if (!startedTasks) return;
+    // Same silent dead end as the first run: without this a blocked retry did
+    // nothing and said nothing.
+    if (!startedTasks) {
+      setBlockedMessage(t("已有安装任务正在运行，请在任务中心查看后重试"));
+      return;
+    }
     setRetrying(agentId);
     try {
       let response;
@@ -338,7 +357,14 @@ export function ActivationPage() {
   return (
     <PageScaffold
       title={activationLoading ? t("正在安装") : allDone ? t("安装完成") : activationCancelled ? t("已取消") : t("需要处理部分问题")}
-      description={activationLoading ? t("安装请求同步执行，完成后将显示每个 Agent 的最终状态") : activationCancelled ? t("已取消") : t("每个 Agent 的结果彼此独立，失败项可以单独重试")}
+      // A cancel can land between steps, so it says what is guaranteed rather than
+      // just "cancelled": runtime extraction is atomic (staging plus rename), and
+      // re-running is safe because every write is idempotent.
+      description={activationLoading
+        ? t("安装请求同步执行，完成后将显示每个 Agent 的最终状态")
+        : activationCancelled
+          ? t("已取消。已完成的部分保留在本机，重新运行是安全的")
+          : t("每个 Agent 的结果彼此独立，失败项可以单独重试")}
       stepper
       onBack={activationLoading ? undefined : () => navigate("/setup/review")}
       primaryLabel={allDone || anyConfigured ? t("进入总览") : undefined}
@@ -387,6 +413,10 @@ export function ActivationPage() {
         })}
       </div>
       {state.activationProbe && !state.activationProbe.ok ? <div className="notice notice-warning">{state.activationProbe.message}</div> : null}
+      {/* A run that never started produces no rows, and ACTIVATION_FAILED only
+          appends to the log -- which sits behind a collapsed disclosure. So a
+          collision with another install left the page showing nothing at all. */}
+      {blockedMessage ? <div className="notice notice-error">{blockedMessage}</div> : null}
       {/* The launch commands belong to the moment installation finishes, not to
           the overview a user opens every day. Shown for a partial run too: the
           commands belong to the Agents that succeeded, and hiding them because a

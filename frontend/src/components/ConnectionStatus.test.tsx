@@ -86,6 +86,52 @@ describe("ConnectionStatus", () => {
     expect(document.querySelector(".status-warning")).toBeTruthy();
   });
 
+  // ProbeProvider probes every protocol the selected Agents need, then overwrites
+  // the single reported result with the first failure (internal/app/provider.go
+  // :75-83). A Provider serving Chat Completions but refusing Responses therefore
+  // reported one failure naming one protocol, with no way to see that the other
+  // had passed or which of the user's Agents would work.
+  it("shows each protocol's own verdict when several were tested", () => {
+    show(probe({
+      error_code: "PROTOCOL_UNSUPPORTED",
+      status: 404,
+      protocols: {
+        openai: { ok: true, reachable: true, status: 200, message: "passed", error_code: null, retryable: false },
+        responses: { ok: false, reachable: true, status: 404, message: "Model does not support OpenAI Responses.", error_code: "PROTOCOL_UNSUPPORTED", retryable: false },
+      },
+    }));
+    expect(screen.getByText("OpenAI Chat Completions")).toBeTruthy();
+    expect(screen.getByText("Available")).toBeTruthy();
+    expect(screen.getByText("OpenAI Responses")).toBeTruthy();
+    // The failing row carries localised copy too, not the English backend text.
+    expect(screen.queryByText(/does not support OpenAI Responses\./)).toBeNull();
+  });
+
+  it("still breaks the protocols down on a wholly successful probe", () => {
+    // Both passing is also worth showing: it is the only confirmation that the
+    // second protocol was tested at all.
+    show(probe({
+      ok: true, status: 200, message: "连接正常", error_code: null,
+      protocols: {
+        openai: { ok: true, reachable: true, status: 200, message: "passed", error_code: null, retryable: false },
+        anthropic: { ok: true, reachable: true, status: 200, message: "passed", error_code: null, retryable: false },
+      },
+    }));
+    expect(screen.getByText("Anthropic Messages")).toBeTruthy();
+    expect(screen.getAllByText("Available")).toHaveLength(2);
+  });
+
+  it("stays quiet about protocols when only one was tested", () => {
+    // A single protocol adds nothing: the message above already describes it.
+    show(probe({
+      error_code: "PROTOCOL_UNSUPPORTED",
+      protocols: {
+        openai: { ok: false, reachable: true, status: 404, message: "no", error_code: "PROTOCOL_UNSUPPORTED", retryable: false },
+      },
+    }));
+    expect(screen.queryByText("OpenAI Chat Completions")).toBeNull();
+  });
+
   it("keeps a message the code cannot improve on", () => {
     // INVALID_REQUEST carries field-level detail written for the field it came
     // from; a generic sentence would lose what the user needs.

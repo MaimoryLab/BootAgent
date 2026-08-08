@@ -14,7 +14,18 @@ export function InstallTaskPage() {
   const target = decodeURIComponent(agentId);
   const task = tasks.find((item) => item.kind === kind && item.target === target);
   if (!task) {
-    return <PageScaffold title={t("暂无任务")} primaryLabel={t("进入总览")} onPrimary={() => navigate("/overview")} />;
+    // Reached by reloading this route after tasks were cleared, or by following a
+    // link to one that has been dismissed. A bare "no tasks" left the user unsure
+    // whether their install had been lost; the overview is where the real state
+    // is, so say that rather than only offering a button.
+    return (
+      <PageScaffold
+        title={t("暂无任务")}
+        description={t("这个任务已经结束或被关闭。安装结果请在环境总览中查看")}
+        primaryLabel={t("进入总览")}
+        onPrimary={() => navigate("/overview")}
+      />
+    );
   }
   const running = task.state === "running";
   const title = running
