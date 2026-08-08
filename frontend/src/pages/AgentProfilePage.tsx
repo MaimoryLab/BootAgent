@@ -2,7 +2,7 @@ import { Check, Pencil, Plus, Save, X } from "lucide-react";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
-import { api, describeError } from "../backend/api";
+import { api, describeFailure } from "../backend/api";
 import { PageScaffold } from "../components/PageScaffold";
 import { ProviderModelPicker } from "../components/ProviderModelPicker";
 import { ProviderSegment } from "../components/ProviderSegment";
@@ -131,7 +131,7 @@ export function AgentProfilePage() {
       setDraft(null);
       await refreshStatus();
     } catch (error) {
-      setFailure(describeError(error, t("无法保存配置模版")).message);
+      setFailure(describeFailure(error, t("无法保存配置模版"), t).message);
     } finally {
       setBusy(false);
     }
@@ -158,7 +158,7 @@ export function AgentProfilePage() {
       setApplied(t("{name} 已应用", { name: selected.label || selected.id }));
       await refreshStatus();
     } catch (error) {
-      setFailure(describeError(error, t("应用配置模版失败")).message);
+      setFailure(describeFailure(error, t("应用配置模版失败"), t).message);
     } finally {
       setBusy(false);
     }

@@ -133,6 +133,30 @@ const english = {
   "尚未测试连接": "Connection not tested",
   "正在验证端点和 Key": "Validating endpoint and key",
   "连接失败": "Connection failed",
+  // Localised copy for backend error codes (src/backend/failureCopy.ts). Every Go
+  // message reaching the UI is English; these replace it, keyed on error_code and
+  // the HTTP status rather than on the message text.
+  "API Key 被拒绝": "The API key was rejected",
+  "确认 Key 已完整粘贴，或到模型服务页面重新填写": "Check that the whole key was pasted, or re-enter it on the provider page",
+  "账户额度不足": "The account is out of credit",
+  "到模型服务官网充值或查看账户额度": "Top up or check the balance on the provider's website",
+  "请求过于频繁，或已达到额度上限": "Too many requests, or a quota limit was reached",
+  "稍等一会儿再试，或到模型服务官网查看额度": "Wait a moment and try again, or check the quota on the provider's website",
+  "端点不提供这个接口": "The endpoint does not serve this API",
+  "确认 Base URL 是否正确，以及这个模型服务是否支持所选 API 类型": "Check the base URL, and whether this provider supports the selected API type",
+  "模型服务暂时不可用（HTTP {status}）": "The provider is temporarily unavailable (HTTP {status})",
+  "这是对方服务的问题，稍后重试": "This is a problem on the provider's side; try again later",
+  "模型服务返回了 HTTP {status}": "The provider returned HTTP {status}",
+  "无法连接到模型服务": "Could not reach the provider",
+  "检查网络连接和 Base URL 是否正确": "Check the network connection and the base URL",
+  "连接模型服务超时": "The connection to the provider timed out",
+  "检查网络连接，或稍后重试": "Check the network connection, or try again later",
+  "这个模型不支持所选的 API 类型": "This model does not serve the selected API type",
+  "换一个支持该 API 类型的模型，或改用其他 API 类型": "Choose a model that serves this API type, or select a different API type",
+  // "无法获取模型列表" is already defined further down, as the fetch failure.
+  "这个端点不提供模型列表，可以直接手动输入模型 ID": "This endpoint does not publish a model list; enter a model ID manually",
+  "无法写入配置文件": "Could not write the configuration file",
+  "确认配置文件没有被其他程序占用，以及你对它有写入权限": "Check that the file is not held open by another program and that you can write to it",
   // Shown when the probe failed on a model OneAgent picked rather than one the
   // user typed. Without it, a video or image model rejecting a chat request reads
   // as a rejected API key.

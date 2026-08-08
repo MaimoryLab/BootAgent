@@ -2,7 +2,7 @@ import { ExternalLink, FlaskConical, Link2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { api, describeError } from "../backend/api";
+import { api, describeFailure } from "../backend/api";
 import { ConnectionStatus } from "../components/ConnectionStatus";
 import { PageScaffold } from "../components/PageScaffold";
 import { ProviderSegment } from "../components/ProviderSegment";
@@ -79,7 +79,7 @@ export function ProviderKeyPage() {
       await refreshStatus();
       navigate("/setup/model");
     } catch (error) {
-      setSaveFailure(describeError(error, t("无法保存模型服务")).message);
+      setSaveFailure(describeFailure(error, t("无法保存模型服务"), t).message);
     } finally {
       setSavingKey(false);
     }
@@ -100,7 +100,7 @@ export function ProviderKeyPage() {
       });
       dispatch({ type: "CONNECTION_RESULT", result });
     } catch (error) {
-      dispatch({ type: "CONNECTION_FAILED", failure: describeError(error, t("连接测试失败")) });
+      dispatch({ type: "CONNECTION_FAILED", failure: describeFailure(error, t("连接测试失败"), t) });
     }
   };
 
@@ -111,7 +111,7 @@ export function ProviderKeyPage() {
     try {
       await api.openRegister(state.provider, probeAgentIds);
     } catch (error) {
-      dispatch({ type: "CONNECTION_FAILED", failure: describeError(error, t("无法打开注册页面")) });
+      dispatch({ type: "CONNECTION_FAILED", failure: describeFailure(error, t("无法打开注册页面"), t) });
     }
   };
 

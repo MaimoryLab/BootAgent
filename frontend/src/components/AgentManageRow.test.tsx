@@ -14,6 +14,7 @@ vi.mock("../backend/api", async () => {
   return {
     api: { launchAgent: (agentId: string, directory: string) => launchAgent(agentId, directory) },
     describeError: errors.describeError,
+    describeFailure: errors.describeFailure,
   };
 });
 

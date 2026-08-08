@@ -16,6 +16,7 @@ vi.mock("../backend/api", async () => {
   return {
     api: bridge,
     describeError: errors.describeError,
+    describeFailure: errors.describeFailure,
   };
 });
 

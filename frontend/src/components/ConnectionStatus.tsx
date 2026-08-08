@@ -1,5 +1,6 @@
 import { AlertCircle, CheckCircle2, LoaderCircle, Radio, ShieldAlert } from "lucide-react";
 
+import { failureCopyFor, isHTTPStatus } from "../backend/failureCopy";
 import { useI18n } from "../i18n";
 import type { AsyncState } from "../state/wizardReducer";
 import type { ProbeResponse } from "../types/api";
@@ -30,7 +31,14 @@ export function ConnectionStatus({ state, result }: { state: AsyncState; result:
       </div>
     );
   }
-  const rejected = result?.error_code === "API_KEY_REJECTED";
+  const rejected = result?.error_code === "API_KEY_REJECTED"
+    // 401/403 behind PROVIDER_UNREACHABLE is the same rejection: classifyHTTPModels
+    // only tags the code when the models call is what failed.
+    || (isHTTPStatus(result?.status) && (result?.status === 401 || result?.status === 403));
+  // Localised copy replaces the backend's English sentence where a code maps to
+  // any. Falls through to the raw message otherwise -- INVALID_REQUEST carries
+  // field-level detail a generic sentence would lose.
+  const copy = failureCopyFor(result?.error_code, result?.status, t);
   // A model OneAgent chose is named in the failure. A Provider's catalogue is
   // mostly image, video and audio generators, and one of those rejecting a chat
   // payload otherwise reads as a broken key -- a wrong verdict about the user's
@@ -41,10 +49,12 @@ export function ConnectionStatus({ state, result }: { state: AsyncState; result:
     <div className={`inline-status ${rejected ? "status-warning" : "status-error"}`} role="alert">
       {rejected ? <ShieldAlert size={17} /> : <AlertCircle size={17} />}
       <span>
-        {result?.message || t("连接失败")}
+        {copy?.message || result?.message || t("连接失败")}
+        {/* The auto-selected model explains the failure, so it wins over the
+            generic hint: a hint about the key is wrong when the model is at fault. */}
         {blamedModel ? (
           <small>{t("测试使用的模型 {model} 由 OneAgent 自动选择，可能不支持对话。可在上方自定义模型名称后重试", { model: blamedModel })}</small>
-        ) : null}
+        ) : copy?.hint ? <small>{copy.hint}</small> : null}
       </span>
     </div>
   );

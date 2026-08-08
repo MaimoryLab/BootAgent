@@ -22,6 +22,7 @@ vi.mock("../backend/api", async () => {
       saveSettings: (settings: unknown) => saveSettings(settings),
     },
     describeError: errors.describeError,
+    describeFailure: errors.describeFailure,
   };
 });
 

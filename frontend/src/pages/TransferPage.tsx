@@ -3,7 +3,7 @@ import { CheckCheck, Eye, EyeOff, KeyRound, Upload } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { api, describeError } from "../backend/api";
+import { api, describeFailure } from "../backend/api";
 import { PageScaffold } from "../components/PageScaffold";
 import { useI18n } from "../i18n";
 import { byProviderCreatedAt } from "../state/ranking";
@@ -69,7 +69,7 @@ export function TransferPage() {
     if (error instanceof TransferFormatError || error instanceof SyntaxError) {
       return t("文件格式无效，请确认这是 OneAgent 导出的文件");
     }
-    return describeError(error, fallback).message;
+    return describeFailure(error, fallback, t).message;
   };
 
   const profiles = status?.profiles ?? [];

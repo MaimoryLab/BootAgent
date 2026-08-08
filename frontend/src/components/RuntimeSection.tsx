@@ -1,7 +1,7 @@
 import { Download, RefreshCw } from "lucide-react";
 import { useState } from "react";
 
-import { api, describeError } from "../backend/api";
+import { api, describeFailure } from "../backend/api";
 import { useI18n } from "../i18n";
 import { taskCanceller, taskKey, useTaskCenter, useTaskRoute } from "../state/TaskCenterContext";
 import type { RuntimeStatus } from "../types/api";
@@ -78,7 +78,7 @@ export function RuntimeSection({ runtimes, onInstalled }: RuntimeSectionProps) {
       finishTask(id, { kind: "success", message: t("安装完成") });
       await onInstalled();
     } catch (error) {
-      finishTask(id, { kind: "failure", message: describeError(error, t("运行时安装失败")).message });
+      finishTask(id, { kind: "failure", message: describeFailure(error, t("运行时安装失败"), t).message });
     } finally {
       setPending("");
     }

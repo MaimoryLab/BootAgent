@@ -3,7 +3,7 @@ import { FolderOpen, Play, RefreshCw, SlidersHorizontal } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 
-import { api, describeError } from "../backend/api";
+import { api, describeFailure } from "../backend/api";
 import { sourceTranslate, type Translate, useI18n } from "../i18n";
 import { taskCanceller, taskKey, updateTaskRoute, useTaskCenter, useTaskRoute } from "../state/TaskCenterContext";
 import type { AgentCatalogItem, AgentStatus, ProfileSummary, StatusResponse } from "../types/api";
@@ -181,7 +181,7 @@ export function AgentManageRow({
     try {
       await api.launchAgent(agentId, launchDirectory.trim());
     } catch (error) {
-      setFailure(describeError(error, t("无法启动 Agent")).message);
+      setFailure(describeFailure(error, t("无法启动 Agent"), t).message);
     } finally {
       setLaunching(false);
     }
@@ -203,7 +203,7 @@ export function AgentManageRow({
       finishTask(updateTaskID, { kind: "success", message: t("更新完成") });
       await onChanged?.();
     } catch (error) {
-      finishTask(updateTaskID, { kind: "failure", message: describeError(error, t("无法更新 Agent")).message });
+      finishTask(updateTaskID, { kind: "failure", message: describeFailure(error, t("无法更新 Agent"), t).message });
     } finally {
       setLocalUpdating(false);
     }

@@ -24,6 +24,7 @@ vi.mock("../backend/api", async () => {
       },
     },
     describeError: errors.describeError,
+    describeFailure: errors.describeFailure,
   };
 });
 

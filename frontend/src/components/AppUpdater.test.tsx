@@ -27,6 +27,7 @@ vi.mock("../backend/api", async () => {
       restartUpdate: mocks.restartUpdate,
     },
     describeError: errors.describeError,
+    describeFailure: errors.describeFailure,
     isCancellationError: errors.isCancellationError,
   };
 });
