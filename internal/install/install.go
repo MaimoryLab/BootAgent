@@ -149,7 +149,10 @@ func InstallAgent(ctx context.Context, runtime Runtime, agent catalog.Agent, opt
 	case "npm":
 		npm, ok := runtime.Runner.LookPath("npm")
 		if !ok || npm == "" {
-			return Result{}, prerequisiteError(fmt.Sprintf("npm is required to install %s", agent.Name))
+			// Same wording as requirePrerequisites: this is the same condition
+			// reached by a second LookPath, and two different messages for it
+			// meant the one a user saw was not predictable from the UI.
+			return Result{}, missingToolError(npmPrerequisiteMessage(agent.Name))
 		}
 		// A managed Node has no writable system prefix, and a system Node often
 		// needs sudo for -g. Directing global installs at OneAgent's own prefix
@@ -174,7 +177,7 @@ func InstallAgent(ctx context.Context, runtime Runtime, agent catalog.Agent, opt
 	case "uv":
 		uv, ok := runtime.Runner.LookPath("uv")
 		if !ok || uv == "" {
-			return Result{}, prerequisiteError("uv is required to install Aider")
+			return Result{}, missingToolError(uvPrerequisiteMessage)
 		}
 		spec := packageName
 		if version != "" {
@@ -224,12 +227,12 @@ func requirePrerequisites(runtime Runtime, agent catalog.Agent) error {
 	}
 	if packageInfo.Manager == "npm" {
 		if _, ok := runtime.Runner.LookPath("npm"); !ok {
-			return prerequisiteError(fmt.Sprintf("npm is required to install %s. Install the Node.js runtime first.", agent.Name))
+			return missingToolError(npmPrerequisiteMessage(agent.Name))
 		}
 	}
 	if packageInfo.Manager == "uv" {
 		if _, ok := runtime.Runner.LookPath("uv"); !ok {
-			return prerequisiteError("uv is required to install Aider. Install the uv runtime first.")
+			return missingToolError(uvPrerequisiteMessage)
 		}
 	}
 	if runtime.Platform.OS == "windows" {
@@ -241,7 +244,7 @@ func requirePrerequisites(runtime Runtime, agent catalog.Agent) error {
 		}
 		if len(missing) > 0 {
 			sort.Strings(missing)
-			return prerequisiteError(fmt.Sprintf("%s is required for %s on Windows", missing[0], agent.Name))
+			return missingToolError(fmt.Sprintf("%s is required for %s on Windows. Install it, then retry.", missing[0], agent.Name))
 		}
 	}
 	return nil
@@ -303,8 +306,34 @@ func timeoutError(message string, cause error) error {
 	return oneerrors.New(oneerrors.Timeout, message, oneerrors.WithRetryable(true), oneerrors.WithCause(cause))
 }
 
+// The two runtime prerequisites are each reached from two places -- once in
+// requirePrerequisites and again at the LookPath in the manager switch -- so the
+// text lives here rather than being written twice with different wording.
+func npmPrerequisiteMessage(agentName string) string {
+	return fmt.Sprintf("npm is required to install %s. Install the Node.js runtime first, then retry.", agentName)
+}
+
+const uvPrerequisiteMessage = "uv is required to install Aider. Install the uv runtime first, then retry."
+
+// prerequisiteError reports a missing prerequisite the user cannot fix by
+// retrying: a manifest without an installation contract, an unsupported archive
+// format, a platform the Agent does not serve. Retrying runs the same code
+// against the same inputs, so the UI is right to offer no retry button.
 func prerequisiteError(message string) error {
 	return oneerrors.New(oneerrors.PrerequisiteMissing, message)
+}
+
+// missingToolError reports a prerequisite the user can supply, which is a
+// different outcome from the one above even though both are PrerequisiteMissing.
+//
+// Retryable drives whether a retry button is rendered at all
+// (ActivationPage.tsx gates on it), and these were the failures most likely to
+// be fixable by hand -- install Node, install uv, install the Windows
+// dependency -- while offering the least in-app recourse. Without the flag the
+// row was terminal: no retry, and no primary action either, because that only
+// appears once every Agent has finished.
+func missingToolError(message string) error {
+	return oneerrors.New(oneerrors.PrerequisiteMissing, message, oneerrors.WithRetryable(true))
 }
 
 func officialRegistry() string {

@@ -316,8 +316,13 @@ func checkContext(ctx context.Context) error {
 	return nil
 }
 
+// Retryable because every failure that reaches here is a condition outside the
+// process: permission or ownership on the target, a full disk, a path held open
+// by the Agent itself, an unavailable Windows account. The user fixes those and
+// the same write succeeds -- so this is exactly the case that needs a retry
+// button, and it had none, because Retryable defaults to false.
 func writeError(format string, values ...any) error {
-	return oneerrors.New(oneerrors.ConfigWriteFailed, fmt.Sprintf(format, values...))
+	return oneerrors.New(oneerrors.ConfigWriteFailed, fmt.Sprintf(format, values...), oneerrors.WithRetryable(true))
 }
 
 func secretWord(secret bool) string {
