@@ -28,6 +28,15 @@ export function ListModels(request: $models.ModelsRequest): $CancellablePromise<
     return $Call.ByID(1201530915, request);
 }
 
+/**
+ * OpenHelp opens the published help site in the user's real browser. Not an <a
+ * target="_blank">: the webview has no tab to open one in, so a link either
+ * navigates away from the app or does nothing.
+ */
+export function OpenHelp(): $CancellablePromise<void> {
+    return $Call.ByID(214058498);
+}
+
 export function OpenRegistration(request: $models.OpenRegistrationRequest): $CancellablePromise<$models.OpenRegistrationResponse> {
     return $Call.ByID(745368128, request);
 }

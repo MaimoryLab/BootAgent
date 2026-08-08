@@ -103,6 +103,9 @@ export const wailsApi = {
   status: (): Promise<StatusResponse> => call(() => StatusService.GetStatus()) as Promise<StatusResponse>,
   checkUpdate: (): Promise<string> => call(() => UpdateService.Check()) as Promise<string>,
   version: (): Promise<string> => call(() => UpdateService.Version()) as Promise<string>,
+  // No URL argument: the backend owns it, so a tampered renderer cannot choose
+  // what gets opened in the user's browser.
+  openHelp: (): Promise<void> => call(() => ProviderService.OpenHelp()).then(() => undefined),
   downloadUpdate: (): CancellableRequest<void> => call(() => UpdateService.DownloadAndInstall()) as CancellableRequest<void>,
   restartUpdate: (): Promise<void> => call(() => UpdateService.Restart()).then(() => undefined),
   desktopAgentStatus: (agentId: string): Promise<DesktopAgentStatus> =>
