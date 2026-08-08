@@ -880,8 +880,60 @@
   max-height: 270px;
   border: 1px solid var(--border);
   border-radius: var(--radius-panel);
+  background: var(--window-bg);
   overflow: auto;
 }
+
+/* The disclosure form: the list becomes a popup anchored to the field, so
+   opening it does not push the Save button down the page. Only this variant is
+   positioned -- the wizard's model step is a page about picking a model, and
+   there the list stays in flow. */
+.model-picker-field { position: relative; }
+
+.model-picker-field.is-collapsible > .model-list {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 5px);
+  /* Above the task centre's 20, for the same reason SelectField's list is:
+     that overlay covered a picker opened near the bottom of the form. */
+  z-index: 40;
+  max-height: 240px;
+  box-shadow: var(--shadow-window);
+  overscroll-behavior: contain;
+}
+
+/* Set by measurement rather than a breakpoint: the model field is the last row
+   of the editor, so .page-body would clip a list that ran past its bottom edge. */
+.model-picker-field.is-collapsible > .model-list.is-above {
+  top: auto;
+  bottom: calc(100% + 5px);
+}
+
+/* The search box owns the border, so the arrow is a bare button inside it --
+   the same division of labour as .secure-field's reveal toggle. */
+.model-picker-field .search-field {
+  grid-template-columns: 20px minmax(0, 1fr) 28px;
+}
+
+.model-picker-toggle {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  display: grid;
+  place-items: center;
+  color: var(--text-secondary);
+  background: transparent;
+  cursor: pointer;
+}
+
+.model-picker-toggle:hover { background: var(--surface-pressed); }
+/* color: inherit overrides `.search-field svg`, which is equally specific and
+   would otherwise dim the arrow to the search icon's tertiary grey. */
+.model-picker-toggle svg { color: inherit; transition: transform 140ms ease; }
+.model-picker-toggle[aria-expanded="true"] svg { transform: rotate(180deg); }
 
 .model-row {
   width: 100%;
