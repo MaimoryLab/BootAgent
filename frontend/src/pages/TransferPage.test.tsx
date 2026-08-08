@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -75,5 +75,99 @@ describe("TransferPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "不加密" }));
     await waitFor(() => expect(screen.getByRole("button", { name: "导出" })).not.toBeDisabled());
     expect(screen.queryByText("cancelled by user")).toBeNull();
+  });
+
+  // The dialog decides between two irreversible outcomes, so it has to name both.
+  it("states the consequence of each export encryption choice", () => {
+    render(<MemoryRouter><TransferPage /></MemoryRouter>);
+    fireEvent.click(screen.getByRole("checkbox", { name: /团队/ }));
+    fireEvent.click(screen.getByRole("button", { name: "导出" }));
+    // No I18nProvider here, so translate() returns the Chinese keys unchanged.
+    expect(screen.getByText("是否加密导出文件中的 API Key？")).toBeTruthy();
+    expect(screen.getByText(/密码无法找回/)).toBeTruthy();
+    expect(screen.getByText(/以明文保存 API Key/)).toBeTruthy();
+  });
+
+  it("says the exported file holds plain-text keys when encryption is declined", async () => {
+    vi.spyOn(api, "getProvider").mockResolvedValue({ id: "ppio", name: "PPIO", home: "", base_url: "https://api.example.test", anthropic_base_url: "", api_key: "secret", built_in: true });
+    vi.spyOn(api, "writeTransferFile").mockResolvedValue();
+    dialogs.SaveFile.mockResolvedValue("/tmp/selected.json");
+    render(<MemoryRouter><TransferPage /></MemoryRouter>);
+    fireEvent.click(screen.getByRole("checkbox", { name: /团队/ }));
+    fireEvent.click(screen.getByRole("button", { name: "导出" }));
+    fireEvent.click(screen.getByRole("button", { name: "不加密" }));
+    await waitFor(() => expect(screen.getByText(/API Key 为明文/)).toBeTruthy());
+  });
+
+  it("reports a cancelled export instead of returning silently", async () => {
+    render(<MemoryRouter><TransferPage /></MemoryRouter>);
+    fireEvent.click(screen.getByRole("checkbox", { name: /团队/ }));
+    fireEvent.click(screen.getByRole("button", { name: "导出" }));
+    fireEvent.click(screen.getByRole("button", { name: "取消" }));
+    await waitFor(() => expect(screen.getByText("已取消导出")).toBeTruthy());
+  });
+
+  /** An export of one Provider and one Profile, both colliding with saved records. */
+  const collidingFile = JSON.stringify({
+    version: 1,
+    timestamp: "2026-08-08T00:00:00.000Z",
+    providers: [{ id: "ppio", name: "PPIO", home: "", base_url: "https://api.example.test", anthropic_base_url: "", built_in: true, apikey: "incoming" }],
+    profiles: [{ id: "team", label: "团队", provider: "ppio", model: "model", protocol: "responses" }],
+    encrypted: [],
+  });
+
+  const startImport = (raw: string) => {
+    dialogs.OpenFile.mockResolvedValue("/tmp/in.json");
+    vi.spyOn(api, "readTransferFile").mockResolvedValue(raw);
+    render(<MemoryRouter><TransferPage /></MemoryRouter>);
+    fireEvent.click(screen.getByRole("button", { name: "导入" }));
+  };
+
+  it("names what an import will overwrite before writing anything", async () => {
+    const saveProvider = vi.spyOn(api, "saveProvider");
+    startImport(collidingFile);
+    await waitFor(() => expect(screen.getByText("确认导入")).toBeTruthy());
+    expect(screen.getByText(/将覆盖 1 个模型服务：PPIO/)).toBeTruthy();
+    expect(screen.getByText(/将覆盖 1 个配置模版/)).toBeTruthy();
+    // The confirmation has to come before the write, or naming it is pointless.
+    expect(saveProvider).not.toHaveBeenCalled();
+  });
+
+  it("writes nothing when the import confirmation is declined", async () => {
+    const saveProvider = vi.spyOn(api, "saveProvider");
+    const saveProfile = vi.spyOn(api, "saveProfile");
+    startImport(collidingFile);
+    await waitFor(() => expect(screen.getByText("确认导入")).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "取消" }));
+    await waitFor(() => expect(screen.getByText("已取消导入")).toBeTruthy());
+    expect(saveProvider).not.toHaveBeenCalled();
+    expect(saveProfile).not.toHaveBeenCalled();
+  });
+
+  it("does not ask for a password when the file is not encrypted", async () => {
+    // `encrypted: []` is truthy, so this used to prompt for a password that
+    // decrypted nothing -- and cancelling it aborted the import silently.
+    const saveProvider = vi.spyOn(api, "saveProvider").mockResolvedValue({ entry: { id: "ppio", name: "PPIO", home: "", base_url: "https://api.example.test", anthropic_base_url: "", api_key: "incoming", built_in: true }, reapplied: null, failures: null });
+    vi.spyOn(api, "saveProfile").mockResolvedValue(status.profiles[0]);
+    refreshStatus.mockResolvedValue();
+    startImport(collidingFile);
+    await waitFor(() => expect(screen.getByText("确认导入")).toBeTruthy());
+    // Scoped to the dialog: its confirm button and the page's own import button
+    // share the same label.
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "导入" }));
+    await waitFor(() => expect(saveProvider).toHaveBeenCalled());
+    expect(screen.queryByText("请输入导入密码")).toBeNull();
+    expect(screen.getByText("导入完成")).toBeTruthy();
+  });
+
+  it("localises a malformed import file instead of showing the JSON parser error", async () => {
+    startImport("{ not json");
+    await waitFor(() => expect(screen.getByText(/文件格式无效/)).toBeTruthy());
+    expect(screen.queryByText(/Unexpected token/)).toBeNull();
+  });
+
+  it("names the unsupported version rather than calling the file invalid", async () => {
+    startImport(JSON.stringify({ version: 2, providers: [], profiles: [], encrypted: [] }));
+    await waitFor(() => expect(screen.getByText(/版本（2）不受支持/)).toBeTruthy());
   });
 });

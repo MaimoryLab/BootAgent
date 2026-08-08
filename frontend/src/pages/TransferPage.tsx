@@ -7,7 +7,17 @@ import { api, describeError } from "../backend/api";
 import { PageScaffold } from "../components/PageScaffold";
 import { useI18n } from "../i18n";
 import { byProviderCreatedAt } from "../state/ranking";
-import { makeTransfer, parseTransfer, stringifyTransfer } from "../state/settingsTransfer";
+import {
+  makeTransfer,
+  parseTransfer,
+  stringifyTransfer,
+  transferNeedsPassword,
+  transferSummary,
+  TransferFormatError,
+  TransferPasswordError,
+  TransferProviderShapeError,
+  TransferVersionError,
+} from "../state/settingsTransfer";
 import { useWizard } from "../state/WizardContext";
 
 const toggle = (selected: Set<string>, id: string) => {
@@ -18,8 +28,17 @@ const toggle = (selected: Set<string>, id: string) => {
 
 const isDialogCancellation = (error: unknown) => error instanceof Error && /cancelled by user/i.test(error.message);
 
+/** What an import is about to replace, for the confirmation dialog. */
+interface ImportPlan {
+  raw: string;
+  overwrittenProviders: string[];
+  overwrittenProfiles: string[];
+  newProviders: number;
+  newProfiles: number;
+}
+
 export function TransferPage() {
-  const { t } = useI18n();
+  const { locale, t } = useI18n();
   const navigate = useNavigate();
   const { state, refreshStatus } = useWizard();
   const status = state.status;
@@ -32,8 +51,26 @@ export function TransferPage() {
   const [passwordRequest, setPasswordRequest] = useState<"export" | "import" | null>(null);
   const [passwordValue, setPasswordValue] = useState("");
   const [passwordVisible, setPasswordVisible] = useState(false);
+  const [importPlan, setImportPlan] = useState<ImportPlan | null>(null);
   const encryptionResolver = useRef<((value: boolean | null) => void) | null>(null);
   const passwordResolver = useRef<((value: string | null) => void) | null>(null);
+  const importResolver = useRef<((value: boolean) => void) | null>(null);
+
+  /** Maps the transfer module's typed failures onto localised copy. */
+  const describeTransferError = (error: unknown, fallback: string) => {
+    if (error instanceof TransferVersionError) {
+      return t("这个文件的版本（{version}）不受支持，当前只支持版本 1", { version: String(error.found ?? "?") });
+    }
+    if (error instanceof TransferPasswordError) return t("密码错误，或文件已损坏");
+    if (error instanceof TransferProviderShapeError) return t("模型服务数据格式无效，文件可能被手工修改过");
+    // A truncated or non-JSON file reaches here as a SyntaxError from JSON.parse,
+    // whose message ("Unexpected token } in JSON at position 412") is not
+    // something to show a user.
+    if (error instanceof TransferFormatError || error instanceof SyntaxError) {
+      return t("文件格式无效，请确认这是 OneAgent 导出的文件");
+    }
+    return describeError(error, fallback).message;
+  };
 
   const profiles = status?.profiles ?? [];
   const providers = status ? byProviderCreatedAt(status.providers) : [];
@@ -78,6 +115,15 @@ export function TransferPage() {
     setPasswordValue("");
     setPasswordVisible(false);
   };
+  const askImport = (plan: ImportPlan) => new Promise<boolean>((resolve) => {
+    importResolver.current = resolve;
+    setImportPlan(plan);
+  });
+  const finishImport = (approved: boolean) => {
+    importResolver.current?.(approved);
+    importResolver.current = null;
+    setImportPlan(null);
+  };
 
   const exportFile = async () => {
     if (!canExport) return;
@@ -85,10 +131,12 @@ export function TransferPage() {
     setFailure("");
     setSuccess("");
     try {
+      // Every abort below reports itself. Returning silently left the page back
+      // at rest with no way to tell whether a file had been written.
       const encrypt = await askEncryption();
-      if (encrypt === null) return;
+      if (encrypt === null) return setSuccess(t("已取消导出"));
       const password = encrypt ? await askPassword("export") : "";
-      if (encrypt && !password) return;
+      if (encrypt && !password) return setSuccess(t("已取消导出"));
       let path: string;
       try {
         path = await Dialogs.SaveFile({
@@ -98,16 +146,18 @@ export function TransferPage() {
           Filters: [{ DisplayName: "JSON", Pattern: "*.json" }],
         });
       } catch (error) {
-        if (isDialogCancellation(error)) return;
+        if (isDialogCancellation(error)) return setSuccess(t("已取消导出"));
         throw error;
       }
-      if (!path) return;
+      if (!path) return setSuccess(t("已取消导出"));
       const entries = await Promise.all([...exportProviders].map((id) => api.getProvider(id)));
       const selected = profiles.filter((profile) => selectedProfiles.has(profile.id));
       await api.writeTransferFile(path, stringifyTransfer(await makeTransfer(selected, entries, encrypt, password || "")));
-      setSuccess(t("导出完成"));
+      // An unencrypted export carries live credentials, so saying only "done"
+      // understates what the file now is.
+      setSuccess(encrypt ? t("导出完成") : t("导出完成，文件中的 API Key 为明文，请妥善保管"));
     } catch (error) {
-      setFailure(describeError(error, t("导出失败")).message);
+      setFailure(describeTransferError(error, t("导出失败")));
     } finally {
       setBusy(false);
     }
@@ -122,14 +172,35 @@ export function TransferPage() {
       try {
         path = await Dialogs.OpenFile({ Title: t("选择导入文件"), Filters: [{ DisplayName: "JSON", Pattern: "*.json" }] });
       } catch (error) {
-        if (isDialogCancellation(error)) return;
+        if (isDialogCancellation(error)) return setSuccess(t("已取消导入"));
         throw error;
       }
-      if (!path || Array.isArray(path)) return;
+      if (!path || Array.isArray(path)) return setSuccess(t("已取消导入"));
       const raw = await api.readTransferFile(path);
-      const encrypted = (JSON.parse(raw) as { encrypted?: unknown }).encrypted;
-      const password = encrypted ? await askPassword("import") : "";
-      if (encrypted && !password) return;
+      // Overwriting existing records is the point of an import, but it takes the
+      // saved API keys with it, so it is confirmed the way deleting one is.
+      const incoming = transferSummary(raw);
+      // status is non-null by the time the button exists, but the early return
+      // that proves it lives below this closure, so read through the same
+      // fallback the lists above use.
+      const savedProviders = status?.providers ?? {};
+      const existingProviders = new Set(Object.values(savedProviders).map((provider) => provider.name));
+      const existingProviderIDs = new Set(Object.keys(savedProviders));
+      const existingProfiles = new Set(profiles.flatMap((profile) => [profile.id, profile.label]));
+      const overwrittenProviders = incoming.providers.filter((name) => existingProviders.has(name) || existingProviderIDs.has(name));
+      const overwrittenProfiles = incoming.profiles.filter((name) => existingProfiles.has(name));
+      if (!await askImport({
+        raw,
+        overwrittenProviders,
+        overwrittenProfiles,
+        newProviders: incoming.providers.length - overwrittenProviders.length,
+        newProfiles: incoming.profiles.length - overwrittenProfiles.length,
+      })) return setSuccess(t("已取消导入"));
+      // Array.isArray plus a length check, not the bare array: makeTransfer emits
+      // `encrypted` either way and `[]` is truthy, so an unencrypted file used to
+      // prompt for a password it had no use for.
+      const password = transferNeedsPassword(raw) ? await askPassword("import") : "";
+      if (transferNeedsPassword(raw) && !password) return setSuccess(t("已取消导入"));
       const data = await parseTransfer(raw, password || "");
       // create: false — an import restores Providers, so an ID that already
       // exists is the expected case and overwriting it is the point. Refusing
@@ -139,7 +210,7 @@ export function TransferPage() {
       await refreshStatus();
       setSuccess(t("导入完成"));
     } catch (error) {
-      setFailure(describeError(error, t("导入失败")).message);
+      setFailure(describeTransferError(error, t("导入失败")));
     } finally {
       setBusy(false);
     }
@@ -179,13 +250,47 @@ export function TransferPage() {
       ) : null}
       {encryptionRequest ? (
         <dialog className="transfer-password-dialog" open>
+          {/* Both choices are irreversible in different ways, so each one states
+              its own consequence rather than leaving the user to guess. */}
           <form onSubmit={(event) => { event.preventDefault(); finishEncryption(true); }}>
             <h2>{t("导出设置")}</h2>
-            <p>是否加密apikey</p>
+            <p>{t("是否加密导出文件中的 API Key？")}</p>
+            <ul className="transfer-consequences">
+              <li>{t("选择「加密」后，密码无法找回，丢失密码等于文件作废。")}</li>
+              <li>{t("选择「不加密」将以明文保存 API Key，请只在你信任的位置存放该文件。")}</li>
+            </ul>
             <footer>
               <button className="button button-secondary" type="button" onClick={() => finishEncryption(null)}>{t("取消")}</button>
               <button className="button button-secondary" type="button" onClick={() => finishEncryption(false)}>{t("不加密")}</button>
               <button className="button button-primary" type="submit">{t("加密")}</button>
+            </footer>
+          </form>
+        </dialog>
+      ) : null}
+      {importPlan ? (
+        <dialog className="transfer-password-dialog" open>
+          <form onSubmit={(event) => { event.preventDefault(); finishImport(true); }}>
+            <h2>{t("确认导入")}</h2>
+            <p>{t("导入会覆盖同 ID 的模型服务和配置模版，包括已保存的 API Key，该操作无法撤销。")}</p>
+            <ul className="transfer-consequences">
+              {importPlan.overwrittenProviders.length ? (
+                <li>{t("将覆盖 {count} 个模型服务：{names}", {
+                  count: importPlan.overwrittenProviders.length,
+                  names: importPlan.overwrittenProviders.join(locale === "en" ? ", " : "、"),
+                })}</li>
+              ) : null}
+              {importPlan.overwrittenProfiles.length ? (
+                <li>{t("将覆盖 {count} 个配置模版：{names}", {
+                  count: importPlan.overwrittenProfiles.length,
+                  names: importPlan.overwrittenProfiles.join(locale === "en" ? ", " : "、"),
+                })}</li>
+              ) : null}
+              {importPlan.newProviders > 0 ? <li>{t("将新增 {count} 个模型服务", { count: importPlan.newProviders })}</li> : null}
+              {importPlan.newProfiles > 0 ? <li>{t("将新增 {count} 个配置模版", { count: importPlan.newProfiles })}</li> : null}
+            </ul>
+            <footer>
+              <button className="button button-secondary" type="button" onClick={() => finishImport(false)}>{t("取消")}</button>
+              <button className="button button-primary" type="submit">{t("导入")}</button>
             </footer>
           </form>
         </dialog>
