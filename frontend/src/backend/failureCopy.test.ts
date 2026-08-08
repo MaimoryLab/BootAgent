@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { sourceTranslate } from "../i18n";
-import { failureCopyFor, isHTTPStatus } from "./failureCopy";
+import { failureCopyFor, isHTTPStatus, runtimeDownloadHint } from "./failureCopy";
 
 // sourceTranslate returns the Chinese keys, which is what the source language is.
 const t = sourceTranslate;
@@ -80,5 +80,16 @@ describe("failureCopyFor", () => {
       const copy = failureCopyFor("PROVIDER_UNREACHABLE", status, t);
       expect(copy?.message ?? "").not.toMatch(/dial tcp|Post "|no such host|context deadline/);
     }
+  });
+});
+
+describe("runtimeDownloadHint", () => {
+  // Counter-intuitive on purpose: downloadSources always tries both hosts and the
+  // preference only reorders them, so by the time a download fails the mirror has
+  // been attempted and the setting a user would reach for cannot change anything.
+  it("says switching the download source will not help", () => {
+    const hint = runtimeDownloadHint(t);
+    expect(hint).toContain("都已尝试过");
+    expect(hint).toContain("不会改变结果");
   });
 });

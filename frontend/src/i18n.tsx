@@ -334,6 +334,9 @@ const english = {
   "运行时会安装到 {dir}，并写入登录 PATH，不需要管理员权限": "Runtimes install into {dir} and are added to your login PATH. No administrator rights needed",
   "运行时会安装到 OneAgent 的托管目录，并写入登录 PATH，不需要管理员权限": "Runtimes install into OneAgent's managed directory and are added to your login PATH. No administrator rights needed",
   "运行时下载": "Runtime downloads",
+  // Both hosts are always tried (downloadSources, bootstrap.go:364-372), so by the
+  // time a download fails the mirror has been attempted and the setting cannot help.
+  "官方源和镜像都已尝试过，切换下载源不会改变结果。请检查网络连接后重试": "Both the official source and the mirror were tried, so changing the download source will not help. Check the network connection and retry",
   "下载源": "Download source",
   "Agent 安装源": "Agent install source",
   "默认使用官方源。国内网络较慢时可以改用镜像": "Uses the official source by default. Switch to a mirror if it is slow from your network",

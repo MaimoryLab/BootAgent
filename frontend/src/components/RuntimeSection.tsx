@@ -2,6 +2,7 @@ import { Download, RefreshCw } from "lucide-react";
 import { useState } from "react";
 
 import { api, describeFailure } from "../backend/api";
+import { runtimeDownloadHint } from "../backend/failureCopy";
 import { useI18n } from "../i18n";
 import { taskCanceller, taskKey, useTaskCenter, useTaskRoute } from "../state/TaskCenterContext";
 import type { RuntimeStatus } from "../types/api";
@@ -89,7 +90,12 @@ export function RuntimeSection({ runtimes, onInstalled }: RuntimeSectionProps) {
     : t("Agent 安装所需的运行时都已就绪");
   const body = (
     <>
-      {failure ? <div className="notice notice-error">{failure}</div> : null}
+      {failure ? (
+        <div className="notice notice-error">
+          <span>{failure}</span>
+          <small>{runtimeDownloadHint(t)}</small>
+        </div>
+      ) : null}
       <div className="runtime-list">
         {supported.map((runtime) => (
           <div className="runtime-row" key={runtime.id}>
