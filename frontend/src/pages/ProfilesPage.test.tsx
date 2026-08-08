@@ -308,6 +308,98 @@ describe("ProfilesPage", () => {
     expect(screen.getByLabelText("模型")).toHaveValue("");
   });
 
+  /** Two Providers, so switching between them is possible at all. */
+  const renderWithTwoProviders = (profiles: ProfileSummary[] = []) => {
+    mockState = {
+      status: {
+        ...statusWith(profiles),
+        providers: {
+          ppio: { name: "PPIO", home: "https://ppio.com/", base_url: "https://api.ppio.com/openai", default_model: "ppio/default-model" },
+          novita: { name: "Novita", home: "https://novita.ai/", base_url: "https://api.novita.ai/openai", default_model: "novita/default-model" },
+        },
+      },
+      statusState: "success",
+    };
+    dispatch.mockClear();
+    render(
+      <MemoryRouter initialEntries={["/profiles"]}>
+        <Routes>
+          <Route path="/profiles" element={<ProfilesPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+  };
+
+  const switchProviderTo = (name: string) => {
+    fireEvent.click(screen.getByRole("combobox", { name: "模型服务" }));
+    fireEvent.click(screen.getByRole("option", { name }));
+  };
+
+  it("re-seeds the ID and name when the Provider changes", async () => {
+    // Both are derived from the Provider on open, and only the model was being
+    // recomputed on a switch. So a Profile created after switching to Novita was
+    // still called "PPIO 配置模版" and stored under profile-ppio -- a name and a
+    // storage key both naming the Provider the user had just moved away from.
+    const save = vi.spyOn(api, "saveProfile").mockResolvedValue(profile());
+    renderWithTwoProviders();
+    fireEvent.click(screen.getByRole("button", { name: "新增配置模版" }));
+    // Novita, not PPIO: byProviderCreatedAt breaks a tie between two built-ins on
+    // name, and neither fixture carries created_at.
+    expect(screen.getByLabelText("配置模版 ID")).toHaveValue("profile-novita");
+    expect(screen.getByLabelText("名称")).toHaveValue("Novita 配置模版");
+
+    switchProviderTo("PPIO");
+    expect(screen.getByLabelText("配置模版 ID")).toHaveValue("profile-ppio");
+    expect(screen.getByLabelText("名称")).toHaveValue("PPIO 配置模版");
+    expect(screen.getByLabelText("模型")).toHaveValue("ppio/default-model");
+
+    // What actually reaches disk is the point; the fields above are only how the
+    // user sees it.
+    fireEvent.click(screen.getByRole("combobox", { name: "API 类型" }));
+    fireEvent.click(screen.getByRole("option", { name: "OpenAI Chat Completions" }));
+    fireEvent.click(screen.getByRole("button", { name: "保存配置模版" }));
+    await waitFor(() => expect(save).toHaveBeenCalledWith(expect.objectContaining({
+      id: "profile-ppio",
+      label: "PPIO 配置模版",
+      provider: "ppio",
+    })));
+  });
+
+  it("keeps an ID and name the user typed when the Provider changes", () => {
+    // The counterpart, and the reason this is not just an unconditional overwrite:
+    // re-seeding a value someone deliberately entered is the more annoying bug of
+    // the two.
+    renderWithTwoProviders();
+    fireEvent.click(screen.getByRole("button", { name: "新增配置模版" }));
+    fireEvent.change(screen.getByLabelText("配置模版 ID"), { target: { value: "team-shared" } });
+    fireEvent.change(screen.getByLabelText("名称"), { target: { value: "团队共享" } });
+
+    switchProviderTo("PPIO");
+    expect(screen.getByLabelText("配置模版 ID")).toHaveValue("team-shared");
+    expect(screen.getByLabelText("名称")).toHaveValue("团队共享");
+  });
+
+  it("does not rewrite an existing Profile's ID or name", () => {
+    // An existing ID is the record's storage key and the field is disabled; the
+    // name is one the user has already lived with. Neither is ours to change
+    // because they edited the Provider.
+    renderWithTwoProviders([profile()]);
+    fireEvent.click(screen.getByRole("button", { name: "编辑 团队 PPIO" }));
+
+    switchProviderTo("Novita");
+    expect(screen.getByLabelText("配置模版 ID")).toHaveValue("team-ppio");
+    expect(screen.getByLabelText("名称")).toHaveValue("团队 PPIO");
+  });
+
+  it("avoids an ID already taken by a saved Profile", () => {
+    // suggestProfileID dedupes against the saved Profiles, and a switch has to go
+    // through the same check rather than assuming the bare name is free.
+    renderWithTwoProviders([profile({ id: "profile-ppio", label: "已存在" })]);
+    fireEvent.click(screen.getByRole("button", { name: "新增配置模版" }));
+    switchProviderTo("PPIO");
+    expect(screen.getByLabelText("配置模版 ID")).toHaveValue("profile-ppio-2");
+  });
+
   it("discovers and searches the selected Provider's models", async () => {
     const models = vi.spyOn(api, "models").mockResolvedValue({
       ok: true,

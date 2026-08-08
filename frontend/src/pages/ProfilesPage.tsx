@@ -64,17 +64,30 @@ export function ProfilesPage() {
   // or the ID, so demanding it here was stricter than the write path.
   const canSave = Boolean(editor?.id.trim() && editor.model.trim() && editor.protocol);
 
-  const openCreate = () => {
-    const [provider = "ppio", providerMeta] = byProviderCreatedAt(status.providers)[0] || [];
+  // Both derived from the Provider, and both recomputed on a Provider switch, so
+  // they have to be one function each rather than inline in openCreate. The
+  // numeric suffix depends only on the saved Profiles, which cannot change while
+  // the editor is open, so calling these again for the previous Provider
+  // reproduces exactly what was seeded -- that is how a switch tells an untouched
+  // field from one the user typed.
+  const suggestProfileID = (provider: ProviderId) => {
     const baseID = `profile-${provider}`.toLowerCase().replace(/[^a-z0-9_-]/g, "-");
     const ids = new Set(profiles.map((profile) => profile.id.toLowerCase()));
     let id = baseID;
     let suffix = 2;
     while (ids.has(id)) id = `${baseID}-${suffix++}`;
+    return id;
+  };
+
+  const suggestProfileLabel = (provider: ProviderId) =>
+    t("{name} 配置模版", { name: status.providers[provider]?.name || provider });
+
+  const openCreate = () => {
+    const [provider = "ppio", providerMeta] = byProviderCreatedAt(status.providers)[0] || [];
     setFailure("");
     setEditor({
-      id,
-      label: t("{name} 配置模版", { name: providerMeta?.name || provider }),
+      id: suggestProfileID(provider),
+      label: suggestProfileLabel(provider),
       provider,
       // Pre-filled from the Provider so a first-time user is not asked to invent
       // a model ID. Empty for a custom Provider, whose endpoint we know nothing
@@ -90,17 +103,29 @@ export function ProfilesPage() {
     return byProviderCreatedAt(status.providers).find(([, provider]) => protocol === "anthropic" ? provider.anthropic_base_url : provider.base_url)?.[0] || current;
   };
 
-  // Switching Provider re-seeds the model, but only when the field still holds
-  // the old Provider's default or nothing at all. A model the user typed is
-  // theirs to keep -- silently replacing it would be the more annoying bug, and
-  // model IDs are not portable between Providers, so leaving a stale default
-  // behind would be equally wrong.
+  // Switching Provider re-seeds the model, ID and name, but only where the field
+  // still holds what the previous Provider seeded, or nothing at all. Anything
+  // the user typed is theirs to keep -- silently replacing it would be the more
+  // annoying bug. Leaving a stale value behind is equally wrong in each case: a
+  // model ID is not portable between Providers, and an ID and name naming the
+  // Provider you just switched away from are simply false.
+  //
+  // Only while creating: an existing Profile's ID is its storage key and the
+  // field is disabled, and its name is one the user has already lived with, so
+  // neither is ours to rewrite.
   const changeProvider = (draft: ProfileDraft, provider: ProviderId): ProfileDraft => {
     const previous = status.providers[draft.provider]?.default_model || "";
     const model = draft.model.trim() && draft.model !== previous
       ? draft.model
       : status.providers[provider]?.default_model || "";
-    return { ...draft, provider, model };
+    if (draft.originalId) return { ...draft, provider, model };
+    const id = draft.id.trim() && draft.id !== suggestProfileID(draft.provider)
+      ? draft.id
+      : suggestProfileID(provider);
+    const label = draft.label.trim() && draft.label !== suggestProfileLabel(draft.provider)
+      ? draft.label
+      : suggestProfileLabel(provider);
+    return { ...draft, provider, model, id, label };
   };
 
   const save = async (event: FormEvent) => {
