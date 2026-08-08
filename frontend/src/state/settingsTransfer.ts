@@ -69,14 +69,29 @@ async function decryptKey(value: EncryptedKey, password: string): Promise<string
   return new TextDecoder().decode(plain);
 }
 
-export async function makeTransfer(profiles: ProfileSummary[], providers: ProviderEntry[], encrypt: boolean, password = ""): Promise<TransferFile> {
+/** How an export treats the API keys of the Providers it carries. */
+export type KeyHandling = "omit" | "plain" | "encrypted";
+
+export async function makeTransfer(
+  profiles: ProfileSummary[],
+  providers: ProviderEntry[],
+  // Defaults to omitting keys. A transfer file describes which Providers and
+  // Profiles exist, and that is useful on its own -- carrying live credentials
+  // was never required for it and is the part that turns a config file into a
+  // secret. The recipient enters their own key, or keeps the one they already
+  // have.
+  keys: KeyHandling = "omit",
+  password = "",
+): Promise<TransferFile> {
   const encrypted: EncryptedKey[] = [];
   const transferProviders: TransferProvider[] = [];
   for (const provider of providers) {
     const { api_key, ...publicProvider } = provider;
     const item: TransferProvider = { ...publicProvider };
-    if (encrypt && api_key) item.key_encrypted = encrypted.push(await encryptKey(api_key, password)) - 1;
-    else item.apikey = api_key || "";
+    if (keys === "encrypted" && api_key) item.key_encrypted = encrypted.push(await encryptKey(api_key, password)) - 1;
+    // `omit` writes no apikey property at all rather than an empty string, so a
+    // reader can tell "this file has no keys" from "this key was blank".
+    else if (keys === "plain") item.apikey = api_key || "";
     transferProviders.push(item);
   }
   return {
@@ -117,7 +132,7 @@ export function transferNeedsPassword(text: string): boolean {
  * anything, or the user confirms an overwrite for a file that was never going to
  * load. Throws the same typed errors parseTransfer does.
  */
-export function transferSummary(text: string): { providers: string[]; profiles: string[] } {
+export function transferSummary(text: string): { providers: string[]; profiles: string[]; carriesKeys: boolean } {
   const file = JSON.parse(text) as Partial<TransferFile>;
   if (file.version !== 1) throw new TransferVersionError(file.version);
   if (!Array.isArray(file.providers) || !Array.isArray(file.profiles) || !Array.isArray(file.encrypted)) {
@@ -126,10 +141,19 @@ export function transferSummary(text: string): { providers: string[]; profiles: 
   return {
     providers: file.providers.map((provider) => provider.name || provider.id),
     profiles: file.profiles.map((profile) => profile.label || profile.id),
+    // Whether this file would replace saved keys. A file exported without keys
+    // must leave the recipient's own credentials alone, and the confirmation has
+    // to be able to say which kind it is looking at.
+    carriesKeys: file.providers.some((provider) =>
+      typeof provider.key_encrypted === "number" || typeof provider.apikey === "string",
+    ),
   };
 }
 
-export async function parseTransfer(text: string, password = ""): Promise<{ providers: ProviderEntry[]; profiles: TransferProfile[]; timestamp: string }> {
+/** A Provider from a transfer file, plus whether the file supplied its key. */
+export type IncomingProvider = ProviderEntry & { carriesKey: boolean };
+
+export async function parseTransfer(text: string, password = ""): Promise<{ providers: IncomingProvider[]; profiles: TransferProfile[]; timestamp: string }> {
   const file = JSON.parse(text) as Partial<TransferFile> & { encrypted?: EncryptedKey[] | { salt: string; iv: string; data: string } };
   // Reported separately: a version mismatch is what a file from another OneAgent
   // build hits, and naming the version found is the difference between "this file
@@ -150,10 +174,15 @@ export async function parseTransfer(text: string, password = ""): Promise<{ prov
     } = profile as TransferProfile & Record<string, unknown>;
     return rest as TransferProfile;
   });
-  const providers: ProviderEntry[] = [];
+  const providers: IncomingProvider[] = [];
   for (const provider of file.providers) {
     if (Object.hasOwn(provider, "api_key")) throw new TransferProviderShapeError();
     const { apikey, key_encrypted, ...publicProvider } = provider;
+    // An absent apikey property is not the same as an empty one: the first means
+    // the file was exported without keys and the recipient's own must be kept, the
+    // second means the Provider genuinely had none. carriesKey travels with the
+    // entry so the caller can pick the right write.
+    const carriesKey = typeof key_encrypted === "number" || typeof apikey === "string";
     let apiKey = apikey || "";
     if (typeof key_encrypted === "number") {
       const payload = encrypted[key_encrypted];
@@ -167,7 +196,7 @@ export async function parseTransfer(text: string, password = ""): Promise<{ prov
         throw new TransferPasswordError(error);
       }
     }
-    providers.push({ ...publicProvider, api_key: apiKey });
+    providers.push({ ...publicProvider, api_key: apiKey, carriesKey });
   }
   return { providers, profiles, timestamp: file.timestamp || "" };
 }

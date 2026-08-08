@@ -187,6 +187,13 @@ export interface SaveProviderRequest {
      * entry, is the behaviour a caller gets without asking.
      */
     "create": boolean;
+
+    /**
+     * KeepExistingKey leaves a stored key in place when APIKey is empty, for an
+     * import of a file exported without keys. Defaults to false so the Provider
+     * editor keeps clearing the key when the user empties the field.
+     */
+    "keep_existing_key": boolean;
 }
 
 export interface UpdateRequest {
