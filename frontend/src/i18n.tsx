@@ -133,6 +133,14 @@ const english = {
   "尚未测试连接": "Connection not tested",
   "正在验证端点和 Key": "Validating endpoint and key",
   "连接失败": "Connection failed",
+  // Per-protocol verdicts. One failing protocol used to overwrite the single
+  // reported result, hiding that another had passed.
+  "可用": "Available",
+  "{name} 有任务正在运行，本次未开始": "{name} already has a task running, so this run did not start",
+  "已有安装任务正在运行，请在任务中心查看后重试": "An install task is already running. Check the task centre, then retry",
+  "已取消。已完成的部分保留在本机，重新运行是安全的": "Cancelled. Whatever finished is kept on this machine, and re-running is safe",
+  "这个任务已经结束或被关闭。安装结果请在环境总览中查看": "This task has finished or been dismissed. Check the environment overview for the result",
+  "不可用": "Unavailable",
   // Localised copy for backend error codes (src/backend/failureCopy.ts). Every Go
   // message reaching the UI is English; these replace it, keyed on error_code and
   // the HTTP status rather than on the message text.

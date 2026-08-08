@@ -3,7 +3,7 @@ import { AlertCircle, CheckCircle2, LoaderCircle, Radio, ShieldAlert } from "luc
 import { failureCopyFor, isHTTPStatus } from "../backend/failureCopy";
 import { useI18n } from "../i18n";
 import type { AsyncState } from "../state/wizardReducer";
-import type { ProbeResponse } from "../types/api";
+import { PROTOCOL_LABELS, type ProbeResponse, type ProtocolId } from "../types/api";
 
 export function ConnectionStatus({ state, result }: { state: AsyncState; result: ProbeResponse | null }) {
   const { t } = useI18n();
@@ -23,11 +23,34 @@ export function ConnectionStatus({ state, result }: { state: AsyncState; result:
       </div>
     );
   }
+  // Every protocol the selected Agents need is probed concurrently, and one
+  // failure used to overwrite the single reported result (internal/app/provider.go
+  // :75-83). So a Provider that serves Chat Completions but refuses Responses
+  // reported one failure naming one protocol, with no way to tell that the other
+  // had passed or which of the user's Agents would actually work. Shown per
+  // protocol whenever more than one was tested.
+  const perProtocol = Object.entries(result?.protocols ?? {})
+    .filter((entry): entry is [ProtocolId, ProbeResponse] => Boolean(entry[1]));
+  const breakdown = perProtocol.length > 1 ? (
+    <ul className="protocol-results">
+      {perProtocol.map(([protocol, outcome]) => (
+        <li key={protocol} className={outcome.ok ? "is-ok" : "is-failed"}>
+          {outcome.ok ? <CheckCircle2 size={13} aria-hidden="true" /> : <AlertCircle size={13} aria-hidden="true" />}
+          <strong>{PROTOCOL_LABELS[protocol] ?? protocol}</strong>
+          <span>{outcome.ok ? t("可用") : failureCopyFor(outcome.error_code, outcome.status, t)?.message || t("不可用")}</span>
+        </li>
+      ))}
+    </ul>
+  ) : null;
+
   if (result?.ok) {
     return (
       <div className="inline-status status-success" role="status">
         <CheckCircle2 size={17} />
-        {result.message}
+        <span>
+          {result.message}
+          {breakdown}
+        </span>
       </div>
     );
   }
@@ -55,6 +78,7 @@ export function ConnectionStatus({ state, result }: { state: AsyncState; result:
         {blamedModel ? (
           <small>{t("测试使用的模型 {model} 由 OneAgent 自动选择，可能不支持对话。可在上方自定义模型名称后重试", { model: blamedModel })}</small>
         ) : copy?.hint ? <small>{copy.hint}</small> : null}
+        {breakdown}
       </span>
     </div>
   );

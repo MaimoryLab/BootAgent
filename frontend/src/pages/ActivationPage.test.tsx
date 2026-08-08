@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -9,6 +9,10 @@ import { ActivationPage } from "./ActivationPage";
 // No I18nProvider, so translate() returns the Chinese keys unchanged.
 let state: WizardState;
 const refreshStatus = vi.fn(async () => {});
+/** Task ids the mocked task centre should report as cancelled. */
+const cancelledTargets = new Set<string>();
+/** Makes startTask refuse, as it does when a task with the same key is running. */
+let refuseStart = false;
 
 vi.mock("../state/WizardContext", () => ({
   useWizard: () => ({ state, dispatch: vi.fn(), refreshStatus }),
@@ -17,8 +21,9 @@ vi.mock("../state/WizardContext", () => ({
 vi.mock("../state/TaskCenterContext", async (importOriginal) => ({
   ...await importOriginal<typeof import("../state/TaskCenterContext")>(),
   useTaskCenter: () => ({
-    tasks: [], startTask: vi.fn(() => true), finishTask: vi.fn(),
-    setTaskCanceller: vi.fn(), taskFor: vi.fn(() => undefined),
+    tasks: [], startTask: () => !refuseStart, finishTask: vi.fn(),
+    setTaskCanceller: vi.fn(),
+    taskFor: (id: string) => (cancelledTargets.has(id) ? { state: "cancelled" } : undefined),
   }),
   useTaskRoute: () => "/setup/activation",
 }));
@@ -52,7 +57,7 @@ function show(results: AgentInstallResult[], next = "") {
 }
 
 describe("ActivationPage partial results", () => {
-  beforeEach(() => refreshStatus.mockClear());
+  beforeEach(() => { refreshStatus.mockClear(); cancelledTargets.clear(); refuseStart = false; });
 
   // One Agent configured and another failed unretryably left no forward button
   // and no retry button -- the only exit was back to the review step, even though
@@ -78,6 +83,49 @@ describe("ActivationPage partial results", () => {
   it("still shows the next-step command on a partial run", () => {
     show([result("codex"), result("aider", { status: "failed", retryable: false })], "openclaw onboard");
     expect(screen.getByText("openclaw onboard")).toBeTruthy();
+  });
+
+  // A cancel can land between steps -- after a runtime tree is published but
+  // before the Agent package installs, or after config is written. The row is
+  // synthesised as skipped with retryable: false, so there is no retry button
+  // either; saying only "已取消" left the user unable to tell whether re-running
+  // was safe.
+  // A mid-loop collision rolls back the tasks it already started. Reusing the
+  // collision message for those made an unrelated Agent report "this task is
+  // already running", pointing the user at the wrong row and at a task that was
+  // never theirs.
+  it("names where to look when another install is already running", async () => {
+    // startTask refuses the first target, so activate() reports the collision
+    // instead of starting a run. The old copy said only that a task existed.
+    refuseStart = true;
+    state = {
+      ...initialWizardState,
+      status,
+      statusState: "success",
+      selectedAgentIds: ["codex", "aider"],
+      activationState: "idle",
+      activationRequested: true,
+      activationResults: [],
+    };
+    render(<MemoryRouter><ActivationPage /></MemoryRouter>);
+    // activate() runs from an effect, so the notice appears after a tick.
+    await waitFor(() => expect(screen.getByText(/任务中心/)).toBeTruthy());
+  });
+
+  it("says what a cancelled run left behind", () => {
+    // activationCancelled is derived from the task centre, not wizard state.
+    cancelledTargets.add("install:codex");
+    state = {
+      ...initialWizardState,
+      status,
+      statusState: "success",
+      selectedAgentIds: ["codex"],
+      activationState: "error",
+      activationRequested: true,
+      activationResults: [],
+    };
+    render(<MemoryRouter><ActivationPage /></MemoryRouter>);
+    expect(screen.getByText(/重新运行是安全的/)).toBeTruthy();
   });
 
   it("hides the next-step command when nothing succeeded", () => {

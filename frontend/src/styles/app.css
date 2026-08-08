@@ -859,6 +859,31 @@
   line-height: 1.45;
 }
 
+/* Per-protocol verdicts under a probe result. Each row carries its own colour
+   because the point is that they can disagree -- inheriting the parent's status
+   colour would paint a passing protocol red inside a failed probe. */
+.protocol-results {
+  margin: 6px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+  list-style: none;
+}
+
+.protocol-results li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.protocol-results li.is-ok { color: var(--green); }
+.protocol-results li.is-failed { color: var(--red); }
+.protocol-results strong { font-weight: 600; }
+.protocol-results span { color: var(--text-secondary); }
+.protocol-results svg { flex: 0 0 auto; }
+
 .model-picker {
   width: 100%;
   display: grid;
