@@ -1,4 +1,4 @@
-import { ChevronRight, Import, Languages, RefreshCw } from "lucide-react";
+import { BookOpen, ChevronRight, ExternalLink, Import, Languages, RefreshCw } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -18,6 +18,7 @@ export function SettingsPage() {
   const [checking, setChecking] = useState(false);
   const [updateMessage, setUpdateMessage] = useState("");
   const [latestVersion, setLatestVersion] = useState("");
+  const [helpFailure, setHelpFailure] = useState("");
 
   useEffect(() => { void api.version().then(setVersion).catch(() => {}); }, []);
 
@@ -32,6 +33,15 @@ export function SettingsPage() {
       setUpdateMessage(describeFailure(error, t("检查更新失败"), t).message);
     } finally {
       setChecking(false);
+    }
+  };
+
+  const openHelp = async () => {
+    setHelpFailure("");
+    try {
+      await api.openHelp();
+    } catch (error) {
+      setHelpFailure(describeFailure(error, t("无法打开帮助文档"), t).message);
     }
   };
 
@@ -75,6 +85,18 @@ export function SettingsPage() {
           <span><strong>{t("导入导出")}</strong><small>{t("选择要迁移的模型服务和配置模版")}</small></span>
           <ChevronRight size={16} aria-hidden="true" />
         </button>
+      </section>
+      <section className="settings-section">
+        <h2>{t("帮助")}</h2>
+        {/* Opens the real browser through the backend rather than an <a
+            target="_blank">: the webview has no tab to open one in, so a link
+            would navigate the app away from itself. */}
+        <button className="settings-link" type="button" onClick={() => void openHelp()}>
+          <BookOpen size={18} aria-hidden="true" />
+          <span><strong>{t("帮助文档")}</strong><small>{t("安装、切换模型、备份回退与常见问题")}</small></span>
+          <ExternalLink size={15} aria-hidden="true" />
+        </button>
+        {helpFailure ? <p className="agent-manage-error">{helpFailure}</p> : null}
       </section>
       <section className="settings-about" aria-label={t("关于")}>
         <div className="settings-about-meta"><span>{t("版本")} {version}</span><span>{"(c) 2026 MaimoryLab"}</span></div>

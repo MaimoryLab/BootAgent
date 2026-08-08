@@ -157,6 +157,12 @@ func (s *RuntimeService) SaveSettings(ctx context.Context, request app.Settings)
 	return s.core.SaveSettings(ctx, request)
 }
 
+// HelpURL is the published help site. It lives here rather than in the frontend
+// so the URL the app opens is not something a compromised or tampered renderer
+// can choose -- the same reason OpenRegistration re-resolves a Provider's URL
+// instead of accepting one over the bridge.
+const HelpURL = "https://oneagentpro.ai/help/"
+
 type StatusService struct {
 	core           *app.UseCases
 	afterGetStatus func()
@@ -182,6 +188,22 @@ type ProviderService struct {
 
 func NewProviderService(core *app.UseCases, opener BrowserOpener) *ProviderService {
 	return &ProviderService{opener: opener, core: core}
+}
+
+// OpenHelp opens the published help site in the user's real browser. Not an <a
+// target="_blank">: the webview has no tab to open one in, so a link either
+// navigates away from the app or does nothing.
+func (s *ProviderService) OpenHelp(ctx context.Context) error {
+	if err := contextError(ctx); err != nil {
+		return err
+	}
+	if s == nil || s.opener == nil {
+		return notReady("Desktop browser is not configured")
+	}
+	if err := s.opener(HelpURL); err != nil {
+		return oneerrors.New(oneerrors.InternalError, "Unable to open the help site", oneerrors.WithStatus(500), oneerrors.WithRetryable(true), oneerrors.WithCause(err))
+	}
+	return nil
 }
 
 func (s *ProviderService) Probe(ctx context.Context, request ProbeRequest) (ProbeResponse, error) {

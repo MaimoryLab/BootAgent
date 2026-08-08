@@ -3,8 +3,10 @@ package binding
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -47,7 +49,7 @@ func TestServiceMethodAllowlist(t *testing.T) {
 		want    []string
 	}{
 		{&StatusService{}, []string{"GetStatus"}},
-		{&ProviderService{}, []string{"DeleteProvider", "GetProvider", "ListModels", "OpenRegistration", "Probe", "SaveProvider"}},
+		{&ProviderService{}, []string{"DeleteProvider", "GetProvider", "ListModels", "OpenHelp", "OpenRegistration", "Probe", "SaveProvider"}},
 		{&AgentService{}, []string{"Activate", "Install", "Launch", "Update"}},
 		{&ProfileService{}, []string{"DeleteProfile", "ListProfiles", "SaveProfile"}},
 		{&RuntimeService{}, []string{"GetSettings", "InstallRuntime", "ListRuntimes", "SaveSettings"}},
@@ -114,6 +116,43 @@ func TestOpenRegistrationUsesConfiguredProviderURL(t *testing.T) {
 	_, err = service.OpenRegistration(context.Background(), OpenRegistrationRequest{Provider: "https://example.com"})
 	if err == nil || oneerrors.As(err).Code != oneerrors.InvalidRequest {
 		t.Fatalf("arbitrary URL was not rejected: %v", err)
+	}
+}
+
+// The help URL is the backend's, not something the renderer supplies, so a
+// tampered frontend cannot aim the user's browser anywhere it likes. OpenHelp
+// takes no URL argument at all, and this pins both the destination and the fact
+// that it is HTTPS on the published host.
+func TestOpenHelpOpensThePublishedSite(t *testing.T) {
+	var opened string
+	service := NewProviderService(providerCore(t, nil), func(value string) error {
+		opened = value
+		return nil
+	})
+	if err := service.OpenHelp(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if opened != HelpURL {
+		t.Fatalf("OpenHelp opened %q, want %q", opened, HelpURL)
+	}
+	parsed, err := url.Parse(HelpURL)
+	if err != nil || parsed.Scheme != "https" || parsed.Host != "oneagentpro.ai" || parsed.User != nil {
+		t.Fatalf("help URL is not a plain https URL on the published host: %q", HelpURL)
+	}
+}
+
+// Without a browser the click has to report itself; a button that silently does
+// nothing reads as broken.
+func TestOpenHelpReportsAnUnavailableBrowser(t *testing.T) {
+	service := NewProviderService(providerCore(t, nil), func(string) error {
+		return errors.New("no browser")
+	})
+	err := service.OpenHelp(context.Background())
+	if err == nil || oneerrors.As(err).Code != oneerrors.InternalError {
+		t.Fatalf("browser failure was not surfaced: %v", err)
+	}
+	if !oneerrors.As(err).Retryable {
+		t.Fatalf("a transient browser failure should be retryable: %+v", oneerrors.As(err))
 	}
 }
 
