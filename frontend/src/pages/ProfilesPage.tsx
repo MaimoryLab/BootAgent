@@ -323,6 +323,7 @@ export function ProfilesPage() {
               value={editor.model}
               onChange={(model) => setEditor({ ...editor, model })}
               inputId="profile-model"
+              wide
             />
             {/* The key is the Provider's, so this only reports whether that
                 Provider has one and links to where it is set. */}

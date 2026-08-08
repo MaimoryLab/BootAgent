@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { api, describeFailure } from "../backend/api";
 import { ConnectionStatus } from "../components/ConnectionStatus";
 import { PageScaffold } from "../components/PageScaffold";
+import { ProviderModelPicker } from "../components/ProviderModelPicker";
 import { ProviderSegment } from "../components/ProviderSegment";
 import { SecureKeyField } from "../components/SecureKeyField";
 import { useI18n } from "../i18n";
@@ -165,20 +166,22 @@ export function ProviderKeyPage() {
           ) : null}
         </div>
 
-        <div className="field-stack">
-          <label htmlFor="provider-probe-model">{t("自定义模型名称（可选）")}</label>
-          <input
-            id="provider-probe-model"
-            className="text-field"
-            value={state.probeModel}
-            onChange={(event) => dispatch({ type: "SET_PROBE_MODEL", value: event.target.value })}
-            placeholder={t("例如 deepseek/deepseek-v4-pro")}
-            spellCheck={false}
-            autoCorrect="off"
-            autoCapitalize="none"
-          />
-          <small>{t("可选，仅用于测试连接；实际配置模型在下一步选择")}</small>
-        </div>
+        {/* The same discovery the Profile editors use, so the models this Key can
+            reach are selectable here instead of having to be typed from memory.
+            Not required: leaving it empty lets the backend pick a model for the
+            probe, which is the common path. */}
+        <ProviderModelPicker
+          key={`${protocols.join(",")}:${state.provider}`}
+          provider={state.provider}
+          protocol={protocols[0] || ""}
+          hasKey={providerHasKey}
+          value={state.probeModel}
+          onChange={(value) => dispatch({ type: "SET_PROBE_MODEL", value })}
+          inputId="provider-probe-model"
+          inputLabel={t("测试用模型（可选）")}
+          hint={t("仅用于测试这个模型服务是否连得通，不会写入任何配置。真正使用的模型在下一步选择")}
+          required={false}
+        />
 
         <div className="connection-row">
           <button className="button button-secondary" type="button" onClick={() => void testConnection()} disabled={!canProbe || state.connectionState === "loading"}>
