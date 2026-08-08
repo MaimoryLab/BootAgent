@@ -95,3 +95,20 @@ export function failureCopyFor(code: string | null | undefined, status: number |
       return null;
   }
 }
+
+/**
+ * Hint for a failed runtime download.
+ *
+ * Separate from failureCopyFor because AGENT_INSTALL_FAILED covers npm exits and
+ * installer launches too, and this advice only holds for the download path -- the
+ * caller knows which it is, the code does not.
+ *
+ * What it has to say is counter-intuitive: `downloadSources`
+ * (internal/install/bootstrap.go:364-372) always tries both the official source
+ * and the mirror, and the preference only reorders them. So by the time this
+ * message appears both hosts have already failed, and toggling the mirror setting
+ * -- the one control a user would go looking for -- cannot change the outcome.
+ * Saying nothing left them to find that out by trying.
+ */
+export const runtimeDownloadHint = (t: Translate): string =>
+  t("官方源和镜像都已尝试过，切换下载源不会改变结果。请检查网络连接后重试");

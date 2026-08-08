@@ -329,6 +329,23 @@ button:active:not(:disabled) {
   border-color: rgba(215, 0, 21, 0.2);
 }
 
+/* A notice carrying a hint below its message stacks instead of laying the two out
+   side by side, which the default row direction would do. Scoped to :has(small) so
+   every single-line notice keeps the centred row it was built for. */
+.notice:has(> small) {
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Inherits neither the colour nor the weight of the message above it: the hint is
+   the next step, not a second alarm. */
+.notice > small {
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

@@ -2,6 +2,7 @@ import { Download, RefreshCw, TriangleAlert } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { api, describeFailure } from "../backend/api";
+import { runtimeDownloadHint } from "../backend/failureCopy";
 import { useI18n } from "../i18n";
 import { taskCanceller, taskKey, useTaskCenter, useTaskRoute } from "../state/TaskCenterContext";
 import type { AgentStatus, RuntimeStatus } from "../types/api";
@@ -102,7 +103,14 @@ export function RuntimePrompt({ runtimes, missingRuntime, selectedAgentIds, agen
           ))}
         </div>
         {required.map((runtime) => <DownloadProgress key={runtime.id} target={runtime.id} />)}
-        {failure ? <span className="runtime-prompt-error">{failure}</span> : null}
+        {/* notice notice-error, matching RuntimeSection: the same class of failure
+            was a bare <span> here and a notice block there. */}
+        {failure ? (
+          <div className="notice notice-error">
+            <span>{failure}</span>
+            <small>{runtimeDownloadHint(t)}</small>
+          </div>
+        ) : null}
       </div>
     </div>
   );
