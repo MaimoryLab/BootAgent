@@ -225,6 +225,14 @@
 .transfer-password-dialog h2 { margin: 0; font-size: 15px; }
 .transfer-password-dialog footer { display: flex; justify-content: flex-end; gap: 8px; }
 .transfer-password-dialog .launch-directory-label { margin-bottom: -10px; font-size: 13px; font-weight: 600; }
+.transfer-password-dialog p { margin: 0; font-size: 13px; line-height: 1.5; }
+/* The consequences of an irreversible choice, so they are subordinate to the
+   question above but still read as a list rather than a paragraph. */
+.transfer-consequences { margin: -6px 0 0; padding-left: 18px; display: grid; gap: 6px; color: var(--text-secondary); font-size: 12px; line-height: 1.5; }
+.transfer-consequences:empty { display: none; }
+/* The dialog holds a variable-length overwrite list, so it has to be able to
+   scroll rather than run off the window. */
+.transfer-password-dialog { max-height: calc(100vh - 64px); overflow: auto; }
 .launch-directory-input-row { display: flex; align-items: center; gap: 6px; }
 .launch-directory-input-row input { min-width: 0; flex: 1; }
 .launch-directory-input-row .icon-button { flex: 0 0 34px; width: 34px; height: 34px; border: 1px solid var(--border-strong); background: var(--surface-subtle); }

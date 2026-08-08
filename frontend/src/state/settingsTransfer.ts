@@ -11,6 +11,44 @@ export type TransferFile = {
   encrypted: EncryptedKey[];
 };
 
+/**
+ * Typed failures, so TransferPage can localise them.
+ *
+ * These used to be `new Error("文件格式无效")` -- a Chinese literal outside the
+ * i18n table, which an English-locale user saw untranslated, and which
+ * describeError passed through verbatim because it is an Error. The page maps
+ * these classes to `t()` keys instead of matching on message text.
+ */
+export class TransferFormatError extends Error {
+  constructor() {
+    super("transfer file format is invalid");
+    this.name = "TransferFormatError";
+  }
+}
+
+export class TransferVersionError extends Error {
+  constructor(readonly found: unknown) {
+    super(`unsupported transfer file version: ${String(found)}`);
+    this.name = "TransferVersionError";
+  }
+}
+
+/** A key on a Provider entry means the file was hand-edited or foreign. */
+export class TransferProviderShapeError extends Error {
+  constructor() {
+    super("transfer provider entry carries an inline api_key");
+    this.name = "TransferProviderShapeError";
+  }
+}
+
+/** Raised when AES-GCM refuses the payload, which is almost always a bad password. */
+export class TransferPasswordError extends Error {
+  constructor(cause: unknown) {
+    super("transfer payload could not be decrypted", { cause });
+    this.name = "TransferPasswordError";
+  }
+}
+
 const encode = (value: Uint8Array) => btoa(String.fromCharCode(...value));
 const decode = (value: string) => Uint8Array.from(atob(value), (char) => char.charCodeAt(0));
 
@@ -50,10 +88,56 @@ export async function makeTransfer(profiles: ProfileSummary[], providers: Provid
   };
 }
 
+/**
+ * Whether importing this file needs a password.
+ *
+ * The presence of `encrypted` cannot answer this: makeTransfer emits the array
+ * either way, empty when encryption was declined, and `[]` is truthy. Reading it
+ * as a boolean asked for a password to decrypt nothing, and a user who correctly
+ * cancelled that prompt got a silent no-op.
+ *
+ * Malformed input is not encrypted as far as this is concerned -- returning false
+ * lets parseTransfer produce its own error rather than prompting first and
+ * failing afterwards.
+ */
+export function transferNeedsPassword(text: string): boolean {
+  try {
+    const file = JSON.parse(text) as { encrypted?: unknown };
+    return Array.isArray(file.encrypted) && file.encrypted.length > 0;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Structure check plus the names an import would touch.
+ *
+ * Separate from parseTransfer because it needs no password: the caller has to be
+ * able to reject a malformed or wrong-version file *before* prompting for
+ * anything, or the user confirms an overwrite for a file that was never going to
+ * load. Throws the same typed errors parseTransfer does.
+ */
+export function transferSummary(text: string): { providers: string[]; profiles: string[] } {
+  const file = JSON.parse(text) as Partial<TransferFile>;
+  if (file.version !== 1) throw new TransferVersionError(file.version);
+  if (!Array.isArray(file.providers) || !Array.isArray(file.profiles) || !Array.isArray(file.encrypted)) {
+    throw new TransferFormatError();
+  }
+  return {
+    providers: file.providers.map((provider) => provider.name || provider.id),
+    profiles: file.profiles.map((profile) => profile.label || profile.id),
+  };
+}
+
 export async function parseTransfer(text: string, password = ""): Promise<{ providers: ProviderEntry[]; profiles: TransferProfile[]; timestamp: string }> {
   const file = JSON.parse(text) as Partial<TransferFile> & { encrypted?: EncryptedKey[] | { salt: string; iv: string; data: string } };
-  if (file.version !== 1 || !Array.isArray(file.providers) || !Array.isArray(file.profiles)) throw new Error("文件格式无效");
-  if (!Array.isArray(file.encrypted)) throw new Error("文件格式无效");
+  // Reported separately: a version mismatch is what a file from another OneAgent
+  // build hits, and naming the version found is the difference between "this file
+  // is broken" and "this file is newer than this app".
+  if (file.version !== 1) throw new TransferVersionError(file.version);
+  if (!Array.isArray(file.providers) || !Array.isArray(file.profiles) || !Array.isArray(file.encrypted)) {
+    throw new TransferFormatError();
+  }
   const encrypted = file.encrypted;
   const profiles = file.profiles.map((profile) => {
     const {
@@ -68,9 +152,21 @@ export async function parseTransfer(text: string, password = ""): Promise<{ prov
   });
   const providers: ProviderEntry[] = [];
   for (const provider of file.providers) {
-    if (Object.hasOwn(provider, "api_key")) throw new Error("模型服务文件格式无效");
+    if (Object.hasOwn(provider, "api_key")) throw new TransferProviderShapeError();
     const { apikey, key_encrypted, ...publicProvider } = provider;
-    const apiKey = typeof key_encrypted === "number" ? await decryptKey(encrypted[key_encrypted], password) : apikey || "";
+    let apiKey = apikey || "";
+    if (typeof key_encrypted === "number") {
+      const payload = encrypted[key_encrypted];
+      if (!payload) throw new TransferFormatError();
+      try {
+        apiKey = await decryptKey(payload, password);
+      } catch (error) {
+        // AES-GCM reports a tag mismatch as a bare OperationError with an empty
+        // message, which reached the user as blank text. A wrong password and a
+        // corrupt payload are indistinguishable here, so the page says both.
+        throw new TransferPasswordError(error);
+      }
+    }
     providers.push({ ...publicProvider, api_key: apiKey });
   }
   return { providers, profiles, timestamp: file.timestamp || "" };
