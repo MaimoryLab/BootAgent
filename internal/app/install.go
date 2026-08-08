@@ -595,6 +595,9 @@ func installResultFor(agentID, status, path string, installed install.Result, ch
 		Installed: installed.Installed,
 		Version:   installed.Version,
 		Registry:  installed.Registry,
+		// Only success rows are built here; a failure goes through installRun.fail,
+		// which carries the error's own Retryable through. Nothing to retry on a
+		// row that succeeded.
 		Retryable: false,
 		checkOnly: checkOnly,
 	}

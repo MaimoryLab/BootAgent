@@ -177,6 +177,17 @@ func TestInstallPrerequisitesAndFailuresAreStableAndRedacted(t *testing.T) {
 	if err == nil || oneerrors.As(err).Code != oneerrors.PrerequisiteMissing || !strings.Contains(err.Error(), "npm") {
 		t.Fatalf("missing npm error = %v", err)
 	}
+	// Retryable is what decides whether the activation page renders a retry
+	// button at all. A missing runtime is the case a user can most easily fix by
+	// hand, and it used to be the one offering no way back.
+	if !oneerrors.As(err).Retryable {
+		t.Fatalf("missing npm should be retryable: %+v", oneerrors.As(err))
+	}
+	// The guidance is the whole reason this message differs from the bare one the
+	// manager switch used to raise.
+	if !strings.Contains(err.Error(), "Node.js") || !strings.Contains(err.Error(), "retry") {
+		t.Fatalf("missing npm message should name the runtime and the retry: %q", err.Error())
+	}
 
 	secret := "install-secret"
 	failing := &fakeInstallRunner{paths: map[string]string{"npm": "/fake/npm"}}
@@ -208,5 +219,32 @@ func TestInstallerFailureDetailLimitsLinesAndLength(t *testing.T) {
 	detail := installerFailureDetail(result, nil)
 	if strings.Contains(detail, "one") || !strings.Contains(detail, "four") || len([]rune(detail)) > 600 {
 		t.Fatalf("failure detail = %q", detail)
+	}
+}
+
+// A manifest problem and a missing tool are both PrerequisiteMissing, but only
+// one of them changes if the user does something and presses retry. The retry
+// button is gated on Retryable, so conflating them would either hide the button
+// where it helps or offer it where it cannot.
+func TestOnlyFixablePrerequisitesAreRetryable(t *testing.T) {
+	manifest := mustManifest()
+	agent := manifest.Agents["codex"]
+
+	missingTool := &fakeInstallRunner{paths: map[string]string{}}
+	_, err := InstallAgent(context.Background(), runtimeForInstall(missingTool, "linux", nil), agent, Options{})
+	if err == nil || !oneerrors.As(err).Retryable {
+		t.Fatalf("a missing runtime is fixable, so it must be retryable: %v", err)
+	}
+
+	// No package contract: retrying runs the same code over the same manifest.
+	noContract := agent
+	noContract.Package = nil
+	_, err = InstallAgent(context.Background(), runtimeForInstall(missingTool, "linux", nil), noContract, Options{})
+	converted := oneerrors.As(err)
+	if err == nil || converted.Code != oneerrors.PrerequisiteMissing {
+		t.Fatalf("missing package contract error = %v", err)
+	}
+	if converted.Retryable {
+		t.Fatalf("a manifest without an install contract cannot be fixed by retrying: %+v", converted)
 	}
 }

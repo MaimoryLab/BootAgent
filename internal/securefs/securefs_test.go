@@ -163,6 +163,32 @@ func TestAtomicWriteMapsFilesystemFailuresAndDoesNotLeakContent(t *testing.T) {
 	}
 }
 
+// Every failure writeError reports is a condition outside the process --
+// permission, ownership, a full disk, a file held open by the Agent. The user
+// fixes it and the same write succeeds, so the activation page has to offer a
+// retry; it renders that button only when Retryable is set.
+func TestConfigWriteFailuresAreRetryable(t *testing.T) {
+	store := New(Options{OS: "linux"})
+	directory := t.TempDir()
+	blocker := filepath.Join(directory, "blocked")
+	if err := os.WriteFile(blocker, []byte("not a directory"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	// A file where a directory has to be: the temporary-file create fails with
+	// ENOTDIR, which is the same shape as the permission failures this guards.
+	_, err := store.AtomicWrite(context.Background(), filepath.Join(blocker, "target"), []byte("secret-value"), false)
+	converted := oneerrors.As(err)
+	if err == nil || converted.Code != oneerrors.ConfigWriteFailed {
+		t.Fatalf("write into a non-directory = %v", err)
+	}
+	if !converted.Retryable {
+		t.Fatalf("a filesystem write failure is fixable outside the app, so it must be retryable: %+v", converted)
+	}
+	if strings.Contains(err.Error(), "secret-value") {
+		t.Fatalf("write failure leaked the payload: %q", err.Error())
+	}
+}
+
 func assertMode(t *testing.T, path string, want os.FileMode) {
 	t.Helper()
 	info, err := os.Stat(path)

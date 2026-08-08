@@ -224,6 +224,35 @@ export function ActivationPage() {
     }
   }, [activate, state.activationRequested]);
 
+  /**
+   * The runtime a failed row is missing, when the app can install it.
+   *
+   * Gated on the error code rather than on message text: PREREQUISITE_MISSING
+   * also covers manifest problems no download would fix, so the runtime has to be
+   * one capabilities.missingRuntime actually names and that is not installed yet.
+   */
+  const missingRuntimeFor = (agentId: string, result?: AgentInstallResult) => {
+    if (result?.status !== "failed" || result.error_code !== "PREREQUISITE_MISSING") return undefined;
+    const runtimeId = state.status?.capabilities.missingRuntime?.[agentId];
+    if (!runtimeId) return undefined;
+    const runtime = state.status?.runtimes.find((item) => item.id === runtimeId);
+    return runtime && !runtime.installed && runtime.supported ? runtime : undefined;
+  };
+
+  const installMissingRuntime = async (runtimeId: string, name: string) => {
+    const id = taskKey("download", runtimeId);
+    if (!startTask({ id, kind: "download", target: runtimeId, title: t("安装 {name}", { name }), route, progressTarget: runtimeId })) return;
+    try {
+      const request = api.installRuntime(runtimeId);
+      setTaskCanceller(id, taskCanceller(request));
+      await request;
+      finishTask(id, { kind: "success", message: t("安装完成") });
+      await refreshStatus();
+    } catch (error) {
+      finishTask(id, { kind: "failure", message: describeError(error, t("运行时安装失败")).message });
+    }
+  };
+
   const retry = async (agentId: string) => {
     const startedTasks = startActivationTasks([agentId]);
     if (!startedTasks) return;
@@ -325,6 +354,8 @@ export function ActivationPage() {
           const result = cancelled
             ? { agent: agentId, status: "skipped" as const, message: t("已取消"), retryable: false }
             : state.activationResults.find((item) => item.agent === agentId);
+          const missingRuntime = missingRuntimeFor(agentId, result);
+          const runtimeBusy = Boolean(missingRuntime && taskFor(taskKey("download", missingRuntime.id))?.state === "running");
           return (
             <AgentProgressRow
               key={agentId}
@@ -334,6 +365,10 @@ export function ActivationPage() {
               // One retry at a time: concurrent retries each observe a stale
               // snapshot of the other rows and would skip the final cleanup.
               onRetry={result?.status === "failed" && result.retryable && !retrying ? () => void retry(agentId) : undefined}
+              onInstallRuntime={missingRuntime && !runtimeBusy && !retrying
+                ? () => void installMissingRuntime(missingRuntime.id, missingRuntime.name)
+                : undefined}
+              runtimeName={missingRuntime?.name}
             />
           );
         })}

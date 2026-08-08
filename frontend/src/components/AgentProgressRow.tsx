@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, Circle, LoaderCircle, RotateCcw } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Circle, Download, LoaderCircle, RotateCcw } from "lucide-react";
 
 import { useI18n } from "../i18n";
 import type { AgentInstallResult } from "../types/api";
@@ -9,11 +9,16 @@ export function AgentProgressRow({
   result,
   loading,
   onRetry,
+  onInstallRuntime,
+  runtimeName,
 }: {
   name: string;
   result?: AgentInstallResult;
   loading: boolean;
   onRetry?: () => void;
+  /** Offered when this row failed for a missing runtime the app can install. */
+  onInstallRuntime?: () => void;
+  runtimeName?: string;
 }) {
   const { t } = useI18n();
   const failed = result?.status === "failed";
@@ -36,6 +41,15 @@ export function AgentProgressRow({
         <strong>{name}</strong>
         <span>{loading ? t("正在处理") : result?.message || resultStatus || t("等待执行")}</span>
       </span>
+      {/* The runtime install comes first: when a row failed because Node or uv is
+          missing, installing it is the step that makes a retry worth pressing,
+          and the control for it otherwise lives two wizard steps back. */}
+      {failed && onInstallRuntime ? (
+        <button className="button button-compact" type="button" onClick={onInstallRuntime}>
+          <Download size={15} />
+          {runtimeName ? t("安装 {name}", { name: runtimeName }) : t("安装运行时")}
+        </button>
+      ) : null}
       {failed && onRetry ? (
         <button className="button button-compact" type="button" onClick={onRetry}>
           <RotateCcw size={15} />
