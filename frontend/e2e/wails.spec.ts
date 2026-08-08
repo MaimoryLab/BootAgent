@@ -107,7 +107,7 @@ test("onboarding installs one Agent end to end and writes its Profile", async ({
   await page.getByRole("button", { name: "继续" }).click();
 
   await expect(page.getByRole("heading", { name: "确认激活" })).toBeVisible();
-  await page.getByLabel("配置模板名称").fill("团队默认");
+  await page.getByLabel("配置模版名称").fill("团队默认");
   await page.getByRole("button", { name: "开始安装" }).click();
 
   await expect(page.getByRole("heading", { name: "安装完成" })).toBeVisible({ timeout: 60_000 });
@@ -121,7 +121,7 @@ test("onboarding installs one Agent end to end and writes its Profile", async ({
   // The Profile the install wrote is editable from the Agent row, without any
   // credential or endpoint fields on the edit page.
   await page.getByRole("link", { name: "配置", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "选择配置模板" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "选择配置模版" })).toBeVisible();
   await expect(page.getByLabel("API Key")).toHaveCount(0);
   await expect(page.getByText("Base URL")).toHaveCount(0);
   expect(bindingMethodIDs.size).toBeGreaterThanOrEqual(3);
@@ -146,4 +146,39 @@ test("Provider CRUD persists keys", async ({ page }) => {
   page.once("dialog", (dialog) => void dialog.accept());
   await page.getByRole("button", { name: "删除 Acme" }).click();
   await expect(page.getByTestId("provider-acme")).toHaveCount(0);
+});
+
+test("a discovered model can be selected in the Profile editor", async ({ page }) => {
+  // The Profile editor prefills the Provider's default_model, and that value used
+  // to double as the model list's filter. Since a default is rarely among the IDs
+  // an endpoint actually returns, the list rendered "no matching models" directly
+  // below a notice saying how many had been found, and none could be chosen.
+  //
+  // The fake Provider returns exactly one model, "oneagent-e2e-model", which
+  // shares no substring with the prefilled default -- so this passes only when the
+  // typed query and the committed model ID are tracked separately.
+  await page.goto("/#/providers");
+  await page.getByRole("button", { name: "编辑 PPIO" }).click();
+  await page.getByLabel("API Key").fill("e2e-key");
+  await page.getByRole("button", { name: "保存", exact: true }).click();
+  await expect(page.getByTestId("provider-ppio")).toContainText("已保存 Key");
+
+  await page.goto("/#/profiles");
+  await page.getByRole("button", { name: "新增配置模版" }).click();
+  await page.getByRole("combobox", { name: "API 类型" }).click();
+  await page.getByRole("option", { name: "OpenAI Chat Completions" }).click();
+
+  const model = page.locator("#profile-model");
+  await expect(page.getByText(/找到 \d+ 个模型/)).toBeVisible();
+  // Collapsed until asked: an always-open list pushed the editor's footer off
+  // screen, which is why the arrow exists rather than just fixing the filter.
+  await expect(page.getByRole("radiogroup")).toHaveCount(0);
+
+  await page.getByRole("button", { name: "展开模型列表" }).click();
+  await page.getByRole("radio", { name: /oneagent-e2e-model/ }).click();
+  await expect(model).toHaveValue("oneagent-e2e-model");
+  await expect(page.getByRole("radiogroup")).toHaveCount(0);
+
+  await page.getByRole("button", { name: /保存配置模版/ }).click();
+  await expect(page.getByTestId(/^profile-/).first()).toContainText("oneagent-e2e-model");
 });

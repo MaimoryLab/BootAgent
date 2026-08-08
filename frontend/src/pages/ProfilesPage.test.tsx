@@ -326,6 +326,11 @@ describe("ProfilesPage", () => {
     fireEvent.click(screen.getByRole("combobox", { name: "API 类型" }));
     fireEvent.click(screen.getByRole("option", { name: "OpenAI Responses" }));
     await waitFor(() => expect(models).toHaveBeenCalledWith({ provider: "ppio", apiBaseUrl: "", apiKey: "" }));
+    // The list is behind the disclosure arrow now: this editor is compact, and an
+    // always-open list pushed the footer off screen. Opening it is also the step
+    // that was missing entirely -- the discovered models were previously filtered
+    // by the prefilled default_model and so unreachable.
+    fireEvent.click(screen.getByRole("button", { name: "展开模型列表" }));
     expect(screen.getByText("model-alpha")).toBeTruthy();
     fireEvent.change(screen.getByLabelText("模型"), { target: { value: "beta" } });
     expect(screen.queryByText("model-alpha")).toBeNull();

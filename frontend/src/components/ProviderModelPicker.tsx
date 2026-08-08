@@ -45,7 +45,10 @@ export function ProviderModelPicker({ provider, protocol, hasKey, value, onChang
     <div className="field-stack profile-editor-wide">
       {loading ? <div className="loading-block"><span className="spinner" />{t("正在读取模型列表")}</div> : null}
       {message && !loading ? <div className={`notice ${success ? "notice-success" : "notice-warning"}`}>{message}</div> : null}
-      <ModelPicker models={models} value={value} onChange={onChange} inputId={inputId} inputLabel={t("模型")} required />
+      {/* collapsible: both callers are compact editors where an always-open list
+          pushed the footer off screen. The arrow is also the only affordance that
+          said the discovered models were selectable at all. */}
+      <ModelPicker models={models} value={value} onChange={onChange} inputId={inputId} inputLabel={t("模型")} required collapsible />
     </div>
   );
 }

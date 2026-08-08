@@ -93,6 +93,8 @@ const english = {
   "搜索模型": "Search models",
   "模型列表": "Model list",
   "没有匹配的模型": "No matching models",
+  "展开模型列表": "Show model list",
+  "收起模型列表": "Hide model list",
   "或手动输入模型 ID": "Or enter a model ID",
   "手动输入模型 ID": "Enter a model ID",
   "例如 gpt-4.1": "For example, gpt-4.1",
