@@ -108,7 +108,7 @@ func TestSavedProviderDrivesStatusAndProbeWithoutResendingKey(t *testing.T) {
 	core := NewUseCasesWithProviderClient(options, client)
 	if _, err := core.SaveProvider(context.Background(), provider.Entry{
 		ID: "acme", Name: "Acme", BaseURL: "https://api.acme.test/openai", APIKey: "saved-key",
-	}, true); err != nil {
+	}, true, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -152,7 +152,7 @@ func TestSaveProviderReappliesEveryAgentBoundToIt(t *testing.T) {
 
 	result, err := core.SaveProvider(context.Background(), provider.Entry{
 		ID: "ppio", Name: "PPIO", BaseURL: "https://relay.ppio.test/openai", APIKey: "rotated-key",
-	}, false)
+	}, false, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -201,7 +201,7 @@ func TestSaveProviderSkipsReapplyWhenOnlyMetadataChanges(t *testing.T) {
 		t.Fatal(err)
 	}
 	entry.Name = "PPIO Cloud"
-	result, err := core.SaveProvider(context.Background(), entry, false)
+	result, err := core.SaveProvider(context.Background(), entry, false, false)
 	if err != nil || len(result.Reapplied) != 0 || len(result.Failures) != 0 {
 		t.Fatalf("metadata-only save reapplied: %#v, err=%v", result, err)
 	}
@@ -212,7 +212,7 @@ func TestDeleteProviderRejectsBoundAgents(t *testing.T) {
 	core := activationCore(t, home, provider.NewClient(nil), "linux")
 	if _, err := core.SaveProvider(context.Background(), provider.Entry{
 		ID: "acme", Name: "Acme", BaseURL: "https://api.acme.test", APIKey: "key",
-	}, true); err != nil {
+	}, true, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := core.ActivateAgent(context.Background(), ActivateAgentOptions{
@@ -284,7 +284,7 @@ func TestDeleteIgnoresStaleBindingWithoutAgentConfig(t *testing.T) {
 	core := activationCore(t, home, provider.NewClient(nil), "linux")
 	if _, err := core.SaveProvider(context.Background(), provider.Entry{
 		ID: "acme", Name: "Acme", BaseURL: "https://api.acme.test", APIKey: "key",
-	}, true); err != nil {
+	}, true, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := core.SaveProfile(context.Background(), SaveProfileOptions{
@@ -356,5 +356,70 @@ func TestProbeProviderKeepsAModelTheUserTyped(t *testing.T) {
 	}
 	if !strings.Contains(probed, "kwai/kling-v1-video") {
 		t.Fatalf("user's model was replaced: %s", probed)
+	}
+}
+
+// Store.Save writes APIKey unconditionally, so an entry with no key blanks
+// whatever was on disk. That is right for the Provider editor, where an empty
+// field means the user cleared it, and destructive for a settings import of a
+// file exported without keys -- which is now the default export.
+func TestSaveProviderKeepsStoredKeyOnlyWhenAsked(t *testing.T) {
+	home := t.TempDir()
+	core := activationCore(t, home, provider.NewClient(nil), "linux")
+	original := provider.Entry{ID: "acme", Name: "Acme", BaseURL: "https://api.acme.test", APIKey: "sk-original"}
+	if _, err := core.SaveProvider(context.Background(), original, true, false); err != nil {
+		t.Fatal(err)
+	}
+
+	// An import restoring a key-less file must leave the credential alone.
+	keyless := original
+	keyless.APIKey = ""
+	saved, err := core.SaveProvider(context.Background(), keyless, false, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if saved.Entry.APIKey != "sk-original" {
+		t.Fatalf("keepExistingKey dropped the stored key: %q", saved.Entry.APIKey)
+	}
+	stored, err := core.GetProvider(context.Background(), "acme")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stored.APIKey != "sk-original" {
+		t.Fatalf("stored key after a key-less import = %q", stored.APIKey)
+	}
+
+	// The editor's empty field still means "clear it".
+	if _, err := core.SaveProvider(context.Background(), keyless, false, false); err != nil {
+		t.Fatal(err)
+	}
+	cleared, err := core.GetProvider(context.Background(), "acme")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cleared.APIKey != "" {
+		t.Fatalf("an emptied editor field should clear the key, got %q", cleared.APIKey)
+	}
+}
+
+// A file that does carry a key must still replace the stored one, or importing a
+// backup would silently keep a credential the user meant to overwrite.
+func TestSaveProviderReplacesKeyWhenSupplied(t *testing.T) {
+	home := t.TempDir()
+	core := activationCore(t, home, provider.NewClient(nil), "linux")
+	entry := provider.Entry{ID: "acme", Name: "Acme", BaseURL: "https://api.acme.test", APIKey: "sk-original"}
+	if _, err := core.SaveProvider(context.Background(), entry, true, false); err != nil {
+		t.Fatal(err)
+	}
+	entry.APIKey = "sk-incoming"
+	if _, err := core.SaveProvider(context.Background(), entry, false, true); err != nil {
+		t.Fatal(err)
+	}
+	stored, err := core.GetProvider(context.Background(), "acme")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stored.APIKey != "sk-incoming" {
+		t.Fatalf("a supplied key must win even with keepExistingKey, got %q", stored.APIKey)
 	}
 }

@@ -13,6 +13,7 @@ import {
   stringifyTransfer,
   transferNeedsPassword,
   transferSummary,
+  type KeyHandling,
   TransferFormatError,
   TransferPasswordError,
   TransferProviderShapeError,
@@ -35,6 +36,8 @@ interface ImportPlan {
   overwrittenProfiles: string[];
   newProviders: number;
   newProfiles: number;
+  /** Whether the file supplies keys, which decides what the warning may claim. */
+  carriesKeys: boolean;
 }
 
 export function TransferPage() {
@@ -52,7 +55,7 @@ export function TransferPage() {
   const [passwordValue, setPasswordValue] = useState("");
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [importPlan, setImportPlan] = useState<ImportPlan | null>(null);
-  const encryptionResolver = useRef<((value: boolean | null) => void) | null>(null);
+  const encryptionResolver = useRef<((value: KeyHandling | null) => void) | null>(null);
   const passwordResolver = useRef<((value: string | null) => void) | null>(null);
   const importResolver = useRef<((value: boolean) => void) | null>(null);
 
@@ -95,12 +98,12 @@ export function TransferPage() {
     setPasswordVisible(false);
     setPasswordRequest(mode);
   });
-  const askEncryption = () => new Promise<boolean | null>((resolve) => {
+  const askEncryption = () => new Promise<KeyHandling | null>((resolve) => {
     encryptionResolver.current = resolve;
     setEncryptionRequest(true);
   });
-  const finishEncryption = (value: boolean | null) => {
-    if (value) {
+  const finishEncryption = (value: KeyHandling | null) => {
+    if (value === "encrypted") {
       setPasswordValue("");
       setPasswordRequest("export");
     }
@@ -133,10 +136,10 @@ export function TransferPage() {
     try {
       // Every abort below reports itself. Returning silently left the page back
       // at rest with no way to tell whether a file had been written.
-      const encrypt = await askEncryption();
-      if (encrypt === null) return setSuccess(t("已取消导出"));
-      const password = encrypt ? await askPassword("export") : "";
-      if (encrypt && !password) return setSuccess(t("已取消导出"));
+      const keys = await askEncryption();
+      if (keys === null) return setSuccess(t("已取消导出"));
+      const password = keys === "encrypted" ? await askPassword("export") : "";
+      if (keys === "encrypted" && !password) return setSuccess(t("已取消导出"));
       let path: string;
       try {
         path = await Dialogs.SaveFile({
@@ -152,10 +155,14 @@ export function TransferPage() {
       if (!path) return setSuccess(t("已取消导出"));
       const entries = await Promise.all([...exportProviders].map((id) => api.getProvider(id)));
       const selected = profiles.filter((profile) => selectedProfiles.has(profile.id));
-      await api.writeTransferFile(path, stringifyTransfer(await makeTransfer(selected, entries, encrypt, password || "")));
-      // An unencrypted export carries live credentials, so saying only "done"
-      // understates what the file now is.
-      setSuccess(encrypt ? t("导出完成") : t("导出完成，文件中的 API Key 为明文，请妥善保管"));
+      await api.writeTransferFile(path, stringifyTransfer(await makeTransfer(selected, entries, keys, password || "")));
+      // Only the plain-text case needs a warning; the default carries no key at
+      // all, and saying so is reassurance rather than a caveat.
+      setSuccess(keys === "plain"
+        ? t("导出完成，文件中的 API Key 为明文，请妥善保管")
+        : keys === "omit"
+          ? t("导出完成，文件不包含 API Key")
+          : t("导出完成"));
     } catch (error) {
       setFailure(describeTransferError(error, t("导出失败")));
     } finally {
@@ -195,6 +202,7 @@ export function TransferPage() {
         overwrittenProfiles,
         newProviders: incoming.providers.length - overwrittenProviders.length,
         newProfiles: incoming.profiles.length - overwrittenProfiles.length,
+        carriesKeys: incoming.carriesKeys,
       })) return setSuccess(t("已取消导入"));
       // Array.isArray plus a length check, not the bare array: makeTransfer emits
       // `encrypted` either way and `[]` is truthy, so an unencrypted file used to
@@ -205,7 +213,14 @@ export function TransferPage() {
       // create: false — an import restores Providers, so an ID that already
       // exists is the expected case and overwriting it is the point. Refusing
       // duplicates here would make re-importing a backup fail.
-      for (const provider of data.providers ?? []) await api.saveProvider({ ...provider, create: false });
+      for (const provider of data.providers ?? []) {
+        const { carriesKey, ...entry } = provider;
+        // keepExistingKey when the file supplied no key for this Provider. Without
+        // it, importing a key-less export would write an empty APIKey over the
+        // recipient's saved credential -- Store.Save writes the field
+        // unconditionally (internal/provider/store.go:199).
+        await api.saveProvider({ ...entry, create: false, keep_existing_key: !carriesKey });
+      }
       for (const profile of data.profiles ?? []) await api.saveProfile({ id: profile.id, label: profile.label, provider: profile.provider, apiBaseUrl: "", apiKey: "", model: profile.model || "", configMode: "provider", protocol: profile.protocol || "" });
       await refreshStatus();
       setSuccess(t("导入完成"));
@@ -250,19 +265,23 @@ export function TransferPage() {
       ) : null}
       {encryptionRequest ? (
         <dialog className="transfer-password-dialog" open>
-          {/* Both choices are irreversible in different ways, so each one states
-              its own consequence rather than leaving the user to guess. */}
-          <form onSubmit={(event) => { event.preventDefault(); finishEncryption(true); }}>
+          {/* Not including keys is the default and the submit action: a transfer
+              file describes which Providers and Profiles exist, which is useful on
+              its own, and carrying live credentials is what turns it into a
+              secret. The other two options state their own cost. */}
+          <form onSubmit={(event) => { event.preventDefault(); finishEncryption("omit"); }}>
             <h2>{t("导出设置")}</h2>
-            <p>{t("是否加密导出文件中的 API Key？")}</p>
+            <p>{t("导出文件是否包含 API Key？")}</p>
             <ul className="transfer-consequences">
-              <li>{t("选择「加密」后，密码无法找回，丢失密码等于文件作废。")}</li>
-              <li>{t("选择「不加密」将以明文保存 API Key，请只在你信任的位置存放该文件。")}</li>
+              <li>{t("默认不包含。导入方使用自己的 Key，或保留本机已保存的 Key。")}</li>
+              <li>{t("选择「加密包含」后，密码无法找回，丢失密码等于文件作废。")}</li>
+              <li>{t("选择「明文包含」将以明文保存 API Key，请只在你信任的位置存放该文件。")}</li>
             </ul>
             <footer>
               <button className="button button-secondary" type="button" onClick={() => finishEncryption(null)}>{t("取消")}</button>
-              <button className="button button-secondary" type="button" onClick={() => finishEncryption(false)}>{t("不加密")}</button>
-              <button className="button button-primary" type="submit">{t("加密")}</button>
+              <button className="button button-secondary" type="button" onClick={() => finishEncryption("plain")}>{t("明文包含")}</button>
+              <button className="button button-secondary" type="button" onClick={() => finishEncryption("encrypted")}>{t("加密包含")}</button>
+              <button className="button button-primary" type="submit">{t("不包含 Key")}</button>
             </footer>
           </form>
         </dialog>
@@ -271,7 +290,15 @@ export function TransferPage() {
         <dialog className="transfer-password-dialog" open>
           <form onSubmit={(event) => { event.preventDefault(); finishImport(true); }}>
             <h2>{t("确认导入")}</h2>
-            <p>{t("导入会覆盖同 ID 的模型服务和配置模版，包括已保存的 API Key，该操作无法撤销。")}</p>
+            {/* The warning has to match the file. Claiming saved keys will be
+                replaced is false for a key-less export, and a false warning about
+                credentials is worse than none. */}
+            <p>{importPlan.carriesKeys
+              ? t("导入会覆盖同 ID 的模型服务和配置模版，包括已保存的 API Key，该操作无法撤销。")
+              : t("导入会覆盖同 ID 的模型服务和配置模版，该操作无法撤销。")}</p>
+            {importPlan.carriesKeys ? null : (
+              <p className="transfer-reassurance">{t("导入的文件不包含 API Key，本机已保存的 Key 会保留")}</p>
+            )}
             <ul className="transfer-consequences">
               {importPlan.overwrittenProviders.length ? (
                 <li>{t("将覆盖 {count} 个模型服务：{names}", {

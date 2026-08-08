@@ -35,7 +35,7 @@ describe("TransferPage", () => {
     expect(required).toBeChecked();
     expect(required).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "导出" }));
-    fireEvent.click(screen.getByRole("button", { name: "不加密" }));
+    fireEvent.click(screen.getByRole("button", { name: "明文包含" }));
 
     await waitFor(() => expect(write).toHaveBeenCalledOnce());
     expect(dialogs.SaveFile).toHaveBeenCalledOnce();
@@ -57,7 +57,7 @@ describe("TransferPage", () => {
     render(<MemoryRouter><TransferPage /></MemoryRouter>);
     fireEvent.click(screen.getByRole("checkbox", { name: /团队/ }));
     fireEvent.click(screen.getByRole("button", { name: "导出" }));
-    fireEvent.click(screen.getByRole("button", { name: "加密" }));
+    fireEvent.click(screen.getByRole("button", { name: "加密包含" }));
     const password = await screen.findByDisplayValue("");
     fireEvent.change(password, { target: { value: "passphrase" } });
     fireEvent.click(screen.getByRole("button", { name: "确认" }));
@@ -72,7 +72,7 @@ describe("TransferPage", () => {
     render(<MemoryRouter><TransferPage /></MemoryRouter>);
     fireEvent.click(screen.getByRole("checkbox", { name: /团队/ }));
     fireEvent.click(screen.getByRole("button", { name: "导出" }));
-    fireEvent.click(screen.getByRole("button", { name: "不加密" }));
+    fireEvent.click(screen.getByRole("button", { name: "明文包含" }));
     await waitFor(() => expect(screen.getByRole("button", { name: "导出" })).not.toBeDisabled());
     expect(screen.queryByText("cancelled by user")).toBeNull();
   });
@@ -83,7 +83,9 @@ describe("TransferPage", () => {
     fireEvent.click(screen.getByRole("checkbox", { name: /团队/ }));
     fireEvent.click(screen.getByRole("button", { name: "导出" }));
     // No I18nProvider here, so translate() returns the Chinese keys unchanged.
-    expect(screen.getByText("是否加密导出文件中的 API Key？")).toBeTruthy();
+    expect(screen.getByText("导出文件是否包含 API Key？")).toBeTruthy();
+    // The default is stated first, and the two costly options each name their cost.
+    expect(screen.getByText(/默认不包含/)).toBeTruthy();
     expect(screen.getByText(/密码无法找回/)).toBeTruthy();
     expect(screen.getByText(/以明文保存 API Key/)).toBeTruthy();
   });
@@ -95,8 +97,26 @@ describe("TransferPage", () => {
     render(<MemoryRouter><TransferPage /></MemoryRouter>);
     fireEvent.click(screen.getByRole("checkbox", { name: /团队/ }));
     fireEvent.click(screen.getByRole("button", { name: "导出" }));
-    fireEvent.click(screen.getByRole("button", { name: "不加密" }));
+    fireEvent.click(screen.getByRole("button", { name: "明文包含" }));
     await waitFor(() => expect(screen.getByText(/API Key 为明文/)).toBeTruthy());
+  });
+
+  // The default action. Exporting a config file should not hand over a working
+  // credential unless that was explicitly chosen.
+  it("writes no API key when the default is taken", async () => {
+    vi.spyOn(api, "getProvider").mockResolvedValue({ id: "ppio", name: "PPIO", home: "", base_url: "https://api.example.test", anthropic_base_url: "", api_key: "secret", built_in: true });
+    const write = vi.spyOn(api, "writeTransferFile").mockResolvedValue();
+    dialogs.SaveFile.mockResolvedValue("/tmp/selected.json");
+    render(<MemoryRouter><TransferPage /></MemoryRouter>);
+    fireEvent.click(screen.getByRole("checkbox", { name: /团队/ }));
+    fireEvent.click(screen.getByRole("button", { name: "导出" }));
+    fireEvent.click(screen.getByRole("button", { name: "不包含 Key" }));
+
+    await waitFor(() => expect(write).toHaveBeenCalledOnce());
+    const raw = write.mock.calls[0][1];
+    expect(raw).not.toContain("secret");
+    expect(Object.hasOwn(JSON.parse(raw).providers[0], "apikey")).toBe(false);
+    expect(screen.getByText(/文件不包含 API Key/)).toBeTruthy();
   });
 
   it("reports a cancelled export instead of returning silently", async () => {
@@ -158,6 +178,51 @@ describe("TransferPage", () => {
     await waitFor(() => expect(saveProvider).toHaveBeenCalled());
     expect(screen.queryByText("请输入导入密码")).toBeNull();
     expect(screen.getByText("导入完成")).toBeTruthy();
+  });
+
+  /** An export taken with the default: Providers and Profiles, no keys. */
+  const keylessFile = JSON.stringify({
+    version: 1,
+    timestamp: "2026-08-08T00:00:00.000Z",
+    providers: [{ id: "ppio", name: "PPIO", home: "", base_url: "https://api.example.test", anthropic_base_url: "", built_in: true }],
+    profiles: [{ id: "team", label: "团队", provider: "ppio", model: "model", protocol: "responses" }],
+    encrypted: [],
+  });
+
+  // The trap this whole change had to avoid: Store.Save writes APIKey
+  // unconditionally, so importing a key-less file would blank the recipient's
+  // saved credential. keep_existing_key is what stops that.
+  it("keeps the saved key when the file carries none", async () => {
+    const saveProvider = vi.spyOn(api, "saveProvider").mockResolvedValue({
+      entry: { id: "ppio", name: "PPIO", home: "", base_url: "https://api.example.test", anthropic_base_url: "", api_key: "kept", built_in: true },
+      reapplied: null, failures: null,
+    });
+    vi.spyOn(api, "saveProfile").mockResolvedValue(status.profiles[0]);
+    refreshStatus.mockResolvedValue();
+    startImport(keylessFile);
+    await waitFor(() => expect(screen.getByText("确认导入")).toBeTruthy());
+    // The confirmation says the saved keys survive, so the user is not warned
+    // about a loss that is not going to happen.
+    expect(screen.getByText(/本机已保存的 Key 会保留/)).toBeTruthy();
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "导入" }));
+
+    await waitFor(() => expect(saveProvider).toHaveBeenCalled());
+    expect(saveProvider).toHaveBeenCalledWith(expect.objectContaining({ keep_existing_key: true }));
+  });
+
+  it("replaces the saved key when the file does carry one", async () => {
+    const saveProvider = vi.spyOn(api, "saveProvider").mockResolvedValue({
+      entry: { id: "ppio", name: "PPIO", home: "", base_url: "https://api.example.test", anthropic_base_url: "", api_key: "incoming", built_in: true },
+      reapplied: null, failures: null,
+    });
+    vi.spyOn(api, "saveProfile").mockResolvedValue(status.profiles[0]);
+    refreshStatus.mockResolvedValue();
+    startImport(collidingFile);
+    await waitFor(() => expect(screen.getByText("确认导入")).toBeTruthy());
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "导入" }));
+
+    await waitFor(() => expect(saveProvider).toHaveBeenCalled());
+    expect(saveProvider).toHaveBeenCalledWith(expect.objectContaining({ keep_existing_key: false, api_key: "incoming" }));
   });
 
   it("localises a malformed import file instead of showing the JSON parser error", async () => {

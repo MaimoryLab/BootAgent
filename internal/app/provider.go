@@ -148,7 +148,11 @@ func (u *UseCases) GetProvider(ctx context.Context, providerID string) (provider
 // The distinction has to come from the caller: both arrive here as a complete
 // Entry, and an ID that is not on disk is equally consistent with creating a new
 // Provider and with renaming one, so the store cannot infer the intent.
-func (u *UseCases) SaveProvider(ctx context.Context, entry provider.Entry, create bool) (SaveProviderResult, error) {
+//
+// keepExistingKey does the same for an absent key: an import restoring a file
+// that deliberately carries no keys must not wipe the ones already on disk, while
+// the Provider editor's empty field does mean "clear it".
+func (u *UseCases) SaveProvider(ctx context.Context, entry provider.Entry, create, keepExistingKey bool) (SaveProviderResult, error) {
 	if u == nil {
 		return SaveProviderResult{}, oneerrors.New(oneerrors.InternalError, "Provider service is not configured", oneerrors.WithStatus(501))
 	}
@@ -158,6 +162,14 @@ func (u *UseCases) SaveProvider(ctx context.Context, entry provider.Entry, creat
 	u.writeMu.Lock()
 	defer u.writeMu.Unlock()
 	before, _ := u.providers.Get(entry.ID)
+	// Store.Save writes APIKey unconditionally, so an entry carrying no key erases
+	// whatever was on disk. That is right for the Provider editor, where an empty
+	// field means the user cleared it, and wrong for a settings import, where the
+	// file simply does not contain keys -- restoring one would otherwise destroy
+	// the recipient's credentials. Only the caller knows which case it is.
+	if keepExistingKey && entry.APIKey == "" {
+		entry.APIKey = before.APIKey
+	}
 	write := u.providers.Save
 	if create {
 		write = u.providers.Create

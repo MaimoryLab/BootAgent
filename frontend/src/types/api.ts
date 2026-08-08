@@ -36,7 +36,12 @@ export type LaunchAgentResponse = BindingModels.LaunchResponse;
 export type AgentUpdateResult = AppModels.AgentUpdateResult;
 export type OpenRegistrationResponse = BindingModels.OpenRegistrationResponse;
 export type ProviderEntry = ProviderModels.Entry;
-export type SaveProviderInput = BindingModels.SaveProviderRequest;
+// keep_existing_key is optional here: only the settings import needs it, and the
+// generated DTO makes every field required, which would otherwise force three
+// unrelated call sites to spell out a flag that does not concern them.
+export type SaveProviderInput = Omit<BindingModels.SaveProviderRequest, "keep_existing_key"> & {
+  keep_existing_key?: boolean;
+};
 export type SaveProviderResult = AppModels.SaveProviderResult;
 export type ProfileSummary = Omit<AppModels.ProfileSummary, "protocol" | "createdAt"> & { protocol: ProtocolId | ""; createdAt?: string };
 

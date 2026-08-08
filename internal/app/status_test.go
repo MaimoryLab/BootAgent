@@ -206,7 +206,7 @@ func TestSaveProfileCanSwitchAKeylessProfileProvider(t *testing.T) {
 
 func TestSaveProfileUsesProtocolEndpoint(t *testing.T) {
 	core := NewUseCases(StatusOptions{Home: t.TempDir(), Platform: platform.For("linux", "amd64"), Lookup: func(string) (string, bool) { return "", false }})
-	if _, err := core.SaveProvider(context.Background(), provider.Entry{ID: "anthropic-only", Name: "Anthropic", AnthropicBaseURL: "https://api.example.test/anthropic"}, true); err != nil {
+	if _, err := core.SaveProvider(context.Background(), provider.Entry{ID: "anthropic-only", Name: "Anthropic", AnthropicBaseURL: "https://api.example.test/anthropic"}, true, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := core.SaveProfile(context.Background(), SaveProfileOptions{ID: "anthropic", Provider: "anthropic-only", Model: "model", ConfigMode: "provider", Protocol: "anthropic"}); err != nil {

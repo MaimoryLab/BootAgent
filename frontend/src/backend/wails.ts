@@ -130,7 +130,10 @@ export const wailsApi = {
   getProvider: (id: string): Promise<ProviderEntry> =>
     call(() => ProviderService.GetProvider({ id })) as Promise<ProviderEntry>,
   saveProvider: (input: SaveProviderInput): Promise<SaveProviderResult> =>
-    call(() => ProviderService.SaveProvider(input)) as Promise<SaveProviderResult>,
+    // Defaulted here rather than in every caller: false keeps the Provider
+    // editor's "empty field clears the key" behaviour, which is what all but the
+    // settings import wants.
+    call(() => ProviderService.SaveProvider({ keep_existing_key: false, ...input })) as Promise<SaveProviderResult>,
   deleteProvider: (id: string): Promise<void> =>
     call(() => ProviderService.DeleteProvider({ id })).then(() => undefined),
   install: (input: InstallRequest): CancellableRequest<InstallResponse> =>

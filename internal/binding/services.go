@@ -247,7 +247,7 @@ func (s *ProviderService) SaveProvider(ctx context.Context, request SaveProvider
 	return s.core.SaveProvider(ctx, provider.Entry{
 		ID: request.ID, Name: request.Name, Home: request.Home,
 		BaseURL: request.BaseURL, AnthropicBaseURL: request.AnthropicBaseURL, APIKey: request.APIKey,
-	}, request.Create)
+	}, request.Create, request.KeepExistingKey)
 }
 
 func (s *ProviderService) DeleteProvider(ctx context.Context, request ProviderIDRequest) (ProviderMutationResponse, error) {
@@ -494,6 +494,10 @@ type SaveProviderRequest struct {
 	// defaults to false so an edit, which legitimately writes over an existing
 	// entry, is the behaviour a caller gets without asking.
 	Create bool `json:"create"`
+	// KeepExistingKey leaves a stored key in place when APIKey is empty, for an
+	// import of a file exported without keys. Defaults to false so the Provider
+	// editor keeps clearing the key when the user empties the field.
+	KeepExistingKey bool `json:"keep_existing_key"`
 }
 
 type ProviderMutationResponse struct {
