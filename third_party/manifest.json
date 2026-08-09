@@ -30,6 +30,19 @@
       "ecosystem": "asset",
       "license": "MIT",
       "license_files": [
+        "licenses/assets/hermes/LICENSE"
+      ],
+      "modification": "",
+      "name": "hermes",
+      "platforms": [
+        "frontend"
+      ],
+      "version": "02d43c0a91fc2ee41f2684fc39613ff6687de29a4b079665bace5303671dd63b"
+    },
+    {
+      "ecosystem": "asset",
+      "license": "MIT",
+      "license_files": [
         "licenses/assets/kilo-cli/LICENSE"
       ],
       "modification": "",
