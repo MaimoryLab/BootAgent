@@ -33,6 +33,14 @@
       "copyrightOwner": "LobeHub contributors",
       "sha256": "a2aef0e0bb992ebe768bfb8c3a3ab6ff2c2638448b09dd88db27877de1c07a22"
     },
+    "hermes": {
+      "file": "assets/hermes.svg",
+      "source": "https://github.com/lobehub/lobe-icons/blob/master/packages/static-svg/icons/hermesagent.svg",
+      "license": "MIT",
+      "licenseSource": "licenses/lobehub/LICENSE",
+      "copyrightOwner": "LobeHub contributors",
+      "sha256": "02d43c0a91fc2ee41f2684fc39613ff6687de29a4b079665bace5303671dd63b"
+    },
     "openclaw": {
       "file": "assets/openclaw.svg",
       "source": "https://github.com/farion1231/cc-switch/blob/main/src/icons/extracted/claw.svg",

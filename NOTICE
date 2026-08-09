@@ -41,14 +41,18 @@ Third-party trademarks
 ================================================================================
 
 The application identifies supported Agents in a row using either a generic
-OneAgent UI symbol or a separately audited image asset. A generic Lucide symbol
-is used for Aider, which has no mark in lobe-icons, so no website favicon is
-copied into the release. The five retained image assets are listed with source,
-license, owner, and SHA-256 in
+OneAgent UI symbol or a separately audited image asset. Generic Lucide symbols
+are used for Aider and WorkBuddy, neither of which has a mark in lobe-icons or a
+published vector under a license that permits redistribution, so no website
+favicon is copied into the release. The six retained image assets are listed
+with source, license, owner, and SHA-256 in
 frontend/src/components/icons/asset-rights.json.
 
-Four of those five -- for Codex, Claude Code, OpenCode, and Kilo CLI -- come
-from lobe-icons and are redistributed unmodified. The fifth, for OpenClaw, is
+Five of those six -- for Codex, Claude Code, OpenCode, Kilo CLI, and Hermes
+Agent -- come from lobe-icons and are redistributed unmodified. The Hermes Agent
+mark is the drawing lobe-icons also publishes as nousresearch.svg, identical but
+for its <title>: Hermes Agent is Nous Research's product, so the company mark
+identifies it. The sixth, for OpenClaw, is
 not the vendor's own artwork: no official vector is published, so the mark is
 the lobster drawn by the cc-switch project (MIT, Copyright (c) 2025 Jason
 Young), and OneAgent has modified it. The red gradient, the coloured antenna

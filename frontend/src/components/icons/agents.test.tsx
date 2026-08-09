@@ -2,6 +2,7 @@ import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { AGENT_ICON_IDS, AgentIcon, agentMarkKind, agentMarkRights, agentMarkSource, agentTagline } from "./agents";
+import assetRights from "./asset-rights.json";
 
 // Every Agent in agents.lock.json, all of which reach the first screen. Keep in
 // step with the catalog: an Agent with no mark falls back to a shared symbol and
@@ -30,7 +31,7 @@ describe("AgentIcon", () => {
     const assetIds = AGENT_ICON_IDS.filter((id) => agentMarkKind(id) === "asset");
     // chatgpt-desktop is a desktop Agent rather than a CLI, and it reuses the
     // OpenAI mark because it is OpenAI's own product sharing Codex's config.
-    expect(assetIds.sort()).toEqual(["chatgpt-desktop", "claude-code", "codex", "kilo-cli", "openclaw", "opencode"]);
+    expect(assetIds.sort()).toEqual(["chatgpt-desktop", "claude-code", "codex", "hermes", "kilo-cli", "openclaw", "opencode"]);
     for (const id of assetIds) {
       const rights = agentMarkRights(id);
       expect(agentMarkKind(id)).toBe("asset");
@@ -106,7 +107,7 @@ describe("AgentIcon", () => {
     // viewBox is the check: inlining must not rescale or crop the artwork.
     //
     // Each mark is checked against its own source coordinate system rather than
-    // one shared value. The four vendor marks come from lobe-icons at 24x24;
+    // one shared value. The five vendor marks come from lobe-icons at 24x24;
     // OpenClaw's is the cc-switch drawing at 120x120, and normalising it to 24
     // would be the re-drawing this test exists to prevent. The recolouring
     // recorded in asset-rights.json does not touch geometry.
@@ -116,6 +117,7 @@ describe("AgentIcon", () => {
       opencode: "0 0 24 24",
       "claude-code": "0 0 24 24",
       "kilo-cli": "0 0 24 24",
+      hermes: "0 0 24 24",
       openclaw: "0 0 120 120",
     };
     const assetIds = AGENT_ICON_IDS.filter((value) => agentMarkKind(value) === "asset");
@@ -159,15 +161,47 @@ describe("AgentIcon", () => {
     const { container: codex } = render(<AgentIcon agentId="codex" />);
     expect(chatgpt.innerHTML).toBe(codex.innerHTML);
 
-    // WorkBuddy has no licensed mark, so it must fall back to the generic symbol
-    // and must not borrow one that belongs to somebody else.
+    // WorkBuddy has no licensed mark, so it must use a generic symbol and must
+    // not borrow one that belongs to somebody else. It is now a registered
+    // `generic` rather than an unregistered `fallback`, which is the difference
+    // between "evaluated, no redistributable vector exists" and "never looked
+    // at" -- the two rendered the same glyph and were indistinguishable.
     const { container: workbuddy } = render(<AgentIcon agentId="workbuddy" />);
-    expect(agentMarkKind("workbuddy")).toBe("fallback");
-    expect(workbuddy.querySelector('[data-mark-kind="fallback"]')).not.toBeNull();
+    expect(agentMarkKind("workbuddy")).toBe("generic");
+    expect(workbuddy.querySelector('[data-mark-kind="generic"]')).not.toBeNull();
     expect(workbuddy.innerHTML).not.toBe(codex.innerHTML);
     for (const id of AGENT_ICON_IDS.filter((value) => agentMarkKind(value) === "asset")) {
       const { container } = render(<AgentIcon agentId={id} />);
       expect(workbuddy.innerHTML, `workbuddy must not reuse the ${id} mark`).not.toBe(container.innerHTML);
+    }
+  });
+
+  // The recorded sha256 is the claim that what ships is byte-for-byte what the
+  // source published. Nothing verifies it at build time, so a hand-edit to an
+  // asset -- reducing its coordinate precision, say -- would otherwise leave the
+  // manifest asserting a hash that no longer matches.
+  it("ships each asset byte-identical to its recorded hash", async () => {
+    const { createHash } = await import("node:crypto");
+    const { readFileSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    // path.join off a literal directory, not new URL(..., import.meta.url):
+    // Vite statically rewrites that form into an asset reference, so the
+    // interpolated filename was replaced by "undefined" at transform time.
+    const here = join(process.cwd(), "src/components/icons");
+    // Iterated over the manifest, not over Agent ids: chatgpt-desktop reuses
+    // codex's rights object rather than being a manifest key of its own, so
+    // walking ids would check one file twice and reach a key with no `file`.
+    for (const [key, rights] of Object.entries(assetRights.assets)) {
+      const digest = createHash("sha256").update(readFileSync(join(here, rights.file))).digest("hex");
+      expect(digest, `${key} (${rights.file}) does not match its recorded sha256`).toBe(rights.sha256);
+    }
+  });
+
+  // Every Agent the app can show needs a mark it was actually given, so a new one
+  // does not quietly land on the unknown-Agent fallback.
+  it("registers a mark for every Agent and desktop Agent", () => {
+    for (const id of [...ALL, "chatgpt-desktop", "workbuddy"]) {
+      expect(agentMarkKind(id), `${id} has no registered mark`).not.toBe("fallback");
     }
   });
 

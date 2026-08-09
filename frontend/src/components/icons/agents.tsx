@@ -22,6 +22,7 @@
  */
 import {
   Bot,
+  Briefcase,
   GitBranch,
   type LucideIcon
 } from "lucide-react";
@@ -31,6 +32,7 @@ import { sourceTranslate, type Translate, type TranslationKey } from "../../i18n
 import assetRightsManifest from "./asset-rights.json";
 import claudeCodeMark from "./assets/claude-code.svg?raw";
 import codexMark from "./assets/codex.svg?raw";
+import hermesMark from "./assets/hermes.svg?raw";
 import kiloCliMark from "./assets/kilo-cli.svg?raw";
 import openclawMark from "./assets/openclaw.svg?raw";
 import opencodeMark from "./assets/opencode.svg?raw";
@@ -87,10 +89,22 @@ const MARKS: Record<string, Mark> = {
     source: assetRightsManifest.assets.codex.source,
     rights: assetRightsManifest.assets.codex,
   },
-  // Aider has no mark in lobe-icons, so it keeps a generic symbol rather than a
-  // vendor favicon copied in without an auditable redistribution basis.
+  // The same drawing lobe-icons publishes as nousresearch.svg -- byte-identical
+  // but for the <title> -- which is right: Hermes Agent is Nous Research's
+  // product, so the company mark identifies it.
+  hermes: {
+    kind: "asset",
+    markup: hermesMark,
+    source: assetRightsManifest.assets.hermes.source,
+    rights: assetRightsManifest.assets.hermes,
+  },
+  // Aider and WorkBuddy have no mark in lobe-icons and no published vector under
+  // a licence that permits redistribution, so they keep a generic symbol rather
+  // than a vendor favicon copied in without an auditable basis. WorkBuddy is
+  // registered rather than left to AgentIcon's fallback so "evaluated, using a
+  // generic mark" is distinguishable from "never looked at".
   aider: { kind: "generic", Icon: GitBranch, source: GENERIC_SOURCE },
-  hermes: { kind: "generic", Icon: Bot, source: GENERIC_SOURCE },
+  workbuddy: { kind: "generic", Icon: Briefcase, source: GENERIC_SOURCE },
   // Unlike the four above, this mark is not the vendor's own artwork: it is the
   // lobster the cc-switch project drew, MIT, and OneAgent recoloured it to a
   // single currentColor glyph so it adapts to the theme like the rest of the set.
