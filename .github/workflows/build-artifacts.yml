@@ -152,12 +152,44 @@ jobs:
         if: matrix.target.platform == 'macos'
         shell: bash
         run: |
+          # Staged through a directory rather than pointing -srcfolder at the
+          # bundle: the volume needs an /Applications symlink beside the app so
+          # users have somewhere to drag it. Without one the window shows a lone
+          # icon, and running the app from the mounted image is the natural
+          # reaction -- which Gatekeeper answers with App Translocation, putting
+          # the bundle on a read-only volume where self-update cannot back it up
+          # and silently gives up (#143).
+          rm -rf bin/dmg-root
+          mkdir -p bin/dmg-root
+          cp -R "bin/OneAgent.app" bin/dmg-root/
+          ln -s /Applications bin/dmg-root/Applications
           hdiutil create \
             -volname OneAgent \
-            -srcfolder "bin/OneAgent.app" \
+            -srcfolder bin/dmg-root \
             -ov \
             -format UDZO \
             "bin/OneAgent-darwin-${{ matrix.arch.ota }}.dmg"
+          rm -rf bin/dmg-root
+
+      - name: Verify macOS DMG layout
+        if: matrix.target.platform == 'macos'
+        shell: bash
+        run: |
+          # A dmg that lost the symlink still installs, so nothing downstream
+          # would fail -- the regression would ship silently and only show up as
+          # users running the app from the image.
+          dmg="bin/OneAgent-darwin-${{ matrix.arch.ota }}.dmg"
+          mountpoint="$(mktemp -d)"
+          hdiutil attach "$dmg" -nobrowse -readonly -mountpoint "$mountpoint"
+          status=0
+          test -d "$mountpoint/OneAgent.app" || { echo "OneAgent.app missing from dmg" >&2; status=1; }
+          test -L "$mountpoint/Applications" || { echo "Applications symlink missing from dmg" >&2; status=1; }
+          # Must be absolute: a relative link resolves against the mounted
+          # volume on the user's machine, where it points at nothing.
+          target="$(readlink "$mountpoint/Applications" || true)"
+          test "$target" = /Applications || { echo "Applications links to '$target', want /Applications" >&2; status=1; }
+          hdiutil detach "$mountpoint"
+          exit "$status"
 
       - name: Install NSIS
         if: matrix.target.platform == 'windows'
