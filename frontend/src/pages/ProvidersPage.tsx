@@ -187,7 +187,7 @@ export function ProvidersPage({ create = false }: { create?: boolean }) {
       {editor ? (
         <form className="provider-editor" onSubmit={(event) => void save(event)}>
           <header>
-            <strong>{editor.id ? t("编辑 {name}", { name: editor.name || editor.id }) : t("新增模型服务")}</strong>
+            <strong>{creating ? t("新增模型服务") : t("编辑 {name}", { name: editor.name || editor.id })}</strong>
             <button className="icon-button" type="button" onClick={closeEditor} aria-label={t("关闭编辑")} title={t("关闭编辑")}>
               <X size={16} />
             </button>
