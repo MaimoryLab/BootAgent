@@ -67,6 +67,7 @@ describe("failureCopyFor", () => {
       "MODELS_UNSUPPORTED",
       "CONFIG_WRITE_FAILED",
       "UPDATE_NOT_INSTALLABLE",
+      "UPDATE_LOCATION_BLOCKED",
     ]) {
       const copy = failureCopyFor(code, 0, t);
       expect(copy, code).not.toBeNull();
@@ -94,6 +95,19 @@ describe("UPDATE_NOT_INSTALLABLE", () => {
     expect(copy?.message).toBe("下载到的更新包无法安装");
     expect(copy?.hint).toContain("手动下载");
     expect(copy?.hint).not.toMatch(/重试|再试/);
+  });
+});
+
+describe("UPDATE_LOCATION_BLOCKED", () => {
+  // Running from a mounted dmg puts the app on a read-only AppTranslocation
+  // volume, where the helper cannot write its backup. It gives up before either
+  // restore path, so the app exits on "restart and update" and never returns.
+  // The copy has to name the fix, because nothing later gets the chance.
+  it("names moving the app, not retrying", () => {
+    const copy = failureCopyFor("UPDATE_LOCATION_BLOCKED", 409, t);
+    expect(copy?.message).toBe("OneAgent 无法在当前位置自我更新");
+    expect(copy?.hint).toContain("应用程序");
+    expect(copy?.hint).not.toMatch(/稍后|再试一次/);
   });
 });
 

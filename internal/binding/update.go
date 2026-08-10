@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"errors"
+	"os"
 
 	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
 	"github.com/MaimoryLab/OneAgent/internal/process"
@@ -24,10 +25,13 @@ type UpdateBackend interface {
 
 type UpdateService struct {
 	backend UpdateBackend
+	// executable resolves the running binary, so the service can tell whether
+	// the installation can be replaced in place. Overridden in tests.
+	executable func() (string, error)
 }
 
 func NewUpdateService(backend UpdateBackend) *UpdateService {
-	return &UpdateService{backend: backend}
+	return &UpdateService{backend: backend, executable: os.Executable}
 }
 
 func (s *UpdateService) Version() string {
@@ -51,7 +55,45 @@ func (s *UpdateService) Check(ctx context.Context) (string, error) {
 	if release.Verification == nil || release.Verification.DigestAlgo != "sha256" || len(release.Verification.Digest) != sha256.Size {
 		return "", updateError(errors.New("invalid update verification"), "Unable to check for updates")
 	}
+	// Reported here rather than at download time: the helper replaces the
+	// application after this process exits, so a location it cannot write to
+	// fails with no interface left to say so -- the app simply never comes back.
+	// Refusing before the user spends a download is the only honest moment.
+	if err := s.locationError(); err != nil {
+		return "", err
+	}
 	return release.Version, nil
+}
+
+// locationError reports an installation the helper could not replace. A version
+// is withheld rather than returned with a warning, because every caller treats a
+// version as "an update is available" and offers to install it.
+func (s *UpdateService) locationError() error {
+	resolve := s.executable
+	if resolve == nil {
+		resolve = os.Executable
+	}
+	executable, err := resolve()
+	if err != nil {
+		// Nothing to conclude: leave the existing behaviour rather than
+		// withholding an update from an installation that may be fine.
+		return nil
+	}
+	switch checkUpdateLocation(executable) {
+	case locationTranslocated:
+		return oneerrors.New(
+			oneerrors.UpdateLocationBlocked,
+			"OneAgent is running from a disk image. Move OneAgent to the Applications folder, then check again.",
+			oneerrors.WithStatus(409),
+		)
+	case locationUnwritable:
+		return oneerrors.New(
+			oneerrors.UpdateLocationBlocked,
+			"OneAgent cannot update itself where it is installed. Move OneAgent to the Applications folder, then check again.",
+			oneerrors.WithStatus(409),
+		)
+	}
+	return nil
 }
 
 func (s *UpdateService) DownloadAndInstall(ctx context.Context) error {
