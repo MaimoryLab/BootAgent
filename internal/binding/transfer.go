@@ -7,7 +7,6 @@ import (
 
 	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
 	"github.com/MaimoryLab/OneAgent/internal/securefs"
-	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 type TransferService struct {
@@ -19,22 +18,14 @@ func (s *TransferService) selectImport() (string, error) {
 	if s.openFile != nil {
 		return s.openFile()
 	}
-	app := application.Get()
-	if app == nil {
-		return "", oneerrors.New(oneerrors.InternalError, "Desktop file dialog is unavailable")
-	}
-	return app.Dialog.OpenFile().SetTitle("Select import file").AddFilter("JSON", "*.json").PromptForSingleSelection()
+	return selectImportFile()
 }
 
 func (s *TransferService) selectExport() (string, error) {
 	if s.saveFile != nil {
 		return s.saveFile()
 	}
-	app := application.Get()
-	if app == nil {
-		return "", oneerrors.New(oneerrors.InternalError, "Desktop file dialog is unavailable")
-	}
-	return app.Dialog.SaveFile().SetMessage("Choose export location").SetFilename("oneagent-settings.json").AddFilter("JSON", "*.json").PromptForSingleSelection()
+	return selectExportFile()
 }
 
 func (s *TransferService) Read(ctx context.Context) (string, error) {
