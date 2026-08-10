@@ -1,7 +1,7 @@
 import { Dialogs } from "@wailsio/runtime";
 import { useEffect, useRef } from "react";
 
-import { api, describeFailure, isCancellationError } from "../backend/api";
+import { api, describeFailure, failureLine, isCancellationError } from "../backend/api";
 import { OTA_PROGRESS_TARGET } from "../backend/wails";
 import { useI18n } from "../i18n";
 import { taskCanceller, taskKey, updateTaskRoute, useTaskCenter } from "../state/TaskCenterContext";
@@ -77,7 +77,7 @@ export function AppUpdater() {
       } catch (error) {
         latest.current.finishTask(OTA_TASK_ID, isCancellationError(error)
           ? { kind: "cancelled", message: t("已取消") }
-          : { kind: "failure", message: describeFailure(error, t("更新失败"), t).message });
+          : { kind: "failure", message: failureLine(error, t("更新失败"), t) });
       }
     })();
 

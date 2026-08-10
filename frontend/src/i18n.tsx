@@ -181,6 +181,9 @@ const english = {
   "这个端点不提供模型列表，可以直接手动输入模型 ID": "This endpoint does not publish a model list; enter a model ID manually",
   "无法写入配置文件": "Could not write the configuration file",
   "确认配置文件没有被其他程序占用，以及你对它有写入权限": "Check that the file is not held open by another program and that you can write to it",
+  "{message}。{hint}": "{message}. {hint}",
+  "下载到的更新包无法安装": "The downloaded update cannot be installed",
+  "请到发布页面手动下载新版本安装": "Download and install the new version manually from the releases page",
   // Shown when the probe failed on a model OneAgent picked rather than one the
   // user typed. Without it, a video or image model rejecting a chat request reads
   // as a rejected API key.

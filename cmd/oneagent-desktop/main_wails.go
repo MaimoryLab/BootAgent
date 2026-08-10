@@ -23,7 +23,13 @@ func configureUpdater(appInstance *application.App) binding.UpdateBackend {
 	if current == "" {
 		return nil
 	}
-	provider, err := github.New(github.Config{Repository: "MaimoryLab/OneAgent", ChecksumAsset: "SHA256SUMS"})
+	provider, err := github.New(github.Config{
+		Repository:    "MaimoryLab/OneAgent",
+		ChecksumAsset: "SHA256SUMS",
+		// Every release ships a .dmg, an installer .exe and a .zip per
+		// platform. Only the .zip is a format the updater unpacks.
+		AssetMatcher: binding.ExtractableAssetMatcher,
+	})
 	if err != nil {
 		slog.Error("OneAgent updater provider is unavailable", "error", err)
 		return nil

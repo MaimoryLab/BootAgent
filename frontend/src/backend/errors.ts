@@ -62,3 +62,17 @@ export function describeFailure(error: unknown, fallback: string, t: Translate):
 	if (!copy) return detail;
 	return { ...detail, message: copy.message, hint: copy.hint };
 }
+
+/**
+ * describeFailure as one string, for surfaces that render a single line and have
+ * nowhere to put a hint -- the task centre being the main one.
+ *
+ * Dropping the hint there loses the actionable half: "The downloaded update
+ * cannot be installed" tells a user nothing they can act on without the
+ * following "download it manually from the releases page".
+ */
+export function failureLine(error: unknown, fallback: string, t: Translate): string {
+	const detail = describeFailure(error, fallback, t);
+	// Joined through the table so the sentence separator follows the locale.
+	return detail.hint ? t("{message}。{hint}", { message: detail.message, hint: detail.hint }) : detail.message;
+}

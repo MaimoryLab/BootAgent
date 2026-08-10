@@ -66,6 +66,7 @@ describe("failureCopyFor", () => {
       "PROTOCOL_UNSUPPORTED",
       "MODELS_UNSUPPORTED",
       "CONFIG_WRITE_FAILED",
+      "UPDATE_NOT_INSTALLABLE",
     ]) {
       const copy = failureCopyFor(code, 0, t);
       expect(copy, code).not.toBeNull();
@@ -80,6 +81,19 @@ describe("failureCopyFor", () => {
       const copy = failureCopyFor("PROVIDER_UNREACHABLE", status, t);
       expect(copy?.message ?? "").not.toMatch(/dial tcp|Post "|no such host|context deadline/);
     }
+  });
+});
+
+describe("UPDATE_NOT_INSTALLABLE", () => {
+  // A .dmg reached the helper unextracted and replaced OneAgent.app with the disk
+  // image, leaving an installation that could not launch. The backend now refuses
+  // the artifact, and this is the one code whose hint must not suggest retrying:
+  // another attempt downloads the same asset.
+  it("sends the user to a manual download rather than a retry", () => {
+    const copy = failureCopyFor("UPDATE_NOT_INSTALLABLE", 500, t);
+    expect(copy?.message).toBe("下载到的更新包无法安装");
+    expect(copy?.hint).toContain("手动下载");
+    expect(copy?.hint).not.toMatch(/重试|再试/);
   });
 });
 

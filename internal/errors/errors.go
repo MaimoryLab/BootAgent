@@ -18,6 +18,10 @@ const (
 	ProtocolUnsupported = "PROTOCOL_UNSUPPORTED"
 	Timeout             = "TIMEOUT"
 	InternalError       = "INTERNAL_ERROR"
+	// UpdateNotInstallable marks a downloaded update the helper cannot swap
+	// over the installed application. Distinct from InternalError because the
+	// only way forward is a manual download, and the interface has to say so.
+	UpdateNotInstallable = "UPDATE_NOT_INSTALLABLE"
 )
 
 // ExitCodes preserves the numeric codes included in existing error payloads.
@@ -32,6 +36,10 @@ var ExitCodes = map[string]int{
 	ProtocolUnsupported: 7,
 	Timeout:             8,
 	InternalError:       10,
+	// Shares InternalError's exit code: this is an environment failure with no
+	// distinct CLI contract, and the numeric codes in existing payloads are
+	// pinned by tests.
+	UpdateNotInstallable: 10,
 }
 
 // OneAgentError is safe to serialize across the Wails bridge. Message must

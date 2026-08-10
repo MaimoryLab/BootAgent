@@ -16,6 +16,16 @@ type updateBackendFake struct {
 	check              func(context.Context) (*updater.Release, error)
 	downloadAndInstall func(context.Context) error
 	restart            func(context.Context) error
+	downloadedPath     func() string
+}
+
+// DownloadedPath defaults to a bundle so tests about other behaviour are not
+// tripped by the staged-artifact guard.
+func (f *updateBackendFake) DownloadedPath() string {
+	if f.downloadedPath == nil {
+		return "/tmp/wails-update-1/OneAgent.app"
+	}
+	return f.downloadedPath()
 }
 
 func (f *updateBackendFake) Check(ctx context.Context) (*updater.Release, error) {
