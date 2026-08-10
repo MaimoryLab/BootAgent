@@ -2,15 +2,15 @@
 
 [English](README.md) · **简体中文**
 
-OneAgent 是一个本地 AI 开发环境激活器。React 向导通过 Wails v3 binding 检测 Agent、安装最新版本、探测 Provider、合并配置、创建备份并收紧权限；生产进程不监听业务 TCP 端口。
+OneAgent 是一个本地 AI 开发环境激活与管理工具。React 应用通过 Wails v3 binding 检测 CLI 和桌面 Agent，安装并更新 Agent，管理 Provider 与 Profile，探测连接、合并配置、创建备份并收紧权限；生产进程不监听业务 TCP 端口。
 
 OneAgent 不重新分发 Agent 包，也不捆绑 Node.js、系统 WebView、Git 或 API Key。缺少运行前置条件时返回明确错误和官方安装指引。
 
 ## 当前状态
 
-当前版本为 `0.3.0-dev`，Wails 仍处于 Alpha，因此发布渠道只能是 `technical-preview-unsigned`。
+当前版本为 `0.4.0`，Wails 仍处于 Alpha，因此发布渠道只能是 `technical-preview-unsigned`。
 
-Python 迁移已经完成：受版本控制的旧实现、测试、PyInstaller/wheel 打包链路均已删除；构建、测试、运行和发布只需要 Go、Node、pnpm 11.17.0（构建前端）及目标平台 WebView。安装 Aider 需要 Python 3.12，但不再要求本机预装——`uv` 自己解析解释器，本机有匹配版本就复用，否则下载一份托管 CPython 到 `~/.oneagent/runtimes/python`。Python 不进发行包。
+Python 迁移已经完成：受版本控制的旧实现、测试、PyInstaller/wheel 打包链路均已删除；构建、测试、运行和发布只需要 Go、Node、pnpm 11.20.0（构建前端）及目标平台 WebView。安装 Aider 需要 Python 3.12，但不再要求本机预装——`uv` 自己解析解释器，本机有匹配版本就复用，否则下载一份托管 CPython 到 `~/.oneagent/runtimes/python`。Python 不进发行包。
 
 ## 架构
 
@@ -19,7 +19,7 @@ React + TypeScript + Vite
           |
           | generated Wails bindings
           v
-Status / Provider / Agent / Profile services
+Status / Provider / Agent / DesktopAgent / Profile / Runtime / Transfer / Update
           |
           v
       Go application use cases
@@ -35,8 +35,8 @@ vendor 到自己仓库，从发行 tag 刷新——改本仓库这两个文件�
 - `cmd/oneagent-desktop`：Wails 桌面入口。
 - `internal/`：Go 应用核心。
 - `frontend/`：React 应用；发行包只携带构建后的静态资源。
-- `agents.lock.json`：Agent 包名、来源、配置适配器和许可证的唯一清单；不固定 Agent 版本或包哈希。
-- `providers.lock.json`：内置 Provider 端点、fallback probe model 和公开站披露字段清单；用户 Provider 保存在本机 `~/.oneagent/providers.json`。
+- `manifests/agents.lock.json`：Agent 包名、来源、配置适配器和许可证的唯一清单；不固定 Agent 版本或包哈希。
+- `manifests/providers.lock.json`：内置 Provider 端点、fallback probe model 和公开站披露字段清单；用户 Provider 保存在本机 `~/.oneagent/providers.json`。
 
 ## 快速启动
 
@@ -51,6 +51,8 @@ go run -tags wails ./cmd/oneagent-desktop
 ```
 
 生产构建需要目标平台的 Wails/WebView 依赖。Linux 当前使用 `gtk3` tag（Ubuntu 22.04 cleanroom）；macOS 使用系统 WKWebView；Windows 使用 WebView2 Runtime。
+
+需要前端 HMR 和 Go 自动重编译时，安装 [Task](https://taskfile.dev/) 后运行 `task dev`。`task build` 构建当前平台桌面二进制，`task package` 生成 macOS 或 Windows 平台安装包。
 
 ## Agent 与 Provider
 
@@ -68,11 +70,22 @@ go run -tags wails ./cmd/oneagent-desktop
 
 npm 和 uv 管理的 Agent 默认解析最新版本。Hermes 的版本选择由官方脚本负责。
 
+当前在 macOS 和 Windows 上支持的桌面 Agent：
+
+| Agent | 安装方式 | 配置 |
+| --- | --- | --- |
+| ChatGPT Desktop | 官方平台安装器 | 与 Codex 共用配置 |
+| WorkBuddy | 厂商更新包 | `~/.workbuddy/models.json` |
+
+桌面 Agent 与 CLI Agent 使用同一套配置流程。OneAgent 可以检测、安装、配置并启动它们；用户切换页面后，长时间下载仍可在任务中心查看和取消。
+
 OpenClaw 是网关，OneAgent 对它的职责止于模型供应商：安装包，并把 provider 与默认模型写入 `~/.openclaw/openclaw.json`，不改动 `channels`、`tools` 等其余任何小节。启动网关、注册为系统服务、配对聊天渠道仍由 OpenClaw 自己的命令负责，配置完成后运行 `openclaw onboard`。OneAgent 不启动后台服务。
 
 Hermes 激活时，OneAgent 先安全写入模型配置，再打开新的 Bash 或 PowerShell 窗口运行 Hermes 官方安装脚本。官方 setup 阶段会跳过，避免重复询问已经在 OneAgent 中完成的 Provider 和模型设置。
 
 内置 PPIO、Novita，并支持在 Provider 页面增删改用户 Provider。配置后按 Agent 实际协议探测：Codex 使用 `/v1/responses`，Claude Code 使用 `/v1/messages`，其余自动配置 Agent 使用 `/v1/chat/completions`。协议不兼容时返回 `PROTOCOL_UNSUPPORTED`，不会先写入不可用配置。
+
+探测模型可以选择，并且只用于本次连接检查，不会替换 Profile 中保存的模型。设置页支持导入、导出 Profile 与 Provider；默认导出不包含 API Key，也可按需选择密码加密或明确以明文携带凭据。设置页还提供已发布帮助站入口和内置 OTA 更新流程。
 
 Aider 的安装命令由 Go 后端固定为 `uv tool install --force --python 3.12 ...`，由 uv 复用或提供匹配的 Python。这条路径只在选择 Aider 时执行；缺少 `uv` 会返回 `PREREQUISITE_MISSING`。
 
@@ -105,11 +118,11 @@ pnpm run test:e2e
 python3 scripts/check-docs.py
 ```
 
-每个 pull request 都会运行 `.github/workflows/ci.yml`：Go 侧是 `go vet` 加 `go test -race`，前端侧是 `pnpm run test` 加 `pnpm run build`，另有文档链接与语言检查。
+每个 pull request 都会运行 `.github/workflows/ci.yml`：Go 侧运行 `go vet`、`go test -race` 和 staticcheck，前端侧运行测试、构建与 Wails E2E，另有文档和第三方许可证检查。
 
 ## 发行
 
-发行包由 `.github/workflows/build-artifacts.yml` 构建，手动触发（`workflow_dispatch`）。它为 macOS 与 Windows 各构建 x64/arm64 的 Wails 桌面应用，macOS 产物打成 `.app` 和 DMG，Windows 额外生成两个 NSIS 安装包。
+推送稳定版 `vX.Y.Z` tag 会触发 `.github/workflows/build-artifacts.yml`，向对应 GitHub Release 发布 macOS 与 Windows 的 amd64/arm64 OTA 压缩包、两个 macOS DMG、两个 Windows NSIS 安装包及 `SHA256SUMS`。工作流也可通过必填版本号手动触发。
 
 Wails 仍处于 Alpha，当前不发布 Stable，不做平台签名、公证或商店分发。Stable 的签名门禁保留在后续发行阶段。
 

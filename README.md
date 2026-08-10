@@ -2,10 +2,10 @@
 
 **English** · [简体中文](README_ZH.md)
 
-OneAgent is a local AI development environment activator. Its React wizard detects
-agents, installs the latest version, probes Providers, merges configuration, creates
-backups, and tightens permissions through Wails v3 bindings. The production process
-listens on no application TCP port.
+OneAgent is a local AI development environment activator and manager. Its React app
+detects CLI and desktop Agents, installs and updates them, manages Providers and Profiles,
+probes connections, merges configuration, creates backups, and tightens permissions
+through Wails v3 bindings. The production process listens on no application TCP port.
 
 OneAgent does not redistribute agent packages, and it bundles no Node.js, system WebView,
 Git, or API key. When a prerequisite is missing it returns a specific error and points at
@@ -13,12 +13,12 @@ the official install instructions.
 
 ## Current status
 
-The current version is `0.3.0-dev`. Wails is still in Alpha, so the only release channel
+The current version is `0.4.0`. Wails is still in Alpha, so the only release channel
 is `technical-preview-unsigned`.
 
 The Python migration is complete: the previous implementation, its tests, and the
 PyInstaller/wheel packaging chain are all deleted. Building, testing, running, and
-releasing need only Go, Node, pnpm 11.17.0 (to build the frontend), and the target
+releasing need only Go, Node, pnpm 11.20.0 (to build the frontend), and the target
 platform's WebView. Installing Aider needs Python 3.12, but no longer needs one
 preinstalled — `uv` resolves it, reusing a matching local interpreter or downloading a
 managed CPython into `~/.oneagent/runtimes/python`. Python never ships in a release
@@ -31,7 +31,7 @@ React + TypeScript + Vite
           |
           | generated Wails bindings
           v
-Status / Provider / Agent / Profile services
+Status / Provider / Agent / DesktopAgent / Profile / Runtime / Transfer / Update
           |
           v
       Go application use cases
@@ -49,9 +49,9 @@ published version supports.
 - `cmd/oneagent-desktop`: the Wails desktop entry point.
 - `internal/`: the Go application core.
 - `frontend/`: the React app. Release packages carry only its built static assets.
-- `agents.lock.json`: the single manifest of agent package names, sources, config
+- `manifests/agents.lock.json`: the single manifest of agent package names, sources, config
   adapters, and licences. It pins neither agent versions nor package hashes.
-- `providers.lock.json`: built-in Provider endpoints, fallback probe models, and the
+- `manifests/providers.lock.json`: built-in Provider endpoints, fallback probe models, and the
   disclosure fields the public site reads. User-defined Providers live on the machine in
   `~/.oneagent/providers.json`.
 
@@ -71,6 +71,10 @@ A production build needs the target platform's Wails/WebView dependencies. Linux
 currently uses the `gtk3` tag (Ubuntu 22.04 cleanroom), macOS uses the system WKWebView,
 and Windows uses the WebView2 Runtime.
 
+For development with frontend HMR and Go rebuilds, install
+[Task](https://taskfile.dev/) and run `task dev`. `task build` produces the host desktop
+binary, while `task package` creates the macOS or Windows platform package.
+
 ## Agents and Providers
 
 Automatically configured agents:
@@ -88,6 +92,17 @@ Automatically configured agents:
 For npm- and uv-managed agents, the installer resolves the latest version by default.
 Hermes's official script owns its version selection.
 
+Desktop Agents currently supported on macOS and Windows:
+
+| Agent | Installation | Configuration |
+| --- | --- | --- |
+| ChatGPT Desktop | Official platform installer | Shares the Codex configuration |
+| WorkBuddy | Vendor update package | `~/.workbuddy/models.json` |
+
+They use the same setup flow as CLI Agents. OneAgent can detect, install, configure, and
+launch them; long-running downloads remain visible and cancellable in the Task Center
+when the user navigates to another page.
+
 OpenClaw is a gateway, and OneAgent's scope for it stops at the model provider. It
 installs the package and writes the provider and default model into
 `~/.openclaw/openclaw.json`, leaving `channels`, `tools`, and every other section
@@ -104,6 +119,12 @@ Provider page. After configuration, each agent is probed over the protocol it ac
 speaks: Codex via `/v1/responses`, Claude Code via `/v1/messages`, and the remaining
 automatic agents via `/v1/chat/completions`. An incompatible protocol returns
 `PROTOCOL_UNSUPPORTED` rather than writing configuration that cannot work.
+
+The probe model is selectable and is used only for that connection check; it does not
+replace the model saved in a Profile. Profiles and Providers can be imported or exported
+from Settings. Exports omit API keys by default, with password-encrypted and explicit
+plain-text export available when credentials must move too. Settings also exposes the
+published help site and the built-in OTA update flow.
 
 Aider's install command is fixed by the Go backend as
 `uv tool install --force --python 3.12 ...`, leaving uv to reuse or supply a matching
@@ -139,9 +160,9 @@ Documentation:
 python3 scripts/check-docs.py
 ```
 
-Every pull request runs `.github/workflows/ci.yml`: `go vet` plus `go test -race` on the
-Go side, `pnpm run test` plus `pnpm run build` on the frontend side, and the
-documentation link and language check.
+Every pull request runs `.github/workflows/ci.yml`: `go vet`, `go test -race`, and
+staticcheck on the Go side; tests, build, and Wails E2E on the frontend side; plus
+documentation and third-party licence checks.
 
 ## Releasing
 
