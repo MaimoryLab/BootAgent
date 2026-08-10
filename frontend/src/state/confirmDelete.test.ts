@@ -13,6 +13,8 @@ describe("confirmDelete", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     question.mockReset();
+    delete (window as typeof window & { webkit?: unknown }).webkit;
+    vi.useRealTimers();
   });
 
   it("approves only the confirm button", async () => {
@@ -20,6 +22,21 @@ describe("confirmDelete", () => {
     expect(await confirmDelete(options)).toBe(true);
     question.mockResolvedValue("取消");
     expect(await confirmDelete(options)).toBe(false);
+  });
+
+  it("waits for an answer in a native WebView", async () => {
+    vi.useFakeTimers();
+    Object.defineProperty(window, "webkit", {
+      configurable: true,
+      value: { messageHandlers: { external: { postMessage: vi.fn() } } },
+    });
+    question.mockImplementation(() => new Promise((resolve) => setTimeout(() => resolve("删除"), 2_000)));
+    const confirm = vi.spyOn(window, "confirm");
+
+    const result = confirmDelete(options);
+    await vi.advanceTimersByTimeAsync(2_000);
+    expect(await result).toBe(true);
+    expect(confirm).not.toHaveBeenCalled();
   });
 
   // Dialogs.Question needs a WebView to host the dialog. Under `-tags server`
