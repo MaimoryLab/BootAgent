@@ -22,6 +22,10 @@ const (
 	// over the installed application. Distinct from InternalError because the
 	// only way forward is a manual download, and the interface has to say so.
 	UpdateNotInstallable = "UPDATE_NOT_INSTALLABLE"
+	// UpdateLocationBlocked marks an installation the updater cannot replace in
+	// place, most often one running from a mounted disk image. Reported at check
+	// time so the user is not asked to download something that cannot be applied.
+	UpdateLocationBlocked = "UPDATE_LOCATION_BLOCKED"
 )
 
 // ExitCodes preserves the numeric codes included in existing error payloads.
@@ -40,6 +44,9 @@ var ExitCodes = map[string]int{
 	// distinct CLI contract, and the numeric codes in existing payloads are
 	// pinned by tests.
 	UpdateNotInstallable: 10,
+	// Also 10: an environment problem with no distinct CLI contract, and the
+	// numeric codes in existing payloads are pinned by tests.
+	UpdateLocationBlocked: 10,
 }
 
 // OneAgentError is safe to serialize across the Wails bridge. Message must

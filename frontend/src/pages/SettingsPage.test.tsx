@@ -40,4 +40,29 @@ describe("SettingsPage", () => {
     fireEvent.click(screen.getByRole("button", { name: /帮助文档/ }));
     await waitFor(() => expect(screen.getByText("Unable to open the help site")).toBeTruthy());
   });
+
+  // An app running from a mounted dmg sits on a read-only volume, so the update
+  // helper cannot write its backup and abandons the swap without restarting the
+  // app. The backend withholds the version and reports the location instead; this
+  // one line is the whole report, so it has to carry the instruction too.
+  it("says to move the app when it cannot update in place", async () => {
+    const check = vi.spyOn(api, "checkUpdate").mockRejectedValue(
+      new OneAgentApiError(
+        "OneAgent is running from a disk image. Move OneAgent to the Applications folder, then check again.",
+        "UPDATE_LOCATION_BLOCKED",
+        false,
+        409,
+      ),
+    );
+    show();
+
+    fireEvent.click(screen.getByRole("button", { name: "检查更新" }));
+
+    await waitFor(() => expect(check).toHaveBeenCalled());
+    const report = await screen.findByRole("status");
+    expect(report.textContent).toContain("无法在当前位置自我更新");
+    expect(report.textContent).toContain("应用程序");
+    // No install button: there is nothing to install until the app is moved.
+    expect(screen.queryByRole("button", { name: "立即更新" })).toBeNull();
+  });
 });
