@@ -1775,6 +1775,7 @@
 .provider-editor-grid > *,
 .profile-editor-grid > * { min-width: 0; }
 
+.provider-editor-grid > .field-stack,
 .profile-editor-grid > .field-stack { align-self: start; }
 
 .provider-editor-wide,
