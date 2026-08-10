@@ -309,3 +309,29 @@ jobs:
           else
             gh release create "$RELEASE_VERSION" release-assets/* --verify-tag --title "$RELEASE_VERSION" --generate-notes
           fi
+
+      # The public site reads this release's assets — filenames, sizes and digests —
+      # from the API at build time, because its CSP forbids a browser-side call to
+      # api.github.com. That makes its download page only as current as its last
+      # deploy, so without this it keeps advertising the previous version until a
+      # scheduled build happens to run.
+      #
+      # Deliberately after the step above rather than a separate job: the site needs
+      # to know the assets are *uploaded*, not that a tag exists. A build that read
+      # the feed mid-upload would publish a partial asset list, which is worse than
+      # publishing a stale complete one.
+      #
+      # Failure here does not fail the release. The release is the product; telling
+      # a website about it is not, and the site's own twelve-hour schedule is the
+      # backstop. `|| true` keeps a token that expired from turning a good release
+      # red.
+      - name: Notify the public site
+        if: env.SITE_DISPATCH_TOKEN != ''
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.SITE_DISPATCH_TOKEN }}
+          SITE_DISPATCH_TOKEN: ${{ secrets.SITE_DISPATCH_TOKEN }}
+        run: |
+          gh api repos/MaimoryLab/OneAgent-site/dispatches \
+            -f event_type=upstream-release \
+            -F "client_payload[release]=$RELEASE_VERSION" || true
