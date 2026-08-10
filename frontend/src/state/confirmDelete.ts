@@ -17,15 +17,20 @@ import { Dialogs } from "@wailsio/runtime";
  * activates, and for an irreversible delete the safe outcome of an accidental
  * keypress is "nothing happened".
  *
- * Falls back to window.confirm when the native dialog does not answer, which is a
- * real environment difference rather than a test affordance. Dialogs.Question
- * needs a WebView to host the dialog, and under `-tags server` — the browser
- * preview and the E2E build — there is none: the call neither resolves nor
- * rejects, it simply never settles. A rejection could be caught, but a hang
- * cannot, so the request is raced against a timer. Without this the delete button
- * silently did nothing in server mode, with no error to explain why.
+ * Browser previews have no native dialog host, so their unanswered request gets
+ * a timed window.confirm fallback. A real WebView must not be timed: the user may
+ * reasonably spend more than 1.5 seconds reading an irreversible-delete warning.
  */
 const NATIVE_DIALOG_TIMEOUT_MS = 1500;
+
+function hasNativeWebView(): boolean {
+  const host = window as typeof window & {
+    chrome?: { webview?: { postMessage?: unknown } };
+    webkit?: { messageHandlers?: { external?: { postMessage?: unknown } } };
+    wails?: { invoke?: unknown };
+  };
+  return Boolean(host.chrome?.webview?.postMessage || host.webkit?.messageHandlers?.external?.postMessage || host.wails?.invoke);
+}
 
 export async function confirmDelete(options: {
   title: string;
@@ -48,8 +53,9 @@ export async function confirmDelete(options: {
   // "declined" is not confused with "never answered": one must not fall through
   // to a second prompt.
   const unanswered = { answered: false, approved: false };
-  const timer = new Promise<typeof unanswered>((resolve) => setTimeout(() => resolve(unanswered), NATIVE_DIALOG_TIMEOUT_MS));
-  const outcome = await Promise.race([pending, timer]);
+  const outcome = await (hasNativeWebView()
+    ? pending
+    : Promise.race([pending, new Promise<typeof unanswered>((resolve) => setTimeout(() => resolve(unanswered), NATIVE_DIALOG_TIMEOUT_MS))]));
   if (outcome.answered) return outcome.approved;
   // window.confirm is absent in some hardened webviews. Where neither prompt can
   // be shown, "cannot ask" has to mean "do not delete".
