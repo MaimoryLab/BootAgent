@@ -23,7 +23,7 @@ LINK = re.compile(r"(?<!!)\[[^\]]*\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)")
 CJK = re.compile(r"[一-鿿]")
 
 # Documents that must not contain Chinese prose. Chinese is correct and expected
-# outside these: CLAUDE.md and docs/internal/ are maintainer-facing by decision.
+# outside these: AGENTS.md and docs/internal/ are maintainer-facing by decision.
 ENGLISH_ONLY = [
     "README.md",
     "docs/product-boundary-baseline.md",

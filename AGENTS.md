@@ -131,7 +131,7 @@ for the two exceptions below:
 | `README.md` | English; Chinese is in `README_ZH.md`, and both versions must stay synchronized |
 | Specifications in the `docs/` root and ADRs in `docs/decisions/` | English only |
 | `docs/ai-agent-kit/` | Bilingual, with complete sets under `en/` and `zh/` |
-| `CLAUDE.md` and `docs/internal/` | Chinese. Their audience is maintainers, and bilingual copies would only create drift |
+| `AGENTS.md` and `docs/internal/` | Chinese. Their audience is maintainers, and bilingual copies would only create drift |
 
 Use `frontend/src/i18n.tsx`, the source of truth for product UI terminology, for English
 terms: runtime = Runtimes, configuration template = Profiles, environment overview =

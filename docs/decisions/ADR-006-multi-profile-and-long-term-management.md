@@ -46,7 +46,7 @@ not enough to display "switched" and stop there.
 
 - A Profile record holds `id`, `label`, `provider`, `base_url`, `model`,
   `config_mode`, `protocol`, `created_at`, `activated_at`. **The Key does not go into the
-  profile file** (a product boundary and a hard constraint in CLAUDE.md).
+  profile file** (a product boundary and a hard constraint in AGENTS.md).
 - `id` is a restricted slug (`[a-z0-9][a-z0-9_-]*`); invalid input returns
   `INVALID_REQUEST`.
 - `secrets/<id>.env` stores the Key and Base URL for that profile template. The
