@@ -106,6 +106,7 @@ export const wailsApi = {
   // No URL argument: the backend owns it, so a tampered renderer cannot choose
   // what gets opened in the user's browser.
   openHelp: (): Promise<void> => call(() => ProviderService.OpenHelp()).then(() => undefined),
+  openGitHub: (): Promise<void> => call(() => ProviderService.OpenGitHub()).then(() => undefined),
   downloadUpdate: (): CancellableRequest<void> => call(() => UpdateService.DownloadAndInstall()) as CancellableRequest<void>,
   restartUpdate: (): Promise<void> => call(() => UpdateService.Restart()).then(() => undefined),
   desktopAgentStatus: (agentId: string): Promise<DesktopAgentStatus> =>

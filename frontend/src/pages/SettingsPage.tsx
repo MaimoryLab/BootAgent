@@ -8,6 +8,7 @@ import { OTA_PROGRESS_TARGET } from "../backend/wails";
 import { PageScaffold } from "../components/PageScaffold";
 import { SelectField } from "../components/SelectField";
 import { ThemePicker } from "../components/ThemePicker";
+import { GitHubMark } from "../components/icons/GitHubMark";
 import { useI18n } from "../i18n";
 import { taskCanceller, taskKey, updateTaskRoute, useTaskCenter } from "../state/TaskCenterContext";
 
@@ -59,6 +60,15 @@ export function SettingsPage() {
       await api.openHelp();
     } catch (error) {
       setHelpFailure(describeFailure(error, t("无法打开帮助文档"), t).message);
+    }
+  };
+
+  const openGitHub = async () => {
+    setHelpFailure("");
+    try {
+      await api.openGitHub();
+    } catch (error) {
+      setHelpFailure(describeFailure(error, t("无法打开 GitHub"), t).message);
     }
   };
   return (
@@ -113,6 +123,11 @@ export function SettingsPage() {
         <button className="settings-link" type="button" onClick={() => void openHelp()}>
           <BookOpen size={18} aria-hidden="true" />
           <span><strong>{t("帮助文档")}</strong><small>{t("安装、切换模型、备份回退与常见问题")}</small></span>
+          <ExternalLink size={15} aria-hidden="true" />
+        </button>
+        <button className="settings-link" type="button" onClick={() => void openGitHub()}>
+          <GitHubMark size={18} />
+          <span><strong>{t("Star 支持 OneAgent")}</strong><small>{t("如果 OneAgent 对你有帮助，欢迎在 GitHub 点个 Star")}</small></span>
           <ExternalLink size={15} aria-hidden="true" />
         </button>
         {helpFailure ? <p className="agent-manage-error">{helpFailure}</p> : null}
