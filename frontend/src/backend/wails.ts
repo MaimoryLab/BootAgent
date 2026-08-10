@@ -185,8 +185,8 @@ export const wailsApi = {
   getSettings: (): Promise<Settings> => call(() => RuntimeService.GetSettings()) as Promise<Settings>,
   saveSettings: (settings: Settings): Promise<Settings> =>
     call(() => RuntimeService.SaveSettings(settings)) as Promise<Settings>,
-  readTransferFile: (path: string): Promise<string> => call(() => TransferService.Read({ path })) as Promise<string>,
-  writeTransferFile: (path: string, data: string): Promise<void> => call(() => TransferService.Write({ path, data })).then(() => undefined),
+  readTransferFile: (): Promise<string> => call(() => TransferService.Read()) as Promise<string>,
+  writeTransferFile: (data: string): Promise<void> => call(() => TransferService.Write(data)).then(() => undefined),
   listProfiles: (): Promise<ProfileSummary[]> => call(() => ProfileService.ListProfiles()) as Promise<ProfileSummary[]>,
   deleteProfile: (id: string): Promise<void> =>
     call(() => ProfileService.DeleteProfile({ id })).then(() => undefined),

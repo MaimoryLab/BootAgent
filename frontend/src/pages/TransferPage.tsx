@@ -1,4 +1,3 @@
-import { Dialogs } from "@wailsio/runtime";
 import { CheckCheck, Eye, EyeOff, KeyRound, Upload } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -26,8 +25,6 @@ const toggle = (selected: Set<string>, id: string) => {
   if (next.has(id)) next.delete(id); else next.add(id);
   return next;
 };
-
-const isDialogCancellation = (error: unknown) => error instanceof Error && /cancelled by user/i.test(error.message);
 
 /** What an import is about to replace, for the confirmation dialog. */
 interface ImportPlan {
@@ -140,22 +137,9 @@ export function TransferPage() {
       if (keys === null) return setSuccess(t("已取消导出"));
       const password = keys === "encrypted" ? await askPassword("export") : "";
       if (keys === "encrypted" && !password) return setSuccess(t("已取消导出"));
-      let path: string;
-      try {
-        path = await Dialogs.SaveFile({
-          Title: t("选择导出位置"),
-          Filename: "oneagent-settings.json",
-          CanCreateDirectories: true,
-          Filters: [{ DisplayName: "JSON", Pattern: "*.json" }],
-        });
-      } catch (error) {
-        if (isDialogCancellation(error)) return setSuccess(t("已取消导出"));
-        throw error;
-      }
-      if (!path) return setSuccess(t("已取消导出"));
       const entries = await Promise.all([...exportProviders].map((id) => api.getProvider(id)));
       const selected = profiles.filter((profile) => selectedProfiles.has(profile.id));
-      await api.writeTransferFile(path, stringifyTransfer(await makeTransfer(selected, entries, keys, password || "")));
+      await api.writeTransferFile(stringifyTransfer(await makeTransfer(selected, entries, keys, password || "")));
       // Only the plain-text case needs a warning; the default carries no key at
       // all, and saying so is reassurance rather than a caveat.
       setSuccess(keys === "plain"
@@ -175,15 +159,7 @@ export function TransferPage() {
     setFailure("");
     setSuccess("");
     try {
-      let path: string | string[];
-      try {
-        path = await Dialogs.OpenFile({ Title: t("选择导入文件"), Filters: [{ DisplayName: "JSON", Pattern: "*.json" }] });
-      } catch (error) {
-        if (isDialogCancellation(error)) return setSuccess(t("已取消导入"));
-        throw error;
-      }
-      if (!path || Array.isArray(path)) return setSuccess(t("已取消导入"));
-      const raw = await api.readTransferFile(path);
+      const raw = await api.readTransferFile();
       // Overwriting existing records is the point of an import, but it takes the
       // saved API keys with it, so it is confirmed the way deleting one is.
       const incoming = transferSummary(raw);

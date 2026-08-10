@@ -10,11 +10,14 @@ import (
 
 func TestTransferServiceWritesAndReadsSelectedFile(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "settings.json")
-	service := &TransferService{}
-	if err := service.Write(context.Background(), WriteFileRequest{Path: path, Data: `{"version":1}`}); err != nil {
+	service := &TransferService{
+		openFile: func() (string, error) { return path, nil },
+		saveFile: func() (string, error) { return path, nil },
+	}
+	if err := service.Write(context.Background(), `{"version":1}`); err != nil {
 		t.Fatal(err)
 	}
-	data, err := service.Read(context.Background(), FilePathRequest{Path: path})
+	data, err := service.Read(context.Background())
 	if err != nil || data != `{"version":1}` {
 		t.Fatalf("Read() = %q, %v", data, err)
 	}
