@@ -2,7 +2,7 @@ import { BookOpen, ChevronRight, ExternalLink, Import, Languages, RefreshCw } fr
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { api, describeFailure } from "../backend/api";
+import { api, describeFailure, failureLine } from "../backend/api";
 import { OTA_PROGRESS_TARGET } from "../backend/wails";
 import { PageScaffold } from "../components/PageScaffold";
 import { SelectField } from "../components/SelectField";
@@ -57,7 +57,7 @@ export function SettingsPage() {
       taskCenter.setTaskAction(taskID, { label: t("重启并更新"), run: () => api.restartUpdate() });
       setUpdateMessage(t("更新已下载"));
     } catch (error) {
-      taskCenter.finishTask(taskID, { kind: "failure", message: describeFailure(error, t("更新失败"), t).message });
+      taskCenter.finishTask(taskID, { kind: "failure", message: failureLine(error, t("更新失败"), t) });
     }
   };
 

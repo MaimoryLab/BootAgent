@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { sourceTranslate } from "../i18n";
-import { describeError, describeFailure, OneAgentApiError } from "./errors";
+import { describeError, describeFailure, failureLine, OneAgentApiError } from "./errors";
 
 const t = sourceTranslate;
 
@@ -55,5 +55,25 @@ describe("describeFailure", () => {
   it("exposes the status describeError previously dropped", () => {
     // Without it the copy layer could not tell 429 from 402 behind one code.
     expect(describeError(apiError("x", "PROVIDER_UNREACHABLE", 402), "f").status).toBe(402);
+  });
+});
+
+describe("failureLine", () => {
+  // The task centre renders one line and has nowhere to put a hint, so the
+  // actionable half was being dropped -- worst for UPDATE_NOT_INSTALLABLE, where
+  // the message alone ("cannot be installed") names no way forward.
+  it("keeps the hint for a surface that renders a single line", () => {
+    const error = apiError("The downloaded OneAgent update is not installable", "UPDATE_NOT_INSTALLABLE", 500);
+
+    const line = failureLine(error, "更新失败", t);
+    expect(line).toContain("下载到的更新包无法安装");
+    expect(line).toContain("手动下载");
+    // describeFailure alone is what the task centre used to show.
+    expect(describeFailure(error, "更新失败", t).message).not.toContain("手动下载");
+  });
+
+  it("returns the message unchanged when there is no hint", () => {
+    expect(failureLine(apiError("Provider name is required", "INVALID_REQUEST"), "f", t))
+      .toBe("Provider name is required");
   });
 });

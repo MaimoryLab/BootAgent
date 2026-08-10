@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { StrictMode, useEffect } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { OneAgentApiError } from "../backend/errors";
 import { OTA_PROGRESS_TARGET } from "../backend/wails";
 import { I18nProvider, LOCALE_STORAGE_KEY } from "../i18n";
 import { taskKey, TaskCenterProvider, useTaskCenter } from "../state/TaskCenterContext";
@@ -28,6 +29,7 @@ vi.mock("../backend/api", async () => {
     },
     describeError: errors.describeError,
     describeFailure: errors.describeFailure,
+    failureLine: errors.failureLine,
     isCancellationError: errors.isCancellationError,
   };
 });
@@ -170,6 +172,30 @@ describe("AppUpdater", () => {
     await user.click(screen.getByRole("button", { name: "Cancel task" }));
     cancelled.reject(Object.assign(new Error("cancelled"), { name: "CancelledRejectionError" }));
     expect(await screen.findByText("Cancelled")).toBeTruthy();
+  });
+
+  // The updater picked OneAgent-darwin-arm64.dmg over the sibling .zip, and a
+  // .dmg is not a format it unpacks -- so the disk image replaced the installed
+  // OneAgent.app. The backend now refuses that artifact, and the task centre has
+  // to carry the hint: the message alone names no way forward, and retrying
+  // downloads the same asset.
+  it("tells the user to download manually when the update is not installable", async () => {
+    const failed = deferredDownload();
+    mocks.checkUpdate.mockResolvedValue("v2.0.0");
+    mocks.question.mockResolvedValue("Update");
+    mocks.downloadUpdate.mockReturnValue(failed.request);
+    mount();
+    expect(await screen.findByText("Update OneAgent v2.0.0")).toBeTruthy();
+
+    failed.reject(new OneAgentApiError(
+      "The downloaded OneAgent update is not installable",
+      "UPDATE_NOT_INSTALLABLE",
+      false,
+      500,
+    ));
+
+    expect(await screen.findByText(/cannot be installed/)).toBeTruthy();
+    expect(screen.getByText(/manually from the releases page/)).toBeTruthy();
   });
 
   it("keeps the restart action after restart fails", async () => {

@@ -17,6 +17,9 @@ type UpdateBackend interface {
 	Check(context.Context) (*updater.Release, error)
 	DownloadAndInstall(context.Context) error
 	Restart(context.Context) error
+	// DownloadedPath names the artifact staged by DownloadAndInstall, so the
+	// service can reject one the helper cannot install.
+	DownloadedPath() string
 }
 
 type UpdateService struct {
@@ -60,6 +63,19 @@ func (s *UpdateService) DownloadAndInstall(ctx context.Context) error {
 	}
 	if err := s.backend.DownloadAndInstall(ctx); err != nil {
 		return updateError(err, "Unable to download the OneAgent update")
+	}
+	// The helper swaps this artifact over the installed application after the
+	// process exits, so an unusable one has to be caught here: once the user
+	// accepts the restart there is no interface left to report the failure,
+	// and a container file that lands on the bundle path leaves an
+	// installation that cannot launch.
+	if err := stagedArtifactError(s.backend.DownloadedPath()); err != nil {
+		return oneerrors.New(
+			oneerrors.UpdateNotInstallable,
+			"The downloaded OneAgent update is not installable",
+			oneerrors.WithStatus(500),
+			oneerrors.WithCause(err),
+		)
 	}
 	return nil
 }
