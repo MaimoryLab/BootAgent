@@ -264,10 +264,10 @@
 .settings-link strong { font-size: 13px; }
 .settings-link small { color: var(--text-secondary); font-size: 11px; }
 .settings-link > svg:last-child { color: var(--text-tertiary); }
-.settings-about { margin-top: auto; padding-top: 20px; display: flex; align-items: center; flex-wrap: wrap; gap: 12px 18px; border-top: 1px solid var(--border); }
-.settings-about-meta { display: flex; flex-wrap: wrap; gap: 4px 16px; color: var(--text-secondary); font-size: 11px; }
-.settings-update-message { flex-basis: 100%; display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--text-secondary); }
-.settings-about .spin { animation: spin 900ms linear infinite; }
+.settings-footer-content { min-width: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 8px 18px; color: var(--text-secondary); font-size: 11px; white-space: normal; }
+.settings-about-meta { display: flex; flex-wrap: wrap; gap: 4px 16px; }
+.settings-update-message { color: var(--text-secondary); }
+.settings-footer-content .spin { animation: spin 900ms linear infinite; }
 
 .page-footer {
   padding: 0 42px;

@@ -1,5 +1,6 @@
 import { BookOpen, ChevronRight, ExternalLink, Import, Languages, RefreshCw } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { api, describeFailure } from "../backend/api";
@@ -36,15 +37,6 @@ export function SettingsPage() {
     }
   };
 
-  const openHelp = async () => {
-    setHelpFailure("");
-    try {
-      await api.openHelp();
-    } catch (error) {
-      setHelpFailure(describeFailure(error, t("无法打开帮助文档"), t).message);
-    }
-  };
-
   const installUpdate = async () => {
     if (!latestVersion) return;
     const taskID = taskKey("update", OTA_PROGRESS_TARGET);
@@ -61,8 +53,35 @@ export function SettingsPage() {
     }
   };
 
+  const openHelp = async () => {
+    setHelpFailure("");
+    try {
+      await api.openHelp();
+    } catch (error) {
+      setHelpFailure(describeFailure(error, t("无法打开帮助文档"), t).message);
+    }
+  };
   return (
-    <PageScaffold title={t("设置")} description={t("管理界面偏好与配置迁移")} bodyClassName="settings-page">
+    <PageScaffold
+      title={t("设置")}
+      description={t("管理界面偏好与配置迁移")}
+      bodyClassName="settings-page"
+      footerNote={(
+        <div className="settings-footer-content" aria-label={t("关于")}>
+          <div className="settings-about-meta"><span>{t("版本")} {version}</span><span>{"(c) 2026 MaimoryLab"}</span></div>
+          {updateMessage ? <small className="settings-update-message" role="status">{updateMessage}</small> : null}
+        </div>
+      )}
+      secondaryAction={(
+        <>
+          <button className="button button-secondary" type="button" onClick={() => void checkUpdate()} disabled={checking}>
+            <RefreshCw size={15} aria-hidden="true" className={checking ? "spin" : undefined} />
+            {checking ? t("正在检查") : t("检查更新")}
+          </button>
+          {latestVersion ? <button className="button button-primary" type="button" onClick={() => void installUpdate()}>{t("立即更新")}</button> : null}
+        </>
+      )}
+    >
       <section className="settings-section">
         <h2>{t("界面")}</h2>
         <div className="settings-row"><ThemePicker /></div>
@@ -97,14 +116,6 @@ export function SettingsPage() {
           <ExternalLink size={15} aria-hidden="true" />
         </button>
         {helpFailure ? <p className="agent-manage-error">{helpFailure}</p> : null}
-      </section>
-      <section className="settings-about" aria-label={t("关于")}>
-        <div className="settings-about-meta"><span>{t("版本")} {version}</span><span>{"(c) 2026 MaimoryLab"}</span></div>
-        <button className="button button-secondary" type="button" onClick={() => void checkUpdate()} disabled={checking}>
-          <RefreshCw size={15} aria-hidden="true" className={checking ? "spin" : undefined} />
-          {checking ? t("正在检查") : t("检查更新")}
-        </button>
-        {updateMessage ? <div className="settings-update-message" role="status"><small>{updateMessage}</small>{latestVersion ? <button className="button button-primary button-compact" type="button" onClick={() => void installUpdate()}>{t("立即更新")}</button> : null}</div> : null}
       </section>
     </PageScaffold>
   );
