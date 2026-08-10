@@ -28,6 +28,10 @@ export function ListModels(request: $models.ModelsRequest): $CancellablePromise<
     return $Call.ByID(1201530915, request);
 }
 
+export function OpenGitHub(): $CancellablePromise<void> {
+    return $Call.ByID(546895834);
+}
+
 /**
  * OpenHelp opens the published help site in the user's real browser. Not an <a
  * target="_blank">: the webview has no tab to open one in, so a link either

@@ -162,6 +162,7 @@ func (s *RuntimeService) SaveSettings(ctx context.Context, request app.Settings)
 // can choose -- the same reason OpenRegistration re-resolves a Provider's URL
 // instead of accepting one over the bridge.
 const HelpURL = "https://oneagentpro.ai/help/"
+const GitHubURL = "https://github.com/MaimoryLab/OneAgent"
 
 type StatusService struct {
 	core           *app.UseCases
@@ -202,6 +203,19 @@ func (s *ProviderService) OpenHelp(ctx context.Context) error {
 	}
 	if err := s.opener(HelpURL); err != nil {
 		return oneerrors.New(oneerrors.InternalError, "Unable to open the help site", oneerrors.WithStatus(500), oneerrors.WithRetryable(true), oneerrors.WithCause(err))
+	}
+	return nil
+}
+
+func (s *ProviderService) OpenGitHub(ctx context.Context) error {
+	if err := contextError(ctx); err != nil {
+		return err
+	}
+	if s == nil || s.opener == nil {
+		return notReady("Desktop browser is not configured")
+	}
+	if err := s.opener(GitHubURL); err != nil {
+		return oneerrors.New(oneerrors.InternalError, "Unable to open the GitHub repository", oneerrors.WithStatus(500), oneerrors.WithRetryable(true), oneerrors.WithCause(err))
 	}
 	return nil
 }

@@ -49,7 +49,7 @@ func TestServiceMethodAllowlist(t *testing.T) {
 		want    []string
 	}{
 		{&StatusService{}, []string{"GetStatus"}},
-		{&ProviderService{}, []string{"DeleteProvider", "GetProvider", "ListModels", "OpenHelp", "OpenRegistration", "Probe", "SaveProvider"}},
+		{&ProviderService{}, []string{"DeleteProvider", "GetProvider", "ListModels", "OpenGitHub", "OpenHelp", "OpenRegistration", "Probe", "SaveProvider"}},
 		{&AgentService{}, []string{"Activate", "Install", "Launch", "Update"}},
 		{&ProfileService{}, []string{"DeleteProfile", "ListProfiles", "SaveProfile"}},
 		{&RuntimeService{}, []string{"GetSettings", "InstallRuntime", "ListRuntimes", "SaveSettings"}},
