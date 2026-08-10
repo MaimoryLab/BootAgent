@@ -1,242 +1,88 @@
-# OneAgent
+<div align="center">
+  <img src="build/appicon.png" alt="OneAgent" width="96">
+  <h1>OneAgent</h1>
+  <p>One place to install, configure, and keep your AI coding Agents ready.</p>
+  <p>
+    <a href="https://github.com/MaimoryLab/OneAgent/releases/latest"><img src="https://img.shields.io/github/v/release/MaimoryLab/OneAgent?display_name=tag&sort=semver" alt="Latest release"></a>
+    <a href="https://github.com/MaimoryLab/OneAgent/actions/workflows/ci.yml"><img src="https://github.com/MaimoryLab/OneAgent/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+    <a href="https://github.com/MaimoryLab/OneAgent/stargazers"><img src="https://img.shields.io/github/stars/MaimoryLab/OneAgent?style=flat" alt="GitHub stars"></a>
+    <a href="LICENSE"><img src="https://img.shields.io/github/license/MaimoryLab/OneAgent" alt="License"></a>
+  </p>
+  <p><a href="README_ZH.md">简体中文</a></p>
+</div>
 
-**English** · [简体中文](README_ZH.md)
+OneAgent is a local desktop workspace for AI coding Agents. It turns a fresh machine into a usable, repeatable setup without asking you to edit several tool-specific config files by hand.
 
-OneAgent is a local AI development environment activator and manager. Its React app
-detects CLI and desktop Agents, installs and updates them, manages Providers and Profiles,
-probes connections, merges configuration, creates backups, and tightens permissions
-through Wails v3 bindings. The production process listens on no application TCP port.
+## What it does
 
-OneAgent does not redistribute agent packages, and it bundles no Node.js, system WebView,
-Git, or API key. When a prerequisite is missing it returns a specific error and points at
-the official install instructions.
+- Detects, installs, updates, and launches supported CLI and desktop Agents.
+- Connects Agents to built-in or custom Providers, with model selection and protocol-aware connection checks.
+- Saves reusable Profiles and applies the right configuration to each Agent.
+- Bootstraps required runtimes such as Node.js, uv, and Aider's managed Python when needed.
+- Keeps long-running installs visible and cancellable in the Task Center.
+- Imports and exports Providers and Profiles, with API keys excluded by default and optional password-protected export.
+- Creates backups, writes atomically, and keeps credentials in private local storage.
+- Checks for OneAgent updates and installs release artifacts through the built-in updater.
 
-## Current status
+## Supported Agents
 
-The current version is `0.4.0`. Wails is still in Alpha, so the only release channel
-is `technical-preview-unsigned`.
+| CLI Agents | Desktop Agents |
+| --- | --- |
+| Codex · Claude Code | ChatGPT Desktop（macOS/Windows） |
+| Kilo CLI · Aider· OpenCode | WorkBuddy（macOS/Windows） |
+| Hermes Agent · OpenClaw | |
 
-The Python migration is complete: the previous implementation, its tests, and the
-PyInstaller/wheel packaging chain are all deleted. Building, testing, running, and
-releasing need only Go, Node, pnpm 11.20.0 (to build the frontend), and the target
-platform's WebView. Installing Aider needs Python 3.12, but no longer needs one
-preinstalled — `uv` resolves it, reusing a matching local interpreter or downloading a
-managed CPython into `~/.oneagent/runtimes/python`. Python never ships in a release
-package.
+PPIO and Novita are built in. Any OpenAI-compatible or Anthropic-compatible Provider can be added from the Provider page. OneAgent probes the protocol an Agent actually uses; an endpoint that only exposes a different API is rejected before configuration is written.
 
-## Architecture
+## Download
+
+Download the latest macOS or Windows installer from [GitHub Releases](https://github.com/MaimoryLab/OneAgent/releases/latest). Release artifacts include SHA-256 checksums. The current channel is `technical-preview-unsigned` while Wails remains in Alpha; platform signing and notarization are not yet provided.
+
+OneAgent does not redistribute Agent packages and does not bundle Node.js, Git, WebView, or API keys. Missing prerequisites are reported with a link to the official installation instructions.
+
+## Build from source
+
+Requirements: Go, Node.js, pnpm 11.20.0, and the target platform's WebView dependencies.
 
 ```text
-React + TypeScript + Vite
-          |
-          | generated Wails bindings
-          v
-Status / Provider / Agent / DesktopAgent / Profile / Runtime / Transfer / Update
-          |
-          v
-      Go application use cases
-          |
-  catalog / provider / install / config / profile / securefs
-```
-
-The public website is neither in this diagram nor in this repository. It moved to
-[MaimoryLab/OneAgent-site](https://github.com/MaimoryLab/OneAgent-site), reads download
-information from the GitHub Releases API, and vendors `agents.lock.json` and
-`providers.lock.json` into its own repository, refreshed from release tags. Changing
-those two files here does not change the site, and should not: the site describes what a
-published version supports.
-
-- `cmd/oneagent-desktop`: the Wails desktop entry point.
-- `internal/`: the Go application core.
-- `frontend/`: the React app. Release packages carry only its built static assets.
-- `manifests/agents.lock.json`: the single manifest of agent package names, sources, config
-  adapters, and licences. It pins neither agent versions nor package hashes.
-- `manifests/providers.lock.json`: built-in Provider endpoints, fallback probe models, and the
-  disclosure fields the public site reads. User-defined Providers live on the machine in
-  `~/.oneagent/providers.json`.
-
-## Quick start
-
-### Desktop app
-
-```bash
-cd frontend
-pnpm install --frozen-lockfile
-pnpm run build
-cd ..
+git clone https://github.com/MaimoryLab/OneAgent.git
+cd OneAgent
+cd frontend && pnpm install --frozen-lockfile && pnpm run build && cd ..
 go run -tags wails ./cmd/oneagent-desktop
 ```
 
-A production build needs the target platform's Wails/WebView dependencies. Linux
-currently uses the `gtk3` tag (Ubuntu 22.04 cleanroom), macOS uses the system WKWebView,
-and Windows uses the WebView2 Runtime.
+For the usual development loop, install [Task](https://taskfile.dev/) and run `task dev`. Useful checks:
 
-For development with frontend HMR and Go rebuilds, install
-[Task](https://taskfile.dev/) and run `task dev`. `task build` produces the host desktop
-binary, while `task package` creates the macOS or Windows platform package.
-
-## Agents and Providers
-
-Automatically configured agents:
-
-| Agent | Package | Installer | Protocol |
-| --- | --- | --- | --- |
-| Codex | `@openai/codex` | npm | Responses |
-| Claude Code | `@anthropic-ai/claude-code` | npm | Anthropic Messages |
-| OpenCode | `opencode-ai` | npm | OpenAI-compatible |
-| Kilo CLI | `@kilocode/cli` | npm | OpenAI-compatible |
-| Aider | `aider-chat` | uv tool | OpenAI-compatible |
-| OpenClaw | `openclaw` | npm | OpenAI-compatible |
-| Hermes Agent | `hermes-agent` | official Bash / PowerShell script | OpenAI-compatible |
-
-For npm- and uv-managed agents, the installer resolves the latest version by default.
-Hermes's official script owns its version selection.
-
-Desktop Agents currently supported on macOS and Windows:
-
-| Agent | Installation | Configuration |
-| --- | --- | --- |
-| ChatGPT Desktop | Official platform installer | Shares the Codex configuration |
-| WorkBuddy | Vendor update package | `~/.workbuddy/models.json` |
-
-They use the same setup flow as CLI Agents. OneAgent can detect, install, configure, and
-launch them; long-running downloads remain visible and cancellable in the Task Center
-when the user navigates to another page.
-
-OpenClaw is a gateway, and OneAgent's scope for it stops at the model provider. It
-installs the package and writes the provider and default model into
-`~/.openclaw/openclaw.json`, leaving `channels`, `tools`, and every other section
-untouched. Starting the gateway, registering it as a service, and pairing chat
-channels stay with OpenClaw's own commands: run `openclaw onboard` afterwards.
-OneAgent never starts a background service.
-
-For Hermes, OneAgent writes the model configuration first, then opens a new Bash or
-PowerShell window running the official installer. The upstream setup stage is skipped
-so it does not ask again for the Provider and model already selected in OneAgent.
-
-PPIO and Novita are built in, and Providers can be added, edited, or removed on the
-Provider page. After configuration, each agent is probed over the protocol it actually
-speaks: Codex via `/v1/responses`, Claude Code via `/v1/messages`, and the remaining
-automatic agents via `/v1/chat/completions`. An incompatible protocol returns
-`PROTOCOL_UNSUPPORTED` rather than writing configuration that cannot work.
-
-The probe model is selectable and is used only for that connection check; it does not
-replace the model saved in a Profile. Profiles and Providers can be imported or exported
-from Settings. Exports omit API keys by default, with password-encrypted and explicit
-plain-text export available when credentials must move too. Settings also exposes the
-published help site and the built-in OTA update flow.
-
-Aider's install command is fixed by the Go backend as
-`uv tool install --force --python 3.12 ...`, leaving uv to reuse or supply a matching
-Python. This path runs only when Aider is selected, and a missing `uv` returns
-`PREREQUISITE_MISSING`.
-
-## Development and testing
-
-Go core:
-
-```bash
-go vet ./...
+```text
 go test ./...
 go test -race ./...
-go run honnef.co/go/tools/cmd/staticcheck@2025.1.1 ./...
-go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...
+go vet ./...
+cd frontend && pnpm run test && pnpm run build
 ```
 
-React and Wails:
+## Project links
 
-```bash
-cd frontend
-pnpm install --frozen-lockfile
-pnpm run test:coverage
-pnpm run build
-pnpm exec playwright install chromium
-pnpm run test:e2e
-```
+- [AI Agent Kit](docs/ai-agent-kit/README.md): set up an Agent environment step by step
+- [Documentation](docs/): specifications and architecture decisions
+- [Public site repository](https://github.com/MaimoryLab/OneAgent-site)
+- [Issues and feature requests](https://github.com/MaimoryLab/OneAgent/issues)
 
-Documentation:
+## Star History
 
-```bash
-python3 scripts/check-docs.py
-```
-
-Every pull request runs `.github/workflows/ci.yml`: `go vet`, `go test -race`, and
-staticcheck on the Go side; tests, build, and Wails E2E on the frontend side; plus
-documentation and third-party licence checks.
-
-## Releasing
-
-Pushing a stable `vX.Y.Z` tag triggers `.github/workflows/build-artifacts.yml` and publishes
-macOS and Windows OTA archives for amd64 and arm64, two macOS DMGs, two Windows NSIS installers, plus
-`SHA256SUMS`, to the matching GitHub Release. Each macOS archive contains `OneAgent.app`;
-each Windows OTA archive contains `oneagent-desktop.exe`. The workflow can also be run
-manually with a required version.
-
-Wails is still in Alpha, so there is no Stable release, and no platform signing,
-notarization, or store distribution. The signing gate for Stable is deferred to a later
-release stage.
-
-To reproduce an equivalent artifact locally, use the desktop build steps under Quick
-start. Channel labels, the SHA-256 manifest, and third-party notices were once generated
-by `cmd/oneagent-release`; that tool was removed in `23805b0` when the build moved to
-GitHub Actions. Third-party attribution now lives in [NOTICE](NOTICE) at the repository
-root.
-
-## Documentation
-
-`docs/` is layered by audience: current specifications at the root, architecture
-decisions in `decisions/`, and maintainer history in `internal/`.
-
-Outward-facing documentation is written in English. The AI Agent Kit is also available in
-Chinese, and this README has a [Chinese version](README_ZH.md). `docs/internal/` is
-maintainer-facing and stays in Chinese.
-
-**Usage and specifications**
-
-- [AI Agent Kit](docs/ai-agent-kit/README.md): set up an agent environment from scratch
-- [Product boundary baseline](docs/product-boundary-baseline.md): what OneAgent does, what
-  it does not, and why
-- [Distribution and compliance policy](docs/distribution-compliance-policy.md): the
-  rights, security, and channel requirements that precede a release
-- [Public site operations](docs/public-site-operations.md)
-
-**Architecture decisions**
-
-- [decisions/](docs/decisions/): ADR-001 through ADR-009, including superseded decisions
-  and where they went
-- [Wails v3 / Go migration](docs/decisions/ADR-007-wails-v3-go-migration.md)
-- [Per-agent protocol verification](docs/decisions/ADR-004-per-agent-protocol-verification.md)
-- [Credentials in agent config files](docs/decisions/ADR-008-credentials-in-agent-config-files.md)
-
-**Internal records**
-
-- [internal/](docs/internal/README.md): completion records and verification checklists for
-  past work. Commands in there may have stopped working as tools were removed; that
-  directory's README names the current entry points.
+<a href="https://www.star-history.com/?type=date&repos=MaimoryLab%2FOneAgent">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=MaimoryLab/OneAgent&type=date&theme=dark&legend=top-left&sealed_token=84lSKNkgdwfnYMfYU-oYgjwZ_hAFohYbDV5eeoXC_1lQvIsQnaD9EW37_C6-_seReMYRMGKR7G3W_APuS4xO13KlMBwwPHZ-_wtA04c4MxouycuOV7gip89Hd-BFzTAiz1lqDcHOxb7-X6zZRxKElZpRpC-VXe1pWUL8vp_gu9qq9OKkeA-fMShYgEqI" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=MaimoryLab/OneAgent&type=date&legend=top-left&sealed_token=84lSKNkgdwfnYMfYU-oYgjwZ_hAFohYbDV5eeoXC_1lQvIsQnaD9EW37_C6-_seReMYRMGKR7G3W_APuS4xO13KlMBwwPHZ-_wtA04c4MxouycuOV7gip89Hd-BFzTAiz1lqDcHOxb7-X6zZRxKElZpRpC-VXe1pWUL8vp_gu9qq9OKkeA-fMShYgEqI" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=MaimoryLab/OneAgent&type=date&legend=top-left&sealed_token=84lSKNkgdwfnYMfYU-oYgjwZ_hAFohYbDV5eeoXC_1lQvIsQnaD9EW37_C6-_seReMYRMGKR7G3W_APuS4xO13KlMBwwPHZ-_wtA04c4MxouycuOV7gip89Hd-BFzTAiz1lqDcHOxb7-X6zZRxKElZpRpC-VXe1pWUL8vp_gu9qq9OKkeA-fMShYgEqI" />
+ </picture>
+</a>
 
 ## Sponsors
 
-OneAgent's development is supported by:
-
 <p>
-  <a href="https://ppio.com/"><img src="docs/assets/sponsors/ppio-color.png" alt="PPIO" height="48"></a>
+  <a href="https://ppio.com/"><img src="docs/assets/sponsors/ppio-color.png" alt="PPIO" height="40"></a>
   &nbsp;&nbsp;
-  <a href="https://novita.ai/"><img src="docs/assets/sponsors/novita-color.png" alt="Novita" height="48"></a>
+  <a href="https://novita.ai/"><img src="docs/assets/sponsors/novita-color.png" alt="Novita" height="40"></a>
 </p>
 
-Both are also built-in Providers in OneAgent. Sponsorship does not change which
-Provider is recommended or how one is verified: every Provider is probed against
-the protocol its Agent actually speaks, and the built-in list is ordered in
-`providers.lock.json` independently of any commercial relationship. See
-[manifests/providers.lock.json](manifests/providers.lock.json) for each entry's declared
-relationship and disclosure.
-
-## Licence
-
-Apache License 2.0. See [LICENSE](LICENSE).
-
-[NOTICE](NOTICE) lists the third-party components distributed with the binary and their
-licences, along with Node.js, uv, and the agent packages that are downloaded at runtime
-rather than redistributed. Agent marks shown in the interface are nominative use,
-identifying which tool a row refers to. They imply no endorsement or affiliation, and each
-mark belongs to its owner.
+OneAgent is released under the [Apache License 2.0](LICENSE). Third-party notices are listed in [NOTICE](NOTICE).
