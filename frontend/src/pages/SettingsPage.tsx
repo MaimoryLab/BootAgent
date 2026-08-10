@@ -32,7 +32,9 @@ export function SettingsPage() {
       setLatestVersion(latest);
       setUpdateMessage(latest ? t("发现新版本 {version}", { version: latest }) : t("当前已是最新版本"));
     } catch (error) {
-      setUpdateMessage(describeFailure(error, t("检查更新失败"), t).message);
+      // failureLine, not .message: for UPDATE_LOCATION_BLOCKED the hint carries
+      // the instruction, and this single line is the whole report.
+      setUpdateMessage(failureLine(error, t("检查更新失败"), t));
     } finally {
       setChecking(false);
     }

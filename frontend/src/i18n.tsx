@@ -183,6 +183,8 @@ const english = {
   "确认配置文件没有被其他程序占用，以及你对它有写入权限": "Check that the file is not held open by another program and that you can write to it",
   "{message}。{hint}": "{message}. {hint}",
   "下载到的更新包无法安装": "The downloaded update cannot be installed",
+  "OneAgent 无法在当前位置自我更新": "OneAgent cannot update itself where it is installed",
+  "请先把 OneAgent 拖到「应用程序」文件夹，再重新检查更新": "Move OneAgent to the Applications folder, then check for updates again",
   "请到发布页面手动下载新版本安装": "Download and install the new version manually from the releases page",
   // Shown when the probe failed on a model OneAgent picked rather than one the
   // user typed. Without it, a video or image model rejecting a chat request reads

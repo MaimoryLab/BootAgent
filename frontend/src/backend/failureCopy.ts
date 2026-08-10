@@ -91,6 +91,10 @@ export function failureCopyFor(code: string | null | undefined, status: number |
       return { message: t("无法获取模型列表"), hint: t("这个端点不提供模型列表，可以直接手动输入模型 ID") };
     case "CONFIG_WRITE_FAILED":
       return { message: t("无法写入配置文件"), hint: t("确认配置文件没有被其他程序占用，以及你对它有写入权限") };
+    case "UPDATE_LOCATION_BLOCKED":
+      // Withheld at check time on purpose: the swap runs after the app exits, so
+      // this is the last moment anything can tell the user.
+      return { message: t("OneAgent 无法在当前位置自我更新"), hint: t("请先把 OneAgent 拖到「应用程序」文件夹，再重新检查更新") };
     case "UPDATE_NOT_INSTALLABLE":
       // Retrying re-downloads the same asset, so the hint has to send the user
       // somewhere else rather than suggest another attempt.
