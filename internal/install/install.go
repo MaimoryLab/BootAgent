@@ -75,6 +75,17 @@ func managedNPM(runtime Runtime, npm string) bool {
 	return err == nil && relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator))
 }
 
+func NPMEnvironment(runtime Runtime, npm, registry string) map[string]string {
+	environment := map[string]string{}
+	if managedNPM(runtime, npm) {
+		environment["npm_config_prefix"] = GlobalPrefix(runtime.Home)
+	}
+	if registry != "" {
+		environment["npm_config_registry"] = registry
+	}
+	return environment
+}
+
 func ResolveRegistry(value string) (string, error) {
 	official := officialRegistry()
 	if value == "" {

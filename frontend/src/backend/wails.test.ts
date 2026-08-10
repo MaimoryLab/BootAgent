@@ -138,8 +138,8 @@ describe("Wails backend adapter", () => {
     await expect(wailsApi.listProfiles()).resolves.toEqual([profile]);
     await expect(wailsApi.deleteProfile("team")).resolves.toBeUndefined();
     await expect(wailsApi.saveProfile({ id: "team", label: "Team", provider: "ppio", apiBaseUrl: "", apiKey: "secret", model: "m", configMode: "provider" })).resolves.toBe(profile);
-    await expect(wailsApi.readTransferFile("/tmp/import.json")).resolves.toBe("contents");
-    await expect(wailsApi.writeTransferFile("/tmp/export.json", "contents")).resolves.toBeUndefined();
+    await expect(wailsApi.readTransferFile()).resolves.toBe("contents");
+    await expect(wailsApi.writeTransferFile("contents")).resolves.toBeUndefined();
 
     expect(bridge.probe).toHaveBeenCalledWith({ provider: "custom", api_base_url: "https://proxy.test/v1", api_key: "secret", model: "m", agents: null });
     expect(bridge.getProvider).toHaveBeenCalledWith({ id: "acme" });
@@ -155,8 +155,8 @@ describe("Wails backend adapter", () => {
     expect(bridge.desktopConfigure).toHaveBeenCalledWith({ agent_id: "chatgpt-desktop", profile_id: "team" });
     expect(bridge.saveProfile).toHaveBeenCalledWith(expect.objectContaining({ api_base_url: "", api_key: "secret" }));
     expect(bridge.deleteProfile).toHaveBeenCalledWith({ id: "team" });
-    expect(bridge.readTransfer).toHaveBeenCalledWith({ path: "/tmp/import.json" });
-    expect(bridge.writeTransfer).toHaveBeenCalledWith({ path: "/tmp/export.json", data: "contents" });
+    expect(bridge.readTransfer).toHaveBeenCalledWith();
+    expect(bridge.writeTransfer).toHaveBeenCalledWith("contents");
   });
 
   it("restores structured Wails errors without exposing raw bridge details", async () => {

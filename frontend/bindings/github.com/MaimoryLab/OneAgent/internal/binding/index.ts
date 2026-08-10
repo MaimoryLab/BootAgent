@@ -26,7 +26,6 @@ export type {
     AgentInstallResult,
     DesktopAgentProfileRequest,
     DesktopAgentRequest,
-    FilePathRequest,
     InstallRequest,
     InstallResponse,
     InstallRuntimeRequest,
@@ -42,6 +41,5 @@ export type {
     ProviderMutationResponse,
     SaveProfileRequest,
     SaveProviderRequest,
-    UpdateRequest,
-    WriteFileRequest
+    UpdateRequest
 } from "./models.js";

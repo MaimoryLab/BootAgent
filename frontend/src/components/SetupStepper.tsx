@@ -19,16 +19,11 @@ export function SetupStepper() {
   const { t } = useI18n();
   const { pathname } = useLocation();
   const { state } = useWizard();
-  const activeSteps = steps;
-  // The desktop picker is the same first step as the CLI picker. The legacy
-  // desktop URLs are redirected by App, so they never create a second wizard.
-  const current = pathname === "/setup/desktop/agents"
-    ? 1
-    : activeSteps.findIndex((step) => step.path === pathname) + 1;
+  const current = steps.findIndex((step) => step.path === pathname) + 1;
 
   return (
     <ol className="setup-stepper" aria-label={t("激活步骤")}>
-      {activeSteps.map((step, index) => {
+      {steps.map((step, index) => {
         const number = index + 1;
         const skipped = (state.profileStepSkipped && step.path === "/setup/profile")
           || (state.reusedProfile && (step.path === "/setup/provider" || step.path === "/setup/model"));

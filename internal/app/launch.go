@@ -58,6 +58,9 @@ func (u *UseCases) LaunchAgent(ctx context.Context, agentID string, directories 
 		workingDirectory = directories[0]
 	}
 	if workingDirectory != "" {
+		if u.status.Platform.OS == "windows" && strings.ContainsAny(workingDirectory, "\"\r\n") {
+			return LaunchAgentResult{}, oneerrors.New(oneerrors.InvalidRequest, "Invalid launch directory")
+		}
 		info, err := os.Stat(workingDirectory)
 		if err != nil || !info.IsDir() {
 			return LaunchAgentResult{}, oneerrors.New(oneerrors.InvalidRequest, fmt.Sprintf("Invalid launch directory: %s", workingDirectory))
@@ -88,13 +91,13 @@ func (u *UseCases) LaunchAgent(ctx context.Context, agentID string, directories 
 
 func launchInDirectory(osID, directory, line string) string {
 	if osID == "windows" {
-		return `cd /d "` + strings.ReplaceAll(directory, `"`, `\"`) + `" && ` + line
+		return `cd /d "` + directory + `" && ` + line
 	}
 	return "cd " + shellQuote(directory) + " && " + line
 }
 
 func shellQuote(value string) string {
-	return "'" + strings.ReplaceAll(value, "'", "'\\\"'\\\"'") + "'"
+	return "'" + strings.ReplaceAll(value, "'", "'\\''") + "'"
 }
 
 // linuxTerminals lists the emulators to try and how each takes a command. The

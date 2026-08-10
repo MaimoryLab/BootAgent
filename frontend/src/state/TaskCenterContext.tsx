@@ -99,12 +99,8 @@ export interface TaskCenterValue {
   tasks: TaskRecord[];
   /** Byte progress keyed by the backend target for existing progress rows. */
   progress: Record<string, TaskProgress>;
-  /** Compatibility helper for callers that need to drop a stale bar. */
-  resetProgress: (target: string) => void;
   /** Compatibility projection for callers that only need a target presence. */
   running: Record<string, true>;
-  /** Compatibility projection of terminal outcomes keyed by target. */
-  outcomes: Record<string, TaskOutcome>;
   /** Registers a card and returns false when the operation target is locked. */
   startTask: (task: TaskInput | string) => boolean;
   /** Finishes one card. `id` may be a card id or a target for old callers. */
@@ -113,8 +109,6 @@ export interface TaskCenterValue {
   setTaskAction: (id: string, action?: TaskAction) => void;
   setTaskMessage: (id: string, message: string) => void;
   cancelTask: (id: string, message?: string) => void;
-  /** Compatibility removal for a terminal task. */
-  clearOutcome: (id: string) => void;
   dismissTask: (id: string) => void;
   taskFor: (id: string) => TaskRecord | undefined;
   isTaskRunning: (id: string) => boolean;
@@ -123,9 +117,7 @@ export interface TaskCenterValue {
 const TaskCenterContext = createContext<TaskCenterValue>({
   tasks: [],
   progress: {},
-  resetProgress: () => {},
   running: {},
-  outcomes: {},
   // A component rendered outside the provider still performs its operation;
   // it simply cannot display a durable card in that embedding.
   startTask: () => true,
@@ -134,7 +126,6 @@ const TaskCenterContext = createContext<TaskCenterValue>({
   setTaskAction: () => {},
   setTaskMessage: () => {},
   cancelTask: () => {},
-  clearOutcome: () => {},
   dismissTask: () => {},
   taskFor: () => undefined,
   isTaskRunning: () => false,
@@ -250,23 +241,6 @@ export function TaskCenterProvider({ children }: PropsWithChildren) {
     )));
   }, [updateTasks]);
 
-  const resetProgress = useCallback((target: string) => {
-    setProgress((current) => {
-      if (!(target in current)) return current;
-      const next = { ...current };
-      delete next[target];
-      return next;
-    });
-    updateTasks((current) => current.map((task) => (
-      task.progressTarget === target || task.target === target
-        ? (() => {
-            const { progress: _progress, ...withoutProgress } = task;
-            return withoutProgress as TaskRecord;
-          })()
-        : task
-    )));
-  }, [updateTasks]);
-
   const finishTask = useCallback((id: string, outcome: TaskOutcome) => {
     const hasExactID = tasksRef.current.some((task) => task.id === id);
     const matches = (task: TaskRecord) => (hasExactID ? task.id === id : task.target === id) && task.state === "running";
@@ -322,19 +296,6 @@ export function TaskCenterProvider({ children }: PropsWithChildren) {
     }
   }, [updateTasks]);
 
-  const clearOutcome = useCallback((id: string) => {
-    for (const task of tasksRef.current) {
-      if (task.state !== "running" && (task.id === id || task.target === id)) {
-        cancellersRef.current.delete(task.id);
-        pendingCancelsRef.current.delete(task.id);
-      }
-    }
-    updateTasks((current) => current.filter((task) => {
-      if (task.state === "running") return true;
-      return task.id !== id && task.target !== id;
-    }));
-  }, [updateTasks]);
-
   const dismissTask = useCallback((id: string) => {
     cancellersRef.current.delete(id);
     pendingCancelsRef.current.delete(id);
@@ -356,17 +317,9 @@ export function TaskCenterProvider({ children }: PropsWithChildren) {
     return result;
   }, [tasks]);
 
-  const outcomes = useMemo<Record<string, TaskOutcome>>(() => {
-    const result: Record<string, TaskOutcome> = {};
-    for (const task of tasks) {
-      if (task.state !== "running") result[task.target] = { kind: task.state, message: task.message || "" };
-    }
-    return result;
-  }, [tasks]);
-
   const value = useMemo<TaskCenterValue>(
-    () => ({ tasks, progress, resetProgress, running, outcomes, startTask, finishTask, setTaskCanceller, setTaskAction, setTaskMessage, cancelTask, clearOutcome, dismissTask, taskFor, isTaskRunning }),
-    [cancelTask, clearOutcome, dismissTask, finishTask, isTaskRunning, outcomes, progress, resetProgress, running, setTaskAction, setTaskCanceller, setTaskMessage, startTask, taskFor, tasks],
+    () => ({ tasks, progress, running, startTask, finishTask, setTaskCanceller, setTaskAction, setTaskMessage, cancelTask, dismissTask, taskFor, isTaskRunning }),
+    [cancelTask, dismissTask, finishTask, isTaskRunning, progress, running, setTaskAction, setTaskCanceller, setTaskMessage, startTask, taskFor, tasks],
   );
   return <TaskCenterContext.Provider value={value}>{children}</TaskCenterContext.Provider>;
 }

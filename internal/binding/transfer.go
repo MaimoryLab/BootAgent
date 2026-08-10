@@ -3,29 +3,38 @@ package binding
 import (
 	"context"
 	"os"
-	"strings"
+	"runtime"
 
 	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
+	"github.com/MaimoryLab/OneAgent/internal/securefs"
 )
 
-type TransferService struct{}
-
-type FilePathRequest struct {
-	Path string `json:"path"`
+type TransferService struct {
+	openFile func() (string, error)
+	saveFile func() (string, error)
 }
 
-type WriteFileRequest struct {
-	Path string `json:"path"`
-	Data string `json:"data"`
+func (s *TransferService) selectImport() (string, error) {
+	if s.openFile != nil {
+		return s.openFile()
+	}
+	return selectImportFile()
 }
 
-func (s *TransferService) Read(ctx context.Context, request FilePathRequest) (string, error) {
+func (s *TransferService) selectExport() (string, error) {
+	if s.saveFile != nil {
+		return s.saveFile()
+	}
+	return selectExportFile()
+}
+
+func (s *TransferService) Read(ctx context.Context) (string, error) {
 	if err := contextError(ctx); err != nil {
 		return "", err
 	}
-	path := strings.TrimSpace(request.Path)
-	if path == "" {
-		return "", oneerrors.New(oneerrors.InvalidRequest, "file path is required")
+	path, err := s.selectImport()
+	if err != nil || path == "" {
+		return "", oneerrors.New(oneerrors.InvalidRequest, "file selection cancelled")
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -34,19 +43,17 @@ func (s *TransferService) Read(ctx context.Context, request FilePathRequest) (st
 	return string(data), nil
 }
 
-func (s *TransferService) Write(ctx context.Context, request WriteFileRequest) error {
+func (s *TransferService) Write(ctx context.Context, data string) error {
 	if err := contextError(ctx); err != nil {
 		return err
 	}
-	path := strings.TrimSpace(request.Path)
-	if path == "" {
-		return oneerrors.New(oneerrors.InvalidRequest, "file path is required")
+	path, err := s.selectExport()
+	if err != nil || path == "" {
+		return oneerrors.New(oneerrors.InvalidRequest, "file selection cancelled")
 	}
-	if err := os.WriteFile(path, []byte(request.Data), 0o600); err != nil {
+	filesystem := securefs.New(securefs.Options{OS: runtime.GOOS})
+	if _, err := filesystem.AtomicWrite(ctx, path, []byte(data), false); err != nil {
 		return oneerrors.New(oneerrors.ConfigWriteFailed, "Cannot write export file", oneerrors.WithCause(err))
-	}
-	if err := os.Chmod(path, 0o600); err != nil {
-		return oneerrors.New(oneerrors.ConfigWriteFailed, "Cannot secure export file", oneerrors.WithCause(err))
 	}
 	return nil
 }

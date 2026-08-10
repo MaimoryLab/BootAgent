@@ -5,14 +5,10 @@
 // @ts-ignore: Unused imports
 import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wailsio/runtime";
 
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore: Unused imports
-import * as $models from "./models.js";
-
-export function Read(request: $models.FilePathRequest): $CancellablePromise<string> {
-    return $Call.ByID(3148699519, request);
+export function Read(): $CancellablePromise<string> {
+    return $Call.ByID(3148699519);
 }
 
-export function Write(request: $models.WriteFileRequest): $CancellablePromise<void> {
-    return $Call.ByID(3458483966, request);
+export function Write(data: string): $CancellablePromise<void> {
+    return $Call.ByID(3458483966, data);
 }
