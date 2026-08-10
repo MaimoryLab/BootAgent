@@ -214,6 +214,7 @@ describe("ProvidersPage", () => {
     });
     renderPage({ codex: null });
     fireEvent.click(screen.getByRole("button", { name: "新增模型服务" }));
+    expect(screen.queryByText("编辑 provider")).toBeNull();
     fireEvent.change(screen.getByLabelText("模型服务 ID"), { target: { value: "acme" } });
     fireEvent.change(screen.getByLabelText("名称"), { target: { value: "Acme" } });
     fireEvent.change(screen.getByLabelText("OpenAI 兼容 Base URL"), { target: { value: "https://api.acme.test" } });

@@ -1,161 +1,89 @@
-# OneAgent
+<div align="center">
+  <img src="build/appicon.png" alt="OneAgent" width="96">
+  <h1>OneAgent</h1>
+  <p>在一个地方安装、配置并维护你的 AI 编程 Agent。</p>
+  <p>
+    <a href="https://github.com/MaimoryLab/OneAgent/releases/latest"><img src="https://img.shields.io/github/v/release/MaimoryLab/OneAgent?display_name=tag&sort=semver" alt="最新版本"></a>
+    <a href="https://github.com/MaimoryLab/OneAgent/actions/workflows/ci.yml"><img src="https://github.com/MaimoryLab/OneAgent/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+    <a href="https://github.com/MaimoryLab/OneAgent/stargazers"><img src="https://img.shields.io/github/stars/MaimoryLab/OneAgent?style=flat" alt="GitHub Stars"></a>
+    <a href="LICENSE"><img src="https://img.shields.io/github/license/MaimoryLab/OneAgent" alt="许可证"></a>
+  </p>
+  <p><a href="README.md">English</a></p>
+</div>
 
-[English](README.md) · **简体中文**
+OneAgent 是一个本地桌面工作台，用来统一管理 AI 编程 Agent。它把检测、安装、模型服务配置和日常维护放进一条清晰的流程，不必再手动修改多个工具各自的配置文件。
 
-OneAgent 是一个本地 AI 开发环境激活器。React 向导通过 Wails v3 binding 检测 Agent、安装最新版本、探测 Provider、合并配置、创建备份并收紧权限；生产进程不监听业务 TCP 端口。
+## 核心能力
 
-OneAgent 不重新分发 Agent 包，也不捆绑 Node.js、系统 WebView、Git 或 API Key。缺少运行前置条件时返回明确错误和官方安装指引。
+- 检测、安装、更新并启动支持的 CLI 和桌面 Agent。
+- 连接内置或自定义模型服务（Provider），选择模型，并按 Agent 实际协议检查连接。
+- 保存可复用的配置模版（Profile），一键应用到对应 Agent。
+- 按需准备 Node.js、uv，以及 Aider 所需的托管 Python 运行时。
+- 长时间安装任务在任务中心持续可见，并且可以取消。
+- 导入和导出 Provider、Profile；默认不导出 API Key，也支持密码加密导出。
+- 创建备份、原子写入，并将凭据保存在本机私有存储中。
+- 检查 OneAgent 更新，并通过内置更新器安装发行包。
 
-## 当前状态
+## 支持的 Agent
 
-当前版本为 `0.3.0-dev`，Wails 仍处于 Alpha，因此发布渠道只能是 `technical-preview-unsigned`。
+| CLI Agent | 桌面 Agent |
+| --- | --- |
+| Codex · Claude Code | ChatGPT Desktop（macOS/Windows） |
+| Kilo CLI · Aider· OpenCode | WorkBuddy（macOS/Windows） |
+| Hermes Agent · OpenClaw | |
 
-Python 迁移已经完成：受版本控制的旧实现、测试、PyInstaller/wheel 打包链路均已删除；构建、测试、运行和发布只需要 Go、Node、pnpm 11.17.0（构建前端）及目标平台 WebView。安装 Aider 需要 Python 3.12，但不再要求本机预装——`uv` 自己解析解释器，本机有匹配版本就复用，否则下载一份托管 CPython 到 `~/.oneagent/runtimes/python`。Python 不进发行包。
+内置 PPIO 和 Novita，也可以在模型服务页面添加任意 OpenAI 兼容或 Anthropic 兼容服务。OneAgent 会按 Agent 真正使用的协议探测；如果端点只支持另一种 API，会在写入配置前拒绝它。
 
-## 架构
+## 下载
+
+从 [GitHub Releases](https://github.com/MaimoryLab/OneAgent/releases/latest) 下载最新的 macOS 或 Windows 安装包。发行包附带 SHA-256 校验文件。Wails 仍处于 Alpha，当前发布渠道为 `technical-preview-unsigned`，暂不提供平台签名和公证。
+
+OneAgent 不重新分发 Agent 包，也不捆绑 Node.js、Git、WebView 或 API Key。缺少前置条件时，应用会给出明确错误和官方安装指引。
+
+## 从源码构建
+
+需要 Go、Node.js、pnpm 11.20.0，以及目标平台的 WebView 依赖。
 
 ```text
-React + TypeScript + Vite
-          |
-          | generated Wails bindings
-          v
-Status / Provider / Agent / Profile services
-          |
-          v
-      Go application use cases
-          |
-  catalog / provider / install / config / profile / securefs
-```
-
-公开站不在这张图里，也不在这个仓库里：它已迁出到
-[MaimoryLab/OneAgent-site](https://github.com/MaimoryLab/OneAgent-site)。它从
-GitHub Releases API 读取下载信息，并把 `agents.lock.json`、`providers.lock.json`
-vendor 到自己仓库，从发行 tag 刷新——改本仓库这两个文件不会自动改变站上内容，也不应该：站描述的是已发布版本支持什么。
-
-- `cmd/oneagent-desktop`：Wails 桌面入口。
-- `internal/`：Go 应用核心。
-- `frontend/`：React 应用；发行包只携带构建后的静态资源。
-- `agents.lock.json`：Agent 包名、来源、配置适配器和许可证的唯一清单；不固定 Agent 版本或包哈希。
-- `providers.lock.json`：内置 Provider 端点、fallback probe model 和公开站披露字段清单；用户 Provider 保存在本机 `~/.oneagent/providers.json`。
-
-## 快速启动
-
-### 桌面应用
-
-```bash
-cd frontend
-pnpm install --frozen-lockfile
-pnpm run build
-cd ..
+git clone https://github.com/MaimoryLab/OneAgent.git
+cd OneAgent
+cd frontend && pnpm install --frozen-lockfile && pnpm run build && cd ..
 go run -tags wails ./cmd/oneagent-desktop
 ```
 
-生产构建需要目标平台的 Wails/WebView 依赖。Linux 当前使用 `gtk3` tag（Ubuntu 22.04 cleanroom）；macOS 使用系统 WKWebView；Windows 使用 WebView2 Runtime。
+日常开发可安装 [Task](https://taskfile.dev/) 后运行 `task dev`。常用检查：
 
-## Agent 与 Provider
-
-自动配置 Agent：
-
-| Agent | 包 | 安装器 | 协议 |
-| --- | --- | --- | --- |
-| Codex | `@openai/codex` | npm | Responses |
-| Claude Code | `@anthropic-ai/claude-code` | npm | Anthropic Messages |
-| OpenCode | `opencode-ai` | npm | OpenAI-compatible |
-| Kilo CLI | `@kilocode/cli` | npm | OpenAI-compatible |
-| Aider | `aider-chat` | uv tool | OpenAI-compatible |
-| OpenClaw | `openclaw` | npm | OpenAI-compatible |
-| Hermes Agent | `hermes-agent` | 官方 Bash / PowerShell 脚本 | OpenAI-compatible |
-
-npm 和 uv 管理的 Agent 默认解析最新版本。Hermes 的版本选择由官方脚本负责。
-
-OpenClaw 是网关，OneAgent 对它的职责止于模型供应商：安装包，并把 provider 与默认模型写入 `~/.openclaw/openclaw.json`，不改动 `channels`、`tools` 等其余任何小节。启动网关、注册为系统服务、配对聊天渠道仍由 OpenClaw 自己的命令负责，配置完成后运行 `openclaw onboard`。OneAgent 不启动后台服务。
-
-Hermes 激活时，OneAgent 先安全写入模型配置，再打开新的 Bash 或 PowerShell 窗口运行 Hermes 官方安装脚本。官方 setup 阶段会跳过，避免重复询问已经在 OneAgent 中完成的 Provider 和模型设置。
-
-内置 PPIO、Novita，并支持在 Provider 页面增删改用户 Provider。配置后按 Agent 实际协议探测：Codex 使用 `/v1/responses`，Claude Code 使用 `/v1/messages`，其余自动配置 Agent 使用 `/v1/chat/completions`。协议不兼容时返回 `PROTOCOL_UNSUPPORTED`，不会先写入不可用配置。
-
-Aider 的安装命令由 Go 后端固定为 `uv tool install --force --python 3.12 ...`，由 uv 复用或提供匹配的 Python。这条路径只在选择 Aider 时执行；缺少 `uv` 会返回 `PREREQUISITE_MISSING`。
-
-## 开发与测试
-
-Go 核心：
-
-```bash
-go vet ./...
+```text
 go test ./...
 go test -race ./...
-go run honnef.co/go/tools/cmd/staticcheck@2025.1.1 ./...
-go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...
+go vet ./...
+cd frontend && pnpm run test && pnpm run build
 ```
 
-React/Wails 测试：
+## 项目链接
 
-```bash
-cd frontend
-pnpm install --frozen-lockfile
-pnpm run test:coverage
-pnpm run build
-pnpm exec playwright install chromium
-pnpm run test:e2e
-```
+- [AI Agent Kit](docs/ai-agent-kit/zh/README.md)：从零配置 Agent 环境
+- [文档](docs/)：规范与架构决策
+- [公开站仓库](https://github.com/MaimoryLab/OneAgent-site)
+- [Issues 与功能请求](https://github.com/MaimoryLab/OneAgent/issues)
 
-文档：
+## Star History
 
-```bash
-python3 scripts/check-docs.py
-```
-
-每个 pull request 都会运行 `.github/workflows/ci.yml`：Go 侧是 `go vet` 加 `go test -race`，前端侧是 `pnpm run test` 加 `pnpm run build`，另有文档链接与语言检查。
-
-## 发行
-
-发行包由 `.github/workflows/build-artifacts.yml` 构建，手动触发（`workflow_dispatch`）。它为 macOS 与 Windows 各构建 x64/arm64 的 Wails 桌面应用，macOS 产物打成 `.app` 和 DMG，Windows 额外生成两个 NSIS 安装包。
-
-Wails 仍处于 Alpha，当前不发布 Stable，不做平台签名、公证或商店分发。Stable 的签名门禁保留在后续发行阶段。
-
-本机要复现一份等价产物，见「快速启动」里的桌面构建步骤；发行渠道标签、SHA-256 清单和第三方 notices 曾由 `cmd/oneagent-release` 生成，该工具已于 `23805b0` 随构建流程迁移到 GitHub Actions 而移除。第三方归属现在维护在仓库根的 [NOTICE](NOTICE)。
-
-## 文档
-
-`docs/` 按受众分三层：根下是当前有效的规范，`decisions/` 是架构决策，`internal/` 是维护者视角的历史记录。
-
-对外文档以英文撰写。AI Agent Kit 另有中文版，本 README 也有[英文版](README.md)。`docs/internal/` 面向维护者，保持中文。
-
-**使用与规范**
-
-- [AI Agent Kit](docs/ai-agent-kit/zh/README.md)：从零配置一个 Agent 环境
-- [产品边界基线](docs/product-boundary-baseline.md)：做什么、不做什么，以及为什么（英文）
-- [分发与合规政策](docs/distribution-compliance-policy.md)：发行前的权利、安全与渠道要求（英文）
-- [公开站运营手册](docs/public-site-operations.md)（英文）
-
-**架构决策**
-
-- [decisions/](docs/decisions/)：ADR-001 至 ADR-009，含已被取代的决策及其去向（英文）
-- [Wails v3 / Go 迁移](docs/decisions/ADR-007-wails-v3-go-migration.md)
-- [按 Agent 协议验证](docs/decisions/ADR-004-per-agent-protocol-verification.md)
-- [凭据写入 Agent 配置文件](docs/decisions/ADR-008-credentials-in-agent-config-files.md)
-
-**内部实现记录**
-
-- [internal/](docs/internal/README.md)：各次改造的完工记录与验证清单。里面的命令可能已随工具移除而失效，该目录的 README 说明了当前的替代入口。
+<a href="https://www.star-history.com/?type=date&repos=MaimoryLab%2FOneAgent">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=MaimoryLab/OneAgent&type=date&theme=dark&legend=top-left&sealed_token=84lSKNkgdwfnYMfYU-oYgjwZ_hAFohYbDV5eeoXC_1lQvIsQnaD9EW37_C6-_seReMYRMGKR7G3W_APuS4xO13KlMBwwPHZ-_wtA04c4MxouycuOV7gip89Hd-BFzTAiz1lqDcHOxb7-X6zZRxKElZpRpC-VXe1pWUL8vp_gu9qq9OKkeA-fMShYgEqI" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=MaimoryLab/OneAgent&type=date&legend=top-left&sealed_token=84lSKNkgdwfnYMfYU-oYgjwZ_hAFohYbDV5eeoXC_1lQvIsQnaD9EW37_C6-_seReMYRMGKR7G3W_APuS4xO13KlMBwwPHZ-_wtA04c4MxouycuOV7gip89Hd-BFzTAiz1lqDcHOxb7-X6zZRxKElZpRpC-VXe1pWUL8vp_gu9qq9OKkeA-fMShYgEqI" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=MaimoryLab/OneAgent&type=date&legend=top-left&sealed_token=84lSKNkgdwfnYMfYU-oYgjwZ_hAFohYbDV5eeoXC_1lQvIsQnaD9EW37_C6-_seReMYRMGKR7G3W_APuS4xO13KlMBwwPHZ-_wtA04c4MxouycuOV7gip89Hd-BFzTAiz1lqDcHOxb7-X6zZRxKElZpRpC-VXe1pWUL8vp_gu9qq9OKkeA-fMShYgEqI" />
+ </picture>
+</a>
+</div>
 
 ## 赞助
 
-OneAgent 的开发由以下机构支持：
-
 <p>
-  <a href="https://ppio.com/"><img src="docs/assets/sponsors/ppio-color.png" alt="PPIO" height="48"></a>
+  <a href="https://ppio.com/"><img src="docs/assets/sponsors/ppio-color.png" alt="PPIO" height="40"></a>
   &nbsp;&nbsp;
-  <a href="https://novita.ai/"><img src="docs/assets/sponsors/novita-color.png" alt="Novita" height="48"></a>
+  <a href="https://novita.ai/"><img src="docs/assets/sponsors/novita-color.png" alt="Novita" height="40"></a>
 </p>
 
-两者同时也是 OneAgent 的内置 Provider。赞助关系不改变推荐哪个 Provider、也不改变
-如何验证它：每个 Provider 都按其 Agent 实际使用的协议探测，内置列表的顺序在
-`providers.lock.json` 里独立定义，与商业关系无关。各条目声明的关系与披露见
-[manifests/providers.lock.json](manifests/providers.lock.json)。
-
-## 许可证
-
-Apache License 2.0，见 [LICENSE](LICENSE)。
-
-[NOTICE](NOTICE) 列出随二进制分发的第三方组件及其许可证，以及运行时下载但不再分发的 Node.js、uv 和 Agent 包。界面中显示的各 Agent 官方标识属于 nominative use，用于指明某一行对应哪个工具，不表示背书或关联，商标归各自所有者。
+OneAgent 以 [Apache License 2.0](LICENSE) 发布，第三方归属见 [NOTICE](NOTICE)。

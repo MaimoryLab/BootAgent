@@ -3,10 +3,10 @@ package app
 import (
 	"context"
 	"strings"
-	"time"
 
 	"github.com/MaimoryLab/OneAgent/internal/catalog"
 	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
+	"github.com/MaimoryLab/OneAgent/internal/install"
 	"github.com/MaimoryLab/OneAgent/internal/process"
 )
 
@@ -55,7 +55,11 @@ func (u *UseCases) UpdateAgent(ctx context.Context, agentID string, listeners ..
 		}
 	}
 	args := []string{npm, "update", "-g", agent.Package.Name}
-	if _, err := runtime.Runner.Run(ctx, args, runtime.Env, 180*time.Second); err != nil {
+	registry := u.packageRegistry(ctx, "")
+	if registry != "" {
+		args = append(args, "--registry="+registry)
+	}
+	if _, err := runtime.Run(ctx, args, install.NPMEnvironment(runtime, npm, registry), install.DefaultCommandTimeout); err != nil {
 		return AgentUpdateResult{}, oneerrors.New(oneerrors.InternalError, "Unable to update "+agent.Name, oneerrors.WithStatus(500), oneerrors.WithRetryable(true), oneerrors.WithCause(err))
 	}
 	return AgentUpdateResult{Agent: agentID, Package: agent.Package.Name, Command: strings.Join(args, " ")}, nil

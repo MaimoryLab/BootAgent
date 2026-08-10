@@ -44,7 +44,7 @@ type Result struct {
 // meaning: "command" uses Args, "output" uses Stream and Text, and "progress"
 // uses Target, Received and Total.
 type Output struct {
-	Kind   string   `json:"kind"`
+	Kind string `json:"kind"`
 	// Agent identifies the install request that produced command/output events.
 	// Progress keeps Target for runtime downloads and uses Agent for ownership.
 	Agent  string   `json:"agent,omitempty"`
@@ -170,10 +170,7 @@ func (r *stallReader) watch() func() {
 	done := make(chan struct{})
 	// Checking several times per stall window keeps the overshoot small without
 	// making the poll itself noticeable.
-	interval := r.timeout / 4
-	if interval < 50*time.Millisecond {
-		interval = 50 * time.Millisecond
-	}
+	interval := max(r.timeout/4, 50*time.Millisecond)
 	go func() {
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
@@ -523,10 +520,7 @@ func watchForStall(ctx context.Context, activity *activityClock, timeout time.Du
 	if timeout <= 0 {
 		return watch
 	}
-	interval := timeout / 4
-	if interval < 50*time.Millisecond {
-		interval = 50 * time.Millisecond
-	}
+	interval := max(timeout/4, 50*time.Millisecond)
 	go func() {
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()

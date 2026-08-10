@@ -106,6 +106,7 @@ export const wailsApi = {
   // No URL argument: the backend owns it, so a tampered renderer cannot choose
   // what gets opened in the user's browser.
   openHelp: (): Promise<void> => call(() => ProviderService.OpenHelp()).then(() => undefined),
+  openGitHub: (): Promise<void> => call(() => ProviderService.OpenGitHub()).then(() => undefined),
   downloadUpdate: (): CancellableRequest<void> => call(() => UpdateService.DownloadAndInstall()) as CancellableRequest<void>,
   restartUpdate: (): Promise<void> => call(() => UpdateService.Restart()).then(() => undefined),
   desktopAgentStatus: (agentId: string): Promise<DesktopAgentStatus> =>
@@ -184,8 +185,8 @@ export const wailsApi = {
   getSettings: (): Promise<Settings> => call(() => RuntimeService.GetSettings()) as Promise<Settings>,
   saveSettings: (settings: Settings): Promise<Settings> =>
     call(() => RuntimeService.SaveSettings(settings)) as Promise<Settings>,
-  readTransferFile: (path: string): Promise<string> => call(() => TransferService.Read({ path })) as Promise<string>,
-  writeTransferFile: (path: string, data: string): Promise<void> => call(() => TransferService.Write({ path, data })).then(() => undefined),
+  readTransferFile: (): Promise<string> => call(() => TransferService.Read()) as Promise<string>,
+  writeTransferFile: (data: string): Promise<void> => call(() => TransferService.Write(data)).then(() => undefined),
   listProfiles: (): Promise<ProfileSummary[]> => call(() => ProfileService.ListProfiles()) as Promise<ProfileSummary[]>,
   deleteProfile: (id: string): Promise<void> =>
     call(() => ProfileService.DeleteProfile({ id })).then(() => undefined),

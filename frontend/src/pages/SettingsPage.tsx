@@ -1,5 +1,6 @@
 import { BookOpen, ChevronRight, ExternalLink, Import, Languages, RefreshCw } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { api, describeFailure, failureLine } from "../backend/api";
@@ -7,6 +8,7 @@ import { OTA_PROGRESS_TARGET } from "../backend/wails";
 import { PageScaffold } from "../components/PageScaffold";
 import { SelectField } from "../components/SelectField";
 import { ThemePicker } from "../components/ThemePicker";
+import { GitHubMark } from "../components/icons/GitHubMark";
 import { useI18n } from "../i18n";
 import { taskCanceller, taskKey, updateTaskRoute, useTaskCenter } from "../state/TaskCenterContext";
 
@@ -36,15 +38,6 @@ export function SettingsPage() {
     }
   };
 
-  const openHelp = async () => {
-    setHelpFailure("");
-    try {
-      await api.openHelp();
-    } catch (error) {
-      setHelpFailure(describeFailure(error, t("无法打开帮助文档"), t).message);
-    }
-  };
-
   const installUpdate = async () => {
     if (!latestVersion) return;
     const taskID = taskKey("update", OTA_PROGRESS_TARGET);
@@ -61,8 +54,44 @@ export function SettingsPage() {
     }
   };
 
+  const openHelp = async () => {
+    setHelpFailure("");
+    try {
+      await api.openHelp();
+    } catch (error) {
+      setHelpFailure(describeFailure(error, t("无法打开帮助文档"), t).message);
+    }
+  };
+
+  const openGitHub = async () => {
+    setHelpFailure("");
+    try {
+      await api.openGitHub();
+    } catch (error) {
+      setHelpFailure(describeFailure(error, t("无法打开 GitHub"), t).message);
+    }
+  };
   return (
-    <PageScaffold title={t("设置")} description={t("管理界面偏好与配置迁移")} bodyClassName="settings-page">
+    <PageScaffold
+      title={t("设置")}
+      description={t("管理界面偏好与配置迁移")}
+      bodyClassName="settings-page"
+      footerNote={(
+        <div className="settings-footer-content" aria-label={t("关于")}>
+          <div className="settings-about-meta"><span>{t("版本")} {version}</span><span>{"(c) 2026 MaimoryLab"}</span></div>
+          {updateMessage ? <small className="settings-update-message" role="status">{updateMessage}</small> : null}
+        </div>
+      )}
+      secondaryAction={(
+        <>
+          <button className="button button-secondary" type="button" onClick={() => void checkUpdate()} disabled={checking}>
+            <RefreshCw size={15} aria-hidden="true" className={checking ? "spin" : undefined} />
+            {checking ? t("正在检查") : t("检查更新")}
+          </button>
+          {latestVersion ? <button className="button button-primary" type="button" onClick={() => void installUpdate()}>{t("立即更新")}</button> : null}
+        </>
+      )}
+    >
       <section className="settings-section">
         <h2>{t("界面")}</h2>
         <div className="settings-row"><ThemePicker /></div>
@@ -96,15 +125,12 @@ export function SettingsPage() {
           <span><strong>{t("帮助文档")}</strong><small>{t("安装、切换模型、备份回退与常见问题")}</small></span>
           <ExternalLink size={15} aria-hidden="true" />
         </button>
-        {helpFailure ? <p className="agent-manage-error">{helpFailure}</p> : null}
-      </section>
-      <section className="settings-about" aria-label={t("关于")}>
-        <div className="settings-about-meta"><span>{t("版本")} {version}</span><span>{"(c) 2026 MaimoryLab"}</span></div>
-        <button className="button button-secondary" type="button" onClick={() => void checkUpdate()} disabled={checking}>
-          <RefreshCw size={15} aria-hidden="true" className={checking ? "spin" : undefined} />
-          {checking ? t("正在检查") : t("检查更新")}
+        <button className="settings-link" type="button" onClick={() => void openGitHub()}>
+          <GitHubMark size={18} />
+          <span><strong>{t("Star 支持 OneAgent")}</strong><small>{t("如果 OneAgent 对你有帮助，欢迎在 GitHub 点个 Star")}</small></span>
+          <ExternalLink size={15} aria-hidden="true" />
         </button>
-        {updateMessage ? <div className="settings-update-message" role="status"><small>{updateMessage}</small>{latestVersion ? <button className="button button-primary button-compact" type="button" onClick={() => void installUpdate()}>{t("立即更新")}</button> : null}</div> : null}
+        {helpFailure ? <p className="agent-manage-error">{helpFailure}</p> : null}
       </section>
     </PageScaffold>
   );

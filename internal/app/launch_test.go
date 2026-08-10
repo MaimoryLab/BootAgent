@@ -106,6 +106,20 @@ func TestLaunchAgentChangesWorkingDirectory(t *testing.T) {
 	}
 }
 
+func TestLaunchAgentRejectsQuotedWindowsDirectory(t *testing.T) {
+	runner := &launchRunner{}
+	core := launchCore(t, "windows", runner)
+	if _, err := core.LaunchAgent(context.Background(), "codex", `C:\bad" & whoami`); err == nil {
+		t.Fatal("quoted Windows directory was accepted")
+	}
+}
+
+func TestLaunchDirectoryQuotesShellMetacharacters(t *testing.T) {
+	if got := shellQuote("a'b"); got != `'a'\''b'` {
+		t.Fatalf("shell quote = %q", got)
+	}
+}
+
 func TestOfficialInstallerUsesPowerShellOnWindows(t *testing.T) {
 	runner := &launchRunner{}
 	core := launchCore(t, "windows", runner)

@@ -241,8 +241,8 @@ func TestOSRunnerLookPathCanBeInjected(t *testing.T) {
 }
 
 func TestMacOSBundleRestoresLoginShellPath(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("test helper is a POSIX shell script")
+	if runtime.GOOS != "darwin" {
+		t.Skip("macOS login-shell behavior is platform-specific")
 	}
 	if !macOSBundleExecutable("/Applications/OneAgent.app/Contents/MacOS/oneagent-desktop") || macOSBundleExecutable("/tmp/oneagent-desktop") {
 		t.Fatal("macOS bundle executable detection is incorrect")

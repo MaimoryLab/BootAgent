@@ -73,6 +73,12 @@ func (r Runtime) command(ctx context.Context, argv []string, env map[string]stri
 	return result, err
 }
 
+// Run keeps callers that need a package-manager-specific command on the same
+// environment, output, and timeout path as installation.
+func (r Runtime) Run(ctx context.Context, argv []string, env map[string]string, timeout time.Duration) (process.Result, error) {
+	return r.command(ctx, argv, env, timeout)
+}
+
 func (r Runtime) timeout(value time.Duration) time.Duration {
 	if value > 0 {
 		return value

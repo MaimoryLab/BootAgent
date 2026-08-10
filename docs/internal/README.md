@@ -27,7 +27,7 @@
 **当前可运行的验证入口只有两处**：`.github/workflows/ci.yml`（每个 PR 自动跑
 `go vet`、`go test -race`、前端 test 和 build），以及
 `.github/workflows/build-artifacts.yml`（手动触发的发行构建）。本地命令见
-[CLAUDE.md](../../CLAUDE.md)。
+[AGENTS.md](../../AGENTS.md)。
 
 ## 目录
 
