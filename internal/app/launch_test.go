@@ -114,6 +114,12 @@ func TestLaunchAgentRejectsQuotedWindowsDirectory(t *testing.T) {
 	}
 }
 
+func TestLaunchDirectoryQuotesShellMetacharacters(t *testing.T) {
+	if got := shellQuote("a'b"); got != `'a'\''b'` {
+		t.Fatalf("shell quote = %q", got)
+	}
+}
+
 func TestOfficialInstallerUsesPowerShellOnWindows(t *testing.T) {
 	runner := &launchRunner{}
 	core := launchCore(t, "windows", runner)

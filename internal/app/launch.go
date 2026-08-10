@@ -97,7 +97,7 @@ func launchInDirectory(osID, directory, line string) string {
 }
 
 func shellQuote(value string) string {
-	return "'" + strings.ReplaceAll(value, "'", "'\\\"'\\\"'") + "'"
+	return "'" + strings.ReplaceAll(value, "'", "'\\''") + "'"
 }
 
 // linuxTerminals lists the emulators to try and how each takes a command. The
