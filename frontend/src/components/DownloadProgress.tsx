@@ -13,7 +13,7 @@ function megabytes(bytes: number): string {
  * A download whose server sent no Content-Length gets an indeterminate bar
  * rather than a percentage computed from a zero total.
  */
-export function DownloadProgress({ target, pending = false }: { target: string; pending?: boolean }) {
+export function DownloadProgress({ target, pending = false, showSize = true }: { target: string; pending?: boolean; showSize?: boolean }) {
   const { t } = useI18n();
   const { progress, running } = useTaskCenter();
   const current = progress[target];
@@ -40,7 +40,7 @@ export function DownloadProgress({ target, pending = false }: { target: string; 
       >
         <span className="download-progress-fill" style={known ? { width: `${percent}%` } : undefined} />
       </div>
-      <small>
+      {showSize ? <small>
         {known
           ? t("已下载 {done} MB / {total} MB（{percent}%）", {
               done: megabytes(received),
@@ -48,7 +48,7 @@ export function DownloadProgress({ target, pending = false }: { target: string; 
               percent,
             })
           : t("已下载 {done} MB", { done: megabytes(received) })}
-      </small>
+      </small> : null}
     </div>
   );
 }

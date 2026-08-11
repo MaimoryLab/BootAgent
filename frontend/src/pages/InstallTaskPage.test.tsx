@@ -5,9 +5,11 @@ import { describe, expect, it, vi } from "vitest";
 // No I18nProvider, so translate() returns the Chinese keys unchanged.
 import { InstallTaskPage } from "./InstallTaskPage";
 
+const mockUseTaskCenter = vi.hoisted(() => vi.fn(() => ({ tasks: [], cancelTask: vi.fn(), dismissTask: vi.fn(), progress: {}, running: {} })));
+
 vi.mock("../state/TaskCenterContext", async (importOriginal) => ({
   ...await importOriginal<typeof import("../state/TaskCenterContext")>(),
-  useTaskCenter: () => ({ tasks: [], cancelTask: vi.fn(), dismissTask: vi.fn(), progress: {}, running: false }),
+  useTaskCenter: mockUseTaskCenter,
 }));
 
 describe("InstallTaskPage without a matching task", () => {
@@ -26,5 +28,36 @@ describe("InstallTaskPage without a matching task", () => {
     expect(screen.getByText("暂无任务")).toBeTruthy();
     expect(screen.getByText(/安装结果请在环境总览中查看/)).toBeTruthy();
     expect(screen.getByRole("button", { name: "进入总览" })).toBeTruthy();
+  });
+});
+
+describe("InstallTaskPage update route", () => {
+  it("renders a completed update task and its log", () => {
+    mockUseTaskCenter.mockReturnValue({
+      tasks: [{
+        id: "update:openclaw",
+        kind: "update",
+        target: "openclaw",
+        title: "更新 OpenClaw",
+        route: "/tasks/update/openclaw",
+        progressTarget: "openclaw",
+        state: "success",
+        message: "更新完成",
+        log: "$ npm update -g openclaw\nupdated\n",
+        startedAt: 1,
+      }],
+      cancelTask: vi.fn(),
+      dismissTask: vi.fn(),
+      progress: {},
+      running: {},
+    } as never);
+    render(
+      <MemoryRouter initialEntries={["/tasks/update/openclaw"]}>
+        <Routes><Route path="/tasks/update/:agentId" element={<InstallTaskPage />} /></Routes>
+      </MemoryRouter>,
+    );
+    expect(screen.getByText("更新完成 · 更新 OpenClaw")).toBeTruthy();
+    expect(screen.queryByText(/已下载/)).toBeNull();
+    expect(screen.getByText(/npm update -g openclaw/)).toBeTruthy();
   });
 });

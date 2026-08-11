@@ -1,4 +1,4 @@
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 
 import { DownloadProgress } from "../components/DownloadProgress";
 import { LogDisclosure } from "../components/LogDisclosure";
@@ -9,7 +9,9 @@ import { installTaskRoute, useTaskCenter } from "../state/TaskCenterContext";
 export function InstallTaskPage() {
   const { t } = useI18n();
   const navigate = useNavigate();
-  const { agentId = "", kind = "install" } = useParams();
+  const location = useLocation();
+  const { agentId = "" } = useParams();
+  const kind = location.pathname.startsWith("/tasks/update/") ? "update" : "install";
   const { tasks, cancelTask, dismissTask } = useTaskCenter();
   const target = decodeURIComponent(agentId);
   const task = tasks.find((item) => item.kind === kind && item.target === target);
@@ -40,12 +42,12 @@ export function InstallTaskPage() {
       onPrimary={() => navigate("/overview")}
       footerNote={running ? t("请保持此窗口打开") : undefined}
     >
-      {task.progressTarget ? <DownloadProgress target={task.progressTarget} pending={running} /> : null}
-      <LogDisclosure log={task.log || ""} open={running} />
+      {task.progressTarget ? <DownloadProgress target={task.progressTarget} pending={running} showSize={task.kind === "download"} /> : null}
+      <LogDisclosure log={task.log || ""} open showEmpty={task.kind !== "download"} />
       {running ? (
-        <button className="button button-secondary" type="button" onClick={() => cancelTask(task.id)}>{t("取消任务")}</button>
+        <button className="button button-secondary task-close-action" type="button" onClick={() => cancelTask(task.id)}>{t("取消任务")}</button>
       ) : (
-        <button className="button button-secondary" type="button" onClick={() => { dismissTask(task.id); navigate("/overview"); }}>{t("关闭任务")}</button>
+        <button className="button button-secondary task-close-action" type="button" onClick={() => { dismissTask(task.id); navigate("/overview"); }}>{t("关闭任务")}</button>
       )}
     </PageScaffold>
   );

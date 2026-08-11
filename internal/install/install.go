@@ -138,7 +138,11 @@ func InstallAgent(ctx context.Context, runtime Runtime, agent catalog.Agent, opt
 	}
 	current := ""
 	if executable != "" {
-		current = InstalledVersion(ctx, runtime, agent)
+		var versionErr error
+		current, versionErr = installedVersion(ctx, runtime, agent)
+		if versionErr != nil {
+			return Result{}, oneerrors.New(oneerrors.AgentInstallFailed, fmt.Sprintf("%s version check failed", agent.Name), oneerrors.WithRetryable(true), oneerrors.WithCause(versionErr))
+		}
 		if version == "" || current == version {
 			result.Version = current
 			return result, nil
@@ -222,10 +226,35 @@ func InstallAgent(ctx context.Context, runtime Runtime, agent catalog.Agent, opt
 	result.Installed = true
 	result.Version = version
 	if result.Version == "" {
-		result.Version = InstalledVersion(ctx, runtime, agent)
+		result.Version, runErr = installedVersion(ctx, runtime, agent)
+		if runErr != nil {
+			return Result{}, oneerrors.New(oneerrors.AgentInstallFailed, fmt.Sprintf("%s version check failed", agent.Name), oneerrors.WithRetryable(true), oneerrors.WithCause(runErr))
+		}
 	}
 	result.Registry = registry
 	return result, nil
+}
+
+func installedVersion(ctx context.Context, runtime Runtime, agent catalog.Agent) (string, error) {
+	if agent.Command == "" || runtime.Runner == nil {
+		return "", nil
+	}
+	executable, ok := runtime.Runner.LookPath(agent.Command)
+	if !ok || executable == "" {
+		return "", nil
+	}
+	args := append([]string{executable}, agent.VersionArgs...)
+	if len(agent.VersionArgs) == 0 {
+		args = append(args, "--version")
+	}
+	result, err := runtime.command(ctx, args, nil, VersionCommandTimeout)
+	if err != nil {
+		return "", err
+	}
+	if result.ExitCode != 0 {
+		return "", fmt.Errorf("exit code %d", result.ExitCode)
+	}
+	return VersionFromOutput(result.Stdout + "\n" + result.Stderr), nil
 }
 
 func requirePrerequisites(runtime Runtime, agent catalog.Agent) error {
