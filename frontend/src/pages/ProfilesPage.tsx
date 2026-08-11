@@ -46,6 +46,7 @@ export function ProfilesPage() {
   const [busy, setBusy] = useState(false);
   const [applying, setApplying] = useState("");
   const [failure, setFailure] = useState("");
+  const [applied, setApplied] = useState("");
 
   if (!status) {
     return (
@@ -57,6 +58,8 @@ export function ProfilesPage() {
 
   const profiles = status.profiles;
   const configurableAgents = status.catalog.filter((agent) => agent.configMode === "auto");
+  const nameOf = (agentId: string) =>
+    status.catalog.find((item) => item.id === agentId)?.name || agentId;
   const protocolOf = (profile: ProfileSummary) =>
     profile.protocol || status.catalog.find((agent) => status.agents[agent.id]?.profileId === profile.id)?.protocol || "";
   const providerHasKey = Boolean(editor && status.providers[editor.provider]?.has_key);
@@ -133,8 +136,12 @@ export function ProfilesPage() {
     if (!editor || !canSave) return;
     setBusy(true);
     setFailure("");
+    setApplied("");
     try {
-      await api.saveProfile({
+      // Switching the Provider or model rewrites every Agent already following
+      // this Profile, so the outcome has to be reported rather than applied
+      // silently -- the Agent's own config file moves with it.
+      const result = await api.saveProfile({
         id: editor.id.trim().toLowerCase(),
         label: editor.label.trim(),
         provider: editor.provider,
@@ -144,6 +151,18 @@ export function ProfilesPage() {
         configMode: "provider",
         protocol: editor.protocol,
       });
+      const reapplied = result.reapplied ?? [];
+      const failures = Object.entries(result.failures ?? {});
+      if (failures.length) {
+        setFailure(t("{agents} 重新应用失败：{message}", {
+          agents: failures.map(([agentId]) => nameOf(agentId)).join(locale === "en" ? ", " : "、"),
+          message: failures[0][1] ?? "",
+        }));
+      } else if (reapplied.length) {
+        setApplied(t("已重新应用到 {agents}", {
+          agents: reapplied.map(nameOf).join(locale === "en" ? ", " : "、"),
+        }));
+      }
       await refreshStatus();
       setEditor(null);
     } catch (error) {
@@ -349,6 +368,7 @@ export function ProfilesPage() {
       ) : null}
 
       {failure ? <p className="agent-manage-error">{failure}</p> : null}
+      {applied ? <div className="agent-manage-applied"><strong>{t("应用完成")}</strong><span>{applied}</span></div> : null}
 
       {!profiles.length && !editor ? (
         <div className="empty-overview">

@@ -26,6 +26,7 @@ import type {
   ProfileSummary,
   ProviderId,
   RuntimeStatus,
+  SaveProfileResult,
   SaveProviderInput,
   SaveProviderResult,
   Settings,
@@ -199,7 +200,7 @@ export const wailsApi = {
     model: string;
     configMode: string;
     protocol?: string;
-  }): CancellableRequest<ProfileSummary> =>
+  }): CancellableRequest<SaveProfileResult> =>
     call(() => ProfileService.SaveProfile({
       id: input.id,
       label: input.label,
@@ -209,5 +210,5 @@ export const wailsApi = {
       model: input.model,
       config_mode: input.configMode,
       protocol: input.protocol ?? "",
-    })) as CancellableRequest<ProfileSummary>,
+    })) as CancellableRequest<SaveProfileResult>,
 };

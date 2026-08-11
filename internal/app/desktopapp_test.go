@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"github.com/MaimoryLab/OneAgent/internal/desktopapp"
@@ -105,6 +106,28 @@ func TestConfigureWorkBuddyWritesModelsJSONFromProvider(t *testing.T) {
 	binding, err := core.profiles.ReadAgentBinding(desktopapp.WorkBuddyID)
 	if err != nil || binding == nil || binding.BaseURL != "https://relay.example/openai" {
 		t.Fatalf("reapplied WorkBuddy binding = %#v, err=%v", binding, err)
+	}
+	// A desktop Agent has to follow a Profile edit too, and it takes a different
+	// branch than a managed CLI Agent -- WorkBuddy writes models.json through the
+	// config adapter rather than through activation.
+	profileEdit, err := core.SaveProfile(context.Background(), SaveProfileOptions{
+		ID: "workbuddy-profile", Label: "WorkBuddy", Provider: "ppio",
+		Model: "model-b", ConfigMode: "provider", Protocol: "openai",
+	})
+	if err != nil || len(profileEdit.Failures) != 0 || len(profileEdit.Reapplied) != 1 {
+		t.Fatalf("WorkBuddy Profile reapply = %#v, err=%v", profileEdit, err)
+	}
+	data, err = os.ReadFile(wantPath)
+	if err != nil || json.Unmarshal(data, &models) != nil {
+		t.Fatalf("WorkBuddy models unreadable after Profile edit: %s, err=%v", data, err)
+	}
+	// The adapter registers models rather than replacing the list, so assert the
+	// new one arrived instead of asserting it is the only one.
+	if !slices.ContainsFunc(models, func(model map[string]any) bool { return model["id"] == "model-b" }) {
+		t.Fatalf("Profile edit did not reach WorkBuddy models: %s", data)
+	}
+	if binding, err := core.profiles.ReadAgentBinding(desktopapp.WorkBuddyID); err != nil || binding == nil || binding.Model != "model-b" {
+		t.Fatalf("WorkBuddy binding did not follow the Profile: %#v, err=%v", binding, err)
 	}
 }
 

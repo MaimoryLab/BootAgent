@@ -508,18 +508,28 @@ type SaveProfileOptions struct {
 	Protocol   string
 }
 
-func (u *UseCases) SaveProfile(ctx context.Context, options SaveProfileOptions) (ProfileSummary, error) {
+// SaveProfileResult reports which Agents followed the Profile to its new
+// Provider or model, mirroring SaveProviderResult. Reapply failures are returned
+// per Agent rather than failing the save: the Profile record on disk is already
+// correct, and reverting it would lose the edit.
+type SaveProfileResult struct {
+	Profile   ProfileSummary    `json:"profile"`
+	Reapplied []string          `json:"reapplied"`
+	Failures  map[string]string `json:"failures"`
+}
+
+func (u *UseCases) SaveProfile(ctx context.Context, options SaveProfileOptions) (SaveProfileResult, error) {
 	if u == nil {
-		return ProfileSummary{}, oneerrors.New(oneerrors.InternalError, "Profile service is not configured", oneerrors.WithStatus(501))
+		return SaveProfileResult{}, oneerrors.New(oneerrors.InternalError, "Profile service is not configured", oneerrors.WithStatus(501))
 	}
 	if err := ctx.Err(); err != nil {
-		return ProfileSummary{}, oneerrors.New(oneerrors.Timeout, "Profile request was cancelled", oneerrors.WithRetryable(true), oneerrors.WithCause(err))
+		return SaveProfileResult{}, oneerrors.New(oneerrors.Timeout, "Profile request was cancelled", oneerrors.WithRetryable(true), oneerrors.WithCause(err))
 	}
 	u.writeMu.Lock()
 	defer u.writeMu.Unlock()
 	target, err := u.providers.Resolve(options.Provider, options.APIBaseURL)
 	if err != nil {
-		return ProfileSummary{}, err
+		return SaveProfileResult{}, err
 	}
 	providedKey := options.APIKey
 	providerKey := providedKey
@@ -528,9 +538,10 @@ func (u *UseCases) SaveProfile(ctx context.Context, options SaveProfileOptions) 
 	}
 	if strings.TrimSpace(providerKey) != "" {
 		if err := u.providers.SaveKey(ctx, options.Provider, providerKey); err != nil {
-			return ProfileSummary{}, err
+			return SaveProfileResult{}, err
 		}
 	}
+	before := u.profileByID(options.ID)
 	stored, err := u.profiles.Save(ctx, profileStore.SaveRequest{
 		ID:       options.ID,
 		Label:    options.Label,
@@ -545,9 +556,64 @@ func (u *UseCases) SaveProfile(ctx context.Context, options SaveProfileOptions) 
 		Protocol:             options.Protocol,
 	})
 	if err != nil {
-		return ProfileSummary{}, err
+		return SaveProfileResult{}, err
 	}
-	return profileSummary(stored), nil
+	result := SaveProfileResult{Profile: profileSummary(stored)}
+	result.Reapplied, result.Failures, err = u.reapplyProfileLocked(ctx, before, stored)
+	if err != nil {
+		return result, err
+	}
+	return result, nil
+}
+
+// reapplyProfileLocked carries a Profile edit through to the Agents bound to it.
+// Without this a Profile could be switched to another Provider while every Agent
+// following it stayed pointed at the old endpoint -- the Profile page showed the
+// new Provider, the Agent kept sending traffic to the old one, and neither
+// Provider card listed the Agent correctly. Callers must hold writeMu.
+func (u *UseCases) reapplyProfileLocked(ctx context.Context, before, after profileStore.Profile) ([]string, map[string]string, error) {
+	model := ""
+	if after.Model != nil {
+		model = strings.TrimSpace(*after.Model)
+	}
+	previousModel := ""
+	if before.Model != nil {
+		previousModel = strings.TrimSpace(*before.Model)
+	}
+	// Nothing an Agent config carries has changed. A label or config-mode edit
+	// leaves every binding correct, so there is nothing to rewrite.
+	if before.ID == after.ID && before.Provider == after.Provider && previousModel == model {
+		return nil, nil, nil
+	}
+	// A Profile with no model cannot produce a valid binding: WriteAgentBinding
+	// requires one, and activation refuses an empty model. Leave the bindings as
+	// they are rather than failing every one of them.
+	if model == "" {
+		return nil, nil, nil
+	}
+	target, err := u.providers.Get(after.Provider)
+	if err != nil {
+		return nil, nil, err
+	}
+	return u.reapplyBindingsLocked(ctx, func(binding profileStore.AgentBinding) bool {
+		return binding.ProfileRef == after.ID
+	}, func(profileStore.AgentBinding) (provider.Entry, string) {
+		return target, model
+	})
+}
+
+func (u *UseCases) profileByID(id string) profileStore.Profile {
+	id = strings.TrimSpace(id)
+	profiles, err := u.profiles.List()
+	if err != nil {
+		return profileStore.Profile{}
+	}
+	for _, saved := range profiles {
+		if saved.ID == id {
+			return saved
+		}
+	}
+	return profileStore.Profile{}
 }
 
 func (u *UseCases) DeleteProfile(ctx context.Context, id string) error {

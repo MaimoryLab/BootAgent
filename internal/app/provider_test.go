@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -226,6 +227,85 @@ func TestDeleteProviderRejectsBoundAgents(t *testing.T) {
 	}
 	if _, err := core.GetProvider(context.Background(), "acme"); err != nil {
 		t.Fatalf("guard deleted Provider: %v", err)
+	}
+}
+
+// Switching a Profile's Provider used to leave every Agent following it bound to
+// the old one: the Profile page showed the new Provider while the Agent kept
+// sending traffic to the old endpoint, and neither Provider card listed the Agent
+// correctly. Asserting the binding, not just that SaveProfile returns no error --
+// the pre-fix code passed that.
+func TestSaveProfileMigratesBoundAgentsToTheNewProvider(t *testing.T) {
+	home := t.TempDir()
+	core := activationCore(t, home, provider.NewClient(nil), "linux")
+	// novita is a built-in Provider, so it only needs a key to be usable as a
+	// switch target.
+	if err := core.providers.SaveKey(context.Background(), "novita", "novita-key"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := core.SaveProfile(context.Background(), SaveProfileOptions{
+		ID: "team", Provider: "ppio", Model: "model-a", ConfigMode: "provider",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := core.ActivateAgent(context.Background(), ActivateAgentOptions{
+		AgentID: "codex", Provider: "ppio", APIKey: "key", Model: "model-a", ProfileID: "team",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	result, err := core.SaveProfile(context.Background(), SaveProfileOptions{
+		ID: "team", Provider: "novita", Model: "model-b", ConfigMode: "provider",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Failures) != 0 || !slices.Contains(result.Reapplied, "codex") {
+		t.Fatalf("reapply result = %#v", result)
+	}
+	binding, err := core.profiles.ReadAgentBinding("codex")
+	if err != nil || binding == nil {
+		t.Fatalf("binding read failed: %v", err)
+	}
+	if binding.Provider != "novita" || binding.Model != "model-b" {
+		t.Fatalf("binding did not follow the Profile: %#v", binding)
+	}
+	if binding.ProfileRef != "team" {
+		t.Fatalf("binding lost its Profile reference: %#v", binding)
+	}
+	// The Agent's own config has to move too, or the UI reports the new Provider
+	// while the Agent still talks to the old endpoint.
+	written, err := os.ReadFile(filepath.Join(home, ".codex", "config.toml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(written), "https://api.novita.ai/openai") {
+		t.Fatalf("Agent config kept the old endpoint: %s", written)
+	}
+}
+
+// A label-only edit must not churn Agent configs: rewriting them would restart
+// the Agent's file for no reason and report a reapply the user did not ask for.
+func TestSaveProfileLeavesBindingsAloneWhenRoutingIsUnchanged(t *testing.T) {
+	home := t.TempDir()
+	core := activationCore(t, home, provider.NewClient(nil), "linux")
+	if _, err := core.SaveProfile(context.Background(), SaveProfileOptions{
+		ID: "team", Provider: "ppio", Model: "model-a", ConfigMode: "provider",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := core.ActivateAgent(context.Background(), ActivateAgentOptions{
+		AgentID: "codex", Provider: "ppio", APIKey: "key", Model: "model-a", ProfileID: "team",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	result, err := core.SaveProfile(context.Background(), SaveProfileOptions{
+		ID: "team", Label: "Renamed", Provider: "ppio", Model: "model-a", ConfigMode: "provider",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Reapplied) != 0 || len(result.Failures) != 0 {
+		t.Fatalf("a label edit reapplied Agents: %#v", result)
 	}
 }
 

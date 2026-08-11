@@ -127,7 +127,7 @@ export function AgentProfilePage() {
         configMode: "provider",
         protocol: app ? desktopProtocol(app) : catalog?.protocol || "",
       });
-      setSelectedId(saved.id);
+      setSelectedId(saved.profile.id);
       setDraft(null);
       await refreshStatus();
     } catch (error) {

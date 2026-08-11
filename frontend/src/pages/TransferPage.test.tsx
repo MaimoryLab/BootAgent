@@ -149,7 +149,7 @@ describe("TransferPage", () => {
     // `encrypted: []` is truthy, so this used to prompt for a password that
     // decrypted nothing -- and cancelling it aborted the import silently.
     const saveProvider = vi.spyOn(api, "saveProvider").mockResolvedValue({ entry: { id: "ppio", name: "PPIO", home: "", base_url: "https://api.example.test", anthropic_base_url: "", api_key: "incoming", built_in: true }, reapplied: null, failures: null });
-    vi.spyOn(api, "saveProfile").mockResolvedValue(status.profiles[0]);
+    vi.spyOn(api, "saveProfile").mockResolvedValue({ profile: status.profiles[0], reapplied: null, failures: null });
     refreshStatus.mockResolvedValue();
     startImport(collidingFile);
     await waitFor(() => expect(screen.getByText("确认导入")).toBeTruthy());
@@ -178,7 +178,7 @@ describe("TransferPage", () => {
       entry: { id: "ppio", name: "PPIO", home: "", base_url: "https://api.example.test", anthropic_base_url: "", api_key: "kept", built_in: true },
       reapplied: null, failures: null,
     });
-    vi.spyOn(api, "saveProfile").mockResolvedValue(status.profiles[0]);
+    vi.spyOn(api, "saveProfile").mockResolvedValue({ profile: status.profiles[0], reapplied: null, failures: null });
     refreshStatus.mockResolvedValue();
     startImport(keylessFile);
     await waitFor(() => expect(screen.getByText("确认导入")).toBeTruthy());
@@ -196,7 +196,7 @@ describe("TransferPage", () => {
       entry: { id: "ppio", name: "PPIO", home: "", base_url: "https://api.example.test", anthropic_base_url: "", api_key: "incoming", built_in: true },
       reapplied: null, failures: null,
     });
-    vi.spyOn(api, "saveProfile").mockResolvedValue(status.profiles[0]);
+    vi.spyOn(api, "saveProfile").mockResolvedValue({ profile: status.profiles[0], reapplied: null, failures: null });
     refreshStatus.mockResolvedValue();
     startImport(collidingFile);
     await waitFor(() => expect(screen.getByText("确认导入")).toBeTruthy());

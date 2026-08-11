@@ -451,12 +451,12 @@ func (s *ProfileService) ListProfiles(ctx context.Context) ([]app.ProfileSummary
 	return s.core.ListProfiles(ctx)
 }
 
-func (s *ProfileService) SaveProfile(ctx context.Context, request SaveProfileRequest) (app.ProfileSummary, error) {
+func (s *ProfileService) SaveProfile(ctx context.Context, request SaveProfileRequest) (app.SaveProfileResult, error) {
 	if err := contextError(ctx); err != nil {
-		return app.ProfileSummary{}, err
+		return app.SaveProfileResult{}, err
 	}
 	if s == nil || s.core == nil {
-		return app.ProfileSummary{}, notReady("Profile service is not configured")
+		return app.SaveProfileResult{}, notReady("Profile service is not configured")
 	}
 	return s.core.SaveProfile(ctx, app.SaveProfileOptions{
 		ID:         request.ID,
