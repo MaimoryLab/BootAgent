@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/MaimoryLab/OneAgent/internal/catalog"
@@ -63,8 +64,12 @@ func (u *UseCases) UpdateAgent(ctx context.Context, agentID string, listeners ..
 		}
 		args = append(args, "--registry="+registry)
 	}
-	if _, err := runtime.Run(ctx, args, install.NPMEnvironment(runtime, npm, registry), install.DefaultCommandTimeout); err != nil {
+	result, err := runtime.Run(ctx, args, install.NPMEnvironment(runtime, npm, registry), install.DefaultCommandTimeout)
+	if err != nil {
 		return AgentUpdateResult{}, oneerrors.New(oneerrors.InternalError, "Unable to update "+agent.Name, oneerrors.WithStatus(500), oneerrors.WithRetryable(true), oneerrors.WithCause(err))
+	}
+	if result.ExitCode != 0 {
+		return AgentUpdateResult{}, oneerrors.New(oneerrors.AgentInstallFailed, fmt.Sprintf("Unable to update %s: command exited with code %d", agent.Name, result.ExitCode), oneerrors.WithRetryable(true))
 	}
 	return AgentUpdateResult{Agent: agentID, Package: agent.Package.Name, Command: strings.Join(args, " ")}, nil
 }
