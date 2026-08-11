@@ -42,8 +42,8 @@ export function InstallTaskPage() {
       onPrimary={() => navigate("/overview")}
       footerNote={running ? t("请保持此窗口打开") : undefined}
     >
-      {task.progressTarget ? <DownloadProgress target={task.progressTarget} pending={running} /> : null}
-      <LogDisclosure log={task.log || ""} open />
+      {task.progressTarget ? <DownloadProgress target={task.progressTarget} pending={running} showSize={task.kind === "download"} /> : null}
+      <LogDisclosure log={task.log || ""} open showEmpty={task.kind !== "download"} />
       {running ? (
         <button className="button button-secondary task-close-action" type="button" onClick={() => cancelTask(task.id)}>{t("取消任务")}</button>
       ) : (

@@ -57,6 +57,7 @@ describe("InstallTaskPage update route", () => {
       </MemoryRouter>,
     );
     expect(screen.getByText("更新完成 · 更新 OpenClaw")).toBeTruthy();
+    expect(screen.queryByText(/已下载/)).toBeNull();
     expect(screen.getByText(/npm update -g openclaw/)).toBeTruthy();
   });
 });
