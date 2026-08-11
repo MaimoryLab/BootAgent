@@ -1,52 +1,50 @@
-# OneAgent Development Conventions
+# OneAgent 开发约定
 
-The current branch is the Go/Wails stabilization line, at version `0.4.0`. The only
-product entry point is `cmd/oneagent-desktop`. React calls the backend only through
-generated Wails bindings.
+当前代码线是 Go/Wails 稳定化主线。不要在本文硬编码发布版本；发布版本以 Git tag、
+GitHub Release 和构建工作流注入的版本为准。唯一产品入口是
+`cmd/oneagent-desktop`，React 只能通过生成的 Wails bindings 调用后端。
 
-## Directories
+## 目录
 
-- `internal/app`: Status, Provider, Agent, and Profile use cases, plus the coordinated
-  write lock.
-- `internal/catalog`: the embedded `agents.lock.json`, `providers.lock.json`, and
-  `runtimes.lock.json` files, plus the built-in Provider catalog.
-- `internal/config`: TOML/JSON/JSONC adapters, configuration discovery, and golden
-  fixtures.
-- `internal/install`: Agent package installation using the latest version by default or
-  an optional exact version, registry selection, Node.js/uv runtime bootstrapping
-  (download, verification, extraction, and PATH updates), and the Aider Python management
-  boundary.
-- `internal/profile` and `internal/securefs`: profiles, secrets, backups, permissions,
-  and atomic writes.
-- `internal/binding`: the five services exposed to the frontend through Wails and the
-  only boundary between React and Go. Changes to DTOs here require regenerating
-  `frontend/bindings` and synchronizing `frontend/src/backend/wails.ts`.
-- `cmd/oneagent-desktop`: the Wails desktop entry point.
-- `frontend/bindings`: Wails-generated files. Do not edit them manually.
+- `internal/app`：Status、Provider、Agent、Profile、Runtime、DesktopAgent、安装、
+  启动、设置和更新等用例，以及统一的写操作锁。
+- `internal/catalog`：嵌入的 `agents.lock.json`、`providers.lock.json`、
+  `runtimes.lock.json`，以及内置 Provider 目录。
+- `internal/config`：TOML/JSON/JSONC 适配器、配置发现和 golden fixtures。
+- `internal/install`：默认安装最新版或可选精确版本的 Agent 包、registry 选择、
+  Node.js/uv runtime 引导（下载、校验、解压和 PATH 更新），以及 Aider 的 Python
+  管理边界。
+- `internal/profile` 与 `internal/securefs`：Profile、密钥、备份、权限和原子写入。
+- `internal/binding`：React 与 Go 之间唯一的边界。`Services` 聚合 Status、Provider、
+  Agent、Profile、Runtime、DesktopAgent 和 Transfer 七个服务；UpdateService 在桌面
+  入口中单独注册。这里的 DTO 发生变化时，必须重新生成 `frontend/bindings`，并同步
+  `frontend/src/backend/wails.ts` 与 `frontend/src/types/api.ts`。
+- `cmd/oneagent-desktop`：Wails 桌面入口。
+- `frontend/bindings`：Wails 生成文件，禁止手工编辑。
 
-`cmd/oneagent-release`, `cmd/oneagent-rc`, and `cmd/oneagent-provider-smoke` were removed
-in `23805b0`, with their responsibilities moved to
-`.github/workflows/build-artifacts.yml`. References to them in historical documentation
-are background information, not executable instructions.
+`cmd/oneagent-release`、`cmd/oneagent-rc` 和 `cmd/oneagent-provider-smoke` 已在
+`23805b0` 删除，其职责转移到 `.github/workflows/build-artifacts.yml`。历史文档中
+出现这些命令只代表背景，不是可执行指令。
 
-The public site has moved to
-[MaimoryLab/OneAgent-site](https://github.com/MaimoryLab/OneAgent-site), and this
-repository no longer contains `site/`. The site vendors `agents.lock.json` and
-`providers.lock.json` into its own `data/` directory and refreshes them from release
-tags, not from this repository's `main` branch. Changing those two files here does not
-automatically update the site, and should not: the site describes what a published
-version supports.
+公共站点已迁移到
+[MaimoryLab/OneAgent-site](https://github.com/MaimoryLab/OneAgent-site)，本仓库不再
+包含 `site/`。站点把发布 tag 中的 `agents.lock.json` 和 `providers.lock.json` 复制到
+自己的 `data/` 目录；发布完成后，构建工作流会通知站点刷新。直接修改本仓库的
+`main` 不应立即改变站点，因为站点描述的是已发布版本支持的内容。
 
-`providers.lock.json` is the source of truth for built-in Provider endpoints, fallback
-models, and public-site commercial disclosure fields. User Providers and overrides of
-built-in Providers are stored in `~/.oneagent/providers.json`.
+`providers.lock.json` 是内置 Provider endpoint、fallback model 和公共站点商业披露
+字段的唯一事实来源。用户 Provider 与内置 Provider 覆盖项保存在
+`~/.oneagent/providers.json`。
 
-## Local Commands
+## 本地命令
 
 ```bash
 go test ./...
 go test -race ./...
 go vet ./...
+python3 -m unittest scripts/test_generate_third_party_licenses.py
+python3 scripts/generate_third_party_licenses.py --check
+python3 scripts/check-docs.py
 cd frontend
 pnpm install --frozen-lockfile
 pnpm run test
@@ -54,119 +52,120 @@ pnpm run build
 pnpm run test:e2e
 ```
 
-Every pull request runs these two groups of gates through `.github/workflows/ci.yml`.
-Release artifacts are built by manually triggering
-`.github/workflows/build-artifacts.yml`.
+`.github/workflows/ci.yml` 在 pull request 与 `main` push 上运行四组门禁：Go、
+Frontend、Docs 和 Release compliance。Go 门禁还运行 `staticcheck`。
 
-Regular tests, Wails builds, site builds, and release tools do not require Python.
-Installing Aider requires Python 3.12, but no longer requires it to be preinstalled: uv
-resolves the interpreter itself, reusing a matching local interpreter or downloading a
-managed CPython into `~/.oneagent/runtimes/python`. Python is still not included in
-release packages.
+`.github/workflows/build-artifacts.yml` 在推送 `vX.Y.Z` tag 时构建并发布 release；
+`workflow_dispatch` 用于手工构建验证产物，不会发布 release。
+
+应用常规测试与 Wails 构建不依赖 Python。文档和发行合规脚本使用 Python 3。
+安装 Aider 需要 Python 3.12，但不要求预装：uv 会复用匹配的本地解释器，或把托管的
+CPython 下载到 `~/.oneagent/runtimes/python`。发布包仍不内置 Python。
 
 ## CodeGraph
 
-This repository is indexed (`.codegraph/`, not committed; rebuild it with
-`codegraph index .`, which takes about 0.5 seconds). Use it **before grep** when locating
-or understanding code:
+本仓库已建立索引（`.codegraph/` 不提交；用 `codegraph index .` 重建，通常约
+0.5 秒）。定位或理解代码时，先用 CodeGraph，再用 grep：
 
 ```bash
 codegraph explore "binding Service Install"
 ```
 
-Its most useful feature in this repository is connecting Go to the frontend. Looking up
-`AgentService` lists `internal/binding/services.go`, the generated
-`frontend/bindings/.../index.ts`, and the handwritten
-`frontend/src/backend/wails.ts` together. These are the three places that must move
-together when a backend DTO changes. Types in `frontend/src/types/api.ts` are handwritten
-rather than imported from the bindings, so the backend DTOs and this file are **two
-sources of truth**. The index is the fastest way to find an omitted update.
+CodeGraph 在本仓库最有价值的用途是串联 Go 与前端。查询 `AgentService` 会同时列出
+`internal/binding/services.go`、生成的 `frontend/bindings/.../index.ts` 和手写的
+`frontend/src/backend/wails.ts`。后端 DTO 变化时，这些位置必须一起更新。
+`frontend/src/types/api.ts` 的类型是手写的，并未直接导入 bindings，因此后端 DTO 与
+该文件是两套事实来源；索引是发现漏改位置的最快方式。
 
-**Known limitation**: the blast-radius warning "no covering tests found" considers only
-**direct** callers. Implementations invoked inside higher-level functions may therefore
-be incorrectly reported as untested. Do not add duplicate tests based on this warning;
-confirm the call path first.
+**已知限制**：blast-radius 的 “no covering tests found” 只检查直接调用者。高层函数
+内部调用的实现可能被误报为未测试。不要因此重复添加测试，先确认完整调用路径。
 
-## Code Boundaries
+## 代码边界
 
-- `agents.lock.json` is the sole source of truth for Agent metadata, but it does not store
-  Agent versions or package hashes. When adding an automatically configured Agent, add
-  its package name and metadata first, then add the corresponding config adapter and Go
-  tests.
-- Child processes must use argv arrays and a controlled environment, set timeouts, and
-  retain diagnostic but redacted output.
-- Writes must proceed in this order: private directory, backup, temporary file in the
-  same directory, permission tightening, and atomic replacement. If permissions on a
-  secret backup cannot be tightened, delete it and fail.
-- Do not write API keys to ordinary profiles, status summaries, logs, URLs, global React
-  state, browser storage, or test artifacts. Only Provider editing and configuration
-  forms may read a key from private local storage on demand through a local binding.
-- Probe Providers using the Agent's protocol. `/v1/models` cannot replace Responses,
-  Anthropic Messages, or Chat Completions checks.
-- Wails production builds must not use the `server` tag. Only browser E2E may use the
-  server/e2e fake runner.
-- Linux release builds must use the `gtk3` tag. While Wails is in Alpha, only the
-  `technical-preview-unsigned` channel is allowed.
+- `agents.lock.json` 是 Agent 元数据的唯一事实来源，但不保存 Agent 版本或包哈希。
+  新增自动配置 Agent 时，先加入包名和元数据，再增加对应配置适配器与 Go 测试。
+- 子进程必须使用 argv 数组和受控环境，设置超时，并保留经过脱敏的诊断输出。
+- 写入顺序必须是：私有目录、备份、同目录临时文件、收紧权限、原子替换。如果密钥
+  备份无法收紧权限，删除备份并失败退出。
+- API key 禁止进入普通 Profile、状态摘要、日志、URL、React 全局状态、浏览器存储或
+  测试产物。只有 Provider 编辑与配置表单可以按需通过本地 binding 从私有存储读取
+  key。
+- Provider 探测必须使用 Agent 实际协议。`/v1/models` 不能替代 Responses、
+  Anthropic Messages 或 Chat Completions 检查。
+- Wails 生产构建禁止使用 `server` tag；只有浏览器 E2E 可以使用 server/e2e fake
+  runner。
+- Linux release 构建必须使用 `gtk3` tag。项目仍处于 Wails Alpha 发布政策阶段时，
+  只允许 `technical-preview-unsigned` 渠道。
 
-## Documentation Maintenance
+## 文档维护
 
-`docs/` is organized by audience. Choose the correct location before adding a document:
+`docs/` 按受众组织，新增文档前先选对目录：
 
-- The `docs/` root contains current specifications and policies that readers can follow
-  directly.
-- `docs/ai-agent-kit/` contains user-facing instructions. The default path is downloading
-  a release package, not building from source.
-- `docs/decisions/` contains ADRs. Preserve superseded decisions, mark them as
-  Superseded, and link to their replacements instead of rewriting history.
-- `docs/internal/` contains maintainer-facing completion records and verification
-  checklists. Do not place unimplemented plans there; those belong in issues.
+- `docs/` 根目录保存读者可直接执行的当前规范与政策。
+- `docs/ai-agent-kit/` 保存用户说明，默认路径是下载 release，而不是从源码构建。
+- `docs/decisions/` 保存 ADR。被替代的决策必须保留，标记为 Superseded 并链接到替代
+  ADR，禁止重写历史。
+- `docs/internal/` 保存维护者完成记录和验收清单。未实施计划应进入 issue，不能放在
+  这里。
 
-## Documentation Language
+## 文档语言
 
-All public documentation must be written in English, with Chinese versions provided only
-for the two exceptions below:
+所有公开文档默认使用英文，只有下列例外：
 
-| Location | Language |
+| 位置 | 语言 |
 | --- | --- |
-| `README.md` | English; Chinese is in `README_ZH.md`, and both versions must stay synchronized |
-| Specifications in the `docs/` root and ADRs in `docs/decisions/` | English only |
-| `docs/ai-agent-kit/` | Bilingual, with complete sets under `en/` and `zh/` |
-| `AGENTS.md` and `docs/internal/` | Chinese. Their audience is maintainers, and bilingual copies would only create drift |
+| `README.md` | 英文；中文位于 `README_ZH.md`，两者必须同步 |
+| `docs/` 根目录规范与 `docs/decisions/` ADR | 仅英文 |
+| `docs/ai-agent-kit/` | `en/` 与 `zh/` 下提供完整双语集合 |
+| `AGENTS.md` 与 `docs/internal/` | 中文；受众是维护者，双语副本只会产生漂移 |
 
-Use `frontend/src/i18n.tsx`, the source of truth for product UI terminology, for English
-terms: runtime = Runtimes, configuration template = Profiles, environment overview =
-Environment overview, guide only = Guide only, and activation steps = Setup steps. A
-separate vocabulary in the documentation would make the UI and documentation
-inconsistent. Do not translate identifiers such as `Agent`, `Provider`, `Profile`,
-`technical-preview-unsigned`, and `agents.lock.json`.
+英文产品术语以 `frontend/src/i18n.tsx` 为事实来源：runtime = Runtimes，
+configuration template = Profiles，environment overview = Environment overview，
+guide only = Guide only，activation steps = Setup steps。不要为文档另建一套词汇。
+`Agent`、`Provider`、`Profile`、`technical-preview-unsigned` 和
+`agents.lock.json` 等标识符不翻译。
 
-**UI copy runs in the opposite direction from the documentation**: `translate()` looks
-up a translation only when `locale === "en"`; otherwise it returns the Chinese key
-directly, so Chinese is the **source language** for i18n. Continue to write new UI copy
-as a Chinese key first and then add its English translation. Do not change keys merely
-because public documentation is written in English; doing so would require changing
-every associated entry.
+**UI 文案与公开文档方向相反**：`translate()` 仅在 `locale === "en"` 时查找翻译，
+否则直接返回中文 key，因此中文是 i18n 源语言。新增 UI 文案时先写中文 key，再补英文
+翻译。不要因为公开文档使用英文就改 key，否则必须同步修改所有关联项。
 
-`python3 scripts/check-docs.py` checks that relative links resolve and that English
-documents contain no leftover Chinese. Run it after documentation changes;
-`.github/workflows/ci.yml` runs it as well.
+`python3 scripts/check-docs.py` 检查相对链接和英文文档中的残留中文；文档变更后必须
+运行，`.github/workflows/ci.yml` 也会执行。
 
-Commands in README files, workflows, Taskfiles, and the AI Agent Kit must correspond to
-files in the current repository. Use ` ```text ` instead of ` ```bash ` for command
-blocks in `docs/internal/` that reference removed tools, so they are not mistaken for
-executable instructions.
+README、workflow、Taskfile 与 AI Agent Kit 中的命令必须对应当前仓库文件。
+`docs/internal/` 若引用已删除工具，代码块使用 ` ```text ` 而不是 ` ```bash `，避免
+被误认为可执行指令。
 
-`LICENSE` is Apache-2.0, and `NOTICE` is the source of truth for third-party attribution.
-When adding a dependency distributed with the package or a new third-party mark to the
-UI, update `NOTICE` as well. `docs/distribution-compliance-policy.md` lists this as a
-release prerequisite.
+`LICENSE` 是 Apache-2.0，`NOTICE` 是第三方归属的唯一事实来源。新增随包分发的依赖或
+UI 中的新第三方标志时，必须同步更新 `NOTICE`；
+`docs/distribution-compliance-policy.md` 将其列为发布前置条件。
 
-## README Maintenance
+## 社区健康文件
 
-- After changing user-visible behavior, supported Agents or Providers, architecture,
-  prerequisites, paths, or build, test, and release commands, update `README.md` and
-  `README_ZH.md` in the same change without waiting to be asked.
-- Keep the English and Chinese versions synchronized. Skip README churn for internal
-  changes that do not affect documented behavior.
-- Verify README claims against the current code, manifests, Taskfiles, and workflows,
-  then run `python3 scripts/check-docs.py`.
+以下公开社区文件全部使用英文，并必须与仓库当前行为保持一致：
+
+- `CODE_OF_CONDUCT.md`
+- `CONTRIBUTING.md`
+- `SECURITY.md`
+- `.github/ISSUE_TEMPLATE/*.yml` 与 `.github/ISSUE_TEMPLATE/config.yml`
+- `.github/PULL_REQUEST_TEMPLATE.md`
+
+Issue Forms 与 PR 模板中的命令、路径、支持平台和安全提示必须随代码与 CI 同步。
+安全漏洞只能按 `SECURITY.md` 私下报告，Issue Forms 不得引导用户公开披露漏洞或 API
+key。行为准则事件使用 GitHub 的内容举报功能发送给仓库管理员。
+
+“Repository admins accept content reports” 是 GitHub 仓库设置，不在 Git 中。迁移仓库、
+调整 moderation 设置或修改社区文件后，必须确认该设置仍启用，并通过 GitHub Community
+Standards 页面或以下 API 复核：
+
+```bash
+gh api repos/MaimoryLab/OneAgent/community/profile
+```
+
+## README 维护
+
+- 修改用户可见行为、支持的 Agent/Provider、架构、前置条件、路径或构建、测试、发布
+  命令后，同一变更中必须同步更新 `README.md` 与 `README_ZH.md`，无需等待提醒。
+- 英中版本必须保持同步。纯内部变更且不影响已记录行为时，不要制造 README 噪音。
+- README 声明必须对照当前代码、manifest、Taskfile 与 workflow 验证，然后运行
+  `python3 scripts/check-docs.py`。

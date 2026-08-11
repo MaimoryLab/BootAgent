@@ -1,0 +1,104 @@
+name: Bug report
+description: Report reproducible behavior that is not working as expected.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve OneAgent. Do not include API keys, access tokens, or private configuration. Report security vulnerabilities through the private link in the issue chooser instead.
+
+  - type: input
+    id: version
+    attributes:
+      label: OneAgent version
+      description: Use the version shown in the app or the release tag, for example vX.Y.Z.
+      placeholder: vX.Y.Z
+    validations:
+      required: true
+
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options:
+        - macOS
+        - Windows
+        - Linux
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: platform_version
+    attributes:
+      label: Platform version and architecture
+      description: For example, macOS 15 arm64 or Windows 11 x64.
+      placeholder: macOS 15 arm64
+    validations:
+      required: true
+
+  - type: dropdown
+    id: installation
+    attributes:
+      label: OneAgent installation method
+      options:
+        - GitHub release package
+        - Built from source
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: affected_component
+    attributes:
+      label: Affected Agent, Provider, or feature
+      description: Name the Agent, Provider, page, or workflow involved, if applicable.
+      placeholder: Codex installation, Provider connection test, Profiles, updater
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: List the smallest sequence that reliably demonstrates the problem.
+      placeholder: |
+        1. Open ...
+        2. Select ...
+        3. Observe ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Include the exact UI error text when useful, but remove credentials and private data.
+    validations:
+      required: true
+
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Sanitized diagnostics
+      description: Add relevant logs, screenshots, or configuration excerpts after removing API keys, tokens, usernames, and private paths.
+      render: text
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Pre-submission checks
+      options:
+        - label: I searched existing issues and did not find the same report.
+          required: true
+        - label: I removed API keys, tokens, and other sensitive information.
+          required: true
+        - label: This is not a security vulnerability. Security reports use the private reporting link in the issue chooser.
+          required: true

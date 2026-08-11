@@ -1,0 +1,58 @@
+name: Feature request
+description: Propose an improvement that fits OneAgent's product boundary.
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Describe the problem before the solution. New Agents and built-in Providers should include enough protocol and configuration detail to evaluate whether they fit OneAgent's scope.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem to solve
+      description: What user workflow is difficult or impossible today, and who encounters it?
+    validations:
+      required: true
+
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+      description: Describe the observable result, not only a preferred implementation.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed approach
+      description: Explain the workflow, affected Agent or Provider, and any relevant protocol or configuration format.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Include workarounds or smaller changes that could solve the same problem.
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Additional context
+      description: Add documentation links, examples, or screenshots. Do not include API keys, tokens, or private configuration.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Pre-submission checks
+      options:
+        - label: I searched existing issues and discussions for this request.
+          required: true
+        - label: I reviewed the product boundary in docs/product-boundary-baseline.md.
+          required: true
+        - label: I did not include API keys, tokens, or other sensitive information.
+          required: true
