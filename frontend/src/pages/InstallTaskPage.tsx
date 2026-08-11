@@ -43,11 +43,11 @@ export function InstallTaskPage() {
       footerNote={running ? t("请保持此窗口打开") : undefined}
     >
       {task.progressTarget ? <DownloadProgress target={task.progressTarget} pending={running} /> : null}
-      <LogDisclosure log={task.log || ""} open={running} />
+      <LogDisclosure log={task.log || ""} open />
       {running ? (
-        <button className="button button-secondary" type="button" onClick={() => cancelTask(task.id)}>{t("取消任务")}</button>
+        <button className="button button-secondary task-close-action" type="button" onClick={() => cancelTask(task.id)}>{t("取消任务")}</button>
       ) : (
-        <button className="button button-secondary" type="button" onClick={() => { dismissTask(task.id); navigate("/overview"); }}>{t("关闭任务")}</button>
+        <button className="button button-secondary task-close-action" type="button" onClick={() => { dismissTask(task.id); navigate("/overview"); }}>{t("关闭任务")}</button>
       )}
     </PageScaffold>
   );

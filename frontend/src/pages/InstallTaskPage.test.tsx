@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 
@@ -57,7 +57,6 @@ describe("InstallTaskPage update route", () => {
       </MemoryRouter>,
     );
     expect(screen.getByText("更新完成 · 更新 OpenClaw")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "查看安装日志" }));
     expect(screen.getByText(/npm update -g openclaw/)).toBeTruthy();
   });
 });

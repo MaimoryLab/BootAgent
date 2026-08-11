@@ -1106,6 +1106,8 @@
   overflow-wrap: anywhere;
 }
 
+.task-close-action { margin-top: 12px; }
+
 .summary-item {
   min-width: 0;
   min-height: 86px;
