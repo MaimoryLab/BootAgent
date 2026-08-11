@@ -1238,7 +1238,7 @@
 .agent-manage-row {
   --agent-accent: var(--blue);
   --agent-soft: var(--blue-soft);
-  width: min(100%, 1040px);
+  width: min(100%, var(--card-measure));
   min-height: 84px;
   padding: 12px 14px;
   display: grid;
@@ -1249,7 +1249,7 @@
   align-items: center;
   gap: 10px 18px;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius-card);
   background: var(--surface-subtle);
   font: inherit;
   text-align: left;
@@ -1292,7 +1292,7 @@
   gap: 3px;
 }
 
-.agent-manage-row .agent-manage-identity-copy strong { font-size: 16px; line-height: 1.3; }
+.agent-manage-row .agent-manage-identity-copy strong { font-size: var(--card-title-size); line-height: 1.3; }
 .agent-manage-identity-copy small {
   color: var(--text-tertiary);
   font-size: 10px;
@@ -1515,7 +1515,7 @@
   align-items: center;
   gap: 10px 18px;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius-card);
   background: var(--surface-subtle);
 }
 
@@ -1809,21 +1809,27 @@
    set. */
 .provider-list,
 .profile-list {
-  width: 100%;
+  width: min(100%, var(--card-measure));
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
   align-items: start;
-  gap: 10px;
+  gap: 8px;
 }
 
+/* Shares the entity-card surface with .agent-manage-row and .desktop-app-row:
+   same border, radius, padding and background. These cards previously carried
+   no border at all, leaving --surface-subtle against --window-bg (1.19:1 dark,
+   1.07:1 light) as the only thing marking the edge -- not enough to read as a
+   card, least of all in light mode. */
 .provider-card,
 .profile-card {
   width: 100%;
   min-width: 0;
-  padding: 13px;
+  padding: 12px 14px;
   display: grid;
   gap: 9px;
-  border-radius: var(--radius-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
   background: var(--surface-subtle);
 }
 
@@ -1836,9 +1842,10 @@
 }
 
 .provider-card strong,
-.profile-card strong { font-size: 13px; }
+.profile-card strong { font-size: var(--card-title-size); }
 
-.provider-card > * { min-width: 0; }
+.provider-card > *,
+.profile-card > * { min-width: 0; }
 
 .provider-title {
   min-width: 0;
@@ -1850,6 +1857,20 @@
 .provider-title small {
   color: var(--text-tertiary);
   font-size: 10px;
+}
+
+/* An unbroken Provider name or Profile ID -- both are user-supplied and neither
+   is required to contain a space -- otherwise pushed the header past the card
+   edge and over the action buttons. The card cannot widen to fit it (the grid
+   column is fixed), so the name has to give. */
+.provider-title strong,
+.profile-title strong,
+.provider-title small,
+.profile-title small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .provider-card-actions {
@@ -1900,23 +1921,38 @@
   white-space: nowrap;
 }
 
-.provider-users {
+/* .card-users / .card-user-chip are shared by the Provider and Profile cards.
+   Named for the role, not the page: the Profile card used to borrow
+   .provider-user-chip, so narrowing the Provider chip would have reshaped a
+   card on a different page. */
+.card-users {
+  min-width: 0;
   display: flex;
   flex-wrap: wrap;
   gap: 5px;
 }
 
-.provider-users.is-empty {
+.card-users.is-empty {
   color: var(--text-tertiary);
   font-size: 11px;
 }
 
-.provider-user-chip {
-  padding: 2px 8px;
+/* Matched to .agent-manage-pill -- same border, padding and radius. Without the
+   border the chip had no outline of its own either: --window-bg on
+   --surface-subtle is the same 1.19:1 the card itself was relying on. */
+.card-user-chip {
+  min-width: 0;
+  max-width: 100%;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
   border-radius: 999px;
   background: var(--window-bg);
   color: var(--text-secondary);
   font-size: 11px;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .provider-card footer {
@@ -2356,7 +2392,8 @@
   .profile-editor-grid { grid-template-columns: minmax(0, 1fr); }
   .provider-editor-wide,
   .profile-editor-wide { grid-column: auto; }
-  .provider-card footer { align-items: flex-start; flex-direction: column; }
+  .provider-card footer,
+  .profile-card footer { align-items: flex-start; flex-direction: column; }
 
   .agent-manage-row {
     width: 100%;

@@ -177,7 +177,7 @@ export function ProvidersPage({ create = false }: { create?: boolean }) {
       description={t("管理模型服务、端点与本机保存的 API Key")}
       bodyClassName="management-page"
       secondaryAction={!create ? (
-        <button className="button button-secondary" type="button" onClick={() => { setEditor({ ...emptyProvider, id: suggestProviderID(Object.keys(status.providers)) }); setCreating(true); setFailure(""); setApplied(""); }}>
+        <button className="button button-primary" type="button" onClick={() => { setEditor({ ...emptyProvider, id: suggestProviderID(Object.keys(status.providers)) }); setCreating(true); setFailure(""); setApplied(""); }}>
           <Plus size={15} />
           {t("新增模型服务")}
         </button>
@@ -286,10 +286,10 @@ export function ProvidersPage({ create = false }: { create?: boolean }) {
               </dl>
               <footer>
                 {users.length ? (
-                  <span className="provider-users">
-                    {users.map((agentId) => <span className="provider-user-chip" key={agentId}>{nameOf(agentId)}</span>)}
+                  <span className="card-users">
+                    {users.map((agentId) => <span className="card-user-chip" key={agentId}>{nameOf(agentId)}</span>)}
                   </span>
-                ) : <span className="provider-users is-empty">{t("暂无 Agent 使用")}</span>}
+                ) : <span className="card-users is-empty">{t("暂无 Agent 使用")}</span>}
                 <span className={`provider-key-state${meta.has_key ? " has-key" : ""}`}>
                   <KeyRound size={12} />{meta.has_key ? t("已保存 Key") : t("未保存 Key")}
                 </span>

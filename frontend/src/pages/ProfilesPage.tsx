@@ -238,7 +238,7 @@ export function ProfilesPage() {
       description={t("在这里创建配置模版，再将它应用到所选 Agent")}
       bodyClassName="management-page"
       secondaryAction={(
-        <button className="button button-secondary" type="button" onClick={openCreate} disabled={Boolean(editor)}>
+        <button className="button button-primary" type="button" onClick={openCreate} disabled={Boolean(editor)}>
           <Plus size={15} />
           {t("新增配置模版")}
         </button>
@@ -400,10 +400,10 @@ export function ProfilesPage() {
                 </p>
                 <footer>
                   {users.length ? (
-                    <span className="provider-users">
-                      {users.map((agent) => <span className="provider-user-chip" key={agent.id}>{agent.name}</span>)}
+                    <span className="card-users">
+                      {users.map((agent) => <span className="card-user-chip" key={agent.id}>{agent.name}</span>)}
                     </span>
-                  ) : <span className="provider-users is-empty">{t("暂无 Agent 使用")}</span>}
+                  ) : <span className="card-users is-empty">{t("暂无 Agent 使用")}</span>}
                   <button
                     className="button button-secondary"
                     type="button"
