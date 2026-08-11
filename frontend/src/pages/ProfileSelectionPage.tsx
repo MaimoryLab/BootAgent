@@ -60,6 +60,8 @@ export function ProfileSelectionPage() {
       primaryLabel={t("继续")}
       onPrimary={choose}
       primaryDisabled={!selected}
+      // Stays secondary: the footer's primary is "继续", the step's actual
+      // forward action.
       secondaryAction={<button className="button button-secondary" type="button" onClick={() => { dispatch({ type: "START_NEW_PROFILE" }); navigate("/setup/provider"); }}><Plus size={15} />{t("新建配置模版")}</button>}
     >
       <div className="profile-list">

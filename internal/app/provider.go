@@ -195,6 +195,25 @@ func (u *UseCases) SaveProvider(ctx context.Context, entry provider.Entry, creat
 // Provider, keeping its own model and Profile reference. Callers must hold
 // writeMu.
 func (u *UseCases) reapplyProviderLocked(ctx context.Context, target provider.Entry) ([]string, map[string]string, error) {
+	// The Agent's own model stays authoritative; only the Provider changed.
+	return u.reapplyBindingsLocked(ctx, func(binding profileStore.AgentBinding) bool {
+		return binding.Provider == target.ID
+	}, func(binding profileStore.AgentBinding) (provider.Entry, string) {
+		return target, binding.Model
+	})
+}
+
+// reapplyBindingsLocked rewrites every Agent whose binding `selects`, using the
+// Provider and model that `rewrite` returns for it. Both a Provider edit and a
+// Profile edit need this same per-Agent dispatch -- managed CLI Agents go
+// through activation, desktop Agents split three ways by definition -- and they
+// differ only in which bindings to touch and what to write. Callers must hold
+// writeMu.
+func (u *UseCases) reapplyBindingsLocked(
+	ctx context.Context,
+	selects func(profileStore.AgentBinding) bool,
+	rewrite func(profileStore.AgentBinding) (provider.Entry, string),
+) ([]string, map[string]string, error) {
 	var reapplied []string
 	var failures map[string]string
 	bindings, err := u.profiles.ListAgentBindings()
@@ -208,10 +227,10 @@ func (u *UseCases) reapplyProviderLocked(ctx context.Context, target provider.En
 	sort.Strings(agentIDs)
 	for _, agentID := range agentIDs {
 		binding := bindings[agentID]
-		if binding.Provider != target.ID {
+		if !selects(binding) {
 			continue
 		}
-		// The Agent's own model stays authoritative; only the Provider changed.
+		target, model := rewrite(binding)
 		var err error
 		if definition, isDesktop := desktopapp.DefinitionFor(agentID); isDesktop {
 			if definition.SharedConfigAgentID != "" {
@@ -219,23 +238,23 @@ func (u *UseCases) reapplyProviderLocked(ctx context.Context, target provider.En
 					AgentID:   definition.ProfileAgentID,
 					Provider:  target.ID,
 					APIKey:    target.APIKey,
-					Model:     binding.Model,
+					Model:     model,
 					ProfileID: binding.ProfileRef,
 				})
 			} else if definition.ConfigAdapter != "" {
-				_, managed, configErr := u.writeDesktopAgentConfig(ctx, definition, target, binding.Model)
+				_, managed, configErr := u.writeDesktopAgentConfig(ctx, definition, target, model)
 				err = configErr
 				if err == nil && !managed {
 					continue
 				}
 				if err == nil && managed {
 					_, err = u.profiles.WriteAgentBinding(ctx, agentID, profileStore.BindingWriteRequest{
-						Provider: target.ID, BaseURL: target.BaseURL, Model: binding.Model, ProfileRef: binding.ProfileRef,
+						Provider: target.ID, BaseURL: target.BaseURL, Model: model, ProfileRef: binding.ProfileRef,
 					})
 				}
 			} else {
 				_, err = u.profiles.WriteAgentBinding(ctx, agentID, profileStore.BindingWriteRequest{
-					Provider: target.ID, BaseURL: target.BaseURL, Model: binding.Model, ProfileRef: binding.ProfileRef,
+					Provider: target.ID, BaseURL: target.BaseURL, Model: model, ProfileRef: binding.ProfileRef,
 				})
 			}
 		} else {
@@ -243,7 +262,7 @@ func (u *UseCases) reapplyProviderLocked(ctx context.Context, target provider.En
 				AgentID:   agentID,
 				Provider:  target.ID,
 				APIKey:    target.APIKey,
-				Model:     binding.Model,
+				Model:     model,
 				ProfileID: binding.ProfileRef,
 			})
 		}

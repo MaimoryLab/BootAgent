@@ -3,7 +3,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { api } from "../backend/api";
-import type { ProfileSummary, StatusResponse } from "../types/api";
+import type { SaveProfileResult, ProfileSummary, StatusResponse } from "../types/api";
 import { ProfilesPage } from "./ProfilesPage";
 
 const refreshStatus = vi.fn<() => Promise<void>>();
@@ -83,6 +83,12 @@ function profile(over: Partial<ProfileSummary> = {}): ProfileSummary {
     activatedAt: null,
     ...over,
   };
+}
+
+// saveProfile reports the Agents it rewrote alongside the saved record, so a
+// mock has to carry the whole result rather than the Profile alone.
+function saved(over: Partial<ProfileSummary> = {}): SaveProfileResult {
+  return { profile: profile(over), reapplied: null, failures: null };
 }
 
 function renderPage(profiles: ProfileSummary[]) {
@@ -186,7 +192,7 @@ describe("ProfilesPage", () => {
   });
 
   it("creates a Profile inline without entering onboarding", async () => {
-    const save = vi.spyOn(api, "saveProfile").mockResolvedValue(profile({
+    const save = vi.spyOn(api, "saveProfile").mockResolvedValue(saved({
       id: "profile-ppio",
       label: "Codex Profile",
     }));
@@ -220,7 +226,7 @@ describe("ProfilesPage", () => {
   });
 
   it("requires a manually selected API type", async () => {
-    const save = vi.spyOn(api, "saveProfile").mockResolvedValue(profile({ id: "profile-ppio" }));
+    const save = vi.spyOn(api, "saveProfile").mockResolvedValue(saved({ id: "profile-ppio" }));
     renderPage([]);
     fireEvent.click(screen.getByRole("button", { name: "新增配置模版" }));
     expect(screen.getByRole("button", { name: "保存配置模版" })).toBeDisabled();
@@ -232,7 +238,7 @@ describe("ProfilesPage", () => {
   });
 
   it("points at the Provider page when its key is missing", async () => {
-    const save = vi.spyOn(api, "saveProfile").mockResolvedValue(profile({ label: "团队默认" }));
+    const save = vi.spyOn(api, "saveProfile").mockResolvedValue(saved({ label: "团队默认" }));
     renderPage([profile()]);
     fireEvent.click(screen.getByRole("button", { name: "编辑 团队 PPIO" }));
     expect(screen.getByLabelText("配置模版 ID").hasAttribute("disabled")).toBe(true);
@@ -247,11 +253,36 @@ describe("ProfilesPage", () => {
     })));
   });
 
+  // Switching a Profile's Provider rewrites the Agents bound to it, so the page
+  // has to say which ones moved. Silently reapplying left the user unable to tell
+  // whether their Agent had followed the edit.
+  it("reports the Agents a Profile edit reapplied", async () => {
+    vi.spyOn(api, "saveProfile").mockResolvedValue({
+      profile: profile({ provider: "novita" }), reapplied: ["codex"], failures: null,
+    });
+    renderPage([profile()]);
+    fireEvent.click(screen.getByRole("button", { name: "编辑 团队 PPIO" }));
+    fireEvent.click(screen.getByRole("button", { name: "保存配置模版" }));
+
+    await waitFor(() => expect(screen.getByText(/已重新应用到.*Codex/)).toBeTruthy());
+  });
+
+  it("reports a Profile edit whose reapply failed", async () => {
+    vi.spyOn(api, "saveProfile").mockResolvedValue({
+      profile: profile({ provider: "novita" }), reapplied: null, failures: { codex: "写入失败" },
+    });
+    renderPage([profile()]);
+    fireEvent.click(screen.getByRole("button", { name: "编辑 团队 PPIO" }));
+    fireEvent.click(screen.getByRole("button", { name: "保存配置模版" }));
+
+    await waitFor(() => expect(screen.getByText(/Codex.*重新应用失败.*写入失败/)).toBeTruthy());
+  });
+
   it("saves a Profile whose name was left blank", async () => {
     // The backend fills an empty label in from the existing value or the ID
     // (internal/profile/write.go:71-74), so requiring one here was stricter than
     // the write path and blocked a rename-to-nothing edit.
-    const save = vi.spyOn(api, "saveProfile").mockResolvedValue(profile());
+    const save = vi.spyOn(api, "saveProfile").mockResolvedValue(saved());
     renderPage([profile()]);
     fireEvent.click(screen.getByRole("button", { name: "编辑 团队 PPIO" }));
     const label = screen.getByLabelText("名称");
@@ -340,7 +371,7 @@ describe("ProfilesPage", () => {
     // recomputed on a switch. So a Profile created after switching to Novita was
     // still called "PPIO 配置模版" and stored under profile-ppio -- a name and a
     // storage key both naming the Provider the user had just moved away from.
-    const save = vi.spyOn(api, "saveProfile").mockResolvedValue(profile());
+    const save = vi.spyOn(api, "saveProfile").mockResolvedValue(saved());
     renderWithTwoProviders();
     fireEvent.click(screen.getByRole("button", { name: "新增配置模版" }));
     // Novita, not PPIO: byProviderCreatedAt breaks a tie between two built-ins on

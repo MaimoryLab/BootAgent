@@ -148,7 +148,7 @@ func TestSaveProfileUseCaseWritesOnlyPublicSummary(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if summary.ID != "team" || summary.Protocol != "openai" {
+	if summary.Profile.ID != "team" || summary.Profile.Protocol != "openai" {
 		t.Fatalf("saved summary = %#v", summary)
 	}
 	if err := core.providers.SaveKey(context.Background(), "ppio", "new-provider-key"); err != nil {

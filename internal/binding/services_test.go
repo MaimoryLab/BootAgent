@@ -272,7 +272,7 @@ func TestProfileServiceSavesWithoutReturningSecret(t *testing.T) {
 		APIKey:     "sk-secret",
 		ConfigMode: "provider",
 	})
-	if err != nil || summary.ID != "team" {
+	if err != nil || summary.Profile.ID != "team" {
 		t.Fatalf("saved profile = %#v, err=%v", summary, err)
 	}
 	wire, err := json.Marshal(summary)

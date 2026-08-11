@@ -21,6 +21,6 @@ export function ListProfiles(): $CancellablePromise<app$0.ProfileSummary[] | nul
     return $Call.ByID(192725737);
 }
 
-export function SaveProfile(request: $models.SaveProfileRequest): $CancellablePromise<app$0.ProfileSummary> {
+export function SaveProfile(request: $models.SaveProfileRequest): $CancellablePromise<app$0.SaveProfileResult> {
     return $Call.ByID(972252911, request);
 }

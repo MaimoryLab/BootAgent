@@ -38,6 +38,17 @@
   --radius-control: 6px;
   --radius-panel: 8px;
   --radius-window: 12px;
+  /* Entity cards (Agent rows, Provider cards, Profile cards). These three used
+     to disagree -- 12px hardcoded against --radius-panel -- which put two
+     corner radii on one screen. Separate from --radius-panel so a change to
+     inline panels does not silently reshape the card grid. */
+  --radius-card: 12px;
+  --card-title-size: 15px;
+  /* Shared measure for entity-card content. The Agent rows carried this as a
+     bare `min(100%, 1040px)` while the Provider and Profile grids ran the full
+     pane, so on a wide window the two card families ended at different x and
+     the columns no longer lined up. */
+  --card-measure: 1040px;
   --sidebar-width: 232px;
   --footer-height: 68px;
   /* The task centre is position: fixed, so it contributes no height to the

@@ -143,6 +143,18 @@ export interface ProfileSummary {
 export type RuntimeStatus = install$0.RuntimeState;
 
 /**
+ * SaveProfileResult reports which Agents followed the Profile to its new
+ * Provider or model, mirroring SaveProviderResult. Reapply failures are returned
+ * per Agent rather than failing the save: the Profile record on disk is already
+ * correct, and reverting it would lose the edit.
+ */
+export interface SaveProfileResult {
+    "profile": ProfileSummary;
+    "reapplied": string[] | null;
+    "failures": { [_ in string]?: string } | null;
+}
+
+/**
  * SaveProviderResult reports which Agents were rewritten after the edit so the
  * UI can say so, and which ones could not be, keyed by Agent ID.
  */

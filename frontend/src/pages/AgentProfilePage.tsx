@@ -127,7 +127,7 @@ export function AgentProfilePage() {
         configMode: "provider",
         protocol: app ? desktopProtocol(app) : catalog?.protocol || "",
       });
-      setSelectedId(saved.id);
+      setSelectedId(saved.profile.id);
       setDraft(null);
       await refreshStatus();
     } catch (error) {
@@ -174,6 +174,8 @@ export function AgentProfilePage() {
       onPrimary={() => void apply()}
       primaryDisabled={!canApply || busy}
       footerNote={selected?.label || t("选择一个配置模版")}
+      // Stays secondary: this footer already has a primary ("应用"), and two
+      // blue buttons side by side would compete for the same attention.
       secondaryAction={(
         <button className="button button-secondary" type="button" onClick={openCreate} disabled={Boolean(draft)}>
           <Plus size={15} />{t("创建配置模版")}

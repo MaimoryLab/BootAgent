@@ -156,7 +156,7 @@ export function ActivationPage() {
       protocol: desktopProtocol(desktop),
     });
     register(taskCanceller(profileRequest));
-    const profile = await profileRequest;
+    const { profile } = await profileRequest;
     const installRequest = desktop.installed ? undefined : api.installDesktopAgent(desktop.id);
     if (installRequest) register(taskCanceller(installRequest));
     const installed = installRequest ? await installRequest : undefined;
