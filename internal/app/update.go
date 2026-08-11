@@ -57,6 +57,10 @@ func (u *UseCases) UpdateAgent(ctx context.Context, agentID string, listeners ..
 	args := []string{npm, "update", "-g", agent.Package.Name}
 	registry := u.packageRegistry(ctx, "")
 	if registry != "" {
+		registry, err = install.ResolveRegistry(registry)
+		if err != nil {
+			return AgentUpdateResult{}, err
+		}
 		args = append(args, "--registry="+registry)
 	}
 	if _, err := runtime.Run(ctx, args, install.NPMEnvironment(runtime, npm, registry), install.DefaultCommandTimeout); err != nil {
