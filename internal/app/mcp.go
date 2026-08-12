@@ -326,6 +326,10 @@ func (u *UseCases) ScanMCP(ctx context.Context) (MCPScanResult, error) {
 			merged.Servers[id] = fact
 		}
 	}
+	for id, fact := range merged.Servers {
+		collapseEmptyMCPVariants(&fact)
+		merged.Servers[id] = fact
+	}
 	eligibleIDs := make([]string, 0, len(eligible))
 	for id := range eligible {
 		eligibleIDs = append(eligibleIDs, id)
