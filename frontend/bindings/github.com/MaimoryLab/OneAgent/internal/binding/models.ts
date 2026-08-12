@@ -129,6 +129,15 @@ export interface ProbeRequest {
     "api_key": string;
     "model": string;
     "agents": string[] | null;
+
+    /**
+     * AnthropicBaseURL and Draft let the Provider editor test what is on screen
+     * before it is saved. Draft is explicit rather than inferred from a non-empty
+     * base URL: the wizard also sends a base URL, and silently switching it to
+     * draft resolution would stop it reading the stored record.
+     */
+    "anthropic_base_url": string;
+    "draft": boolean;
 }
 
 export interface ProbeResponse {
