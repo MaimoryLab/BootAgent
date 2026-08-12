@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"regexp"
 	"sort"
 	"strings"
@@ -199,9 +200,7 @@ func cloneStrings(in map[string]string) map[string]string {
 		return nil
 	}
 	out := make(map[string]string, len(in))
-	for k, v := range in {
-		out[k] = v
-	}
+	maps.Copy(out, in)
 	return out
 }
 func cloneRaw(in map[string]json.RawMessage) map[string]json.RawMessage {

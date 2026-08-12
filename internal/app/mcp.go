@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"sort"
@@ -288,9 +289,7 @@ func (u *UseCases) ScanMCP(ctx context.Context) (MCPScanResult, error) {
 		return MCPScanResult{}, err
 	}
 	merged := mcp.Registry{SchemaVersion: mcp.RegistrySchemaVersion, Servers: map[string]mcp.ServerFact{}}
-	for id, fact := range previous.Servers {
-		merged.Servers[id] = fact
-	}
+	maps.Copy(merged.Servers, previous.Servers)
 	oldFacts := make(map[string][]mcpAgentFact, len(eligible))
 	for agentID := range eligible {
 		oldFacts[agentID] = factsForMCPAgent(previous, agentID)
@@ -529,8 +528,6 @@ func (u *UseCases) SaveImportedMCP(ctx context.Context, imported mcp.Registry) e
 	if err != nil {
 		return err
 	}
-	for id, fact := range imported.Servers {
-		current.Servers[id] = fact
-	}
+	maps.Copy(current.Servers, imported.Servers)
 	return u.mcpStore().Save(ctx, current)
 }
