@@ -471,11 +471,13 @@ func TestWriteHermesPreservesExistingConfig(t *testing.T) {
 	}
 }
 
-// The real ~/.zcode/v2/config.json holds builtin:* entries the app owns and
-// UUID-keyed custom ones. This fixture reproduces that shape, because preserving
-// both is the whole risk of writing into a file OneAgent does not own.
+// Reproduces the shape of a real ~/.zcode/v2/config.json: builtin:* entries the
+// app owns beside UUID-keyed custom ones. Preserving both is the whole risk of
+// writing into a file OneAgent does not own.
+//
+// Taken from ZCode 3.1.3, which carries no "$schema" key. 3.1.1 did, so this
+// fixture doubles as a record of the version the assumptions were checked against.
 const zcodeExisting = `{
-  "$schema": "https://opencode.ai/config.json",
   "provider": {
     "builtin:zai": {
       "name": "Z.ai - API Key",
@@ -506,8 +508,10 @@ func zcodeProviders(t *testing.T, path string) map[string]map[string]any {
 	if err := json.Unmarshal(data, &document); err != nil {
 		t.Fatalf("ZCode config is not valid JSON: %s: %v", data, err)
 	}
-	if document.Schema != "https://opencode.ai/config.json" {
-		t.Fatalf("$schema = %q", document.Schema)
+	// 3.1.3 removed this key, so writing it back would reintroduce a field the app
+	// deliberately dropped.
+	if document.Schema != "" {
+		t.Fatalf("wrote a $schema key the current ZCode does not use: %q", document.Schema)
 	}
 	return document.Provider
 }

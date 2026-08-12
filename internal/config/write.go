@@ -137,12 +137,18 @@ const zcodeOwnedName = "OneAgent"
 // WriteZCode adds or updates OneAgent's provider entry in ~/.zcode/v2/config.json.
 //
 // It writes the provider only, and deliberately does not select a model. ZCode
-// keeps no top-level "model" key -- unlike OpenCode, whose config it otherwise
-// shares a $schema with -- and where it records the active model is not
-// documented and was not found on disk. Guessing at that would risk corrupting
-// state the app owns, so the user picks the model once inside ZCode. This
-// mirrors WriteWorkBuddy, which likewise registers a model service and leaves
-// selection to the app.
+// keeps no top-level "model" key and where it records the active model is neither
+// documented nor anywhere it could be found on disk. Guessing at that would risk
+// corrupting state the app owns, so the user picks the model once inside ZCode.
+// This mirrors WriteWorkBuddy, which likewise registers a model service and
+// leaves selection to the app.
+//
+// The shape below was read off ZCode 3.1.3. Nothing about it is documented -- the
+// published docs describe GUI configuration and name no file path -- so it is an
+// observation of one version, and 3.1.1 to 3.1.3 already moved: that release
+// declared "$schema": "https://opencode.ai/config.json" and carried enabled /
+// systemDisabledReason on builtin entries, all of which 3.1.3 dropped. Re-check
+// against a current build before assuming any of it still holds.
 //
 // Existing entries are matched by name, not by key. Keying by a fresh UUID on
 // every write would append a duplicate provider each time the user reconfigured.
@@ -158,12 +164,11 @@ func (w Writer) WriteZCode(ctx context.Context, path, providerName, baseURL, api
 	if err != nil {
 		return err
 	}
-	// ZCode's own config declares OpenCode's schema. Preserve whatever is there
-	// rather than asserting it: this file belongs to ZCode, and only the one
-	// provider entry below is OneAgent's to manage.
-	if document.GetString("$schema") == "" {
-		document.Set("$schema", "https://opencode.ai/config.json")
-	}
+	// No "$schema" is written. ZCode 3.1.1 declared OpenCode's schema URL and
+	// 3.1.3 dropped the key entirely, so writing it back would reintroduce a field
+	// the current version chose to remove. Only the one provider entry below is
+	// OneAgent's to manage; every other key in this file belongs to ZCode and is
+	// left exactly as found.
 	providers, err := document.Child("provider")
 	if err != nil {
 		return configError("Existing provider configuration must contain an object: %s", path)
