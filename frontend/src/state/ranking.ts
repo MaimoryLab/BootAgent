@@ -34,12 +34,21 @@ export function splitByRank(catalog: readonly AgentCatalogItem[] | undefined): {
   };
 }
 
-const builtInProviders = new Set(["ppio", "novita"]);
+/** User-defined Providers sort ahead of built-in ones.
+ *
+ *  Read from the DTO rather than a hardcoded ID list. The list used to name
+ *  ["ppio", "novita"] here, which silently mis-sorted every Provider added to
+ *  providers.lock.json afterwards: an unlisted built-in counted as user-defined
+ *  and jumped the queue, so the first Provider matching a protocol was no longer
+ *  the intended one. The backend already answers this question -- `custom` is
+ *  `!builtIn` in provider.Store.Public, omitted for built-ins -- so deriving it
+ *  keeps the two from drifting apart. */
+const isCustom = (provider: StatusResponse["providers"][string]) => provider.custom === true;
 
 export function byProviderCreatedAt(providers: StatusResponse["providers"]): Array<[string, StatusResponse["providers"][string]]> {
-  return Object.entries(providers).sort(([firstId, first], [secondId, second]) =>
-    builtInProviders.has(firstId) !== builtInProviders.has(secondId)
-      ? (builtInProviders.has(firstId) ? 1 : -1)
+  return Object.entries(providers).sort(([, first], [, second]) =>
+    isCustom(first) !== isCustom(second)
+      ? (isCustom(first) ? -1 : 1)
       : (second.created_at || "").localeCompare(first.created_at || "") || first.name.localeCompare(second.name),
   );
 }

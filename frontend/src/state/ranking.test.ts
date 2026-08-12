@@ -56,6 +56,20 @@ describe("ranking", () => {
     expect(sorted.map(([id]) => id)).toEqual(["newer", "older", "novita", "ppio"]);
   });
 
+  it("treats any Provider without `custom` as built-in, whatever its id", () => {
+    // The built-in check used to be a hardcoded Set(["ppio", "novita"]). Adding
+    // deepseek to providers.lock.json then sorted it as user-defined, so it
+    // jumped ahead of PPIO and became the first match for a protocol -- which
+    // broke the Profile editor's model list. Nothing here may name an id: the
+    // absence of `custom` is what makes a Provider built-in.
+    const sorted = byProviderCreatedAt({
+      deepseek: { name: "DeepSeek", home: "", base_url: "" },
+      mine: { name: "Mine", home: "", base_url: "", custom: true, created_at: "2026-03-01T00:00:00Z" },
+      ppio: { name: "PPIO", home: "", base_url: "" },
+    });
+    expect(sorted.map(([id]) => id)).toEqual(["mine", "deepseek", "ppio"]);
+  });
+
   it("puts newest profiles first", () => {
     const sorted = byProfileCreatedAt([
       { id: "old", label: "Old", provider: "ppio", baseUrl: null, model: "m", protocol: "openai", activatedAt: null, createdAt: "2026-01-01T00:00:00Z" },
