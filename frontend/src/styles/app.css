@@ -2174,6 +2174,7 @@
 .mcp-row-actions { white-space: nowrap; text-align: right !important; }
 .mcp-row-deleted { opacity: 0.55; text-decoration: line-through; }
 .mcp-row-deleted .mcp-row-actions, .mcp-row-deleted input { text-decoration: none; }
+.mcp-footer-actions { display: flex; gap: 8px; }
 .mcp-targets { display: grid; gap: 4px; min-width: 130px; }
 .mcp-targets label { display: flex; align-items: center; gap: 6px; white-space: nowrap; color: var(--text-secondary); font-size: 12px; }
 .mcp-secret-note { display: block; color: var(--text-secondary); margin-top: 4px; }
