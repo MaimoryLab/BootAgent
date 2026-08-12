@@ -9,6 +9,9 @@ import * as catalog$0 from "../catalog/models.js";
 import * as install$0 from "../install/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import * as mcp$0 from "../mcp/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import * as platform$0 from "../platform/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
@@ -136,6 +139,49 @@ export interface InstallRuntimeResult {
     "version": string;
     "pathUpdated": boolean;
     "runtimes": RuntimeStatus[] | null;
+}
+
+export interface MCPAgentApplyResult {
+    "agent": string;
+    "config_updated": boolean;
+    "registry_updated": boolean;
+    "error"?: string;
+}
+
+export interface MCPApplyRequest {
+    "changes": MCPChange[] | null;
+}
+
+export interface MCPApplyResult {
+    "results": MCPAgentApplyResult[] | null;
+}
+
+export interface MCPChange {
+    "id": string;
+    "spec"?: mcp$0.Spec | null;
+    "agents": string[] | null;
+    "delete"?: boolean;
+}
+
+export interface MCPScanResult {
+    "servers": MCPServerSummary[] | null;
+    "eligible_agents": string[] | null;
+    "diagnostics"?: string[] | null;
+}
+
+export interface MCPServerDetail {
+    "id": string;
+    "source_agent"?: string;
+    "variants": mcp$0.Variant[] | null;
+}
+
+export interface MCPServerSummary {
+    "id": string;
+    "type": string;
+    "agents": string[] | null;
+    "variants": number;
+    "conflict": boolean;
+    "has_secrets": boolean;
 }
 
 /**

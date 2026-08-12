@@ -10,6 +10,9 @@
       "config_mode": "auto",
       "config_adapter": "codex",
       "config_path": ".codex/config.toml",
+      "mcp_adapter": "codex",
+      "mcp_section": "mcp_servers",
+      "mcp_config_path": ".codex/config.toml",
       "package": {
         "manager": "npm",
         "name": "@openai/codex",
@@ -40,6 +43,9 @@
         "small_fast_model": "ANTHROPIC_SMALL_FAST_MODEL"
       },
       "config_path": ".claude/settings.json",
+      "mcp_adapter": "claude",
+      "mcp_section": "mcpServers",
+      "mcp_config_path": ".claude.json",
       "package": {
         "manager": "npm",
         "name": "@anthropic-ai/claude-code",
@@ -67,6 +73,9 @@
       "config_mode": "auto",
       "config_adapter": "opencode",
       "config_path": ".config/opencode/opencode.json",
+      "mcp_adapter": "opencode",
+      "mcp_section": "mcp",
+      "mcp_config_path": ".config/opencode/opencode.json",
       "package": {
         "manager": "npm",
         "name": "opencode-ai",
@@ -92,6 +101,9 @@
       "config_mode": "auto",
       "config_adapter": "kilo-cli",
       "config_path": ".config/kilo/kilo.jsonc",
+      "mcp_adapter": "kilo",
+      "mcp_section": "mcp",
+      "mcp_config_path": ".config/kilo/kilo.jsonc",
       "package": {
         "manager": "npm",
         "name": "@kilocode/cli",
@@ -165,6 +177,9 @@
       "config_mode": "auto",
       "config_adapter": "hermes",
       "config_path": ".hermes/config.yaml",
+      "mcp_adapter": "hermes",
+      "mcp_section": "mcp_servers",
+      "mcp_config_path": ".hermes/config.yaml",
       "windows_config_path": "AppData/Local/hermes/config.yaml",
       "package": {
         "manager": "official-script",

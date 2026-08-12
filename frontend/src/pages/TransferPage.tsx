@@ -1,5 +1,5 @@
 import { CheckCheck, Eye, EyeOff, KeyRound, Upload } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { api, describeFailure } from "../backend/api";
@@ -44,6 +44,8 @@ export function TransferPage() {
   const status = state.status;
   const [selectedProviders, setSelectedProviders] = useState(new Set<string>());
   const [selectedProfiles, setSelectedProfiles] = useState(new Set<string>());
+  const [mcpServers, setMcpServers] = useState<{ id: string; type: string }[]>([]);
+  const [selectedMcp, setSelectedMcp] = useState(new Set<string>());
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState("");
   const [success, setSuccess] = useState("");
@@ -76,17 +78,19 @@ export function TransferPage() {
   const providers = status ? byProviderCreatedAt(status.providers) : [];
   const requiredProviders = useMemo(() => new Set(profiles.filter((profile) => selectedProfiles.has(profile.id)).map((profile) => profile.provider)), [profiles, selectedProfiles]);
   const exportProviders = new Set([...selectedProviders, ...requiredProviders]);
-  const canExport = selectedProfiles.size > 0 || exportProviders.size > 0;
-  const allSelected = providers.length > 0 && profiles.length > 0
-    && selectedProviders.size === providers.length && selectedProfiles.size === profiles.length;
+  const canExport = selectedProfiles.size > 0 || exportProviders.size > 0 || selectedMcp.size > 0;
+  const allSelected = (providers.length > 0 || profiles.length > 0 || mcpServers.length > 0)
+    && selectedProviders.size === providers.length && selectedProfiles.size === profiles.length && selectedMcp.size === mcpServers.length;
   const toggleAll = () => {
     if (allSelected) {
       setSelectedProviders(new Set());
       setSelectedProfiles(new Set());
+      setSelectedMcp(new Set());
       return;
     }
     setSelectedProviders(new Set(providers.map(([id]) => id)));
     setSelectedProfiles(new Set(profiles.map((profile) => profile.id)));
+    setSelectedMcp(new Set(mcpServers.map((server) => server.id)));
   };
 
   const askPassword = (mode: "export" | "import") => new Promise<string | null>((resolve) => {
@@ -138,8 +142,9 @@ export function TransferPage() {
       const password = keys === "encrypted" ? await askPassword("export") : "";
       if (keys === "encrypted" && !password) return setSuccess(t("已取消导出"));
       const entries = await Promise.all([...exportProviders].map((id) => api.getProvider(id)));
+      const mcp = selectedMcp.size ? JSON.parse(await api.exportMCP(keys === "encrypted" ? "encrypted" : keys === "plain" ? "plaintext" : "omit", password || "", keys === "plain", [...selectedMcp])) : undefined;
       const selected = profiles.filter((profile) => selectedProfiles.has(profile.id));
-      await api.writeTransferFile(stringifyTransfer(await makeTransfer(selected, entries, keys, password || "")));
+      await api.writeTransferFile(stringifyTransfer(await makeTransfer(selected, entries, keys, password || "", mcp)));
       // Only the plain-text case needs a warning; the default carries no key at
       // all, and saying so is reassurance rather than a caveat.
       setSuccess(keys === "plain"
@@ -198,6 +203,7 @@ export function TransferPage() {
         await api.saveProvider({ ...entry, create: false, keep_existing_key: !carriesKey });
       }
       for (const profile of data.profiles ?? []) await api.saveProfile({ id: profile.id, label: profile.label, provider: profile.provider, apiBaseUrl: "", apiKey: "", model: profile.model || "", configMode: "provider", protocol: profile.protocol || "" });
+      if (data.mcp) await api.saveImportedMCP(await api.previewImportMCP(JSON.stringify(data.mcp), password || ""));
       await refreshStatus();
       setSuccess(t("导入完成"));
     } catch (error) {
@@ -206,6 +212,8 @@ export function TransferPage() {
       setBusy(false);
     }
   };
+
+  useEffect(() => { void api.listMCP().then((items) => setMcpServers((items ?? []).map(({ id, type }) => ({ id, type })))).catch(() => setMcpServers([])); }, []);
 
   if (!status) return <PageScaffold title={t("导入导出")}><div className="loading-block"><span className="spinner" />{t("正在读取环境状态")}</div></PageScaffold>;
 
@@ -299,7 +307,7 @@ export function TransferPage() {
         </dialog>
       ) : null}
       <div className="transfer-actions">
-        <button className="button button-secondary" type="button" onClick={toggleAll} disabled={busy || (!providers.length && !profiles.length)}>
+        <button className="button button-secondary" type="button" onClick={toggleAll} disabled={busy || (!providers.length && !profiles.length && !mcpServers.length)}>
           <CheckCheck size={15} />{t(allSelected ? "取消全选" : "全选")}
         </button>
       </div>
@@ -318,6 +326,10 @@ export function TransferPage() {
           <div className="transfer-list">
             {profiles.map((profile) => <label className="transfer-row" key={profile.id}><input type="checkbox" checked={selectedProfiles.has(profile.id)} onChange={() => setSelectedProfiles(toggle(selectedProfiles, profile.id))} /><span><strong>{profile.label || profile.id}</strong><small>{profile.id} · {status.providers[profile.provider]?.name || profile.provider}</small></span></label>)}
           </div>
+        </section>
+        <section className="transfer-section">
+          <header><div><h2>{t("MCP 服务器")}</h2><p>{t("已选择 {count} 项", { count: selectedMcp.size })}</p></div></header>
+          <div className="transfer-list">{mcpServers.map((server) => <label className="transfer-row" key={server.id}><input type="checkbox" checked={selectedMcp.has(server.id)} onChange={() => setSelectedMcp(toggle(selectedMcp, server.id))} /><span><strong>{server.id}</strong><small>{server.type}</small></span></label>)}</div>
         </section>
       </div>
     </PageScaffold>

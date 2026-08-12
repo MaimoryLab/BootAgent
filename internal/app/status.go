@@ -70,6 +70,7 @@ type UseCases struct {
 	// Registry answers for the update dot, cached so a status poll does not spend
 	// a request per Agent every time it runs.
 	latestVersions latestVersionCache
+	mcpDraft       mcpDraftState
 }
 
 // SetRuntimeDownloader overrides the HTTP client used for internal downloads.

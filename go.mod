@@ -4,6 +4,7 @@ go 1.26.5
 
 require (
 	github.com/pelletier/go-toml/v2 v2.4.3
+	github.com/tailscale/hujson v0.0.0-20260727124030-b80ff77dac4f
 	github.com/wailsapp/wails/v3 v3.0.0-beta.7
 	gopkg.in/yaml.v3 v3.0.1
 )

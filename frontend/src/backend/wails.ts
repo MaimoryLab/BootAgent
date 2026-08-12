@@ -8,6 +8,7 @@ import * as RuntimeService from "../../bindings/github.com/MaimoryLab/OneAgent/i
 import * as StatusService from "../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/statusservice.js";
 import * as TransferService from "../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/transferservice.js";
 import * as UpdateService from "../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/updateservice.js";
+import * as MCPService from "../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/mcpservice.js";
 import type {
   ActivateAgentResponse,
   DesktopAgentActionResult,
@@ -31,6 +32,12 @@ import type {
   SaveProviderResult,
   Settings,
   StatusResponse,
+  MCPServerSummary,
+  MCPScanResult,
+  MCPServerDetail,
+  MCPApplyRequest,
+  MCPApplyResult,
+  MCPSpec,
 } from "../types/api";
 import { currentLocale, translate } from "../i18n";
 import { isCancellationError, OneAgentApiError } from "./errors";
@@ -201,6 +208,16 @@ export const wailsApi = {
     call(() => RuntimeService.SaveSettings(settings)) as Promise<Settings>,
   readTransferFile: (): Promise<string> => call(() => TransferService.Read()) as Promise<string>,
   writeTransferFile: (data: string): Promise<void> => call(() => TransferService.Write(data)).then(() => undefined),
+  listMCP: (): Promise<MCPServerSummary[]> => call(() => MCPService.List()).then((items) => items ?? []),
+  scanMCP: (): Promise<MCPScanResult> => call(() => MCPService.Scan()) as Promise<MCPScanResult>,
+  getMCP: (id: string, sourceAgent = ""): Promise<MCPServerDetail> => call(() => MCPService.Get(id, sourceAgent)) as Promise<MCPServerDetail>,
+  applyMCP: (request: MCPApplyRequest): Promise<MCPApplyResult> => call(() => MCPService.Apply(request)) as Promise<MCPApplyResult>,
+  exportMCP: (mode: string, password = "", confirmPlaintext = false, serverIDs: string[] = []): Promise<string> =>
+    call(() => MCPService.Export({ mode, password, confirm_plaintext: confirmPlaintext, server_ids: serverIDs })) as Promise<string>,
+  previewImportMCP: (data: string, password = ""): Promise<import("../../bindings/github.com/MaimoryLab/OneAgent/internal/mcp/models.js").Registry> =>
+    call(() => MCPService.PreviewImport({ data, password })) as Promise<import("../../bindings/github.com/MaimoryLab/OneAgent/internal/mcp/models.js").Registry>,
+  saveImportedMCP: (registry: import("../../bindings/github.com/MaimoryLab/OneAgent/internal/mcp/models.js").Registry): Promise<void> => call(() => MCPService.SaveImported(registry)).then(() => undefined),
+  setMCPDraftState: (dirty: boolean, locale: string): Promise<void> => call(() => MCPService.SetDraftState(dirty, locale)).then(() => undefined),
   listProfiles: (): Promise<ProfileSummary[]> => call(() => ProfileService.ListProfiles()) as Promise<ProfileSummary[]>,
   deleteProfile: (id: string): Promise<void> =>
     call(() => ProfileService.DeleteProfile({ id })).then(() => undefined),

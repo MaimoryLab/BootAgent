@@ -8,6 +8,7 @@ import { AgentProfilePage } from "./pages/AgentProfilePage";
 import { AgentSelectionPage } from "./pages/AgentSelectionPage";
 import { EnvironmentOverviewPage } from "./pages/EnvironmentOverviewPage";
 import { ModelSelectionPage } from "./pages/ModelSelectionPage";
+import { MCPPage } from "./pages/MCPPage";
 import { ProfilesPage } from "./pages/ProfilesPage";
 import { ProfileSelectionPage } from "./pages/ProfileSelectionPage";
 import { ProviderKeyPage } from "./pages/ProviderKeyPage";
@@ -86,6 +87,7 @@ function WorkspaceRoutes() {
         <Route path="/providers" element={<ProvidersPage />} />
         <Route path="/providers/new" element={<ProvidersPage create />} />
         <Route path="/profiles" element={<ProfilesPage />} />
+        <Route path="/mcp" element={<MCPPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/settings/transfer" element={<TransferPage />} />
         <Route path="/transfer" element={<Navigate to="/settings/transfer" replace />} />

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { makeTransfer, parseTransfer } from "./settingsTransfer";
+import { makeTransfer, parseTransfer, transferNeedsPassword } from "./settingsTransfer";
 
 describe("settings transfer", () => {
   it("round-trips encrypted provider keys", async () => {
@@ -57,5 +57,9 @@ describe("settings transfer", () => {
     const providers = [{ id: "demo", name: "Demo", home: "", base_url: "https://example.test", anthropic_base_url: "", api_key: "", built_in: false }];
     const parsed = await parseTransfer(JSON.stringify(await makeTransfer([], providers, "plain")));
     expect(parsed.providers[0].carriesKey).toBe(true);
+  });
+
+  it("detects an encrypted MCP payload nested in the transfer", () => {
+    expect(transferNeedsPassword(JSON.stringify({ version: 1, providers: [], profiles: [], encrypted: [], mcp: { secret_mode: "encrypted" } }))).toBe(true);
   });
 });
