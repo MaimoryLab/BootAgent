@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { api, describeFailure } from "../backend/api";
+import { CardUsers } from "../components/CardUsers";
 import { PageScaffold } from "../components/PageScaffold";
 import { SecureKeyField } from "../components/SecureKeyField";
 import { useI18n } from "../i18n";
@@ -280,16 +281,22 @@ export function ProvidersPage({ create = false }: { create?: boolean }) {
                   ) : null}
                 </span>
               </header>
+              {/* The Anthropic row always occupies its slot. It used to render
+                  only when the endpoint was set, which made an OpenAI-only
+                  Provider one row shorter than its neighbours in the same grid
+                  row. Stating the absence also answers the question the missing
+                  row left the user to infer. */}
               <dl className="provider-endpoints">
                 <div><dt>{t("OpenAI 兼容")}</dt><dd>{meta.base_url}</dd></div>
-                {meta.anthropic_base_url ? <div><dt>{t("Anthropic 兼容")}</dt><dd>{meta.anthropic_base_url}</dd></div> : null}
+                <div>
+                  <dt>{t("Anthropic 兼容")}</dt>
+                  {meta.anthropic_base_url
+                    ? <dd>{meta.anthropic_base_url}</dd>
+                    : <dd className="is-unsupported">{t("不支持")}</dd>}
+                </div>
               </dl>
               <footer>
-                {users.length ? (
-                  <span className="card-users">
-                    {users.map((agentId) => <span className="card-user-chip" key={agentId}>{nameOf(agentId)}</span>)}
-                  </span>
-                ) : <span className="card-users is-empty">{t("暂无 Agent 使用")}</span>}
+                <CardUsers users={users.map((agentId) => ({ id: agentId, name: nameOf(agentId) }))} />
                 <span className={`provider-key-state${meta.has_key ? " has-key" : ""}`}>
                   <KeyRound size={12} />{meta.has_key ? t("已保存 Key") : t("未保存 Key")}
                 </span>

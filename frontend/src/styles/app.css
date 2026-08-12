@@ -1940,6 +1940,11 @@
   white-space: nowrap;
 }
 
+/* An absent endpoint is stated rather than omitted, so it must not read as a URL:
+   the tertiary colour is the same one .card-users.is-empty uses for "nothing
+   here". */
+.provider-endpoints dd.is-unsupported { color: var(--text-tertiary); }
+
 /* .card-users / .card-user-chip are shared by the Provider and Profile cards.
    Named for the role, not the page: the Profile card used to borrow
    .provider-user-chip, so narrowing the Provider chip would have reshaped a
@@ -1954,6 +1959,15 @@
 .card-users.is-empty {
   color: var(--text-tertiary);
   font-size: 11px;
+}
+
+/* The "+N" chip reads as a count rather than another Agent name, so it drops the
+   chip border and carries the muted colour the empty state already uses. */
+.card-user-chip.is-overflow {
+  border-color: transparent;
+  background: none;
+  padding-inline: 2px;
+  color: var(--text-tertiary);
 }
 
 /* Matched to .agent-manage-pill -- same border, padding and radius. Without the
