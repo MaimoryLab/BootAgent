@@ -128,7 +128,7 @@
       "ecosystem": "go",
       "license": "MIT",
       "license_files": [
-        "licenses/go/github.com_wailsapp_wails_v3@v3.0.0-beta.4/LICENSE"
+        "licenses/go/github.com_wailsapp_wails_v3@v3.0.0-beta.7/LICENSE"
       ],
       "modification": "",
       "name": "github.com/wailsapp/wails/v3",
@@ -138,13 +138,13 @@
         "windows-arm64",
         "windows-x64"
       ],
-      "version": "v3.0.0-beta.4"
+      "version": "v3.0.0-beta.7"
     },
     {
       "ecosystem": "go",
       "license": "BSD-3-Clause",
       "license_files": [
-        "licenses/go/golang.org_x_mod@v0.38.0/LICENSE"
+        "licenses/go/golang.org_x_mod@v0.39.0/LICENSE"
       ],
       "modification": "",
       "name": "golang.org/x/mod",
@@ -154,7 +154,7 @@
         "windows-arm64",
         "windows-x64"
       ],
-      "version": "v0.38.0"
+      "version": "v0.39.0"
     },
     {
       "ecosystem": "go",
@@ -191,14 +191,14 @@
       "ecosystem": "npm",
       "license": "MIT",
       "license_files": [
-        "licenses/npm/wailsio_runtime@3.0.0-beta.1/LICENSE"
+        "licenses/npm/wailsio_runtime@3.0.0-beta.5/LICENSE"
       ],
       "modification": "",
       "name": "@wailsio/runtime",
       "platforms": [
         "frontend"
       ],
-      "version": "3.0.0-beta.1"
+      "version": "3.0.0-beta.5"
     },
     {
       "ecosystem": "npm",

@@ -42,7 +42,7 @@ OneAgent does not redistribute Agent packages and does not bundle Node.js, Git, 
 
 ## Build from source
 
-Requirements: Go, Node.js, pnpm 11.20.0, and the target platform's WebView dependencies.
+Requirements: Go, Node.js, pnpm 11.21.0, and the target platform's WebView dependencies.
 
 ```text
 git clone https://github.com/MaimoryLab/OneAgent.git

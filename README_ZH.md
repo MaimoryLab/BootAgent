@@ -42,7 +42,7 @@ OneAgent 不重新分发 Agent 包，也不捆绑 Node.js、Git、WebView 或 AP
 
 ## 从源码构建
 
-需要 Go、Node.js、pnpm 11.20.0，以及目标平台的 WebView 依赖。
+需要 Go、Node.js、pnpm 11.21.0，以及目标平台的 WebView 依赖。
 
 ```text
 git clone https://github.com/MaimoryLab/OneAgent.git

@@ -192,7 +192,7 @@ def npm_license_source(name: str, package_path: Path) -> Path:
     if find_license_files(package_path):
         return package_path
     if name == "@wailsio/runtime":
-        return module_directory("github.com/wailsapp/wails/v3", "v3.0.0-beta.4")
+        return module_directory("github.com/wailsapp/wails/v3", "v3.0.0-beta.7")
     raise RuntimeError(f"npm package {name} has no bundled license file in {package_path}")
 
 

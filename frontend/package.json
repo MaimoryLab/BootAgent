@@ -4,7 +4,7 @@
   "version": "0.2.0-dev",
   "license": "Apache-2.0",
   "type": "module",
-  "packageManager": "pnpm@11.20.0",
+  "packageManager": "pnpm@11.21.0",
   "scripts": {
     "dev": "vite",
     "build": "pnpm run typecheck && vite build",
@@ -15,7 +15,7 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
-    "@wailsio/runtime": "3.0.0-beta.1",
+    "@wailsio/runtime": "3.0.0-beta.5",
     "lucide-react": "1.28.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
