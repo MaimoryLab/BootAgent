@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { changeMCPTransport, formatStdioCommandLine, isMCPDraftComplete, mcpRowPending, normalizeAdvancedSpec, parseAdvancedSpecJSON, parseStdioCommandLine, previewMCPForm } from "./MCPPage";
+import { changeMCPTransport, formatStdioCommandLine, isMCPDraftComplete, mcpRowPending, normalizeAdvancedSpec, parseAdvancedServerID, parseAdvancedSpecJSON, parseStdioCommandLine, previewMCPForm } from "./MCPPage";
 
 describe("stdio command line conversion", () => {
   it("uses the first whitespace-delimited token as command", () => {
@@ -28,7 +28,9 @@ describe("stdio command line conversion", () => {
   });
 
   it("unwraps the common mcpServers provider format", () => {
-    expect(parseAdvancedSpecJSON(JSON.stringify({ mcpServers: { "bing-cn-search": { url: "https://example.test/mcp", headers: { Authorization: "Bearer key" } } } }))).toMatchObject({ type: "http", url: "https://example.test/mcp", headers: { Authorization: "Bearer key" } });
+    const value = JSON.stringify({ mcpServers: { "bing-cn-search": { url: "https://example.test/mcp", headers: { Authorization: "Bearer key" } } } });
+    expect(parseAdvancedSpecJSON(value)).toMatchObject({ type: "http", url: "https://example.test/mcp", headers: { Authorization: "Bearer key" } });
+    expect(parseAdvancedServerID(value)).toBe("bing-cn-search");
   });
 
   it("requires id, transport, and command or URL before saving", () => {

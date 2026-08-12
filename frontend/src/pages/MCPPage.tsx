@@ -55,6 +55,16 @@ export function parseAdvancedSpecJSON(value: string): MCPSpec {
   }
 }
 
+export function parseAdvancedServerID(value: string): string | undefined {
+  try {
+    const parsed = JSON.parse(value.trim()) as { mcpServers?: Record<string, MCPSpec> };
+    if (parsed.mcpServers && typeof parsed.mcpServers === "object") return Object.keys(parsed.mcpServers)[0];
+  } catch {
+    return undefined;
+  }
+  return undefined;
+}
+
 export function isMCPDraftComplete(id: string | null, spec: MCPSpec, commandLine: string): boolean {
   if (!id?.trim() || !["stdio", "http", "sse"].includes(spec.type ?? "")) return false;
   return spec.type === "stdio" ? Boolean(parseStdioCommandLine(commandLine).command) : Boolean(spec.url?.trim());
@@ -127,6 +137,8 @@ export function MCPPage() {
     try {
       const next = parseAdvancedSpecJSON(value);
       setForm(next);
+      const serverID = parseAdvancedServerID(value);
+      if (serverID) setEditing(serverID);
       if (next.type === "stdio") setCommandLine(formatStdioCommandLine(next));
     } catch { /* keep the editable text until it becomes valid JSON */ }
   };
@@ -134,6 +146,8 @@ export function MCPPage() {
     try {
       const next = parseAdvancedSpecJSON(advancedJSON);
       setForm(next); setAdvancedJSON(JSON.stringify(next, null, 2));
+      const serverID = parseAdvancedServerID(advancedJSON);
+      if (serverID) setEditing(serverID);
       if (next.type === "stdio") setCommandLine(formatStdioCommandLine(next));
     } catch { /* leave invalid text visible for correction */ }
   };
