@@ -294,6 +294,21 @@
     }
   ],
   "providers": {
+    "deepseek": {
+      "name": "DeepSeek",
+      "home": "https://www.deepseek.com/",
+      "key_management_url": "https://platform.deepseek.com/api_keys",
+      "base_url": "https://api.deepseek.com",
+      "anthropic_base_url": "https://api.deepseek.com/anthropic",
+      "default_model": "deepseek-v4-pro"
+    },
+    "moonshot": {
+      "name": "Moonshot",
+      "home": "https://www.moonshot.cn/",
+      "key_management_url": "https://platform.moonshot.cn/console/api-keys",
+      "base_url": "https://api.moonshot.cn",
+      "default_model": "kimi-k2-0905-preview"
+    },
     "novita": {
       "name": "Novita",
       "home": "https://novita.ai/",

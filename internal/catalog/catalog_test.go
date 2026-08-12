@@ -212,6 +212,30 @@ func TestParseProvidersAcceptsAnAbsentKeyManagementURL(t *testing.T) {
 	}
 }
 
+// A Provider that serves Anthropic Messages on a different path than its
+// OpenAI base must declare anthropic_base_url, because BaseFor falls back to
+// BaseURL when it is absent. Getting this pair wrong is silent: the Claude Code
+// probe would be sent to <base_url>/v1/messages, and the user would read the
+// resulting PROTOCOL_UNSUPPORTED as "this Provider cannot serve Claude Code"
+// when in fact only the manifest was incomplete.
+//
+// The check is driven by the manifest itself rather than a hardcoded list, so a
+// newly added Provider is covered the moment it lands.
+func TestAnthropicBaseURLIsDistinctFromTheOpenAIBase(t *testing.T) {
+	manifest, err := LoadEmbeddedProviders()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for id, entry := range manifest.Providers {
+		if entry.AnthropicBaseURL == "" {
+			continue
+		}
+		if entry.AnthropicBaseURL == entry.BaseURL {
+			t.Errorf("provider %q declares anthropic_base_url identical to base_url (%q); drop the field instead", id, entry.BaseURL)
+		}
+	}
+}
+
 func TestParsePreservesDeclaredAgentOrder(t *testing.T) {
 	manifest, err := Parse([]byte(`{
 		"schema_version": 1,

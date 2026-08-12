@@ -53,7 +53,11 @@ func TestStatusUsesInjectedHomeAndCommandLookup(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(wire) == "" || hasSubstring(string(wire), "api_key") || hasSubstring(string(wire), "fallback") {
+	// Match the JSON key, not the bare word. DeepSeek's key page really is
+	// https://platform.deepseek.com/api_keys, so a substring search for
+	// "api_key" fails on a public URL that is supposed to be in the payload,
+	// which says nothing about whether a credential leaked.
+	if string(wire) == "" || hasSubstring(string(wire), `"api_key"`) || hasSubstring(string(wire), `"fallback`) {
 		t.Fatalf("status contains a secret/internal field: %s", wire)
 	}
 }
@@ -234,7 +238,9 @@ func TestStatusProjectsAgentBindingsWithoutUnknownFields(t *testing.T) {
 		t.Fatalf("agent binding projection = %#v", agent)
 	}
 	wire, err := json.Marshal(status)
-	if err != nil || strings.Contains(string(wire), "must-not-escape") || strings.Contains(string(wire), "api_key") {
+	// Quoted key, not the bare word: a Provider's public key page URL may legitimately
+	// contain "api_keys" in its path.
+	if err != nil || strings.Contains(string(wire), "must-not-escape") || strings.Contains(string(wire), `"api_key"`) {
 		t.Fatalf("status binding leaked unknown fields: %s (%v)", wire, err)
 	}
 }
@@ -274,7 +280,9 @@ api_key = "sk-detected-secret"
 		t.Fatalf("claude malformed detection = %#v", claude.Detected)
 	}
 	wire, err := json.Marshal(status)
-	if err != nil || strings.Contains(string(wire), "sk-detected-secret") || strings.Contains(string(wire), "api_key") {
+	// Quoted key, not the bare word: a Provider's public key page URL may legitimately
+	// contain "api_keys" in its path.
+	if err != nil || strings.Contains(string(wire), "sk-detected-secret") || strings.Contains(string(wire), `"api_key"`) {
 		t.Fatalf("detected status leaked secret data: %s (%v)", wire, err)
 	}
 }
