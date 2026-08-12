@@ -31,6 +31,7 @@ OneAgent is a local desktop workspace for AI coding Agents. It turns a fresh mac
 | Codex · Claude Code | ChatGPT Desktop（macOS/Windows） |
 | Kilo CLI · Aider· OpenCode | WorkBuddy（macOS/Windows） |
 | Hermes Agent · OpenClaw | |
+| Kimi Code | |
 
 PPIO and Novita are built in. Any OpenAI-compatible or Anthropic-compatible Provider can be added from the Provider page. OneAgent probes the protocol an Agent actually uses; an endpoint that only exposes a different API is rejected before configuration is written.
 

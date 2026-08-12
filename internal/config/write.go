@@ -25,6 +25,10 @@ type Writer struct {
 	FS   securefs.Store
 }
 
+// kimiOwnedName is the provider entry and model-alias prefix OneAgent owns in
+// Kimi Code's config. Everything else under providers/models is the user's.
+const kimiOwnedName = "oneagent"
+
 func NewWriter(home, osID string, filesystem securefs.Store) Writer {
 	return Writer{Home: home, OS: osID, FS: filesystem}
 }
@@ -230,6 +234,53 @@ func (w Writer) WriteAider(ctx context.Context, path, baseURL, apiKey string) er
 	return w.write(ctx, path, []byte(content), true)
 }
 
+// WriteKimiCode points Kimi Code at the Provider through one owned provider
+// entry plus one model alias in ~/.kimi-code/config.toml.
+//
+// The credential goes in the same file as the endpoint, unlike Codex: Kimi Code
+// documents that it reads credentials only from its config and does not fall
+// back to shell environment variables, so a config without the key would leave
+// the CLI failing at startup with nothing to fall back to. The whole file is
+// written as a secret for that reason.
+//
+// type is "openai", not Kimi Code's own "kimi": that one means Moonshot's
+// first-party endpoint, while a OneAgent Provider is an arbitrary
+// OpenAI-compatible base URL.
+func (w Writer) WriteKimiCode(ctx context.Context, path, baseURL, apiKey, model string) error {
+	// The alias is namespaced under the owned provider name so it cannot collide
+	// with a model the user declared. Both table headers are quoted: the alias
+	// contains a slash, and a model ID may contain a dot, either of which TOML
+	// would otherwise read as a nested table separator.
+	alias := kimiOwnedName + "/" + model
+	managed := strings.Join([]string{
+		"default_model = " + quoteTOML(alias),
+		"",
+		"[providers." + quoteTOML(kimiOwnedName) + "]",
+		"type = \"openai\"",
+		"base_url = " + quoteTOML(provider.OpenAIBaseURL(baseURL)),
+		"api_key = " + quoteTOML(apiKey),
+		"",
+		"[models." + quoteTOML(alias) + "]",
+		"provider = " + quoteTOML(kimiOwnedName),
+		"model = " + quoteTOML(model),
+		"",
+	}, "\n")
+	existing, err := readText(path)
+	if err != nil {
+		return configError("Cannot read existing TOML configuration %s: %v", path, err)
+	}
+	content, err := mergeManagedTOML(existing, managed, path, managedTOMLShape{
+		topLevelKeys:   kimiTopLevelKeyPattern,
+		managedSection: kimiManagedSectionPattern,
+		ownedKeys:      []string{"default_model"},
+		ownedTables:    [][2]string{{"providers", kimiOwnedName}},
+	})
+	if err != nil {
+		return err
+	}
+	return w.write(ctx, path, []byte(content), true)
+}
+
 func (w Writer) WriteHermes(ctx context.Context, path, baseURL, apiKey, model string) error {
 	text, err := readText(path)
 	if err != nil {
@@ -339,6 +390,33 @@ func loadJSON(path string) (*jsonorder.Object, error) {
 }
 
 func mergeCodexTOML(existing, managed, path string) (string, error) {
+	return mergeManagedTOML(existing, managed, path, managedTOMLShape{
+		topLevelKeys:   topLevelKeyPattern,
+		managedSection: managedSectionPattern,
+		ownedKeys:      []string{"model_provider", "model"},
+		ownedTables:    [][2]string{{"model_providers", "oneagent"}},
+	})
+}
+
+// managedTOMLShape names the parts of a TOML config OneAgent owns, so the merge
+// below can serve Agents whose file layout differs. Anything it does not name is
+// carried through untouched.
+type managedTOMLShape struct {
+	// topLevelKeys matches the bare keys OneAgent rewrites, so a stale value
+	// above the first table header is dropped rather than duplicated.
+	topLevelKeys *regexp.Regexp
+	// managedSection matches the table headers OneAgent owns outright; their
+	// bodies are discarded and replaced.
+	managedSection *regexp.Regexp
+	// ownedKeys and ownedTables are the same ground truth expressed against the
+	// parsed document, which is how an inline-table or dotted-key spelling of a
+	// managed value gets rejected instead of silently duplicated. A table is
+	// {parent, child}.
+	ownedKeys   []string
+	ownedTables [][2]string
+}
+
+func mergeManagedTOML(existing, managed, path string, shape managedTOMLShape) (string, error) {
 	if strings.TrimSpace(existing) == "" {
 		return managed, nil
 	}
@@ -356,7 +434,7 @@ func mergeCodexTOML(existing, managed, path string) (string, error) {
 		if strings.HasPrefix(stripped, "[") {
 			header := strings.ReplaceAll(strings.TrimSpace(strings.SplitN(stripped, "#", 2)[0]), " ", "")
 			inTable = true
-			skipManaged = managedSectionPattern.MatchString(header)
+			skipManaged = shape.managedSection.MatchString(header)
 			if skipManaged {
 				managedFound = true
 				continue
@@ -366,7 +444,7 @@ func mergeCodexTOML(existing, managed, path string) (string, error) {
 			continue
 		}
 		if !inTable {
-			if match := topLevelKeyPattern.FindStringSubmatch(line); match != nil {
+			if match := shape.topLevelKeys.FindStringSubmatch(line); match != nil {
 				removed[match[1]] = true
 				continue
 			}
@@ -375,12 +453,16 @@ func mergeCodexTOML(existing, managed, path string) (string, error) {
 			tables = append(tables, line)
 		}
 	}
-	if providers, ok := parsed["model_providers"].(map[string]any); ok {
-		if _, exists := providers["oneagent"]; exists && !managedFound {
+	for _, owned := range shape.ownedTables {
+		parent, ok := parsed[owned[0]].(map[string]any)
+		if !ok {
+			continue
+		}
+		if _, exists := parent[owned[1]]; exists && !managedFound {
 			return "", configError("Unsupported OneAgent TOML table syntax in %s", path)
 		}
 	}
-	for _, key := range []string{"model_provider", "model"} {
+	for _, key := range shape.ownedKeys {
 		if _, exists := parsed[key]; exists && !removed[key] {
 			return "", configError("Unsupported TOML key syntax for %s in %s", key, path)
 		}
@@ -427,4 +509,15 @@ func configError(format string, values ...any) error {
 var (
 	topLevelKeyPattern    = regexp.MustCompile(`^\s*(model_provider|model)\s*=`)
 	managedSectionPattern = regexp.MustCompile(`^\[model_providers\.oneagent(?:\..+)?\]$`)
+
+	kimiTopLevelKeyPattern = regexp.MustCompile(`^\s*(default_model)\s*=`)
+	// Both tables OneAgent owns, quoted or bare: providers.oneagent, and every
+	// models."oneagent/…" alias it has written. Matching every alias rather than
+	// just the current one is what stops a model switch from leaving the previous
+	// alias behind, pointing at a provider entry that no longer describes it.
+	//
+	// The quotes are matched independently on each side because RE2 has no
+	// backreferences. A mismatched pair is not valid TOML, so it cannot reach
+	// here from a file that parsed.
+	kimiManagedSectionPattern = regexp.MustCompile(`^\[(?:providers\."?oneagent"?|models\."?oneagent/.+)\]$`)
 )

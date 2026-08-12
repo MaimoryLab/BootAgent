@@ -31,6 +31,7 @@ OneAgent 是一个本地桌面工作台，用来统一管理 AI 编程 Agent。�
 | Codex · Claude Code | ChatGPT Desktop（macOS/Windows） |
 | Kilo CLI · Aider· OpenCode | WorkBuddy（macOS/Windows） |
 | Hermes Agent · OpenClaw | |
+| Kimi Code | |
 
 内置 PPIO 和 Novita，也可以在模型服务页面添加任意 OpenAI 兼容或 Anthropic 兼容服务。OneAgent 会按 Agent 真正使用的协议探测；如果端点只支持另一种 API，会在写入配置前拒绝它。
 

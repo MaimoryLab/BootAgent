@@ -31,7 +31,7 @@ describe("AgentIcon", () => {
     const assetIds = AGENT_ICON_IDS.filter((id) => agentMarkKind(id) === "asset");
     // chatgpt-desktop is a desktop Agent rather than a CLI, and it reuses the
     // OpenAI mark because it is OpenAI's own product sharing Codex's config.
-    expect(assetIds.sort()).toEqual(["chatgpt-desktop", "claude-code", "codex", "hermes", "kilo-cli", "openclaw", "opencode"]);
+    expect(assetIds.sort()).toEqual(["chatgpt-desktop", "claude-code", "codex", "hermes", "kilo-cli", "kimi-code", "openclaw", "opencode"]);
     for (const id of assetIds) {
       const rights = agentMarkRights(id);
       expect(agentMarkKind(id)).toBe("asset");
@@ -118,6 +118,7 @@ describe("AgentIcon", () => {
       "claude-code": "0 0 24 24",
       "kilo-cli": "0 0 24 24",
       hermes: "0 0 24 24",
+      "kimi-code": "0 0 24 24",
       openclaw: "0 0 120 120",
     };
     const assetIds = AGENT_ICON_IDS.filter((value) => agentMarkKind(value) === "asset");

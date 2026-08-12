@@ -15,6 +15,10 @@ var adapterProtocols = map[string]string{
 	"kilo-cli":    ProtocolOpenAI,
 	"aider":       ProtocolOpenAI,
 	"hermes":      ProtocolOpenAI,
+	// Kimi Code's own `openai` provider type, not its `kimi` type: `kimi` is
+	// Moonshot's first-party endpoint, while a OneAgent Provider is an arbitrary
+	// OpenAI-compatible base URL.
+	"kimi-code": ProtocolOpenAI,
 }
 
 var groups = []Group{
