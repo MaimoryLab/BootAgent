@@ -11,6 +11,7 @@ import (
 )
 
 const RedactedValue = "[redacted]"
+const RegistrySchemaVersion = 1
 
 var idPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{0,127}$`)
 
