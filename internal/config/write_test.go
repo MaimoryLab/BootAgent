@@ -470,3 +470,161 @@ func TestWriteHermesPreservesExistingConfig(t *testing.T) {
 		t.Fatalf("Hermes config mode = %v, err=%v", info.Mode().Perm(), err)
 	}
 }
+
+// The real ~/.zcode/v2/config.json holds builtin:* entries the app owns and
+// UUID-keyed custom ones. This fixture reproduces that shape, because preserving
+// both is the whole risk of writing into a file OneAgent does not own.
+const zcodeExisting = `{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "builtin:zai": {
+      "name": "Z.ai - API Key",
+      "kind": "anthropic",
+      "options": {"apiKey": "", "baseURL": "https://api.z.ai/api/anthropic"},
+      "source": "custom"
+    },
+    "ed76b5b4-63bb-4cf0-b0f2-7fb651c50cac": {
+      "name": "Mine",
+      "kind": "anthropic",
+      "options": {"apiKey": "user-key", "baseURL": "https://user.example/v1"},
+      "source": "custom",
+      "models": {"user/model": {"limit": {"context": 1000000}}}
+    }
+  }
+}`
+
+func zcodeProviders(t *testing.T, path string) map[string]map[string]any {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var document struct {
+		Schema   string                    `json:"$schema"`
+		Provider map[string]map[string]any `json:"provider"`
+	}
+	if err := json.Unmarshal(data, &document); err != nil {
+		t.Fatalf("ZCode config is not valid JSON: %s: %v", data, err)
+	}
+	if document.Schema != "https://opencode.ai/config.json" {
+		t.Fatalf("$schema = %q", document.Schema)
+	}
+	return document.Provider
+}
+
+func TestWriteZCodeAddsAProviderAndKeepsTheAppsOwnEntries(t *testing.T) {
+	home := t.TempDir()
+	path := filepath.Join(home, ".zcode", "v2", "config.json")
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(zcodeExisting), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	writer := testWriter(t, home, "linux")
+	if err := writer.WriteZCode(context.Background(), path, "PPIO", "https://api.ppio.com/openai", "sk-zcode", "deepseek-v4-pro"); err != nil {
+		t.Fatal(err)
+	}
+	providers := zcodeProviders(t, path)
+	if len(providers) != 3 {
+		t.Fatalf("provider count = %d, want 3: %#v", len(providers), providers)
+	}
+	// Both pre-existing entries survive untouched, including the nested limit the
+	// user's own entry carries.
+	if providers["builtin:zai"]["name"] != "Z.ai - API Key" {
+		t.Errorf("builtin entry changed: %#v", providers["builtin:zai"])
+	}
+	mine := providers["ed76b5b4-63bb-4cf0-b0f2-7fb651c50cac"]
+	if mine["name"] != "Mine" || mine["models"].(map[string]any)["user/model"] == nil {
+		t.Errorf("user entry changed: %#v", mine)
+	}
+
+	var written map[string]any
+	for key, entry := range providers {
+		if entry["name"] == "OneAgent - PPIO" {
+			written = entry
+			if strings.HasPrefix(key, "builtin:") {
+				t.Errorf("OneAgent reused a builtin key: %q", key)
+			}
+		}
+	}
+	if written == nil {
+		t.Fatalf("no OneAgent entry written: %#v", providers)
+	}
+	if written["kind"] != "openai" || written["source"] != "custom" {
+		t.Errorf("entry shape = %#v", written)
+	}
+	options := written["options"].(map[string]any)
+	// OpenAIBaseURL normalizes to a /v1 base; apiKeyRequired must be set or ZCode
+	// sends the request unauthenticated.
+	if options["baseURL"] != "https://api.ppio.com/openai/v1" || options["apiKey"] != "sk-zcode" || options["apiKeyRequired"] != true {
+		t.Errorf("options = %#v", options)
+	}
+	if written["models"].(map[string]any)["deepseek-v4-pro"] == nil {
+		t.Errorf("model was not registered: %#v", written["models"])
+	}
+	// No top-level model key: which model is active stays ZCode's decision, the
+	// same division WriteWorkBuddy keeps.
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var top map[string]any
+	if err := json.Unmarshal(data, &top); err != nil {
+		t.Fatal(err)
+	}
+	if _, present := top["model"]; present {
+		t.Errorf("wrote a top-level model key: %s", data)
+	}
+	info, err := os.Stat(path)
+	if err != nil || info.Mode().Perm() != 0o600 {
+		t.Fatalf("ZCode config mode = %v, err=%v", info.Mode().Perm(), err)
+	}
+}
+
+// ZCode keys custom providers by UUID, so a second write that generated a fresh
+// key would leave the user with a duplicate provider per reconfiguration.
+func TestWriteZCodeUpdatesItsOwnEntryInsteadOfAddingAnother(t *testing.T) {
+	home := t.TempDir()
+	path := filepath.Join(home, ".zcode", "v2", "config.json")
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(zcodeExisting), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	writer := testWriter(t, home, "linux")
+	for _, step := range []struct{ key, model string }{{"first-key", "model-a"}, {"second-key", "model-b"}} {
+		if err := writer.WriteZCode(context.Background(), path, "PPIO", "https://api.ppio.com/openai", step.key, step.model); err != nil {
+			t.Fatal(err)
+		}
+	}
+	providers := zcodeProviders(t, path)
+	if len(providers) != 3 {
+		t.Fatalf("a second write added an entry: %d providers: %#v", len(providers), providers)
+	}
+	for _, entry := range providers {
+		if entry["name"] != "OneAgent - PPIO" {
+			continue
+		}
+		if entry["options"].(map[string]any)["apiKey"] != "second-key" {
+			t.Errorf("key was not updated: %#v", entry["options"])
+		}
+		if entry["models"].(map[string]any)["model-b"] == nil {
+			t.Errorf("model was not updated: %#v", entry["models"])
+		}
+	}
+}
+
+func TestWriteZCodeCreatesTheFileWhenAbsent(t *testing.T) {
+	home := t.TempDir()
+	path := filepath.Join(home, ".zcode", "v2", "config.json")
+	writer := testWriter(t, home, "linux")
+	if err := writer.WriteZCode(context.Background(), path, "Novita", "https://api.novita.ai/openai", "sk-new", "m"); err != nil {
+		t.Fatal(err)
+	}
+	providers := zcodeProviders(t, path)
+	if len(providers) != 1 {
+		t.Fatalf("provider count = %d, want 1", len(providers))
+	}
+}

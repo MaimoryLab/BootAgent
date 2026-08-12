@@ -193,6 +193,8 @@ func writeManagedAgentConfig(ctx context.Context, writer configWriter.Writer, ag
 		return writer.WriteKimiCode(ctx, path, baseURL, apiKey, model)
 	case "workbuddy":
 		return writer.WriteWorkBuddy(ctx, path, baseURL, apiKey, model)
+	case "zcode":
+		return writer.WriteZCode(ctx, path, providerName, baseURL, apiKey, model)
 	default:
 		return oneerrors.New(oneerrors.InvalidRequest, fmt.Sprintf("Unsupported auto-config Agent: %s", agentID))
 	}

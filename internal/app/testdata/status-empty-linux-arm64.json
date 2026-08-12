@@ -443,28 +443,41 @@
   "environmentError": null,
   "desktopAgents": [
     {
-      "id": "chatgpt-desktop",
-      "name": "ChatGPT Desktop",
-      "installed": false,
-      "supported": false,
-      "version": null,
-      "source": "unknown",
       "configPath": "${HOME}/.codex/config.toml",
       "configSharedWith": "Codex",
-      "protocol": "responses",
+      "id": "chatgpt-desktop",
+      "installed": false,
+      "name": "ChatGPT Desktop",
       "profileAgentId": "codex",
-      "profileId": null
+      "profileId": null,
+      "protocol": "responses",
+      "source": "unknown",
+      "supported": false,
+      "version": null
     },
     {
       "id": "workbuddy",
-      "name": "WorkBuddy",
       "installed": false,
-      "supported": false,
-      "version": null,
-      "source": "unknown",
-      "protocol": "openai",
+      "name": "WorkBuddy",
       "profileAgentId": "workbuddy",
-      "profileId": null
+      "profileId": null,
+      "protocol": "openai",
+      "source": "unknown",
+      "supported": false,
+      "version": null
+    },
+    {
+      "home": "https://zcode.z.ai/",
+      "id": "zcode",
+      "installed": false,
+      "manualInstall": true,
+      "name": "ZCode",
+      "profileAgentId": "zcode",
+      "profileId": null,
+      "protocol": "openai",
+      "source": "unknown",
+      "supported": false,
+      "version": null
     }
   ]
 }

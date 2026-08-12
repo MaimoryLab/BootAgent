@@ -237,6 +237,7 @@ const english = {
   "与 {name} 共用配置": "Shares configuration with {name}",
   "已安装，可直接应用配置模版": "Installed; a profile can be applied now",
   "安装官方桌面应用": "Install the official desktop application",
+  "需先自行安装，之后可配置": "Install it yourself first, then OneAgent can configure it",
   "检测到本机已有此应用": "This application is already installed",
   "选择配置模版": "Select a profile",
   "选择一个已有配置模版，或新建配置模版": "Choose an existing profile or create a new one",
