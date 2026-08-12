@@ -62,7 +62,7 @@ func (s Spec) Normalized() (Spec, error) {
 	if n.Type == "stdio" {
 		n.URL, n.Headers = "", nil
 	} else {
-		n.Command, n.Cwd, n.Args = "", "", nil
+		n.Command, n.Cwd, n.Args, n.Env = "", "", nil, nil
 	}
 	if n.Type == "stdio" && n.Command == "" {
 		return Spec{}, errors.New("stdio MCP server requires command")

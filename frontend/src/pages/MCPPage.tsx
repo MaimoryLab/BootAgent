@@ -26,7 +26,7 @@ export function changeMCPTransport(spec: MCPSpec, type: string): MCPSpec {
   if (type === "stdio") {
     return { ...spec, type, url: undefined, headers: undefined };
   }
-  return { ...spec, type, command: undefined, args: undefined, cwd: undefined };
+  return { ...spec, type, command: undefined, args: undefined, cwd: undefined, env: undefined };
 }
 
 export function mcpRowPending(id: string, draft: Record<string, MCPSpec>, targets: Record<string, string[]>): boolean {

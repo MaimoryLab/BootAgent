@@ -16,7 +16,7 @@ describe("stdio command line conversion", () => {
   });
 
   it("removes stdio fields when changing to a remote transport", () => {
-    expect(changeMCPTransport({ type: "stdio", command: "npx", args: ["server"], url: "old" }, "http")).toMatchObject({ type: "http", command: undefined, args: undefined, cwd: undefined });
+    expect(changeMCPTransport({ type: "stdio", command: "npx", args: ["server"], url: "old", env: { TOKEN: "secret" } }, "http")).toMatchObject({ type: "http", command: undefined, args: undefined, cwd: undefined, env: undefined });
   });
 });
 

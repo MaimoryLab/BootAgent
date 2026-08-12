@@ -32,9 +32,9 @@ func TestNormalizeAndEqual(t *testing.T) {
 }
 
 func TestNormalizeDropsIncompatibleTransportFields(t *testing.T) {
-	remote, err := Normalize(Spec{Type: "http", URL: "https://example.test", Command: "npx", Args: []string{"server"}, Cwd: "/tmp", Headers: map[string]string{"Authorization": "secret"}})
+	remote, err := Normalize(Spec{Type: "http", URL: "https://example.test", Command: "npx", Args: []string{"server"}, Cwd: "/tmp", Env: map[string]string{"TOKEN": "secret"}, Headers: map[string]string{"Authorization": "secret"}})
 	if err != nil { t.Fatal(err) }
-	if remote.Command != "" || len(remote.Args) != 0 || remote.Cwd != "" { t.Fatalf("stdio fields retained: %#v", remote) }
+	if remote.Command != "" || len(remote.Args) != 0 || remote.Cwd != "" || len(remote.Env) != 0 { t.Fatalf("stdio fields retained: %#v", remote) }
 	stdio, err := Normalize(Spec{Type: "stdio", Command: "npx", URL: "https://example.test", Headers: map[string]string{"Authorization": "secret"}})
 	if err != nil { t.Fatal(err) }
 	if stdio.URL != "" || len(stdio.Headers) != 0 { t.Fatalf("remote fields retained: %#v", stdio) }
