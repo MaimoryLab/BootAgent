@@ -1800,6 +1800,33 @@
 .provider-editor-wide,
 .profile-editor-wide { grid-column: 1 / -1; }
 
+/* Separated from the fields above by a rule rather than only by gap: this block
+   performs an action and reports a result, so it is not another field to fill in. */
+.provider-verify {
+  min-width: 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-faint);
+  display: grid;
+  gap: 10px;
+}
+
+/* The button aligns to the input's baseline, not the label's, so it does not ride
+   up next to the field's caption. */
+.provider-verify-row {
+  min-width: 0;
+  display: flex;
+  align-items: start;
+  gap: 10px;
+}
+
+.provider-verify-row .field-stack { min-width: 0; flex: 1; }
+.provider-verify-row .button { flex: 0 0 auto; margin-top: 22px; }
+
+@media (max-width: 600px) {
+  .provider-verify-row { flex-direction: column; align-items: stretch; }
+  .provider-verify-row .button { margin-top: 0; }
+}
+
 .icon-button {
   width: 30px;
   height: 30px;

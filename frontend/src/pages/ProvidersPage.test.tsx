@@ -223,6 +223,82 @@ describe("ProvidersPage", () => {
     await waitFor(() => expect(save).toHaveBeenCalledWith(expect.objectContaining({ id: "acme", base_url: "https://api.acme.test", api_key: "sk-acme", create: true })));
   });
 
+  // The point of #157: the endpoint and key are entered here, so a wrong one
+  // should be caught here rather than only on the Agent page.
+  it("tests the endpoints and key currently in the editor without saving them", async () => {
+    const probe = vi.spyOn(api, "probe").mockResolvedValue({
+      ok: true, reachable: true, status: 200, message: "连接成功", error_code: null,
+      retryable: false, protocols: {}, model: "model-a", auto_selected_model: false,
+    });
+    const save = vi.spyOn(api, "saveProvider");
+    renderPage({ codex: null });
+    fireEvent.click(screen.getByRole("button", { name: "新增模型服务" }));
+    fireEvent.change(screen.getByLabelText("OpenAI 兼容 Base URL"), { target: { value: "https://api.acme.test" } });
+    fireEvent.change(screen.getByLabelText("Anthropic 兼容 Base URL"), { target: { value: "https://api.acme.test/anthropic" } });
+    fireEvent.change(screen.getByLabelText("API Key"), { target: { value: "sk-acme" } });
+    fireEvent.click(screen.getByRole("button", { name: /验证可用性/ }));
+
+    // draft: true is what lets an unsaved Provider be probed at all, and both
+    // endpoints travel so each field is tested against what the user typed.
+    await waitFor(() => expect(probe).toHaveBeenCalledWith(expect.objectContaining({
+      apiBaseUrl: "https://api.acme.test",
+      anthropicBaseUrl: "https://api.acme.test/anthropic",
+      apiKey: "sk-acme",
+      draft: true,
+    })));
+    await waitFor(() => expect(screen.getByText("连接成功")).toBeTruthy());
+    // The whole point of testing before saving: a key that turns out to be wrong
+    // must not have been written to disk on the way.
+    expect(save).not.toHaveBeenCalled();
+  });
+
+  it("sends an optional test model, and leaves it out of the saved record", async () => {
+    const probe = vi.spyOn(api, "probe").mockResolvedValue({
+      ok: true, reachable: true, status: 200, message: "连接成功", error_code: null,
+      retryable: false, protocols: {}, model: "typed-model", auto_selected_model: false,
+    });
+    const save = vi.spyOn(api, "saveProvider").mockResolvedValue({
+      entry: { id: "acme", name: "Acme", home: "", base_url: "https://api.acme.test", anthropic_base_url: "", api_key: "sk-acme", built_in: false },
+      reapplied: null, failures: null,
+    });
+    renderPage({ codex: null });
+    fireEvent.click(screen.getByRole("button", { name: "新增模型服务" }));
+    fireEvent.change(screen.getByLabelText("名称"), { target: { value: "Acme" } });
+    fireEvent.change(screen.getByLabelText("OpenAI 兼容 Base URL"), { target: { value: "https://api.acme.test" } });
+    fireEvent.change(screen.getByLabelText("测试模型（可选）"), { target: { value: "typed-model" } });
+    fireEvent.click(screen.getByRole("button", { name: /验证可用性/ }));
+    await waitFor(() => expect(probe).toHaveBeenCalledWith(expect.objectContaining({ model: "typed-model" })));
+
+    // The test model belongs to the test, not to the Provider: saving must not
+    // carry it into the stored record, which has no field for it.
+    fireEvent.click(screen.getByRole("button", { name: /^保存$/ }));
+    await waitFor(() => expect(save).toHaveBeenCalled());
+    expect(save.mock.calls[0][0]).not.toHaveProperty("model");
+  });
+
+  it("cannot test a Provider with no endpoint to test against", () => {
+    renderPage({ codex: null });
+    fireEvent.click(screen.getByRole("button", { name: "新增模型服务" }));
+    expect(screen.getByRole("button", { name: /验证可用性/ })).toBeDisabled();
+  });
+
+  it("reports a failed verification without blocking the save", async () => {
+    vi.spyOn(api, "probe").mockResolvedValue({
+      ok: false, reachable: true, status: 401, message: "unauthorized",
+      error_code: "API_KEY_REJECTED", retryable: false, protocols: {}, model: "model-a",
+      auto_selected_model: false,
+    });
+    renderPage({ codex: null });
+    fireEvent.click(screen.getByRole("button", { name: "新增模型服务" }));
+    fireEvent.change(screen.getByLabelText("OpenAI 兼容 Base URL"), { target: { value: "https://api.acme.test" } });
+    fireEvent.click(screen.getByRole("button", { name: /验证可用性/ }));
+
+    await waitFor(() => expect(screen.getByText(/API Key 被拒绝/)).toBeTruthy());
+    // A failed test is information, not a gate: the user may be saving a Provider
+    // whose key they will paste later.
+    expect(screen.getByRole("button", { name: /^保存$/ })).not.toBeDisabled();
+  });
+
   // The ID is a storage key the user should not have to invent, but a collision is
   // now refused rather than silently overwriting -- so the suggested value has to
   // be one that is actually free.

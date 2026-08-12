@@ -112,6 +112,53 @@ func (s Store) Resolve(id, explicitBase string) (Entry, error) {
 	return entry, err
 }
 
+// ResolveDraft resolves the endpoints a caller supplies directly, for testing a
+// Provider the user is still editing and has not saved. Resolve cannot serve
+// this: it reads the stored record, so an ID that is not on disk yet fails, and
+// it clears AnthropicBaseURL whenever an OpenAI base is overridden, which leaves
+// the Anthropic endpoint in the editor untestable.
+//
+// Both bases are honoured independently so each field in the editor is probed
+// against what the user actually typed.
+//
+// A draft with neither base falls back to Resolve rather than erroring: that is
+// the built-in Provider case, where the endpoints come from the catalog and only
+// the key is being tested.
+func (s Store) ResolveDraft(id, openAIBase, anthropicBase string) (Entry, error) {
+	id = strings.TrimSpace(id)
+	openAIBase = strings.TrimSpace(openAIBase)
+	anthropicBase = strings.TrimSpace(anthropicBase)
+	if openAIBase == "" && anthropicBase == "" {
+		return s.Resolve(id, "")
+	}
+	// Kept only for its display name and probe fallback model; a saved record must
+	// not contribute endpoints here, or a stale stored base would be probed while
+	// the editor showed a different one.
+	entry := Entry{ID: id, Name: "Custom", FallbackModel: catalog.FallbackProbeModel(id)}
+	if saved, err := s.Get(id); err == nil {
+		entry.Name = saved.Name
+		entry.FallbackModel = saved.FallbackModel
+		entry.DefaultModel = saved.DefaultModel
+	}
+	var err error
+	if openAIBase != "" {
+		if entry.BaseURL, err = ValidateBaseURL(openAIBase); err != nil {
+			return Entry{}, err
+		}
+	}
+	if anthropicBase != "" {
+		if entry.AnthropicBaseURL, err = ValidateBaseURL(anthropicBase); err != nil {
+			return Entry{}, err
+		}
+	}
+	// BaseFor falls back to BaseURL for every protocol, so an Anthropic-only draft
+	// would otherwise probe an empty URL for OpenAI.
+	if entry.BaseURL == "" {
+		entry.BaseURL = entry.AnthropicBaseURL
+	}
+	return entry, nil
+}
+
 func (entry Entry) BaseFor(protocol string) string {
 	if protocol == ProtocolAnthropic && entry.AnthropicBaseURL != "" {
 		return entry.AnthropicBaseURL

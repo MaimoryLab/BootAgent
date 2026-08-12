@@ -148,6 +148,12 @@ const english = {
   "确认": "Review",
   "尚未测试连接": "Connection not tested",
   "正在验证端点和 Key": "Validating endpoint and key",
+  "验证可用性": "Test connection",
+  "验证中": "Testing",
+  "测试模型（可选）": "Test model (optional)",
+  "留空则自动选择": "Leave empty to choose automatically",
+  "仅用于本次验证，不会写入模型服务配置": "Used for this test only; never written to the Provider record",
+  "请先填写至少一个 Base URL": "Fill in at least one base URL first",
   "连接失败": "Connection failed",
   // Per-protocol verdicts. One failing protocol used to overwrite the single
   // reported result, hiding that another had passed.

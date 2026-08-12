@@ -38,6 +38,95 @@ func providerUseCases(t *testing.T, doer provider.HTTPDoer) *UseCases {
 	}, provider.NewClient(doer))
 }
 
+// The Provider editor tests what is on screen, which is not on disk yet, so the
+// probe has to accept an ID it cannot look up. Resolve refuses one -- that is the
+// right behaviour for the wizard and is asserted separately below.
+func TestProbeProviderTestsADraftProviderNotYetSaved(t *testing.T) {
+	var seen []string
+	core := providerUseCases(t, appProviderDoer(func(request *http.Request) (*http.Response, error) {
+		seen = append(seen, request.URL.String()+" auth="+request.Header.Get("Authorization"))
+		return appProviderResponse(http.StatusNoContent, ""), nil
+	}))
+	result, err := core.ProbeProvider(context.Background(), ProviderProbeOptions{
+		Provider: "not-saved-yet", APIBaseURL: "https://api.draft.test/openai",
+		APIKey: "typed-key", Model: "model-a", AgentIDs: []string{"opencode"}, Draft: true,
+	})
+	if err != nil || !result.Primary.OK {
+		t.Fatalf("draft probe = %#v, err=%v", result, err)
+	}
+	if len(seen) != 1 || !strings.Contains(seen[0], "api.draft.test") || !strings.Contains(seen[0], "Bearer typed-key") {
+		t.Fatalf("draft probe requests = %v", seen)
+	}
+}
+
+// Each editor field is probed against what the user typed in it. Resolve clears
+// AnthropicBaseURL whenever an OpenAI base is supplied, which would send the
+// Anthropic probe to the OpenAI host and report a verdict about the wrong
+// endpoint.
+func TestProbeProviderTestsBothDraftEndpointsIndependently(t *testing.T) {
+	seen := map[string]string{}
+	var seenMu sync.Mutex
+	core := providerUseCases(t, appProviderDoer(func(request *http.Request) (*http.Response, error) {
+		seenMu.Lock()
+		defer seenMu.Unlock()
+		seen[request.URL.Path] = request.URL.Host
+		return appProviderResponse(http.StatusNoContent, ""), nil
+	}))
+	result, err := core.ProbeProvider(context.Background(), ProviderProbeOptions{
+		Provider:         "not-saved-yet",
+		APIBaseURL:       "https://openai.draft.test/v1",
+		AnthropicBaseURL: "https://anthropic.draft.test",
+		APIKey:           "typed-key",
+		Model:            "model-a",
+		AgentIDs:         []string{"opencode", "claude-code"},
+		Draft:            true,
+	})
+	if err != nil || !result.Primary.OK || len(result.Protocols) != 2 {
+		t.Fatalf("two-endpoint draft probe = %#v, err=%v", result, err)
+	}
+	if seen["/v1/chat/completions"] != "openai.draft.test" {
+		t.Fatalf("OpenAI probe went to %q", seen["/v1/chat/completions"])
+	}
+	if seen["/v1/messages"] != "anthropic.draft.test" {
+		t.Fatalf("Anthropic probe went to %q, want anthropic.draft.test", seen["/v1/messages"])
+	}
+}
+
+// A draft with no endpoints at all is the built-in Provider case: only the key is
+// being tested, so the catalog endpoints still apply.
+func TestProbeProviderDraftWithoutEndpointsUsesTheStoredProvider(t *testing.T) {
+	var host string
+	core := providerUseCases(t, appProviderDoer(func(request *http.Request) (*http.Response, error) {
+		host = request.URL.Host
+		return appProviderResponse(http.StatusNoContent, ""), nil
+	}))
+	if _, err := core.ProbeProvider(context.Background(), ProviderProbeOptions{
+		Provider: "ppio", APIKey: "typed-key", Model: "model-a", AgentIDs: []string{"opencode"}, Draft: true,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if host != "api.ppio.com" {
+		t.Fatalf("keyless-endpoint draft probe went to %q", host)
+	}
+}
+
+// The guard on the change above: without Draft, an unknown ID must still fail
+// rather than silently probing whatever base URL came with the request. A typo'd
+// Provider ID reported as a connection result would be a wrong verdict.
+func TestProbeProviderStillRefusesAnUnknownProviderWithoutDraft(t *testing.T) {
+	core := providerUseCases(t, appProviderDoer(func(*http.Request) (*http.Response, error) {
+		t.Fatal("an unknown Provider was probed")
+		return nil, nil
+	}))
+	_, err := core.ProbeProvider(context.Background(), ProviderProbeOptions{
+		Provider: "not-saved-yet", APIBaseURL: "https://api.draft.test/openai",
+		APIKey: "typed-key", Model: "model-a", AgentIDs: []string{"opencode"},
+	})
+	if err == nil || oneerrors.As(err).Code != oneerrors.InvalidRequest {
+		t.Fatalf("unknown Provider without Draft = %v", err)
+	}
+}
+
 func TestProbeProviderAggregatesAgentProtocols(t *testing.T) {
 	seen := make([]string, 0)
 	var seenMu sync.Mutex

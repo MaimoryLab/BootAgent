@@ -118,13 +118,26 @@ export const wailsApi = {
     call(() => DesktopAgentService.Open({ agent_id: agentId })).then(() => undefined),
   configureDesktopAgent: (agentId: string, profileId: string): CancellableRequest<DesktopAgentProfileResult> =>
     call(() => DesktopAgentService.Configure({ agent_id: agentId, profile_id: profileId })) as CancellableRequest<DesktopAgentProfileResult>,
-  probe: (input: { provider: ProviderId; apiBaseUrl: string; apiKey: string; model: string; agents?: string[] }): Promise<ProbeResponse> =>
+  probe: (input: {
+    provider: ProviderId;
+    apiBaseUrl: string;
+    apiKey: string;
+    model: string;
+    agents?: string[];
+    // Set by the Provider editor to test the endpoints and key on screen rather
+    // than the stored record. Defaulted here so the wizard's calls keep resolving
+    // from storage without naming either field.
+    anthropicBaseUrl?: string;
+    draft?: boolean;
+  }): Promise<ProbeResponse> =>
     call(() => ProviderService.Probe({
       provider: input.provider,
       api_base_url: input.apiBaseUrl,
       api_key: input.apiKey,
       model: input.model,
       agents: input.agents?.length ? input.agents : null,
+      anthropic_base_url: input.anthropicBaseUrl ?? "",
+      draft: input.draft ?? false,
     })) as Promise<ProbeResponse>,
   models: (input: { provider: ProviderId; apiBaseUrl: string; apiKey: string }): Promise<ModelsResponse> =>
     call(() => ProviderService.ListModels({

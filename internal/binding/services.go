@@ -228,11 +228,13 @@ func (s *ProviderService) Probe(ctx context.Context, request ProbeRequest) (Prob
 		return ProbeResponse{}, notReady("Provider probing is not configured")
 	}
 	result, err := s.core.ProbeProvider(ctx, app.ProviderProbeOptions{
-		Provider:   request.Provider,
-		APIBaseURL: request.APIBaseURL,
-		APIKey:     request.APIKey,
-		Model:      request.Model,
-		AgentIDs:   request.Agents,
+		Provider:         request.Provider,
+		APIBaseURL:       request.APIBaseURL,
+		APIKey:           request.APIKey,
+		Model:            request.Model,
+		AgentIDs:         request.Agents,
+		AnthropicBaseURL: request.AnthropicBaseURL,
+		Draft:            request.Draft,
 	})
 	if err != nil {
 		return ProbeResponse{}, err
@@ -489,6 +491,12 @@ type ProbeRequest struct {
 	APIKey     string   `json:"api_key"`
 	Model      string   `json:"model"`
 	Agents     []string `json:"agents"`
+	// AnthropicBaseURL and Draft let the Provider editor test what is on screen
+	// before it is saved. Draft is explicit rather than inferred from a non-empty
+	// base URL: the wizard also sends a base URL, and silently switching it to
+	// draft resolution would stop it reading the stored record.
+	AnthropicBaseURL string `json:"anthropic_base_url"`
+	Draft            bool   `json:"draft"`
 }
 
 type ModelsRequest struct {

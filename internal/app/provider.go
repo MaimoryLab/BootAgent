@@ -21,6 +21,13 @@ type ProviderProbeOptions struct {
 	APIKey     string
 	Model      string
 	AgentIDs   []string
+	// AnthropicBaseURL and Draft serve the Provider editor's "test this before I
+	// save it" button. Draft says the endpoints above are the ones to probe even
+	// when the Provider is not on disk yet; without it an unsaved Provider cannot
+	// be tested at all, and an Anthropic base cannot be tested separately from the
+	// OpenAI one. The wizard leaves both unset and keeps resolving from storage.
+	AnthropicBaseURL string
+	Draft            bool
 }
 
 type ProviderProbeResult struct {
@@ -50,7 +57,13 @@ func (u *UseCases) ProbeProvider(ctx context.Context, options ProviderProbeOptio
 	if u == nil || u.provider == nil {
 		return ProviderProbeResult{}, oneerrors.New(oneerrors.InternalError, "Provider probing is not configured", oneerrors.WithStatus(501))
 	}
-	target, err := u.providers.Resolve(options.Provider, options.APIBaseURL)
+	resolve := u.providers.Resolve
+	if options.Draft {
+		resolve = func(id, openAIBase string) (provider.Entry, error) {
+			return u.providers.ResolveDraft(id, openAIBase, options.AnthropicBaseURL)
+		}
+	}
+	target, err := resolve(options.Provider, options.APIBaseURL)
 	if err != nil {
 		return ProviderProbeResult{}, err
 	}

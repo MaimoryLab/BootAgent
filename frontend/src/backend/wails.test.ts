@@ -141,7 +141,9 @@ describe("Wails backend adapter", () => {
     await expect(wailsApi.readTransferFile()).resolves.toBe("contents");
     await expect(wailsApi.writeTransferFile("contents")).resolves.toBeUndefined();
 
-    expect(bridge.probe).toHaveBeenCalledWith({ provider: "custom", api_base_url: "https://proxy.test/v1", api_key: "secret", model: "m", agents: null });
+    // The wizard names neither new field, so both must default: draft false keeps
+    // it resolving the stored Provider, which is what it relies on.
+    expect(bridge.probe).toHaveBeenCalledWith({ provider: "custom", api_base_url: "https://proxy.test/v1", api_key: "secret", model: "m", agents: null, anthropic_base_url: "", draft: false });
     expect(bridge.getProvider).toHaveBeenCalledWith({ id: "acme" });
     expect(bridge.deleteProvider).toHaveBeenCalledWith({ id: "acme" });
     // 0 means "use the Go default" rather than a duplicated number here.
