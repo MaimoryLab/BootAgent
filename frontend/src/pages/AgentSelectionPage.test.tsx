@@ -16,6 +16,7 @@ let mockState: {
   statusState: string;
   statusError: string;
   selectedAgentIds: string[];
+  setupKind?: string;
 };
 
 /** The real ranks, so a regression in ordering shows up as the real symptom. */
@@ -36,7 +37,19 @@ const CATALOG: AgentCatalogItem[] = [
   platformNote: "",
 }));
 
-function renderPage() {
+/** Two desktop Agents: one with a registered image mark, one with a generic mark. */
+const DESKTOP_AGENTS = [
+  {
+    id: "chatgpt-desktop", name: "ChatGPT Desktop", installed: false, supported: true,
+    source: "unknown", version: null, profileAgentId: "codex", profileId: null, protocol: "responses",
+  },
+  {
+    id: "zcode", name: "ZCode", installed: false, supported: true,
+    source: "unknown", version: null, profileAgentId: "zcode", profileId: null, protocol: "openai",
+  },
+];
+
+function renderPage({ desktop = false }: { desktop?: boolean } = {}) {
   dispatch.mockClear();
   mockState = {
     status: {
@@ -71,7 +84,7 @@ function renderPage() {
       backups: {},
       environment: null,
       environmentError: null,
-      desktopAgents: [],
+      desktopAgents: desktop ? DESKTOP_AGENTS : [],
       profiles: [],
       activeProfile: null,
       firstRun: false,
@@ -79,6 +92,9 @@ function renderPage() {
     statusState: "success",
     statusError: "",
     selectedAgentIds: [],
+    // The tab is reducer state, and the reducer is mocked here, so clicking the
+    // tab dispatches without re-rendering. Set it directly instead.
+    setupKind: desktop ? "desktop" : "cli",
   };
   render(
     <MemoryRouter>
@@ -121,4 +137,24 @@ describe("AgentSelectionPage", () => {
     expect(dispatch).toHaveBeenCalledWith({ type: "SELECT_AGENT", agentId: "codex" });
   });
 
+  // The desktop rows used to render one hardcoded AppWindow glyph for every
+  // Agent, so they carried no data-mark-kind at all and ChatGPT Desktop lost the
+  // mark it has registered. The CLI rows on the same page always used AgentIcon,
+  // which is the inconsistency this asserts against.
+  it("gives each desktop Agent its own mark, like the CLI rows", () => {
+    renderPage({ desktop: true });
+    const marks = screen.getAllByLabelText(/^选择 /).map((radio) => {
+      const row = radio.closest(".agent-row");
+      return {
+        name: radio.getAttribute("aria-label"),
+        kind: row?.querySelector("[data-mark-kind]")?.getAttribute("data-mark-kind") ?? null,
+      };
+    });
+    // Both rows must resolve through the icon registry rather than a literal:
+    // ChatGPT Desktop to a licensed vector, ZCode to Z.ai's own bitmap.
+    expect(marks).toEqual([
+      { name: "选择 ChatGPT Desktop", kind: "asset" },
+      { name: "选择 ZCode", kind: "raster" },
+    ]);
+  });
 });

@@ -38,6 +38,12 @@ import kiloCliMark from "./assets/kilo-cli.svg?raw";
 import kimiCodeMark from "./assets/kimi-code.svg?raw";
 import openclawMark from "./assets/openclaw.svg?raw";
 import opencodeMark from "./assets/opencode.svg?raw";
+// Raster, so imported as a URL rather than inlined. Neither vendor publishes a
+// vector, and their icons draw the logo in colour on an opaque rounded plate --
+// the alpha channel is just that plate, so a CSS mask would render both as
+// identical blank squares. Colour is therefore kept.
+import workbuddyRaster from "./assets/workbuddy.png";
+import zcodeRaster from "./assets/zcode.png";
 
 /**
  * The union of every manifest entry, widened so the two fields that exist only
@@ -52,9 +58,20 @@ type AssetRights = (typeof assetRightsManifest.assets)[keyof typeof assetRightsM
 };
 type AssetMark = { kind: "asset"; markup: string; source: string; rights: AssetRights };
 type GenericMark = { kind: "generic"; Icon: LucideIcon; source: string };
-type Mark = AssetMark | GenericMark;
+/**
+ * A vendor icon shipped as a bitmap. Separate from AssetMark because it carries
+ * no rights record and cannot take the theme colour: it renders in the vendor's
+ * own colours, which is the point of using it.
+ */
+type RasterMark = { kind: "raster"; src: string; source: string };
+type Mark = AssetMark | GenericMark | RasterMark;
 
 const GENERIC_SOURCE = "lucide-react@1.25.0 (ISC)";
+// Provenance for the two raster marks, recorded here rather than in
+// asset-rights.json: that manifest is the licence-bearing set, and these are
+// vendor trademarks with no licence to point at.
+const WORKBUDDY_MARK_SOURCE = "WorkBuddy.app/Contents/Resources/icon.icns (Tencent, trademark)";
+const ZCODE_MARK_SOURCE = "ZCode.app/Contents/Resources/icon.png (Z.ai, trademark)";
 
 const MARKS: Record<string, Mark> = {
   codex: {
@@ -100,21 +117,24 @@ const MARKS: Record<string, Mark> = {
     source: assetRightsManifest.assets.hermes.source,
     rights: assetRightsManifest.assets.hermes,
   },
-  // Aider and WorkBuddy have no mark in lobe-icons and no published vector under
-  // a licence that permits redistribution, so they keep a generic symbol rather
-  // than a vendor favicon copied in without an auditable basis. WorkBuddy is
-  // registered rather than left to AgentIcon's fallback so "evaluated, using a
-  // generic mark" is distinguishable from "never looked at".
+  // Aider has no mark in lobe-icons and no vector to extract, so it keeps a
+  // generic symbol.
   aider: { kind: "generic", Icon: GitBranch, source: GENERIC_SOURCE },
-  workbuddy: { kind: "generic", Icon: Briefcase, source: GENERIC_SOURCE },
+  // WorkBuddy and ZCode use the vendors' own icons, taken from the installed
+  // application bundles. Both ship raster only, so they are the two marks in this
+  // set that keep their brand colours instead of taking the theme's. A generic
+  // glyph read as "not configured yet" next to the real marks around it, which is
+  // the reason for the swap.
+  //
+  // These two carry no asset-rights entry: the icons are vendor trademarks used
+  // to identify which product a row refers to, not redistributable artwork with a
+  // licence to record. generate_third_party_licenses.py skips them for the same
+  // reason, so NOTICE makes no claim about them either.
+  workbuddy: { kind: "raster", src: workbuddyRaster, source: WORKBUDDY_MARK_SOURCE },
   // The international build is the same product, so it carries the same mark; the
   // EditionTag next to the name is what tells the two rows apart.
-  "workbuddy-intl": { kind: "generic", Icon: Briefcase, source: GENERIC_SOURCE },
-  // ZCode's mark is not in lobe-icons either, and the only vectors in circulation
-  // come from the app bundle itself, which carries no redistribution grant. A
-  // generic symbol keeps NOTICE unchanged; registering it here rather than letting
-  // AgentIcon fall back records that the question was asked.
-  zcode: { kind: "generic", Icon: Braces, source: GENERIC_SOURCE },
+  "workbuddy-intl": { kind: "raster", src: workbuddyRaster, source: WORKBUDDY_MARK_SOURCE },
+  zcode: { kind: "raster", src: zcodeRaster, source: ZCODE_MARK_SOURCE },
   // Unlike the four above, this mark is not the vendor's own artwork: it is the
   // lobster the cc-switch project drew, MIT, and OneAgent recoloured it to a
   // single currentColor glyph so it adapts to the theme like the rest of the set.
@@ -162,8 +182,11 @@ export function agentMarkSource(agentId: string): string {
   return MARKS[agentId]?.source ?? "";
 }
 
-/** Whether an Agent uses a licensed image asset, a generic mark, or fallback. */
-export function agentMarkKind(agentId: string): "asset" | "generic" | "fallback" {
+/**
+ * Whether an Agent uses a licensed vector asset, a vendor raster, a generic
+ * mark, or the fallback.
+ */
+export function agentMarkKind(agentId: string): "asset" | "raster" | "generic" | "fallback" {
   return MARKS[agentId]?.kind ?? "fallback";
 }
 
@@ -197,6 +220,23 @@ export function AgentIcon({ agentId, size = 18 }: { agentId: string; size?: numb
         strokeWidth={1.8}
         data-mark-kind="generic"
         aria-hidden="true"
+      />
+    );
+  }
+  if (mark.kind === "raster") {
+    // A vendor icon in its own colours. The rounded plate the vendors draw is
+    // part of the artwork, so it is clipped to a matching radius rather than
+    // sitting as a square on the transparent icon box.
+    return (
+      <img
+        src={mark.src}
+        width={size}
+        height={size}
+        className="agent-mark-raster"
+        data-mark-kind="raster"
+        alt=""
+        aria-hidden="true"
+        draggable={false}
       />
     );
   }

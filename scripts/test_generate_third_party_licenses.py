@@ -65,17 +65,19 @@ class AssetDependencyTests(unittest.TestCase):
         # docs/distribution-compliance-policy.md makes the rights inventory a
         # release precondition.
         #
-        # `firstPartyAssets` is a separate list because the two cases need
-        # different evidence. A third-party file needs a source, licence text,
-        # owner and hash. Our own artwork has none of those to give -- it is
-        # covered by the repository's own licence -- and putting it in `assets`
-        # to satisfy the gate would assert a vendor provenance that does not
-        # exist. What still matters is that no file is in neither list, which is
+        # The three groups exist because the three cases carry different
+        # evidence. A third-party file under `assets` needs a source, licence
+        # text, owner and hash. Our own artwork under `firstPartyAssets` has none
+        # of those to give -- it is covered by this repository's licence. A vendor
+        # icon under `trademarkAssets` is used to identify a product rather than
+        # redistributed as artwork, so there is no grant to record either; both
+        # would assert a provenance they do not have if forced into `assets`.
+        # What still matters is that no file is in none of the lists, which is
         # what this checks.
         manifest = json.loads(ASSET_RIGHTS_MANIFEST.read_text(encoding="utf-8"))
         accounted = {
             (ICON_ROOT / str(entry["file"])).resolve()
-            for group in ("assets", "firstPartyAssets")
+            for group in ("assets", "firstPartyAssets", "trademarkAssets")
             for entry in manifest.get(group, {}).values()
         }
         on_disk = {
@@ -91,7 +93,8 @@ class AssetDependencyTests(unittest.TestCase):
             "image assets present but absent from asset-rights.json: "
             f"{unaccounted}. Register a third-party asset under `assets` with its "
             "source, licence, copyright owner and SHA-256; record our own artwork "
-            "under `firstPartyAssets`; or delete it.",
+            "under `firstPartyAssets`; record a vendor icon used only to identify "
+            "a product under `trademarkAssets`; or delete it.",
         )
 
     def test_first_party_assets_claim_no_third_party_rights(self) -> None:

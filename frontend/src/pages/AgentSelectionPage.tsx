@@ -1,9 +1,10 @@
-import { AppWindow, PackageCheck } from "lucide-react";
+import { PackageCheck } from "lucide-react";
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { AgentRow } from "../components/AgentRow";
 import { EditionTag } from "../components/EditionTag";
+import { AgentIcon } from "../components/icons/agents";
 import { MirrorSetting } from "../components/MirrorSetting";
 import { PageScaffold } from "../components/PageScaffold";
 import { RuntimePrompt } from "../components/RuntimePrompt";
@@ -85,7 +86,11 @@ export function AgentSelectionPage() {
                   const selected = selectedAgent === app.id;
                   return <label key={app.id} className={`agent-row${selected ? " is-selected" : ""}${!app.supported ? " is-disabled" : ""}`}>
                     <input type="radio" name="desktop-agent-choice" checked={selected} disabled={!app.supported} onChange={() => dispatch({ type: "SELECT_AGENT", agentId: app.id })} aria-label={t("选择 {name}", { name: app.name })} />
-                    <span className="agent-icon"><AppWindow size={20} aria-hidden="true" /></span>
+                    {/* The Agent's own mark, matching the CLI rows above and the
+                        overview card. A literal AppWindow here gave every desktop
+                        Agent the same glyph and downgraded ChatGPT Desktop, which
+                        has a registered mark of its own. */}
+                    <span className="agent-icon"><AgentIcon agentId={app.id} size={20} /></span>
                     <span className="agent-copy"><span className="agent-name-line"><strong>{app.name}</strong><EditionTag edition={app.edition} /></span><span>{app.installed
                       ? t("已安装，可直接应用配置模版")
                       : app.manualInstall ? t("需先自行安装，之后可配置") : t("安装官方桌面应用")}</span></span>
