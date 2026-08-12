@@ -90,6 +90,7 @@ export interface MCPExportRequest {
     "mode": string;
     "password"?: string;
     "confirm_plaintext"?: boolean;
+    "server_ids"?: string[] | null;
 }
 
 export interface MCPImportRequest {

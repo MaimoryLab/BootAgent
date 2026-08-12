@@ -500,3 +500,16 @@ func (u *UseCases) ImportMCP(ctx context.Context, data []byte, password string) 
 	}
 	return mcp.Import(data, password)
 }
+
+func (u *UseCases) SaveImportedMCP(ctx context.Context, imported mcp.Registry) error {
+	u.writeMu.Lock()
+	defer u.writeMu.Unlock()
+	current, err := u.mcpStore().Load()
+	if err != nil {
+		return err
+	}
+	for id, fact := range imported.Servers {
+		current.Servers[id] = fact
+	}
+	return u.mcpStore().Save(ctx, current)
+}

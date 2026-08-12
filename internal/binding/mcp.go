@@ -8,9 +8,10 @@ import (
 )
 
 type MCPExportRequest struct {
-	Mode             string `json:"mode"`
-	Password         string `json:"password,omitempty"`
-	ConfirmPlaintext bool   `json:"confirm_plaintext,omitempty"`
+	Mode             string   `json:"mode"`
+	Password         string   `json:"password,omitempty"`
+	ConfirmPlaintext bool     `json:"confirm_plaintext,omitempty"`
+	ServerIDs        []string `json:"server_ids,omitempty"`
 }
 
 type MCPImportRequest struct {
@@ -69,7 +70,17 @@ func (s *MCPService) Export(ctx context.Context, request MCPExportRequest) ([]by
 	if s == nil || s.core == nil {
 		return nil, notReady("MCP service is not configured")
 	}
-	return s.core.ExportMCP(ctx, mcp.ExportOptions{Mode: mcp.SecretMode(request.Mode), Password: request.Password, ConfirmPlaintext: request.ConfirmPlaintext})
+	return s.core.ExportMCP(ctx, mcp.ExportOptions{Mode: mcp.SecretMode(request.Mode), Password: request.Password, ConfirmPlaintext: request.ConfirmPlaintext, ServerIDs: request.ServerIDs})
+}
+
+func (s *MCPService) SaveImported(ctx context.Context, registry mcp.Registry) error {
+	if err := contextError(ctx); err != nil {
+		return err
+	}
+	if s == nil || s.core == nil {
+		return notReady("MCP service is not configured")
+	}
+	return s.core.SaveImportedMCP(ctx, registry)
 }
 
 func (s *MCPService) PreviewImport(ctx context.Context, request MCPImportRequest) (mcp.Registry, error) {

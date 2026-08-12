@@ -212,10 +212,11 @@ export const wailsApi = {
   scanMCP: (): Promise<MCPScanResult> => call(() => MCPService.Scan()) as Promise<MCPScanResult>,
   getMCP: (id: string, sourceAgent = ""): Promise<MCPServerDetail> => call(() => MCPService.Get(id, sourceAgent)) as Promise<MCPServerDetail>,
   applyMCP: (request: MCPApplyRequest): Promise<MCPApplyResult> => call(() => MCPService.Apply(request)) as Promise<MCPApplyResult>,
-  exportMCP: (mode: string, password = "", confirmPlaintext = false): Promise<string> =>
-    call(() => MCPService.Export({ mode, password, confirm_plaintext: confirmPlaintext })) as Promise<string>,
-  previewImportMCP: (data: string, password = ""): Promise<unknown> =>
-    call(() => MCPService.PreviewImport({ data, password })),
+  exportMCP: (mode: string, password = "", confirmPlaintext = false, serverIDs: string[] = []): Promise<string> =>
+    call(() => MCPService.Export({ mode, password, confirm_plaintext: confirmPlaintext, server_ids: serverIDs })) as Promise<string>,
+  previewImportMCP: (data: string, password = ""): Promise<import("../../bindings/github.com/MaimoryLab/OneAgent/internal/mcp/models.js").Registry> =>
+    call(() => MCPService.PreviewImport({ data, password })) as Promise<import("../../bindings/github.com/MaimoryLab/OneAgent/internal/mcp/models.js").Registry>,
+  saveImportedMCP: (registry: import("../../bindings/github.com/MaimoryLab/OneAgent/internal/mcp/models.js").Registry): Promise<void> => call(() => MCPService.SaveImported(registry)).then(() => undefined),
   setMCPDraftState: (dirty: boolean, locale: string): Promise<void> => call(() => MCPService.SetDraftState(dirty, locale)).then(() => undefined),
   listProfiles: (): Promise<ProfileSummary[]> => call(() => ProfileService.ListProfiles()) as Promise<ProfileSummary[]>,
   deleteProfile: (id: string): Promise<void> =>

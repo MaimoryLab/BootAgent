@@ -36,6 +36,10 @@ export function PreviewImport(request: $models.MCPImportRequest): $CancellablePr
     return $Call.ByID(3912742423, request);
 }
 
+export function SaveImported(registry: mcp$0.Registry): $CancellablePromise<void> {
+    return $Call.ByID(3700198299, registry);
+}
+
 export function Scan(): $CancellablePromise<app$0.MCPScanResult> {
     return $Call.ByID(3620222707);
 }

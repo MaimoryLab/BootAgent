@@ -9,6 +9,7 @@ export type TransferFile = {
   providers: TransferProvider[];
   profiles: TransferProfile[];
   encrypted: EncryptedKey[];
+  mcp?: unknown;
 };
 
 /**
@@ -82,6 +83,7 @@ export async function makeTransfer(
   // have.
   keys: KeyHandling = "omit",
   password = "",
+  mcp?: unknown,
 ): Promise<TransferFile> {
   const encrypted: EncryptedKey[] = [];
   const transferProviders: TransferProvider[] = [];
@@ -100,6 +102,7 @@ export async function makeTransfer(
     providers: transferProviders,
     profiles: profiles.map(({ baseUrl: _baseUrl, ...profile }) => profile),
     encrypted,
+    ...(mcp === undefined ? {} : { mcp }),
   };
 }
 
@@ -153,8 +156,8 @@ export function transferSummary(text: string): { providers: string[]; profiles: 
 /** A Provider from a transfer file, plus whether the file supplied its key. */
 export type IncomingProvider = ProviderEntry & { carriesKey: boolean };
 
-export async function parseTransfer(text: string, password = ""): Promise<{ providers: IncomingProvider[]; profiles: TransferProfile[]; timestamp: string }> {
-  const file = JSON.parse(text) as Partial<TransferFile> & { encrypted?: EncryptedKey[] | { salt: string; iv: string; data: string } };
+export async function parseTransfer(text: string, password = ""): Promise<{ providers: IncomingProvider[]; profiles: TransferProfile[]; timestamp: string; mcp?: unknown }> {
+  const file = JSON.parse(text) as Partial<TransferFile> & { encrypted?: EncryptedKey[] | { salt: string; iv: string; data: string }; mcp?: unknown };
   // Reported separately: a version mismatch is what a file from another OneAgent
   // build hits, and naming the version found is the difference between "this file
   // is broken" and "this file is newer than this app".
@@ -198,7 +201,7 @@ export async function parseTransfer(text: string, password = ""): Promise<{ prov
     }
     providers.push({ ...publicProvider, api_key: apiKey, carriesKey });
   }
-  return { providers, profiles, timestamp: file.timestamp || "" };
+  return { providers, profiles, timestamp: file.timestamp || "", mcp: file.mcp };
 }
 
 export const stringifyTransfer = (file: TransferFile) => JSON.stringify(file, null, 2);

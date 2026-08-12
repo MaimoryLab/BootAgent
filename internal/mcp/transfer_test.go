@@ -57,3 +57,17 @@ func TestTransferRejectsDuplicateAndInvalidEnvelope(t *testing.T) {
 		t.Fatal("invalid ID accepted")
 	}
 }
+
+func TestTransferMCPSelectionOmitsAgentBindings(t *testing.T) {
+	b, err := Export(transferRegistry(), ExportOptions{Mode: SecretOmit, ServerIDs: []string{"demo"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	r, err := Import(b, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := r.Servers["demo"].Variants[0].Agents; len(got) != 0 {
+		t.Fatalf("agents leaked into transfer: %#v", got)
+	}
+}

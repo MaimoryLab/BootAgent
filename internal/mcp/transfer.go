@@ -18,6 +18,7 @@ type ExportOptions struct {
 	Mode             SecretMode
 	Password         string
 	ConfirmPlaintext bool
+	ServerIDs        []string
 }
 
 type transferEnvelope struct {
@@ -28,6 +29,25 @@ type transferEnvelope struct {
 }
 
 func Export(r Registry, options ExportOptions) ([]byte, error) {
+	if len(options.ServerIDs) > 0 {
+		selected := make(map[string]bool, len(options.ServerIDs))
+		for _, id := range options.ServerIDs {
+			selected[id] = true
+		}
+		servers := make(map[string]ServerFact, len(selected))
+		for id, fact := range r.Servers {
+			if selected[id] {
+				servers[id] = fact
+			}
+		}
+		r.Servers = servers
+	}
+	for id, fact := range r.Servers {
+		for i := range fact.Variants {
+			fact.Variants[i].Agents = nil
+		}
+		r.Servers[id] = fact
+	}
 	if err := validateRegistry(r); err != nil {
 		return nil, err
 	}
