@@ -34,6 +34,7 @@ import claudeCodeMark from "./assets/claude-code.svg?raw";
 import codexMark from "./assets/codex.svg?raw";
 import hermesMark from "./assets/hermes.svg?raw";
 import kiloCliMark from "./assets/kilo-cli.svg?raw";
+import kimiCodeMark from "./assets/kimi-code.svg?raw";
 import openclawMark from "./assets/openclaw.svg?raw";
 import opencodeMark from "./assets/opencode.svg?raw";
 
@@ -117,6 +118,15 @@ const MARKS: Record<string, Mark> = {
     source: assetRightsManifest.assets.openclaw.source,
     rights: assetRightsManifest.assets.openclaw,
   },
+  // lobe-icons publishes this as kimi.svg, the Kimi product mark rather than a
+  // Moonshot company mark -- which is the right one here, since the Agent is
+  // Kimi Code. Unmodified, so no `modified` claim is recorded.
+  "kimi-code": {
+    kind: "asset",
+    markup: kimiCodeMark,
+    source: assetRightsManifest.assets["kimi-code"].source,
+    rights: assetRightsManifest.assets["kimi-code"],
+  },
 };
 
 /** One-line positioning shown on hover; never a restatement of the name. */
@@ -128,6 +138,7 @@ const TAGLINES: Record<string, TranslationKey> = {
   aider: "结对编程式的仓库编辑代理",
   hermes: "可扩展的多渠道智能代理",
   openclaw: "把聊天工具接到编码代理的自建网关",
+  "kimi-code": "月之暗面的终端编码代理",
 };
 
 export const AGENT_ICON_IDS = Object.keys(MARKS);

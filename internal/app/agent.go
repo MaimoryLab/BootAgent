@@ -189,6 +189,8 @@ func writeManagedAgentConfig(ctx context.Context, writer configWriter.Writer, ag
 		return writer.WriteAider(ctx, path, baseURL, apiKey)
 	case "hermes":
 		return writer.WriteHermes(ctx, path, baseURL, apiKey, model)
+	case "kimi-code":
+		return writer.WriteKimiCode(ctx, path, baseURL, apiKey, model)
 	case "workbuddy":
 		return writer.WriteWorkBuddy(ctx, path, baseURL, apiKey, model)
 	default:

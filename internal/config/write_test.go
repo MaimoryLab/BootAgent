@@ -62,6 +62,123 @@ func TestWriteCodexPreservesUnmanagedTablesAndRoundTrips(t *testing.T) {
 	}
 }
 
+func TestWriteKimiCodePreservesUnmanagedEntriesAndRoundTrips(t *testing.T) {
+	home := t.TempDir()
+	path := filepath.Join(home, ".kimi-code", "config.toml")
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	// The parts OneAgent must not own: a top-level preference, the user's own
+	// provider and model, and a stale OneAgent provider plus alias from an
+	// earlier write.
+	existing := strings.Join([]string{
+		`default_permission_mode = "manual"`,
+		`default_model = "mine/gpt-4o"`,
+		``,
+		`[providers.mine]`,
+		`type = "openai"`,
+		`api_key = "keep-me"`,
+		``,
+		`[models."mine/gpt-4o"]`,
+		`provider = "mine"`,
+		`model = "gpt-4o"`,
+		``,
+		`[providers.oneagent]`,
+		`type = "openai"`,
+		`base_url = "https://old.example/v1"`,
+		`api_key = "old-key"`,
+		``,
+		`[models."oneagent/old-model"]`,
+		`provider = "oneagent"`,
+		`model = "old-model"`,
+		``,
+	}, "\n")
+	if err := os.WriteFile(path, []byte(existing), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	writer := testWriter(t, home, "linux")
+	if err := writer.WriteKimiCode(context.Background(), path, "https://api.ppio.com/openai", "sk-kimi-secret", "model-a"); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(data)
+	for _, keep := range []string{`default_permission_mode = "manual"`, `[providers.mine]`, `api_key = "keep-me"`, `[models."mine/gpt-4o"]`} {
+		if !strings.Contains(text, keep) {
+			t.Fatalf("Kimi Code config dropped an unmanaged entry %q: %s", keep, text)
+		}
+	}
+	// The previous alias has to be gone, or Kimi Code keeps a models entry whose
+	// provider no longer describes it.
+	if strings.Contains(text, "oneagent/old-model") || strings.Contains(text, "old-key") || strings.Contains(text, "old.example") {
+		t.Fatalf("Kimi Code config kept the stale OneAgent entry: %s", text)
+	}
+	detected := ReadKimiCodeConfig(text)
+	// Normalised to the /v1 form Kimi Code's `openai` provider type expects, the
+	// same as the OpenCode and Kilo adapters.
+	if detected.BaseURL != "https://api.ppio.com/openai/v1" || detected.Model != "model-a" || !detected.ManagedByOneAgent || detected.Unreadable != nil {
+		t.Fatalf("round-trip Kimi Code detection = %#v", detected)
+	}
+	// The key shares the file with the endpoint here, unlike Codex, so the file
+	// itself must carry secret permissions.
+	info, err := os.Stat(path)
+	if err != nil || info.Mode().Perm() != 0o600 {
+		t.Fatalf("Kimi Code config mode = %v, err=%v", info.Mode().Perm(), err)
+	}
+	if !strings.Contains(text, "sk-kimi-secret") {
+		t.Fatalf("Kimi Code config is missing the credential it must carry: %s", text)
+	}
+}
+
+// A model ID containing a dot would split into nested tables unquoted, and the
+// alias always contains a slash, so both headers have to survive a round trip.
+func TestWriteKimiCodeQuotesAliasesContainingSeparators(t *testing.T) {
+	home := t.TempDir()
+	path := filepath.Join(home, ".kimi-code", "config.toml")
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	writer := testWriter(t, home, "linux")
+	if err := writer.WriteKimiCode(context.Background(), path, "https://api.example.test/v1", "sk-x", "gpt-4.1"); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	detected := ReadKimiCodeConfig(string(data))
+	if detected.Model != "gpt-4.1" || detected.BaseURL != "https://api.example.test/v1" { // already /v1, so unchanged
+		t.Fatalf("dotted model round trip = %#v (%s)", detected, data)
+	}
+}
+
+func TestWriteKimiCodeRefusesUnsupportedSyntaxWithoutWriting(t *testing.T) {
+	home := t.TempDir()
+	path := filepath.Join(home, ".kimi-code", "config.toml")
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	writer := testWriter(t, home, "linux")
+	for _, invalid := range []string{
+		"default_model = \"unterminated\n",
+		"[\"providers\".\"oneagent\"]\ntype = \"openai\"\n",
+		"\"default_model\" = \"quoted\"\n",
+	} {
+		if err := os.WriteFile(path, []byte(invalid), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if err := writer.WriteKimiCode(context.Background(), path, "https://example.com/v1", "sk-x", "m"); err == nil {
+			t.Fatalf("invalid Kimi Code config unexpectedly succeeded: %q", invalid)
+		}
+		got, _ := os.ReadFile(path)
+		if string(got) != invalid {
+			t.Fatalf("invalid Kimi Code config was modified: %q", got)
+		}
+	}
+}
+
 func TestWriteJSONAdaptersPreserveFieldsAndRejectJSONC(t *testing.T) {
 	home := t.TempDir()
 	writer := testWriter(t, home, "linux")

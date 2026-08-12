@@ -88,6 +88,60 @@ func TestActivateAgentWritesPerAgentStateAndKeepsSecretsOutOfResult(t *testing.T
 	}
 }
 
+// Kimi Code carries the key in the same file as the endpoint, so activation has
+// to produce a config that is complete on its own: the CLI documents that it
+// does not read credentials from the environment, and a config without the key
+// would leave it failing at startup with nothing to fall back to.
+func TestActivateKimiCodeWritesAConfigCompleteOnItsOwn(t *testing.T) {
+	home := t.TempDir()
+	core := activationCore(t, home, provider.NewClient(nil), "linux")
+	result, err := core.ActivateAgent(context.Background(), ActivateAgentOptions{
+		AgentID:  "kimi-code",
+		Provider: "ppio",
+		APIKey:   "kimi-secret",
+		Model:    "model-a",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(home, ".kimi-code", "config.toml")
+	if result.Config != path {
+		t.Fatalf("Kimi Code config path = %q, want %q", result.Config, path)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(data)
+	for _, want := range []string{"kimi-secret", "api.ppio.com/openai/v1", `type = "openai"`, `default_model = "oneagent/model-a"`} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("Kimi Code config missing %q: %s", want, text)
+		}
+	}
+	if wire, err := json.Marshal(result); err != nil || strings.Contains(string(wire), "kimi-secret") {
+		t.Fatalf("activation result leaked the key: %s (%v)", wire, err)
+	}
+	// The binding is what a Provider or Profile edit later reapplies through.
+	binding, err := core.profiles.ReadAgentBinding("kimi-code")
+	if err != nil || binding == nil || binding.Model != "model-a" || binding.Provider != "ppio" {
+		t.Fatalf("Kimi Code binding = %#v, err=%v", binding, err)
+	}
+	// Switching model must not leave the previous alias behind, or Kimi Code keeps
+	// a models entry whose provider no longer describes it.
+	if _, err := core.ActivateAgent(context.Background(), ActivateAgentOptions{
+		AgentID: "kimi-code", Provider: "ppio", APIKey: "kimi-secret", Model: "model-b",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	after, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(after), "oneagent/model-a") {
+		t.Fatalf("model switch kept the previous alias: %s", after)
+	}
+}
+
 func TestActivateAgentReusesProfileKeyAndDiscoversModel(t *testing.T) {
 	home := t.TempDir()
 	client := provider.NewClient(appProviderDoer(func(request *http.Request) (*http.Response, error) {

@@ -155,6 +155,35 @@ func ReadHermesConfig(text string) Detected {
 	return Detected{BaseURL: parsed.Model.BaseURL, Model: parsed.Model.Default, ManagedByOneAgent: parsed.Model.BaseURL != ""}
 }
 
+// ReadKimiCodeConfig reports the endpoint and model behind Kimi Code's
+// default_model alias. The alias names a models entry, which names a providers
+// entry holding the base URL, so both hops are followed rather than assuming
+// OneAgent wrote the file -- a config the user edited by hand still reports the
+// endpoint actually in effect.
+func ReadKimiCodeConfig(text string) Detected {
+	var parsed map[string]any
+	if err := toml.Unmarshal([]byte(text), &parsed); err != nil {
+		return unreadable(fmt.Sprintf("TOML 无法解析：%v", err))
+	}
+	alias, _ := parsed["default_model"].(string)
+	models, _ := parsed["models"].(map[string]any)
+	entry, _ := models[alias].(map[string]any)
+	model, _ := entry["model"].(string)
+	providerName, _ := entry["provider"].(string)
+	providers, _ := parsed["providers"].(map[string]any)
+	baseURL := ""
+	if table, ok := providers[providerName].(map[string]any); ok {
+		if value, ok := table["base_url"].(string); ok {
+			baseURL = value
+		}
+	}
+	// Keyed on the provider entry OneAgent owns, not on the alias in use: a user
+	// who repointed default_model at their own entry still has ours on disk, and
+	// reporting otherwise would hide that OneAgent wrote it.
+	_, managed := providers[kimiOwnedName]
+	return Detected{BaseURL: baseURL, Model: model, ManagedByOneAgent: managed}
+}
+
 // DetectFile returns nil only when the file is absent. Any present but empty,
 // unreadable, or unknown-format file gets a local diagnostic so one bad Agent
 // cannot fail the entire status request.
@@ -205,6 +234,8 @@ func readerFor(adapter string, envVars map[string]string) reader {
 		return ReadAiderConfig
 	case "hermes":
 		return ReadHermesConfig
+	case "kimi-code":
+		return ReadKimiCodeConfig
 	default:
 		return nil
 	}

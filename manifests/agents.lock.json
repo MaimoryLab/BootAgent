@@ -185,6 +185,31 @@
       ],
       "windows_note": "The official PowerShell installer provides Hermes and its isolated prerequisites without requiring WSL.",
       "rank": 7
+    },
+    "kimi-code": {
+      "name": "Kimi Code",
+      "group": "auto",
+      "command": "kimi",
+      "config_mode": "auto",
+      "config_adapter": "kimi-code",
+      "config_path": ".kimi-code/config.toml",
+      "package": {
+        "manager": "npm",
+        "name": "@moonshot-ai/kimi-code",
+        "source": "https://github.com/MoonshotAI/kimi-code",
+        "license": "MIT",
+        "license_url": "https://github.com/MoonshotAI/kimi-code/blob/main/LICENSE"
+      },
+      "version_args": [
+        "--version"
+      ],
+      "platforms": [
+        "macos",
+        "linux",
+        "windows"
+      ],
+      "guide": "Kimi Code reads credentials only from its own config file and does not fall back to shell environment variables, so OneAgent writes the Provider and model into ~/.kimi-code/config.toml. KIMI_CODE_HOME relocates that directory; if you set it, launch Kimi Code with it set or it will not find this config.",
+      "rank": 8
     }
   }
 }

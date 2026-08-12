@@ -13,6 +13,7 @@ the embedded frontend. Full license and notice texts are included under
 | asset | `codex` | `a595df6b423920c67a7f8f73c063e4bfb72d415948097b6cac063a2366bb5186` | frontend | MIT | `licenses/assets/codex/LICENSE` |
 | asset | `hermes` | `02d43c0a91fc2ee41f2684fc39613ff6687de29a4b079665bace5303671dd63b` | frontend | MIT | `licenses/assets/hermes/LICENSE` |
 | asset | `kilo-cli` | `a2aef0e0bb992ebe768bfb8c3a3ab6ff2c2638448b09dd88db27877de1c07a22` | frontend | MIT | `licenses/assets/kilo-cli/LICENSE` |
+| asset | `kimi-code` | `ed08131b46acf70e6e2144eceb775e74098b58ea65fa21eaee04be7b05cfe63b` | frontend | MIT | `licenses/assets/kimi-code/LICENSE` |
 | asset | `openclaw` | `9eac78bcfa8e106ed3267293235281743e161b5accf2ff5c676700b64cfcdbbc` | frontend | MIT | `licenses/assets/openclaw/LICENSE` |
 | asset | `opencode` | `7cfa6e9d6726f7c9fa26c7d9aef0dfec52d20a137380454340f30f12ccbfd302` | frontend | MIT | `licenses/assets/opencode/LICENSE` |
 | go | `github.com/adrg/xdg` | `v0.5.3` | macos-arm64, macos-x64, windows-arm64, windows-x64 | MIT | `licenses/go/github.com_adrg_xdg@v0.5.3/LICENSE` |

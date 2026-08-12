@@ -473,6 +473,7 @@ const english = {
   "结对编程式的仓库编辑代理": "Pair-programming repository editing agent",
   "可扩展的多渠道智能代理": "Extensible multi-channel agent",
   "把聊天工具接到编码代理的自建网关": "Self-hosted gateway bridging chat apps to coding agents",
+  "月之暗面的终端编码代理": "Moonshot AI's terminal coding agent",
   "AI 编辑器，按官方方式安装": "AI editor installed through the official channel",
   "多渠道 AI 网关，常驻运行": "Persistent multi-channel AI gateway",
   "自我成长型 Agent 框架": "Self-improving agent framework",

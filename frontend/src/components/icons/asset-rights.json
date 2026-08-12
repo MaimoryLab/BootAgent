@@ -41,6 +41,14 @@
       "copyrightOwner": "LobeHub contributors",
       "sha256": "02d43c0a91fc2ee41f2684fc39613ff6687de29a4b079665bace5303671dd63b"
     },
+    "kimi-code": {
+      "file": "assets/kimi-code.svg",
+      "source": "https://github.com/lobehub/lobe-icons/blob/master/packages/static-svg/icons/kimi.svg",
+      "license": "MIT",
+      "licenseSource": "licenses/lobehub/LICENSE",
+      "copyrightOwner": "LobeHub contributors",
+      "sha256": "ed08131b46acf70e6e2144eceb775e74098b58ea65fa21eaee04be7b05cfe63b"
+    },
     "openclaw": {
       "file": "assets/openclaw.svg",
       "source": "https://github.com/farion1231/cc-switch/blob/main/src/icons/extracted/claw.svg",

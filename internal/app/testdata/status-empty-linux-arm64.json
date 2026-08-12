@@ -12,6 +12,7 @@
       "codex": false,
       "hermes": true,
       "kilo-cli": false,
+      "kimi-code": false,
       "openclaw": false,
       "opencode": false
     },
@@ -20,6 +21,7 @@
       "claude-code": "node",
       "codex": "node",
       "kilo-cli": "node",
+      "kimi-code": "node",
       "openclaw": "node",
       "opencode": "node"
     },
@@ -30,7 +32,8 @@
       "kilo-cli",
       "aider",
       "openclaw",
-      "hermes"
+      "hermes",
+      "kimi-code"
     ]
   },
   "agents": {
@@ -103,6 +106,22 @@
       "configured": false,
       "guideOnly": false,
       "config": "${HOME}/.config/kilo/kilo.jsonc",
+      "version": null,
+      "lockedVersion": null,
+      "latestVersion": null,
+      "canInstall": false,
+      "provider": null,
+      "profileId": null,
+      "model": null,
+      "baseUrl": null,
+      "updatedAt": null,
+      "detected": null
+    },
+    "kimi-code": {
+      "installed": false,
+      "configured": false,
+      "guideOnly": false,
+      "config": "${HOME}/.kimi-code/config.toml",
       "version": null,
       "lockedVersion": null,
       "latestVersion": null,
@@ -273,6 +292,24 @@
       "rank": 7,
       "packageManager": "official-script",
       "packageName": "hermes-agent"
+    },
+    {
+      "id": "kimi-code",
+      "name": "Kimi Code",
+      "group": "auto",
+      "configMode": "auto",
+      "guideOnly": false,
+      "lockedVersion": null,
+      "protocol": "openai",
+      "platforms": [
+        "macos",
+        "linux",
+        "windows"
+      ],
+      "platformNote": "",
+      "rank": 8,
+      "packageManager": "npm",
+      "packageName": "@moonshot-ai/kimi-code"
     }
   ],
   "groups": [
@@ -333,6 +370,7 @@
     "codex_config": "${HOME}/.codex/config.toml",
     "hermes_config": "${HOME}/.hermes/config.yaml",
     "kilo-cli_config": "${HOME}/.config/kilo/kilo.jsonc",
+    "kimi-code_config": "${HOME}/.kimi-code/config.toml",
     "logs": "${HOME}/.oneagent/logs",
     "openclaw_config": "${HOME}/.openclaw/openclaw.json",
     "opencode_config": "${HOME}/.config/opencode/opencode.json",
@@ -344,6 +382,7 @@
     "codex": false,
     "hermes": false,
     "kilo-cli": false,
+    "kimi-code": false,
     "openclaw": false,
     "opencode": false,
     "profile": false
@@ -366,7 +405,7 @@
       "licenseUrl": "https://github.com/nodejs/node/blob/main/LICENSE",
       "source": "https://nodejs.org/dist/",
       "installPath": "${HOME}/.oneagent/runtimes/node/v24.18.1",
-      "requiredByHint": "Codex, Claude Code, OpenCode +2"
+      "requiredByHint": "Codex, Claude Code, OpenCode +3"
     },
     {
       "id": "uv",
