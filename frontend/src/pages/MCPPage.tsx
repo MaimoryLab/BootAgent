@@ -86,6 +86,7 @@ export function MCPPage() {
     const changes = await Promise.all([...ids].map(async (id) => ({ id, spec: draft[id] ?? (await api.getMCP(id, "")).variants?.[0]?.spec ?? emptySpec, agents: targets[id] ?? agentsFor(rows.find((row) => row.id === id)!) })));
     const result = await api.applyMCP({ changes });
     if ((result.results ?? []).every((item) => item.registry_updated)) { setDraft({}); setTargets({}); }
+    refresh();
   };
   const visibleRows = useMemo(() => rows.slice().sort((a, b) => a.id.localeCompare(b.id)), [rows]);
   const previewForm = previewMCPForm(form, commandLine);
