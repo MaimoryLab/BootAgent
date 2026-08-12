@@ -3,6 +3,7 @@
 
 import * as AgentService from "./agentservice.js";
 import * as DesktopAgentService from "./desktopagentservice.js";
+import * as MCPService from "./mcpservice.js";
 import * as ProfileService from "./profileservice.js";
 import * as ProviderService from "./providerservice.js";
 import * as RuntimeService from "./runtimeservice.js";
@@ -12,6 +13,7 @@ import * as UpdateService from "./updateservice.js";
 export {
     AgentService,
     DesktopAgentService,
+    MCPService,
     ProfileService,
     ProviderService,
     RuntimeService,
@@ -31,6 +33,8 @@ export type {
     InstallRuntimeRequest,
     LaunchRequest,
     LaunchResponse,
+    MCPExportRequest,
+    MCPImportRequest,
     ModelsRequest,
     ModelsResponse,
     OpenRegistrationRequest,

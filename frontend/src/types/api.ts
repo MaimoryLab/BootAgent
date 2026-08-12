@@ -3,11 +3,19 @@ import type * as BindingModels from "../../bindings/github.com/MaimoryLab/OneAge
 import type * as CatalogModels from "../../bindings/github.com/MaimoryLab/OneAgent/internal/catalog/models.js";
 import type * as PlatformModels from "../../bindings/github.com/MaimoryLab/OneAgent/internal/platform/models.js";
 import type * as ProviderModels from "../../bindings/github.com/MaimoryLab/OneAgent/internal/provider/models.js";
+import type * as MCPModels from "../../bindings/github.com/MaimoryLab/OneAgent/internal/mcp/models.js";
 
 type PlatformId = "macos" | "windows" | "linux";
 type AgentGroupId = "auto" | "gateway" | "platform" | "ide";
 export type ProviderId = string;
 export type ProtocolId = "openai" | "anthropic" | "responses";
+export type MCPSpec = MCPModels.Spec;
+export type MCPVariant = MCPModels.Variant;
+export type MCPServerSummary = AppModels.MCPServerSummary;
+export type MCPServerDetail = AppModels.MCPServerDetail;
+export type MCPScanResult = AppModels.MCPScanResult;
+export type MCPApplyRequest = AppModels.MCPApplyRequest;
+export type MCPApplyResult = AppModels.MCPApplyResult;
 
 export const PROTOCOL_LABELS: Record<ProtocolId, string> = {
   openai: "OpenAI Chat Completions",

@@ -21,6 +21,7 @@ OneAgent is a local desktop workspace for AI coding Agents. It turns a fresh mac
 - Bootstraps required runtimes such as Node.js, uv, and Aider's managed Python when needed.
 - Keeps long-running installs visible and cancellable in the Task Center.
 - Imports and exports Providers and Profiles, with API keys excluded by default and optional password-protected export.
+- Discovers MCP servers from initialized Claude Code, Codex, OpenCode, Kilo CLI, and Hermes installations, and applies selected servers across them from the MCP Registry. Scanning runs in the background; edits are explicit and local.
 - Creates backups, writes atomically, and keeps credentials in private local storage.
 - Checks for OneAgent updates and installs release artifacts through the built-in updater.
 
@@ -34,6 +35,8 @@ OneAgent is a local desktop workspace for AI coding Agents. It turns a fresh mac
 | Kimi Code | |
 
 PPIO and Novita are built in. Any OpenAI-compatible or Anthropic-compatible Provider can be added from the Provider page. OneAgent probes the protocol an Agent actually uses; an endpoint that only exposes a different API is rejected before configuration is written.
+
+The MCP Registry is user-level only and stored locally. Its file transfer supports omitting secrets by default, optional password encryption, or explicitly confirmed plaintext export.
 
 ## Download
 

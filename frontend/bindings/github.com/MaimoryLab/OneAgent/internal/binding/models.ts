@@ -86,6 +86,17 @@ export interface LaunchResponse {
     "command": string;
 }
 
+export interface MCPExportRequest {
+    "mode": string;
+    "password"?: string;
+    "confirm_plaintext"?: boolean;
+}
+
+export interface MCPImportRequest {
+    "data": string | null;
+    "password"?: string;
+}
+
 export interface ModelsRequest {
     "provider": string;
     "api_base_url": string;

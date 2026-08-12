@@ -139,6 +139,22 @@
     },
     {
       "ecosystem": "go",
+      "license": "BSD-3-Clause",
+      "license_files": [
+        "licenses/go/github.com_tailscale_hujson@v0.0.0-20260727124030-b80ff77dac4f/LICENSE"
+      ],
+      "modification": "",
+      "name": "github.com/tailscale/hujson",
+      "platforms": [
+        "macos-arm64",
+        "macos-x64",
+        "windows-arm64",
+        "windows-x64"
+      ],
+      "version": "v0.0.0-20260727124030-b80ff77dac4f"
+    },
+    {
+      "ecosystem": "go",
       "license": "MIT",
       "license_files": [
         "licenses/go/github.com_wailsapp_wails_v3@v3.0.0-beta.7/LICENSE"

@@ -29,6 +29,7 @@ type Services struct {
 	Runtime      *RuntimeService
 	DesktopAgent *DesktopAgentService
 	Transfer     *TransferService
+	MCP          *MCPService
 }
 
 type ServicesOptions struct {
@@ -45,6 +46,7 @@ func NewServicesWithOptions(core *app.UseCases, opener BrowserOpener, options Se
 		Runtime:      &RuntimeService{core: core, onOutput: options.InstallOutput},
 		DesktopAgent: NewDesktopAgentService(core, options.InstallOutput),
 		Transfer:     &TransferService{},
+		MCP:          NewMCPService(core),
 	}
 }
 
