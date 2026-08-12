@@ -103,13 +103,6 @@ var (
 	}
 )
 
-func workBuddyEditionFor(agentID string) workBuddyEdition {
-	if strings.TrimSpace(agentID) == WorkBuddyIntlID {
-		return workBuddyIntl
-	}
-	return workBuddyCN
-}
-
 func inspectWorkBuddy(edition workBuddyEdition) func(context.Context, Options) Status {
 	return func(ctx context.Context, options Options) Status {
 		status := baseWorkBuddyStatus(edition, options.Platform.OS)
