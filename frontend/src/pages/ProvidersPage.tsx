@@ -1,15 +1,17 @@
-import { ExternalLink, KeyRound, Pencil, Plus, Save, Trash2, X } from "lucide-react";
+import { ExternalLink, FlaskConical, KeyRound, Pencil, Plus, Save, Trash2, X } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { api, describeFailure } from "../backend/api";
+import { ConnectionStatus } from "../components/ConnectionStatus";
 import { PageScaffold } from "../components/PageScaffold";
 import { SecureKeyField } from "../components/SecureKeyField";
 import { useI18n } from "../i18n";
 import { confirmDelete } from "../state/confirmDelete";
 import { useWizard } from "../state/WizardContext";
 import { byProviderCreatedAt } from "../state/ranking";
-import type { ProviderEntry } from "../types/api";
+import type { AsyncState } from "../state/wizardReducer";
+import type { ProbeResponse, ProviderEntry } from "../types/api";
 
 const emptyProvider: ProviderEntry = {
   id: "",
@@ -53,6 +55,15 @@ export function ProvidersPage({ create = false }: { create?: boolean }) {
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState("");
   const [applied, setApplied] = useState("");
+  // Local rather than the wizard reducer's connection state: that one belongs to
+  // the setup flow, and sharing it would let a test here overwrite what the
+  // wizard is showing, and the reverse.
+  const [probeState, setProbeState] = useState<AsyncState>("idle");
+  const [probeResult, setProbeResult] = useState<ProbeResponse | null>(null);
+  // Optional. Empty means the backend picks one, and ConnectionStatus already
+  // explains a failure caused by an auto-selected model -- which is why this is
+  // not required to press the button.
+  const [probeModel, setProbeModel] = useState("");
   const requestedReturn = searchParams.get("returnTo");
   const requestedProvider = searchParams.get("provider");
   const returnTo = requestedReturn?.startsWith("/") && !requestedReturn.startsWith("//") ? requestedReturn : "/providers";
@@ -61,7 +72,38 @@ export function ProvidersPage({ create = false }: { create?: boolean }) {
   const nameOf = (agentId: string) =>
     status?.catalog.find((item) => item.id === agentId)?.name || agentId;
 
+  /**
+   * Which protocols the test covers, expressed as the Agent IDs the probe API
+   * takes. Derived from the endpoints the user filled in: an Anthropic base URL is
+   * only meaningful if something speaks Anthropic Messages to it.
+   *
+   * The Agent IDs are a means of naming protocols, not a claim about those Agents
+   * -- `protocolsForAgents` is the backend's only entry point for choosing them.
+   * An empty list would default to OpenAI alone, which would silently skip the
+   * Anthropic field.
+   */
+  const probeAgentIds = (() => {
+    if (!editor) return [];
+    const agents: string[] = [];
+    if (editor.base_url.trim()) agents.push("opencode");
+    if (editor.anthropic_base_url?.trim()) agents.push("claude-code");
+    return agents;
+  })();
+  // Nothing to test against: both endpoint fields are empty and this Provider has
+  // no stored endpoints to fall back on.
+  const canProbe = Boolean(editor && (probeAgentIds.length || (!creating && status?.providers[editor.id])));
+
+  // A result describes the values that produced it, so opening or closing the
+  // editor has to drop it rather than leave a verdict about another Provider on
+  // screen.
+  const clearProbe = () => {
+    setProbeState("idle");
+    setProbeResult(null);
+    setProbeModel("");
+  };
+
   const closeEditor = () => {
+    clearProbe();
     if (create) navigate(returnTo);
     else {
       setEditor(null);
@@ -73,6 +115,7 @@ export function ProvidersPage({ create = false }: { create?: boolean }) {
     setBusy(true);
     setFailure("");
     setApplied("");
+    clearProbe();
     try {
       setEditor(await api.getProvider(providerId));
       setCreating(false);
@@ -80,6 +123,44 @@ export function ProvidersPage({ create = false }: { create?: boolean }) {
       setFailure(describeFailure(error, t("无法读取模型服务"), t).message);
     } finally {
       setBusy(false);
+    }
+  };
+
+  /**
+   * Tests the endpoints and key currently in the editor, without saving them.
+   *
+   * `draft: true` is what makes that possible: the backend otherwise resolves the
+   * Provider from disk, so a new Provider could not be tested at all and an edited
+   * endpoint would be tested in its old form.
+   *
+   * Nothing is written here. The key travels to the local backend for the request
+   * and is persisted only when the user presses Save -- testing a key that turns
+   * out to be wrong must not leave it on disk.
+   */
+  const testConnection = async () => {
+    if (!editor) return;
+    setProbeState("loading");
+    setProbeResult(null);
+    setFailure("");
+    try {
+      const result = await api.probe({
+        provider: editor.id.trim(),
+        apiBaseUrl: editor.base_url.trim(),
+        anthropicBaseUrl: editor.anthropic_base_url?.trim() || "",
+        apiKey: editor.api_key,
+        model: probeModel.trim(),
+        // Which protocols to probe follows from which endpoints the user filled
+        // in, not from a selected Agent: this page has no Agent context, and the
+        // question here is whether the endpoints work.
+        agents: probeAgentIds,
+        draft: true,
+      });
+      setProbeResult(result);
+      setProbeState(result.ok ? "success" : "error");
+    } catch (error) {
+      setProbeResult(null);
+      setProbeState("error");
+      setFailure(describeFailure(error, t("连接测试失败"), t).message);
     }
   };
 
@@ -237,6 +318,37 @@ export function ProvidersPage({ create = false }: { create?: boolean }) {
                 from here instead of asking again. */}
             <div className="provider-editor-wide">
               <SecureKeyField value={editor.api_key} onChange={(value) => setEditor({ ...editor, api_key: value })} />
+            </div>
+            {/* Verifying here rather than only on the Agent page, which is what
+                #157 asked for: the endpoint and key are entered above, so this is
+                where a wrong one should be caught. */}
+            <div className="provider-editor-wide provider-verify">
+              <div className="provider-verify-row">
+                <div className="field-stack">
+                  <label htmlFor="provider-probe-model">{t("测试模型（可选）")}</label>
+                  <input
+                    id="provider-probe-model"
+                    value={probeModel}
+                    onChange={(event) => setProbeModel(event.target.value)}
+                    placeholder={t("留空则自动选择")}
+                    spellCheck={false}
+                    autoCorrect="off"
+                    autoCapitalize="none"
+                  />
+                  <small>{t("仅用于本次验证，不会写入模型服务配置")}</small>
+                </div>
+                <button
+                  className="button button-secondary"
+                  type="button"
+                  onClick={() => void testConnection()}
+                  disabled={!canProbe || probeState === "loading" || busy}
+                  title={canProbe ? t("验证可用性") : t("请先填写至少一个 Base URL")}
+                >
+                  <FlaskConical size={15} />
+                  {probeState === "loading" ? t("验证中") : t("验证可用性")}
+                </button>
+              </div>
+              <ConnectionStatus state={probeState} result={probeResult} />
             </div>
           </div>
           <footer>
