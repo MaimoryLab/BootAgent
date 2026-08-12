@@ -170,7 +170,11 @@ func escapeJSONPointer(s string) string {
 	return strings.ReplaceAll(strings.ReplaceAll(s, "~", "~0"), "/", "~1")
 }
 
-type TOMLAdapter struct{ Section string }
+type TOMLAdapter struct {
+	Section string
+	Decode  func([]byte) (Spec, error)
+	Encode  func(Spec) (map[string]any, error)
+}
 
 func (a TOMLAdapter) Read(ctx context.Context, path string) (Observed, error) {
 	b, err := readFile(path)
@@ -184,7 +188,7 @@ func (a TOMLAdapter) Read(ctx context.Context, path string) (Observed, error) {
 	if err := toml.Unmarshal(b, &root); err != nil {
 		return Observed{}, fmt.Errorf("invalid TOML MCP config: %w", err)
 	}
-	return readMapSection(root[a.Section])
+	return readMapSection(root[a.Section], a.Decode)
 }
 func (a TOMLAdapter) Apply(ctx context.Context, path string, current []byte, changes map[string]*Spec) ([]byte, bool, error) {
 	var root map[string]any
@@ -206,7 +210,7 @@ func (a TOMLAdapter) Apply(ctx context.Context, path string, current []byte, cha
 			delete(section, id)
 			continue
 		}
-		value, err := specValue(*spec)
+		value, err := encodeTOMLSpec(*spec, a.Encode)
 		if err != nil {
 			return nil, false, err
 		}
@@ -230,7 +234,7 @@ func (a YAMLAdapter) Read(ctx context.Context, path string) (Observed, error) {
 	if err := yaml.Unmarshal(b, &root); err != nil {
 		return Observed{}, fmt.Errorf("invalid YAML MCP config: %w", err)
 	}
-	return readMapSection(root[a.Section])
+	return readMapSection(root[a.Section], nil)
 }
 func (a YAMLAdapter) Apply(ctx context.Context, path string, current []byte, changes map[string]*Spec) ([]byte, bool, error) {
 	var root map[string]any
@@ -262,7 +266,7 @@ func (a YAMLAdapter) Apply(ctx context.Context, path string, current []byte, cha
 	return b, hasSecrets(changes), err
 }
 
-func readMapSection(value any) (Observed, error) {
+func readMapSection(value any, decode func([]byte) (Spec, error)) (Observed, error) {
 	result := Observed{Servers: map[string]ObservedServer{}}
 	m, ok := value.(map[string]any)
 	if value == nil {
@@ -276,11 +280,21 @@ func readMapSection(value any) (Observed, error) {
 		if err != nil {
 			return Observed{}, err
 		}
-		s, err := decodeSpec(b)
+		if decode == nil {
+			decode = decodeSpec
+		}
+		s, err := decode(b)
 		if err != nil {
 			return Observed{}, fmt.Errorf("MCP server %q: %w", id, err)
 		}
 		result.Servers[id] = ObservedServer{Spec: s, Native: b}
 	}
 	return result, nil
+}
+
+func encodeTOMLSpec(spec Spec, encode func(Spec) (map[string]any, error)) (map[string]any, error) {
+	if encode != nil {
+		return encode(spec)
+	}
+	return specValue(spec)
 }

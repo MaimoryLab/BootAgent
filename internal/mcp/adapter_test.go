@@ -68,6 +68,23 @@ func TestStructuredAdaptersRoundTrip(t *testing.T) {
 	}
 }
 
+func TestCodexUsesHTTPHeadersNativeKey(t *testing.T) {
+	a := NewCodexAdapter()
+	current := []byte("[mcp_servers]\n[mcp_servers.x]\nurl = \"https://example.test/mcp\"\n")
+	out, _, err := a.Apply(context.Background(), "config.toml", current, map[string]*Spec{"x": {Type: "http", URL: "https://example.test/mcp", Headers: map[string]string{"Authorization": "Bearer key"}}})
+	if err != nil || strings.Contains(string(out), "headers =") || !strings.Contains(string(out), "http_headers") {
+		t.Fatalf("unexpected codex output: %s (%v)", out, err)
+	}
+	path := t.TempDir() + "/config.toml"
+	if err := os.WriteFile(path, out, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	observed, err := a.Read(context.Background(), path)
+	if err != nil || observed.Servers["x"].Spec.Headers["Authorization"] != "Bearer key" {
+		t.Fatalf("unexpected decoded headers: %#v (%v)", observed, err)
+	}
+}
+
 func TestOpenCodeUsesNativeMCPShape(t *testing.T) {
 	a := NewOpenCodeAdapter()
 	current := []byte(`{"mcp":{}}`)
