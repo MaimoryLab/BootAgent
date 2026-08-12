@@ -15,8 +15,9 @@ GitHub Release 和构建工作流注入的版本为准。唯一产品入口是
   Node.js/uv runtime 引导（下载、校验、解压和 PATH 更新），以及 Aider 的 Python
   管理边界。
 - `internal/profile` 与 `internal/securefs`：Profile、密钥、备份、权限和原子写入。
+- `internal/mcp`：MCP 规范化模型、秘密处理、Registry 私有存储、导入导出，以及 Claude Code、Codex、OpenCode、Kilo CLI 和 Hermes 原生配置适配器。
 - `internal/binding`：React 与 Go 之间唯一的边界。`Services` 聚合 Status、Provider、
-  Agent、Profile、Runtime、DesktopAgent 和 Transfer 七个服务；UpdateService 在桌面
+  Agent、Profile、Runtime、DesktopAgent、Transfer 和 MCP 八个服务；UpdateService 在桌面
   入口中单独注册。这里的 DTO 发生变化时，必须重新生成 `frontend/bindings`，并同步
   `frontend/src/backend/wails.ts` 与 `frontend/src/types/api.ts`。
 - `cmd/oneagent-desktop`：Wails 桌面入口。

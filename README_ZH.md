@@ -20,7 +20,7 @@ OneAgent 是一个本地桌面工作台，用来统一管理 AI 编程 Agent。�
 - 保存可复用的配置模版（Profile），一键应用到对应 Agent。
 - 按需准备 Node.js、uv，以及 Aider 所需的托管 Python 运行时。
 - 长时间安装任务在任务中心持续可见，并且可以取消。
-- 导入和导出 Provider、Profile；默认不导出 API Key，也支持密码加密导出。
+- 导入和导出 Provider、Profile 以及选中的 MCP 服务器；默认不导出 API Key 和 MCP 秘密，也支持密码加密或明确确认后的明文导出。
 - 从已初始化的 Claude Code、Codex、OpenCode、Kilo CLI 和 Hermes 中发现 MCP 服务器，并在 MCP Registry 页面选择同步目标。扫描在后台进行，编辑必须显式应用并只写入本机。
 - 创建备份、原子写入，并将凭据保存在本机私有存储中。
 - 检查 OneAgent 更新，并通过内置更新器安装发行包。
@@ -36,7 +36,7 @@ OneAgent 是一个本地桌面工作台，用来统一管理 AI 编程 Agent。�
 
 内置 PPIO 和 Novita，也可以在模型服务页面添加任意 OpenAI 兼容或 Anthropic 兼容服务。OneAgent 会按 Agent 真正使用的协议探测；如果端点只支持另一种 API，会在写入配置前拒绝它。
 
-MCP Registry 只管理用户级配置并保存在本机。文件传输默认移除秘密，也支持密码加密或明确确认后的明文导出。
+MCP Registry 只管理用户级配置并保存在本机，支持 Claude Code、Codex、OpenCode、Kilo CLI 和 Hermes 的 stdio、HTTP、SSE 服务器。用户可以单独选择同步目标并显式应用；清空所有同步目标只会从 Agent 配置中移除服务器，仍保留在 Registry 中。点击删除后，会先从 Agent 配置中移除，应用成功后才从 Registry 中删除。MCP 导出按服务器选择且不携带 Agent 绑定，导入其他机器后可重新选择本机同步目标。
 
 ## 下载
 
