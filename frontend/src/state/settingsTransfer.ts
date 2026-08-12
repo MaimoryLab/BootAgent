@@ -120,8 +120,8 @@ export async function makeTransfer(
  */
 export function transferNeedsPassword(text: string): boolean {
   try {
-    const file = JSON.parse(text) as { encrypted?: unknown };
-    return Array.isArray(file.encrypted) && file.encrypted.length > 0;
+    const file = JSON.parse(text) as { encrypted?: unknown; mcp?: { secret_mode?: string } };
+    return (Array.isArray(file.encrypted) && file.encrypted.length > 0) || file.mcp?.secret_mode === "encrypted";
   } catch {
     return false;
   }
