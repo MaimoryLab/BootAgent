@@ -2176,10 +2176,13 @@
 .mcp-targets label { display: flex; align-items: center; gap: 6px; white-space: nowrap; color: var(--text-secondary); font-size: 12px; }
 .mcp-secret-note { display: block; color: var(--text-secondary); margin-top: 4px; }
 .mcp-modal-backdrop { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 24px; background: rgb(0 0 0 / 35%); }
-.mcp-modal { width: min(620px, 100%); max-height: min(720px, 90vh); overflow: auto; padding: 22px; background: var(--surface); border: 1px solid var(--border-strong); box-shadow: var(--shadow-lg); }
+.mcp-modal { width: min(620px, 100%); max-height: min(720px, 90vh); overflow: auto; padding: 22px; background: var(--window-bg); border: 1px solid var(--border-strong); box-shadow: var(--shadow-lg); }
 .mcp-modal header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .mcp-modal footer { display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
 .mcp-modal label { display: grid; gap: 6px; margin: 16px 0; color: var(--text-secondary); font-size: 13px; }
+.mcp-transport-field { display: grid; gap: 6px; margin: 16px 0; color: var(--text-secondary); font-size: 13px; }
+.mcp-transport-field .select-field { width: 100%; }
+.mcp-transport-field .select-field-trigger { min-height: 38px; border-color: var(--border-strong); background: var(--surface-subtle); }
 .mcp-modal input, .mcp-modal select, .mcp-modal textarea { width: 100%; box-sizing: border-box; border: 1px solid var(--border-strong); background: var(--surface-subtle); color: var(--text-primary); padding: 9px 10px; font: inherit; }
 .mcp-modal textarea { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; resize: vertical; }
 .mcp-modal footer { margin-top: 20px; }
