@@ -2,6 +2,8 @@ package config
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"maps"
@@ -125,6 +127,106 @@ func (w Writer) WriteOpenAICompatible(ctx context.Context, path, schemaURL, prov
 	providers.Set("oneagent", oneagent)
 	document.Set("model", "oneagent/"+model)
 	return w.writeJSON(ctx, path, document, true)
+}
+
+// zcodeOwnedName labels the provider entry OneAgent maintains. ZCode keys custom
+// providers by a generated UUID rather than by a stable name, so the name is the
+// only field that can identify an earlier OneAgent write.
+const zcodeOwnedName = "OneAgent"
+
+// WriteZCode adds or updates OneAgent's provider entry in ~/.zcode/v2/config.json.
+//
+// It writes the provider only, and deliberately does not select a model. ZCode
+// keeps no top-level "model" key and where it records the active model is neither
+// documented nor anywhere it could be found on disk. Guessing at that would risk
+// corrupting state the app owns, so the user picks the model once inside ZCode.
+// This mirrors WriteWorkBuddy, which likewise registers a model service and
+// leaves selection to the app.
+//
+// The shape below was read off ZCode 3.1.3. Nothing about it is documented -- the
+// published docs describe GUI configuration and name no file path -- so it is an
+// observation of one version, and 3.1.1 to 3.1.3 already moved: that release
+// declared "$schema": "https://opencode.ai/config.json" and carried enabled /
+// systemDisabledReason on builtin entries, all of which 3.1.3 dropped. Re-check
+// against a current build before assuming any of it still holds.
+//
+// Existing entries are matched by name, not by key. Keying by a fresh UUID on
+// every write would append a duplicate provider each time the user reconfigured.
+//
+// The entry is written as kind "openai". ZCode also accepts kind "anthropic" --
+// its own builtin entries use it, pointed at https://api.z.ai/api/anthropic --
+// but every Provider in providers.lock.json serves the OpenAI protocol while only
+// some serve Anthropic, and the registry pins ZCode to openai for that reason.
+// Supporting the other kind means giving the Definition a real protocol choice,
+// not adding a branch here that nothing can reach.
+func (w Writer) WriteZCode(ctx context.Context, path, providerName, baseURL, apiKey, model string) error {
+	document, err := loadJSON(path)
+	if err != nil {
+		return err
+	}
+	// No "$schema" is written. ZCode 3.1.1 declared OpenCode's schema URL and
+	// 3.1.3 dropped the key entirely, so writing it back would reintroduce a field
+	// the current version chose to remove. Only the one provider entry below is
+	// OneAgent's to manage; every other key in this file belongs to ZCode and is
+	// left exactly as found.
+	providers, err := document.Child("provider")
+	if err != nil {
+		return configError("Existing provider configuration must contain an object: %s", path)
+	}
+
+	options := jsonorder.NewObject()
+	// ZCode stores a base URL, not a request path: the entries it writes itself
+	// read like "https://api.z.ai/api/anthropic", with no /v1/messages suffix.
+	options.Set("baseURL", provider.OpenAIBaseURL(baseURL))
+	options.Set("apiKey", apiKey)
+	// Without this ZCode treats the endpoint as needing no credential and sends
+	// the request unauthenticated, which the Provider rejects as a missing key.
+	options.Set("apiKeyRequired", true)
+
+	entry := jsonorder.NewObject()
+	entry.Set("name", zcodeOwnedName+" - "+providerName)
+	entry.Set("kind", "openai")
+	entry.Set("options", options)
+	entry.Set("source", "custom")
+	// The model is registered so it appears in ZCode's picker; which one is
+	// active stays ZCode's decision.
+	if model != "" {
+		models := jsonorder.NewObject()
+		models.Set(model, jsonorder.NewObject())
+		entry.Set("models", models)
+	}
+
+	providers.Set(zcodeProviderKey(providers, entry.GetString("name")), entry)
+	return w.writeJSON(ctx, path, document, true)
+}
+
+// zcodeNewKey derives the provider key from the name instead of generating a
+// random UUID. ZCode's own custom entries use UUIDs, but nothing reads them as
+// one: the key is an opaque identifier. A derived key makes a write idempotent
+// even if the file is replaced between runs, and it stays readable in a config a
+// user may open.
+func zcodeNewKey(name string) string {
+	digest := sha256.Sum256([]byte(name))
+	return "oneagent-" + hex.EncodeToString(digest[:8])
+}
+
+// zcodeProviderKey reuses the key of a provider already carrying this name, so a
+// second write updates that entry instead of adding another. A builtin:* entry is
+// never reused: those belong to ZCode and are keyed by a name it controls.
+func zcodeProviderKey(providers *jsonorder.Object, name string) string {
+	for _, key := range providers.Keys() {
+		if strings.HasPrefix(key, "builtin:") {
+			continue
+		}
+		existing, ok := providers.GetObject(key)
+		if !ok {
+			continue
+		}
+		if existing.GetString("name") == name {
+			return key
+		}
+	}
+	return zcodeNewKey(name)
 }
 
 // WriteWorkBuddy adds or updates one custom OpenAI-compatible model while

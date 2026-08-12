@@ -101,6 +101,15 @@ export interface DesktopAgentStatus {
     "profileId": string | null;
     "packageFamily"?: string;
     "inspectionUnavailable"?: string | null;
+
+    /**
+     * ManualInstall reports that OneAgent can detect and configure this app but
+     * cannot fetch it. Without this the UI offered "Install the official desktop
+     * application" for an Agent whose install step only returns a download link,
+     * which is a button that cannot do what it says.
+     */
+    "manualInstall"?: boolean;
+    "home"?: string;
 }
 
 export interface DetectedConfig {

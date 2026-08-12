@@ -68,7 +68,9 @@ export function DesktopAgentSelectionPage() {
                 <span className="desktop-app-icon"><AppWindow size={20} aria-hidden="true" /></span>
                 <span className="agent-copy">
                   <span className="agent-name-line"><strong>{candidate.name}</strong></span>
-                  <span>{candidate.installed ? t("已安装，可直接应用配置模版") : t("安装官方桌面应用")}</span>
+                  <span>{candidate.installed
+                    ? t("已安装，可直接应用配置模版")
+                    : candidate.manualInstall ? t("需先自行安装，之后可配置") : t("安装官方桌面应用")}</span>
                   {candidate.configSharedWith ? <small>{t("与 {name} 共用配置", { name: candidate.configSharedWith })}</small> : null}
                 </span>
                 <StatusBadge tone={candidate.installed ? "success" : candidate.supported ? "warning" : "neutral"}>

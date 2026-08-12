@@ -12,6 +12,7 @@ const (
 	CodexAgentID           = "codex"
 	ConfigAdapterCodex     = "codex"
 	ConfigAdapterWorkBuddy = "workbuddy"
+	ConfigAdapterZCode     = "zcode"
 )
 
 // Definition contains the metadata shared by the desktop lifecycle and the
@@ -24,6 +25,12 @@ type Definition struct {
 	ConfigPath          string
 	ConfigAdapter       string
 	Protocol            string
+	// ManualInstall marks an app OneAgent can detect and configure but not fetch,
+	// because no verifiable installer URL is known for it. Home is where the user
+	// gets it instead. Both exist so the UI can avoid offering an install action
+	// that only returns a link.
+	ManualInstall bool
+	Home          string
 }
 
 type implementation struct {
@@ -58,6 +65,25 @@ var implementations = []implementation{
 		inspect: inspectWorkBuddy,
 		install: installWorkBuddy,
 		open:    openWorkBuddy,
+	},
+	{
+		Definition: Definition{
+			ID:             ZCodeID,
+			Name:           ZCodeName,
+			ProfileAgentID: ZCodeID,
+			ConfigPath:     ".zcode/v2/config.json",
+			ConfigAdapter:  ConfigAdapterZCode,
+			// ZCode accepts either protocol per provider entry, and its own builtin
+			// entries use anthropic. openai is pinned here because that is the
+			// protocol every Provider in providers.lock.json serves, while only
+			// some serve Anthropic.
+			Protocol:      "openai",
+			ManualInstall: true,
+			Home:          ZCodeHome,
+		},
+		inspect: inspectZCode,
+		install: installZCode,
+		open:    openZCode,
 	},
 }
 

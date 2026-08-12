@@ -22,6 +22,7 @@
  */
 import {
   Bot,
+  Braces,
   Briefcase,
   GitBranch,
   type LucideIcon
@@ -106,6 +107,11 @@ const MARKS: Record<string, Mark> = {
   // generic mark" is distinguishable from "never looked at".
   aider: { kind: "generic", Icon: GitBranch, source: GENERIC_SOURCE },
   workbuddy: { kind: "generic", Icon: Briefcase, source: GENERIC_SOURCE },
+  // ZCode's mark is not in lobe-icons either, and the only vectors in circulation
+  // come from the app bundle itself, which carries no redistribution grant. A
+  // generic symbol keeps NOTICE unchanged; registering it here rather than letting
+  // AgentIcon fall back records that the question was asked.
+  zcode: { kind: "generic", Icon: Braces, source: GENERIC_SOURCE },
   // Unlike the four above, this mark is not the vendor's own artwork: it is the
   // lobster the cc-switch project drew, MIT, and OneAgent recoloured it to a
   // single currentColor glyph so it adapts to the theme like the rest of the set.
