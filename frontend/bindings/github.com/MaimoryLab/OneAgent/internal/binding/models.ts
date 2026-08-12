@@ -94,7 +94,7 @@ export interface MCPExportRequest {
 }
 
 export interface MCPImportRequest {
-    "data": string | null;
+    "data": string;
     "password"?: string;
 }
 

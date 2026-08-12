@@ -15,7 +15,7 @@ type MCPExportRequest struct {
 }
 
 type MCPImportRequest struct {
-	Data     []byte `json:"data"`
+	Data     string `json:"data"`
 	Password string `json:"password,omitempty"`
 }
 
@@ -91,7 +91,7 @@ func (s *MCPService) PreviewImport(ctx context.Context, request MCPImportRequest
 	if s == nil || s.core == nil {
 		return mcp.Registry{}, notReady("MCP service is not configured")
 	}
-	return s.core.ImportMCP(ctx, request.Data, request.Password)
+	return s.core.ImportMCP(ctx, []byte(request.Data), request.Password)
 }
 
 func (s *MCPService) SetDraftState(ctx context.Context, dirty bool, locale string) error {
