@@ -74,6 +74,52 @@ func TestEmbeddedMCPMetadataMatchesRegistryContract(t *testing.T) {
 	}
 }
 
+func TestEmbeddedSkillsMetadataMatchesRegistryContract(t *testing.T) {
+	manifest, err := LoadEmbedded()
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]struct{ path, windows string }{
+		"claude-code": {path: ".claude/skills"},
+		"codex":       {path: ".codex/skills"},
+		"opencode":    {path: ".config/opencode/skills"},
+		"hermes":      {path: ".hermes/skills", windows: "AppData/Local/hermes/skills"},
+	}
+	for id, expected := range want {
+		agent, ok := manifest.Agents[id]
+		if !ok {
+			t.Fatalf("missing skills Agent %q", id)
+		}
+		if agent.SkillsPath != expected.path || agent.SkillsWindowsPath != expected.windows {
+			t.Errorf("%s skills metadata = path %q windows %q", id, agent.SkillsPath, agent.SkillsWindowsPath)
+		}
+	}
+	for _, id := range []string{"aider", "openclaw", "kilo-cli"} {
+		agent := manifest.Agents[id]
+		if agent.SkillsPath != "" || agent.SkillsWindowsPath != "" {
+			t.Errorf("%s unexpectedly has skills metadata: %#v", id, agent)
+		}
+	}
+}
+
+func TestSkillsMetadataRejectsInvalidPaths(t *testing.T) {
+	base := Agent{SkillsPath: ".codex/skills"}
+	for name, agent := range map[string]Agent{
+		"windows-only": {SkillsWindowsPath: "AppData/Local/hermes/skills"},
+		"absolute":     {SkillsPath: "/tmp/skills"},
+		"parent":       {SkillsPath: "../skills"},
+		"drive":        {SkillsPath: `C:\\skills`},
+		"unc":          {SkillsPath: `\\\\server\\skills`},
+	} {
+		if err := validateSkillsMetadata("test", agent); err == nil {
+			t.Errorf("%s unexpectedly accepted", name)
+		}
+	}
+	if err := validateSkillsMetadata("test", base); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestEmbeddedProvidersMatchCurrentCatalogContract(t *testing.T) {
 	manifest, err := LoadEmbeddedProviders()
 	if err != nil {

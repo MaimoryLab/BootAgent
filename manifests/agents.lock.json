@@ -13,6 +13,7 @@
       "mcp_adapter": "codex",
       "mcp_section": "mcp_servers",
       "mcp_config_path": ".codex/config.toml",
+      "skills_path": ".codex/skills",
       "package": {
         "manager": "npm",
         "name": "@openai/codex",
@@ -46,6 +47,7 @@
       "mcp_adapter": "claude",
       "mcp_section": "mcpServers",
       "mcp_config_path": ".claude.json",
+      "skills_path": ".claude/skills",
       "package": {
         "manager": "npm",
         "name": "@anthropic-ai/claude-code",
@@ -76,6 +78,7 @@
       "mcp_adapter": "opencode",
       "mcp_section": "mcp",
       "mcp_config_path": ".config/opencode/opencode.json",
+      "skills_path": ".config/opencode/skills",
       "package": {
         "manager": "npm",
         "name": "opencode-ai",
@@ -180,6 +183,8 @@
       "mcp_adapter": "hermes",
       "mcp_section": "mcp_servers",
       "mcp_config_path": ".hermes/config.yaml",
+      "skills_path": ".hermes/skills",
+      "skills_windows_path": "AppData/Local/hermes/skills",
       "windows_config_path": "AppData/Local/hermes/config.yaml",
       "package": {
         "manager": "official-script",

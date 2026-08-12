@@ -136,6 +136,9 @@ func validate(manifest Manifest) error {
 		if err := validateMCPMetadata(id, agent); err != nil {
 			return err
 		}
+		if err := validateSkillsMetadata(id, agent); err != nil {
+			return err
+		}
 		if agent.Command == "" || agent.ConfigPath == "" || agent.ConfigAdapter == "" || agent.Package == nil {
 			return invalidManifest(id, "auto Agent is missing an installation field")
 		}
@@ -157,11 +160,35 @@ func validateMCPMetadata(agentID string, agent Agent) error {
 		if value == "" {
 			continue
 		}
-		if filepath.IsAbs(value) || filepath.Clean(value) != value || strings.HasPrefix(value, "../") || strings.HasPrefix(value, `..\`) {
+		if !validUserLevelPath(value) {
 			return invalidManifest(agentID, name+" must be a relative user-level path")
 		}
 	}
 	return nil
+}
+
+func validateSkillsMetadata(agentID string, agent Agent) error {
+	if agent.SkillsPath == "" && agent.SkillsWindowsPath == "" {
+		return nil
+	}
+	if agent.SkillsPath == "" {
+		return invalidManifest(agentID, "skills metadata requires skills_path")
+	}
+	for name, value := range map[string]string{"skills_path": agent.SkillsPath, "skills_windows_path": agent.SkillsWindowsPath} {
+		if value != "" && !validUserLevelPath(value) {
+			return invalidManifest(agentID, name+" must be a relative user-level path")
+		}
+	}
+	return nil
+}
+
+func validUserLevelPath(value string) bool {
+	if value == "" || filepath.IsAbs(value) || filepath.Clean(value) != value || strings.HasPrefix(value, "../") || strings.HasPrefix(value, `..\`) {
+		return false
+	}
+	// filepath.IsAbs follows the host OS; explicitly reject Windows absolute
+	// and UNC paths even when validation runs on Unix.
+	return !strings.HasPrefix(value, `\`) && !regexp.MustCompile(`^[A-Za-z]:[\\/]`).MatchString(value)
 }
 
 func validatePackage(agentID string, pkg Package) error {
