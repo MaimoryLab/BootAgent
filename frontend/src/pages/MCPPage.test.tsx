@@ -1,6 +1,16 @@
 import { describe, expect, it } from "vitest";
 
-import { mcpRowPending } from "./MCPPage";
+import { formatStdioCommandLine, mcpRowPending, parseStdioCommandLine } from "./MCPPage";
+
+describe("stdio command line conversion", () => {
+  it("uses the first whitespace-delimited token as command", () => {
+    expect(parseStdioCommandLine("  npx   -y @scope/server  ")).toEqual({ command: "npx", args: ["-y", "@scope/server"] });
+  });
+
+  it("restores command and args with spaces", () => {
+    expect(formatStdioCommandLine({ command: "npx", args: ["-y", "@scope/server"] })).toBe("npx -y @scope/server");
+  });
+});
 
 describe("MCP row status", () => {
   it("marks only the changed server as pending", () => {
