@@ -127,6 +127,9 @@ func validate(manifest Manifest) error {
 				return invalidManifest(id, "platforms contains an unsupported value")
 			}
 		}
+		if err := validateSkillsMetadata(id, agent); err != nil {
+			return err
+		}
 		if agent.ConfigMode == "guide" {
 			if agent.Package != nil || agent.ConfigAdapter != "" || strings.TrimSpace(agent.Guide) == "" {
 				return invalidManifest(id, "guide Agent has an installation contract")
@@ -134,9 +137,6 @@ func validate(manifest Manifest) error {
 			continue
 		}
 		if err := validateMCPMetadata(id, agent); err != nil {
-			return err
-		}
-		if err := validateSkillsMetadata(id, agent); err != nil {
 			return err
 		}
 		if agent.Command == "" || agent.ConfigPath == "" || agent.ConfigAdapter == "" || agent.Package == nil {
@@ -160,7 +160,7 @@ func validateMCPMetadata(agentID string, agent Agent) error {
 		if value == "" {
 			continue
 		}
-		if !validUserLevelPath(value) {
+		if filepath.IsAbs(value) || filepath.Clean(value) != value || strings.HasPrefix(value, "../") || strings.HasPrefix(value, `..\`) {
 			return invalidManifest(agentID, name+" must be a relative user-level path")
 		}
 	}

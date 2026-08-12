@@ -2,6 +2,7 @@ package catalog
 
 import (
 	"encoding/json"
+	"fmt"
 	"reflect"
 	"testing"
 )
@@ -225,6 +226,18 @@ func TestParseRejectsInvalidManifest(t *testing.T) {
 	} {
 		if _, err := Parse([]byte(data)); err == nil {
 			t.Errorf("Parse(%s) unexpectedly succeeded", data)
+		}
+	}
+}
+
+func TestParseRejectsInvalidSkillsMetadataOnGuideAgent(t *testing.T) {
+	for name, skills := range map[string]string{
+		"windows-only":     `"skills_windows_path":"AppData/Local/hermes/skills"`,
+		"invalid-relative": `"skills_path":"../skills"`,
+	} {
+		data := fmt.Sprintf(`{"schema_version":1,"agents":{"guide":{"name":"Guide","config_mode":"guide","guide":"see docs","platforms":["linux"],"rank":1,%s}}}`, skills)
+		if _, err := Parse([]byte(data)); err == nil {
+			t.Errorf("Parse unexpectedly accepted guide skills metadata for %s", name)
 		}
 	}
 }
