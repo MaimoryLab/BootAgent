@@ -123,7 +123,7 @@ func (a JSONAdapter) Apply(ctx context.Context, path string, current []byte, cha
 		}
 		patch, _ := json.Marshal([]any{item})
 		if err := v.Patch(patch); err != nil {
-			if spec == nil && strings.Contains(err.Error(), "does not exist") {
+			if spec == nil && (strings.Contains(err.Error(), "does not exist") || strings.Contains(err.Error(), "value not found")) {
 				continue
 			}
 			return nil, false, fmt.Errorf("patch MCP server %q: %w", id, err)
@@ -171,9 +171,10 @@ func escapeJSONPointer(s string) string {
 }
 
 type TOMLAdapter struct {
-	Section string
-	Decode  func([]byte) (Spec, error)
-	Encode  func(Spec) (map[string]any, error)
+	Section   string
+	Decode    func([]byte) (Spec, error)
+	Encode    func(Spec) (map[string]any, error)
+	ApplyFunc func(context.Context, string, []byte, map[string]*Spec) ([]byte, bool, error)
 }
 
 func (a TOMLAdapter) Read(ctx context.Context, path string) (Observed, error) {
@@ -191,6 +192,9 @@ func (a TOMLAdapter) Read(ctx context.Context, path string) (Observed, error) {
 	return readMapSection(root[a.Section], a.Decode)
 }
 func (a TOMLAdapter) Apply(ctx context.Context, path string, current []byte, changes map[string]*Spec) ([]byte, bool, error) {
+	if a.ApplyFunc != nil {
+		return a.ApplyFunc(ctx, path, current, changes)
+	}
 	var root map[string]any
 	if len(strings.TrimSpace(string(current))) > 0 {
 		if err := toml.Unmarshal(current, &root); err != nil {

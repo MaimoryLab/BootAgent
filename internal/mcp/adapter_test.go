@@ -85,6 +85,15 @@ func TestCodexUsesHTTPHeadersNativeKey(t *testing.T) {
 	}
 }
 
+func TestCodexPreservesCommentsAndUnmanagedMCPKeys(t *testing.T) {
+	a := NewCodexAdapter()
+	current := []byte("# keep this comment\nmodel = \"gpt-5\"\n\n[mcp_servers.x]\ncommand = \"echo\"\nstartup_timeout_sec = 45\n")
+	out, _, err := a.Apply(context.Background(), "config.toml", current, map[string]*Spec{"x": {Type: "stdio", Command: "printf"}})
+	if err != nil || !strings.Contains(string(out), "# keep this comment") || !strings.Contains(string(out), "startup_timeout_sec = 45") || !strings.Contains(string(out), `model = "gpt-5"`) {
+		t.Fatalf("Codex TOML lost user content: %s (%v)", out, err)
+	}
+}
+
 func TestOpenCodeUsesNativeMCPShape(t *testing.T) {
 	a := NewOpenCodeAdapter()
 	current := []byte(`{"mcp":{}}`)
@@ -111,6 +120,14 @@ func TestOpenCodeUsesNativeMCPShape(t *testing.T) {
 	observed, err := a.Read(context.Background(), path)
 	if err != nil || observed.Servers["codegraph"].Spec.Command != "codegraph" || len(observed.Servers["codegraph"].Spec.Args) != 2 {
 		t.Fatalf("OpenCode decode: %#v %v", observed, err)
+	}
+}
+
+func TestOpenCodePreservesEnvironment(t *testing.T) {
+	a := NewOpenCodeAdapter()
+	out, _, err := a.Apply(context.Background(), "opencode.json", []byte(`{"mcp":{}}`), map[string]*Spec{"x": {Type: "stdio", Command: "server", Env: map[string]string{"TOKEN": "secret"}}})
+	if err != nil || !strings.Contains(string(out), "environment") || !strings.Contains(string(out), "TOKEN") {
+		t.Fatalf("OpenCode environment missing: %s (%v)", out, err)
 	}
 }
 

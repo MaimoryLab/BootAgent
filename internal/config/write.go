@@ -500,6 +500,16 @@ func mergeCodexTOML(existing, managed, path string) (string, error) {
 	})
 }
 
+// MergeCodexMCPTOML preserves user-owned Codex TOML while replacing one
+// complete MCP server section supplied by the caller.
+func MergeCodexMCPTOML(existing, managed, path, serverID string) (string, error) {
+	section := regexp.QuoteMeta(serverID)
+	return mergeManagedTOML(existing, managed, path, managedTOMLShape{
+		topLevelKeys:   regexp.MustCompile(`^$`),
+		managedSection: regexp.MustCompile(`^\[mcp_servers\.` + section + `(?:\..+)?\]$`),
+	})
+}
+
 // managedTOMLShape names the parts of a TOML config OneAgent owns, so the merge
 // below can serve Agents whose file layout differs. Anything it does not name is
 // carried through untouched.
@@ -546,7 +556,7 @@ func mergeManagedTOML(existing, managed, path string, shape managedTOMLShape) (s
 			continue
 		}
 		if !inTable {
-			if match := shape.topLevelKeys.FindStringSubmatch(line); match != nil {
+			if match := shape.topLevelKeys.FindStringSubmatch(line); len(match) > 1 {
 				removed[match[1]] = true
 				continue
 			}

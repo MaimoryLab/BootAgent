@@ -17,6 +17,7 @@ func decodeOpenCode(raw []byte) (Spec, error) {
 		Command json.RawMessage   `json:"command"`
 		URL     string            `json:"url"`
 		Headers map[string]string `json:"headers"`
+		Env     map[string]string `json:"environment"`
 	}
 	if err := json.Unmarshal(raw, &native); err != nil {
 		return Spec{}, err
@@ -29,7 +30,7 @@ func decodeOpenCode(raw []byte) (Spec, error) {
 		if len(command) == 0 {
 			return Spec{}, fmt.Errorf("OpenCode local command is empty")
 		}
-		return Normalize(Spec{Type: "stdio", Command: command[0], Args: command[1:]})
+		return Normalize(Spec{Type: "stdio", Command: command[0], Args: command[1:], Env: native.Env})
 	}
 	if native.Type == "remote" {
 		return Normalize(Spec{Type: "http", URL: native.URL, Headers: native.Headers})
@@ -43,7 +44,7 @@ func encodeOpenCode(spec Spec) (any, error) {
 		return nil, err
 	}
 	if n.Type == "stdio" {
-		return map[string]any{"type": "local", "command": append([]string{n.Command}, n.Args...), "enabled": true}, nil
+		return map[string]any{"type": "local", "command": append([]string{n.Command}, n.Args...), "environment": n.Env, "enabled": true}, nil
 	}
 	return map[string]any{"type": "remote", "url": n.URL, "headers": n.Headers, "enabled": true}, nil
 }
