@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { changeMCPTransport, formatStdioCommandLine, mcpRowPending, normalizeAdvancedSpec, parseStdioCommandLine, previewMCPForm } from "./MCPPage";
+import { changeMCPTransport, formatStdioCommandLine, mcpRowPending, normalizeAdvancedSpec, parseAdvancedSpecJSON, parseStdioCommandLine, previewMCPForm } from "./MCPPage";
 
 describe("stdio command line conversion", () => {
   it("uses the first whitespace-delimited token as command", () => {
@@ -21,6 +21,10 @@ describe("stdio command line conversion", () => {
 
   it("infers http when pasted JSON has a URL but no type", () => {
     expect(normalizeAdvancedSpec({ url: "https://example.test", headers: { Authorization: "Bearer key" } })).toMatchObject({ type: "http", url: "https://example.test", headers: { Authorization: "Bearer key" }, command: undefined, env: undefined });
+  });
+
+  it("accepts compact pasted remote JSON missing the final outer brace", () => {
+    expect(parseAdvancedSpecJSON('{ "url": "https://example.test/mcp", "headers": { "Authorization": "Bearer key" }')).toMatchObject({ type: "http", url: "https://example.test/mcp" });
   });
 });
 
