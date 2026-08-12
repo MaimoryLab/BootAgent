@@ -3,6 +3,7 @@ import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { api, describeFailure, isCancellationError } from "../backend/api";
+import { CardUsers } from "../components/CardUsers";
 import { PageScaffold } from "../components/PageScaffold";
 import { ProviderModelPicker } from "../components/ProviderModelPicker";
 import { ProviderSegment } from "../components/ProviderSegment";
@@ -470,11 +471,7 @@ export function ProfilesPage() {
                   API mode: {protocolOf(profile) || "-"}
                 </p>
                 <footer>
-                  {users.length ? (
-                    <span className="card-users">
-                      {users.map((agent) => <span className="card-user-chip" key={agent.id}>{agent.name}</span>)}
-                    </span>
-                  ) : <span className="card-users is-empty">{t("暂无 Agent 使用")}</span>}
+                  <CardUsers users={users} />
                   <button
                     className="button button-secondary"
                     type="button"
