@@ -160,6 +160,9 @@ func validateMCPMetadata(agentID string, agent Agent) error {
 		if value == "" {
 			continue
 		}
+		// Keep MCP's historical host-platform validation unchanged. Skills paths
+		// use the stricter cross-platform predicate below because they are a new
+		// contract; MCP manifests may already contain platform-specific values.
 		if filepath.IsAbs(value) || filepath.Clean(value) != value || strings.HasPrefix(value, "../") || strings.HasPrefix(value, `..\`) {
 			return invalidManifest(agentID, name+" must be a relative user-level path")
 		}

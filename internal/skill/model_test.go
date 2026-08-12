@@ -71,6 +71,18 @@ func TestReadMetadataBoundsAndFallback(t *testing.T) {
 	}
 }
 
+func TestReadMetadataBoundsMultibyteTextByBytes(t *testing.T) {
+	root := t.TempDir()
+	content := "---\nname: " + strings.Repeat("名", 200) + "\ndescription: " + strings.Repeat("描", 500) + "\n---\nbody"
+	if err := os.WriteFile(filepath.Join(root, "SKILL.md"), []byte(content), 0600); err != nil {
+		t.Fatal(err)
+	}
+	name, description, diagnostic := ReadMetadata(context.Background(), root, "fallback")
+	if diagnostic != "" || len([]byte(name)) > 256 || len([]byte(description)) > 1024 {
+		t.Fatalf("metadata bounds = name %d description %d diagnostic %q", len([]byte(name)), len([]byte(description)), diagnostic)
+	}
+}
+
 func writeSkill(t *testing.T, root string, files map[string]string) {
 	t.Helper()
 	for name, content := range files {

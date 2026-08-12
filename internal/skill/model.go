@@ -14,6 +14,7 @@ import (
 	"sort"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 
 	"gopkg.in/yaml.v3"
 )
@@ -234,12 +235,9 @@ func trimBytes(value string, limit int) string {
 	if len(value) <= limit {
 		return value
 	}
-	return string([]rune(value)[:minInt(len([]rune(value)), limit)])
-}
-
-func minInt(a, b int) int {
-	if a < b {
-		return a
+	cut := value[:limit]
+	for len(cut) > 0 && !utf8.ValidString(cut) {
+		cut = cut[:len(cut)-1]
 	}
-	return b
+	return cut
 }
