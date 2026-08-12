@@ -7,6 +7,7 @@ const english = {
   "激活环境": "Environment",
   "配置模版": "Profiles",
   "MCP 服务器": "MCP servers",
+  "同步目标": "Sync targets",
   "状态": "Status",
   "编辑": "Edit",
   "删除": "Delete",

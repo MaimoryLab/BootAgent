@@ -74,8 +74,9 @@ type MCPApplyResult struct {
 	Results []MCPAgentApplyResult `json:"results"`
 }
 type MCPScanResult struct {
-	Servers     []MCPServerSummary `json:"servers"`
-	Diagnostics []string           `json:"diagnostics,omitempty"`
+	Servers        []MCPServerSummary `json:"servers"`
+	EligibleAgents []string           `json:"eligible_agents"`
+	Diagnostics    []string           `json:"diagnostics,omitempty"`
 }
 
 func mcpPath(home, osID string, agent catalog.Agent) string {
@@ -227,10 +228,15 @@ func (u *UseCases) ScanMCP(ctx context.Context) (MCPScanResult, error) {
 			merged.Servers[id] = fact
 		}
 	}
-	if err := store.Save(ctx, merged); err != nil {
-		return MCPScanResult{Servers: summarizeMCP(merged), Diagnostics: diagnostics}, err
+	eligibleIDs := make([]string, 0, len(eligible))
+	for id := range eligible {
+		eligibleIDs = append(eligibleIDs, id)
 	}
-	return MCPScanResult{Servers: summarizeMCP(merged), Diagnostics: diagnostics}, nil
+	sort.Strings(eligibleIDs)
+	if err := store.Save(ctx, merged); err != nil {
+		return MCPScanResult{Servers: summarizeMCP(merged), EligibleAgents: eligibleIDs, Diagnostics: diagnostics}, err
+	}
+	return MCPScanResult{Servers: summarizeMCP(merged), EligibleAgents: eligibleIDs, Diagnostics: diagnostics}, nil
 }
 
 func (u *UseCases) GetMCP(ctx context.Context, id, source string) (MCPServerDetail, error) {

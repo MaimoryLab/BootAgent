@@ -164,6 +164,7 @@ export interface MCPChange {
 
 export interface MCPScanResult {
     "servers": MCPServerSummary[] | null;
+    "eligible_agents": string[] | null;
     "diagnostics"?: string[] | null;
 }
 
