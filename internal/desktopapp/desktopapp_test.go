@@ -400,7 +400,7 @@ func TestWorkBuddyUpdateRejectsUnapprovedDownloadHost(t *testing.T) {
 	downloader := &routeDownloader{routes: map[string][]byte{
 		manifestURL: []byte(`{"url":"https://example.test/WorkBuddy.zip"}`),
 	}}
-	_, err := fetchWorkBuddyUpdate(context.Background(), Options{
+	_, err := fetchWorkBuddyUpdate(context.Background(), workBuddyCN, Options{
 		Platform: platform.For("macos", "arm64"), Downloader: downloader,
 	})
 	if err == nil || !strings.Contains(err.Error(), "not approved") {
@@ -636,7 +636,7 @@ func TestVerifyWorkBuddyMacOSAppRequiresExpectedTeamAndNotarization(t *testing.T
 		}, "\n")},
 		{ExitCode: 0, Stdout: "WorkBuddy.app: accepted\nsource=Notarized Developer ID"},
 	}}
-	if err := verifyWorkBuddyMacOSApp(context.Background(), Options{Runner: runner}, "/Applications/WorkBuddy.app"); err != nil {
+	if err := verifyWorkBuddyMacOSApp(context.Background(), workBuddyCN, Options{Runner: runner}, "/Applications/WorkBuddy.app"); err != nil {
 		t.Fatalf("verifyWorkBuddyMacOSApp() error = %v", err)
 	}
 }

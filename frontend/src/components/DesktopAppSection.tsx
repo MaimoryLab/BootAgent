@@ -6,6 +6,7 @@ import { useI18n } from "../i18n";
 import { taskCanceller, taskKey, useTaskCenter, useTaskRoute } from "../state/TaskCenterContext";
 import type { DesktopAgentStatus, ProfileSummary } from "../types/api";
 import { DownloadProgress } from "./DownloadProgress";
+import { EditionTag } from "./EditionTag";
 import { AgentIcon } from "./icons/agents";
 
 interface DesktopAppSectionProps {
@@ -127,6 +128,7 @@ export function DesktopAppSection({ app: desktopApp, onChanged, onSetup, onConfi
             <span className="desktop-app-icon"><AgentIcon agentId={desktopApp.id} size={20} /></span>
             <span>
               <strong>{desktopApp.name}</strong>
+              <EditionTag edition={desktopApp.edition} />
             </span>
           </div>
           {/* Same token strip as the CLI rows. Four labelled fact columns made

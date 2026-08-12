@@ -103,6 +103,12 @@ export interface DesktopAgentStatus {
     "inspectionUnavailable"?: string | null;
 
     /**
+     * Edition distinguishes regional builds of one product, so the UI can label
+     * them without the region being part of Name.
+     */
+    "edition"?: string;
+
+    /**
      * ManualInstall reports that OneAgent can detect and configure this app but
      * cannot fetch it. Without this the UI offered "Install the official desktop
      * application" for an Agent whose install step only returns a download link,

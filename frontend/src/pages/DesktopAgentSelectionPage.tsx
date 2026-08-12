@@ -2,6 +2,7 @@ import { AppWindow, CheckCircle2 } from "lucide-react";
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
+import { EditionTag } from "../components/EditionTag";
 import { PageScaffold } from "../components/PageScaffold";
 import { StatusBadge } from "../components/StatusBadge";
 import { useI18n } from "../i18n";
@@ -67,7 +68,7 @@ export function DesktopAgentSelectionPage() {
                 />
                 <span className="desktop-app-icon"><AppWindow size={20} aria-hidden="true" /></span>
                 <span className="agent-copy">
-                  <span className="agent-name-line"><strong>{candidate.name}</strong></span>
+                  <span className="agent-name-line"><strong>{candidate.name}</strong><EditionTag edition={candidate.edition} /></span>
                   <span>{candidate.installed
                     ? t("已安装，可直接应用配置模版")
                     : candidate.manualInstall ? t("需先自行安装，之后可配置") : t("安装官方桌面应用")}</span>

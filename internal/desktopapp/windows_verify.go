@@ -30,11 +30,16 @@ func verifyChatGPTWindowsInstaller(ctx context.Context, options Options, install
 	return verifyWindowsInstallerPublisher(ctx, options, installerPath, []string{windowsExpectedSignerOrganization})
 }
 
-func verifyWorkBuddyWindowsInstaller(ctx context.Context, options Options, installerPath string) error {
-	return verifyWindowsInstallerPublisher(ctx, options, installerPath, []string{
-		"Tencent Technology (Shenzhen) Company Limited",
-		"Shenzhen Tencent Computer Systems Company Limited",
-	})
+func verifyWorkBuddyWindowsInstaller(ctx context.Context, edition workBuddyEdition, options Options, installerPath string) error {
+	return verifyWindowsInstallerPublisher(ctx, options, installerPath, edition.windowsSigners)
+}
+
+// verifyZCodeWindowsInstaller pins the EV code-signing subject read out of the
+// vendor's own published .exe -- O and CN both carry this value -- rather than a
+// name taken from documentation. It is the same legal entity behind the macOS
+// Developer ID team ZCodeMacTeamID.
+func verifyZCodeWindowsInstaller(ctx context.Context, options Options, installerPath string) error {
+	return verifyWindowsInstallerPublisher(ctx, options, installerPath, []string{"北京智谱华章科技股份有限公司"})
 }
 
 func verifyWindowsInstallerPublisher(ctx context.Context, options Options, installerPath string, allowed []string) error {

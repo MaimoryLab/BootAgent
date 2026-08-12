@@ -33,6 +33,9 @@ type DesktopAgentStatus struct {
 	ProfileID             *string `json:"profileId"`
 	PackageFamily         string  `json:"packageFamily,omitempty"`
 	InspectionUnavailable *string `json:"inspectionUnavailable,omitempty"`
+	// Edition distinguishes regional builds of one product, so the UI can label
+	// them without the region being part of Name.
+	Edition string `json:"edition,omitempty"`
 	// ManualInstall reports that OneAgent can detect and configure this app but
 	// cannot fetch it. Without this the UI offered "Install the official desktop
 	// application" for an Agent whose install step only returns a download link,
@@ -287,6 +290,7 @@ func (u *UseCases) publicDesktopAgentStatus(value desktopapp.Status) DesktopAgen
 	status.Protocol = definition.Protocol
 	status.ManualInstall = definition.ManualInstall
 	status.Home = definition.Home
+	status.Edition = definition.Edition
 	if binding, err := u.profiles.ReadAgentBinding(status.ProfileAgentID); err == nil && binding != nil && binding.ProfileRef != "" {
 		status.ProfileID = nonEmptyPointer(binding.ProfileRef)
 	}
