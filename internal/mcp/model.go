@@ -1,3 +1,5 @@
+// Package mcp provides portable MCP server models, native configuration
+// adapters, private Registry storage, and transfer encryption.
 package mcp
 
 import (
