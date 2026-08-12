@@ -20,7 +20,7 @@ export function Apply(request: app$0.MCPApplyRequest): $CancellablePromise<app$0
     return $Call.ByID(1122671950, request);
 }
 
-export function Export(request: $models.MCPExportRequest): $CancellablePromise<string | null> {
+export function Export(request: $models.MCPExportRequest): $CancellablePromise<string> {
     return $Call.ByID(1156741564, request);
 }
 

@@ -63,14 +63,15 @@ func (s *MCPService) Apply(ctx context.Context, request app.MCPApplyRequest) (ap
 	return s.core.ApplyMCP(ctx, request), nil
 }
 
-func (s *MCPService) Export(ctx context.Context, request MCPExportRequest) ([]byte, error) {
+func (s *MCPService) Export(ctx context.Context, request MCPExportRequest) (string, error) {
 	if err := contextError(ctx); err != nil {
-		return nil, err
+		return "", err
 	}
 	if s == nil || s.core == nil {
-		return nil, notReady("MCP service is not configured")
+		return "", notReady("MCP service is not configured")
 	}
-	return s.core.ExportMCP(ctx, mcp.ExportOptions{Mode: mcp.SecretMode(request.Mode), Password: request.Password, ConfirmPlaintext: request.ConfirmPlaintext, ServerIDs: request.ServerIDs})
+	data, err := s.core.ExportMCP(ctx, mcp.ExportOptions{Mode: mcp.SecretMode(request.Mode), Password: request.Password, ConfirmPlaintext: request.ConfirmPlaintext, ServerIDs: request.ServerIDs})
+	return string(data), err
 }
 
 func (s *MCPService) SaveImported(ctx context.Context, registry mcp.Registry) error {
