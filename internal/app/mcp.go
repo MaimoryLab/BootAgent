@@ -180,6 +180,87 @@ func summarizeMCP(r mcp.Registry) []MCPServerSummary {
 	return out
 }
 
+func removeMCPAgent(r *mcp.Registry, agentID string) {
+	for id, fact := range r.Servers {
+		kept := fact.Variants[:0]
+		for _, variant := range fact.Variants {
+			agents := variant.Agents[:0]
+			for _, existing := range variant.Agents {
+				if existing != agentID {
+					agents = append(agents, existing)
+				}
+			}
+			variant.Agents = agents
+			if len(agents) > 0 {
+				kept = append(kept, variant)
+			}
+		}
+		if len(kept) == 0 {
+			delete(r.Servers, id)
+		} else {
+			fact.Variants = kept
+			r.Servers[id] = fact
+		}
+	}
+}
+
+type mcpAgentFact struct {
+	id   string
+	spec mcp.Spec
+}
+
+func factsForMCPAgent(r mcp.Registry, agentID string) []mcpAgentFact {
+	var facts []mcpAgentFact
+	for id, server := range r.Servers {
+		for _, variant := range server.Variants {
+			if contains(variant.Agents, agentID) {
+				facts = append(facts, mcpAgentFact{id: id, spec: variant.Spec})
+			}
+		}
+	}
+	return facts
+}
+
+func restoreMCPAgentFacts(r *mcp.Registry, agentID string, facts []mcpAgentFact) {
+	for _, old := range facts {
+		server := r.Servers[old.id]
+		for i := range server.Variants {
+			if mcp.EqualNormalized(server.Variants[i].Spec, old.spec) {
+				if !contains(server.Variants[i].Agents, agentID) {
+					server.Variants[i].Agents = append(server.Variants[i].Agents, agentID)
+				}
+				r.Servers[old.id] = server
+				goto restored
+			}
+		}
+		server.Variants = append(server.Variants, mcp.Variant{Agents: []string{agentID}, Spec: old.spec})
+		r.Servers[old.id] = server
+	restored:
+	}
+}
+
+func mcpTargetAgents(fact mcp.ServerFact, selected []string, eligible map[string]catalog.Agent) []string {
+	set := map[string]bool{}
+	for _, variant := range fact.Variants {
+		for _, agentID := range variant.Agents {
+			if _, ok := eligible[agentID]; ok {
+				set[agentID] = true
+			}
+		}
+	}
+	for _, agentID := range selected {
+		if _, ok := eligible[agentID]; ok {
+			set[agentID] = true
+		}
+	}
+	out := make([]string, 0, len(set))
+	for agentID := range set {
+		out = append(out, agentID)
+	}
+	sort.Strings(out)
+	return out
+}
+
 func (u *UseCases) ScanMCP(ctx context.Context) (MCPScanResult, error) {
 	if err := contextError(ctx, "MCP scan was cancelled"); err != nil {
 		return MCPScanResult{}, err
@@ -199,6 +280,11 @@ func (u *UseCases) ScanMCP(ctx context.Context) (MCPScanResult, error) {
 	for id, fact := range previous.Servers {
 		merged.Servers[id] = fact
 	}
+	oldFacts := make(map[string][]mcpAgentFact, len(eligible))
+	for agentID := range eligible {
+		oldFacts[agentID] = factsForMCPAgent(previous, agentID)
+		removeMCPAgent(&merged, agentID)
+	}
 	diagnostics := []string{}
 	for agentID, agent := range eligible {
 		adapter := mcpAdapter(agent)
@@ -208,6 +294,7 @@ func (u *UseCases) ScanMCP(ctx context.Context) (MCPScanResult, error) {
 		}
 		observed, readErr := adapter.Read(ctx, path)
 		if readErr != nil {
+			restoreMCPAgentFacts(&merged, agentID, oldFacts[agentID])
 			diagnostics = append(diagnostics, fmt.Sprintf("%s: MCP configuration could not be read", agentID))
 			continue
 		}
@@ -292,7 +379,12 @@ func (u *UseCases) ApplyMCP(ctx context.Context, req MCPApplyRequest) MCPApplyRe
 				continue
 			}
 		}
+		fact := registry.Servers[change.ID]
+		selected := make(map[string]bool, len(change.Agents))
 		for _, agentID := range change.Agents {
+			selected[agentID] = true
+		}
+		for _, agentID := range mcpTargetAgents(fact, change.Agents, eligible) {
 			agent, ok := eligible[agentID]
 			item := MCPAgentApplyResult{Agent: agentID}
 			if !ok {
@@ -310,7 +402,11 @@ func (u *UseCases) ApplyMCP(ctx context.Context, req MCPApplyRequest) MCPApplyRe
 				continue
 			}
 			adapter := mcpAdapter(agent)
-			out, secret, applyErr := adapter.Apply(ctx, path, data, map[string]*mcp.Spec{change.ID: change.Spec})
+			spec := change.Spec
+			if !selected[agentID] {
+				spec = nil
+			}
+			out, secret, applyErr := adapter.Apply(ctx, path, data, map[string]*mcp.Spec{change.ID: spec})
 			if applyErr == nil {
 				_, applyErr = u.filesystem.AtomicWrite(ctx, path, out, secret)
 				item.ConfigUpdated = applyErr == nil
@@ -320,7 +416,7 @@ func (u *UseCases) ApplyMCP(ctx context.Context, req MCPApplyRequest) MCPApplyRe
 				result.Results = append(result.Results, item)
 				continue
 			}
-			fact := registry.Servers[change.ID]
+			fact = registry.Servers[change.ID]
 			for i := range fact.Variants {
 				kept := fact.Variants[i].Agents[:0]
 				for _, existing := range fact.Variants[i].Agents {
@@ -330,7 +426,7 @@ func (u *UseCases) ApplyMCP(ctx context.Context, req MCPApplyRequest) MCPApplyRe
 				}
 				fact.Variants[i].Agents = kept
 			}
-			if change.Spec == nil {
+			if spec == nil {
 				filtered := fact.Variants[:0]
 				for _, variant := range fact.Variants {
 					if len(variant.Agents) > 0 {
@@ -341,14 +437,14 @@ func (u *UseCases) ApplyMCP(ctx context.Context, req MCPApplyRequest) MCPApplyRe
 			} else {
 				updated := false
 				for i := range fact.Variants {
-					if mcp.EqualNormalized(fact.Variants[i].Spec, *change.Spec) {
+					if mcp.EqualNormalized(fact.Variants[i].Spec, *spec) {
 						fact.Variants[i].Agents = append(fact.Variants[i].Agents, agentID)
 						updated = true
 						break
 					}
 				}
 				if !updated {
-					fact.Variants = append(fact.Variants, mcp.Variant{Agents: []string{agentID}, Spec: *change.Spec})
+					fact.Variants = append(fact.Variants, mcp.Variant{Agents: []string{agentID}, Spec: *spec})
 				}
 			}
 			if len(fact.Variants) == 0 {
