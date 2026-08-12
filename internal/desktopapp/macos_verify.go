@@ -18,8 +18,17 @@ func verifyChatGPTMacOSApp(ctx context.Context, options Options, appPath string)
 	return verifyMacOSIdentity(ctx, options, appPath, CodexBundleID, MacExpectedTeamID, MacExpectedAuthority)
 }
 
-func verifyWorkBuddyMacOSApp(ctx context.Context, options Options, appPath string) error {
-	return verifyMacOSIdentity(ctx, options, appPath, WorkBuddyBundleID, WorkBuddyMacTeamID, "")
+func verifyWorkBuddyMacOSApp(ctx context.Context, edition workBuddyEdition, options Options, appPath string) error {
+	return verifyMacOSIdentity(ctx, options, appPath, edition.bundleID, edition.macTeamID, "")
+}
+
+// verifyZCodeMacOSApp checks the downloaded bundle against ZCode's Developer ID
+// team. No Authority literal is pinned: the empty argument makes
+// verifyMacOSIdentity require a Developer ID authority ending in this team, which
+// keeps the check from breaking when the vendor's certificate common name
+// changes. Notarization is still required, via spctl.
+func verifyZCodeMacOSApp(ctx context.Context, options Options, appPath string) error {
+	return verifyMacOSIdentity(ctx, options, appPath, ZCodeBundleID, ZCodeMacTeamID, "")
 }
 
 func verifyMacOSIdentity(ctx context.Context, options Options, appPath, bundleID, teamID, authority string) error {

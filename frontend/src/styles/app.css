@@ -589,6 +589,27 @@
   font-weight: 500;
 }
 
+/* Marks which regional build of a product a row is, for the two that ship as
+   separate applications. Quiet on purpose: it disambiguates two neighbouring
+   rows rather than advertising anything, so it reads as an annotation on the
+   name and not as a second status pill.
+
+   The class is repeated to raise specificity above `.agent-copy small`, which
+   otherwise wins on the font size and renders this a bump larger than the name
+   it annotates. */
+.edition-tag.edition-tag {
+  border: 1px solid var(--border-faint);
+  border-radius: 4px;
+  color: var(--text-tertiary);
+  flex: none;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  line-height: 1.6;
+  padding: 0 5px;
+  white-space: nowrap;
+}
+
 .status-badge {
   min-height: 24px;
   padding: 3px 8px;

@@ -239,6 +239,8 @@ const english = {
   "安装官方桌面应用": "Install the official desktop application",
   "需先自行安装，之后可配置": "Install it yourself first, then OneAgent can configure it",
   "检测到本机已有此应用": "This application is already installed",
+  "国内版": "China",
+  "国际版": "International",
   "选择配置模版": "Select a profile",
   "选择一个已有配置模版，或新建配置模版": "Choose an existing profile or create a new one",
   "新建配置模版": "Create profile",

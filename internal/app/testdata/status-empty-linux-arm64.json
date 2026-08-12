@@ -456,6 +456,7 @@
       "version": null
     },
     {
+      "edition": "cn",
       "id": "workbuddy",
       "installed": false,
       "name": "WorkBuddy",
@@ -467,10 +468,21 @@
       "version": null
     },
     {
+      "edition": "intl",
+      "id": "workbuddy-intl",
+      "installed": false,
+      "name": "WorkBuddy AI",
+      "profileAgentId": "workbuddy-intl",
+      "profileId": null,
+      "protocol": "openai",
+      "source": "unknown",
+      "supported": false,
+      "version": null
+    },
+    {
       "home": "https://zcode.z.ai/",
       "id": "zcode",
       "installed": false,
-      "manualInstall": true,
       "name": "ZCode",
       "profileAgentId": "zcode",
       "profileId": null,

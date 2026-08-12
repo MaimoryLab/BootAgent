@@ -13,6 +13,13 @@ const (
 	ConfigAdapterCodex     = "codex"
 	ConfigAdapterWorkBuddy = "workbuddy"
 	ConfigAdapterZCode     = "zcode"
+
+	// Edition labels a regional build of a product that ships as two separate
+	// applications. It exists so the UI can tell them apart without the region
+	// being folded into Name, which is also what error messages and logs use.
+	// Empty means the product has only one build.
+	EditionChina         = "cn"
+	EditionInternational = "intl"
 )
 
 // Definition contains the metadata shared by the desktop lifecycle and the
@@ -31,6 +38,9 @@ type Definition struct {
 	// that only returns a link.
 	ManualInstall bool
 	Home          string
+	// Edition distinguishes regional builds of the same product, which install
+	// side by side and are separate Agents here. Empty for single-build products.
+	Edition string
 }
 
 type implementation struct {
@@ -61,10 +71,28 @@ var implementations = []implementation{
 			ConfigPath:     ".workbuddy/models.json",
 			ConfigAdapter:  ConfigAdapterWorkBuddy,
 			Protocol:       "openai",
+			Edition:        EditionChina,
 		},
-		inspect: inspectWorkBuddy,
-		install: installWorkBuddy,
-		open:    openWorkBuddy,
+		inspect: inspectWorkBuddy(workBuddyCN),
+		install: installWorkBuddy(workBuddyCN),
+		open:    openWorkBuddy(workBuddyCN),
+	},
+	{
+		Definition: Definition{
+			ID:             WorkBuddyIntlID,
+			Name:           WorkBuddyIntlName,
+			ProfileAgentID: WorkBuddyIntlID,
+			// Not ~/.codebuddy, which is what the vendor's English documentation
+			// says: the shipped build resolves this from customUserDataDir in its
+			// own cli/product.json. See WorkBuddyIntlConfigDir.
+			ConfigPath:    WorkBuddyIntlConfigDir + "/models.json",
+			ConfigAdapter: ConfigAdapterWorkBuddy,
+			Protocol:      "openai",
+			Edition:       EditionInternational,
+		},
+		inspect: inspectWorkBuddy(workBuddyIntl),
+		install: installWorkBuddy(workBuddyIntl),
+		open:    openWorkBuddy(workBuddyIntl),
 	},
 	{
 		Definition: Definition{
@@ -77,9 +105,8 @@ var implementations = []implementation{
 			// entries use anthropic. openai is pinned here because that is the
 			// protocol every Provider in providers.lock.json serves, while only
 			// some serve Anthropic.
-			Protocol:      "openai",
-			ManualInstall: true,
-			Home:          ZCodeHome,
+			Protocol: "openai",
+			Home:     ZCodeHome,
 		},
 		inspect: inspectZCode,
 		install: installZCode,

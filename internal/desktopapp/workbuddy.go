@@ -22,6 +22,25 @@ const (
 	WorkBuddyWindowsPlatform = "workbuddy-win32-x64-user"
 	SourceMacOSZIP           = "macos-zip"
 	SourceWindowsInstaller   = "windows-installer"
+
+	// The international edition is a separate build, not a locale switch: it has
+	// its own bundle identifier, app name, update backend, download host and
+	// config directory. Only the models.json schema is shared, which is why the
+	// config writer is reused as-is.
+	WorkBuddyIntlID             = "workbuddy-intl"
+	WorkBuddyIntlName           = "WorkBuddy AI"
+	WorkBuddyIntlBundleID       = "com.workbuddy.workbuddy-ai"
+	WorkBuddyIntlUpdateEndpoint = "https://www.codebuddy.ai/v2/update"
+	// The international artifacts are served straight from the vendor's COS
+	// bucket rather than from a branded download host.
+	WorkBuddyIntlDownloadHost = "codebuddy-1328495429.cos.accelerate.myqcloud.com"
+	// WorkBuddyIntlConfigDir is the directory the shipped build actually reads.
+	// The vendor's English documentation says ~/.codebuddy, which is wrong: the
+	// resolver takes `config.customUserDataDir` from cli/product.json, and the
+	// international build sets it to this value. `.codebuddy` is the branch taken
+	// only when the product name does not contain "workbuddy", so no international
+	// code path reaches it -- writing there would be a silent no-op.
+	WorkBuddyIntlConfigDir = ".workbuddy-ai"
 )
 
 type workBuddyUpdate struct {
@@ -30,33 +49,89 @@ type workBuddyUpdate struct {
 	ProductVersion string `json:"productVersion"`
 }
 
-func inspectWorkBuddy(ctx context.Context, options Options) Status {
-	status := baseWorkBuddyStatus(options.Platform.OS)
-	if err := contextError(ctx); err != nil {
-		message := err.Error()
-		status.InspectionUnavailable = &message
-		return status
-	}
-	var inspected Status
-	var err error
-	switch options.Platform.OS {
-	case "macos":
-		inspected, err = inspectWorkBuddyMacOS(ctx, options)
-	case "windows":
-		inspected, err = inspectWorkBuddyWindows(ctx, options)
-	default:
-		return status
-	}
-	if err != nil {
-		message := err.Error()
-		status.InspectionUnavailable = &message
-		return status
-	}
-	return inspected
+// workBuddyEdition holds everything that differs between the Chinese and
+// international builds. Both are inspected, installed and launched by the same
+// code paths; only these values change.
+type workBuddyEdition struct {
+	id             string
+	name           string
+	bundleID       string
+	appName        string
+	executableName string
+	updateEndpoint string
+	updateHost     string
+	downloadHost   string
+	macTeamID      string
+	// windowsSigners lists the Authenticode subjects accepted for this edition's
+	// installer.
+	windowsSigners []string
 }
 
-func baseWorkBuddyStatus(osID string) Status {
-	status := Status{ID: WorkBuddyID, Name: WorkBuddyName, Source: SourceUnknown}
+var (
+	workBuddyCN = workBuddyEdition{
+		id:             WorkBuddyID,
+		name:           WorkBuddyName,
+		bundleID:       WorkBuddyBundleID,
+		appName:        "WorkBuddy.app",
+		executableName: "WorkBuddy.exe",
+		updateEndpoint: WorkBuddyUpdateEndpoint,
+		updateHost:     "www.workbuddy.cn",
+		downloadHost:   WorkBuddyDownloadHost,
+		macTeamID:      WorkBuddyMacTeamID,
+		windowsSigners: []string{
+			"Tencent Technology (Shenzhen) Company Limited",
+			"Shenzhen Tencent Computer Systems Company Limited",
+		},
+	}
+	workBuddyIntl = workBuddyEdition{
+		id:             WorkBuddyIntlID,
+		name:           WorkBuddyIntlName,
+		bundleID:       WorkBuddyIntlBundleID,
+		appName:        "WorkBuddy AI.app",
+		executableName: "WorkBuddy AI.exe",
+		updateEndpoint: WorkBuddyIntlUpdateEndpoint,
+		updateHost:     "www.codebuddy.ai",
+		downloadHost:   WorkBuddyIntlDownloadHost,
+		// Same vendor, so the same Developer ID team signs both builds. Verified
+		// against the installed Chinese build; the international package is signed
+		// by the same team.
+		macTeamID: WorkBuddyMacTeamID,
+		windowsSigners: []string{
+			"Tencent Technology (Shenzhen) Company Limited",
+			"Shenzhen Tencent Computer Systems Company Limited",
+		},
+	}
+)
+
+func inspectWorkBuddy(edition workBuddyEdition) func(context.Context, Options) Status {
+	return func(ctx context.Context, options Options) Status {
+		status := baseWorkBuddyStatus(edition, options.Platform.OS)
+		if err := contextError(ctx); err != nil {
+			message := err.Error()
+			status.InspectionUnavailable = &message
+			return status
+		}
+		var inspected Status
+		var err error
+		switch options.Platform.OS {
+		case "macos":
+			inspected, err = inspectWorkBuddyMacOS(ctx, edition, options)
+		case "windows":
+			inspected, err = inspectWorkBuddyWindows(ctx, edition, options)
+		default:
+			return status
+		}
+		if err != nil {
+			message := err.Error()
+			status.InspectionUnavailable = &message
+			return status
+		}
+		return inspected
+	}
+}
+
+func baseWorkBuddyStatus(edition workBuddyEdition, osID string) Status {
+	status := Status{ID: edition.id, Name: edition.name, Source: SourceUnknown}
 	switch osID {
 	case "macos":
 		status.Supported, status.Source = true, SourceMacOSZIP
@@ -66,8 +141,8 @@ func baseWorkBuddyStatus(osID string) Status {
 	return status
 }
 
-func inspectWorkBuddyMacOS(ctx context.Context, options Options) (Status, error) {
-	status := baseWorkBuddyStatus("macos")
+func inspectWorkBuddyMacOS(ctx context.Context, edition workBuddyEdition, options Options) (Status, error) {
+	status := baseWorkBuddyStatus(edition, "macos")
 	roots := options.SearchRoots
 	if len(roots) == 0 {
 		roots = []string{"/Applications"}
@@ -79,7 +154,7 @@ func inspectWorkBuddyMacOS(ctx context.Context, options Options) (Status, error)
 	for _, root := range roots {
 		candidate := root
 		if !strings.EqualFold(filepath.Ext(root), ".app") {
-			candidate = filepath.Join(root, "WorkBuddy.app")
+			candidate = filepath.Join(root, edition.appName)
 		}
 		info, err := os.Stat(candidate)
 		if os.IsNotExist(err) {
@@ -97,7 +172,11 @@ func inspectWorkBuddyMacOS(ctx context.Context, options Options) (Status, error)
 			lastErr = err
 			continue
 		}
-		if metadata.bundleID != WorkBuddyBundleID {
+		// The bundle identifier is what separates the two editions: their version
+		// strings are near-identical (both 5.3.11.x), so a version check could not
+		// tell them apart, and a SearchRoots entry pointing straight at an .app
+		// bypasses the name check above.
+		if metadata.bundleID != edition.bundleID {
 			continue
 		}
 		status.Installed, status.Path, status.Version = true, candidate, metadata.version
@@ -106,9 +185,9 @@ func inspectWorkBuddyMacOS(ctx context.Context, options Options) (Status, error)
 	return status, lastErr
 }
 
-func inspectWorkBuddyWindows(ctx context.Context, options Options) (Status, error) {
-	status := baseWorkBuddyStatus("windows")
-	for _, candidate := range workBuddyWindowsCandidates(options) {
+func inspectWorkBuddyWindows(ctx context.Context, edition workBuddyEdition, options Options) (Status, error) {
+	status := baseWorkBuddyStatus(edition, "windows")
+	for _, candidate := range workBuddyWindowsCandidates(edition, options) {
 		info, err := os.Stat(candidate)
 		if os.IsNotExist(err) {
 			continue
@@ -122,7 +201,7 @@ func inspectWorkBuddyWindows(ctx context.Context, options Options) (Status, erro
 			return status, nil
 		}
 	}
-	result, err := run(options, ctx, workBuddyStartAppsQuery(), inspectTimeout)
+	result, err := run(options, ctx, workBuddyStartAppsQuery(edition), inspectTimeout)
 	if err != nil {
 		return status, err
 	}
@@ -138,12 +217,17 @@ func inspectWorkBuddyWindows(ctx context.Context, options Options) (Status, erro
 	}
 	status.Installed = true
 	status.PackageFamily = strings.TrimSpace(registered.AppID)
-	message := "Windows registered WorkBuddy, but its install path and version were unavailable"
+	message := "Windows registered " + edition.name + ", but its install path and version were unavailable"
 	status.InspectionUnavailable = &message
 	return status, nil
 }
 
-func workBuddyWindowsCandidates(options Options) []string {
+// workBuddyWindowsCandidates lists the per-user and machine-wide install
+// locations. The international directory and executable names were not observed
+// on Windows -- this machine is macOS -- so they follow the macOS product name,
+// which is how the Chinese build's paths relate to its own.
+func workBuddyWindowsCandidates(edition workBuddyEdition, options Options) []string {
+	folder := strings.TrimSuffix(edition.appName, ".app")
 	if len(options.SearchRoots) > 0 {
 		result := make([]string, 0, len(options.SearchRoots)*3)
 		for _, root := range options.SearchRoots {
@@ -152,9 +236,9 @@ func workBuddyWindowsCandidates(options Options) []string {
 				continue
 			}
 			result = append(result,
-				filepath.Join(root, "WorkBuddy.exe"),
-				filepath.Join(root, "WorkBuddy", "WorkBuddy.exe"),
-				filepath.Join(root, "Programs", "WorkBuddy", "WorkBuddy.exe"),
+				filepath.Join(root, edition.executableName),
+				filepath.Join(root, folder, edition.executableName),
+				filepath.Join(root, "Programs", folder, edition.executableName),
 			)
 		}
 		return result
@@ -163,12 +247,12 @@ func workBuddyWindowsCandidates(options Options) []string {
 	if options.Home != "" {
 		local := filepath.Join(options.Home, "AppData", "Local")
 		result = append(result,
-			filepath.Join(local, "Programs", "WorkBuddy", "WorkBuddy.exe"),
-			filepath.Join(local, "WorkBuddy", "WorkBuddy.exe"),
+			filepath.Join(local, "Programs", folder, edition.executableName),
+			filepath.Join(local, folder, edition.executableName),
 		)
 	}
 	if programFiles := strings.TrimSpace(os.Getenv("ProgramFiles")); programFiles != "" {
-		result = append(result, filepath.Join(programFiles, "WorkBuddy", "WorkBuddy.exe"))
+		result = append(result, filepath.Join(programFiles, folder, edition.executableName))
 	}
 	return result
 }
@@ -183,53 +267,60 @@ func workBuddyWindowsVersion(ctx context.Context, options Options, path string) 
 	return nonEmptyPointer(strings.TrimSpace(result.Stdout))
 }
 
-func workBuddyStartAppsQuery() []string {
-	script := `Get-StartApps | Where-Object { $_.Name -eq 'WorkBuddy' } | Select-Object -First 1 Name,AppID | ConvertTo-Json -Compress`
+// workBuddyStartAppsQuery matches on the Start menu display name, which carries
+// no ".app" suffix.
+func workBuddyStartAppsQuery(edition workBuddyEdition) []string {
+	name := strings.TrimSuffix(edition.appName, ".app")
+	script := `Get-StartApps | Where-Object { $_.Name -eq '` + name + `' } | Select-Object -First 1 Name,AppID | ConvertTo-Json -Compress`
 	return []string{"powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script}
 }
 
-func installWorkBuddy(ctx context.Context, options Options) (ActionResult, error) {
-	status := inspectWorkBuddy(ctx, options)
-	if err := contextError(ctx); err != nil {
-		return ActionResult{}, err
-	}
-	if status.Installed {
-		return ActionResult{Status: "already-installed", Message: "WorkBuddy is already installed", App: status}, nil
-	}
-	switch options.Platform.OS {
-	case "macos":
-		return installWorkBuddyMacOS(ctx, options, "")
-	case "windows":
-		return installWorkBuddyWindows(ctx, options, status)
-	default:
-		return ActionResult{}, fmt.Errorf("WorkBuddy is not supported on %s", options.Platform.OS)
+func installWorkBuddy(edition workBuddyEdition) func(context.Context, Options) (ActionResult, error) {
+	return func(ctx context.Context, options Options) (ActionResult, error) {
+		status := inspectWorkBuddy(edition)(ctx, options)
+		if err := contextError(ctx); err != nil {
+			return ActionResult{}, err
+		}
+		if status.Installed {
+			return ActionResult{Status: "already-installed", Message: edition.name + " is already installed", App: status}, nil
+		}
+		switch options.Platform.OS {
+		case "macos":
+			return installWorkBuddyMacOS(ctx, edition, options, "")
+		case "windows":
+			return installWorkBuddyWindows(ctx, edition, options, status)
+		default:
+			return ActionResult{}, fmt.Errorf("%s is not supported on %s", edition.name, options.Platform.OS)
+		}
 	}
 }
 
-func openWorkBuddy(ctx context.Context, options Options) error {
-	status := inspectWorkBuddy(ctx, options)
-	if !status.Installed {
-		if status.InspectionUnavailable != nil {
-			return errors.New(*status.InspectionUnavailable)
+func openWorkBuddy(edition workBuddyEdition) func(context.Context, Options) error {
+	return func(ctx context.Context, options Options) error {
+		status := inspectWorkBuddy(edition)(ctx, options)
+		if !status.Installed {
+			if status.InspectionUnavailable != nil {
+				return errors.New(*status.InspectionUnavailable)
+			}
+			return errors.New(edition.name + " is not installed")
 		}
-		return errors.New("WorkBuddy is not installed")
-	}
-	switch options.Platform.OS {
-	case "macos":
-		if status.Path == "" {
-			return errors.New("WorkBuddy path is unavailable")
+		switch options.Platform.OS {
+		case "macos":
+			if status.Path == "" {
+				return errors.New(edition.name + " path is unavailable")
+			}
+			return start(options, []string{"/usr/bin/open", "-a", status.Path})
+		case "windows":
+			if status.Path != "" {
+				return start(options, []string{status.Path})
+			}
+			if status.PackageFamily != "" {
+				return start(options, []string{"explorer.exe", "shell:AppsFolder\\" + status.PackageFamily})
+			}
+			return errors.New(edition.name + " launch target is unavailable")
+		default:
+			return fmt.Errorf("%s is not supported on %s", edition.name, options.Platform.OS)
 		}
-		return start(options, []string{"/usr/bin/open", "-a", status.Path})
-	case "windows":
-		if status.Path != "" {
-			return start(options, []string{status.Path})
-		}
-		if status.PackageFamily != "" {
-			return start(options, []string{"explorer.exe", "shell:AppsFolder\\" + status.PackageFamily})
-		}
-		return errors.New("WorkBuddy launch target is unavailable")
-	default:
-		return fmt.Errorf("WorkBuddy is not supported on %s", options.Platform.OS)
 	}
 }
 
@@ -252,14 +343,14 @@ func workBuddyPlatform(osID, arch string) (string, error) {
 	return "", fmt.Errorf("WorkBuddy has no package for %s/%s", osID, arch)
 }
 
-func fetchWorkBuddyUpdate(ctx context.Context, options Options) (workBuddyUpdate, error) {
+func fetchWorkBuddyUpdate(ctx context.Context, edition workBuddyEdition, options Options) (workBuddyUpdate, error) {
 	platformID, err := workBuddyPlatform(options.Platform.OS, options.Platform.Arch)
 	if err != nil {
 		return workBuddyUpdate{}, err
 	}
-	endpoint, err := approvedDownloadURL(WorkBuddyUpdateEndpoint, "www.workbuddy.cn")
+	endpoint, err := approvedDownloadURL(edition.updateEndpoint, edition.updateHost)
 	if err != nil {
-		return workBuddyUpdate{}, fmt.Errorf("validate WorkBuddy update endpoint: %w", err)
+		return workBuddyUpdate{}, fmt.Errorf("validate %s update endpoint: %w", edition.name, err)
 	}
 	parsed, _ := url.Parse(endpoint)
 	query := parsed.Query()
@@ -281,47 +372,47 @@ func fetchWorkBuddyUpdate(ctx context.Context, options Options) (workBuddyUpdate
 	}
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
-		return workBuddyUpdate{}, fmt.Errorf("WorkBuddy update request returned HTTP %d", response.StatusCode)
+		return workBuddyUpdate{}, fmt.Errorf("%s update request returned HTTP %d", edition.name, response.StatusCode)
 	}
 	var update workBuddyUpdate
 	decoder := json.NewDecoder(io.LimitReader(response.Body, 1<<20))
 	if err := decoder.Decode(&update); err != nil {
-		return workBuddyUpdate{}, fmt.Errorf("decode WorkBuddy update response: %w", err)
+		return workBuddyUpdate{}, fmt.Errorf("decode %s update response: %w", edition.name, err)
 	}
 	if err := decoder.Decode(&struct{}{}); err != io.EOF {
-		return workBuddyUpdate{}, errors.New("WorkBuddy update response contains multiple JSON values")
+		return workBuddyUpdate{}, errors.New(edition.name + " update response contains multiple JSON values")
 	}
-	update.URL, err = approvedDownloadURL(update.URL, WorkBuddyDownloadHost)
+	update.URL, err = approvedDownloadURL(update.URL, edition.downloadHost)
 	if err != nil {
-		return workBuddyUpdate{}, fmt.Errorf("validate WorkBuddy installer URL: %w", err)
+		return workBuddyUpdate{}, fmt.Errorf("validate %s installer URL: %w", edition.name, err)
 	}
 	return update, nil
 }
 
-func workBuddyPackage(ctx context.Context, options Options) (workBuddyUpdate, error) {
+func workBuddyPackage(ctx context.Context, edition workBuddyEdition, options Options) (workBuddyUpdate, error) {
 	if raw := strings.TrimSpace(options.DownloadURL); raw != "" {
-		approved, err := approvedDownloadURL(raw, WorkBuddyDownloadHost)
+		approved, err := approvedDownloadURL(raw, edition.downloadHost)
 		return workBuddyUpdate{URL: approved}, err
 	}
-	return fetchWorkBuddyUpdate(ctx, options)
+	return fetchWorkBuddyUpdate(ctx, edition, options)
 }
 
-func installWorkBuddyMacOS(ctx context.Context, options Options, replacePath string) (ActionResult, error) {
-	update, err := workBuddyPackage(ctx, options)
+func installWorkBuddyMacOS(ctx context.Context, edition workBuddyEdition, options Options, replacePath string) (ActionResult, error) {
+	update, err := workBuddyPackage(ctx, edition, options)
 	if err != nil {
 		return ActionResult{}, err
 	}
 	if !strings.EqualFold(filepath.Ext(mustParseURLPath(update.URL)), ".zip") {
-		return ActionResult{}, errors.New("WorkBuddy macOS installer is not a zip archive")
+		return ActionResult{}, errors.New(edition.name + " macOS installer is not a zip archive")
 	}
 	tempDir, err := os.MkdirTemp("", "oneagent-workbuddy-")
 	if err != nil {
-		return ActionResult{}, fmt.Errorf("create temporary WorkBuddy installer directory: %w", err)
+		return ActionResult{}, fmt.Errorf("create temporary %s installer directory: %w", edition.name, err)
 	}
 	defer os.RemoveAll(tempDir)
 	archive := filepath.Join(tempDir, "WorkBuddy.zip")
-	if err := downloadFile(ctx, options, update.URL, archive, WorkBuddyID); err != nil {
-		return ActionResult{}, fmt.Errorf("download WorkBuddy installer: %w", err)
+	if err := downloadFile(ctx, options, update.URL, archive, edition.id); err != nil {
+		return ActionResult{}, fmt.Errorf("download %s installer: %w", edition.name, err)
 	}
 	extracted := filepath.Join(tempDir, "extracted")
 	if err := os.MkdirAll(extracted, 0o700); err != nil {
@@ -329,26 +420,26 @@ func installWorkBuddyMacOS(ctx context.Context, options Options, replacePath str
 	}
 	result, err := run(options, ctx, []string{"/usr/bin/ditto", "-x", "-k", archive, extracted}, installTimeout)
 	if err != nil {
-		return ActionResult{}, fmt.Errorf("extract WorkBuddy installer: %w", err)
+		return ActionResult{}, fmt.Errorf("extract %s installer: %w", edition.name, err)
 	}
 	if result.ExitCode != 0 {
-		return ActionResult{}, commandFailure("extract WorkBuddy installer", result)
+		return ActionResult{}, commandFailure("extract "+edition.name+" installer", result)
 	}
-	appPath, err := findWorkBuddyApp(extracted)
+	appPath, err := findWorkBuddyApp(edition, extracted)
 	if err != nil {
 		return ActionResult{}, err
 	}
 	metadata, err := readMacMetadata(ctx, options, appPath)
 	if err != nil {
-		return ActionResult{}, fmt.Errorf("inspect downloaded WorkBuddy app: %w", err)
+		return ActionResult{}, fmt.Errorf("inspect downloaded %s app: %w", edition.name, err)
 	}
-	if metadata.bundleID != WorkBuddyBundleID {
+	if metadata.bundleID != edition.bundleID {
 		return ActionResult{}, fmt.Errorf("downloaded app has unexpected bundle identifier %q", metadata.bundleID)
 	}
-	if err := verifyWorkBuddyMacOSApp(ctx, options, appPath); err != nil {
-		return ActionResult{}, fmt.Errorf("verify downloaded WorkBuddy app: %w", err)
+	if err := verifyWorkBuddyMacOSApp(ctx, edition, options, appPath); err != nil {
+		return ActionResult{}, fmt.Errorf("verify downloaded %s app: %w", edition.name, err)
 	}
-	destinations := workBuddyDestinations(options, replacePath)
+	destinations := workBuddyDestinations(edition, options, replacePath)
 	var lastErr error
 	for _, destination := range destinations {
 		if err := os.MkdirAll(filepath.Dir(destination), 0o755); err != nil {
@@ -368,16 +459,16 @@ func installWorkBuddyMacOS(ctx context.Context, options Options, replacePath str
 			continue
 		}
 		if copied.ExitCode != 0 {
-			lastErr = commandFailure("copy WorkBuddy app", copied)
+			lastErr = commandFailure("copy "+edition.name+" app", copied)
 			continue
 		}
-		installed := baseWorkBuddyStatus("macos")
+		installed := baseWorkBuddyStatus(edition, "macos")
 		installed.Installed, installed.Path = true, destination
 		installed.Version = metadata.version
 		if installed.Version == nil {
 			installed.Version = nonEmptyPointer(workBuddyVersion(update))
 		}
-		return ActionResult{Status: "installed", Message: "WorkBuddy was installed", RefreshNeeded: true, App: installed}, nil
+		return ActionResult{Status: "installed", Message: edition.name + " was installed", RefreshNeeded: true, App: installed}, nil
 	}
 	if lastErr == nil {
 		lastErr = errors.New("no writable macOS Applications directory")
@@ -385,7 +476,7 @@ func installWorkBuddyMacOS(ctx context.Context, options Options, replacePath str
 	return ActionResult{}, lastErr
 }
 
-func workBuddyDestinations(options Options, replacePath string) []string {
+func workBuddyDestinations(edition workBuddyEdition, options Options, replacePath string) []string {
 	if replacePath != "" {
 		return []string{filepath.Clean(replacePath)}
 	}
@@ -398,43 +489,43 @@ func workBuddyDestinations(options Options, replacePath string) []string {
 	}
 	result := make([]string, 0, len(dirs))
 	for _, dir := range dirs {
-		result = append(result, filepath.Join(dir, "WorkBuddy.app"))
+		result = append(result, filepath.Join(dir, edition.appName))
 	}
 	return result
 }
 
-func findWorkBuddyApp(root string) (string, error) {
+func findWorkBuddyApp(edition workBuddyEdition, root string) (string, error) {
 	var found string
 	err := filepath.WalkDir(root, func(path string, entry os.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-		if entry.IsDir() && strings.EqualFold(entry.Name(), "WorkBuddy.app") {
+		if entry.IsDir() && strings.EqualFold(entry.Name(), edition.appName) {
 			found = path
 			return filepath.SkipAll
 		}
 		return nil
 	})
 	if err != nil {
-		return "", fmt.Errorf("inspect extracted WorkBuddy installer: %w", err)
+		return "", fmt.Errorf("inspect extracted %s installer: %w", edition.name, err)
 	}
 	if found == "" {
-		return "", errors.New("no WorkBuddy.app bundle found in installer")
+		return "", errors.New("no " + edition.appName + " bundle found in installer")
 	}
 	return found, nil
 }
 
-func installWorkBuddyWindows(ctx context.Context, options Options, status Status) (ActionResult, error) {
-	update, err := workBuddyPackage(ctx, options)
+func installWorkBuddyWindows(ctx context.Context, edition workBuddyEdition, options Options, status Status) (ActionResult, error) {
+	update, err := workBuddyPackage(ctx, edition, options)
 	if err != nil {
 		return ActionResult{}, err
 	}
 	if !strings.EqualFold(filepath.Ext(mustParseURLPath(update.URL)), ".exe") {
-		return ActionResult{}, errors.New("WorkBuddy Windows installer is not an executable")
+		return ActionResult{}, errors.New(edition.name + " Windows installer is not an executable")
 	}
 	installer, err := os.CreateTemp("", "oneagent-workbuddy-*.exe")
 	if err != nil {
-		return ActionResult{}, fmt.Errorf("create temporary WorkBuddy installer: %w", err)
+		return ActionResult{}, fmt.Errorf("create temporary %s installer: %w", edition.name, err)
 	}
 	installerPath := installer.Name()
 	if err := installer.Close(); err != nil {
@@ -447,24 +538,24 @@ func installWorkBuddyWindows(ctx context.Context, options Options, status Status
 			_ = os.Remove(installerPath)
 		}
 	}()
-	if err := downloadFile(ctx, options, update.URL, installerPath, WorkBuddyID); err != nil {
-		return ActionResult{}, fmt.Errorf("download WorkBuddy installer: %w", err)
+	if err := downloadFile(ctx, options, update.URL, installerPath, edition.id); err != nil {
+		return ActionResult{}, fmt.Errorf("download %s installer: %w", edition.name, err)
 	}
 	if err := contextError(ctx); err != nil {
 		return ActionResult{}, err
 	}
-	if err := verifyWorkBuddyWindowsInstaller(ctx, options, installerPath); err != nil {
-		return ActionResult{}, fmt.Errorf("verify downloaded WorkBuddy installer with Authenticode: %w", err)
+	if err := verifyWorkBuddyWindowsInstaller(ctx, edition, options, installerPath); err != nil {
+		return ActionResult{}, fmt.Errorf("verify downloaded %s installer with Authenticode: %w", edition.name, err)
 	}
 	if err := start(options, []string{installerPath}); err != nil {
-		return ActionResult{}, fmt.Errorf("start WorkBuddy installer: %w", err)
+		return ActionResult{}, fmt.Errorf("start %s installer: %w", edition.name, err)
 	}
 	keep = true
 	status.Source = SourceWindowsInstaller
 	if status.Version == nil {
 		status.Version = nonEmptyPointer(workBuddyVersion(update))
 	}
-	return ActionResult{Status: "installer-started", Message: "The downloaded WorkBuddy installer was started", RefreshNeeded: true, App: status}, nil
+	return ActionResult{Status: "installer-started", Message: "The downloaded " + edition.name + " installer was started", RefreshNeeded: true, App: status}, nil
 }
 
 func workBuddyVersion(update workBuddyUpdate) string {
