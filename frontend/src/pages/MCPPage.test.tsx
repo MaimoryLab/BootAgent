@@ -27,6 +27,10 @@ describe("stdio command line conversion", () => {
     expect(parseAdvancedSpecJSON('{ "url": "https://example.test/mcp", "headers": { "Authorization": "Bearer key" }')).toMatchObject({ type: "http", url: "https://example.test/mcp" });
   });
 
+  it("unwraps the common mcpServers provider format", () => {
+    expect(parseAdvancedSpecJSON(JSON.stringify({ mcpServers: { "bing-cn-search": { url: "https://example.test/mcp", headers: { Authorization: "Bearer key" } } } }))).toMatchObject({ type: "http", url: "https://example.test/mcp", headers: { Authorization: "Bearer key" } });
+  });
+
   it("requires id, transport, and command or URL before saving", () => {
     expect(isMCPDraftComplete("server", { type: "stdio" }, "node server.js")).toBe(true);
     expect(isMCPDraftComplete("", { type: "stdio" }, "node")).toBe(false);

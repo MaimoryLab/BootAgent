@@ -32,13 +32,21 @@ export function normalizeAdvancedSpec(input: MCPSpec): MCPSpec {
 
 export function parseAdvancedSpecJSON(value: string): MCPSpec {
   const text = value.trim();
+  const decode = (input: string): MCPSpec => {
+    const parsed = JSON.parse(input) as MCPSpec & { mcpServers?: Record<string, MCPSpec> };
+    if (parsed.mcpServers && typeof parsed.mcpServers === "object") {
+      const first = Object.values(parsed.mcpServers)[0];
+      if (first && typeof first === "object") return normalizeAdvancedSpec(first);
+    }
+    return normalizeAdvancedSpec(parsed);
+  };
   try {
-    return normalizeAdvancedSpec(JSON.parse(text) as MCPSpec);
+    return decode(text);
   } catch (firstError) {
     const missingObjects = (text.match(/{/g)?.length ?? 0) - (text.match(/}/g)?.length ?? 0);
     if (text.startsWith("{") && missingObjects > 0) {
       try {
-        return normalizeAdvancedSpec(JSON.parse(text + "}".repeat(missingObjects)) as MCPSpec);
+        return decode(text + "}".repeat(missingObjects));
       } catch {
         // Keep the original error for genuinely invalid JSON.
       }
