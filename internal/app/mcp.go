@@ -258,6 +258,20 @@ func mcpTargetAgents(fact mcp.ServerFact, selected []string, eligible map[string
 	return out
 }
 
+func collapseEmptyMCPVariants(fact *mcp.ServerFact) {
+	hasAgent := false
+	for _, variant := range fact.Variants {
+		hasAgent = hasAgent || len(variant.Agents) > 0
+	}
+	kept := fact.Variants[:0]
+	for _, variant := range fact.Variants {
+		if len(variant.Agents) > 0 || (!hasAgent && len(kept) == 0) {
+			kept = append(kept, variant)
+		}
+	}
+	fact.Variants = kept
+}
+
 func (u *UseCases) ScanMCP(ctx context.Context) (MCPScanResult, error) {
 	if err := contextError(ctx, "MCP scan was cancelled"); err != nil {
 		return MCPScanResult{}, err
@@ -426,6 +440,9 @@ func (u *UseCases) ApplyMCP(ctx context.Context, req MCPApplyRequest) MCPApplyRe
 				continue
 			}
 			fact = registry.Servers[change.ID]
+			if spec != nil {
+				collapseEmptyMCPVariants(&fact)
+			}
 			for i := range fact.Variants {
 				kept := fact.Variants[i].Agents[:0]
 				for _, existing := range fact.Variants[i].Agents {

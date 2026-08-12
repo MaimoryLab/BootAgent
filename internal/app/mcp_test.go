@@ -29,3 +29,14 @@ func TestMCPTargetAgentsIncludesDeselectedAssociations(t *testing.T) {
 		t.Fatalf("target agents = %#v", got)
 	}
 }
+
+func TestCollapseEmptyMCPVariantsKeepsOneDraft(t *testing.T) {
+	fact := mcp.ServerFact{Variants: []mcp.Variant{
+		{Spec: mcp.Spec{Type: "http", URL: "https://example.test"}},
+		{Spec: mcp.Spec{Type: "sse", URL: "https://example.test"}},
+	}}
+	collapseEmptyMCPVariants(&fact)
+	if len(fact.Variants) != 1 || fact.Variants[0].Spec.Type != "http" {
+		t.Fatalf("empty variants = %#v", fact.Variants)
+	}
+}
