@@ -142,7 +142,8 @@ func DiscoverZIP(ctx context.Context, zipPath, stagingParent string) ([]Candidat
 		if compressed > maxZIPCompressed {
 			return nil, errors.New("zip archive exceeds compressed size limit")
 		}
-		if entry.Mode()&os.ModeSymlink != 0 || (!isDir && !entry.Mode().IsRegular()) {
+		fileType := entry.Mode() & os.ModeType
+		if (isDir && fileType != os.ModeDir) || (!isDir && fileType != 0) {
 			return nil, errors.New("zip archive contains unsupported file type")
 		}
 		target, err := safeJoin(root, name)
@@ -187,8 +188,9 @@ func DiscoverZIP(ctx context.Context, zipPath, stagingParent string) ([]Candidat
 	}
 	for i := range result {
 		result[i].Source = "zip"
+		result[i].cleanupRoot = root
 	}
-	keepRoot = true
+	keepRoot = len(result) > 0
 	return result, nil
 }
 
@@ -197,25 +199,15 @@ func DiscoverZIP(ctx context.Context, zipPath, stagingParent string) ([]Candidat
 func CleanupCandidates(candidates []Candidate) error {
 	removed := make(map[string]struct{})
 	for _, candidate := range candidates {
-		if candidate.Source != "zip" {
+		root := candidate.cleanupRoot
+		if root == "" {
 			continue
 		}
-		root := candidate.Path
-		for {
-			parent := filepath.Dir(root)
-			if strings.HasPrefix(filepath.Base(root), ".oneagent-skill-zip-") {
-				if _, ok := removed[root]; !ok {
-					if err := os.RemoveAll(root); err != nil {
-						return err
-					}
-					removed[root] = struct{}{}
-				}
-				break
+		if _, ok := removed[root]; !ok {
+			if err := os.RemoveAll(root); err != nil {
+				return err
 			}
-			if parent == root {
-				break
-			}
-			root = parent
+			removed[root] = struct{}{}
 		}
 	}
 	return nil
@@ -274,7 +266,9 @@ func PublishTree(ctx context.Context, source, destination string) error {
 	}
 	if err := renamePath(stage, destination); err != nil {
 		if hadDestination {
-			_ = renamePath(rollback, destination)
+			if restoreErr := renamePath(rollback, destination); restoreErr != nil {
+				return fmt.Errorf("publish failed: %v; rollback restore failed: %w", err, restoreErr)
+			}
 		}
 		return err
 	}

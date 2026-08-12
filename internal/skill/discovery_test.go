@@ -38,12 +38,31 @@ func TestDiscoverZIPRejectsTraversalDuplicateAndSymlink(t *testing.T) {
 		{{name: "../SKILL.md", data: "x"}},
 		{{name: "a/SKILL.md", data: "x"}, {name: "a/./SKILL.md", data: "y"}},
 		{{name: "a/SKILL.md", mode: os.ModeSymlink, data: "target"}},
+		{{name: "a/", mode: os.ModeNamedPipe}},
 		{{name: "C:foo/SKILL.md", data: "x"}},
 	} {
 		zipPath := makeZip(t, entries)
 		if _, err := DiscoverZIP(context.Background(), zipPath, t.TempDir()); err == nil {
 			t.Fatalf("accepted invalid archive %#v", entries)
 		}
+	}
+}
+
+func TestCleanupCandidatesUsesExactZIPStagingRoot(t *testing.T) {
+	stagingParent := t.TempDir()
+	zipPath := makeZip(t, []zipTestEntry{{
+		name: ".oneagent-skill-zip-nested/SKILL.md",
+		data: "body",
+	}})
+	candidates, err := DiscoverZIP(context.Background(), zipPath, stagingParent)
+	if err != nil || len(candidates) != 1 {
+		t.Fatalf("candidates = %#v, err=%v", candidates, err)
+	}
+	if err := CleanupCandidates(candidates); err != nil {
+		t.Fatal(err)
+	}
+	if entries, err := os.ReadDir(stagingParent); err != nil || len(entries) != 0 {
+		t.Fatalf("staging leak = %v, err=%v", entries, err)
 	}
 }
 
@@ -120,6 +139,44 @@ func TestPublishTreeRestoresOriginalOnPublicationFailure(t *testing.T) {
 	}
 }
 
+func TestPublishTreeReportsRollbackRestorationFailure(t *testing.T) {
+	source := t.TempDir()
+	parent := t.TempDir()
+	destination := filepath.Join(parent, "skill")
+	writeSkill(t, source, map[string]string{"SKILL.md": "new"})
+	writeSkill(t, destination, map[string]string{"SKILL.md": "old"})
+	originalRename := renamePath
+	defer func() { renamePath = originalRename }()
+	renames := 0
+	renamePath = func(oldPath, newPath string) error {
+		renames++
+		if renames >= 2 {
+			return os.ErrPermission
+		}
+		return os.Rename(oldPath, newPath)
+	}
+	err := PublishTree(context.Background(), source, destination)
+	if err == nil || !strings.Contains(err.Error(), "restore") {
+		t.Fatalf("error = %v", err)
+	}
+	entries, readErr := os.ReadDir(parent)
+	if readErr != nil {
+		t.Fatal(readErr)
+	}
+	rollbackFound := false
+	for _, entry := range entries {
+		if strings.HasPrefix(entry.Name(), ".oneagent-rollback-") {
+			rollbackFound = true
+			if b, err := os.ReadFile(filepath.Join(parent, entry.Name(), "SKILL.md")); err != nil || string(b) != "old" {
+				t.Fatalf("rollback content = %q, err=%v", b, err)
+			}
+		}
+	}
+	if !rollbackFound {
+		t.Fatal("rollback directory was removed")
+	}
+}
+
 type zipTestEntry struct {
 	name string
 	data string
@@ -141,8 +198,10 @@ func makeZip(t *testing.T, entries []zipTestEntry) string {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err := writer.Write([]byte(entry.data)); err != nil {
-			t.Fatal(err)
+		if entry.data != "" {
+			if _, err := writer.Write([]byte(entry.data)); err != nil {
+				t.Fatal(err)
+			}
 		}
 	}
 	if err := zw.Close(); err != nil {

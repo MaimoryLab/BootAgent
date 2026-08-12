@@ -57,6 +57,7 @@ type Candidate struct {
 	Files                               int
 	Bytes                               int64
 	Diagnostic, Path                    string
+	cleanupRoot                         string
 }
 
 var skillIDPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$`)
