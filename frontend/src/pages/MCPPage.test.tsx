@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { changeMCPTransport, formatStdioCommandLine, mcpRowPending, normalizeAdvancedSpec, parseAdvancedSpecJSON, parseStdioCommandLine, previewMCPForm } from "./MCPPage";
+import { changeMCPTransport, formatStdioCommandLine, isMCPDraftComplete, mcpRowPending, normalizeAdvancedSpec, parseAdvancedSpecJSON, parseStdioCommandLine, previewMCPForm } from "./MCPPage";
 
 describe("stdio command line conversion", () => {
   it("uses the first whitespace-delimited token as command", () => {
@@ -25,6 +25,14 @@ describe("stdio command line conversion", () => {
 
   it("accepts compact pasted remote JSON missing the final outer brace", () => {
     expect(parseAdvancedSpecJSON('{ "url": "https://example.test/mcp", "headers": { "Authorization": "Bearer key" }')).toMatchObject({ type: "http", url: "https://example.test/mcp" });
+  });
+
+  it("requires id, transport, and command or URL before saving", () => {
+    expect(isMCPDraftComplete("server", { type: "stdio" }, "node server.js")).toBe(true);
+    expect(isMCPDraftComplete("", { type: "stdio" }, "node")).toBe(false);
+    expect(isMCPDraftComplete("server", { type: "" }, "node")).toBe(false);
+    expect(isMCPDraftComplete("server", { type: "http" }, "")).toBe(false);
+    expect(isMCPDraftComplete("server", { type: "sse" }, "")).toBe(false);
   });
 });
 

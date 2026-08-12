@@ -47,6 +47,11 @@ export function parseAdvancedSpecJSON(value: string): MCPSpec {
   }
 }
 
+export function isMCPDraftComplete(id: string | null, spec: MCPSpec, commandLine: string): boolean {
+  if (!id?.trim() || !["stdio", "http", "sse"].includes(spec.type ?? "")) return false;
+  return spec.type === "stdio" ? Boolean(parseStdioCommandLine(commandLine).command) : Boolean(spec.url?.trim());
+}
+
 export function changeMCPTransport(spec: MCPSpec, type: string): MCPSpec {
   if (type === "stdio") {
     return { ...spec, type, url: undefined, headers: undefined };
@@ -92,10 +97,11 @@ export function MCPPage() {
   };
   const saveDraft = () => {
     const command = form.type === "stdio" ? parseStdioCommandLine(commandLine) : { command: form.command ?? "", args: form.args ?? [] };
-    if (editing === null || (form.type === "stdio" ? !command.command : !(form.url ?? "").trim())) return;
+    if (!isMCPDraftComplete(editing, form, commandLine)) return;
+    const id = editing as string;
     const next = normalizeAdvancedSpec({ ...form, ...command });
-    setDraft((current) => ({ ...current, [editing]: next }));
-    setRows((current) => current.some((row) => row.id === editing) ? current : [...current, { id: editing, type: form.type ?? "stdio", agents: [], variants: 1, conflict: false, has_secrets: Object.keys(form.env ?? {}).length > 0 }]);
+    setDraft((current) => ({ ...current, [id]: next }));
+    setRows((current) => current.some((row) => row.id === id) ? current : [...current, { id, type: form.type ?? "stdio", agents: [], variants: 1, conflict: false, has_secrets: Object.keys(form.env ?? {}).length > 0 }]);
     setEditing(null);
   };
   const apply = async () => {
