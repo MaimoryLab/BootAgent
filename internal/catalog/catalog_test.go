@@ -41,6 +41,39 @@ func TestEmbeddedManifestMatchesCurrentCatalogContract(t *testing.T) {
 	}
 }
 
+func TestEmbeddedMCPMetadataMatchesRegistryContract(t *testing.T) {
+	manifest, err := LoadEmbedded()
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := map[string]struct {
+		adapter string
+		path    string
+		section string
+	}{
+		"claude-code": {adapter: "claude", path: ".claude.json", section: "mcpServers"},
+		"codex":       {adapter: "codex", path: ".codex/config.toml", section: "mcp_servers"},
+		"opencode":    {adapter: "opencode", path: ".config/opencode/opencode.json", section: "mcp"},
+		"kilo-cli":    {adapter: "kilo", path: ".config/kilo/kilo.jsonc", section: "mcp"},
+		"hermes":      {adapter: "hermes", path: ".hermes/config.yaml", section: "mcp_servers"},
+	}
+	for id, want := range expected {
+		agent, ok := manifest.Agents[id]
+		if !ok {
+			t.Fatalf("missing MCP Agent %q", id)
+		}
+		if agent.MCPAdapter != want.adapter || agent.MCPConfigPath != want.path || agent.MCPSection != want.section {
+			t.Errorf("%s MCP metadata = adapter %q path %q section %q", id, agent.MCPAdapter, agent.MCPConfigPath, agent.MCPSection)
+		}
+	}
+	for _, id := range []string{"aider", "openclaw"} {
+		agent := manifest.Agents[id]
+		if agent.MCPAdapter != "" || agent.MCPConfigPath != "" || agent.MCPSection != "" {
+			t.Errorf("%s unexpectedly has MCP metadata: %#v", id, agent)
+		}
+	}
+}
+
 func TestEmbeddedProvidersMatchCurrentCatalogContract(t *testing.T) {
 	manifest, err := LoadEmbeddedProviders()
 	if err != nil {

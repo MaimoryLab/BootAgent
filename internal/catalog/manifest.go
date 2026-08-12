@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"maps"
 	"net/url"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
@@ -132,11 +133,32 @@ func validate(manifest Manifest) error {
 			}
 			continue
 		}
+		if err := validateMCPMetadata(id, agent); err != nil {
+			return err
+		}
 		if agent.Command == "" || agent.ConfigPath == "" || agent.ConfigAdapter == "" || agent.Package == nil {
 			return invalidManifest(id, "auto Agent is missing an installation field")
 		}
 		if err := validatePackage(id, *agent.Package); err != nil {
 			return err
+		}
+	}
+	return nil
+}
+
+func validateMCPMetadata(agentID string, agent Agent) error {
+	if agent.MCPAdapter == "" && agent.MCPSection == "" && agent.MCPConfigPath == "" && agent.MCPWindowsConfigPath == "" {
+		return nil
+	}
+	if agent.MCPAdapter == "" || agent.MCPSection == "" || agent.MCPConfigPath == "" {
+		return invalidManifest(agentID, "MCP metadata requires adapter, section, and config path")
+	}
+	for name, value := range map[string]string{"mcp_config_path": agent.MCPConfigPath, "mcp_windows_config_path": agent.MCPWindowsConfigPath} {
+		if value == "" {
+			continue
+		}
+		if filepath.IsAbs(value) || filepath.Clean(value) != value || strings.HasPrefix(value, "../") || strings.HasPrefix(value, `..\`) {
+			return invalidManifest(agentID, name+" must be a relative user-level path")
 		}
 	}
 	return nil

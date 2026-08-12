@@ -39,6 +39,7 @@ GO_LICENSES = {
     "github.com/go-ole/go-ole": "MIT",
     "github.com/pelletier/go-toml/v2": "MIT",
     "github.com/wailsapp/wails/v3": "MIT",
+    "github.com/tailscale/hujson": "BSD-3-Clause",
     "golang.org/x/sys": "BSD-3-Clause",
     "golang.org/x/mod": "BSD-3-Clause",
     "gopkg.in/yaml.v3": "MIT AND Apache-2.0",
