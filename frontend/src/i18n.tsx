@@ -24,6 +24,8 @@ const english = {
   "传输": "Transport",
   "来源 Agent": "Source Agents",
   "待应用": "Pending",
+  "待删除": "Pending deletion",
+  "恢复": "Restore",
   "冲突": "Conflict",
   "已同步": "Synced",
   "包含秘密字段": "Contains secret fields",

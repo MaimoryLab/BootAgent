@@ -160,6 +160,7 @@ export interface MCPChange {
     "id": string;
     "spec"?: mcp$0.Spec | null;
     "agents": string[] | null;
+    "delete"?: boolean;
 }
 
 export interface MCPScanResult {

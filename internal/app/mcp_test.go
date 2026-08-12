@@ -13,8 +13,8 @@ func TestRemoveMCPAgentPrunesEmptyServers(t *testing.T) {
 		"only-codex": {Variants: []mcp.Variant{{Agents: []string{"codex"}, Spec: mcp.Spec{Type: "stdio", Command: "echo"}}}},
 	}}
 	removeMCPAgent(&r, "codex")
-	if _, ok := r.Servers["only-codex"]; ok {
-		t.Fatal("server with no remaining agents was not pruned")
+	if len(r.Servers["only-codex"].Variants) != 1 || len(r.Servers["only-codex"].Variants[0].Agents) != 0 {
+		t.Fatal("server with no remaining agents was not retained as a draft")
 	}
 	if got := r.Servers["shared"].Variants[0].Agents; len(got) != 1 || got[0] != "claude" {
 		t.Fatalf("remaining agents = %#v", got)

@@ -63,9 +63,7 @@ func validateRegistry(r Registry) error {
 			return fmt.Errorf("invalid MCP server ID %q: %w", id, err)
 		}
 		for i, v := range fact.Variants {
-			if len(v.Agents) == 0 {
-				return fmt.Errorf("MCP server %q variant %d has no Agents", id, i)
-			}
+			// A zero-agent variant is a deliberately retained MCP draft.
 			if _, err := Normalize(v.Spec); err != nil {
 				return fmt.Errorf("MCP server %q variant %d: %w", id, i, err)
 			}

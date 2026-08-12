@@ -59,6 +59,7 @@ type MCPChange struct {
 	ID     string    `json:"id"`
 	Spec   *mcp.Spec `json:"spec,omitempty"`
 	Agents []string  `json:"agents"`
+	Delete bool      `json:"delete,omitempty"`
 }
 
 type MCPApplyRequest struct {
@@ -191,13 +192,9 @@ func removeMCPAgent(r *mcp.Registry, agentID string) {
 				}
 			}
 			variant.Agents = agents
-			if len(agents) > 0 {
-				kept = append(kept, variant)
-			}
+			kept = append(kept, variant)
 		}
-		if len(kept) == 0 {
-			delete(r.Servers, id)
-		} else {
+		if len(kept) > 0 {
 			fact.Variants = kept
 			r.Servers[id] = fact
 		}
@@ -384,6 +381,8 @@ func (u *UseCases) ApplyMCP(ctx context.Context, req MCPApplyRequest) MCPApplyRe
 		for _, agentID := range change.Agents {
 			selected[agentID] = true
 		}
+		deleteResultIndexes := []int{}
+		deleteFailed := false
 		for _, agentID := range mcpTargetAgents(fact, change.Agents, eligible) {
 			agent, ok := eligible[agentID]
 			item := MCPAgentApplyResult{Agent: agentID}
@@ -403,6 +402,9 @@ func (u *UseCases) ApplyMCP(ctx context.Context, req MCPApplyRequest) MCPApplyRe
 			}
 			adapter := mcpAdapter(agent)
 			spec := change.Spec
+			if change.Delete {
+				spec = nil
+			}
 			if !selected[agentID] {
 				spec = nil
 			}
@@ -412,8 +414,15 @@ func (u *UseCases) ApplyMCP(ctx context.Context, req MCPApplyRequest) MCPApplyRe
 				item.ConfigUpdated = applyErr == nil
 			}
 			if applyErr != nil {
+				deleteFailed = deleteFailed || change.Delete
 				item.Error = "Cannot apply MCP configuration"
 				result.Results = append(result.Results, item)
+				continue
+			}
+			if change.Delete {
+				item.ConfigUpdated = true
+				result.Results = append(result.Results, item)
+				deleteResultIndexes = append(deleteResultIndexes, len(result.Results)-1)
 				continue
 			}
 			fact = registry.Servers[change.ID]
@@ -427,13 +436,7 @@ func (u *UseCases) ApplyMCP(ctx context.Context, req MCPApplyRequest) MCPApplyRe
 				fact.Variants[i].Agents = kept
 			}
 			if spec == nil {
-				filtered := fact.Variants[:0]
-				for _, variant := range fact.Variants {
-					if len(variant.Agents) > 0 {
-						filtered = append(filtered, variant)
-					}
-				}
-				fact.Variants = filtered
+				// Keep the variant as a retained MCP draft when all targets are cleared.
 			} else {
 				updated := false
 				for i := range fact.Variants {
@@ -459,6 +462,26 @@ func (u *UseCases) ApplyMCP(ctx context.Context, req MCPApplyRequest) MCPApplyRe
 			}
 			item.RegistryUpdated = true
 			result.Results = append(result.Results, item)
+		}
+		if change.Delete && !deleteFailed {
+			delete(registry.Servers, change.ID)
+			if err := store.Save(ctx, registry); err != nil {
+				if len(deleteResultIndexes) == 0 {
+					result.Results = append(result.Results, MCPAgentApplyResult{Error: "Agent configurations updated but MCP Registry was not updated"})
+				} else {
+					for _, index := range deleteResultIndexes {
+						result.Results[index].Error = "Agent configurations updated but MCP Registry was not updated"
+					}
+				}
+			} else {
+				if len(deleteResultIndexes) == 0 {
+					result.Results = append(result.Results, MCPAgentApplyResult{RegistryUpdated: true})
+				} else {
+					for _, index := range deleteResultIndexes {
+						result.Results[index].RegistryUpdated = true
+					}
+				}
+			}
 		}
 	}
 	return result
