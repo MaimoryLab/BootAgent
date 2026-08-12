@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { changeMCPTransport, formatStdioCommandLine, mcpRowPending, parseStdioCommandLine, previewMCPForm } from "./MCPPage";
+import { changeMCPTransport, formatStdioCommandLine, mcpRowPending, normalizeAdvancedSpec, parseStdioCommandLine, previewMCPForm } from "./MCPPage";
 
 describe("stdio command line conversion", () => {
   it("uses the first whitespace-delimited token as command", () => {
@@ -17,6 +17,10 @@ describe("stdio command line conversion", () => {
 
   it("removes stdio fields when changing to a remote transport", () => {
     expect(changeMCPTransport({ type: "stdio", command: "npx", args: ["server"], url: "old", env: { TOKEN: "secret" } }, "http")).toMatchObject({ type: "http", command: undefined, args: undefined, cwd: undefined, env: undefined });
+  });
+
+  it("infers http when pasted JSON has a URL but no type", () => {
+    expect(normalizeAdvancedSpec({ url: "https://example.test", headers: { Authorization: "Bearer key" } })).toMatchObject({ type: "http", url: "https://example.test", headers: { Authorization: "Bearer key" }, command: undefined, env: undefined });
   });
 });
 

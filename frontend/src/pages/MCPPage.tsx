@@ -22,6 +22,14 @@ export function previewMCPForm(spec: MCPSpec, commandLine: string): MCPSpec {
   return spec.type === "stdio" ? { ...spec, ...parseStdioCommandLine(commandLine) } : spec;
 }
 
+export function normalizeAdvancedSpec(input: MCPSpec): MCPSpec {
+  const type = input.type || (input.url ? "http" : input.command ? "stdio" : undefined);
+  if (!type) return input;
+  return type === "stdio"
+    ? { ...input, type, url: undefined, headers: undefined }
+    : { ...input, type, command: undefined, args: undefined, cwd: undefined, env: undefined };
+}
+
 export function changeMCPTransport(spec: MCPSpec, type: string): MCPSpec {
   if (type === "stdio") {
     return { ...spec, type, url: undefined, headers: undefined };
@@ -41,6 +49,7 @@ export function MCPPage() {
   const [editing, setEditing] = useState<string | null>(null);
   const [form, setForm] = useState<MCPSpec>(emptySpec);
   const [commandLine, setCommandLine] = useState("");
+  const [advancedJSON, setAdvancedJSON] = useState("");
   const [eligibleAgents, setEligibleAgents] = useState<string[]>([]);
   const [targets, setTargets] = useState<Record<string, string[]>>({});
   const dirty = Object.keys(draft).length > 0 || Object.keys(targets).length > 0;
@@ -56,18 +65,19 @@ export function MCPPage() {
   useEffect(() => { void api.setMCPDraftState(dirty, locale); }, [dirty, locale]);
 
   const agentsFor = (row: MCPServerSummary) => row.agents ?? [];
-  const openNew = () => { setEditing(""); setForm({ ...emptySpec, args: [], env: {} }); setCommandLine(""); };
+  const openNew = () => { setEditing(""); setForm({ ...emptySpec, args: [], env: {} }); setCommandLine(""); setAdvancedJSON(JSON.stringify(emptySpec, null, 2)); };
   const openEdit = async (row: MCPServerSummary) => {
     try {
       const detail = await api.getMCP(row.id, agentsFor(row)[0] ?? "");
       const spec = detail.variants?.[0]?.spec ?? emptySpec;
-      setEditing(row.id); setForm(spec); setCommandLine(spec.type === "stdio" ? formatStdioCommandLine(spec) : "");
+      setEditing(row.id); setForm(spec); setCommandLine(spec.type === "stdio" ? formatStdioCommandLine(spec) : ""); setAdvancedJSON(JSON.stringify(spec, null, 2));
     } catch { /* normalized bridge error is surfaced by the page-level shell */ }
   };
   const saveDraft = () => {
     const command = form.type === "stdio" ? parseStdioCommandLine(commandLine) : { command: form.command ?? "", args: form.args ?? [] };
     if (editing === null || (form.type === "stdio" ? !command.command : !(form.url ?? "").trim())) return;
-    setDraft((current) => ({ ...current, [editing]: { ...form, ...command } }));
+    const next = normalizeAdvancedSpec({ ...form, ...command });
+    setDraft((current) => ({ ...current, [editing]: next }));
     setRows((current) => current.some((row) => row.id === editing) ? current : [...current, { id: editing, type: form.type ?? "stdio", agents: [], variants: 1, conflict: false, has_secrets: Object.keys(form.env ?? {}).length > 0 }]);
     setEditing(null);
   };
@@ -79,6 +89,22 @@ export function MCPPage() {
   };
   const visibleRows = useMemo(() => rows.slice().sort((a, b) => a.id.localeCompare(b.id)), [rows]);
   const previewForm = previewMCPForm(form, commandLine);
+  const updateCommandLine = (value: string) => { setCommandLine(value); const next = { ...form, ...parseStdioCommandLine(value), type: "stdio" }; setForm(next); setAdvancedJSON(JSON.stringify(next, null, 2)); };
+  const updateAdvancedJSON = (value: string) => {
+    setAdvancedJSON(value);
+    try {
+      const next = normalizeAdvancedSpec(JSON.parse(value) as MCPSpec);
+      setForm(next);
+      if (next.type === "stdio") setCommandLine(formatStdioCommandLine(next));
+    } catch { /* keep the editable text until it becomes valid JSON */ }
+  };
+  const finishAdvancedJSON = () => {
+    try {
+      const next = normalizeAdvancedSpec(JSON.parse(advancedJSON) as MCPSpec);
+      setForm(next); setAdvancedJSON(JSON.stringify(next, null, 2));
+      if (next.type === "stdio") setCommandLine(formatStdioCommandLine(next));
+    } catch { /* leave invalid text visible for correction */ }
+  };
 
   return <PageScaffold title={t("MCP 服务器")} description={t("在已初始化的 Agent 之间同步 MCP 服务器")}>
     <section className="content-section mcp-page">
@@ -86,6 +112,6 @@ export function MCPPage() {
       {scanning ? <div className="mcp-scan-status"><span className="spinner" />{t("正在后台扫描")}</div> : null}
       {!visibleRows.length ? <div className="empty-overview">{t("尚未发现 MCP 服务器")}</div> : <div className="mcp-table-wrap"><table className="mcp-table"><thead><tr><th>{t("服务器")}</th><th>{t("传输")}</th><th>{t("来源 Agent")}</th><th>{t("同步目标")}</th><th>{t("状态")}</th><th /></tr></thead><tbody>{visibleRows.map((row) => <tr key={row.id}><td><strong>{row.id}</strong></td><td>{row.type}</td><td>{agentsFor(row).join(", ") || t("待应用")}</td><td><div className="mcp-targets">{eligibleAgents.map((agent) => { const selected = (targets[row.id] ?? agentsFor(row)).includes(agent); return <label key={agent}><input type="checkbox" checked={selected} onChange={(event) => { const current = new Set(targets[row.id] ?? agentsFor(row)); event.target.checked ? current.add(agent) : current.delete(agent); setTargets((all) => ({ ...all, [row.id]: [...current] })); }} />{agent}</label>; })}</div></td><td><span className={row.conflict ? "status-badge status-warning" : mcpRowPending(row.id, draft, targets) ? "status-badge status-info" : "status-badge status-success"}>{row.conflict ? t("冲突") : mcpRowPending(row.id, draft, targets) ? t("待应用") : t("已同步")}</span>{row.has_secrets ? <small className="mcp-secret-note">{t("包含秘密字段")}</small> : null}</td><td className="mcp-row-actions"><button className="icon-button" onClick={() => void openEdit(row)} title={t("编辑")}><Edit3 size={16} /></button><button className="icon-button is-danger" onClick={() => setDraft((current) => ({ ...current, [row.id]: { type: "stdio" } }))} title={t("删除")}><Trash2 size={16} /></button></td></tr>)}</tbody></table></div>}
     </section>
-    {editing !== null ? <div className="mcp-modal-backdrop"><div className="mcp-modal" role="dialog" aria-modal="true"><header><h2>{editing ? t("编辑 MCP 服务器") : t("新增 MCP 服务器")}</h2><button className="icon-button" onClick={() => setEditing(null)} title={t("关闭")}><X size={18} /></button></header><label>{t("服务器 ID")}<input value={editing} onChange={(event) => setEditing(event.target.value)} disabled={Boolean(draft[editing])} /></label><div className="mcp-transport-field"><span>{t("传输")}</span><SelectField value={form.type ?? "stdio"} options={[{ value: "stdio", label: "stdio" }, { value: "http", label: "http" }, { value: "sse", label: "sse" }]} onChange={(type) => { setForm(changeMCPTransport(form, type)); setCommandLine(type === "stdio" ? formatStdioCommandLine(form) : ""); }} label={t("传输")} /></div>{form.type === "stdio" ? <label>{t("命令")}<input value={commandLine} onChange={(event) => setCommandLine(event.target.value)} autoComplete="off" autoCapitalize="none" autoCorrect="off" spellCheck={false} /></label> : <label>{t("URL")}<input value={form.url ?? ""} onChange={(event) => setForm({ ...form, url: event.target.value })} autoComplete="off" autoCapitalize="none" autoCorrect="off" spellCheck={false} /></label>}<label>{t("高级 JSON")}<textarea value={JSON.stringify(previewForm, null, 2)} onChange={(event) => { try { const next = JSON.parse(event.target.value) as MCPSpec; setForm(next); if (next.type === "stdio") setCommandLine(formatStdioCommandLine(next)); } catch { /* retain the last valid draft */ } }} rows={10} /></label><footer><button className="button" onClick={() => setEditing(null)}><X size={16} />{t("取消")}</button><button className="button button-primary" onClick={saveDraft}><Save size={16} />{t("保存草稿")}</button></footer></div></div> : null}
+    {editing !== null ? <div className="mcp-modal-backdrop"><div className="mcp-modal" role="dialog" aria-modal="true"><header><h2>{editing ? t("编辑 MCP 服务器") : t("新增 MCP 服务器")}</h2><button className="icon-button" onClick={() => setEditing(null)} title={t("关闭")}><X size={18} /></button></header><label>{t("服务器 ID")}<input value={editing} onChange={(event) => setEditing(event.target.value)} disabled={Boolean(draft[editing])} /></label><div className="mcp-transport-field"><span>{t("传输")}</span><SelectField value={form.type ?? "stdio"} options={[{ value: "stdio", label: "stdio" }, { value: "http", label: "http" }, { value: "sse", label: "sse" }]} onChange={(type) => { const next = changeMCPTransport(form, type); setForm(next); setCommandLine(type === "stdio" ? formatStdioCommandLine(next) : ""); setAdvancedJSON(JSON.stringify(next, null, 2)); }} label={t("传输")} /></div>{form.type === "stdio" ? <label>{t("命令")}<input value={commandLine} onChange={(event) => updateCommandLine(event.target.value)} autoComplete="off" autoCapitalize="none" autoCorrect="off" spellCheck={false} /></label> : <label>{t("URL")}<input value={form.url ?? ""} onChange={(event) => setForm({ ...form, url: event.target.value })} autoComplete="off" autoCapitalize="none" autoCorrect="off" spellCheck={false} /></label>}<label>{t("高级 JSON")}<textarea value={advancedJSON} onChange={(event) => updateAdvancedJSON(event.target.value)} onBlur={finishAdvancedJSON} rows={10} /></label><footer><button className="button" onClick={() => setEditing(null)}><X size={16} />{t("取消")}</button><button className="button button-primary" onClick={saveDraft}><Save size={16} />{t("保存草稿")}</button></footer></div></div> : null}
   </PageScaffold>;
 }
