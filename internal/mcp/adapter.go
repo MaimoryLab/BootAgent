@@ -32,7 +32,11 @@ func readFile(path string) ([]byte, error) {
 	return b, err
 }
 
-type JSONAdapter struct{ Section string }
+type JSONAdapter struct {
+	Section string
+	Decode  func([]byte) (Spec, error)
+	Encode  func(Spec) (any, error)
+}
 
 func (a JSONAdapter) Read(ctx context.Context, path string) (Observed, error) {
 	select {
@@ -51,10 +55,10 @@ func (a JSONAdapter) Read(ctx context.Context, path string) (Observed, error) {
 	if err != nil {
 		return Observed{}, fmt.Errorf("invalid MCP config: %w", err)
 	}
-	return readJSONSection(v.Find("/" + a.Section))
+	return readJSONSection(v.Find("/"+a.Section), a.Decode)
 }
 
-func readJSONSection(v *hujson.Value) (Observed, error) {
+func readJSONSection(v *hujson.Value, decode func([]byte) (Spec, error)) (Observed, error) {
 	result := Observed{Servers: map[string]ObservedServer{}}
 	if v == nil {
 		return result, nil
@@ -65,7 +69,10 @@ func readJSONSection(v *hujson.Value) (Observed, error) {
 		return Observed{}, fmt.Errorf("MCP section must be an object: %w", err)
 	}
 	for id, entry := range raw {
-		spec, err := decodeSpec(entry)
+		if decode == nil {
+			decode = decodeSpec
+		}
+		spec, err := decode(entry)
 		if err != nil {
 			return Observed{}, fmt.Errorf("MCP server %q: %w", id, err)
 		}
@@ -101,7 +108,11 @@ func (a JSONAdapter) Apply(ctx context.Context, path string, current []byte, cha
 			op = "remove"
 		} else {
 			op = "add"
-			value, err = specValue(*spec)
+			if a.Encode != nil {
+				value, err = a.Encode(*spec)
+			} else {
+				value, err = specValue(*spec)
+			}
 			if err != nil {
 				return nil, false, err
 			}

@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"strings"
 	"testing"
@@ -67,12 +68,44 @@ func TestStructuredAdaptersRoundTrip(t *testing.T) {
 	}
 }
 
+func TestOpenCodeUsesNativeMCPShape(t *testing.T) {
+	a := NewOpenCodeAdapter()
+	current := []byte(`{"mcp":{}}`)
+	out, _, err := a.Apply(context.Background(), "opencode.json", current, map[string]*Spec{
+		"codegraph": {Type: "stdio", Command: "codegraph", Args: []string{"serve", "--mcp"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var document struct {
+		MCP map[string]map[string]any `json:"mcp"`
+	}
+	if err := json.Unmarshal(out, &document); err != nil {
+		t.Fatal(err)
+	}
+	native := document.MCP["codegraph"]
+	if native["type"] != "local" || native["enabled"] != true {
+		t.Fatalf("invalid OpenCode native shape: %s", out)
+	}
+	path := t.TempDir() + "/opencode.json"
+	if err := os.WriteFile(path, out, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	observed, err := a.Read(context.Background(), path)
+	if err != nil || observed.Servers["codegraph"].Spec.Command != "codegraph" || len(observed.Servers["codegraph"].Spec.Args) != 2 {
+		t.Fatalf("OpenCode decode: %#v %v", observed, err)
+	}
+}
+
 func parseJSONBytes(data []byte, section string) (Observed, error) {
 	v, err := parseHUJSON(data)
 	if err != nil {
 		return Observed{}, err
 	}
-	return readJSONSection(v.Find("/" + section))
+	if section == "mcp" {
+		return readJSONSection(v.Find("/"+section), decodeOpenCode)
+	}
+	return readJSONSection(v.Find("/"+section), nil)
 }
 
 func parseHUJSON(data []byte) (hujson.Value, error) { return hujson.Parse(data) }
