@@ -44,3 +44,10 @@ docs/internal/cc-switch-reference-notes.md
 # Windows 资源产物：图标、版本号和 DPI manifest 由 build/windows/ 下的源文件
 # 在构建时编译进 .syso。它必须落在被构建的包目录里链接器才认，构建完即删除。
 cmd/oneagent-desktop/*.syso
+
+# WorkBuddy 的配置目录，正常落在用户 HOME 下。把 ONEAGENT_HOME 指到仓库根来跑
+# 测试时会在这里生成一份，内容是本机状态而非源码。
+.workbuddy/
+
+# 第三方 AI 工具在仓库里留下的会话记录。aider 自己会警告这一条没有被忽略。
+.aider*
