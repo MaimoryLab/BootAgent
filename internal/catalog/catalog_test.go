@@ -105,11 +105,12 @@ func TestEmbeddedSkillsMetadataMatchesRegistryContract(t *testing.T) {
 func TestSkillsMetadataRejectsInvalidPaths(t *testing.T) {
 	base := Agent{SkillsPath: ".codex/skills"}
 	for name, agent := range map[string]Agent{
-		"windows-only": {SkillsWindowsPath: "AppData/Local/hermes/skills"},
-		"absolute":     {SkillsPath: "/tmp/skills"},
-		"parent":       {SkillsPath: "../skills"},
-		"drive":        {SkillsPath: `C:\\skills`},
-		"unc":          {SkillsPath: `\\\\server\\skills`},
+		"windows-only":   {SkillsWindowsPath: "AppData/Local/hermes/skills"},
+		"absolute":       {SkillsPath: "/tmp/skills"},
+		"parent":         {SkillsPath: "../skills"},
+		"drive":          {SkillsPath: `C:\\skills`},
+		"drive-relative": {SkillsPath: `C:skills`},
+		"unc":            {SkillsPath: `\\\\server\\skills`},
 	} {
 		if err := validateSkillsMetadata("test", agent); err == nil {
 			t.Errorf("%s unexpectedly accepted", name)

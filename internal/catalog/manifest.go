@@ -188,7 +188,7 @@ func validUserLevelPath(value string) bool {
 	}
 	// filepath.IsAbs follows the host OS; explicitly reject Windows absolute
 	// and UNC paths even when validation runs on Unix.
-	return !strings.HasPrefix(value, `\`) && !regexp.MustCompile(`^[A-Za-z]:[\\/]`).MatchString(value)
+	return !strings.HasPrefix(value, `\`) && !regexp.MustCompile(`^[A-Za-z]:`).MatchString(value)
 }
 
 func validatePackage(agentID string, pkg Package) error {
