@@ -31,6 +31,15 @@ func TestNormalizeAndEqual(t *testing.T) {
 	}
 }
 
+func TestNormalizeDropsIncompatibleTransportFields(t *testing.T) {
+	remote, err := Normalize(Spec{Type: "http", URL: "https://example.test", Command: "npx", Args: []string{"server"}, Cwd: "/tmp", Headers: map[string]string{"Authorization": "secret"}})
+	if err != nil { t.Fatal(err) }
+	if remote.Command != "" || len(remote.Args) != 0 || remote.Cwd != "" { t.Fatalf("stdio fields retained: %#v", remote) }
+	stdio, err := Normalize(Spec{Type: "stdio", Command: "npx", URL: "https://example.test", Headers: map[string]string{"Authorization": "secret"}})
+	if err != nil { t.Fatal(err) }
+	if stdio.URL != "" || len(stdio.Headers) != 0 { t.Fatalf("remote fields retained: %#v", stdio) }
+}
+
 func TestRedactSpec(t *testing.T) {
 	s := Spec{Command: "server", Env: map[string]string{"TOKEN": "secret", "MODE": "dev"}, Headers: map[string]string{"Authorization": "Bearer secret"}, Extensions: map[string]json.RawMessage{"nested": json.RawMessage(`{"token":"deep","keep":true}`)}}
 	redacted, paths := RedactSpec(s)

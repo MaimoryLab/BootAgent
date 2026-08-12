@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { formatStdioCommandLine, mcpRowPending, parseStdioCommandLine } from "./MCPPage";
+import { changeMCPTransport, formatStdioCommandLine, mcpRowPending, parseStdioCommandLine } from "./MCPPage";
 
 describe("stdio command line conversion", () => {
   it("uses the first whitespace-delimited token as command", () => {
@@ -9,6 +9,10 @@ describe("stdio command line conversion", () => {
 
   it("restores command and args with spaces", () => {
     expect(formatStdioCommandLine({ command: "npx", args: ["-y", "@scope/server"] })).toBe("npx -y @scope/server");
+  });
+
+  it("removes stdio fields when changing to a remote transport", () => {
+    expect(changeMCPTransport({ type: "stdio", command: "npx", args: ["server"], url: "old" }, "http")).toMatchObject({ type: "http", command: undefined, args: undefined, cwd: undefined });
   });
 });
 

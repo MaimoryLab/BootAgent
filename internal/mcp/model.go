@@ -55,19 +55,21 @@ func (s Spec) Normalized() (Spec, error) {
 	if n.Type != "stdio" && n.Type != "http" && n.Type != "sse" {
 		return Spec{}, errors.New("MCP transport must be stdio, http, or sse")
 	}
+	n.Env = cloneStrings(s.Env)
+	n.Headers = cloneStrings(s.Headers)
+	n.Args = append([]string(nil), s.Args...)
+	n.Extensions = cloneRaw(s.Extensions)
+	if n.Type == "stdio" {
+		n.URL, n.Headers = "", nil
+	} else {
+		n.Command, n.Cwd, n.Args = "", "", nil
+	}
 	if n.Type == "stdio" && n.Command == "" {
 		return Spec{}, errors.New("stdio MCP server requires command")
 	}
 	if n.Type != "stdio" && n.URL == "" {
 		return Spec{}, errors.New("remote MCP server requires URL")
 	}
-	if n.Type == "stdio" && n.URL != "" {
-		return Spec{}, errors.New("stdio MCP server cannot have URL")
-	}
-	n.Env = cloneStrings(s.Env)
-	n.Headers = cloneStrings(s.Headers)
-	n.Args = append([]string(nil), s.Args...)
-	n.Extensions = cloneRaw(s.Extensions)
 	return n, nil
 }
 
