@@ -162,14 +162,12 @@ describe("AgentIcon", () => {
     const { container: codex } = render(<AgentIcon agentId="codex" />);
     expect(chatgpt.innerHTML).toBe(codex.innerHTML);
 
-    // WorkBuddy has no licensed mark, so it must use a generic symbol and must
-    // not borrow one that belongs to somebody else. It is now a registered
-    // `generic` rather than an unregistered `fallback`, which is the difference
-    // between "evaluated, no redistributable vector exists" and "never looked
-    // at" -- the two rendered the same glyph and were indistinguishable.
+    // WorkBuddy now uses its own vendor icon, shipped as a bitmap because Tencent
+    // publishes no vector. The point this still guards is the one above: whatever
+    // kind of mark it uses, it must not be another vendor's artwork.
     const { container: workbuddy } = render(<AgentIcon agentId="workbuddy" />);
-    expect(agentMarkKind("workbuddy")).toBe("generic");
-    expect(workbuddy.querySelector('[data-mark-kind="generic"]')).not.toBeNull();
+    expect(agentMarkKind("workbuddy")).toBe("raster");
+    expect(workbuddy.querySelector('[data-mark-kind="raster"]')).not.toBeNull();
     expect(workbuddy.innerHTML).not.toBe(codex.innerHTML);
     for (const id of AGENT_ICON_IDS.filter((value) => agentMarkKind(value) === "asset")) {
       const { container } = render(<AgentIcon agentId={id} />);

@@ -533,6 +533,16 @@
   height: 100%;
 }
 
+/* The two vendor icons that ship as bitmaps. They keep their brand colours, so
+   unlike the currentColor glyphs beside them they need their own clipping: the
+   vendors draw a rounded plate, and a square edge here would read as a stray
+   screenshot rather than a mark. */
+.agent-mark-raster {
+  border-radius: 22%;
+  flex: none;
+  object-fit: contain;
+}
+
 /* The product mark, painted in the theme's blue rather than the text colour the
    Agent marks inherit. Those identify a row and should read as neutral UI; this
    one is the brand and carries its colour. */

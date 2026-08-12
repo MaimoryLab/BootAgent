@@ -201,9 +201,8 @@ describe("DesktopAppSection", () => {
     expect(workbuddy).not.toBe(chatgpt);
     // ChatGPT Desktop is OpenAI's own app, so a licensed asset is correct there.
     expect(chatgpt).toContain('data-mark-kind="asset"');
-    // WorkBuddy has no licensed mark, so a generic symbol is the right answer --
-    // a registered one now, so "no redistributable vector exists" is
-    // distinguishable from an Agent nobody assigned a mark to.
-    expect(workbuddy).toContain('data-mark-kind="generic"');
+    // WorkBuddy uses Tencent's own icon, shipped as a bitmap because no vector is
+    // published. What matters here is that it is its own mark, not OpenAI's.
+    expect(workbuddy).toContain('data-mark-kind="raster"');
   });
 });

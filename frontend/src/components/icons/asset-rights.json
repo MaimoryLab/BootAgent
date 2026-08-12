@@ -65,5 +65,15 @@
       "file": "assets/oneagent-mark.svg",
       "note": "OneAgent's own mark, traced from the master raster in MaimoryLab/OneAgent-site (public/images/brand/oneagent-logo.png). MaimoryLab's work under this repository's Apache-2.0 license, so it carries no third-party source, licence text or copyright owner and is deliberately absent from `assets` above -- registering it there would assert a provenance it does not have. Listed here so the compliance gate can tell a first-party asset apart from one nobody attributed."
     }
+  },
+  "trademarkAssets": {
+    "workbuddy": {
+      "file": "assets/workbuddy.png",
+      "note": "Tencent's WorkBuddy application icon, taken from WorkBuddy.app/Contents/Resources/icon.icns on an installed copy and resized to 64px. Used as a trademark to identify which product a row refers to, not redistributed as artwork -- Tencent publishes no vector and grants no reproduction licence, so there is no source licence text, copyright assignment or hash chain to record. Listed here rather than under `assets` because registering it there would assert a licence that does not exist, and rather than `firstPartyAssets` because it is not MaimoryLab's work. Deliberately absent from NOTICE for the same reason. Serves both the workbuddy and workbuddy-intl Agents, which are the two regional builds of one product."
+    },
+    "zcode": {
+      "file": "assets/zcode.png",
+      "note": "Z.ai's ZCode application icon, taken from ZCode.app/Contents/Resources/icon.png on an installed copy and resized to 64px. Same basis as workbuddy above: a trademark used for identification, with no published vector and no reproduction grant, so it carries no licence record and is absent from NOTICE."
+    }
   }
 }
