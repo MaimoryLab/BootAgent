@@ -133,6 +133,12 @@ const english = {
   "关闭编辑": "Close editor",
   "编辑配置": "Edit configuration",
   "详情": "Details",
+  "迁移对话": "Migrate conversations",
+  "继续迁移": "Continue migration",
+  "迁移中": "Migrating",
+  "将所有 Codex 与 ChatGPT Desktop 历史对话迁入 BootAgent。此操作不创建备份，无法自动恢复。": "Move all Codex and ChatGPT Desktop conversations into BootAgent. No backup is created and this cannot be restored automatically.",
+  "已迁移 {files} 个对话文件和 {threads} 条索引记录": "Migrated {files} conversation files and {threads} index records",
+  "无法迁移对话": "Could not migrate conversations",
   // Delete confirmations. Both name the record and say the deletion cannot be
   // undone; the Provider wording also names the API Key, because that is the part
   // the user cannot recreate from what is on screen.

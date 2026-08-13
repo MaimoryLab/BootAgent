@@ -61,6 +61,9 @@ function TaskHarness() {
           setTaskCanceller(id, cancelRequest);
         }
       }}>启动批量下载</button>
+      <button type="button" onClick={() => {
+        startTask({ id: taskKey("migration", "codex-conversations"), kind: "migration", target: "codex-conversations", title: "迁移对话", route: "", openable: false, cancellable: false });
+      }}>启动迁移</button>
     </div>
   );
 }
@@ -104,6 +107,18 @@ describe("TaskCenter", () => {
     expect(screen.queryByText(/npm install/)).toBeNull();
     expect(screen.queryByText(/added 1 package/)).toBeNull();
     expect(screen.queryByText(/暂无任务日志|清空|完整日志/)).toBeNull();
+  });
+
+  it("renders migration as a status-only task", async () => {
+    const user = userEvent.setup();
+    renderTaskCenter();
+    await user.click(screen.getByRole("button", { name: "启动迁移" }));
+    expect(await screen.findByText("迁移对话")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /返回任务页面：迁移对话/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: "取消任务" })).toBeNull();
+    send({ kind: "progress", target: "codex-conversations", received: 1, total: 2 });
+    expect(screen.queryByRole("progressbar")).toBeNull();
+    expect(screen.queryByText(/MB/)).toBeNull();
   });
 
   it("closes when the user clicks outside the task center", async () => {

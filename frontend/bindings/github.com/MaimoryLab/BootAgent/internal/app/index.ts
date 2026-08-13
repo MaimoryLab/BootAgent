@@ -5,6 +5,7 @@ export type {
     AgentStatus,
     AgentUpdateResult,
     Capabilities,
+    ConversationMigrationResult,
     DesktopAgentActionResult,
     DesktopAgentProfileResult,
     DesktopAgentStatus,

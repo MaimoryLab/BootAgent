@@ -51,6 +51,7 @@ export type Settings = AppModels.Settings;
 export type ActivateAgentResponse = BindingModels.ActivateResponse;
 export type LaunchAgentResponse = BindingModels.LaunchResponse;
 export type AgentUpdateResult = AppModels.AgentUpdateResult;
+export type ConversationMigrationResult = AppModels.ConversationMigrationResult;
 export type OpenRegistrationResponse = BindingModels.OpenRegistrationResponse;
 export type ProviderEntry = ProviderModels.Entry;
 // keep_existing_key is optional here: only the settings import needs it, and the

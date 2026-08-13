@@ -9,6 +9,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"os/exec"
 	"os/user"
@@ -91,11 +92,21 @@ func (s Store) BackupRetention() int {
 	return retention
 }
 
-// BackupGroupPath returns the stable directory for one absolute target.
+// BackupGroupPath returns a readable, escaped directory for one target.
 func BackupGroupPath(root, target string) string {
 	if root == "" {
 		return ""
 	}
+	file := filepath.Base(target)
+	agent := strings.TrimPrefix(filepath.Base(filepath.Dir(target)), ".")
+	if strings.HasPrefix(file, ".") || agent == "config" {
+		agent = strings.SplitN(strings.TrimPrefix(file, "."), ".", 2)[0]
+	}
+	return filepath.Join(root, "files", url.PathEscape(agent)+"-"+url.PathEscape(file))
+}
+
+// LegacyBackupGroupPath returns the pre-readable-name SHA-256 group path.
+func LegacyBackupGroupPath(root, target string) string {
 	absolute, err := filepath.Abs(target)
 	if err != nil {
 		absolute = filepath.Clean(target)
@@ -162,6 +173,9 @@ func (s Store) Backup(ctx context.Context, path string) (string, error) {
 	if managed {
 		nameBase = BackupGroupPath(s.backupRoot, path)
 		if err := s.ensureManagedBackupGroup(ctx, nameBase); err != nil {
+			return "", err
+		}
+		if err := s.migrateHashedBackupGroup(ctx, path, nameBase); err != nil {
 			return "", err
 		}
 	}
@@ -386,6 +400,45 @@ func (s Store) ensureManagedBackupGroup(ctx context.Context, group string) error
 		if err := s.EnsurePrivateDir(ctx, path); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func (s Store) migrateHashedBackupGroup(ctx context.Context, target, group string) error {
+	legacy := LegacyBackupGroupPath(s.backupRoot, target)
+	if err := rejectManagedComponents(s.backupRoot, legacy); err != nil {
+		return err
+	}
+	entries, err := os.ReadDir(legacy)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return writeError("Cannot list legacy backup group %s: %v", legacy, err)
+	}
+	for _, entry := range entries {
+		if err := checkContext(ctx); err != nil {
+			return err
+		}
+		if !entry.Type().IsRegular() || !strings.HasPrefix(entry.Name(), "backup-") {
+			continue
+		}
+		source := filepath.Join(legacy, entry.Name())
+		destination := filepath.Join(group, entry.Name())
+		for counter := 1; ; counter++ {
+			if _, statErr := os.Lstat(destination); os.IsNotExist(statErr) {
+				break
+			} else if statErr != nil {
+				return writeError("Cannot inspect backup destination %s: %v", destination, statErr)
+			}
+			destination = fmt.Sprintf("%s-%d", filepath.Join(group, entry.Name()), counter)
+		}
+		if err := os.Rename(source, destination); err != nil {
+			return writeError("Cannot migrate legacy backup %s: %v", source, err)
+		}
+	}
+	if err := os.Remove(legacy); err != nil && !os.IsNotExist(err) {
+		return writeError("Cannot remove legacy backup group %s: %v", legacy, err)
 	}
 	return nil
 }

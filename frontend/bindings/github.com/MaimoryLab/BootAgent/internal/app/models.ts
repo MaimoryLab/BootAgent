@@ -60,6 +60,11 @@ export interface Capabilities {
     "supportedAgentIds": string[] | null;
 }
 
+export interface ConversationMigrationResult {
+    "files": number;
+    "threads": number;
+}
+
 /**
  * DesktopAgentActionResult reports a local installation action. Windows Store
  * installation continues after its downloaded bootstrapper starts.

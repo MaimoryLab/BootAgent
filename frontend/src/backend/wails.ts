@@ -205,6 +205,8 @@ export const wailsApi = {
     })) as Promise<ActivateAgentResponse>,
   launchAgent: (agentId: string, workingDirectory = ""): Promise<LaunchAgentResponse> =>
     call(() => AgentService.Launch({ agent_id: agentId, working_directory: workingDirectory })) as Promise<LaunchAgentResponse>,
+  migrateConversations: (): Promise<import("../types/api").ConversationMigrationResult> =>
+    call(() => AgentService.MigrateConversations()) as Promise<import("../types/api").ConversationMigrationResult>,
   updateAgent: (agentId: string): CancellableRequest<AgentUpdateResult> =>
     call(() => AgentService.Update({ agent_id: agentId })) as CancellableRequest<AgentUpdateResult>,
   listRuntimes: (): Promise<RuntimeStatus[]> =>
