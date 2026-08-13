@@ -276,7 +276,8 @@
 .settings-row.language-picker { width: 100%; margin: 0; padding: 0 10px; }
 .settings-row .theme-select,
 .settings-row .language-select { width: 180px; }
-.backup-retention-row { gap: 10px; padding: 0 10px; }
+.backup-retention-row { gap: 12px; padding: 0 10px; }
+.backup-retention-row > svg { width: 18px; height: 18px; }
 .backup-retention-row label { min-width: 0; display: grid; flex: 1; gap: 3px; }
 .backup-retention-row label strong { font-size: 13px; }
 .backup-retention-row label small { color: var(--text-secondary); font-size: 11px; }
