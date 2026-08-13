@@ -57,6 +57,7 @@ type SkillChange struct {
 	VariantHash  string   `json:"variant_hash"`
 	Targets      []string `json:"targets"`
 	Delete       bool     `json:"delete,omitempty"`
+	DeleteSkill  bool     `json:"delete_skill,omitempty"`
 	ImportSource string   `json:"import_source,omitempty"`
 }
 type SkillApplyRequest struct {
@@ -336,6 +337,10 @@ func (u *UseCases) ApplySkills(ctx context.Context, req SkillApplyRequest) Skill
 			continue
 		}
 		fact := registry.Skills[change.ID]
+		if change.Delete && fact.Variants == nil {
+			result.Results = append(result.Results, SkillAgentApplyResult{Error: "Skill is not managed"})
+			continue
+		}
 		variantIdx := variantIndex(fact.Variants, change.VariantHash)
 		if change.Delete && variantIdx < 0 && change.VariantHash == "" {
 			for i := range fact.Variants {
@@ -387,7 +392,7 @@ func (u *UseCases) ApplySkills(ctx context.Context, req SkillApplyRequest) Skill
 				continue
 			}
 		}
-		deleteSkill := change.Delete && len(change.Targets) == 0
+		deleteSkill := change.Delete && (change.DeleteSkill || len(change.Targets) == 0)
 		targetIDs := append([]string(nil), change.Targets...)
 		if change.Delete && len(targetIDs) == 0 && variantIdx >= 0 {
 			targetIDs = append(targetIDs, fact.Variants[variantIdx].ManagedTargets...)
@@ -430,6 +435,11 @@ func (u *UseCases) ApplySkills(ctx context.Context, req SkillApplyRequest) Skill
 			} else {
 				if variantIdx < 0 || !fact.Variants[variantIdx].Stored {
 					item.Error = "Skill variant is not stored"
+					result.Results = append(result.Results, item)
+					continue
+				}
+				if err := verifyManagedPublishTarget(ctx, target, change.VariantHash); err != nil {
+					item.Error = err.Error()
 					result.Results = append(result.Results, item)
 					continue
 				}
@@ -896,4 +906,22 @@ func removeManagedSkill(ctx context.Context, target, expectedHash string) error 
 		return errors.New("Skill target changed and was not removed")
 	}
 	return os.RemoveAll(target)
+}
+
+func verifyManagedPublishTarget(ctx context.Context, target, expectedHash string) error {
+	info, err := os.Lstat(target)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+		return errors.New("Skill target changed and was not updated")
+	}
+	stats, err := skill.HashTree(ctx, target)
+	if err != nil || stats.Hash != expectedHash {
+		return errors.New("Skill target changed and was not updated")
+	}
+	return nil
 }

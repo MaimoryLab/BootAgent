@@ -137,6 +137,42 @@ func TestApplySkillsRefusesToDeleteChangedManagedTarget(t *testing.T) {
 	}
 }
 
+func TestApplySkillsRefusesToOverwriteChangedManagedTarget(t *testing.T) {
+	home := t.TempDir()
+	core := skillTestCore(home)
+	root := filepath.Join(home, ".codex", "skills")
+	if err := os.MkdirAll(root, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	source := filepath.Join(t.TempDir(), "review")
+	writeTestSkillAt(t, source, "first")
+	preview, _ := core.PreviewSkillImport(context.Background(), SkillImportRequest{Source: "folder"}, source)
+	first := core.ApplySkills(context.Background(), SkillApplyRequest{PreviewToken: preview.Token, Changes: []SkillChange{{ID: "review", VariantHash: preview.Candidates[0].Hash, Targets: []string{"codex"}, ImportSource: "folder"}}})
+	if first.Results[0].Error != "" {
+		t.Fatalf("initial apply = %#v", first)
+	}
+	note := filepath.Join(root, "review", "my-notes.md")
+	if err := os.WriteFile(note, []byte("keep me"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	second := core.ApplySkills(context.Background(), SkillApplyRequest{Changes: []SkillChange{{ID: "review", VariantHash: preview.Candidates[0].Hash, Targets: []string{"codex"}}}})
+	if len(second.Results) != 1 || second.Results[0].Error == "" {
+		t.Fatalf("overwrite result = %#v", second)
+	}
+	if _, err := os.Stat(note); err != nil {
+		t.Fatalf("user file was removed: %v", err)
+	}
+}
+
+func TestApplySkillsDuplicateDeleteReportsError(t *testing.T) {
+	home := t.TempDir()
+	core := skillTestCore(home)
+	result := core.ApplySkills(context.Background(), SkillApplyRequest{Changes: []SkillChange{{ID: "missing", Delete: true, DeleteSkill: true}}})
+	if len(result.Results) != 1 || result.Results[0].Error == "" {
+		t.Fatalf("duplicate delete result = %#v", result)
+	}
+}
+
 func TestApplySkillsDeleteRemovesRegistryEntry(t *testing.T) {
 	home := t.TempDir()
 	core := skillTestCore(home)

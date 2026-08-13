@@ -161,6 +161,7 @@ export interface MCPChange {
     "spec"?: mcp$0.Spec | null;
     "agents": string[] | null;
     "delete"?: boolean;
+    "delete_skill"?: boolean;
 }
 
 export interface MCPScanResult {
