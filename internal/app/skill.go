@@ -132,8 +132,11 @@ func (u *UseCases) eligibleSkillAgents() (map[string]catalog.Agent, error) {
 			continue
 		}
 		root := skillPath(u.status.Home, u.status.Platform.OS, agent)
-		info, statErr := os.Lstat(root)
-		if statErr != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 || hasSymlinkComponent(u.status.Home, root) {
+		if info, statErr := os.Lstat(root); statErr == nil {
+			if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 || hasSymlinkComponent(u.status.Home, root) {
+				continue
+			}
+		} else if !os.IsNotExist(statErr) {
 			continue
 		}
 		result[id] = agent
@@ -164,6 +167,9 @@ func (u *UseCases) ScanSkills(ctx context.Context) (SkillScanResult, error) {
 		root := skillPath(u.status.Home, u.status.Platform.OS, agent)
 		found, scanErr := skill.ScanAgentRoot(ctx, root, "agent")
 		if scanErr != nil {
+			if os.IsNotExist(scanErr) {
+				continue
+			}
 			diagnostics = append(diagnostics, fmt.Sprintf("%s: Skill directory could not be read", agentID))
 			continue
 		}
@@ -205,7 +211,9 @@ func (u *UseCases) ScanSkills(ctx context.Context) (SkillScanResult, error) {
 			stored := fact.Variants[idx].Stored
 			out := toCandidate(candidate, stored)
 			out.ObservedAgents = []string{agentID}
-			candidates = append(candidates, out)
+			if !stored {
+				candidates = append(candidates, out)
+			}
 		}
 	}
 	previewToken := ""

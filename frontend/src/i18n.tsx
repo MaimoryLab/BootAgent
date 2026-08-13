@@ -22,6 +22,7 @@ const english = {
   "确认导入并应用": "Confirm import and apply",
   "请选择至少一个目标 Agent": "Select at least one target Agent",
   "导入并应用完成": "Imported and applied",
+  "暂无详情": "No details",
   "同步目标": "Sync targets",
   "状态": "Status",
   "编辑": "Edit",
