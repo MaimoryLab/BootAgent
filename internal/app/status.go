@@ -792,13 +792,15 @@ func backupState(home, osID string, manifest catalog.Manifest) map[string]bool {
 }
 
 func managedBackupExists(root, target string) bool {
-	entries, err := os.ReadDir(securefs.BackupGroupPath(root, target))
-	if err != nil {
-		return false
-	}
-	for _, entry := range entries {
-		if strings.HasPrefix(entry.Name(), "backup-") && entry.Type().IsRegular() {
-			return true
+	for _, group := range []string{securefs.BackupGroupPath(root, target), securefs.LegacyBackupGroupPath(root, target)} {
+		entries, err := os.ReadDir(group)
+		if err != nil {
+			continue
+		}
+		for _, entry := range entries {
+			if strings.HasPrefix(entry.Name(), "backup-") && entry.Type().IsRegular() {
+				return true
+			}
 		}
 	}
 	return false

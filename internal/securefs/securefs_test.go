@@ -17,6 +17,16 @@ func fixedClock() time.Time {
 	return time.Date(2026, time.July, 30, 12, 34, 56, 0, time.UTC)
 }
 
+func TestBackupGroupPathIsReadableAndEscaped(t *testing.T) {
+	root := filepath.Join("home", ".bootagent", "backup")
+	if got, want := BackupGroupPath(root, filepath.Join("home", ".codex", "config.toml")), filepath.Join(root, "files", "codex-config.toml"); got != want {
+		t.Fatalf("backup group = %q, want %q", got, want)
+	}
+	if got, want := BackupGroupPath(root, filepath.Join("home", ".agent name", "config?.json")), filepath.Join(root, "files", "agent%20name-config%3F.json"); got != want {
+		t.Fatalf("escaped backup group = %q, want %q", got, want)
+	}
+}
+
 func TestAtomicWriteCreatesPrivateFileAndCollisionSafeBackup(t *testing.T) {
 	root := t.TempDir()
 	target := filepath.Join(root, ".bootagent", "profile.json")
@@ -97,6 +107,43 @@ func TestAtomicWriteUsesManagedBackupRootAndPrunesPerTarget(t *testing.T) {
 	}
 	if matches, _ := filepath.Glob(first + ".backup-*"); len(matches) != 0 {
 		t.Fatalf("legacy beside-file backups remain: %v", matches)
+	}
+}
+
+func TestAtomicWriteMigratesHashedBackupGroup(t *testing.T) {
+	home := t.TempDir()
+	backupRoot := filepath.Join(home, ".bootagent", "backup")
+	target := filepath.Join(home, ".codex", "config.toml")
+	legacy := LegacyBackupGroupPath(backupRoot, target)
+	if err := os.MkdirAll(legacy, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Dir(target), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(target, []byte("current"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(legacy, "backup-20260729000000"), []byte("old"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	store := New(Options{OS: "linux", BackupRoot: backupRoot, Now: fixedClock})
+	if _, err := store.AtomicWrite(context.Background(), target, []byte("new"), false); err != nil {
+		t.Fatal(err)
+	}
+	group := BackupGroupPath(backupRoot, target)
+	if filepath.Base(group) != "codex-config.toml" {
+		t.Fatalf("backup group = %q", group)
+	}
+	entries, err := os.ReadDir(group)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 2 {
+		t.Fatalf("migrated backups = %d, want 2", len(entries))
+	}
+	if _, err := os.Stat(legacy); !os.IsNotExist(err) {
+		t.Fatalf("legacy backup group remains: %v", err)
 	}
 }
 
