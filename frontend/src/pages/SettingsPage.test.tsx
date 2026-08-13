@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -39,6 +40,34 @@ describe("SettingsPage", () => {
     show();
     fireEvent.click(screen.getByRole("button", { name: /帮助文档/ }));
     await waitFor(() => expect(screen.getByText("Unable to open the help site")).toBeTruthy());
+  });
+
+  it("loads and saves per-target backup retention", async () => {
+    const getSettings = vi.spyOn(api, "getSettings").mockResolvedValue({
+      schema_version: 1,
+      prefer_mirror: false,
+      mirror_from_region: false,
+      backup_retention: 3,
+    });
+    const saveSettings = vi.spyOn(api, "saveSettings").mockResolvedValue({
+      schema_version: 1,
+      prefer_mirror: false,
+      mirror_from_region: false,
+      backup_retention: 7,
+    });
+    show();
+    await waitFor(() => expect(getSettings).toHaveBeenCalled());
+    const input = await screen.findByRole("spinbutton", { name: "备份历史版本数" });
+    expect(input).toHaveValue(3);
+    await userEvent.clear(input);
+    await userEvent.type(input, "7");
+    await userEvent.tab();
+    await waitFor(() => expect(saveSettings).toHaveBeenCalledWith({
+      schema_version: 1,
+      prefer_mirror: false,
+      mirror_from_region: false,
+      backup_retention: 7,
+    }));
   });
 
   // An app running from a mounted dmg sits on a read-only volume, so the update

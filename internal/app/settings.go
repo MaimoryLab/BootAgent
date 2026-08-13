@@ -14,6 +14,12 @@ import (
 // previous build could not read.
 const settingsSchemaVersion = 1
 
+const (
+	defaultBackupRetention = 3
+	minBackupRetention     = 1
+	maxBackupRetention     = 100
+)
+
 // regionProbeTimeout bounds the locale lookup. It is short on purpose: the
 // answer only picks a default download host, so a slow or hung system call must
 // never delay status.
@@ -34,6 +40,8 @@ type Settings struct {
 	// machine each read, and storing it would let a stale answer outlive the
 	// setting that produced it.
 	MirrorFromRegion bool `json:"mirror_from_region"`
+	// BackupRetention is the number of historical versions kept per target.
+	BackupRetention int `json:"backup_retention"`
 }
 
 // storedSettings is the on-disk shape. PreferMirror is a pointer so an absent
@@ -42,8 +50,9 @@ type Settings struct {
 // China who prefers the official source would find the box re-ticked on every
 // launch.
 type storedSettings struct {
-	SchemaVersion int   `json:"schema_version"`
-	PreferMirror  *bool `json:"prefer_mirror"`
+	SchemaVersion   int   `json:"schema_version"`
+	PreferMirror    *bool `json:"prefer_mirror"`
+	BackupRetention *int  `json:"backup_retention"`
 }
 
 func (u *UseCases) settingsPath() string {
@@ -55,13 +64,22 @@ func (u *UseCases) settingsPath() string {
 // rather than an error: a corrupt preference must not make the app unusable, and
 // the next write repairs it.
 func (u *UseCases) Settings(ctx context.Context) (Settings, error) {
-	settings := Settings{SchemaVersion: settingsSchemaVersion}
+	settings := Settings{SchemaVersion: settingsSchemaVersion, BackupRetention: defaultBackupRetention}
 	if u == nil {
 		return settings, nil
 	}
-	if stored, ok := u.storedPreferMirror(); ok {
-		settings.PreferMirror = stored
-		return settings, nil
+	if stored, ok := u.readStoredSettings(); ok {
+		if stored.PreferMirror != nil {
+			settings.PreferMirror = *stored.PreferMirror
+		}
+		if stored.BackupRetention != nil {
+			settings.BackupRetention = storedBackupRetention(stored.BackupRetention)
+		}
+		if stored.PreferMirror != nil {
+			return settings, nil
+		}
+		// A settings file written by an intermediate version can contain only the
+		// retention field; still apply the regional mirror default below.
 	}
 	// Never chosen: a machine set to Chinese gets the mirror by default, because
 	// the official hosts are consistently slow from there and a first-run user
@@ -73,17 +91,47 @@ func (u *UseCases) Settings(ctx context.Context) (Settings, error) {
 	return settings, nil
 }
 
-// storedPreferMirror reports the user's own choice and whether one exists.
-func (u *UseCases) storedPreferMirror() (bool, bool) {
+func normalizeBackupRetention(value int) int {
+	if value < minBackupRetention {
+		return minBackupRetention
+	}
+	if value > maxBackupRetention {
+		return maxBackupRetention
+	}
+	return value
+}
+
+func storedBackupRetention(value *int) int {
+	if value == nil || *value < minBackupRetention || *value > maxBackupRetention {
+		return defaultBackupRetention
+	}
+	return *value
+}
+
+func (u *UseCases) readStoredSettings() (storedSettings, bool) {
 	data, err := os.ReadFile(u.settingsPath())
 	if err != nil {
-		return false, false
+		return storedSettings{}, false
 	}
 	var stored storedSettings
-	if json.Unmarshal(data, &stored) != nil || stored.PreferMirror == nil {
-		return false, false
+	if json.Unmarshal(data, &stored) != nil {
+		return storedSettings{}, false
 	}
-	return *stored.PreferMirror, true
+	return stored, true
+}
+
+// backupRetentionFromFile is used by the filesystem writer without requiring
+// a dependency from securefs back into app settings.
+func backupRetentionFromFile(path string) int {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return defaultBackupRetention
+	}
+	var stored storedSettings
+	if json.Unmarshal(data, &stored) != nil || stored.BackupRetention == nil {
+		return defaultBackupRetention
+	}
+	return storedBackupRetention(stored.BackupRetention)
 }
 
 // SaveSettings persists the preferences and returns what was stored.
@@ -95,11 +143,19 @@ func (u *UseCases) SaveSettings(ctx context.Context, settings Settings) (Setting
 		return Settings{}, err
 	}
 	settings.SchemaVersion = settingsSchemaVersion
+	if settings.BackupRetention == 0 {
+		settings.BackupRetention = backupRetentionFromFile(u.settingsPath())
+	} else {
+		settings.BackupRetention = normalizeBackupRetention(settings.BackupRetention)
+	}
 	// Saving is always an explicit choice, so the key is written even for false.
 	// That is what stops the regional default from re-ticking the box for a user
 	// who turned it off.
 	chosen := settings.PreferMirror
-	data, err := json.MarshalIndent(storedSettings{SchemaVersion: settingsSchemaVersion, PreferMirror: &chosen}, "", "  ")
+	retention := settings.BackupRetention
+	data, err := json.MarshalIndent(storedSettings{
+		SchemaVersion: settingsSchemaVersion, PreferMirror: &chosen, BackupRetention: &retention,
+	}, "", "  ")
 	if err != nil {
 		return Settings{}, err
 	}

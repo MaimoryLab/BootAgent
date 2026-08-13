@@ -142,18 +142,29 @@ func newUseCases(options StatusOptions, client *provider.Client, profiles profil
 	if options.Environment == nil {
 		options.Environment = map[string]string{}
 	}
+	injectedProfiles := profiles.Home != ""
 	if profiles.Home == "" {
 		profiles = profileStore.NewStore(options.Home, options.Platform.OS)
 	}
-	filesystem := securefs.New(securefs.Options{OS: options.Platform.OS})
+	filesystem := securefs.Store{}
 	if options.FileSystem != nil {
 		filesystem = *options.FileSystem
-		profiles.FS = &filesystem
-	} else if profiles.FS != nil {
-		// Reuse an injected profile filesystem so one operation has one
-		// security policy for profile, env, and Agent config writes.
+	} else if injectedProfiles && profiles.FS != nil {
 		filesystem = *profiles.FS
+	} else {
+		backupRoot := filepath.Join(options.Home, ".oneagent", "backup")
+		filesystem = securefs.New(securefs.Options{
+			OS:         options.Platform.OS,
+			BackupRoot: backupRoot,
+			Retention: func() int {
+				return backupRetentionFromFile(filepath.Join(options.Home, ".oneagent", "settings.json"))
+			},
+		})
 	}
+	// Reuse one filesystem policy for profile, environment, Provider, MCP, Skill,
+	// and Agent config writes. Tests may inject a filesystem with custom ACL hooks;
+	// production uses the managed backup policy above.
+	profiles.FS = &filesystem
 	return &UseCases{
 		status:      options,
 		provider:    client,
@@ -756,6 +767,7 @@ func fileExists(path string) bool {
 
 func backupState(home, osID string, manifest catalog.Manifest) map[string]bool {
 	result := make(map[string]bool)
+	backupRoot := filepath.Join(home, ".oneagent", "backup")
 	for _, id := range catalog.AgentIDs(manifest) {
 		agent := manifest.Agents[id]
 		path := configPath(home, osID, agent)
@@ -763,11 +775,25 @@ func backupState(home, osID string, manifest catalog.Manifest) map[string]bool {
 			continue
 		}
 		matches, err := filepath.Glob(path + ".backup-*")
-		result[id] = err == nil && len(matches) > 0
+		result[id] = err == nil && len(matches) > 0 || managedBackupExists(backupRoot, path)
 	}
 	profileMatches, err := filepath.Glob(filepath.Join(home, ".oneagent", "profile.json.backup-*"))
-	result["profile"] = err == nil && len(profileMatches) > 0
+	profilePath := filepath.Join(home, ".oneagent", "profile.json")
+	result["profile"] = err == nil && len(profileMatches) > 0 || managedBackupExists(backupRoot, profilePath)
 	return result
+}
+
+func managedBackupExists(root, target string) bool {
+	entries, err := os.ReadDir(securefs.BackupGroupPath(root, target))
+	if err != nil {
+		return false
+	}
+	for _, entry := range entries {
+		if strings.HasPrefix(entry.Name(), "backup-") && entry.Type().IsRegular() {
+			return true
+		}
+	}
+	return false
 }
 
 func contains(values []string, wanted string) bool {

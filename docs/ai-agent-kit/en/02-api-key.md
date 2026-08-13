@@ -28,7 +28,7 @@ OneAgent's standing constraints:
 - The key is never passed as a command-line argument.
 - The key is never written to logs or error messages.
 - The key is never uploaded to a OneAgent server.
-- A timestamped backup is created before any configuration is overwritten.
+- A timestamped backup is created before any configuration is overwritten. Backups are kept per target under `~/.oneagent/backup`; OneAgent keeps three historical versions by default, configurable in Settings.
 
 ## Recommended local environment variables
 

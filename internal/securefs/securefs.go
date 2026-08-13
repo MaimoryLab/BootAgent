@@ -5,6 +5,8 @@ package securefs
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"os"
@@ -12,6 +14,7 @@ import (
 	"os/user"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 	"time"
 
@@ -28,11 +31,13 @@ type CommandRunner func(context.Context, []string) error
 type SecurePathFunc func(path string, directory bool) error
 
 type Options struct {
-	OS       string
-	Username string
-	Now      func() time.Time
-	Run      CommandRunner
-	Secure   SecurePathFunc
+	OS         string
+	Username   string
+	Now        func() time.Time
+	Run        CommandRunner
+	Secure     SecurePathFunc
+	BackupRoot string
+	Retention  func() int
 }
 
 type Store struct {
@@ -41,6 +46,8 @@ type Store struct {
 	now           func() time.Time
 	commandRunner CommandRunner
 	secure        SecurePathFunc
+	backupRoot    string
+	retention     func() int
 }
 
 func New(options Options) Store {
@@ -60,7 +67,41 @@ func New(options Options) Store {
 		now:           options.Now,
 		commandRunner: options.Run,
 		secure:        options.Secure,
+		backupRoot:    options.BackupRoot,
+		retention:     options.Retention,
 	}
+}
+
+// BackupRoot is the private root used for managed backups. An empty value
+// means this Store keeps the legacy beside-file behavior for standalone users.
+func (s Store) BackupRoot() string { return s.backupRoot }
+
+// BackupRetention returns the effective per-target history limit.
+func (s Store) BackupRetention() int {
+	retention := 3
+	if s.retention != nil {
+		retention = s.retention()
+	}
+	if retention < 1 {
+		return 3
+	}
+	if retention > 100 {
+		return 100
+	}
+	return retention
+}
+
+// BackupGroupPath returns the stable directory for one absolute target.
+func BackupGroupPath(root, target string) string {
+	if root == "" {
+		return ""
+	}
+	absolute, err := filepath.Abs(target)
+	if err != nil {
+		absolute = filepath.Clean(target)
+	}
+	sum := sha256.Sum256([]byte(filepath.Clean(absolute)))
+	return filepath.Join(root, "files", hex.EncodeToString(sum[:]))
 }
 
 func (s Store) EnsurePrivateDir(ctx context.Context, path string) error {
@@ -99,9 +140,9 @@ func (s Store) SecureFile(ctx context.Context, path string) error {
 	return nil
 }
 
-// Backup copies an existing file beside itself. A missing source is not an
-// error and returns an empty path. Callers decide whether the backup is a
-// secret and therefore needs an additional permission check.
+// Backup copies an existing file into the managed target group. A missing
+// source is not an error and returns an empty path. Callers decide whether the
+// backup is a secret and therefore needs an additional permission check.
 func (s Store) Backup(ctx context.Context, path string) (string, error) {
 	if err := checkContext(ctx); err != nil {
 		return "", err
@@ -116,7 +157,15 @@ func (s Store) Backup(ctx context.Context, path string) (string, error) {
 	if info.IsDir() {
 		return "", writeError("Cannot back up directory %s", path)
 	}
-	candidate := s.backupName(path)
+	managed := s.backupRoot != ""
+	nameBase := path
+	if managed {
+		nameBase = BackupGroupPath(s.backupRoot, path)
+		if err := s.ensureManagedBackupGroup(ctx, nameBase); err != nil {
+			return "", err
+		}
+	}
+	candidate := s.backupName(nameBase, managed)
 	if err := copyFile(path, candidate, info.Mode().Perm()); err != nil {
 		return "", writeError("Cannot back up %s: %v", path, err)
 	}
@@ -183,6 +232,9 @@ func (s Store) AtomicWrite(ctx context.Context, path string, content []byte, sec
 	if err = os.Rename(temporaryPath, path); err != nil {
 		return backup, writeError("Cannot replace %s: %v", path, err)
 	}
+	if err = s.cleanupBackups(ctx, path, secret); err != nil {
+		return backup, err
+	}
 	return backup, nil
 }
 
@@ -238,13 +290,18 @@ func (s Store) securePath(ctx context.Context, path string, directory bool) erro
 	return nil
 }
 
-func (s Store) backupName(path string) string {
+func (s Store) backupName(directory string, managed bool) string {
 	now := s.now
 	if now == nil {
 		now = time.Now
 	}
 	stamp := now().UTC().Format("20060102150405")
-	base := path + ".backup-" + stamp
+	base := ""
+	if managed {
+		base = filepath.Join(directory, "backup-"+stamp)
+	} else {
+		base = directory + ".backup-" + stamp
+	}
 	candidate := base
 	for counter := 1; ; counter++ {
 		if _, err := os.Lstat(candidate); os.IsNotExist(err) {
@@ -252,6 +309,200 @@ func (s Store) backupName(path string) string {
 		}
 		candidate = fmt.Sprintf("%s-%d", base, counter)
 	}
+}
+
+func (s Store) cleanupBackups(ctx context.Context, path string, secret bool) error {
+	if err := checkContext(ctx); err != nil {
+		return err
+	}
+	if s.backupRoot == "" {
+		return s.pruneLegacyBackups(path)
+	}
+	group := BackupGroupPath(s.backupRoot, path)
+	legacy, err := filepath.Glob(path + ".backup-*")
+	if err != nil {
+		return writeError("Cannot find legacy backups for %s: %v", path, err)
+	}
+	if _, statErr := os.Stat(group); os.IsNotExist(statErr) && len(legacy) == 0 {
+		return nil
+	}
+	if err := s.ensureManagedBackupGroup(ctx, group); err != nil {
+		return err
+	}
+	if err := s.migrateLegacyBackups(ctx, path, group, secret); err != nil {
+		return err
+	}
+	entries, err := os.ReadDir(group)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return writeError("Cannot list backups for %s: %v", path, err)
+	}
+	type backupEntry struct {
+		name string
+		info os.FileInfo
+	}
+	backups := make([]backupEntry, 0, len(entries))
+	for _, entry := range entries {
+		if !strings.HasPrefix(entry.Name(), "backup-") {
+			continue
+		}
+		info, infoErr := entry.Info()
+		if infoErr != nil {
+			return writeError("Cannot inspect backup %s: %v", entry.Name(), infoErr)
+		}
+		if !info.Mode().IsRegular() {
+			continue
+		}
+		backups = append(backups, backupEntry{name: entry.Name(), info: info})
+	}
+	sort.Slice(backups, func(i, j int) bool {
+		if backups[i].info.ModTime().Equal(backups[j].info.ModTime()) {
+			return backups[i].name > backups[j].name
+		}
+		return backups[i].info.ModTime().After(backups[j].info.ModTime())
+	})
+	retention := s.BackupRetention()
+	if len(backups) <= retention {
+		return nil
+	}
+	for _, old := range backups[retention:] {
+		if err := os.Remove(filepath.Join(group, old.name)); err != nil && !os.IsNotExist(err) {
+			return writeError("Cannot remove old backup %s: %v", old.name, err)
+		}
+	}
+	return nil
+}
+
+func (s Store) ensureManagedBackupGroup(ctx context.Context, group string) error {
+	if s.backupRoot == "" {
+		return writeError("Managed backup root is not configured")
+	}
+	for _, path := range []string{s.backupRoot, filepath.Join(s.backupRoot, "files"), group} {
+		if err := rejectManagedComponents(s.backupRoot, path); err != nil {
+			return err
+		}
+		if err := s.EnsurePrivateDir(ctx, path); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func rejectManagedComponents(root, path string) error {
+	root = filepath.Clean(root)
+	path = filepath.Clean(path)
+	rel, err := filepath.Rel(root, path)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return writeError("Managed backup path escapes its root: %s", path)
+	}
+	current := root
+	if info, statErr := os.Lstat(current); statErr == nil && info.Mode()&os.ModeSymlink != 0 {
+		return writeError("Managed backup path contains a symlink: %s", current)
+	} else if statErr != nil && !os.IsNotExist(statErr) {
+		return writeError("Cannot inspect managed backup path %s: %v", current, statErr)
+	}
+	for part := range strings.SplitSeq(rel, string(filepath.Separator)) {
+		if part == "." || part == "" {
+			continue
+		}
+		current = filepath.Join(current, part)
+		info, statErr := os.Lstat(current)
+		if statErr == nil && info.Mode()&os.ModeSymlink != 0 {
+			return writeError("Managed backup path contains a symlink: %s", current)
+		}
+		if statErr != nil && !os.IsNotExist(statErr) {
+			return writeError("Cannot inspect managed backup path %s: %v", current, statErr)
+		}
+	}
+	return nil
+}
+
+func (s Store) migrateLegacyBackups(ctx context.Context, path, group string, secret bool) error {
+	matches, err := filepath.Glob(path + ".backup-*")
+	if err != nil {
+		return writeError("Cannot find legacy backups for %s: %v", path, err)
+	}
+	type legacyBackup struct {
+		path string
+		info os.FileInfo
+	}
+	backups := make([]legacyBackup, 0, len(matches))
+	for _, source := range matches {
+		info, statErr := os.Lstat(source)
+		if statErr != nil {
+			if os.IsNotExist(statErr) {
+				continue
+			}
+			return writeError("Cannot inspect legacy backup %s: %v", source, statErr)
+		}
+		if info.Mode().IsRegular() {
+			backups = append(backups, legacyBackup{path: source, info: info})
+		}
+	}
+	sort.Slice(backups, func(i, j int) bool {
+		if !backups[i].info.ModTime().Equal(backups[j].info.ModTime()) {
+			return backups[i].info.ModTime().Before(backups[j].info.ModTime())
+		}
+		return backups[i].path < backups[j].path
+	})
+	keepFrom := 0
+	if excess := len(backups) - s.BackupRetention(); excess > 0 {
+		keepFrom = excess
+	}
+	for _, backup := range backups[keepFrom:] {
+		if err := checkContext(ctx); err != nil {
+			return err
+		}
+		candidate := s.backupName(group, true)
+		if err := copyFile(backup.path, candidate, backup.info.Mode().Perm()); err != nil {
+			return writeError("Cannot migrate legacy backup %s: %v", backup.path, err)
+		}
+		if err := os.Chtimes(candidate, backup.info.ModTime(), backup.info.ModTime()); err != nil {
+			_ = os.Remove(candidate)
+			return writeError("Cannot preserve legacy backup time %s: %v", backup.path, err)
+		}
+		if secret {
+			if err := s.SecureFile(ctx, candidate); err != nil {
+				_ = os.Remove(candidate)
+				return err
+			}
+		}
+		if err := os.Remove(backup.path); err != nil && !os.IsNotExist(err) {
+			return writeError("Cannot remove legacy backup %s: %v", backup.path, err)
+		}
+	}
+	for _, old := range backups[:keepFrom] {
+		if err := os.Remove(old.path); err != nil && !os.IsNotExist(err) {
+			return writeError("Cannot remove old legacy backup %s: %v", old.path, err)
+		}
+	}
+	return nil
+}
+
+func (s Store) pruneLegacyBackups(path string) error {
+	matches, err := filepath.Glob(path + ".backup-*")
+	if err != nil {
+		return writeError("Cannot find backups for %s: %v", path, err)
+	}
+	regular := matches[:0]
+	for _, match := range matches {
+		info, statErr := os.Lstat(match)
+		if statErr == nil && info.Mode().IsRegular() {
+			regular = append(regular, match)
+		}
+	}
+	if len(regular) <= s.BackupRetention() {
+		return nil
+	}
+	sort.Strings(regular)
+	for _, old := range regular[:len(regular)-s.BackupRetention()] {
+		if err := os.Remove(old); err != nil && !os.IsNotExist(err) {
+			return writeError("Cannot remove old backup %s: %v", old, err)
+		}
+	}
+	return nil
 }
 
 func (s Store) execute(ctx context.Context, argv []string) error {

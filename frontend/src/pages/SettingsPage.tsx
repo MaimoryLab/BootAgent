@@ -1,4 +1,4 @@
-import { BookOpen, ChevronRight, ExternalLink, Import, Languages, RefreshCw } from "lucide-react";
+import { Archive, BookOpen, ChevronRight, ExternalLink, Import, Languages, RefreshCw } from "lucide-react";
 import { useState } from "react";
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
@@ -11,6 +11,13 @@ import { ThemePicker } from "../components/ThemePicker";
 import { GitHubMark } from "../components/icons/GitHubMark";
 import { useI18n } from "../i18n";
 import { taskCanceller, taskKey, updateTaskRoute, useTaskCenter } from "../state/TaskCenterContext";
+import type { Settings } from "../types/api";
+
+const defaultBackupRetention = 3;
+
+function boundedBackupRetention(value: number): number {
+  return Math.min(100, Math.max(1, Number.isFinite(value) ? Math.trunc(value) : defaultBackupRetention));
+}
 
 export function SettingsPage() {
   const navigate = useNavigate();
@@ -21,8 +28,44 @@ export function SettingsPage() {
   const [updateMessage, setUpdateMessage] = useState("");
   const [latestVersion, setLatestVersion] = useState("");
   const [helpFailure, setHelpFailure] = useState("");
+  const [settings, setSettings] = useState<Settings | null>(null);
+  const [backupRetention, setBackupRetention] = useState<number | "">("");
+  const [backupFailure, setBackupFailure] = useState("");
 
   useEffect(() => { void api.version().then(setVersion).catch(() => {}); }, []);
+  useEffect(() => {
+    let active = true;
+    void api.getSettings().then((loaded) => {
+      if (!active) return;
+      setSettings(loaded);
+      setBackupRetention(loaded.backup_retention ?? defaultBackupRetention);
+    }).catch(() => {
+      if (!active) return;
+      setSettings(null);
+      setBackupRetention(defaultBackupRetention);
+      setBackupFailure(t("无法读取备份设置"));
+    });
+    return () => { active = false; };
+  }, []);
+
+  const saveBackupRetention = async () => {
+    if (!settings) return;
+    const nextRetention = boundedBackupRetention(backupRetention === "" ? defaultBackupRetention : backupRetention);
+    setBackupRetention(nextRetention);
+    setBackupFailure("");
+    try {
+      const saved = await api.saveSettings({
+        ...settings,
+        schema_version: 1,
+        mirror_from_region: false,
+        backup_retention: nextRetention,
+      });
+      setSettings(saved);
+      setBackupRetention(saved.backup_retention ?? nextRetention);
+    } catch (error) {
+      setBackupFailure(describeFailure(error, t("无法保存备份设置"), t).message);
+    }
+  };
 
   const checkUpdate = async () => {
     setChecking(true);
@@ -111,6 +154,26 @@ export function SettingsPage() {
       </section>
       <section className="settings-section">
         <h2>{t("数据")}</h2>
+        <div className="settings-row backup-retention-row">
+          <Archive size={16} aria-hidden="true" />
+          <label htmlFor="backup-retention">
+            <strong>{t("备份历史版本数")}</strong>
+            <small>{t("每个目标分别保留历史版本，默认保留 3 个")}</small>
+          </label>
+          <input
+            id="backup-retention"
+            aria-label={t("备份历史版本数")}
+            type="number"
+            min={1}
+            max={100}
+            step={1}
+            value={backupRetention}
+            disabled={settings === null}
+            onChange={(event) => setBackupRetention(event.target.value === "" ? "" : Number(event.target.value))}
+            onBlur={() => void saveBackupRetention()}
+          />
+        </div>
+        {backupFailure ? <p className="settings-field-error" role="status">{backupFailure}</p> : null}
         <button className="settings-link" type="button" onClick={() => navigate("/settings/transfer")}>
           <Import size={18} aria-hidden="true" />
           <span><strong>{t("导入导出")}</strong><small>{t("选择要迁移的模型服务和配置模版")}</small></span>

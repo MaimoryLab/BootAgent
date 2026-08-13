@@ -16,8 +16,6 @@ import (
 	"github.com/MaimoryLab/OneAgent/internal/securefs"
 )
 
-const backupRetention = 20
-
 const maxRegistryBytes = 8 << 20
 
 const (
@@ -52,7 +50,15 @@ func (s Store) RegistryPath() string {
 	return filepath.Join(s.home, ".oneagent", "skill-registry.json")
 }
 func (s Store) SkillsRoot() string { return filepath.Join(s.home, ".oneagent", "skills") }
-func (s Store) BackupRoot() string { return filepath.Join(s.home, ".oneagent", "skill-backups") }
+func (s Store) BackupRoot() string {
+	root := s.fs.BackupRoot()
+	if root == "" {
+		root = filepath.Join(s.home, ".oneagent", "backup")
+	}
+	return filepath.Join(root, "skills")
+}
+func (s Store) LegacyBackupRoot() string         { return filepath.Join(s.home, ".oneagent", "skill-backups") }
+func (s Store) skillBackupRoot(id string) string { return filepath.Join(s.BackupRoot(), id) }
 func (s Store) VariantPath(id, hash string) string {
 	return filepath.Join(s.SkillsRoot(), id, "variants", hash)
 }
@@ -165,18 +171,19 @@ func (s Store) CreateBackup(ctx context.Context, id string, fact Fact) (summary 
 	if err = validateFact(id, fact); err != nil {
 		return summary, err
 	}
-	if err = s.ensurePrivateRoot(ctx, s.BackupRoot()); err != nil {
-		return summary, err
-	}
 	if err = rejectSymlinkComponents(s.home, s.SkillsRoot()); err != nil {
 		return summary, err
 	}
 	if err = s.validateStoredFact(ctx, id, fact, filepath.Join(s.SkillsRoot(), id)); err != nil {
 		return summary, err
 	}
+	root := s.skillBackupRoot(id)
+	if err = s.ensureSkillBackupRoot(ctx, root); err != nil {
+		return summary, err
+	}
 	created := time.Now().UTC()
 	prefix := created.Format("20060102T150405.000000000Z") + "-" + id + "-"
-	dir, err := os.MkdirTemp(s.BackupRoot(), ".oneagent-backup-pending-")
+	dir, err := os.MkdirTemp(root, ".oneagent-backup-pending-")
 	if err != nil {
 		return summary, err
 	}
@@ -184,6 +191,9 @@ func (s Store) CreateBackup(ctx context.Context, id string, fact Fact) (summary 
 	defer func() {
 		if !complete {
 			_ = os.RemoveAll(dir)
+			if entries, readErr := os.ReadDir(root); readErr == nil && len(entries) == 0 {
+				_ = os.Remove(root)
+			}
 		}
 	}()
 	if err = s.ensurePrivateDir(ctx, dir); err != nil {
@@ -206,37 +216,41 @@ func (s Store) CreateBackup(ctx context.Context, id string, fact Fact) (summary 
 	if _, err = s.fs.AtomicWrite(ctx, filepath.Join(dir, "metadata.json"), append(b, '\n'), true); err != nil {
 		return summary, err
 	}
-	final := filepath.Join(s.BackupRoot(), prefix+filepath.Base(dir))
+	final := filepath.Join(root, prefix+filepath.Base(dir))
 	if err = os.Rename(dir, final); err != nil {
 		return summary, err
 	}
 	dir = final
 	complete = true
 	summary = BackupSummary{ID: id, BackupID: filepath.Base(dir), CreatedAt: metadata.CreatedAt, Variants: len(fact.Variants)}
-	return summary, s.pruneBackups()
+	return summary, s.pruneBackups(id)
+}
+
+func (s Store) ensureSkillBackupRoot(ctx context.Context, root string) error {
+	base := filepath.Dir(filepath.Dir(root))
+	for _, path := range []string{base, filepath.Dir(root), root} {
+		if err := s.ensurePrivateRoot(ctx, path); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s Store) ListBackups() ([]BackupSummary, error) {
-	entries, err := os.ReadDir(s.BackupRoot())
-	if os.IsNotExist(err) {
-		return []BackupSummary{}, nil
-	}
+	located, err := s.listLocatedBackups("")
 	if err != nil {
 		return nil, err
 	}
-	result := make([]BackupSummary, 0, len(entries))
-	for _, entry := range entries {
-		if !entry.IsDir() || strings.HasPrefix(entry.Name(), ".oneagent-backup-pending-") {
-			continue
-		}
-		metadata, err := s.loadBackup(entry.Name())
+	result := make([]BackupSummary, 0, len(located))
+	for _, item := range located {
+		metadata, err := s.readBackupMetadata(item.path)
 		if err != nil {
 			continue
 		}
-		if err := s.validateStoredFact(context.Background(), metadata.ID, metadata.Fact, filepath.Join(s.BackupRoot(), entry.Name(), "content")); err != nil {
+		if err := s.validateStoredFact(context.Background(), metadata.ID, metadata.Fact, filepath.Join(item.path, "content")); err != nil {
 			continue
 		}
-		result = append(result, BackupSummary{ID: metadata.ID, BackupID: entry.Name(), CreatedAt: metadata.CreatedAt, Variants: len(metadata.Fact.Variants)})
+		result = append(result, BackupSummary{ID: metadata.ID, BackupID: item.id, CreatedAt: metadata.CreatedAt, Variants: len(metadata.Fact.Variants)})
 	}
 	sort.Slice(result, func(i, j int) bool { return result[i].BackupID > result[j].BackupID })
 	return result, nil
@@ -248,22 +262,22 @@ func (s Store) InspectBackup(ctx context.Context, backupID string) (string, Fact
 	if err := contextError(ctx); err != nil {
 		return "", Fact{}, err
 	}
-	metadata, err := s.loadBackup(backupID)
+	metadata, backupDir, err := s.loadBackup(backupID)
 	if err != nil {
 		return "", Fact{}, err
 	}
-	if err := s.validateStoredFact(ctx, metadata.ID, metadata.Fact, filepath.Join(s.BackupRoot(), backupID, "content")); err != nil {
+	if err := s.validateStoredFact(ctx, metadata.ID, metadata.Fact, filepath.Join(backupDir, "content")); err != nil {
 		return "", Fact{}, err
 	}
 	return metadata.ID, metadata.Fact, nil
 }
 
 func (s Store) RestoreBackup(ctx context.Context, backupID string) (Fact, error) {
-	metadata, err := s.loadBackup(backupID)
+	metadata, backupDir, err := s.loadBackup(backupID)
 	if err != nil {
 		return Fact{}, err
 	}
-	content := filepath.Join(s.BackupRoot(), backupID, "content")
+	content := filepath.Join(backupDir, "content")
 	if err := s.validateStoredFact(ctx, metadata.ID, metadata.Fact, content); err != nil {
 		return Fact{}, err
 	}
@@ -344,17 +358,84 @@ func sortedUnique(values []string) bool {
 	return true
 }
 
-func (s Store) loadBackup(backupID string) (backupMetadata, error) {
+func (s Store) loadBackup(backupID string) (backupMetadata, string, error) {
 	if backupID == "" || backupID == "." || backupID == ".." || backupID != filepath.Base(backupID) || strings.ContainsAny(backupID, `/\\`) {
-		return backupMetadata{}, errors.New("invalid Skill backup ID")
+		return backupMetadata{}, "", errors.New("invalid Skill backup ID")
 	}
 	if strings.HasPrefix(backupID, ".oneagent-backup-pending-") {
-		return backupMetadata{}, errors.New("invalid Skill backup ID")
+		return backupMetadata{}, "", errors.New("invalid Skill backup ID")
 	}
-	if err := rejectSymlinkComponents(s.home, s.BackupRoot()); err != nil {
-		return backupMetadata{}, err
+	located, err := s.listLocatedBackups(backupID)
+	if err != nil {
+		return backupMetadata{}, "", err
 	}
-	backupDir := filepath.Join(s.BackupRoot(), backupID)
+	for _, item := range located {
+		if item.id != backupID {
+			continue
+		}
+		metadata, readErr := s.readBackupMetadata(item.path)
+		if readErr == nil {
+			return metadata, item.path, nil
+		}
+	}
+	return backupMetadata{}, "", errors.New("Skill backup is invalid")
+}
+
+type locatedBackup struct {
+	id   string
+	path string
+}
+
+func (s Store) listLocatedBackups(backupID string) ([]locatedBackup, error) {
+	result := make([]locatedBackup, 0)
+	for _, root := range []string{s.BackupRoot(), s.LegacyBackupRoot()} {
+		if err := rejectSymlinkComponents(s.home, root); err != nil {
+			return nil, err
+		}
+		entries, err := os.ReadDir(root)
+		if os.IsNotExist(err) {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		if root == s.BackupRoot() {
+			for _, skillEntry := range entries {
+				if !skillEntry.IsDir() || strings.HasPrefix(skillEntry.Name(), ".oneagent-backup-pending-") {
+					continue
+				}
+				skillRoot := filepath.Join(root, skillEntry.Name())
+				if err := rejectSymlinkComponents(s.home, skillRoot); err != nil {
+					return nil, err
+				}
+				backups, readErr := os.ReadDir(skillRoot)
+				if readErr != nil {
+					return nil, readErr
+				}
+				for _, entry := range backups {
+					if !entry.IsDir() || strings.HasPrefix(entry.Name(), ".oneagent-backup-pending-") {
+						continue
+					}
+					if backupID == "" || entry.Name() == backupID {
+						result = append(result, locatedBackup{id: entry.Name(), path: filepath.Join(skillRoot, entry.Name())})
+					}
+				}
+			}
+			continue
+		}
+		for _, entry := range entries {
+			if !entry.IsDir() || strings.HasPrefix(entry.Name(), ".oneagent-backup-pending-") {
+				continue
+			}
+			if backupID == "" || entry.Name() == backupID {
+				result = append(result, locatedBackup{id: entry.Name(), path: filepath.Join(root, entry.Name())})
+			}
+		}
+	}
+	return result, nil
+}
+
+func (s Store) readBackupMetadata(backupDir string) (backupMetadata, error) {
 	info, err := os.Lstat(backupDir)
 	if err != nil || info.Mode()&os.ModeSymlink != 0 || !info.IsDir() {
 		return backupMetadata{}, errors.New("Skill backup is invalid")
@@ -502,16 +583,39 @@ func (s Store) secureTree(ctx context.Context, root string) error {
 	})
 }
 
-func (s Store) pruneBackups() error {
-	backups, err := s.ListBackups()
+func (s Store) pruneBackups(id string) error {
+	located, err := s.listLocatedBackups("")
 	if err != nil {
 		return err
 	}
-	if len(backups) <= backupRetention {
+	type validBackup struct {
+		item    locatedBackup
+		created time.Time
+	}
+	backups := make([]validBackup, 0)
+	for _, item := range located {
+		metadata, readErr := s.readBackupMetadata(item.path)
+		if readErr != nil || metadata.ID != id {
+			continue
+		}
+		created, parseErr := time.Parse(time.RFC3339Nano, metadata.CreatedAt)
+		if parseErr != nil {
+			continue
+		}
+		backups = append(backups, validBackup{item: item, created: created})
+	}
+	sort.Slice(backups, func(i, j int) bool {
+		if backups[i].created.Equal(backups[j].created) {
+			return backups[i].item.id > backups[j].item.id
+		}
+		return backups[i].created.After(backups[j].created)
+	})
+	retention := s.fs.BackupRetention()
+	if len(backups) <= retention {
 		return nil
 	}
-	for _, backup := range backups[backupRetention:] {
-		if err := os.RemoveAll(filepath.Join(s.BackupRoot(), backup.BackupID)); err != nil {
+	for _, backup := range backups[retention:] {
+		if err := os.RemoveAll(backup.item.path); err != nil {
 			return err
 		}
 	}
