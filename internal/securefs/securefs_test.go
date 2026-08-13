@@ -2,6 +2,7 @@ package securefs
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -50,6 +51,147 @@ func TestAtomicWriteCreatesPrivateFileAndCollisionSafeBackup(t *testing.T) {
 	}
 	if _, err := os.Stat(target + ".backup-20260730123456-1"); err != nil {
 		t.Fatalf("collision backup missing: %v", err)
+	}
+}
+
+func TestAtomicWriteUsesManagedBackupRootAndPrunesPerTarget(t *testing.T) {
+	home := t.TempDir()
+	backupRoot := filepath.Join(home, ".oneagent", "backup")
+	first := filepath.Join(home, ".config", "first.json")
+	second := filepath.Join(home, ".config", "second.json")
+	if err := os.MkdirAll(filepath.Dir(first), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{first, second} {
+		if err := os.WriteFile(path, []byte("initial"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	store := New(Options{
+		OS:         "linux",
+		BackupRoot: backupRoot,
+		Retention:  func() int { return 3 },
+		Now:        fixedClock,
+	})
+	for i := 0; i < 5; i++ {
+		if _, err := store.AtomicWrite(context.Background(), first, []byte(fmt.Sprintf("first-%d", i)), false); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := store.AtomicWrite(context.Background(), second, []byte("second-new"), false); err != nil {
+		t.Fatal(err)
+	}
+	firstEntries, err := os.ReadDir(BackupGroupPath(backupRoot, first))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(firstEntries) != 3 {
+		t.Fatalf("first backups = %d, want 3", len(firstEntries))
+	}
+	secondEntries, err := os.ReadDir(BackupGroupPath(backupRoot, second))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(secondEntries) != 1 {
+		t.Fatalf("second backups = %d, want 1", len(secondEntries))
+	}
+	if matches, _ := filepath.Glob(first + ".backup-*"); len(matches) != 0 {
+		t.Fatalf("legacy beside-file backups remain: %v", matches)
+	}
+}
+
+func TestAtomicWriteUsesDefaultBackupRetention(t *testing.T) {
+	home := t.TempDir()
+	target := filepath.Join(home, "config.json")
+	if err := os.WriteFile(target, []byte("initial"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	store := New(Options{OS: "linux", BackupRoot: filepath.Join(home, ".oneagent", "backup"), Now: fixedClock})
+	for i := 0; i < 5; i++ {
+		if _, err := store.AtomicWrite(context.Background(), target, []byte(fmt.Sprintf("value-%d", i)), false); err != nil {
+			t.Fatal(err)
+		}
+	}
+	entries, err := os.ReadDir(BackupGroupPath(filepath.Join(home, ".oneagent", "backup"), target))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 3 {
+		t.Fatalf("default backups = %d, want 3", len(entries))
+	}
+}
+
+func TestAtomicWriteMigratesAndPrunesLegacyBackups(t *testing.T) {
+	home := t.TempDir()
+	target := filepath.Join(home, "config.json")
+	if err := os.WriteFile(target, []byte("current"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for i := range 5 {
+		path := fmt.Sprintf("%s.backup-2026073000000%d", target, i)
+		if err := os.WriteFile(path, []byte(fmt.Sprintf("legacy-%d", i)), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		when := time.Date(2026, time.July, 30, 0, 0, i, 0, time.UTC)
+		if err := os.Chtimes(path, when, when); err != nil {
+			t.Fatal(err)
+		}
+	}
+	backupRoot := filepath.Join(home, ".oneagent", "backup")
+	store := New(Options{OS: "linux", BackupRoot: backupRoot, Retention: func() int { return 3 }, Now: fixedClock})
+	if _, err := store.AtomicWrite(context.Background(), target, []byte("replacement"), false); err != nil {
+		t.Fatal(err)
+	}
+	if matches, _ := filepath.Glob(target + ".backup-*"); len(matches) != 0 {
+		t.Fatalf("legacy backups remain after migration: %v", matches)
+	}
+	entries, err := os.ReadDir(BackupGroupPath(backupRoot, target))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 3 {
+		t.Fatalf("managed backups = %d, want 3", len(entries))
+	}
+	contents := map[string]bool{}
+	for _, entry := range entries {
+		data, readErr := os.ReadFile(filepath.Join(BackupGroupPath(backupRoot, target), entry.Name()))
+		if readErr != nil {
+			t.Fatal(readErr)
+		}
+		contents[string(data)] = true
+	}
+	for _, want := range []string{"current", "legacy-3", "legacy-4"} {
+		if !contents[want] {
+			t.Fatalf("retained contents = %v, missing %q", contents, want)
+		}
+	}
+}
+
+func TestAtomicWriteRejectsSymlinkedManagedBackupRoot(t *testing.T) {
+	if os.Getenv("GOOS") == "windows" {
+		t.Skip("symlink permissions are environment-dependent on Windows")
+	}
+	home := t.TempDir()
+	target := filepath.Join(home, "config.json")
+	if err := os.WriteFile(target, []byte("initial"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	outside := t.TempDir()
+	backupRoot := filepath.Join(home, ".oneagent", "backup")
+	if err := os.MkdirAll(filepath.Dir(backupRoot), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, backupRoot); err != nil {
+		t.Fatal(err)
+	}
+	store := New(Options{OS: "linux", BackupRoot: backupRoot})
+	if _, err := store.AtomicWrite(context.Background(), target, []byte("replacement"), false); err == nil {
+		t.Fatal("write followed a symlinked managed backup root")
+	}
+	if entries, err := os.ReadDir(outside); err != nil {
+		t.Fatal(err)
+	} else if len(entries) != 0 {
+		t.Fatalf("symlink target was modified: %v", entries)
 	}
 }
 

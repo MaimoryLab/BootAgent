@@ -26,11 +26,12 @@ describe("MirrorSetting", () => {
   beforeEach(() => {
     getSettings.mockReset();
     saveSettings.mockReset();
-    getSettings.mockResolvedValue({ schema_version: 1, prefer_mirror: false, mirror_from_region: false });
-    saveSettings.mockImplementation(async (settings: { prefer_mirror: boolean }) => ({
+    getSettings.mockResolvedValue({ schema_version: 1, prefer_mirror: false, mirror_from_region: false, backup_retention: 3 });
+    saveSettings.mockImplementation(async (settings: { prefer_mirror: boolean; backup_retention: number }) => ({
       schema_version: 1,
       prefer_mirror: settings.prefer_mirror,
       mirror_from_region: false,
+      backup_retention: settings.backup_retention,
     }));
   });
 
@@ -52,7 +53,7 @@ describe("MirrorSetting", () => {
 
     await userEvent.click(screen.getByRole("switch"));
     await waitFor(() =>
-      expect(saveSettings).toHaveBeenCalledWith({ schema_version: 1, prefer_mirror: true, mirror_from_region: false }),
+      expect(saveSettings).toHaveBeenCalledWith({ schema_version: 1, prefer_mirror: true, mirror_from_region: false, backup_retention: 3 }),
     );
     expect((screen.getByRole("switch") as HTMLInputElement).checked).toBe(true);
   });
@@ -96,7 +97,7 @@ describe("MirrorSetting", () => {
   // A box that is already ticked on first run has to say why, or it reads as
   // something the user set and forgot.
   it("explains a tick that came from the system region", async () => {
-    getSettings.mockResolvedValue({ schema_version: 1, prefer_mirror: true, mirror_from_region: true });
+    getSettings.mockResolvedValue({ schema_version: 1, prefer_mirror: true, mirror_from_region: true, backup_retention: 3 });
     render(<MirrorSetting />);
     await waitFor(() => expect(screen.getByText(/已根据系统地区设置默认使用镜像/)).toBeTruthy());
 
@@ -108,14 +109,14 @@ describe("MirrorSetting", () => {
   // Turning off a regional default must persist as the user's own choice, so the
   // next launch does not tick it again.
   it("stores an explicit off over a regional default", async () => {
-    getSettings.mockResolvedValue({ schema_version: 1, prefer_mirror: true, mirror_from_region: true });
+    getSettings.mockResolvedValue({ schema_version: 1, prefer_mirror: true, mirror_from_region: true, backup_retention: 3 });
     render(<MirrorSetting />);
     await waitFor(() => expect(getSettings).toHaveBeenCalled());
     await userEvent.click(screen.getByRole("button", { name: heading }));
 
     await userEvent.click(screen.getByRole("switch"));
     await waitFor(() =>
-      expect(saveSettings).toHaveBeenCalledWith({ schema_version: 1, prefer_mirror: false, mirror_from_region: false }),
+      expect(saveSettings).toHaveBeenCalledWith({ schema_version: 1, prefer_mirror: false, mirror_from_region: false, backup_retention: 3 }),
     );
     expect((screen.getByRole("switch") as HTMLInputElement).checked).toBe(false);
     // The regional explanation is gone: it is now a stored choice.

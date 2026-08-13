@@ -13,7 +13,8 @@ import (
 
 func testStore(t *testing.T) Store {
 	t.Helper()
-	return NewStore(t.TempDir(), securefs.New(securefs.Options{OS: "linux"}))
+	home := t.TempDir()
+	return NewStore(home, securefs.New(securefs.Options{OS: "linux", BackupRoot: filepath.Join(home, ".oneagent", "backup"), Retention: func() int { return 3 }}))
 }
 
 func writeStoredSkill(t *testing.T, root, body string) TreeStats {
@@ -205,7 +206,7 @@ func TestBackupRestoreAndRetention(t *testing.T) {
 		{Hash: strings.Repeat("f", 64), ObservedAgents: []string{"codex"}},
 	}}
 	var first BackupSummary
-	for i := range 21 {
+	for i := range 4 {
 		backup, err := s.CreateBackup(context.Background(), "review", fact)
 		if err != nil {
 			t.Fatal(err)
@@ -218,8 +219,8 @@ func TestBackupRestoreAndRetention(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(backups) != 20 {
-		t.Fatalf("backups=%d", len(backups))
+	if len(backups) != 3 {
+		t.Fatalf("backups=%d, want 3", len(backups))
 	}
 	if backups[0].BackupID == first.BackupID {
 		t.Fatal("oldest backup was retained")
@@ -245,7 +246,7 @@ func TestBackupRestoreAndRetention(t *testing.T) {
 	if _, err := os.Stat(s.VariantPath("review", staleHash)); !os.IsNotExist(err) {
 		t.Fatalf("restore retained stale variant: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(s.BackupRoot(), backups[0].BackupID, "content", "variants", stats.Hash, "SKILL.md"), []byte("tampered"), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(s.skillBackupRoot(backups[0].ID), backups[0].BackupID, "content", "variants", stats.Hash, "SKILL.md"), []byte("tampered"), 0600); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.RestoreBackup(context.Background(), backups[0].BackupID); err == nil {
@@ -255,6 +256,76 @@ func TestBackupRestoreAndRetention(t *testing.T) {
 		if _, err := s.RestoreBackup(context.Background(), id); err == nil {
 			t.Errorf("accepted backup ID %q", id)
 		}
+	}
+}
+
+func TestBackupRetentionIsIndependentPerSkill(t *testing.T) {
+	home := t.TempDir()
+	backupRoot := filepath.Join(home, ".oneagent", "backup")
+	filesystem := securefs.New(securefs.Options{OS: "linux", BackupRoot: backupRoot, Retention: func() int { return 3 }})
+	s := NewStore(home, filesystem)
+	for _, id := range []string{"review", "other"} {
+		source := filepath.Join(t.TempDir(), id)
+		stats := writeStoredSkill(t, source, id)
+		if err := s.SaveVariant(context.Background(), id, source, stats); err != nil {
+			t.Fatal(err)
+		}
+		fact := Fact{Variants: []Variant{{Hash: stats.Hash, Stored: true}}}
+		count := 1
+		if id == "review" {
+			count = 4
+		}
+		for range count {
+			if _, err := s.CreateBackup(context.Background(), id, fact); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	backups, err := s.ListBackups()
+	if err != nil {
+		t.Fatal(err)
+	}
+	counts := map[string]int{}
+	for _, backup := range backups {
+		counts[backup.ID]++
+	}
+	if counts["review"] != 3 || counts["other"] != 1 {
+		t.Fatalf("backup counts = %#v, want review=3 other=1", counts)
+	}
+	entries, err := os.ReadDir(filepath.Join(backupRoot, "skills", "review"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 3 {
+		t.Fatalf("review backup directories = %d, want 3", len(entries))
+	}
+}
+
+func TestLegacySkillBackupRemainsReadable(t *testing.T) {
+	s := testStore(t)
+	source := filepath.Join(t.TempDir(), "review")
+	stats := writeStoredSkill(t, source, "review")
+	if err := s.SaveVariant(context.Background(), "review", source, stats); err != nil {
+		t.Fatal(err)
+	}
+	legacy := filepath.Join(s.LegacyBackupRoot(), "legacy-review")
+	content := filepath.Join(legacy, "content", "variants", stats.Hash)
+	if err := os.MkdirAll(content, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	metadata := `{"schema_version":1,"id":"review","created_at":"2026-07-30T12:34:56Z","fact":{"variants":[{"hash":"` + stats.Hash + `","stored":true}]}}`
+	if err := os.WriteFile(filepath.Join(legacy, "metadata.json"), []byte(metadata), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(content, "SKILL.md"), []byte("review"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	backups, err := s.ListBackups()
+	if err != nil || len(backups) != 1 || backups[0].BackupID != "legacy-review" {
+		t.Fatalf("legacy backups = %#v, %v", backups, err)
+	}
+	if _, err := s.RestoreBackup(context.Background(), "legacy-review"); err != nil {
+		t.Fatal(err)
 	}
 }
 
@@ -323,7 +394,7 @@ func TestBackupRejectsUndeclaredContent(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			content := filepath.Join(s.BackupRoot(), backup.BackupID, "content")
+			content := filepath.Join(s.skillBackupRoot(backup.ID), backup.BackupID, "content")
 			if unexpected == "variant" {
 				writeStoredSkill(t, filepath.Join(content, "variants", strings.Repeat("e", 64)), "stale")
 			} else if err := os.WriteFile(filepath.Join(content, "unexpected"), []byte("stale"), 0600); err != nil {
@@ -345,10 +416,10 @@ func TestBackupRejectsUndeclaredContent(t *testing.T) {
 
 func TestListBackupsSkipsPendingAndInvalidEntries(t *testing.T) {
 	s := testStore(t)
-	if err := os.MkdirAll(filepath.Join(s.BackupRoot(), ".oneagent-backup-pending-test"), 0700); err != nil {
+	if err := os.MkdirAll(filepath.Join(s.BackupRoot(), "review", ".oneagent-backup-pending-test"), 0700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.MkdirAll(filepath.Join(s.BackupRoot(), "invalid"), 0700); err != nil {
+	if err := os.MkdirAll(filepath.Join(s.BackupRoot(), "review", "invalid"), 0700); err != nil {
 		t.Fatal(err)
 	}
 	source := filepath.Join(t.TempDir(), "review")
@@ -360,7 +431,7 @@ func TestListBackupsSkipsPendingAndInvalidEntries(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(s.BackupRoot(), valid.BackupID, "content", "variants", stats.Hash, "SKILL.md"), []byte("changed"), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(s.skillBackupRoot(valid.ID), valid.BackupID, "content", "variants", stats.Hash, "SKILL.md"), []byte("changed"), 0600); err != nil {
 		t.Fatal(err)
 	}
 	backups, err := s.ListBackups()
@@ -387,6 +458,9 @@ func TestStoreRejectsSymlinkedPrivateRoots(t *testing.T) {
 			root := s.SkillsRoot()
 			if operation == "backup" {
 				root = s.BackupRoot()
+			}
+			if err := os.MkdirAll(filepath.Dir(root), 0700); err != nil {
+				t.Fatal(err)
 			}
 			if err := os.Symlink(outside, root); err != nil {
 				t.Fatal(err)

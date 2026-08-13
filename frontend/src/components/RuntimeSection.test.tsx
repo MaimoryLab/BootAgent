@@ -51,11 +51,12 @@ describe("RuntimeSection", () => {
     installRuntime.mockReset();
     getSettings.mockReset();
     saveSettings.mockReset();
-    getSettings.mockResolvedValue({ schema_version: 1, prefer_mirror: false, mirror_from_region: false });
-    saveSettings.mockImplementation(async (settings: { prefer_mirror: boolean }) => ({
+    getSettings.mockResolvedValue({ schema_version: 1, prefer_mirror: false, mirror_from_region: false, backup_retention: 3 });
+    saveSettings.mockImplementation(async (settings: { prefer_mirror: boolean; backup_retention: number }) => ({
       schema_version: 1,
       prefer_mirror: settings.prefer_mirror,
       mirror_from_region: false,
+      backup_retention: settings.backup_retention,
     }));
   });
 

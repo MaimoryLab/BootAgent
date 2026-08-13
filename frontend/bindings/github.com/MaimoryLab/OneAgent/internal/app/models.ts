@@ -161,7 +161,6 @@ export interface MCPChange {
     "spec"?: mcp$0.Spec | null;
     "agents": string[] | null;
     "delete"?: boolean;
-    "delete_skill"?: boolean;
 }
 
 export interface MCPScanResult {
@@ -249,6 +248,11 @@ export interface Settings {
      * setting that produced it.
      */
     "mirror_from_region": boolean;
+
+    /**
+     * BackupRetention is the number of historical versions kept per target.
+     */
+    "backup_retention": number;
 }
 
 export interface SkillAgentApplyResult {
@@ -292,6 +296,7 @@ export interface SkillChange {
     "variant_hash": string;
     "targets": string[] | null;
     "delete"?: boolean;
+    "delete_skill"?: boolean;
     "import_source"?: string;
 }
 

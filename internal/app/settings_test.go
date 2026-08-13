@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -47,6 +48,9 @@ func TestSettingsDefaultToTheOfficialSourceAndSurviveARestart(t *testing.T) {
 	if settings.PreferMirror {
 		t.Fatal("a fresh install defaulted to the mirror")
 	}
+	if settings.BackupRetention != 3 {
+		t.Fatalf("fresh backup retention = %d, want 3", settings.BackupRetention)
+	}
 
 	if _, err := core.SaveSettings(context.Background(), Settings{PreferMirror: true}); err != nil {
 		t.Fatal(err)
@@ -69,6 +73,91 @@ func TestSettingsDefaultToTheOfficialSourceAndSurviveARestart(t *testing.T) {
 	}
 	if again, _ := settingsCore(t, home).Settings(context.Background()); again.PreferMirror {
 		t.Fatal("clearing the preference did not persist")
+	}
+}
+
+func TestBackupRetentionPersistsAndBoundsValues(t *testing.T) {
+	home := t.TempDir()
+	core := settingsCore(t, home)
+	if _, err := core.SaveSettings(context.Background(), Settings{PreferMirror: true, BackupRetention: 7}); err != nil {
+		t.Fatal(err)
+	}
+	reloaded, err := settingsCore(t, home).Settings(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reloaded.BackupRetention != 7 || !reloaded.PreferMirror {
+		t.Fatalf("reloaded settings = %#v", reloaded)
+	}
+	for _, value := range []int{0, -1, 101, 1000} {
+		if _, err := core.SaveSettings(context.Background(), Settings{BackupRetention: value}); err != nil {
+			t.Fatalf("save retention %d: %v", value, err)
+		}
+		got, err := core.Settings(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := 3
+		if value == 0 {
+			want = 7
+		} else if value < 1 {
+			want = 1
+		}
+		if value > 100 {
+			want = 100
+		}
+		if got.BackupRetention != want {
+			t.Fatalf("saved retention %d read as %d, want %d", value, got.BackupRetention, want)
+		}
+	}
+}
+
+func TestBackupRetentionReadRejectsOutOfRangeValues(t *testing.T) {
+	for _, value := range []int{0, -1, 101, 1000} {
+		home := t.TempDir()
+		core := settingsCore(t, home)
+		if err := os.MkdirAll(filepath.Dir(core.settingsPath()), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		data := []byte(`{"schema_version":1,"prefer_mirror":false,"backup_retention":` + fmt.Sprint(value) + `}`)
+		if err := os.WriteFile(core.settingsPath(), data, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		settings, err := core.Settings(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if settings.BackupRetention != 3 {
+			t.Fatalf("stored retention %d read as %d, want 3", value, settings.BackupRetention)
+		}
+	}
+}
+
+func TestBackupRetentionDefaultsForLegacySettingsAndOldCallers(t *testing.T) {
+	home := t.TempDir()
+	core := settingsCore(t, home)
+	if err := os.MkdirAll(filepath.Dir(core.settingsPath()), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(core.settingsPath(), []byte(`{"schema_version":1,"prefer_mirror":true}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	settings, err := core.Settings(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if settings.BackupRetention != 3 || !settings.PreferMirror {
+		t.Fatalf("legacy settings = %#v", settings)
+	}
+	if _, err := core.SaveSettings(context.Background(), Settings{PreferMirror: false}); err != nil {
+		t.Fatal(err)
+	}
+	reloaded, err := core.Settings(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reloaded.BackupRetention != 3 || reloaded.PreferMirror {
+		t.Fatalf("old caller changed defaults unexpectedly: %#v", reloaded)
 	}
 }
 

@@ -16,6 +16,7 @@ import { AdvancedSection } from "./AdvancedSection";
 export function MirrorSetting({ label }: { label?: string }) {
   const { t } = useI18n();
   const [preferMirror, setPreferMirror] = useState<boolean | null>(null);
+  const [backupRetention, setBackupRetention] = useState(3);
   // Whether the tick came from the machine's region rather than from a choice.
   // Shown so an already-ticked box does not look like something the user did and
   // forgot, and so it is clear it can be turned off.
@@ -30,11 +31,17 @@ export function MirrorSetting({ label }: { label?: string }) {
         if (!active) return;
         setPreferMirror(settings.prefer_mirror);
         setFromRegion(settings.mirror_from_region);
+        setBackupRetention(settings.backup_retention ?? 3);
       })
       .catch(() => {
         // An unreadable preference is not worth a visible error: the backend
         // falls back to the official source, which is also what we render.
-        if (active) setPreferMirror(false);
+        if (active) {
+          setPreferMirror(false);
+          // A zero retention tells the backend to preserve a value written by
+          // a newer Settings page when this older control cannot read it.
+          setBackupRetention(0);
+        }
       });
     return () => {
       active = false;
@@ -49,9 +56,10 @@ export function MirrorSetting({ label }: { label?: string }) {
     setFromRegion(false);
     setFailure("");
     try {
-      const saved = await api.saveSettings({ schema_version: 1, prefer_mirror: next, mirror_from_region: false });
+      const saved = await api.saveSettings({ schema_version: 1, prefer_mirror: next, mirror_from_region: false, backup_retention: backupRetention });
       setPreferMirror(saved.prefer_mirror);
       setFromRegion(saved.mirror_from_region);
+      setBackupRetention(saved.backup_retention ?? backupRetention);
     } catch (error) {
       // Put the switch back so it never shows a preference that was not stored.
       setPreferMirror(previous);
