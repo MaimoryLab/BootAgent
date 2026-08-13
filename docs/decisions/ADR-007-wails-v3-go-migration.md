@@ -17,7 +17,7 @@ shipped channel remains an unsigned technical preview.
 ## Decision
 
 1. The migration line uses Go 1.26+ and pins Wails v3 to
-   `v3.0.0-beta.7` for the initial native spike. The matching CLI uses the
+   `v3.0.0-beta.8` for the initial native spike. The matching CLI uses the
    same module version. The browser runtime is pinned separately to
    `3.0.0-beta.1`, the version embedded in that Wails module and present in the
    frontend lockfile used by the production bundle.

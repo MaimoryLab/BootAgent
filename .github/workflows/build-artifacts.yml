@@ -209,7 +209,7 @@ jobs:
         run: |
           version="${RELEASE_VERSION#v}"
           sed "s/0.0.0/${version}/g" windows/info.json > windows/info.generated.json
-          GOARCH=amd64 go run github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.7 generate syso \
+          GOARCH=amd64 go run github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.8 generate syso \
             -icon windows/icon.ico \
             -manifest windows/wails.exe.manifest \
             -info windows/info.generated.json \
@@ -233,7 +233,7 @@ jobs:
         shell: pwsh
         run: |
           $env:GOARCH = 'amd64'
-          go run github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.7 generate webview2bootstrapper -dir "$env:GITHUB_WORKSPACE/build/windows/nsis"
+          go run github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.8 generate webview2bootstrapper -dir "$env:GITHUB_WORKSPACE/build/windows/nsis"
           $version = $env:RELEASE_VERSION.TrimStart('v')
           $arch = '${{ matrix.arch.ota }}'
           Set-Location "$env:GITHUB_WORKSPACE/build/windows/nsis"
@@ -327,7 +327,7 @@ jobs:
           appimage_arch='${{ matrix.arch.goarch == 'amd64' && 'x86_64' || 'aarch64' }}'
           package_arch='${{ matrix.arch.ota }}'
 
-          go run github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.7 \
+          go run github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.8 \
             generate .desktop \
             -name BootAgent \
             -exec bootagent-desktop \
@@ -336,7 +336,7 @@ jobs:
             -categories 'Development;' \
             -comment 'Local AI development environment activator'
 
-          go run github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.7 \
+          go run github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.8 \
             generate appimage \
             -binary bin/bootagent-desktop \
             -icon build/appicon.png \
@@ -345,7 +345,7 @@ jobs:
             -builddir build/linux/appimage/build
           mv "bin/bootagent-desktop-${appimage_arch}.AppImage" "bin/BootAgent-linux-${package_arch}.AppImage"
 
-          go run github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.7 \
+          go run github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.8 \
             tool package \
             -name bootagent-desktop \
             -format deb \
@@ -354,7 +354,7 @@ jobs:
           test -s bin/bootagent-desktop.deb
           mv bin/bootagent-desktop.deb "bin/BootAgent-linux-${package_arch}.deb"
 
-          go run github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.7 \
+          go run github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.8 \
             tool package \
             -name bootagent-desktop \
             -format rpm \
