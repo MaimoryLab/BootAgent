@@ -48,7 +48,7 @@ button:focus-visible,
 input:focus-visible,
 select:focus-visible,
 a:focus-visible {
-  outline: 3px solid rgba(0, 122, 255, 0.3);
+  outline: 3px solid var(--focus-ring);
   outline-offset: 2px;
 }
 
@@ -80,15 +80,23 @@ button:active:not(:disabled) {
 
 .button-primary {
   min-width: 132px;
-  color: #ffffff;
-  background: var(--blue);
-  border-color: var(--blue);
+  /* Not #ffffff: the dark theme's accent is a lifted terracotta, and white on
+     it is 1.9:1. --on-accent carries the right ink for whichever accent is in
+     play -- white on light, #211f1b on dark. */
+  color: var(--on-accent);
+  background: var(--accent);
+  border-color: var(--accent);
   font-weight: 600;
 }
 
 .button-primary:hover:not(:disabled) {
-  background: var(--blue-hover);
-  border-color: var(--blue-hover);
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+.button-primary:active:not(:disabled) {
+  background: var(--accent-pressed);
+  border-color: var(--accent-pressed);
 }
 
 .button-secondary,
@@ -122,8 +130,8 @@ button:active:not(:disabled) {
 
 .text-field:focus,
 .field-stack > input:focus {
-  border-color: var(--blue);
-  box-shadow: 0 0 0 3px var(--blue-soft);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
   outline: none;
 }
 
@@ -146,15 +154,18 @@ button:active:not(:disabled) {
 .spinner {
   width: 17px;
   height: 17px;
-  border: 2px solid rgba(110, 110, 115, 0.25);
-  border-top-color: var(--blue);
+  border: 2px solid var(--border-strong);
+  border-top-color: var(--accent);
   border-radius: 50%;
   animation: spin 700ms linear infinite;
 }
 
-.spinner-on-blue {
-  border-color: rgba(255, 255, 255, 0.35);
-  border-top-color: #ffffff;
+/* For a spinner sitting on an --accent fill (a busy primary button), where the
+   track and head have to be the button's own label colour rather than white:
+   on the dark theme that fill is light and its label is dark ink. */
+.spinner-on-accent {
+  border-color: color-mix(in srgb, var(--on-accent) 35%, transparent);
+  border-top-color: var(--on-accent);
 }
 
 .spin {
@@ -195,8 +206,8 @@ button:active:not(:disabled) {
 }
 
 .select-field-trigger[aria-expanded="true"] {
-  border-color: var(--blue);
-  box-shadow: 0 0 0 3px var(--blue-soft);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 /* Grows to fill so the arrow stays pinned right, and truncates rather than
@@ -275,7 +286,7 @@ button:active:not(:disabled) {
 
 .select-field-check {
   flex: 0 0 auto;
-  color: var(--blue);
+  color: var(--accent);
   /* Reserves the tick's width for every row, so the labels do not shift
      sideways as the selection moves. */
   visibility: hidden;
@@ -304,29 +315,33 @@ button:active:not(:disabled) {
   line-height: 1.45;
 }
 
+/* Each border is mixed from the notice's own token rather than written as a
+   literal. The four used to be hand-mixed 20%-alpha copies of the light-theme
+   ramp, so they stayed put when the palette moved and stayed light when the
+   theme went dark -- a border drifting away from the text it framed. */
 .notice-info {
   color: var(--info);
   background: var(--info-soft);
-  border-color: rgba(0, 122, 255, 0.2);
+  border-color: color-mix(in srgb, var(--info) 20%, transparent);
 }
 
 .notice-success {
   color: var(--green);
   background: var(--green-soft);
-  border-color: rgba(36, 138, 61, 0.2);
+  border-color: color-mix(in srgb, var(--green) 20%, transparent);
 }
 
 .notice-warning {
   gap: 12px;
   color: var(--orange);
   background: var(--orange-soft);
-  border-color: rgba(178, 80, 0, 0.2);
+  border-color: color-mix(in srgb, var(--orange) 20%, transparent);
 }
 
 .notice-error {
   color: var(--red);
   background: var(--red-soft);
-  border-color: rgba(215, 0, 21, 0.2);
+  border-color: color-mix(in srgb, var(--red) 20%, transparent);
 }
 
 /* A notice carrying a hint below its message stacks instead of laying the two out

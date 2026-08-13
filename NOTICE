@@ -69,9 +69,13 @@ carrying a brand colour.
 
 BootAgent's own mark is not part of that inventory and is not third-party
 material. It is MaimoryLab's work, distributed under this repository's Apache-2.0
-license, and appears at frontend/src/components/icons/assets/bootagent-mark.svg
-in the interface and at build/appicon.png, build/darwin/icons.icns, and
-build/windows/icon.ico as the application icon. It is recorded under
+license. Its sources live in brand/, whose README states the geometry every copy
+is rendered from; it appears at
+frontend/src/components/icons/assets/bootagent-mark.svg in the interface and at
+build/appicon.png, build/darwin/icons.icns, and build/windows/icon.ico as the
+application icon. The one third-party dependency in brand/ is the wordmark
+lockup's typeface, Jura, used under the SIL Open Font License 1.1; the font is
+not vendored here. It is recorded under
 `firstPartyAssets` in frontend/src/components/icons/asset-rights.json, kept
 separate from the `assets` inventory above because it has no third-party source,
 licence text or copyright owner to record -- listing it there would assert a

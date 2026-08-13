@@ -72,12 +72,22 @@ tasks:
 
   # windows/icon.ico is tracked rather than generated, so there is deliberately no
   # generate:windows:icon task. `wails3 generate icons` scales every entry from
-  # appicon.png, and at 16x16 -- the size Explorer and the taskbar use -- the ring
-  # stroke, its counter, and the inner form each land on under 2.4px and blend
-  # into a solid block, losing the break in the ring. That entry is hand-drawn.
-  # A task that regenerated the file would discard it on every `task package`,
-  # silently and without failing. Re-run `wails3 generate icons` by hand only if
-  # the mark itself changes, then restore the 16x16 entry.
+  # appicon.png, and at 16x16 -- the size Explorer and the taskbar use -- a
+  # uniformly scaled ring stroke lands under 2.4px and blends into a solid block,
+  # losing the break in the ring. A task that regenerated the file would discard
+  # the corrected entry on every `task package`, silently and without failing.
+  #
+  # The tracked file's six entries (256/128/64/48/32/16) are rendered from the
+  # mark's own geometry -- a stroked circle at cx/cy 66/65 r 33 plus a round-capped
+  # line from 33,8 to 33,98, on a #211F1B plate, per build/appicon.png -- with the
+  # stroke held at the brand's 12 units down to 32px and widened to 18 for the
+  # 16x16 entry only. 18 is the point where that entry keeps a 2px ring wall and
+  # an open counter; at 12 the wall is 1px and breaks up, and past 20 the ring
+  # closes against the stem. The plate's corner radius scales with the entry
+  # (28 units at 128 and above, then 14/11/7/4).
+  #
+  # If the mark changes again, re-render all six with those rules rather than
+  # letting one scale factor cover every size.
 
   dev:frontend:
     summary: Runs the Vite dev server (used by `task dev`)

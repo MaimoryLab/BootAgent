@@ -4,8 +4,11 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="light dark" />
-    <meta name="theme-color" content="#f5f5f7" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#151517" media="(prefers-color-scheme: dark)" />
+    <!-- --page-bg per theme. ThemeContext overrides these with a single
+         resolved tag once it mounts; these cover the first paint and the case
+         where the user has not forced a theme. -->
+    <meta name="theme-color" content="#efeae0" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#161410" media="(prefers-color-scheme: dark)" />
     <meta name="description" content="BootAgent is the calm control plane for coding agents, providers, models, and profiles." />
     <title>BootAgent — every agent, one clear lane</title>
     <!--

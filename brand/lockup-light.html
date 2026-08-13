@@ -1,0 +1,29 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  /* The wordmark is set in Jura Medium (SIL OFL 1.1). The font is not vendored
+     here, so install it locally to re-render this lockup exactly; without it the
+     stack below falls back and the letterforms will not match the checked-in
+     PNG. The previous absolute path pointed into one contributor's home
+     directory and resolved nowhere else. */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1200px; height: 320px; background: transparent; }
+  .lockup {
+    width: 1200px; height: 320px;
+    display: flex; align-items: center; justify-content: center; gap: 40px;
+  }
+  .word { font-family: 'Jura Medium', 'Jura', ui-sans-serif, system-ui, sans-serif; font-size: 96px; letter-spacing: 0.05em; }
+</style>
+</head>
+<body>
+  <div class="lockup">
+    <svg width="140" height="180" viewBox="24 -1 84 108">
+      <circle cx="66" cy="65" r="33" fill="none" stroke="#211F1B" stroke-width="12"/>
+      <line x1="33" y1="8" x2="33" y2="98" stroke="#D96E49" stroke-width="12" stroke-linecap="round"/>
+    </svg>
+    <div class="word" style="color:#211F1B;">boot<span style="color:#D96E49;">Agent</span></div>
+  </div>
+</body>
+</html>

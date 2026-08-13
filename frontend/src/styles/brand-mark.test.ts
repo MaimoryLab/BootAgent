@@ -4,9 +4,11 @@
  * Two things here are load-bearing and neither is visible to jsdom, which does
  * not resolve var():
  *
- *   - The mark paints var(--blue), not a literal. #007AFF matches --blue exactly
- *     on the light theme, which is why a hardcoded fill looks correct until you
- *     switch to dark, where --blue becomes #0a84ff.
+ *   - The ring paints currentColor off var(--text-primary), and the stem paints
+ *     var(--brand) from inside the SVG. Neither is a literal: the mark's ink has
+ *     to invert between themes, and the brand terracotta has to stay the one
+ *     undarkened copy of itself. A hardcoded fill looks right on light and wrong
+ *     the moment you switch.
  *   - The tagline rule stays scoped to the tagline. It was written as
  *     `.brand-lockup span:last-child`, which matched any last-child span in the
  *     lockup -- including the one wrapping the mark -- and painted it
@@ -17,6 +19,8 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
+
+import brandMark from "../components/icons/assets/bootagent-mark.svg?raw";
 
 function sheet(name: string): string {
   const css = readFileSync(fileURLToPath(new URL(name, import.meta.url)), "utf8");
@@ -44,7 +48,21 @@ function declarations(css: string, selector: string): Map<string, string> {
 describe("sidebar product mark", () => {
   it("takes its colour from the theme token rather than a literal", () => {
     const rules = declarations(sheet("app.css"), ".brand-mark-glyph");
-    expect(rules.get("color")).toBe("var(--blue)");
+    // --text-primary, not --accent: currentColor is the ring's ink, and it
+    // inverts with the theme. --accent would put a second terracotta beside
+    // the stem's.
+    expect(rules.get("color")).toBe("var(--text-primary)");
+  });
+
+  it("keeps both of the mark's strokes off literals", () => {
+    // Imported with ?raw, the same way BrandMark consumes it, rather than read
+    // off disk: Vite rewrites `new URL("....svg", import.meta.url)` into an
+    // asset URL, which is no longer a file: URL for fileURLToPath to take.
+    expect(brandMark).toContain('stroke="currentColor"');
+    expect(brandMark).toContain('stroke="var(--brand)"');
+    // No hex anywhere -- including the brand's own terracotta, which the SVG
+    // must reach through the token so the dark theme can lift it.
+    expect(brandMark).not.toMatch(/#[0-9a-fA-F]{3,8}/);
   });
 
   it("scopes the tagline colour so it cannot reach the mark", () => {

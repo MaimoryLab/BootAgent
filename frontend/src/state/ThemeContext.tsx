@@ -89,7 +89,12 @@ export function ThemeProvider({ children }: PropsWithChildren) {
       tag.name = "theme-color";
       document.head.append(tag);
     }
-    tag.content = resolved === "dark" ? "#151517" : "#f5f5f7";
+    // These two are --page-bg from tokens.css, duplicated here because the OS
+    // window chrome reads the meta tag and cannot resolve var(). They must move
+    // together with that token and with index.html's media-driven pair; the
+    // light value used to be #f5f5f7 against a #ececef --page-bg, and the seam
+    // showed as a hairline above the window.
+    tag.content = resolved === "dark" ? "#161410" : "#efeae0";
   }, [resolved]);
 
   const setPreference = useCallback((next: ThemePreference) => {

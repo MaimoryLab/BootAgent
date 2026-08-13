@@ -3,38 +3,55 @@
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
-  --page-bg: #ececef;
-  --window-bg: #ffffff;
-  --sidebar-bg: rgba(246, 246, 248, 0.94);
-  --surface-subtle: #f7f7f9;
-  --surface-pressed: #ededf0;
-  --text-primary: #1d1d1f;
-  --text-secondary: #6e6e73;
-  --text-tertiary: #8e8e93;
-  --border: rgba(60, 60, 67, 0.18);
-  --border-strong: rgba(60, 60, 67, 0.28);
-  --border-faint: rgba(60, 60, 67, 0.08);
-  --icon-border: rgba(60, 60, 67, 0.12);
-  --icon-fg: #3a3a3c;
+  --page-bg: #efeae0;
+  --window-bg: #fbf9f4;
+  --sidebar-bg: rgba(247, 244, 236, 0.94);
+  --surface-subtle: #f4efe6;
+  --surface-pressed: #e7e3da;
+  --text-primary: #211f1b;
+  --text-secondary: #544f45;
+  --text-tertiary: #6b6457;
+  --border: rgba(33, 31, 27, 0.18);
+  --border-strong: rgba(33, 31, 27, 0.28);
+  --border-faint: rgba(33, 31, 27, 0.08);
+  --icon-border: rgba(33, 31, 27, 0.12);
+  --icon-fg: #544f45;
   /* Full black/white rather than --icon-fg, and only for the Agent marks on the
      overview. They sit on a transparent box there, so nothing tints them and
      nothing separates them from the card -- the mark itself has to carry the
      contrast. Elsewhere the marks stay on --icon-fg inside a bordered chip. */
   --agent-mark-fg: #000000;
-  --footer-bg: rgba(250, 250, 251, 0.96);
-  --overlay-panel: rgba(255, 255, 255, 0.7);
-  --blue: #007aff;
-  --blue-hover: #006ee6;
-  --blue-soft: rgba(0, 122, 255, 0.08);
-  --green: #248a3d;
-  --green-soft: #e9f7ec;
-  --orange: #b25000;
-  --orange-soft: #fff3e7;
-  --red: #d70015;
-  --red-soft: #fff0f1;
-  --info: #145da0;
-  --info-soft: #eff7ff;
-  --shadow-window: 0 22px 55px rgba(42, 42, 46, 0.16), 0 2px 8px rgba(42, 42, 46, 0.08);
+  --footer-bg: rgba(249, 246, 239, 0.96);
+  --overlay-panel: rgba(251, 249, 244, 0.7);
+  /* The mark's own terracotta, straight off the logo. Decorative only: it sits
+     at 2.79:1 on --page-bg, so it can carry the mark's stem but never text and
+     never a control's only boundary. Everything actionable uses --accent. */
+  --brand: #d96e49;
+  /* One value for both roles -- the fill under white label text (6.12:1) and
+     accent text on any of our light grounds (4.54:1 at worst, on
+     --surface-pressed). A separate lighter fill would have needed a second,
+     darker token for text, and the two drifted apart in every draft. */
+  --accent: #a94623;
+  --accent-hover: #983f20;
+  --accent-pressed: #87381c;
+  /* Opaque, not a translucent tint. As rgba over our grounds this lands
+     anywhere from 4.14:1 to 4.97:1 for accent text depending on what shows
+     through, so the same chip passed on a card and failed on the page. */
+  --accent-soft: #f7e7de;
+  --on-accent: #ffffff;
+  /* Also opaque, and for the same reason WCAG 1.4.11 needs: a 30%-alpha ring
+     composites to about 1.6:1 against its own ground, well under the 3:1 a
+     focus indicator has to clear. This value is 5.71:1 on --page-bg. */
+  --focus-ring: #983f20;
+  --green: #3f6b2e;
+  --green-soft: #e9f0e1;
+  --orange: #8a5a12;
+  --orange-soft: #f8efdc;
+  --red: #a32b1d;
+  --red-soft: #f9e7e2;
+  --info: #2c5c7a;
+  --info-soft: #e5eef4;
+  --shadow-window: 0 22px 55px rgba(33, 31, 27, 0.16), 0 2px 8px rgba(33, 31, 27, 0.08);
   --radius-control: 6px;
   --radius-panel: 8px;
   --radius-window: 12px;
@@ -81,33 +98,40 @@
 @media (prefers-color-scheme: dark) {
   /* Skipped when the user forced light: the class wins over the desktop. */
   :root:not(.theme-light) {
-    --page-bg: #151517;
-    --window-bg: #1e1e20;
-    --sidebar-bg: rgba(24, 24, 26, 0.94);
-    --surface-subtle: #2c2c2e;
-    --surface-pressed: #3a3a3c;
-    --text-primary: #f5f5f7;
-    --text-secondary: #98989d;
-    --text-tertiary: #6e6e73;
-    --border: rgba(255, 255, 255, 0.14);
-    --border-strong: rgba(255, 255, 255, 0.22);
-    --border-faint: rgba(255, 255, 255, 0.08);
-    --icon-border: rgba(255, 255, 255, 0.12);
-    --icon-fg: #d1d1d6;
+    --page-bg: #161410;
+    --window-bg: #211f1b;
+    --sidebar-bg: rgba(26, 24, 20, 0.94);
+    --surface-subtle: #2b2822;
+    --surface-pressed: #302d27;
+    --text-primary: #f4efe6;
+    --text-secondary: #bfb8a9;
+    --text-tertiary: #9c9484;
+    --border: rgba(244, 239, 230, 0.14);
+    --border-strong: rgba(244, 239, 230, 0.22);
+    --border-faint: rgba(244, 239, 230, 0.08);
+    --icon-border: rgba(244, 239, 230, 0.12);
+    --icon-fg: #bfb8a9;
     --agent-mark-fg: #ffffff;
-    --footer-bg: rgba(28, 28, 30, 0.96);
+    --footer-bg: rgba(29, 27, 22, 0.96);
     --overlay-panel: rgba(0, 0, 0, 0.25);
-    --blue: #0a84ff;
-    --blue-hover: #409cff;
-    --blue-soft: rgba(10, 132, 255, 0.16);
-    --green: #30d158;
-    --green-soft: #1e3726;
-    --orange: #ff9f0a;
-    --orange-soft: #3a2c12;
-    --red: #ff453a;
-    --red-soft: #3a1213;
-    --info: #7cc4ff;
-    --info-soft: #12283a;
+    /* Lifted off the logo's terracotta so it reads on a dark ground. Here the
+       accent doubles as the brand value: the mark's stem needs the same lift. */
+    --brand: #e4855c;
+    --accent: #e4855c;
+    --accent-hover: #ee9a75;
+    --accent-pressed: #d96e49;
+    --accent-soft: #38231a;
+    /* Dark ink on the light accent, not white -- white would be 1.9:1 on it. */
+    --on-accent: #211f1b;
+    --focus-ring: #ee9a75;
+    --green: #8fcb74;
+    --green-soft: #1e2c17;
+    --orange: #e0ae5c;
+    --orange-soft: #332512;
+    --red: #f08a78;
+    --red-soft: #37180f;
+    --info: #8fbedc;
+    --info-soft: #122430;
     --shadow-window: 0 22px 55px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.35);
   }
 }
@@ -121,32 +145,36 @@
    light caret and light autofill -- the API Key row still reading as white. */
 :root.theme-dark {
     color-scheme: dark;
-    --page-bg: #151517;
-    --window-bg: #1e1e20;
-    --sidebar-bg: rgba(24, 24, 26, 0.94);
-    --surface-subtle: #2c2c2e;
-    --surface-pressed: #3a3a3c;
-    --text-primary: #f5f5f7;
-    --text-secondary: #98989d;
-    --text-tertiary: #6e6e73;
-    --border: rgba(255, 255, 255, 0.14);
-    --border-strong: rgba(255, 255, 255, 0.22);
-    --border-faint: rgba(255, 255, 255, 0.08);
-    --icon-border: rgba(255, 255, 255, 0.12);
-    --icon-fg: #d1d1d6;
+    --page-bg: #161410;
+    --window-bg: #211f1b;
+    --sidebar-bg: rgba(26, 24, 20, 0.94);
+    --surface-subtle: #2b2822;
+    --surface-pressed: #302d27;
+    --text-primary: #f4efe6;
+    --text-secondary: #bfb8a9;
+    --text-tertiary: #9c9484;
+    --border: rgba(244, 239, 230, 0.14);
+    --border-strong: rgba(244, 239, 230, 0.22);
+    --border-faint: rgba(244, 239, 230, 0.08);
+    --icon-border: rgba(244, 239, 230, 0.12);
+    --icon-fg: #bfb8a9;
     --agent-mark-fg: #ffffff;
-    --footer-bg: rgba(28, 28, 30, 0.96);
+    --footer-bg: rgba(29, 27, 22, 0.96);
     --overlay-panel: rgba(0, 0, 0, 0.25);
-    --blue: #0a84ff;
-    --blue-hover: #409cff;
-    --blue-soft: rgba(10, 132, 255, 0.16);
-    --green: #30d158;
-    --green-soft: #1e3726;
-    --orange: #ff9f0a;
-    --orange-soft: #3a2c12;
-    --red: #ff453a;
-    --red-soft: #3a1213;
-    --info: #7cc4ff;
-    --info-soft: #12283a;
+    --brand: #e4855c;
+    --accent: #e4855c;
+    --accent-hover: #ee9a75;
+    --accent-pressed: #d96e49;
+    --accent-soft: #38231a;
+    --on-accent: #211f1b;
+    --focus-ring: #ee9a75;
+    --green: #8fcb74;
+    --green-soft: #1e2c17;
+    --orange: #e0ae5c;
+    --orange-soft: #332512;
+    --red: #f08a78;
+    --red-soft: #37180f;
+    --info: #8fbedc;
+    --info-soft: #122430;
     --shadow-window: 0 22px 55px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.35);
 }

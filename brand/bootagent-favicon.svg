@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="24 -1 84 108">
+  <!-- bootAgent favicon — transparent ground, works on light and dark tabs -->
+  <circle cx="66" cy="65" r="33" fill="none" stroke="#211F1B" stroke-width="14"/>
+  <line x1="33" y1="8" x2="33" y2="98" stroke="#D96E49" stroke-width="14" stroke-linecap="round"/>
+</svg>
