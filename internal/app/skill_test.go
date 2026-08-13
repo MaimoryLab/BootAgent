@@ -137,6 +137,26 @@ func TestApplySkillsRefusesToDeleteChangedManagedTarget(t *testing.T) {
 	}
 }
 
+func TestApplySkillsDeleteRemovesRegistryEntry(t *testing.T) {
+	home := t.TempDir()
+	core := skillTestCore(home)
+	root := filepath.Join(home, ".codex", "skills")
+	if err := os.MkdirAll(root, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	source := filepath.Join(t.TempDir(), "review")
+	writeTestSkillAt(t, source, "first")
+	preview, _ := core.PreviewSkillImport(context.Background(), SkillImportRequest{Source: "folder"}, source)
+	core.ApplySkills(context.Background(), SkillApplyRequest{PreviewToken: preview.Token, Changes: []SkillChange{{ID: "review", VariantHash: preview.Candidates[0].Hash, Targets: []string{"codex"}, ImportSource: "folder"}}})
+	result := core.ApplySkills(context.Background(), SkillApplyRequest{Changes: []SkillChange{{ID: "review", VariantHash: preview.Candidates[0].Hash, Delete: true}}})
+	if len(result.Results) != 1 || result.Results[0].Error != "" {
+		t.Fatalf("delete result = %#v", result)
+	}
+	if _, err := core.GetSkill(context.Background(), "review"); err == nil {
+		t.Fatal("deleted Skill remains in registry")
+	}
+}
+
 func TestUninstallSkillBacksUpBeforeRemovingContent(t *testing.T) {
 	home := t.TempDir()
 	core := skillTestCore(home)

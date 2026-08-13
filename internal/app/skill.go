@@ -390,28 +390,34 @@ func (u *UseCases) ApplySkills(ctx context.Context, req SkillApplyRequest) Skill
 			result.Results = append(result.Results, SkillAgentApplyResult{Error: "Skill target is not managed"})
 			continue
 		}
+		deleteSkill := change.Delete && len(change.Targets) == 0
+		deleteFailed := false
 		for _, agentID := range targetIDs {
 			item := SkillAgentApplyResult{Agent: agentID}
 			agent, ok := eligible[agentID]
 			if !ok {
 				item.Error = "Agent is not eligible"
+				deleteFailed = deleteFailed || change.Delete
 				result.Results = append(result.Results, item)
 				continue
 			}
 			target := filepath.Join(skillPath(u.status.Home, u.status.Platform.OS, agent), change.ID)
 			if hasSymlinkComponent(u.status.Home, filepath.Dir(target)) {
 				item.Error = "Skill target path is not private"
+				deleteFailed = deleteFailed || change.Delete
 				result.Results = append(result.Results, item)
 				continue
 			}
 			if change.Delete {
 				if variantIdx < 0 || !contains(fact.Variants[variantIdx].ManagedTargets, agentID) {
 					item.Error = "Skill target is not managed"
+					deleteFailed = true
 					result.Results = append(result.Results, item)
 					continue
 				}
 				if infoErr := removeManagedSkill(ctx, target, change.VariantHash); infoErr != nil {
 					item.Error = infoErr.Error()
+					deleteFailed = true
 					result.Results = append(result.Results, item)
 					continue
 				}
@@ -437,11 +443,23 @@ func (u *UseCases) ApplySkills(ctx context.Context, req SkillApplyRequest) Skill
 			registry.Skills[change.ID] = fact
 			if err := store.Save(ctx, registry); err != nil {
 				item.Error = "Agent updated but Skill Registry was not updated"
+				deleteFailed = deleteFailed || change.Delete
 				result.Results = append(result.Results, item)
 				continue
 			}
 			item.TargetUpdated, item.RegistryUpdated = true, true
 			result.Results = append(result.Results, item)
+		}
+		if deleteSkill && !deleteFailed && !hasManagedTargets(fact) {
+			if err := store.RemoveSkill(ctx, change.ID); err != nil {
+				result.Results = append(result.Results, SkillAgentApplyResult{Error: "Cannot remove Skill from Registry"})
+				continue
+			}
+			delete(registry.Skills, change.ID)
+			if err := store.Save(ctx, registry); err != nil {
+				result.Results = append(result.Results, SkillAgentApplyResult{Error: "Cannot update Skill Registry"})
+				continue
+			}
 		}
 	}
 	if req.PreviewToken != "" {
@@ -812,6 +830,14 @@ func variantIndex(variants []skill.Variant, hash string) int {
 		}
 	}
 	return -1
+}
+func hasManagedTargets(fact skill.Fact) bool {
+	for _, variant := range fact.Variants {
+		if len(variant.ManagedTargets) > 0 {
+			return true
+		}
+	}
+	return false
 }
 func addSorted(values []string, value string) []string {
 	if value == "" || contains(values, value) {
