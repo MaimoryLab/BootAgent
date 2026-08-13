@@ -32,7 +32,16 @@ export function SkillsPage() {
   const importSource = (source: string) => { setBusy(true); void api.previewSkillImport(source).then((r) => { const next = r.candidates ?? []; setCandidates(next); setSelectedCandidates(Object.fromEntries(next.map((item) => [item.id, true]))); setToken(r.token); setPreviewOpen(true); }).finally(() => setBusy(false)); };
   const candidateMap = useMemo(() => new Map(candidates.map((item) => [item.id, item])), [candidates]);
   const changesForApply = () => [...Object.entries(changes).map(([key, change]) => key.includes("::remove::") ? { ...change, id: change.id, delete: true } : change), ...Object.keys(pendingDeletes).map((id) => ({ id, variant_hash: rows.find((row) => row.id === id)?.variant_hashes?.[0] ?? "", targets: [], delete: true }))];
-  const apply = () => { setBusy(true); void api.applySkills({ preview_token: token || undefined, changes: changesForApply() }).then((r) => { const successful = new Set((r.results ?? []).filter((item) => item.registry_updated).map((item) => item.agent)); if (successful.size) setChanges((current) => Object.fromEntries(Object.entries(current).filter(([, change]) => !change.targets?.some((agent) => successful.has(agent))))); if (!(r.results ?? []).some((item) => item.error)) setPendingDeletes({}); scan(); }).finally(() => setBusy(false)); };
+  const apply = () => {
+    const pendingRemovals = Object.entries(changes).filter(([key, change]) => key.includes("::remove::") && change.delete).map(([, change]) => change);
+    const pendingDeleteIDs = new Set(Object.keys(pendingDeletes));
+    setRows((current) => current.filter((row) => !pendingDeleteIDs.has(row.id)).map((row) => {
+      const agents = new Set(row.agents ?? []);
+      pendingRemovals.filter((change) => change.id === row.id).forEach((change) => (change.targets ?? []).forEach((agent) => agents.delete(agent)));
+      return { ...row, agents: [...agents] };
+    }));
+    setBusy(true); void api.applySkills({ preview_token: token || undefined, changes: changesForApply() }).then((r) => { const successful = new Set((r.results ?? []).filter((item) => item.registry_updated).map((item) => item.agent)); if (successful.size) setChanges((current) => Object.fromEntries(Object.entries(current).filter(([, change]) => !change.targets?.some((agent) => successful.has(agent))))); if (!(r.results ?? []).some((item) => item.error)) setPendingDeletes({}); scan(); }).finally(() => setBusy(false));
+  };
   const selectTarget = (id: string, hash: string, agent: string, checked: boolean, existing = false, existingTargets: string[] = []) => setChanges((current) => {
     const removalKey = `${id}::remove::${agent}`;
     if (!checked && existing) return { ...current, [removalKey]: { id, variant_hash: hash, targets: [agent], delete: true } };
