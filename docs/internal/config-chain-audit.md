@@ -2,8 +2,8 @@
 
 > 更新：2026-07-31。历史审计发现已落实到 Go 核心；本文不再引用已删除的旧实现路径。
 
-> 补注（2026-08-04）：本文提到的 `cmd/oneagent-release`、`cmd/oneagent-rc`、
-> `cmd/oneagent-provider-smoke` 已于 `23805b0` 移除，职责交给
+> 补注（2026-08-04）：本文提到的 `cmd/bootagent-release`、`cmd/bootagent-rc`、
+> `cmd/bootagent-provider-smoke` 已于 `23805b0` 移除，职责交给
 > `.github/workflows/build-artifacts.yml`。相关命令是历史背景，不可执行。
 
 ## 当前链路
@@ -21,7 +21,7 @@ internal/config adapter + securefs atomic write
       |
 internal/profile binding/secret store
       |
-Wails service or cmd/oneagent
+Wails service or cmd/bootagent
 ```
 
 ## 已修复的风险
@@ -38,8 +38,8 @@ Wails service or cmd/oneagent
 
 ```text
 go test ./internal/config ./internal/install ./internal/app
-go run ./cmd/oneagent-rc adopted
-go run ./cmd/oneagent-release check release
+go run ./cmd/bootagent-rc adopted
+go run ./cmd/bootagent-release check release
 ```
 
 新增自动配置 Agent 时只需更新 `agents.lock.json`、增加对应 Go adapter 和测试，并更新前端生成 binding 需要的公共类型。

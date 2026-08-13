@@ -1,4 +1,4 @@
-# Contributing to OneAgent
+# Contributing to BootAgent
 
 Thanks for considering a contribution. This file covers what you need to send a
 change; `AGENTS.md` holds the fuller development conventions and is worth reading
@@ -9,7 +9,7 @@ before a larger one. Participation is governed by `CODE_OF_CONDUCT.md`.
 For a bug fix or a small change, open a pull request directly.
 
 For a new feature, a new Agent, or a new built-in Provider, open an issue first.
-OneAgent has a deliberate scope — `docs/product-boundary-baseline.md` records what it
+BootAgent has a deliberate scope — `docs/product-boundary-baseline.md` records what it
 does and does not do — and an issue is a cheaper place to find out that something
 falls outside it than a finished branch.
 
@@ -103,7 +103,7 @@ saves the reviewer from proposing it.
 
 ## Reporting bugs
 
-Include the OneAgent version, your platform, what you did, what you expected, and
+Include the BootAgent version, your platform, what you did, what you expected, and
 what happened. If an Agent install or a Provider connection failed, the message shown
 in the UI is the useful part.
 

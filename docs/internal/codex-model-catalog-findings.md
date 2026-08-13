@@ -1,6 +1,6 @@
 # Codex 桌面端模型列表切换：机制与接入结论
 
-调研目的：让用户在 Codex 桌面端的模型选择器里，直接切换 OneAgent 配好的
+调研目的：让用户在 Codex 桌面端的模型选择器里，直接切换 BootAgent 配好的
 Provider 所支持的模型，而不是只能用 `config.toml` 里写死的那一个。
 
 结论：**Codex 原生支持这件事**，机制是 `config.toml` 的 `model_catalog_json`
@@ -94,19 +94,19 @@ model_catalog_json = "cc-switch-model-catalog.json"
 | `models` 是空数组 | `Error: ... must contain at least one model` — **硬失败** |
 | `visibility` 取其他值 | 只接受 `list` / `hide` / `none`，`hidden` 会报 unknown variant |
 
-第一条对 OneAgent 最关键：**写了这个键就必须保证文件存在**。顺序必须是先写目录
+第一条对 BootAgent 最关键：**写了这个键就必须保证文件存在**。顺序必须是先写目录
 文件、再写 `config.toml`，与现有 `WriteCodex` 先写 `auth.json` 再写 `config.toml`
 的理由一致（指向一个不可用的东西比暂时没被引用更糟）。
 
-## 6. 与 OneAgent 现有实现的兼容性
+## 6. 与 BootAgent 现有实现的兼容性
 
 好消息：**不冲突，且现有合并逻辑已经会保留这个键。**
 
 `mergeCodexTOML`（`internal/config/write.go:278`）的 `topLevelKeyPattern` 是
 `^\s*(model_provider|model)\s*=`，只重写这两个顶层键；`managedSectionPattern` 只
-接管 `[model_providers.oneagent]`。我写了一个探针测试验证：用户已有的
+接管 `[model_providers.bootagent]`。我写了一个探针测试验证：用户已有的
 `model_catalog_json`、`model_reasoning_effort`、`[mcp_servers.node_repl]` 在一次
-OneAgent 写入后全部原样保留。
+BootAgent 写入后全部原样保留。
 
 注意 `model_catalog_json` 不匹配 `topLevelKeyPattern`（它不是 `model =` 而是
 `model_catalog_json =`，正则要求 `model` 后紧跟可选空白再 `=`），所以不会被误删。
@@ -121,8 +121,8 @@ Codex 版本需要：
 
 1. 新增一个 catalog 写入器，把 Provider 的模型列表（`ListModels` 已经能从
    `/v1/models` 拿到）转成上面的 12 字段结构，写到
-   `~/.codex/oneagent-model-catalog.json`。
-2. `WriteCodex` 的 managed 块加一行 `model_catalog_json = "oneagent-model-catalog.json"`，
+   `~/.codex/bootagent-model-catalog.json`。
+2. `WriteCodex` 的 managed 块加一行 `model_catalog_json = "bootagent-model-catalog.json"`，
    `model` 仍写用户选中的那个作为默认。
 3. 写入顺序：catalog 文件 → `auth.json` → `config.toml`。
 
@@ -147,8 +147,8 @@ profile 自己会生成的路径，就**原样返回、不覆盖**（注释明�
 `model_catalog_json` 指针时保留」，并有 `preserves_user_model_catalog_json` 测试守着）。
 只有当现有指针指向自己生成的那个文件时才重新生成。
 
-这与 OneAgent「不破坏用户既有配置」的边界一致，可以直接采用。代价同前：用户已有
-第三方 catalog 时拿不到 OneAgent 的列表——Codex++ 接受了这个代价。
+这与 BootAgent「不破坏用户既有配置」的边界一致，可以直接采用。代价同前：用户已有
+第三方 catalog 时拿不到 BootAgent 的列表——Codex++ 接受了这个代价。
 
 **它怎么解决「元数据从哪来」——待决问题 2。**
 `build_model_catalog_json_with_capabilities`（`crates/codex-plus-core/src/model_suffix.rs:223`）
@@ -184,13 +184,13 @@ config.toml、auth.json，并向 Provider 的 `/v1/models` 拉取）。
 README 强调它「不修改官方应用的 `app.asar`，也不向安装目录写入补丁文件」——
 所有改动都在运行时内存里。
 
-### 对 OneAgent 的取舍
+### 对 BootAgent 的取舍
 
 **机制 A 可以采用，机制 B 不行。**
 
 机制 B 要求：以调试端口启动别人的应用、注入脚本改写其运行时行为、patch 其网络
-响应。这与 OneAgent 既定的产品边界冲突——`docs/product-boundary-baseline.md` 的
-定位是「检测、安装、配置」，不含运行时干预；而且上一次审计已确认 OneAgent 不启动
+响应。这与 BootAgent 既定的产品边界冲突——`docs/product-boundary-baseline.md` 的
+定位是「检测、安装、配置」，不含运行时干预；而且上一次审计已确认 BootAgent 不启动
 后台服务，机制 B 需要一个常驻本地服务来提供 `/codex-model-catalog`。
 
 ## 9. 更正：GUI 确实有一层过滤，catalog 不足以突破
@@ -238,7 +238,7 @@ s7r = `gpt-5.5`
 `list-models-for-host` 响应时决定的。`codex` 二进制里同时存在 `hidden` 和
 `isDefault` 两个字符串（与 JS 侧字段名对应），而 catalog schema 只接受
 `visibility: list|hide|none`。也就是说 `visibility` 是 catalog 的输入词汇，
-`hidden` 是响应的输出词汇，中间的映射由 codex 决定，OneAgent 写 catalog 只能影响
+`hidden` 是响应的输出词汇，中间的映射由 codex 决定，BootAgent 写 catalog 只能影响
 输入端，无法直接把 `hidden` 置为 false。
 
 这解释了 Codex++ 为什么必须做机制 B：它的 `patchModelArray`
@@ -249,10 +249,10 @@ s7r = `gpt-5.5`
 （`tests/cdp_bridge.rs:1275`）断言了 `available_models`、`modelWhitelistUnlock`、
 `String(name) === "107580212"` 这些字符串，与我读到的过滤代码一一对上。
 
-### OneAgent 在应用层面能做什么
+### BootAgent 在应用层面能做什么
 
 **结论：在不注入渲染进程的前提下，没有办法让第三方模型 ID 出现在 ChatGPT 桌面端的
-模型选择器里。** 那个过滤是渲染层对远端动态配置的判断，OneAgent 能写的只有
+模型选择器里。** 那个过滤是渲染层对远端动态配置的判断，BootAgent 能写的只有
 `~/.codex/` 下的文件，触碰不到 `additionalAvailableModels`、`useHiddenModels`
 或响应里的 `hidden`。
 
@@ -264,12 +264,12 @@ s7r = `gpt-5.5`
 | 改 `app.asar` | 修改他人已签名的应用，破坏 codesign，触发 Gatekeeper；分发补丁还涉及版权。Codex++ 自己都明确不这么做 |
 | 伪造模型 ID 冒充 openai 名字 | 即便让 slug 长得像官方模型，请求仍会带着这个名字发给用户配的 Provider，Provider 认不出来。且这是欺骗性配置，会让用户以为在用某个模型而实际不是 |
 
-**因此 OneAgent 对 Codex 桌面端的现实边界是：配置 Provider 与默认模型（`model` 键
+**因此 BootAgent 对 Codex 桌面端的现实边界是：配置 Provider 与默认模型（`model` 键
 写哪个就用哪个），但不提供「在桌面端 UI 里切换第三方模型」的能力。** 用户要换模型，
-路径是回到 OneAgent 改配置、或用 Codex CLI（CLI 侧读 catalog，不经过渲染层过滤，
+路径是回到 BootAgent 改配置、或用 Codex CLI（CLI 侧读 catalog，不经过渲染层过滤，
 所以 CLI 是可以列出并切换第三方模型的——这一点第 1 节已实测）。
 
-这个差异值得在 UI 或文档里对用户说清，否则用户会以为 OneAgent 配好了但应用「坏了」。
+这个差异值得在 UI 或文档里对用户说清，否则用户会以为 BootAgent 配好了但应用「坏了」。
 
 ### 仍未验证
 

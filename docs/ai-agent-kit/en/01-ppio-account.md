@@ -8,7 +8,7 @@
 
 ## 1. Open the official site
 
-Reach the PPIO website from OneAgent or from the official documentation. Do not download
+Reach the PPIO website from BootAgent or from the official documentation. Do not download
 scripts or submit account details through links from unknown group chats.
 
 If you already have a PPIO account, log in. Otherwise sign up as the page directs.
@@ -32,7 +32,7 @@ You can:
 3. Use a custom Provider, as long as it exposes an OpenAI-compatible API and permits
    your use case.
 
-OneAgent does not top up on your behalf and does not automate account benefit pages.
+BootAgent does not top up on your behalf and does not automate account benefit pages.
 
 ## 4. Move on to the API key
 

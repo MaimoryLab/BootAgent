@@ -8,29 +8,29 @@ Implemented
 
 2026-08-03
 
-- Supersedes: the `ONEAGENT_API_KEY_<AGENT>` + `~/.oneagent/agents/<id>.env`
+- Supersedes: the `ONEAGENT_API_KEY_<AGENT>` + `~/.bootagent/agents/<id>.env`
   credential delivery scheme in ADR-006
 
 ## Context
 
 The revised ADR-006 had every Agent read its own environment variable:
-`~/.oneagent/agents/<id>.env` wrote `ONEAGENT_API_KEY_<AGENT>`, the Codex
+`~/.bootagent/agents/<id>.env` wrote `ONEAGENT_API_KEY_<AGENT>`, the Codex
 `config.toml` pointed at it through `env_key`, and the OpenCode / Kilo JSON referenced
 it with `"apiKey": "{env:...}"`. That solved the coupling of three Agents sharing one
 variable name, but it kept the cost of the env file itself:
 
 - The configuration only takes effect in a shell that has sourced the env file. A user
   who starts an Agent from the Dock, a desktop shortcut, or an already-open terminal
-  sees an unauthenticated error while the OneAgent UI shows "configured".
+  sees an unauthenticated error while the BootAgent UI shows "configured".
 - Every Agent's restart instructions had to carry a
-  `source ~/.oneagent/agents/<id>.env` line, and the desktop Launch button had to
+  `source ~/.bootagent/agents/<id>.env` line, and the desktop Launch button had to
   splice that line into the terminal command as well, or the window it opened would be
   running an unconfigured Agent.
 - The same Key landed in two places (`secrets/<id>.env` and `agents/<id>.env`), three
-  once you count the `~/.oneagent/env` compatibility layer.
+  once you count the `~/.bootagent/env` compatibility layer.
 
 All three Agents have their own credential file location, and each is either the file
-OneAgent already writes or a neighbor in the same directory. CC Switch (Tauri) takes
+BootAgent already writes or a neighbor in the same directory. CC Switch (Tauri) takes
 exactly this route: Codex writes `~/.codex/auth.json`, Claude writes the `env` block
 of `settings.json`, OpenCode writes `provider.<id>.options.apiKey` in
 `opencode.json`, with no env file anywhere.
@@ -44,13 +44,13 @@ logic is deleted.
 | --- | --- |
 | Codex | `OPENAI_API_KEY` in `~/.codex/auth.json`, with `auth_mode` set to `apikey` |
 | Claude Code | `env.ANTHROPIC_AUTH_TOKEN` in `~/.claude/settings.json` (already the case) |
-| OpenCode | `provider.oneagent.options.apiKey` in `~/.config/opencode/opencode.json` |
+| OpenCode | `provider.bootagent.options.apiKey` in `~/.config/opencode/opencode.json` |
 | Kilo CLI | the same location in `~/.config/kilo/kilo.jsonc` |
-| Aider | `~/.oneagent/aider.env` (loaded directly by Aider's `--env-file`) |
+| Aider | `~/.bootagent/aider.env` (loaded directly by Aider's `--env-file`) |
 
 Accompanying changes:
 
-- The Codex `[model_providers.oneagent]` block drops `env_key` and adds
+- The Codex `[model_providers.bootagent]` block drops `env_key` and adds
   `requires_openai_auth = true`, so Codex authenticates the hosted provider with the
   Key in `auth.json`. `auth_mode` must be written explicitly as `apikey`: a leftover
   `chatgpt` makes Codex prefer a cached OAuth token and ignore the new Key.
@@ -61,7 +61,7 @@ Accompanying changes:
 - The OpenCode / Kilo config files now contain a plaintext Key, so they are written as
   secrets.
 - The OpenCode path changes from `opencode.jsonc` to `opencode.json`: once the Key
-  goes into this file it is OneAgent's primary write target, and `.json` is OpenCode's
+  goes into this file it is BootAgent's primary write target, and `.json` is OpenCode's
   own default name. JSONC comment detection no longer looks at the extension (OpenCode
   parses with JSON5, so a `.json` file may also contain comments); on detection it
   refuses to write and leaves the original file intact.
@@ -94,12 +94,12 @@ Accompanying changes:
 - `auth_mode = "apikey"` makes Codex Desktop treat the account as API-Key
   authenticated, so features tied to ChatGPT login (Fast mode and the like) are
   unavailable. That is an unavoidable result of using a hosted provider, and CC Switch
-  records the same behavior; OneAgent's whole purpose is to point Codex at a
+  records the same behavior; BootAgent's whole purpose is to point Codex at a
   third-party Provider, so this is accepted.
 - The OpenCode / Kilo config files go from "can be published" to "contains a secret",
   so the write path and permission assertions tighten accordingly, and no future read
   projection may return the raw contents of these two files.
-- `~/.oneagent/env` and `~/.oneagent/agents/*.env` are no longer written. Files left
+- `~/.bootagent/env` and `~/.bootagent/agents/*.env` are no longer written. Files left
   behind by older versions are not deleted, but they are no longer referenced either;
   users clean them up by hand.
 - The status transport contract changes (`paths` has one key fewer, `backups` one key

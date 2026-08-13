@@ -14,7 +14,7 @@ update helper files are not user configuration and keep their existing behavior.
 
 ## Storage Layout
 
-Backups live below `~/.oneagent/backup`:
+Backups live below `~/.bootagent/backup`:
 
 ```
 backup/

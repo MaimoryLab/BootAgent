@@ -25,7 +25,7 @@ API Key：你的 PPIO API Key
 
 ## 3. 模型填写规则
 
-优先使用 OneAgent 的“获取模型列表”结果。对于 OpenAI-compatible 配置，模型 ID 是服务端返回的原始 ID，不要自行添加 `openai/`、`ppio/` 等前缀，除非目标 Agent 的官方文档明确要求。
+优先使用 BootAgent 的“获取模型列表”结果。对于 OpenAI-compatible 配置，模型 ID 是服务端返回的原始 ID，不要自行添加 `openai/`、`ppio/` 等前缀，除非目标 Agent 的官方文档明确要求。
 
 如果 CC Switch 支持模型测试，使用一个最小请求验证；不要在测试输入中粘贴私有代码、隐私数据或长文本。
 
@@ -40,19 +40,19 @@ API Key：你的 PPIO API Key
 
 不同 Agent 的配置生效方式可能不同。不要根据 CC Switch 显示“已切换”就直接判断 Agent 已经重新加载配置。
 
-## 5. 与 OneAgent 的关系
+## 5. 与 BootAgent 的关系
 
 推荐顺序：
 
 ```text
-OneAgent 探测 PPIO
-→ OneAgent 获取模型列表
-→ OneAgent 验证一次请求
+BootAgent 探测 PPIO
+→ BootAgent 获取模型列表
+→ BootAgent 验证一次请求
 → CC Switch 保存同一组 PPIO Profile
 → 用户按项目切换 Profile
 ```
 
-这样发生问题时，可以先回到 OneAgent 内置配置判断 PPIO 本身是否可用，再判断 CC Switch 的 Profile 是否正确。
+这样发生问题时，可以先回到 BootAgent 内置配置判断 PPIO 本身是否可用，再判断 CC Switch 的 Profile 是否正确。
 
 ## 6. 常见错误
 
@@ -72,7 +72,7 @@ https://api.ppio.com/openai
 
 ### 使用了不属于 PPIO 的模型 ID
 
-先通过 OneAgent 获取当前模型列表，确认模型 ID 后再复制到 CC Switch。
+先通过 BootAgent 获取当前模型列表，确认模型 ID 后再复制到 CC Switch。
 
 ### 切换后 Agent 仍然使用旧配置
 

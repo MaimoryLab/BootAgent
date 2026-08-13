@@ -3,13 +3,13 @@
 ## Supported versions
 
 Only the latest release receives security fixes. Releases are published at
-[Releases](https://github.com/MaimoryLab/OneAgent/releases); the newest tag is the
+[Releases](https://github.com/MaimoryLab/BootAgent/releases); the newest tag is the
 supported one.
 
 ## Reporting a vulnerability
 
 Report privately through
-[GitHub Security Advisories](https://github.com/MaimoryLab/OneAgent/security/advisories/new).
+[GitHub Security Advisories](https://github.com/MaimoryLab/BootAgent/security/advisories/new).
 That keeps the report visible only to maintainers until a fix is available.
 
 Please do not open a public issue for a vulnerability. If you cannot use Security
@@ -21,11 +21,11 @@ observed. A partial report is worth sending — do not wait until you have a ful
 exploit.
 
 Expect an acknowledgement within 7 days. Fix timing depends on severity and on
-whether the cause is in OneAgent or in a dependency, and you will be told which.
+whether the cause is in BootAgent or in a dependency, and you will be told which.
 
 ## Scope
 
-OneAgent stores API keys in private local configuration and writes configuration
+BootAgent stores API keys in private local configuration and writes configuration
 files for the Agents it manages. Reports that matter most:
 
 - API keys reaching anywhere they should not: logs, error messages, ordinary
@@ -40,8 +40,8 @@ files for the Agents it manages. Reports that matter most:
 
 Out of scope:
 
-- Vulnerabilities in the Agents OneAgent installs (Claude Code, Codex, and the
-  others). Report those to their own projects; if OneAgent's handling makes such a
+- Vulnerabilities in the Agents BootAgent installs (Claude Code, Codex, and the
+  others). Report those to their own projects; if BootAgent's handling makes such a
   bug reachable when it otherwise would not be, that part is in scope.
 - Vulnerabilities in a Provider's API. Report those to the Provider.
 - An API key readable by someone who already has your user account or your

@@ -10,26 +10,26 @@ Accepted
 
 ## Context
 
-OneAgent aims to help different kinds of users activate a genuinely usable local AI
+BootAgent aims to help different kinds of users activate a genuinely usable local AI
 development environment. A user may need only one Provider, or may need to switch between
 several Providers, accounts, and models.
 
 Third-party tools such as CC Switch can manage local profiles for a user, but bundling
-them into OneAgent would import their version, licence, install script, and configuration
+them into BootAgent would import their version, licence, install script, and configuration
 compatibility risks.
 
 ## Decision
 
-OneAgent offers three configuration layers:
+BootAgent offers three configuration layers:
 
-1. OneAgent's built-in configuration: the default path, responsible for first-time
+1. BootAgent's built-in configuration: the default path, responsible for first-time
    Provider activation and agent configuration.
 2. Third-party tools such as CC Switch: an optional path, documented separately and never
    installed automatically.
 3. Manual configuration: the fallback, for unsupported agents, advanced users, and
    debugging.
 
-OneAgent does not treat a third-party config tool, a third-party hosted API service, or a
+BootAgent does not treat a third-party config tool, a third-party hosted API service, or a
 shared Provider key as a core dependency.
 
 Documentation for any config tool must state:
@@ -46,9 +46,9 @@ Documentation for any config tool must state:
 ### Bundle CC Switch directly into the kit
 
 - Upside: one less install step for the user.
-- Downside: OneAgent would own a third party's versioning, licensing, signing, updates,
+- Downside: BootAgent would own a third party's versioning, licensing, signing, updates,
   and configuration compatibility.
-- Conclusion: rejected. OneAgent offers it as an optional path through documentation.
+- Conclusion: rejected. BootAgent offers it as an optional path through documentation.
 
 ### Support manual configuration only
 
@@ -68,15 +68,15 @@ Documentation for any config tool must state:
 ### Positive
 
 - The first-run configuration path is simple and testable.
-- Third-party tools can upgrade independently without holding OneAgent back.
+- Third-party tools can upgrade independently without holding BootAgent back.
 - Users can choose built-in configuration, CC Switch, or manual configuration according to
   their own familiarity.
-- OneAgent takes on no long-term maintenance duty for a third-party config tool.
+- BootAgent takes on no long-term maintenance duty for a third-party config tool.
 
 ### Negative
 
 - CC Switch users have to read an additional document.
-- OneAgent has to maintain a config tool compatibility matrix.
+- BootAgent has to maintain a config tool compatibility matrix.
 - How a restart applies configuration cannot be made uniform across agents.
 
 ## Follow-up

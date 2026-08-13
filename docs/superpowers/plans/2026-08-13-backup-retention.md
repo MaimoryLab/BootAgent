@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task with verification checkpoints.
 
-**Goal:** Store configuration history under `~/.oneagent/backup`, prune each target independently, and expose a persisted retention setting that defaults to three versions.
+**Goal:** Store configuration history under `~/.bootagent/backup`, prune each target independently, and expose a persisted retention setting that defaults to three versions.
 
 **Architecture:** Extend the existing `securefs.Store` policy with a configured backup root and a callback that reads the current retention setting. `AtomicWrite` owns ordinary-file backup creation and cleanup; `skill.Store` owns Skill directory snapshots but uses the same root and retention callback. The existing app-wide filesystem instance is configured once in `newUseCases`, so Profile, Provider, MCP, Agent adapters, and Skills share the policy without new abstractions.
 
@@ -89,8 +89,8 @@ Define `defaultBackupRetention = 3`, `minBackupRetention = 1`, and `maxBackupRet
 Configure `newUseCases` to construct its shared filesystem with:
 
 ```go
-BackupRoot: filepath.Join(options.Home, ".oneagent", "backup"),
-Retention: func() int { return backupRetentionFromFile(filepath.Join(options.Home, ".oneagent", "settings.json")) },
+BackupRoot: filepath.Join(options.Home, ".bootagent", "backup"),
+Retention: func() int { return backupRetentionFromFile(filepath.Join(options.Home, ".bootagent", "settings.json")) },
 ```
 
 `backupRetentionFromFile` must return 3 for missing, malformed, or out-of-range files and must not log or expose secrets. Update `backupState` to report backups in the managed group as well as legacy beside-file matches.
@@ -116,17 +116,17 @@ git commit -m "feat: persist backup retention setting"
 
 - [ ] **Step 1: Write failing per-Skill retention tests**
 
-Set the injected filesystem retention callback to 3, create four snapshots for Skill `review` and one for Skill `other`, then assert `ListBackups` returns three `review` snapshots and one `other` snapshot. Assert the completed directories are below `filepath.Join(home, ".oneagent", "backup", "skills", "review")` and that `RestoreBackup` still restores the newest snapshot. Add a compatibility test that places a valid old snapshot below `.oneagent/skill-backups` and verifies it remains listable/restorable until pruning.
+Set the injected filesystem retention callback to 3, create four snapshots for Skill `review` and one for Skill `other`, then assert `ListBackups` returns three `review` snapshots and one `other` snapshot. Assert the completed directories are below `filepath.Join(home, ".bootagent", "backup", "skills", "review")` and that `RestoreBackup` still restores the newest snapshot. Add a compatibility test that places a valid old snapshot below `.bootagent/skill-backups` and verifies it remains listable/restorable until pruning.
 
 - [ ] **Step 2: Run the Skill tests and verify failure**
 
 Run: `go test ./internal/skill -run 'TestCreateBackup|TestListBackups|TestRestoreBackup'`
 
-Expected: FAIL because the store currently uses `.oneagent/skill-backups` and a global retention of 20.
+Expected: FAIL because the store currently uses `.bootagent/skill-backups` and a global retention of 20.
 
 - [ ] **Step 3: Implement the new Skill root and cleanup**
 
-Derive the managed root from `s.fs.BackupRoot()` with a fallback to `home/.oneagent/backup` for direct stores. Change `BackupRoot` to `backup/skills`, create per-ID directories, and keep the existing pending-directory validation/atomic rename. Make `ListBackups`, `loadBackup`, `InspectBackup`, and `RestoreBackup` resolve both the new root and the legacy root. Replace the global `backupRetention` constant with `s.fs.BackupRetention()` and prune only entries whose metadata ID equals the requested Skill ID; remove oldest recognized snapshots across new and legacy roots after a successful creation.
+Derive the managed root from `s.fs.BackupRoot()` with a fallback to `home/.bootagent/backup` for direct stores. Change `BackupRoot` to `backup/skills`, create per-ID directories, and keep the existing pending-directory validation/atomic rename. Make `ListBackups`, `loadBackup`, `InspectBackup`, and `RestoreBackup` resolve both the new root and the legacy root. Replace the global `backupRetention` constant with `s.fs.BackupRetention()` and prune only entries whose metadata ID equals the requested Skill ID; remove oldest recognized snapshots across new and legacy roots after a successful creation.
 
 - [ ] **Step 4: Run Skill package tests**
 
@@ -191,7 +191,7 @@ git commit -m "feat: add backup retention setting"
 
 - [ ] **Step 1: Update user-facing backup wording**
 
-Document the default three historical versions, the per-target rule, the `.oneagent/backup` location, and the Settings control in both README languages. Keep commands and terminology aligned with the current repository.
+Document the default three historical versions, the per-target rule, the `.bootagent/backup` location, and the Settings control in both README languages. Keep commands and terminology aligned with the current repository.
 
 - [ ] **Step 2: Run repository checks**
 

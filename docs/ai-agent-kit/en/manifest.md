@@ -6,7 +6,7 @@
 
 | File | Purpose | Needs a key |
 | --- | --- | --- |
-| `OneAgent.app` (macOS) / `oneagent-desktop.exe` (Windows) / Linux AppImage | Desktop app | No |
+| `BootAgent.app` (macOS) / `bootagent-desktop.exe` (Windows) / Linux AppImage | Desktop app | No |
 
 Release packages are built by `.github/workflows/build-artifacts.yml`. Earlier versions
 launched a local GUI through three scripts — `launcher`, `start.sh`, and `start.command` —
@@ -37,7 +37,7 @@ Config tool version range:
 ```
 
 A distributing organization may maintain its own redemption codes or onboarding notes
-outside the package, but that content does not enter OneAgent's core manifest.
+outside the package, but that content does not enter BootAgent's core manifest.
 
 Never write a real API key, a shared gateway key, or personal account details into the
 manifest.

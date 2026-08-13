@@ -12,8 +12,8 @@ below). The conclusions about multiple Profiles and long-term management still h
 
 ## Context
 
-OneAgent is currently a one-shot wizard: it ends the moment setup completes,
-`~/.oneagent/profile.json` stores a single active state (`schema_version: 1`: one
+BootAgent is currently a one-shot wizard: it ends the moment setup completes,
+`~/.bootagent/profile.json` stores a single active state (`schema_version: 1`: one
 provider, one model, one agent list), and `EnvironmentOverviewPage` is a read-only
 page. After setup there is nowhere for the user's long-term needs to live:
 
@@ -36,7 +36,7 @@ not enough to display "switched" and stop there.
 ### Storage layout
 
 ```text
-~/.oneagent/
+~/.bootagent/
   profile.json          # schema_version: 2, active pointer {active: <id>}
   profiles/             # one file per configuration, no Key inside
     <id>.json
@@ -78,7 +78,7 @@ file" case), so that later refactoring cannot quietly break existing users.
 
 ### CLI
 
-Add the subcommands `oneagent profile list / add / activate / remove`. When `argv[1]`
+Add the subcommands `bootagent profile list / add / activate / remove`. When `argv[1]`
 is not a known subcommand, fall through to the existing flat parser to stay backward
 compatible.
 
@@ -104,7 +104,7 @@ compatible.
 ## Revision: from a global profile to per-agent independent configuration
 
 The first draft of this ADR listed "per-agent independent profiles" as out of scope,
-on the grounds that `~/.oneagent/env` is inherently shared globally. That reasoning
+on the grounds that `~/.bootagent/env` is inherently shared globally. That reasoning
 has been overturned: a shared env is not an external constraint but artificial
 coupling we created ourselves by writing the same variable name,
 `ONEAGENT_API_KEY`, into three Agent configs. The configs of all five Agents already
@@ -114,7 +114,7 @@ Providers in the same shell, and only because they shared one variable name.
 
 So the decision changes to per-agent independent credentials. The first version
 implemented this with `ONEAGENT_API_KEY_<AGENT>` plus
-`~/.oneagent/agents/<agent-id>.env`, and **has been superseded by ADR-008**:
+`~/.bootagent/agents/<agent-id>.env`, and **has been superseded by ADR-008**:
 credentials are now written into the Agent's own config file (Codex uses
 `~/.codex/auth.json`, Claude Code uses the `env` block of `settings.json`,
 OpenCode/Kilo use `options.apiKey` in their config), so sourced env files are no
@@ -148,7 +148,7 @@ per-Agent binding files remain the source of truth for actual assignment.
 ### Keep things as they are and keep recommending CC Switch
 
 - Upside: zero development effort.
-- Downside: OneAgent hardens into a one-shot tool, and the probe/verify capability is
+- Downside: BootAgent hardens into a one-shot tool, and the probe/verify capability is
   split away from the switching capability across two products.
 - Conclusion: rejected.
 
@@ -159,7 +159,7 @@ per-Agent binding files remain the source of truth for actual assignment.
 - `status_payload` gains `profiles` and `activeProfile` fields, which must be mirrored
   in `frontend/src/types/api.ts` (the transport contract rule).
 - The recommendation order in the CC Switch document needs adjusting: switching built
-  into OneAgent is the main path, with CC Switch as an optional downstream.
+  into BootAgent is the main path, with CC Switch as an optional downstream.
 - Go profile/config tests, React state tests, and Wails binding tests cover the new
   endpoints and the migration path.
 - The backup rollback UI, per-agent profiles, and `--wire-shell` each need their own

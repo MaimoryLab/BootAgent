@@ -2,11 +2,11 @@
 
 [简体中文](../zh/03-config-tools.md) · **English**
 
-OneAgent offers three ways to configure an agent. For a first run, use the built-in
+BootAgent offers three ways to configure an agent. For a first run, use the built-in
 configuration. Reach for a local tool like CC Switch once you need several Providers or
 several accounts.
 
-## Option 1: OneAgent's built-in configuration
+## Option 1: BootAgent's built-in configuration
 
 Good for:
 
@@ -32,8 +32,8 @@ Good for:
 - Keeping different configurations for different projects.
 - Moving frequently between Claude Code, Codex, OpenCode, and similar tools.
 
-CC Switch is an optional local configuration tool, not a OneAgent dependency. Get the
-current version from its own official project page — OneAgent does not repackage its
+CC Switch is an optional local configuration tool, not a BootAgent dependency. Get the
+current version from its own official project page — BootAgent does not repackage its
 binary or install script into the kit.
 
 For the steps, see the [CC Switch guide](./tools/cc-switch.md).
@@ -59,13 +59,13 @@ Key:      local secure storage only
 
 | Situation | Recommended |
 | --- | --- |
-| First run | OneAgent built-in configuration |
-| A single PPIO account | OneAgent built-in configuration |
+| First run | BootAgent built-in configuration |
+| A single PPIO account | BootAgent built-in configuration |
 | Several Providers | CC Switch or a comparable profile tool |
-| OpenClaw's model provider | OneAgent built-in configuration |
+| OpenClaw's model provider | BootAgent built-in configuration |
 | OpenClaw's channels, tools, and daemon | Its own commands, such as `openclaw onboard` |
 | IDE extensions | The extension's own Provider settings |
-| Unsure where a tool came from | Manual or OneAgent built-in configuration |
+| Unsure where a tool came from | Manual or BootAgent built-in configuration |
 
 ## One distinction that matters
 
@@ -74,6 +74,6 @@ different things. Using CC Switch means switching configuration on your own mach
 does not mean your PPIO key is handed to a CC Switch server, and it does not mean that
 tool's service address can be used as the PPIO base URL.
 
-No config tool substitutes for compliant network access. OneAgent provides no VPN, proxy,
+No config tool substitutes for compliant network access. BootAgent provides no VPN, proxy,
 node subscription, or circumvention capability. If a tool or install source is
 unreachable, go back to [Start here](./00-start-here.md) for the manual install path.
