@@ -156,15 +156,15 @@ jobs:
       - name: Package macOS OTA archive
         shell: bash
         run: |
-          (cd bin && zip -qry "OneAgent-darwin-${{ matrix.arch.ota }}.zip" OneAgent.app)
-          roots="$(unzip -Z1 "bin/OneAgent-darwin-${{ matrix.arch.ota }}.zip" | awk -F/ 'NF {print $1}' | sort -u)"
+          (cd bin && zip -qry "ota-OneAgent-darwin-${{ matrix.arch.ota }}.zip" OneAgent.app)
+          roots="$(unzip -Z1 "bin/ota-OneAgent-darwin-${{ matrix.arch.ota }}.zip" | awk -F/ 'NF {print $1}' | sort -u)"
           test "$roots" = OneAgent.app
 
       - name: Upload OTA archive
         uses: actions/upload-artifact@v7
         with:
           name: ota-macos-${{ matrix.arch.label }}
-          path: bin/OneAgent-darwin-${{ matrix.arch.ota }}.zip
+          path: bin/ota-OneAgent-darwin-${{ matrix.arch.ota }}.zip
           if-no-files-found: error
 
       - name: Upload macOS DMG
@@ -243,7 +243,7 @@ jobs:
       - name: Package Windows OTA archive
         shell: pwsh
         run: |
-          $archive = "bin/OneAgent-windows-${{ matrix.arch.ota }}.zip"
+          $archive = "bin/ota-OneAgent-windows-${{ matrix.arch.ota }}.zip"
           Compress-Archive -Path "bin/oneagent-desktop.exe" -DestinationPath $archive
           $roots = @(tar -tf $archive | ForEach-Object { ($_ -split '/')[0] } | Where-Object { $_ } | Sort-Object -Unique)
           if ($roots.Count -ne 1 -or $roots[0] -ne "oneagent-desktop.exe") {
@@ -254,7 +254,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: ota-windows-${{ matrix.arch.label }}
-          path: bin/OneAgent-windows-${{ matrix.arch.ota }}.zip
+          path: bin/ota-OneAgent-windows-${{ matrix.arch.ota }}.zip
           if-no-files-found: error
 
       - name: Upload Windows NSIS installer
@@ -363,8 +363,8 @@ jobs:
           test -s bin/oneagent-desktop.rpm
           mv bin/oneagent-desktop.rpm "bin/OneAgent-linux-${package_arch}.rpm"
 
-          (cd bin && zip -q "OneAgent-linux-${package_arch}.zip" oneagent-desktop)
-          roots="$(unzip -Z1 "bin/OneAgent-linux-${package_arch}.zip" | awk -F/ 'NF {print $1}' | sort -u)"
+          (cd bin && zip -q "ota-OneAgent-linux-${package_arch}.zip" oneagent-desktop)
+          roots="$(unzip -Z1 "bin/ota-OneAgent-linux-${package_arch}.zip" | awk -F/ 'NF {print $1}' | sort -u)"
           test "$roots" = oneagent-desktop
 
       - name: Verify Linux package outputs
@@ -375,8 +375,8 @@ jobs:
           test -x bin/OneAgent-linux-${arch}.AppImage
           test -s bin/OneAgent-linux-${arch}.deb
           test -s bin/OneAgent-linux-${arch}.rpm
-          test -s bin/OneAgent-linux-${arch}.zip
-          test "$(unzip -Z1 bin/OneAgent-linux-${arch}.zip | awk -F/ 'NF {print $1}' | sort -u)" = oneagent-desktop
+          test -s bin/ota-OneAgent-linux-${arch}.zip
+          test "$(unzip -Z1 bin/ota-OneAgent-linux-${arch}.zip | awk -F/ 'NF {print $1}' | sort -u)" = oneagent-desktop
 
       - name: Upload Linux packages
         uses: actions/upload-artifact@v7
@@ -386,7 +386,7 @@ jobs:
             bin/OneAgent-linux-${{ matrix.arch.ota }}.AppImage
             bin/OneAgent-linux-${{ matrix.arch.ota }}.deb
             bin/OneAgent-linux-${{ matrix.arch.ota }}.rpm
-            bin/OneAgent-linux-${{ matrix.arch.ota }}.zip
+            bin/ota-OneAgent-linux-${{ matrix.arch.ota }}.zip
           if-no-files-found: error
 
   release:
@@ -433,12 +433,12 @@ jobs:
         run: |
           set -euo pipefail
           expected=(
-            OneAgent-darwin-amd64.zip
-            OneAgent-darwin-arm64.zip
+            ota-OneAgent-darwin-amd64.zip
+            ota-OneAgent-darwin-arm64.zip
             OneAgent-darwin-amd64.dmg
             OneAgent-darwin-arm64.dmg
-            OneAgent-windows-amd64.zip
-            OneAgent-windows-arm64.zip
+            ota-OneAgent-windows-amd64.zip
+            ota-OneAgent-windows-arm64.zip
             OneAgent-windows-amd64-installer.exe
             OneAgent-windows-arm64-installer.exe
             OneAgent-linux-amd64.AppImage
@@ -447,8 +447,8 @@ jobs:
             OneAgent-linux-arm64.deb
             OneAgent-linux-amd64.rpm
             OneAgent-linux-arm64.rpm
-            OneAgent-linux-amd64.zip
-            OneAgent-linux-arm64.zip
+            ota-OneAgent-linux-amd64.zip
+            ota-OneAgent-linux-arm64.zip
           )
           mapfile -t assets < <(find release-assets -maxdepth 1 -type f -name 'OneAgent-*' -printf '%f\n' | sort)
           test "${#assets[@]}" -eq 16

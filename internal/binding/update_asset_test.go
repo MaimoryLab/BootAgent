@@ -17,21 +17,21 @@ import (
 func releaseAssets() []github.ReleaseAsset {
 	names := []string{
 		"OneAgent-darwin-amd64.dmg",
-		"OneAgent-darwin-amd64.zip",
+		"ota-OneAgent-darwin-amd64.zip",
 		"OneAgent-darwin-arm64.dmg",
-		"OneAgent-darwin-arm64.zip",
+		"ota-OneAgent-darwin-arm64.zip",
 		"OneAgent-windows-amd64-installer.exe",
-		"OneAgent-windows-amd64.zip",
+		"ota-OneAgent-windows-amd64.zip",
 		"OneAgent-windows-arm64-installer.exe",
-		"OneAgent-windows-arm64.zip",
+		"ota-OneAgent-windows-arm64.zip",
 		"OneAgent-linux-amd64.AppImage",
 		"OneAgent-linux-amd64.deb",
 		"OneAgent-linux-amd64.rpm",
-		"OneAgent-linux-amd64.zip",
+		"ota-OneAgent-linux-amd64.zip",
 		"OneAgent-linux-arm64.AppImage",
 		"OneAgent-linux-arm64.deb",
 		"OneAgent-linux-arm64.rpm",
-		"OneAgent-linux-arm64.zip",
+		"ota-OneAgent-linux-arm64.zip",
 		"SHA256SUMS",
 	}
 	assets := make([]github.ReleaseAsset, len(names))
@@ -48,12 +48,12 @@ func TestExtractableAssetMatcherPicksTheArchiveForEveryPlatform(t *testing.T) {
 		arch     string
 		want     string
 	}{
-		{"darwin", "arm64", "OneAgent-darwin-arm64.zip"},
-		{"darwin", "amd64", "OneAgent-darwin-amd64.zip"},
-		{"windows", "amd64", "OneAgent-windows-amd64.zip"},
-		{"windows", "arm64", "OneAgent-windows-arm64.zip"},
-		{"linux", "amd64", "OneAgent-linux-amd64.zip"},
-		{"linux", "arm64", "OneAgent-linux-arm64.zip"},
+		{"darwin", "arm64", "ota-OneAgent-darwin-arm64.zip"},
+		{"darwin", "amd64", "ota-OneAgent-darwin-amd64.zip"},
+		{"windows", "amd64", "ota-OneAgent-windows-amd64.zip"},
+		{"windows", "arm64", "ota-OneAgent-windows-arm64.zip"},
+		{"linux", "amd64", "ota-OneAgent-linux-amd64.zip"},
+		{"linux", "arm64", "ota-OneAgent-linux-arm64.zip"},
 	} {
 		t.Run(test.platform+"/"+test.arch, func(t *testing.T) {
 			request := updater.CheckRequest{CurrentVersion: "0.4.0", Platform: test.platform, Arch: test.arch}
@@ -107,12 +107,12 @@ func TestExtractableAssetMatcherKeepsUpstreamExclusions(t *testing.T) {
 		{Name: "SHA256SUMS"},
 		{Name: "OneAgent-windows-amd64-installer.exe"},
 		{Name: "OneAgent-windows-amd64.zip.sig"},
-		{Name: "OneAgent-windows-amd64.zip"},
+		{Name: "ota-OneAgent-windows-amd64.zip"},
 	}
 	request := updater.CheckRequest{CurrentVersion: "0.4.0", Platform: "windows", Arch: "amd64"}
 
 	index := ExtractableAssetMatcher(request, assets)
-	if index < 0 || assets[index].Name != "OneAgent-windows-amd64.zip" {
+	if index < 0 || assets[index].Name != "ota-OneAgent-windows-amd64.zip" {
 		t.Fatalf("index = %d, want the .zip", index)
 	}
 }

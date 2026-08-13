@@ -77,7 +77,7 @@ tasks:
     summary: Creates the single-root Linux OTA archive
     cmds:
       - mkdir -p '{{.ROOT_DIR}}/bin'
-      - '(cd "{{.ROOT_DIR}}/bin" && rm -f "OneAgent-linux-{{.ARCH | default ARCH}}.zip" && zip -q "OneAgent-linux-{{.ARCH | default ARCH}}.zip" "{{.APP_NAME}}")'
+      - '(cd "{{.ROOT_DIR}}/bin" && rm -f "ota-OneAgent-linux-{{.ARCH | default ARCH}}.zip" && zip -q "ota-OneAgent-linux-{{.ARCH | default ARCH}}.zip" "{{.APP_NAME}}")'
 
   run:
     cmds:
