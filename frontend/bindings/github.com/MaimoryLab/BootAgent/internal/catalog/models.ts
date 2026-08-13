@@ -50,6 +50,12 @@ export interface Provider {
     "base_url": string;
     "anthropic_base_url"?: string;
     "default_model"?: string;
+
+    /**
+     * Display precedence among built-in Providers, ascending. Absent for a
+     * custom Provider, which the frontend sorts by creation time instead.
+     */
+    "order"?: number;
     "custom"?: boolean;
     "has_key"?: boolean;
     "created_at"?: string;

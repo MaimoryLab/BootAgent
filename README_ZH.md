@@ -35,7 +35,7 @@ BootAgent 是一个本地桌面工作台，用来统一管理 AI 编程 Agent。
 | Hermes Agent · OpenClaw | |
 | Kimi Code | |
 
-内置 PPIO 和 Novita，也可以在模型服务页面添加任意 OpenAI 兼容或 Anthropic 兼容服务。BootAgent 会按 Agent 真正使用的协议探测；如果端点只支持另一种 API，会在写入配置前拒绝它。
+内置 JieKou.AI、PPIO、Novita、DeepSeek 和 Moonshot，顺序如此；也可以在模型服务页面添加任意 OpenAI 兼容或 Anthropic 兼容服务。BootAgent 会按 Agent 真正使用的协议探测；如果端点只支持另一种 API，会在写入配置前拒绝它。
 
 MCP Registry 只管理用户级配置并保存在本机，支持 Claude Code、Codex、OpenCode、Kilo CLI 和 Hermes 的 stdio、HTTP、SSE 服务器。用户可以单独选择同步目标并显式应用；清空所有同步目标只会从 Agent 配置中移除服务器，仍保留在 Registry 中。点击删除后，会先从 Agent 配置中移除，应用成功后才从 Registry 中删除。MCP 导出按服务器选择且不携带 Agent 绑定，导入其他机器后可重新选择本机同步目标。
 

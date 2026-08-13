@@ -10,7 +10,7 @@ import { ProviderSegment } from "../components/ProviderSegment";
 import { SelectField } from "../components/SelectField";
 import { useI18n } from "../i18n";
 import { confirmDelete } from "../state/confirmDelete";
-import { byProviderCreatedAt } from "../state/ranking";
+import { byProviderCreatedAt, preferProviderWithKey } from "../state/ranking";
 import { installTaskRoute, taskKey, useTaskCenter } from "../state/TaskCenterContext";
 import { useWizard } from "../state/WizardContext";
 import { PROTOCOL_LABELS, type ProfileSummary, type ProtocolId, type ProviderId } from "../types/api";
@@ -109,7 +109,7 @@ export function ProfilesPage() {
     t("{name} 配置模版", { name: status.providers[provider]?.name || provider });
 
   const openCreate = () => {
-    const [provider = "ppio", providerMeta] = byProviderCreatedAt(status.providers)[0] || [];
+    const [provider = "ppio", providerMeta] = preferProviderWithKey(byProviderCreatedAt(status.providers)) || [];
     setFailure("");
     setEditor({
       id: suggestProfileID(provider),
@@ -126,7 +126,10 @@ export function ProfilesPage() {
 
   const providerForProtocol = (protocol: string, current: ProviderId) => {
     if (!protocol || (status.providers[current] && (protocol === "anthropic" ? status.providers[current].anthropic_base_url : status.providers[current].base_url))) return current;
-    return byProviderCreatedAt(status.providers).find(([, provider]) => protocol === "anthropic" ? provider.anthropic_base_url : provider.base_url)?.[0] || current;
+    const usable = byProviderCreatedAt(status.providers).filter(([, provider]) =>
+      protocol === "anthropic" ? provider.anthropic_base_url : provider.base_url,
+    );
+    return preferProviderWithKey(usable)?.[0] || current;
   };
 
   // Switching Provider re-seeds the model, ID and name, but only where the field

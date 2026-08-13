@@ -337,14 +337,25 @@
       "key_management_url": "https://platform.deepseek.com/api_keys",
       "base_url": "https://api.deepseek.com",
       "anthropic_base_url": "https://api.deepseek.com/anthropic",
-      "default_model": "deepseek-v4-pro"
+      "default_model": "deepseek-v4-pro",
+      "order": 4
+    },
+    "jiekou": {
+      "name": "JieKou.AI",
+      "home": "https://jiekou.ai/",
+      "key_management_url": "https://jiekou.vip/settings/key-management",
+      "base_url": "https://api.highwayapi.ai/openai",
+      "anthropic_base_url": "https://api.highwayapi.ai/anthropic",
+      "default_model": "claude-sonnet-5",
+      "order": 1
     },
     "moonshot": {
       "name": "Moonshot",
       "home": "https://www.moonshot.cn/",
       "key_management_url": "https://platform.moonshot.cn/console/api-keys",
       "base_url": "https://api.moonshot.cn",
-      "default_model": "kimi-k2-0905-preview"
+      "default_model": "kimi-k2-0905-preview",
+      "order": 5
     },
     "novita": {
       "name": "Novita",
@@ -352,7 +363,8 @@
       "key_management_url": "https://novita.ai/settings/key-management",
       "base_url": "https://api.novita.ai/openai",
       "anthropic_base_url": "https://api.novita.ai/anthropic",
-      "default_model": "deepseek/deepseek-v4-pro"
+      "default_model": "deepseek/deepseek-v4-pro",
+      "order": 3
     },
     "ppio": {
       "name": "PPIO",
@@ -360,7 +372,8 @@
       "key_management_url": "https://ppio.com/settings/key-management",
       "base_url": "https://api.ppio.com/openai",
       "anthropic_base_url": "https://api.ppio.com/anthropic",
-      "default_model": "deepseek/deepseek-v4-pro"
+      "default_model": "deepseek/deepseek-v4-pro",
+      "order": 2
     }
   },
   "mirrors": [

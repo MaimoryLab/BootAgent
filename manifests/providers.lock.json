@@ -2,6 +2,24 @@
   "schema_version": 1,
   "default_fallback_probe_model": "deepseek/deepseek-v4-flash",
   "providers": {
+    "jiekou": {
+      "name": "JieKou.AI",
+      "home": "https://jiekou.ai/",
+      "key_management_url": "https://jiekou.vip/settings/key-management",
+      "base_url": "https://api.highwayapi.ai/openai",
+      "anthropic_base_url": "https://api.highwayapi.ai/anthropic",
+      "default_model": "claude-sonnet-5",
+      "fallback_probe_model": "claude-haiku-4-5-20251001",
+      "relationship": "none",
+      "disclosure": "",
+      "referral_url": "",
+      "order": 1,
+      "protocols": {
+        "openai": "implementation-supported",
+        "anthropic": "implementation-supported",
+        "responses": "route-present-unverified"
+      }
+    },
     "ppio": {
       "name": "PPIO",
       "home": "https://ppio.com/",
@@ -13,7 +31,7 @@
       "relationship": "sponsor",
       "disclosure": "PPIO sponsors BootAgent development. Sponsorship does not affect Agent rank, compatibility conclusions, default selection, or connection tests.",
       "referral_url": "",
-      "order": 1,
+      "order": 2,
       "protocols": {
         "openai": "implementation-supported",
         "anthropic": "implementation-supported",
@@ -31,7 +49,7 @@
       "relationship": "sponsor",
       "disclosure": "Novita sponsors BootAgent development. Sponsorship does not affect Agent rank, compatibility conclusions, default selection, or connection tests.",
       "referral_url": "",
-      "order": 2,
+      "order": 3,
       "protocols": {
         "openai": "implementation-supported",
         "anthropic": "implementation-supported",
@@ -49,7 +67,7 @@
       "relationship": "none",
       "disclosure": "",
       "referral_url": "",
-      "order": 3,
+      "order": 4,
       "protocols": {
         "openai": "implementation-supported",
         "anthropic": "implementation-supported",
@@ -66,7 +84,7 @@
       "relationship": "none",
       "disclosure": "",
       "referral_url": "",
-      "order": 4,
+      "order": 5,
       "protocols": {
         "openai": "route-present-unverified",
         "anthropic": "not-supported",

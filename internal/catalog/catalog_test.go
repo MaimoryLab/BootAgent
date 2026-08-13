@@ -269,6 +269,11 @@ func TestParseProvidersRejectsInvalidEntries(t *testing.T) {
 // currently true only because providerFileEntry omits them, which is invisible
 // at the call site: someone adding a field would not know it was load-bearing.
 // This pins it, so wiring one up has to be a deliberate edit here too.
+// The site's explorer reads fields the desktop app has no business showing:
+// sponsorship, referral links, and per-protocol support claims are editorial, and
+// projecting them would put a vendor relationship in front of a user choosing an
+// endpoint. `order` is deliberately not in that set -- it is display precedence,
+// which both surfaces need, and is asserted below.
 func TestSiteOnlyProviderFieldsAreNotParsed(t *testing.T) {
 	// Every field carries a value that would be obvious if it leaked.
 	data := `{"schema_version":1,"default_fallback_probe_model":"m","providers":{"ok":{
@@ -284,10 +289,47 @@ func TestSiteOnlyProviderFieldsAreNotParsed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, field := range []string{"LEAKED", "relationship", "disclosure", "referral", "order", "protocols"} {
+	for _, field := range []string{"LEAKED", "relationship", "disclosure", "referral", "protocols"} {
 		if contains(string(encoded), field) {
 			t.Fatalf("site-only field %q reached the parsed manifest: %s", field, encoded)
 		}
+	}
+	if got := manifest.Providers["ok"].Order; got != 9 {
+		t.Fatalf("Order = %d, want the manifest value 9", got)
+	}
+}
+
+// A built-in Provider that omits `order` must be refused rather than defaulted.
+// Zero sorts ahead of every declared Provider, so the failure mode of a missing
+// value is the new Provider silently taking the top of the list -- the one place
+// a mistake here is least visible in review and most visible to a user.
+func TestParseProvidersRejectsANonPositiveOrder(t *testing.T) {
+	for _, order := range []string{`"order":0,`, `"order":-1,`, ``} {
+		data := `{"schema_version":1,"default_fallback_probe_model":"m","providers":{"ok":{
+			"name":"OK","home":"https://example.com","base_url":"https://api.example.com",
+			"default_model":"m","fallback_probe_model":"m",` + order + `"protocols":{}}}}`
+		if _, err := ParseProviders([]byte(data)); err == nil {
+			t.Fatalf("ParseProviders unexpectedly accepted order %q", order)
+		}
+	}
+}
+
+// Every built-in Provider needs a distinct position, or the tie falls through to
+// a secondary key and the manifest stops being the answer to "what comes first".
+func TestEmbeddedProviderOrdersAreUniqueAndPositive(t *testing.T) {
+	manifest, err := LoadEmbeddedProviders()
+	if err != nil {
+		t.Fatal(err)
+	}
+	seen := make(map[int]string, len(manifest.Providers))
+	for id, provider := range manifest.Providers {
+		if provider.Order <= 0 {
+			t.Fatalf("provider %q has order %d, want positive", id, provider.Order)
+		}
+		if other, clash := seen[provider.Order]; clash {
+			t.Fatalf("providers %q and %q share order %d", id, other, provider.Order)
+		}
+		seen[provider.Order] = id
 	}
 }
 
@@ -295,7 +337,7 @@ func TestSiteOnlyProviderFieldsAreNotParsed(t *testing.T) {
 // required by accident would only show up as a released build that refuses to
 // start on a Provider that has no key page.
 func TestParseProvidersAcceptsAnAbsentKeyManagementURL(t *testing.T) {
-	data := `{"schema_version":1,"default_fallback_probe_model":"m","providers":{"ok":{"name":"OK","home":"https://example.com","base_url":"https://api.example.com","default_model":"m","fallback_probe_model":"m"}}}`
+	data := `{"schema_version":1,"default_fallback_probe_model":"m","providers":{"ok":{"name":"OK","home":"https://example.com","base_url":"https://api.example.com","default_model":"m","fallback_probe_model":"m","order":1}}}`
 	manifest, err := ParseProviders([]byte(data))
 	if err != nil {
 		t.Fatal(err)

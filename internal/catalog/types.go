@@ -4,11 +4,11 @@
 package catalog
 
 type Manifest struct {
-	SchemaVersion   int              `json:"schema_version"`
+	SchemaVersion    int              `json:"schema_version"`
 	BootAgentVersion string           `json:"bootagent_version"`
-	GeneratedAt     string           `json:"generated_at"`
-	Agents          map[string]Agent `json:"agents"`
-	AgentOrder      []string         `json:"-"`
+	GeneratedAt      string           `json:"generated_at"`
+	Agents           map[string]Agent `json:"agents"`
+	AgentOrder       []string         `json:"-"`
 }
 
 type ProviderManifest struct {
@@ -86,9 +86,12 @@ type Provider struct {
 	BaseURL          string `json:"base_url"`
 	AnthropicBaseURL string `json:"anthropic_base_url,omitempty"`
 	DefaultModel     string `json:"default_model,omitempty"`
-	Custom           bool   `json:"custom,omitempty"`
-	HasKey           bool   `json:"has_key,omitempty"`
-	CreatedAt        string `json:"created_at,omitempty"`
+	// Display precedence among built-in Providers, ascending. Absent for a
+	// custom Provider, which the frontend sorts by creation time instead.
+	Order     int    `json:"order,omitempty"`
+	Custom    bool   `json:"custom,omitempty"`
+	HasKey    bool   `json:"has_key,omitempty"`
+	CreatedAt string `json:"created_at,omitempty"`
 	// Unexported, and cleared again by PublicProviders: which model we probe
 	// with is an internal implementation detail, not a recommendation.
 	fallbackModel string

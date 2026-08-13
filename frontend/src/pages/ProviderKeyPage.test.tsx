@@ -27,6 +27,12 @@ const status = {
   catalog: [],
 } as unknown as StatusResponse;
 
+/** Pins the selected Provider to the one this fixture defines. Inheriting the
+ *  wizard's initial Provider instead coupled these cases to whichever Provider
+ *  ships first in providers.lock.json: when that changed, every case here looked
+ *  up a Provider the fixture did not contain and rendered nothing. */
+const baseState: WizardState = { ...initialWizardState, provider: "ppio" };
+
 vi.mock("../state/WizardContext", () => ({
   useWizard: () => ({
     state,
@@ -40,7 +46,7 @@ describe("ProviderKeyPage", () => {
   afterEach(() => vi.restoreAllMocks());
 
   it("uses a custom model name for the connection test", async () => {
-    state = { ...initialWizardState, status, statusState: "success", hasApiKey: false };
+    state = { ...baseState, status, statusState: "success", hasApiKey: false };
     keyRef.current = "test-key";
     dispatch.mockClear();
     const probe = vi.spyOn(api, "probe").mockResolvedValue({
@@ -65,7 +71,7 @@ describe("ProviderKeyPage", () => {
 
   it("saves an inline key for a built-in Provider and continues", async () => {
     state = {
-      ...initialWizardState,
+      ...baseState,
       status: { ...status, providers: { ppio: { ...status.providers.ppio, has_key: false } } },
       statusState: "success",
     };
@@ -93,7 +99,7 @@ describe("ProviderKeyPage", () => {
     // A selected Agent is what gives the step a protocol, and without one
     // discovery does not run at all.
     state = {
-      ...initialWizardState,
+      ...baseState,
       status: { ...status, catalog: [{ id: "codex", name: "Codex", protocol: "openai" }] } as unknown as StatusResponse,
       statusState: "success",
       selectedAgentIds: ["codex"],
@@ -115,7 +121,7 @@ describe("ProviderKeyPage", () => {
   // A model entered here is not configured anywhere, and a user who assumes it is
   // will not understand why the next step asks again.
   it("says the probe model configures nothing", () => {
-    state = { ...initialWizardState, status, statusState: "success", hasApiKey: true };
+    state = { ...baseState, status, statusState: "success", hasApiKey: true };
     render(<MemoryRouter><ProviderKeyPage /></MemoryRouter>);
 
     expect(screen.getByText(/不会写入任何配置/)).toBeTruthy();
@@ -124,7 +130,7 @@ describe("ProviderKeyPage", () => {
 
   it("leaves the probe model optional", () => {
     // Empty is the common path: the backend picks a model for the probe.
-    state = { ...initialWizardState, status, statusState: "success", hasApiKey: true };
+    state = { ...baseState, status, statusState: "success", hasApiKey: true };
     render(<MemoryRouter><ProviderKeyPage /></MemoryRouter>);
 
     expect(screen.getByLabelText("测试用模型（可选）").hasAttribute("required")).toBe(false);
@@ -132,7 +138,7 @@ describe("ProviderKeyPage", () => {
 
   it("keeps custom Providers on the management-page path", () => {
     state = {
-      ...initialWizardState,
+      ...baseState,
       status: { ...status, providers: { custom: { ...status.providers.ppio, custom: true, has_key: false } } },
       provider: "custom",
       statusState: "success",
@@ -144,7 +150,7 @@ describe("ProviderKeyPage", () => {
   });
 
   it("allows continuing without a connection test", () => {
-    state = { ...initialWizardState, status, statusState: "success", hasApiKey: true, keyVerified: false };
+    state = { ...baseState, status, statusState: "success", hasApiKey: true, keyVerified: false };
     render(<MemoryRouter><ProviderKeyPage /></MemoryRouter>);
 
     expect(screen.getByRole("button", { name: "继续选择模型" })).not.toBeDisabled();
@@ -154,7 +160,7 @@ describe("ProviderKeyPage", () => {
   // the ref -- so a key typed in this session was dropped with no save call and no
   // message, while the page advanced as though it had worked.
   it("saves a key typed in this session even when one is already stored", async () => {
-    state = { ...initialWizardState, status, statusState: "success", hasApiKey: true };
+    state = { ...baseState, status, statusState: "success", hasApiKey: true };
     keyRef.current = "sk-rotated";
     const save = vi.spyOn(api, "saveProvider").mockResolvedValue({
       entry: {
@@ -171,7 +177,7 @@ describe("ProviderKeyPage", () => {
   });
 
   it("continues without a save when nothing was typed", async () => {
-    state = { ...initialWizardState, status, statusState: "success", hasApiKey: true };
+    state = { ...baseState, status, statusState: "success", hasApiKey: true };
     keyRef.current = "";
     const save = vi.spyOn(api, "saveProvider");
     render(<MemoryRouter><ProviderKeyPage /></MemoryRouter>);
@@ -185,7 +191,7 @@ describe("ProviderKeyPage", () => {
     // No home URL, so the pre-change guard would have hidden the button. The
     // backend picks the URL; the page only decides whether to offer the action.
     state = {
-      ...initialWizardState,
+      ...baseState,
       status: {
         ...status,
         providers: { ppio: { ...status.providers.ppio, home: "", key_management_url: "https://ppio.com/settings/key-management" } },
@@ -203,7 +209,7 @@ describe("ProviderKeyPage", () => {
   });
 
   it("hides the key button when the Provider publishes neither URL", () => {
-    state = { ...initialWizardState, status, statusState: "success", hasApiKey: true };
+    state = { ...baseState, status, statusState: "success", hasApiKey: true };
     render(<MemoryRouter><ProviderKeyPage /></MemoryRouter>);
 
     expect(screen.queryByRole("button", { name: "获取 API Key" })).toBeNull();
