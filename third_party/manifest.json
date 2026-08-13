@@ -246,14 +246,14 @@
       "ecosystem": "npm",
       "license": "ISC",
       "license_files": [
-        "licenses/npm/lucide-react@1.28.0/LICENSE"
+        "licenses/npm/lucide-react@1.31.0/LICENSE"
       ],
       "modification": "",
       "name": "lucide-react",
       "platforms": [
         "frontend"
       ],
-      "version": "1.28.0"
+      "version": "1.31.0"
     },
     {
       "ecosystem": "npm",

@@ -26,7 +26,7 @@ the embedded frontend. Full license and notice texts are included under
 | go | `gopkg.in/yaml.v3` | `v3.0.1` | macos-arm64, macos-x64, windows-arm64, windows-x64 | MIT AND Apache-2.0 | `licenses/go/gopkg.in_yaml.v3@v3.0.1/LICENSE`<br>`licenses/go/gopkg.in_yaml.v3@v3.0.1/NOTICE` |
 | npm | `@wailsio/runtime` | `3.0.0-beta.8` | frontend | MIT | `licenses/npm/wailsio_runtime@3.0.0-beta.8/LICENSE` |
 | npm | `cookie` | `1.0.1` | frontend | MIT | `licenses/npm/cookie@1.0.1/LICENSE` |
-| npm | `lucide-react` | `1.28.0` | frontend | ISC | `licenses/npm/lucide-react@1.28.0/LICENSE` |
+| npm | `lucide-react` | `1.31.0` | frontend | ISC | `licenses/npm/lucide-react@1.31.0/LICENSE` |
 | npm | `react` | `19.2.8` | frontend | MIT | `licenses/npm/react@19.2.8/LICENSE` |
 | npm | `react-dom` | `19.2.8` | frontend | MIT | `licenses/npm/react-dom@19.2.8/LICENSE` |
 | npm | `react-router` | `7.18.2` | frontend | MIT | `licenses/npm/react-router@7.18.2/LICENSE.md` |
