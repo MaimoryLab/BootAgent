@@ -78,7 +78,7 @@ func TestStatusServiceRunsNativeSmokeHookAfterSuccess(t *testing.T) {
 		Home:     t.TempDir(),
 		Platform: platform.For("linux", "amd64"),
 		Lookup:   func(string) (string, bool) { return "", false },
-	}), nil, ServicesOptions{AfterGetStatus: func() { called++ }}).Status
+	}), nil, ServicesOptions{AfterGetStatus: func(app.StatusResponse) { called++ }}).Status
 	if _, err := service.GetStatus(context.Background()); err != nil {
 		t.Fatal(err)
 	}
@@ -86,7 +86,7 @@ func TestStatusServiceRunsNativeSmokeHookAfterSuccess(t *testing.T) {
 		t.Fatalf("native smoke hook calls = %d, want 1", called)
 	}
 
-	if _, err := (&StatusService{afterGetStatus: func() { called++ }}).GetStatus(context.Background()); err == nil {
+	if _, err := (&StatusService{afterGetStatus: func(app.StatusResponse) { called++ }}).GetStatus(context.Background()); err == nil {
 		t.Fatal("unconfigured status service succeeded")
 	}
 	if called != 1 {

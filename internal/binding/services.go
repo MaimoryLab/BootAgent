@@ -34,7 +34,7 @@ type Services struct {
 }
 
 type ServicesOptions struct {
-	AfterGetStatus func()
+	AfterGetStatus func(app.StatusResponse)
 	InstallOutput  process.OutputListener
 }
 
@@ -170,7 +170,7 @@ const GitHubURL = "https://github.com/MaimoryLab/OneAgent"
 
 type StatusService struct {
 	core           *app.UseCases
-	afterGetStatus func()
+	afterGetStatus func(app.StatusResponse)
 }
 
 func (s *StatusService) GetStatus(ctx context.Context) (app.StatusResponse, error) {
@@ -179,7 +179,7 @@ func (s *StatusService) GetStatus(ctx context.Context) (app.StatusResponse, erro
 	}
 	status, err := s.core.GetStatus(ctx)
 	if err == nil && s.afterGetStatus != nil {
-		s.afterGetStatus()
+		s.afterGetStatus(status)
 	}
 	return status, err
 }

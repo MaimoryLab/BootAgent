@@ -11,6 +11,7 @@ import (
 	"time"
 
 	oneagent "github.com/MaimoryLab/OneAgent"
+	"github.com/MaimoryLab/OneAgent/internal/app"
 	"github.com/MaimoryLab/OneAgent/internal/binding"
 	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
 	"github.com/MaimoryLab/OneAgent/internal/process"
@@ -75,7 +76,13 @@ func main() {
 		}
 		return current.Browser.OpenURL(url)
 	}, binding.ServicesOptions{
-		AfterGetStatus: func() {
+		AfterGetStatus: func(status app.StatusResponse) {
+			if status.FirstRun {
+				if afterGetStatus != nil {
+					afterGetStatus()
+				}
+				return
+			}
 			startupSyncOnce.Do(func() {
 				if _, err := core.ScanMCP(context.Background()); err != nil {
 					slog.Warn("MCP startup scan failed", "error", err)
