@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"maps"
 	"net/url"
-	"path/filepath"
+	"path"
 	"regexp"
 	"sort"
 	"strings"
@@ -157,13 +157,7 @@ func validateMCPMetadata(agentID string, agent Agent) error {
 		return invalidManifest(agentID, "MCP metadata requires adapter, section, and config path")
 	}
 	for name, value := range map[string]string{"mcp_config_path": agent.MCPConfigPath, "mcp_windows_config_path": agent.MCPWindowsConfigPath} {
-		if value == "" {
-			continue
-		}
-		// Keep MCP's historical host-platform validation unchanged. Skills paths
-		// use the stricter cross-platform predicate below because they are a new
-		// contract; MCP manifests may already contain platform-specific values.
-		if filepath.IsAbs(value) || filepath.Clean(value) != value || strings.HasPrefix(value, "../") || strings.HasPrefix(value, `..\`) {
+		if value != "" && !validUserLevelPath(value) {
 			return invalidManifest(agentID, name+" must be a relative user-level path")
 		}
 	}
@@ -186,12 +180,10 @@ func validateSkillsMetadata(agentID string, agent Agent) error {
 }
 
 func validUserLevelPath(value string) bool {
-	if value == "" || filepath.IsAbs(value) || filepath.Clean(value) != value || strings.HasPrefix(value, "../") || strings.HasPrefix(value, `..\`) {
+	if value == "" || path.IsAbs(value) || path.Clean(value) != value || strings.HasPrefix(value, "../") || strings.Contains(value, `\`) {
 		return false
 	}
-	// filepath.IsAbs follows the host OS; explicitly reject Windows absolute
-	// and UNC paths even when validation runs on Unix.
-	return !strings.HasPrefix(value, `\`) && !regexp.MustCompile(`^[A-Za-z]:`).MatchString(value)
+	return !regexp.MustCompile(`^[A-Za-z]:`).MatchString(value)
 }
 
 func validatePackage(agentID string, pkg Package) error {
