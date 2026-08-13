@@ -87,7 +87,7 @@ export function AgentProfilePage() {
   const canApply = Boolean(selected && desktopProfileUsable(status, selected));
 
   const openCreate = () => {
-    const provider = byProviderCreatedAt(status.providers).find(([, meta]) => protocol === "anthropic" ? meta.anthropic_base_url : meta.base_url)?.[0] || "ppio";
+    const provider = byProviderCreatedAt(status.providers).find(([, meta]) => protocol === "anthropic" ? meta.anthropic_base_url : meta.base_url)?.[0] || "jiekou";
     const current = selected || profiles[0];
     const baseID = `${owner || "agent"}-${provider}`.toLowerCase().replace(/[^a-z0-9_-]/g, "-");
     const ids = new Set(status.profiles.map((profile) => profile.id));

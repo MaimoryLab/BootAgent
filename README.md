@@ -34,7 +34,7 @@ BootAgent is a local desktop workspace for AI coding Agents. It turns a fresh ma
 | Hermes Agent · OpenClaw | |
 | Kimi Code | |
 
-PPIO and Novita are built in. Any OpenAI-compatible or Anthropic-compatible Provider can be added from the Provider page. BootAgent probes the protocol an Agent actually uses; an endpoint that only exposes a different API is rejected before configuration is written.
+JieKou.AI, PPIO, Novita, DeepSeek and Moonshot are built in, listed in that order. Any OpenAI-compatible or Anthropic-compatible Provider can be added from the Provider page. BootAgent probes the protocol an Agent actually uses; an endpoint that only exposes a different API is rejected before configuration is written.
 
 The MCP Registry is user-level only and stored locally. It supports stdio, HTTP, and SSE servers for Claude Code, Codex, OpenCode, Kilo CLI, and Hermes. Select sync targets explicitly and apply changes when ready; clearing all targets removes the server from Agent configs but keeps it in the Registry. Deleting a server removes it from Agent configs first and from the Registry only after the application succeeds. MCP exports are selected per server and carry no Agent bindings, so they can be imported on another machine before choosing local targets.
 

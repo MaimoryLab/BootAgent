@@ -76,6 +76,14 @@ func KeyManagementURL(providerID string) string {
 	return providerDefinitions[providerID].KeyManagementURL
 }
 
+// ProviderOrder is a built-in Provider's display precedence. Zero for a Provider
+// that is not built in, which is what the frontend uses to tell the two apart:
+// a custom Provider is sorted by creation time, not by a manifest position it
+// never had.
+func ProviderOrder(providerID string) int {
+	return providerDefinitions[providerID].Order
+}
+
 func PublicProviders() map[string]Provider {
 	result := make(map[string]Provider, len(providerDefinitions))
 	for id, provider := range providerDefinitions {

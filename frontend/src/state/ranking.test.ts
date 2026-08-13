@@ -46,14 +46,39 @@ describe("ranking", () => {
     expect(secondary.map((entry) => entry.id)).toEqual(["past-limit"]);
   });
 
-  it("puts newest custom providers first and built-ins last", () => {
+  it("puts newest custom providers first and built-ins last, in manifest order", () => {
     const sorted = byProviderCreatedAt({
-      ppio: { name: "PPIO", home: "", base_url: "" },
+      ppio: { name: "PPIO", home: "", base_url: "", order: 2 },
       older: { name: "Older", home: "", base_url: "", custom: true, created_at: "2026-01-01T00:00:00Z" },
-      novita: { name: "Novita", home: "", base_url: "" },
+      novita: { name: "Novita", home: "", base_url: "", order: 3 },
       newer: { name: "Newer", home: "", base_url: "", custom: true, created_at: "2026-02-01T00:00:00Z" },
+      jiekou: { name: "JieKou.AI", home: "", base_url: "", order: 1 },
     });
-    expect(sorted.map(([id]) => id)).toEqual(["newer", "older", "novita", "ppio"]);
+    expect(sorted.map(([id]) => id)).toEqual(["newer", "older", "jiekou", "ppio", "novita"]);
+  });
+
+  it("orders built-ins by `order`, not by name", () => {
+    // The fall-through used to be `name`, which produced DeepSeek, Moonshot,
+    // Novita, PPIO -- alphabetical order reading as a recommendation, and it
+    // decided which Provider a protocol matched first. Every name here sorts
+    // against the intended sequence.
+    const sorted = byProviderCreatedAt({
+      alpha: { name: "Alpha", home: "", base_url: "", order: 3 },
+      beta: { name: "Beta", home: "", base_url: "", order: 1 },
+      gamma: { name: "Gamma", home: "", base_url: "", order: 2 },
+    });
+    expect(sorted.map(([id]) => id)).toEqual(["beta", "gamma", "alpha"]);
+  });
+
+  it("keeps built-in order when one of them has a saved key", () => {
+    // Store.Public stamps created_at onto any Provider with a saved key, built-in
+    // ones included. Comparing it before `order` let saving a key move a built-in
+    // to the head of the list, and only on machines where someone had done so.
+    const sorted = byProviderCreatedAt({
+      ppio: { name: "PPIO", home: "", base_url: "", order: 2, has_key: true, created_at: "2026-05-01T00:00:00Z" },
+      jiekou: { name: "JieKou.AI", home: "", base_url: "", order: 1 },
+    });
+    expect(sorted.map(([id]) => id)).toEqual(["jiekou", "ppio"]);
   });
 
   it("treats any Provider without `custom` as built-in, whatever its id", () => {
@@ -63,11 +88,11 @@ describe("ranking", () => {
     // broke the Profile editor's model list. Nothing here may name an id: the
     // absence of `custom` is what makes a Provider built-in.
     const sorted = byProviderCreatedAt({
-      deepseek: { name: "DeepSeek", home: "", base_url: "" },
+      deepseek: { name: "DeepSeek", home: "", base_url: "", order: 4 },
       mine: { name: "Mine", home: "", base_url: "", custom: true, created_at: "2026-03-01T00:00:00Z" },
-      ppio: { name: "PPIO", home: "", base_url: "" },
+      ppio: { name: "PPIO", home: "", base_url: "", order: 2 },
     });
-    expect(sorted.map(([id]) => id)).toEqual(["mine", "deepseek", "ppio"]);
+    expect(sorted.map(([id]) => id)).toEqual(["mine", "ppio", "deepseek"]);
   });
 
   it("puts newest profiles first", () => {

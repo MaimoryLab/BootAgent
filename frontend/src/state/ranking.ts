@@ -45,12 +45,34 @@ export function splitByRank(catalog: readonly AgentCatalogItem[] | undefined): {
  *  keeps the two from drifting apart. */
 const isCustom = (provider: StatusResponse["providers"][string]) => provider.custom === true;
 
+/**
+ * Sorts Providers: user-defined first, newest to oldest, then built-ins in the
+ * manifest's `order`.
+ *
+ * The two halves sort by different keys on purpose. Built-ins used to fall
+ * through to `name`, so the list read DeepSeek, Moonshot, Novita, PPIO --
+ * alphabetical order presented as a recommendation, which also decided which
+ * Provider a protocol matched first. `order` comes from providers.lock.json, so
+ * that sequence now lives in the manifest beside the endpoints instead of being
+ * implied by vendor names.
+ *
+ * `created_at` is deliberately not consulted for built-ins: Store.Public stamps
+ * it onto any Provider with a saved key, built-in ones included, so comparing it
+ * first would let saving a key reorder the built-in list -- and only on the
+ * machines where someone had done so.
+ */
 export function byProviderCreatedAt(providers: StatusResponse["providers"]): Array<[string, StatusResponse["providers"][string]]> {
-  return Object.entries(providers).sort(([, first], [, second]) =>
-    isCustom(first) !== isCustom(second)
-      ? (isCustom(first) ? -1 : 1)
-      : (second.created_at || "").localeCompare(first.created_at || "") || first.name.localeCompare(second.name),
-  );
+  return Object.entries(providers).sort(([, first], [, second]) => {
+    if (isCustom(first) !== isCustom(second)) return isCustom(first) ? -1 : 1;
+    if (isCustom(first)) {
+      return (second.created_at || "").localeCompare(first.created_at || "")
+        || first.name.localeCompare(second.name);
+    }
+    // Name still breaks ties: `order` is required of every built-in in the
+    // manifest, but this DTO cannot promise that, and an unordered pair must
+    // not render in a different sequence on each status refresh.
+    return (first.order ?? 0) - (second.order ?? 0) || first.name.localeCompare(second.name);
+  });
 }
 
 export function byProfileCreatedAt(profiles: readonly ProfileSummary[]): ProfileSummary[] {

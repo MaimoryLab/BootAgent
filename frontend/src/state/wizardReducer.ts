@@ -59,7 +59,9 @@ export const initialWizardState: WizardState = {
   statusError: "",
   setupKind: "desktop",
   selectedAgentIds: [],
-  provider: "ppio",
+  /** The manifest's first Provider (order 1). Only ever visible before the first
+   *  status response arrives; every later read goes through latestProvider. */
+  provider: "jiekou",
   probeModel: "",
   profileId: "",
   profileLabel: "",
@@ -83,7 +85,7 @@ export const initialWizardState: WizardState = {
 };
 
 function latestProvider(status: StatusResponse | null, protocol?: string): ProviderId {
-  return byProviderCreatedAt(status?.providers ?? {}).find(([, provider]) => !protocol || (protocol === "anthropic" ? provider.anthropic_base_url : provider.base_url))?.[0] || "ppio";
+  return byProviderCreatedAt(status?.providers ?? {}).find(([, provider]) => !protocol || (protocol === "anthropic" ? provider.anthropic_base_url : provider.base_url))?.[0] || "jiekou";
 }
 
 /** The model a Provider suggests, so the wizard can arrive at the model step

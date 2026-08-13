@@ -182,6 +182,11 @@ func (s Store) Public() (map[string]catalog.Provider, error) {
 			// loses its default model the moment the user saves a key against it.
 			KeyManagementURL: catalog.KeyManagementURL(id),
 			DefaultModel:     catalog.DefaultModel(id),
+			// Zero for a custom Provider, and re-read for a built-in one for the
+			// same reason as the two fields above: saving a key against a
+			// built-in Provider would otherwise reset its order to zero and jump
+			// it to the head of the list.
+			Order: catalog.ProviderOrder(id),
 		}
 	}
 	return result, nil

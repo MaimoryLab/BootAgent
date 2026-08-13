@@ -33,6 +33,13 @@ type providerFileEntry struct {
 	// coding, and neither should silently become the other.
 	DefaultModel       string `json:"default_model"`
 	FallbackProbeModel string `json:"fallback_probe_model"`
+	// Display precedence, mirroring Agent.Rank. The desktop app used to sort
+	// built-in Providers by name, so the list read DeepSeek, Moonshot, Novita,
+	// PPIO -- alphabetical order masquerading as a recommendation, and the first
+	// Provider matching a protocol was whichever name sorted first. This field
+	// already existed for the site's explorer; parsing it makes one manifest
+	// answer the ordering question everywhere instead of two places drifting.
+	Order int `json:"order"`
 }
 
 type providerFile struct {
@@ -78,6 +85,7 @@ func ParseProviders(data []byte) (ProviderManifest, error) {
 			BaseURL:          entry.BaseURL,
 			AnthropicBaseURL: entry.AnthropicBaseURL,
 			DefaultModel:     entry.DefaultModel,
+			Order:            entry.Order,
 			fallbackModel:    entry.FallbackProbeModel,
 		}
 	}
@@ -121,6 +129,12 @@ func validateProviders(source providerFile) error {
 		}
 		if strings.TrimSpace(entry.FallbackProbeModel) == "" {
 			return invalidProvider(id, "fallback_probe_model is required")
+		}
+		// Positive, like Agent.Rank: a zero would sort ahead of every declared
+		// Provider, so an omitted order silently takes the top of the list
+		// rather than the bottom.
+		if entry.Order <= 0 {
+			return invalidProvider(id, "order must be positive")
 		}
 	}
 	return nil
