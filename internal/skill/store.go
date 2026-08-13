@@ -376,27 +376,6 @@ func (s Store) loadBackup(backupID string) (backupMetadata, error) {
 	return metadata, nil
 }
 
-func (s Store) publishPrivate(ctx context.Context, source, destination string) error {
-	parent := filepath.Dir(destination)
-	for _, path := range []string{s.SkillsRoot(), filepath.Dir(parent), parent} {
-		if err := s.ensurePrivateDir(ctx, path); err != nil {
-			return err
-		}
-	}
-	stage, err := os.MkdirTemp(parent, ".oneagent-private-")
-	if err != nil {
-		return err
-	}
-	defer os.RemoveAll(stage)
-	if err := CopyTree(ctx, source, stage); err != nil {
-		return err
-	}
-	if err := s.secureTree(ctx, stage); err != nil {
-		return err
-	}
-	return PublishTree(ctx, stage, destination)
-}
-
 func (s Store) validateStoredFact(ctx context.Context, id string, fact Fact, contentRoot string) error {
 	if err := rejectSymlinkComponents(s.home, contentRoot); err != nil {
 		return err
