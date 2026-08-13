@@ -2,6 +2,7 @@ package skill
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -82,10 +83,16 @@ func TestStoreLoadAndValidation(t *testing.T) {
 func TestStoreBoundsFactMetadataAndImportSources(t *testing.T) {
 	s := testStore(t)
 	hash := strings.Repeat("a", 64)
+	manyAssociations := make([]string, 65)
+	for i := range manyAssociations {
+		manyAssociations[i] = fmt.Sprintf("agent-%02d", i)
+	}
 	for name, fact := range map[string]Fact{
-		"name":        {Name: strings.Repeat("n", 257), Variants: []Variant{{Hash: hash}}},
-		"description": {Description: strings.Repeat("d", 1025), Variants: []Variant{{Hash: hash}}},
-		"source":      {Variants: []Variant{{Hash: hash, ImportSources: []string{"remote"}}}},
+		"name":              {Name: strings.Repeat("n", 257), Variants: []Variant{{Hash: hash}}},
+		"description":       {Description: strings.Repeat("d", 1025), Variants: []Variant{{Hash: hash}}},
+		"source":            {Variants: []Variant{{Hash: hash, ImportSources: []string{"remote"}}}},
+		"association count": {Variants: []Variant{{Hash: hash, ObservedAgents: manyAssociations}}},
+		"association value": {Variants: []Variant{{Hash: hash, ManagedTargets: []string{strings.Repeat("x", 129)}}}},
 	} {
 		registry := Registry{SchemaVersion: RegistrySchemaVersion, Skills: map[string]Fact{"review": fact}}
 		if err := s.Save(context.Background(), registry); err == nil {
@@ -101,6 +108,38 @@ func TestStoreBoundsFactMetadataAndImportSources(t *testing.T) {
 	}
 	if _, err := s.Load(); err == nil || !strings.Contains(err.Error(), "size limit") {
 		t.Fatalf("unbounded registry read: %v", err)
+	}
+}
+
+func TestStoreSaveRejectsOversizedRegistry(t *testing.T) {
+	s := testStore(t)
+	registry := Registry{SchemaVersion: RegistrySchemaVersion, Skills: make(map[string]Fact, 9000)}
+	for i := 0; i < 9000; i++ {
+		registry.Skills[fmt.Sprintf("skill-%05d", i)] = Fact{Description: strings.Repeat("d", 1024)}
+	}
+	if err := s.Save(context.Background(), registry); err == nil || !strings.Contains(err.Error(), "size limit") {
+		t.Fatalf("saved oversized registry: %v", err)
+	}
+	if _, err := os.Stat(s.RegistryPath()); !os.IsNotExist(err) {
+		t.Fatalf("oversized registry was written: %v", err)
+	}
+}
+
+func TestStoreSaveRejectsSymlinkedRegistryParent(t *testing.T) {
+	if os.Getenv("GOOS") == "windows" {
+		t.Skip("symlink permissions are environment-dependent on Windows")
+	}
+	s := testStore(t)
+	outside := t.TempDir()
+	if err := os.Symlink(outside, filepath.Join(s.home, ".oneagent")); err != nil {
+		t.Fatal(err)
+	}
+	registry := Registry{SchemaVersion: RegistrySchemaVersion, Skills: map[string]Fact{}}
+	if err := s.Save(context.Background(), registry); err == nil {
+		t.Fatal("saved registry through symlinked parent")
+	}
+	if _, err := os.Stat(filepath.Join(outside, "skill-registry.json")); !os.IsNotExist(err) {
+		t.Fatalf("registry escaped private root: %v", err)
 	}
 }
 
@@ -267,6 +306,40 @@ func TestCreateBackupValidatesCopiedSnapshot(t *testing.T) {
 	}})
 	if _, err := s.CreateBackup(context.Background(), "review", Fact{Variants: []Variant{{Hash: stats.Hash, Stored: true}}}); err == nil {
 		t.Fatal("completed backup from changed snapshot")
+	}
+}
+
+func TestBackupRejectsUndeclaredContent(t *testing.T) {
+	for _, unexpected := range []string{"variant", "root file"} {
+		t.Run(unexpected, func(t *testing.T) {
+			s := testStore(t)
+			source := filepath.Join(t.TempDir(), "review")
+			stats := writeStoredSkill(t, source, "review")
+			if err := s.SaveVariant(context.Background(), "review", source, stats); err != nil {
+				t.Fatal(err)
+			}
+			fact := Fact{Variants: []Variant{{Hash: stats.Hash, Stored: true}}}
+			backup, err := s.CreateBackup(context.Background(), "review", fact)
+			if err != nil {
+				t.Fatal(err)
+			}
+			content := filepath.Join(s.BackupRoot(), backup.BackupID, "content")
+			if unexpected == "variant" {
+				writeStoredSkill(t, filepath.Join(content, "variants", strings.Repeat("e", 64)), "stale")
+			} else if err := os.WriteFile(filepath.Join(content, "unexpected"), []byte("stale"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := s.RestoreBackup(context.Background(), backup.BackupID); err == nil {
+				t.Fatal("restored undeclared backup content")
+			}
+			backups, err := s.ListBackups()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(backups) != 0 {
+				t.Fatalf("listed undeclared backup content: %#v", backups)
+			}
+		})
 	}
 }
 

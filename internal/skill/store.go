@@ -20,6 +20,11 @@ const backupRetention = 20
 
 const maxRegistryBytes = 8 << 20
 
+const (
+	maxAssociationValues     = 64
+	maxAssociationValueBytes = 128
+)
+
 var hashPattern = regexp.MustCompile(`^[0-9a-f]{64}$`)
 
 type Store struct {
@@ -75,6 +80,9 @@ func (s Store) Save(ctx context.Context, registry Registry) error {
 	if err := validateRegistry(registry); err != nil {
 		return err
 	}
+	if err := rejectSymlinkComponents(s.home, s.RegistryPath()); err != nil {
+		return err
+	}
 	if _, err := os.Lstat(s.RegistryPath()); err == nil {
 		if _, err := s.Load(); err != nil {
 			return fmt.Errorf("refusing to overwrite invalid Skill registry: %w", err)
@@ -86,7 +94,11 @@ func (s Store) Save(ctx context.Context, registry Registry) error {
 	if err != nil {
 		return err
 	}
-	_, err = s.fs.AtomicWrite(ctx, s.RegistryPath(), append(b, '\n'), true)
+	if len(b)+1 > maxRegistryBytes {
+		return errors.New("Skill registry exceeds size limit")
+	}
+	payload := append(b, '\n')
+	_, err = s.fs.AtomicWrite(ctx, s.RegistryPath(), payload, true)
 	return err
 }
 
@@ -305,8 +317,11 @@ func validateFact(id string, fact Fact) error {
 }
 
 func sortedUnique(values []string) bool {
+	if len(values) > maxAssociationValues {
+		return false
+	}
 	for i, value := range values {
-		if strings.TrimSpace(value) == "" || value != strings.TrimSpace(value) || i > 0 && values[i-1] >= value {
+		if len(value) > maxAssociationValueBytes || strings.TrimSpace(value) == "" || value != strings.TrimSpace(value) || i > 0 && values[i-1] >= value {
 			return false
 		}
 	}
@@ -369,6 +384,39 @@ func (s Store) publishPrivate(ctx context.Context, source, destination string) e
 func (s Store) validateStoredFact(ctx context.Context, id string, fact Fact, contentRoot string) error {
 	if err := rejectSymlinkComponents(s.home, contentRoot); err != nil {
 		return err
+	}
+	contentInfo, err := os.Lstat(contentRoot)
+	if err != nil || !contentInfo.IsDir() || contentInfo.Mode()&os.ModeSymlink != 0 {
+		return errors.New("Skill backup is incomplete")
+	}
+	entries, err := os.ReadDir(contentRoot)
+	if err != nil {
+		return errors.New("Skill backup is incomplete")
+	}
+	if len(entries) != 1 || entries[0].Name() != "variants" || !entries[0].IsDir() {
+		return errors.New("Skill backup content layout is invalid")
+	}
+	variantsRoot := filepath.Join(contentRoot, "variants")
+	if err := rejectSymlinkComponents(s.home, variantsRoot); err != nil {
+		return err
+	}
+	variantEntries, err := os.ReadDir(variantsRoot)
+	if err != nil {
+		return errors.New("Skill backup content layout is invalid")
+	}
+	expected := make(map[string]struct{})
+	for _, variant := range fact.Variants {
+		if variant.Stored {
+			expected[variant.Hash] = struct{}{}
+		}
+	}
+	if len(variantEntries) != len(expected) {
+		return errors.New("Skill backup contains undeclared content")
+	}
+	for _, entry := range variantEntries {
+		if _, ok := expected[entry.Name()]; !ok || !entry.IsDir() {
+			return errors.New("Skill backup contains undeclared content")
+		}
 	}
 	for _, variant := range fact.Variants {
 		if !variant.Stored {
