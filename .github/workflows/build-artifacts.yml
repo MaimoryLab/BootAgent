@@ -60,34 +60,23 @@ jobs:
           path: frontend/dist
           if-no-files-found: error
 
-  build:
+  macos:
     needs: frontend
-    name: Build ${{ matrix.target.platform }} ${{ matrix.arch.label }}
-    runs-on: ${{ matrix.target.runner }}
+    name: Build macOS ${{ matrix.arch.label }}
+    runs-on: macos-latest
     strategy:
       fail-fast: false
       matrix:
-        target:
-          - platform: macos
-            runner: macos-latest
-            cgo: 1
-            suffix: ""
-            desktop_ldflags: -w -s
-          - platform: windows
-            runner: windows-latest
-            cgo: 0
-            suffix: .exe
-            desktop_ldflags: -w -s -H windowsgui
         arch:
           - {label: x64, goarch: amd64, ota: amd64}
           - {label: arm64, goarch: arm64, ota: arm64}
 
     env:
-      CGO_ENABLED: ${{ matrix.target.cgo }}
-      CGO_CFLAGS: ${{ matrix.target.platform == 'macos' && '-mmacosx-version-min=12.0' || '' }}
-      CGO_LDFLAGS: ${{ matrix.target.platform == 'macos' && '-mmacosx-version-min=12.0' || '' }}
+      CGO_ENABLED: 1
+      CGO_CFLAGS: -mmacosx-version-min=12.0
+      CGO_LDFLAGS: -mmacosx-version-min=12.0
       GOARCH: ${{ matrix.arch.goarch }}
-      MACOSX_DEPLOYMENT_TARGET: ${{ matrix.target.platform == 'macos' && '12.0' || '' }}
+      MACOSX_DEPLOYMENT_TARGET: '12.0'
 
     steps:
       - uses: actions/checkout@v7
@@ -103,39 +92,14 @@ jobs:
           name: frontend-dist
           path: frontend/dist
 
-      # The icon, version strings, and DPI manifest reach a Windows binary only
-      # through a .syso the linker finds inside the package being built. This
-      # workflow calls `go build` directly rather than going through
-      # build/windows/Taskfile.yml, so the step has to be repeated here -- doing
-      # it only in the Taskfile would leave every released .exe on the default
-      # executable icon while local builds looked correct.
-      - name: Compile Windows resources
-        if: matrix.target.platform == 'windows'
-        shell: bash
-        working-directory: build
-        run: |
-          version="${RELEASE_VERSION#v}"
-          sed "s/0.0.0/${version}/g" windows/info.json > windows/info.generated.json
-          GOARCH=amd64 go run github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.7 generate syso \
-            -icon windows/icon.ico \
-            -manifest windows/wails.exe.manifest \
-            -info windows/info.generated.json \
-            -arch "$GOARCH" \
-            -out "../cmd/oneagent-desktop/rsrc_windows_${GOARCH}.syso"
-
-      - name: Build binaries
+      - name: Build macOS binary
         shell: bash
         run: |
           mkdir -p bin
           version_ldflag="-X github.com/MaimoryLab/OneAgent/internal/version.Version=$RELEASE_VERSION"
-          go build -tags wails,production -trimpath -buildvcs=false -ldflags="${{ matrix.target.desktop_ldflags }} $version_ldflag" -o "bin/oneagent-desktop${{ matrix.target.suffix }}" ./cmd/oneagent-desktop
-          rm -f "cmd/oneagent-desktop/rsrc_windows_${GOARCH}.syso"
-          if [ "${{ matrix.target.platform }}" = windows ]; then
-            rm -f build/windows/info.generated.json
-          fi
+          go build -tags wails,production -trimpath -buildvcs=false -ldflags="-w -s $version_ldflag" -o bin/oneagent-desktop ./cmd/oneagent-desktop
 
       - name: Package macOS app
-        if: matrix.target.platform == 'macos'
         shell: bash
         run: |
           mkdir -p "bin/OneAgent.app/Contents/MacOS" "bin/OneAgent.app/Contents/Resources"
@@ -149,7 +113,6 @@ jobs:
           rm "bin/oneagent-desktop"
 
       - name: Package macOS DMG
-        if: matrix.target.platform == 'macos'
         shell: bash
         run: |
           # Staged through a directory rather than pointing -srcfolder at the
@@ -172,7 +135,6 @@ jobs:
           rm -rf bin/dmg-root
 
       - name: Verify macOS DMG layout
-        if: matrix.target.platform == 'macos'
         shell: bash
         run: |
           # A dmg that lost the symlink still installs, so nothing downstream
@@ -191,14 +153,83 @@ jobs:
           hdiutil detach "$mountpoint"
           exit "$status"
 
+      - name: Package macOS OTA archive
+        shell: bash
+        run: |
+          (cd bin && zip -qry "OneAgent-darwin-${{ matrix.arch.ota }}.zip" OneAgent.app)
+          roots="$(unzip -Z1 "bin/OneAgent-darwin-${{ matrix.arch.ota }}.zip" | awk -F/ 'NF {print $1}' | sort -u)"
+          test "$roots" = OneAgent.app
+
+      - name: Upload OTA archive
+        uses: actions/upload-artifact@v7
+        with:
+          name: ota-macos-${{ matrix.arch.label }}
+          path: bin/OneAgent-darwin-${{ matrix.arch.ota }}.zip
+          if-no-files-found: error
+
+      - name: Upload macOS DMG
+        uses: actions/upload-artifact@v7
+        with:
+          name: installer-macos-${{ matrix.arch.label }}
+          path: bin/OneAgent-darwin-${{ matrix.arch.ota }}.dmg
+          if-no-files-found: error
+
+  windows:
+    needs: frontend
+    name: Build Windows ${{ matrix.arch.label }}
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        arch:
+          - {label: x64, goarch: amd64, ota: amd64}
+          - {label: arm64, goarch: arm64, ota: arm64}
+
+    env:
+      CGO_ENABLED: 0
+      GOARCH: ${{ matrix.arch.goarch }}
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+
+      - name: Download frontend
+        uses: actions/download-artifact@v8
+        with:
+          name: frontend-dist
+          path: frontend/dist
+
+      - name: Compile Windows resources
+        shell: bash
+        working-directory: build
+        run: |
+          version="${RELEASE_VERSION#v}"
+          sed "s/0.0.0/${version}/g" windows/info.json > windows/info.generated.json
+          GOARCH=amd64 go run github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.7 generate syso \
+            -icon windows/icon.ico \
+            -manifest windows/wails.exe.manifest \
+            -info windows/info.generated.json \
+            -arch "$GOARCH" \
+            -out "../cmd/oneagent-desktop/rsrc_windows_${GOARCH}.syso"
+
+      - name: Build Windows binary
+        shell: bash
+        run: |
+          mkdir -p bin
+          version_ldflag="-X github.com/MaimoryLab/OneAgent/internal/version.Version=$RELEASE_VERSION"
+          go build -tags wails,production -trimpath -buildvcs=false -ldflags="-w -s -H windowsgui $version_ldflag" -o bin/oneagent-desktop.exe ./cmd/oneagent-desktop
+          rm -f "cmd/oneagent-desktop/rsrc_windows_${GOARCH}.syso" build/windows/info.generated.json
+
       - name: Install NSIS
-        if: matrix.target.platform == 'windows'
         uses: repolevedavaj/install-nsis@v1.2.1
         with:
           nsis-version: '3.12'
 
       - name: Package Windows NSIS installer
-        if: matrix.target.platform == 'windows'
         shell: pwsh
         run: |
           $env:GOARCH = 'amd64'
@@ -209,16 +240,7 @@ jobs:
           makensis "-DINFO_PRODUCTVERSION=$version" "-DARG_WAILS_${{ matrix.arch.goarch == 'amd64' && 'AMD64' || 'ARM64' }}_BINARY=$env:GITHUB_WORKSPACE\bin\oneagent-desktop.exe" project.nsi
           Rename-Item "..\..\..\bin\oneagent-desktop-$arch-installer.exe" "OneAgent-windows-$arch-installer.exe"
 
-      - name: Package macOS OTA archive
-        if: matrix.target.platform == 'macos'
-        shell: bash
-        run: |
-          (cd bin && zip -qry "OneAgent-darwin-${{ matrix.arch.ota }}.zip" OneAgent.app)
-          roots="$(unzip -Z1 "bin/OneAgent-darwin-${{ matrix.arch.ota }}.zip" | awk -F/ 'NF {print $1}' | sort -u)"
-          test "$roots" = OneAgent.app
-
       - name: Package Windows OTA archive
-        if: matrix.target.platform == 'windows'
         shell: pwsh
         run: |
           $archive = "bin/OneAgent-windows-${{ matrix.arch.ota }}.zip"
@@ -231,20 +253,11 @@ jobs:
       - name: Upload OTA archive
         uses: actions/upload-artifact@v7
         with:
-          name: ota-${{ matrix.target.platform }}-${{ matrix.arch.label }}
-          path: bin/OneAgent-${{ matrix.target.platform == 'macos' && 'darwin' || 'windows' }}-${{ matrix.arch.ota }}.zip
-          if-no-files-found: error
-
-      - name: Upload macOS DMG
-        if: matrix.target.platform == 'macos'
-        uses: actions/upload-artifact@v7
-        with:
-          name: installer-macos-${{ matrix.arch.label }}
-          path: bin/OneAgent-darwin-${{ matrix.arch.ota }}.dmg
+          name: ota-windows-${{ matrix.arch.label }}
+          path: bin/OneAgent-windows-${{ matrix.arch.ota }}.zip
           if-no-files-found: error
 
       - name: Upload Windows NSIS installer
-        if: matrix.target.platform == 'windows'
         uses: actions/upload-artifact@v7
         with:
           name: installer-windows-${{ matrix.arch.label }}
@@ -377,7 +390,7 @@ jobs:
           if-no-files-found: error
 
   release:
-    needs: [build, linux]
+    needs: [macos, windows, linux]
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     name: Publish release
     runs-on: ubuntu-latest
