@@ -1,8 +1,8 @@
-# OneAgent Code of Conduct
+# BootAgent Code of Conduct
 
 ## Our commitment
 
-OneAgent is committed to a respectful, inclusive, and technically constructive
+BootAgent is committed to a respectful, inclusive, and technically constructive
 community. We welcome participation regardless of age, background, body size,
 disability, ethnicity, gender identity or expression, level of experience,
 nationality, race, religion, sex characteristics, sexual identity or orientation,
@@ -18,7 +18,7 @@ Community members should:
 - assume good intent while still asking for evidence, tests, and clear reasoning;
 - give specific, actionable feedback and accept reasonable correction;
 - respect different levels of experience and explain project-specific context;
-- keep issues, pull requests, and discussions focused on OneAgent;
+- keep issues, pull requests, and discussions focused on BootAgent;
 - protect other people's privacy and redact credentials, personal data, and private
   communications; and
 - stop behavior that another participant or a maintainer identifies as harmful.
@@ -42,7 +42,7 @@ turning a review into a personal dispute is not.
 
 ## Scope
 
-This Code of Conduct applies in all OneAgent project spaces, including issues,
+This Code of Conduct applies in all BootAgent project spaces, including issues,
 pull requests, discussions, reviews, release communication, and other public or
 private channels used to represent the project. It also applies when someone is
 acting as a project representative elsewhere.
@@ -80,4 +80,4 @@ uninvolved repository administrator to review it.
 
 This policy is informed by the
 [Contributor Covenant, version 2.1](https://www.contributor-covenant.org/version/2/1/code_of_conduct.html)
-and adapted for OneAgent's GitHub-based reporting and security boundaries.
+and adapted for BootAgent's GitHub-based reporting and security boundaries.

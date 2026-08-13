@@ -11,7 +11,7 @@
       "other": {
         "apiKey": "keep"
       },
-      "oneagent": {
+      "bootagent": {
         "name": "PPIO",
         "baseUrl": "https://api.ppio.com/openai/v1",
         "apiKey": "sk-parity",
@@ -34,7 +34,7 @@
         "fallbacks": [
           "other/m"
         ],
-        "primary": "oneagent/model-new"
+        "primary": "bootagent/model-new"
       }
     }
   }

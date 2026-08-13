@@ -71,7 +71,7 @@ function versionNote(status: AgentStatus, t: Translate = sourceTranslate): { tex
 /**
  * What to say this Agent currently points at.
  *
- * Two sources: OneAgent's own record of what it wrote, and the Agent's config
+ * Two sources: BootAgent's own record of what it wrote, and the Agent's config
  * file as found on disk. Reporting only the first is what made a hand-written
  * configuration render as "未配置" — the file was seen but never read. Where they
  * disagree the file wins, because that is what the Agent will actually use.
@@ -100,7 +100,7 @@ export function targetSummary(
     const parts = [detected.baseUrl, detected.model].filter(Boolean);
     return {
       text: parts.join(" · "),
-      note: detected.managedByOneAgent ? "" : t("检测到的配置，非 OneAgent 写入"),
+      note: detected.managedByBootAgent ? "" : t("检测到的配置，非 BootAgent 写入"),
     };
   }
   return { text: t("未配置"), note: "" };
@@ -159,7 +159,7 @@ export function AgentManageRow({
   const offer = updateOffer(catalog, status);
 
   const launch = () => {
-    const stored = localStorage.getItem(`oneagent:launch-directory:${agentId}`);
+    const stored = localStorage.getItem(`bootagent:launch-directory:${agentId}`);
     setLaunchDirectory(stored || defaultDirectory || "");
     setRememberDirectory(Boolean(stored));
     setDirectoryDialog(true);
@@ -173,8 +173,8 @@ export function AgentManageRow({
   };
   const confirmLaunch = async () => {
     if (!launchDirectory.trim()) return;
-    if (rememberDirectory) localStorage.setItem(`oneagent:launch-directory:${agentId}`, launchDirectory.trim());
-    else localStorage.removeItem(`oneagent:launch-directory:${agentId}`);
+    if (rememberDirectory) localStorage.setItem(`bootagent:launch-directory:${agentId}`, launchDirectory.trim());
+    else localStorage.removeItem(`bootagent:launch-directory:${agentId}`);
     setDirectoryDialog(false);
     setLaunching(true);
     setFailure("");
@@ -294,7 +294,7 @@ export function AgentManageRow({
             type="button"
             onClick={() => void launch()}
             disabled={launching}
-            title={t("在新终端窗口中启动，并载入 OneAgent 写入的配置")}
+            title={t("在新终端窗口中启动，并载入 BootAgent 写入的配置")}
           >
             {launching ? <RefreshCw size={14} className="spin" aria-hidden="true" /> : <Play size={15} aria-hidden="true" />}
             {t("启动")}

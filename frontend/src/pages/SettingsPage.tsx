@@ -86,7 +86,7 @@ export function SettingsPage() {
   const installUpdate = async () => {
     if (!latestVersion) return;
     const taskID = taskKey("update", OTA_PROGRESS_TARGET);
-    if (!taskCenter.startTask({ id: taskID, kind: "update", target: OTA_PROGRESS_TARGET, progressTarget: OTA_PROGRESS_TARGET, title: t("更新 OneAgent {version}", { version: latestVersion }), route: updateTaskRoute(OTA_PROGRESS_TARGET) })) return;
+    if (!taskCenter.startTask({ id: taskID, kind: "update", target: OTA_PROGRESS_TARGET, progressTarget: OTA_PROGRESS_TARGET, title: t("更新 BootAgent {version}", { version: latestVersion }), route: updateTaskRoute(OTA_PROGRESS_TARGET) })) return;
     try {
       const request = api.downloadUpdate();
       taskCenter.setTaskCanceller(taskID, taskCanceller(request));
@@ -192,7 +192,7 @@ export function SettingsPage() {
         </button>
         <button className="settings-link" type="button" onClick={() => void openGitHub()}>
           <GitHubMark size={18} />
-          <span><strong>{t("Star 支持 OneAgent")}</strong><small>{t("如果 OneAgent 对你有帮助，欢迎在 GitHub 点个 Star")}</small></span>
+          <span><strong>{t("Star 支持 BootAgent")}</strong><small>{t("如果 BootAgent 对你有帮助，欢迎在 GitHub 点个 Star")}</small></span>
           <ExternalLink size={15} aria-hidden="true" />
         </button>
         {helpFailure ? <p className="agent-manage-error">{helpFailure}</p> : null}

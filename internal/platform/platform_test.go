@@ -20,14 +20,9 @@ func TestForMapsSupportedTargets(t *testing.T) {
 
 func TestResolveHomeWindowsPrecedence(t *testing.T) {
 	env := map[string]string{
-		"ONEAGENT_HOME": "/override",
-		"USERPROFILE":   `C:\Users\测试 用户`,
-		"HOME":          "/wrong",
+		"USERPROFILE": `C:\Users\测试 用户`,
+		"HOME":        "/wrong",
 	}
-	if got := ResolveHome(env, "windows"); got != "/override" {
-		t.Fatalf("ONEAGENT_HOME precedence = %q", got)
-	}
-	delete(env, "ONEAGENT_HOME")
 	if got := ResolveHome(env, "windows"); got != `C:\Users\测试 用户` {
 		t.Fatalf("USERPROFILE precedence = %q", got)
 	}
@@ -41,7 +36,7 @@ func TestResolveHomeWindowsPrecedence(t *testing.T) {
 
 func TestResolveHomeExpandsTilde(t *testing.T) {
 	env := map[string]string{"HOME": "/tmp/test-home"}
-	if got := ResolveHome(map[string]string{"ONEAGENT_HOME": "~/oneagent", "HOME": env["HOME"]}, "linux"); got != "/tmp/test-home/oneagent" {
+	if got := ResolveHome(env, "linux"); got != "/tmp/test-home" {
 		t.Fatalf("expanded home = %q", got)
 	}
 }

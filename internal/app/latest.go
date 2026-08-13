@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/MaimoryLab/OneAgent/internal/catalog"
-	"github.com/MaimoryLab/OneAgent/internal/install"
+	"github.com/MaimoryLab/BootAgent/internal/catalog"
+	"github.com/MaimoryLab/BootAgent/internal/install"
 )
 
 // latestVersionConcurrency bounds how many registry lookups run at once. The

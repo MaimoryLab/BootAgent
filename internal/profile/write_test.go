@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
-	"github.com/MaimoryLab/OneAgent/internal/securefs"
+	oneerrors "github.com/MaimoryLab/BootAgent/internal/errors"
+	"github.com/MaimoryLab/BootAgent/internal/securefs"
 )
 
 func testStore(t *testing.T, home, osID string) Store {

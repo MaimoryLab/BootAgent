@@ -81,7 +81,7 @@ export function ReviewPage() {
           {automatic.map((agent) => (
             <ReviewRow key={agent.id} label={agent.name} value={state.status?.paths[`${agent.id}_config`] || t("由 Agent 官方配置合约决定")} />
           ))}
-          <ReviewRow label={t("环境摘要")} value={state.status?.paths.profile || "~/.oneagent/profile.json"} />
+          <ReviewRow label={t("环境摘要")} value={state.status?.paths.profile || "~/.bootagent/profile.json"} />
           {guideOnly.length ? <ReviewRow label={t("仅引导项目")} value={t("{count} 个，不写私有配置", { count: guideOnly.length })} muted /> : null}
         </ReviewGroup>
       </div>

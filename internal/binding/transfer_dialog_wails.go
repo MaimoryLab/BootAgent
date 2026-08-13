@@ -21,5 +21,5 @@ func selectExportFile() (string, error) {
 	if app == nil {
 		return "", fmt.Errorf("desktop file dialog is unavailable")
 	}
-	return app.Dialog.SaveFile().SetMessage("Choose export location").SetFilename("oneagent-settings.json").AddFilter("JSON", "*.json").PromptForSingleSelection()
+	return app.Dialog.SaveFile().SetMessage("Choose export location").SetFilename("bootagent-settings.json").AddFilter("JSON", "*.json").PromptForSingleSelection()
 }

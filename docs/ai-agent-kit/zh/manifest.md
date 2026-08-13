@@ -6,7 +6,7 @@
 
 | 文件 | 作用 | 是否需要密钥 |
 | --- | --- | --- |
-| `OneAgent.app`（macOS）/ `oneagent-desktop.exe`（Windows）/ Linux AppImage | 桌面应用 | 否 |
+| `BootAgent.app`（macOS）/ `bootagent-desktop.exe`（Windows）/ Linux AppImage | 桌面应用 | 否 |
 
 发行包由 `.github/workflows/build-artifacts.yml` 构建。早期版本用 `launcher`、
 `start.sh`、`start.command` 三个脚本启动本地 GUI，Go/Wails 迁移后不再需要。
@@ -35,7 +35,7 @@ Agent 版本范围：
 配置工具版本范围：
 ```
 
-组织发行方可以在包外维护自己的兑换码或项目说明，但这些内容不进入 OneAgent 核心 manifest。
+组织发行方可以在包外维护自己的兑换码或项目说明，但这些内容不进入 BootAgent 核心 manifest。
 
 不在 manifest 中写入真实 API Key、共享网关 Key 或个人账号信息。
 

@@ -11,11 +11,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/MaimoryLab/OneAgent/internal/app"
-	"github.com/MaimoryLab/OneAgent/internal/catalog"
-	"github.com/MaimoryLab/OneAgent/internal/platform"
-	"github.com/MaimoryLab/OneAgent/internal/process"
-	"github.com/MaimoryLab/OneAgent/internal/provider"
+	"github.com/MaimoryLab/BootAgent/internal/app"
+	"github.com/MaimoryLab/BootAgent/internal/catalog"
+	"github.com/MaimoryLab/BootAgent/internal/platform"
+	"github.com/MaimoryLab/BootAgent/internal/process"
+	"github.com/MaimoryLab/BootAgent/internal/provider"
 )
 
 func newDesktopUseCases() *app.UseCases {
@@ -60,7 +60,7 @@ func (r *e2eRunner) LookPath(command string) (string, bool) {
 	// section renders one installed row and one installable row without any
 	// download happening.
 	if command == "npm" || command == "node" {
-		return "/oneagent-e2e/" + command, true
+		return "/bootagent-e2e/" + command, true
 	}
 	r.mu.RLock()
 	_, ok := r.installed[command]
@@ -68,7 +68,7 @@ func (r *e2eRunner) LookPath(command string) (string, bool) {
 	if !ok {
 		return "", false
 	}
-	return "/oneagent-e2e/" + command, true
+	return "/bootagent-e2e/" + command, true
 }
 
 func (r *e2eRunner) Run(_ context.Context, argv []string, _ map[string]string, _ time.Duration) (process.Result, error) {
@@ -106,7 +106,7 @@ type e2eProviderDoer struct{}
 func (e2eProviderDoer) Do(request *http.Request) (*http.Response, error) {
 	body := ""
 	if request.Method == http.MethodGet && strings.HasSuffix(request.URL.Path, "/models") {
-		body = `{"data":[{"id":"oneagent-e2e-model"}]}`
+		body = `{"data":[{"id":"bootagent-e2e-model"}]}`
 	}
 	status := http.StatusNoContent
 	if body != "" {

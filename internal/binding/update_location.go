@@ -69,7 +69,7 @@ func checkUpdateLocation(executable string) updateLocationProblem {
 // Any failure to create counts as not writable. The probe runs in the directory
 // the helper will use, so whatever stops the probe would stop the helper.
 func directoryIsWritable(dir string) bool {
-	probe, err := os.CreateTemp(dir, ".oneagent-update-probe-*")
+	probe, err := os.CreateTemp(dir, ".bootagent-update-probe-*")
 	if err != nil {
 		return false
 	}

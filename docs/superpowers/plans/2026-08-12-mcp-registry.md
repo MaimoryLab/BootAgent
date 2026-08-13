@@ -24,7 +24,7 @@
 - Create internal/mcp/store.go, internal/mcp/transfer.go, and tests: private Registry persistence and import/export envelopes.
 - Create internal/app/mcp.go and internal/app/mcp_test.go: scan, conflict reconciliation, Apply, partial failures, draft close state, and eligibility.
 - Modify internal/binding/services.go and internal/binding/services_test.go; create internal/binding/mcp.go and internal/binding/mcp_test.go: register and test the Wails MCP service.
-- Modify cmd/oneagent-desktop/main_wails.go: register MCPService and install the localized native close confirmation hook.
+- Modify cmd/bootagent-desktop/main_wails.go: register MCPService and install the localized native close confirmation hook.
 
 ### Frontend
 
@@ -121,7 +121,7 @@ type ObservedServer struct { Spec Spec; Native json.RawMessage }
 **Files:** internal/mcp/store.go, internal/mcp/transfer.go, and tests
 
 - [ ] Write store tests for absent file, valid schema v1, malformed/newer schema, atomic replacement, private mode, and backup failure behavior.
-- [ ] Implement Store with an injected filesystem and path. Read absent ~/.oneagent/mcp.json as an empty v1 Registry; reject malformed or newer versions without overwriting; write through securefs.AtomicWrite with secret mode and the existing backup/permission sequence.
+- [ ] Implement Store with an injected filesystem and path. Read absent ~/.bootagent/mcp.json as an empty v1 Registry; reject malformed or newer versions without overwriting; write through securefs.AtomicWrite with secret mode and the existing backup/permission sequence.
 - [ ] Write transfer tests for omit/encrypt/plaintext modes, metadata path retention, 4 MiB cap, duplicate IDs, and schema validation.
 - [ ] Define a dedicated envelope carrying schema version, selected factual variants, Agent associations, secret mode, and encrypted payload metadata. Omit mode removes secret values while retaining their paths; encrypted mode wraps complete specs; plaintext requires an explicit confirmation flag.
 - [ ] Implement import preview as pure validation/diff data. Apply no writes while previewing. Resolve collisions with Keep local, Use imported, or Save as new ID, rejecting invalid new IDs and ambiguous missing-secret merges.
@@ -141,14 +141,14 @@ type ObservedServer struct { Spec Spec; Native json.RawMessage }
 
 ## Task 7: Wails Binding And Native Close Confirmation
 
-**Files:** internal/binding/services.go, internal/binding/mcp.go, tests, cmd/oneagent-desktop/main_wails.go
+**Files:** internal/binding/services.go, internal/binding/mcp.go, tests, cmd/bootagent-desktop/main_wails.go
 
 - [ ] Write binding tests for method allowlisting, redacted List, explicit Get, Scan delegation, partial Apply serialization, transfer preview/export, and draft-state propagation.
 - [ ] Implement MCPService methods with this surface: List, Scan, Get(id, sourceAgent), Apply(request), Export(request), PreviewImport(request), and SetDraftState(dirty, locale). Convert domain errors through the existing binding error path.
 - [ ] Add MCP *MCPService to binding.Services and instantiate it in NewServicesWithOptions; update the service method allowlist test.
 - [ ] Regenerate Wails bindings using the repository's existing generation command, then update handwritten frontend/src/backend/wails.ts and frontend/src/types/api.ts from generated signatures.
 - [ ] In the desktop entry, register MCPService and a WindowClosing hook. On a dirty flag, cancel the first event, show app.Dialog.Question with Chinese/English text selected by locale, clear the flag and set a one-shot bypass before calling window.Close on discard; leave the window open on cancel. Verify the hook cannot recurse.
-- [ ] Run go test ./internal/binding ./cmd/oneagent-desktop/... -count=1 and commit feat: expose MCP registry through Wails.
+- [ ] Run go test ./internal/binding ./cmd/bootagent-desktop/... -count=1 and commit feat: expose MCP registry through Wails.
 
 ## Task 8: React MCP Page And Draft Workflow
 

@@ -10,5 +10,5 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 import * as app$0 from "../app/models.js";
 
 export function GetStatus(): $CancellablePromise<app$0.StatusResponse> {
-    return $Call.ByID(1555230240);
+    return $Call.ByID(481134572);
 }

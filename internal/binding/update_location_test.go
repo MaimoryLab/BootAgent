@@ -9,7 +9,7 @@ import (
 	"runtime"
 	"testing"
 
-	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
+	oneerrors "github.com/MaimoryLab/BootAgent/internal/errors"
 	"github.com/wailsapp/wails/v3/pkg/updater"
 )
 
@@ -34,7 +34,7 @@ func checkableService(executable func() (string, error)) *UpdateService {
 // the app exited on "restart and update" and never came back -- with the only
 // record in a temp-file log no user would find.
 func TestCheckWithholdsAnUpdateFromATranslocatedApp(t *testing.T) {
-	translocated := "/private/var/folders/m7/x/T/AppTranslocation/79C329CB-B290-4966-9582-D0DD9AD6FB33/d/OneAgent.app/Contents/MacOS/oneagent-desktop"
+	translocated := "/private/var/folders/m7/x/T/AppTranslocation/79C329CB-B290-4966-9582-D0DD9AD6FB33/d/BootAgent.app/Contents/MacOS/bootagent-desktop"
 	service := checkableService(func() (string, error) { return translocated, nil })
 
 	version, err := service.Check(context.Background())
@@ -64,9 +64,9 @@ func TestCheckWithholdsAnUpdateFromAnUnwritableDirectory(t *testing.T) {
 
 	// The bundle sits inside the unwritable directory, which is where the helper
 	// would have to create its backup.
-	executable := filepath.Join(installed, "OneAgent.app", "Contents", "MacOS", "oneagent-desktop")
+	executable := filepath.Join(installed, "BootAgent.app", "Contents", "MacOS", "bootagent-desktop")
 	if runtime.GOOS != "darwin" {
-		executable = filepath.Join(installed, "oneagent-desktop")
+		executable = filepath.Join(installed, "bootagent-desktop")
 	}
 	service := checkableService(func() (string, error) { return executable, nil })
 
@@ -82,7 +82,7 @@ func TestCheckWithholdsAnUpdateFromAnUnwritableDirectory(t *testing.T) {
 
 func TestCheckReportsAnUpdateFromAWritableInstall(t *testing.T) {
 	parent := t.TempDir()
-	executable := filepath.Join(parent, "OneAgent.app", "Contents", "MacOS", "oneagent-desktop")
+	executable := filepath.Join(parent, "BootAgent.app", "Contents", "MacOS", "bootagent-desktop")
 	if err := os.MkdirAll(filepath.Dir(executable), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -144,11 +144,11 @@ func TestInstallTargetResolvesTheBundle(t *testing.T) {
 		t.Skip("bundle paths are macOS-only")
 	}
 	for executable, want := range map[string]string{
-		"/Applications/OneAgent.app/Contents/MacOS/oneagent-desktop": "/Applications/OneAgent.app",
+		"/Applications/BootAgent.app/Contents/MacOS/bootagent-desktop": "/Applications/BootAgent.app",
 		// The directory the helper writes into is the bundle's parent, so a
 		// nested .app must not resolve to the inner one.
-		"/Applications/OneAgent.app/Contents/Helpers/Inner.app/Contents/MacOS/x": "/Applications/OneAgent.app",
-		"/usr/local/bin/oneagent-desktop":                                        "/usr/local/bin/oneagent-desktop",
+		"/Applications/BootAgent.app/Contents/Helpers/Inner.app/Contents/MacOS/x": "/Applications/BootAgent.app",
+		"/usr/local/bin/bootagent-desktop":                                        "/usr/local/bin/bootagent-desktop",
 	} {
 		if got := installTarget(executable); got != want {
 			t.Fatalf("installTarget(%q) = %q, want %q", executable, got, want)
@@ -159,7 +159,7 @@ func TestInstallTargetResolvesTheBundle(t *testing.T) {
 // A .app under the translocation mount is still translocated: the check must not
 // depend on where inside the bundle the executable sits.
 func TestCheckUpdateLocationClassifies(t *testing.T) {
-	writable := filepath.Join(t.TempDir(), "OneAgent.app", "Contents", "MacOS", "oneagent-desktop")
+	writable := filepath.Join(t.TempDir(), "BootAgent.app", "Contents", "MacOS", "bootagent-desktop")
 	if err := os.MkdirAll(filepath.Dir(writable), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -169,7 +169,7 @@ func TestCheckUpdateLocationClassifies(t *testing.T) {
 	if got := checkUpdateLocation(""); got != locationOK {
 		t.Fatalf("empty path = %q, want ok", got)
 	}
-	translocated := "/private/var/folders/x/T/AppTranslocation/ABC/d/OneAgent.app/Contents/MacOS/oneagent-desktop"
+	translocated := "/private/var/folders/x/T/AppTranslocation/ABC/d/BootAgent.app/Contents/MacOS/bootagent-desktop"
 	if got := checkUpdateLocation(translocated); got != locationTranslocated {
 		t.Fatalf("translocated install = %q", got)
 	}

@@ -1,5 +1,5 @@
 name: Feature request
-description: Propose an improvement that fits OneAgent's product boundary.
+description: Propose an improvement that fits BootAgent's product boundary.
 title: "[Feature]: "
 labels:
   - enhancement
@@ -7,7 +7,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Describe the problem before the solution. New Agents and built-in Providers should include enough protocol and configuration detail to evaluate whether they fit OneAgent's scope.
+        Describe the problem before the solution. New Agents and built-in Providers should include enough protocol and configuration detail to evaluate whether they fit BootAgent's scope.
 
   - type: textarea
     id: problem

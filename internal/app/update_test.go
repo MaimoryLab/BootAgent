@@ -5,8 +5,8 @@ import (
 	"slices"
 	"testing"
 
-	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
-	"github.com/MaimoryLab/OneAgent/internal/platform"
+	oneerrors "github.com/MaimoryLab/BootAgent/internal/errors"
+	"github.com/MaimoryLab/BootAgent/internal/platform"
 )
 
 func TestUpdateAgentResolvesMirrorRegistry(t *testing.T) {

@@ -44,9 +44,9 @@ endpoint rejects the request in two explicit forms, both detectable:
 - `500`, with a message containing `not implemented`
 
 So the original implementation had a reproducible failure path: the user picks a
-model that only supports Chat Completions, the connection test passes, OneAgent
+model that only supports Chat Completions, the connection test passes, BootAgent
 writes the Codex config, Codex fails on its first request, and nothing in
-OneAgent's output points at the root cause.
+BootAgent's output points at the root cause.
 
 ## Decision
 
@@ -69,7 +69,7 @@ probe.
 When the probe finds a protocol incompatibility, that Agent fails with
 `PROTOCOL_UNSUPPORTED` and **no config file and no environment summary are
 written**. There is no "ignore the warning and write anyway" path: writing a config
-that is guaranteed to fail only moves the error out of OneAgent and into the Agent,
+that is guaranteed to fail only moves the error out of BootAgent and into the Agent,
 where the readable error message is lost.
 
 ### Error code

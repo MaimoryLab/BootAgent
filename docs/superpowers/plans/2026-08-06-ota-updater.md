@@ -19,7 +19,7 @@
 - Create `internal/binding/update.go`: define the updater backend interface, Wails service methods, stable error conversion, and the OTA progress-to-install-output adapter.
 - Create `internal/binding/update_test.go`: fake the three updater calls and cover disabled/current/new-release, cancellation, delegation, and progress payloads.
 - Modify `internal/binding/services_test.go`: include `UpdateService` in the method allowlist.
-- Modify `cmd/oneagent-desktop/main_wails.go`: initialise GitHub updater settings for non-development versions, register the update service, and bridge download progress to `oneagent:install-output`.
+- Modify `cmd/bootagent-desktop/main_wails.go`: initialise GitHub updater settings for non-development versions, register the update service, and bridge download progress to `bootagent:install-output`.
 - Modify `go.mod` and `go.sum`: accept only the checksum/module changes required by Wails updater/binding generation (`go mod tidy`).
 
 ### Frontend
@@ -34,7 +34,7 @@
 - Create `frontend/src/components/AppUpdater.tsx`: StrictMode-safe startup coordinator; native confirmation; task registration, cancellation, progress attribution, completion, and restart retry.
 - Create `frontend/src/components/AppUpdater.test.tsx`: test the consent branches, one-check guard, cancellable download, ready action, and restart failure.
 - Modify `frontend/src/App.tsx`: mount `AppUpdater` inside `TaskCenterProvider`.
-- Regenerate `frontend/bindings/github.com/MaimoryLab/OneAgent/internal/binding/updateservice.ts` and the generated binding index through the existing task; never hand-edit generated files.
+- Regenerate `frontend/bindings/github.com/MaimoryLab/BootAgent/internal/binding/updateservice.ts` and the generated binding index through the existing task; never hand-edit generated files.
 
 ### Release and documentation
 
@@ -277,12 +277,12 @@ import (
 	"context"
 	"errors"
 
-	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
-	"github.com/MaimoryLab/OneAgent/internal/process"
+	oneerrors "github.com/MaimoryLab/BootAgent/internal/errors"
+	"github.com/MaimoryLab/BootAgent/internal/process"
 	"github.com/wailsapp/wails/v3/pkg/updater"
 )
 
-const UpdateProgressTarget = "oneagent-update"
+const UpdateProgressTarget = "bootagent-update"
 
 type UpdateBackend interface {
 	Check(context.Context) (*updater.Release, error)
@@ -323,7 +323,7 @@ func (s *UpdateService) DownloadAndInstall(ctx context.Context) error {
 		return notReady("Update service is not configured")
 	}
 	if err := s.backend.DownloadAndInstall(ctx); err != nil {
-		return updateError("Unable to download the OneAgent update", err)
+		return updateError("Unable to download the BootAgent update", err)
 	}
 	return nil
 }
@@ -336,7 +336,7 @@ func (s *UpdateService) Restart(ctx context.Context) error {
 		return notReady("Update service is not configured")
 	}
 	if err := s.backend.Restart(ctx); err != nil {
-		return updateError("Unable to restart OneAgent for update", err)
+		return updateError("Unable to restart BootAgent for update", err)
 	}
 	return nil
 }
@@ -392,7 +392,7 @@ git commit -m "feat: expose the Wails updater service"
 ### Task 3: Wails Initialisation and Progress Wiring
 
 **Files:**
-- Modify: `cmd/oneagent-desktop/main_wails.go`
+- Modify: `cmd/bootagent-desktop/main_wails.go`
 - Modify: `go.mod`
 - Modify: `go.sum`
 
@@ -401,7 +401,7 @@ git commit -m "feat: expose the Wails updater service"
 Import these packages in `main_wails.go`:
 
 ~~~go
-	"github.com/MaimoryLab/OneAgent/internal/version"
+	"github.com/MaimoryLab/BootAgent/internal/version"
 	"github.com/wailsapp/wails/v3/pkg/updater"
 	"github.com/wailsapp/wails/v3/pkg/updater/providers/github"
 ~~~
@@ -415,11 +415,11 @@ func configureUpdater(appInstance *application.App) binding.UpdateBackend {
 		return nil
 	}
 	provider, err := github.New(github.Config{
-		Repository:    "MaimoryLab/OneAgent",
+		Repository:    "MaimoryLab/BootAgent",
 		ChecksumAsset: "SHA256SUMS",
 	})
 	if err != nil {
-		slog.Error("OneAgent updater provider is unavailable", "error", err)
+		slog.Error("BootAgent updater provider is unavailable", "error", err)
 		return nil
 	}
 	if err := appInstance.Updater.Init(updater.Config{
@@ -427,7 +427,7 @@ func configureUpdater(appInstance *application.App) binding.UpdateBackend {
 		Providers:      []updater.Provider{provider},
 		Window:         updater.WindowNone,
 	}); err != nil {
-		slog.Error("OneAgent updater is unavailable", "error", err)
+		slog.Error("BootAgent updater is unavailable", "error", err)
 		return nil
 	}
 	return appInstance.Updater
@@ -450,7 +450,7 @@ Immediately after the `application.New(...)` assignment and before the window cr
 		if !ok {
 			return
 		}
-		appInstance.Event.Emit("oneagent:install-output", output)
+		appInstance.Event.Emit("bootagent:install-output", output)
 	})
 	appInstance.RegisterService(application.NewServiceWithOptions(
 		binding.NewUpdateService(updateBackend),
@@ -470,18 +470,18 @@ Expected: Wails' missing `golang.org/x/mod` checksum (and only the necessary `go
 
 Run: `task generate:bindings`
 
-Expected: generated `frontend/bindings/github.com/MaimoryLab/OneAgent/internal/binding/updateservice.ts` contains `Check`, `DownloadAndInstall`, and `Restart`; the generated binding index exports `UpdateService`. No generated file is edited by hand.
+Expected: generated `frontend/bindings/github.com/MaimoryLab/BootAgent/internal/binding/updateservice.ts` contains `Check`, `DownloadAndInstall`, and `Restart`; the generated binding index exports `UpdateService`. No generated file is edited by hand.
 
 - [ ] **Step 5: Run the Wails-tag compile check**
 
-Run: `go test -tags wails ./cmd/oneagent-desktop ./internal/binding -run '^$'`
+Run: `go test -tags wails ./cmd/bootagent-desktop ./internal/binding -run '^$'`
 
 Expected: compile succeeds without running native windows/macOS UI tests.
 
 - [ ] **Step 6: Commit the wiring and generated bindings**
 
 ~~~bash
-git add cmd/oneagent-desktop/main_wails.go go.mod go.sum frontend/bindings
+git add cmd/bootagent-desktop/main_wails.go go.mod go.sum frontend/bindings
 git commit -m "feat: wire GitHub Releases into the desktop updater"
 ~~~
 +
@@ -491,7 +491,7 @@ git commit -m "feat: wire GitHub Releases into the desktop updater"
 **Files:**
 - Modify: frontend/src/backend/wails.ts
 - Modify: frontend/src/backend/wails.test.ts
-- Generated: frontend/bindings/github.com/MaimoryLab/OneAgent/internal/binding/updateservice.ts
+- Generated: frontend/bindings/github.com/MaimoryLab/BootAgent/internal/binding/updateservice.ts
 
 - [ ] **Step 1: Write failing adapter tests**
 
@@ -506,7 +506,7 @@ Add the update bridge functions to the hoisted mock:
 Mock the generated module:
 
 ~~~ts
-vi.mock("../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/updateservice.js", () => ({
+vi.mock("../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/updateservice.js", () => ({
   Check: bridge.updateCheck,
   DownloadAndInstall: bridge.updateDownload,
   Restart: bridge.updateRestart,
@@ -554,7 +554,7 @@ Expected: FAIL because the three OTA adapter methods are not defined.
 In frontend/src/backend/wails.ts, import UpdateService beside the other generated services and add:
 
 ~~~ts
-export const OTA_PROGRESS_TARGET = "oneagent-update";
+export const OTA_PROGRESS_TARGET = "bootagent-update";
 
 // inside wailsApi:
   checkUpdate: (): Promise<string> => call(() => UpdateService.Check()) as Promise<string>,
@@ -594,11 +594,11 @@ Add this harness to TaskCenter.test.tsx:
 ~~~tsx
 function TaskActionHarness({ action }: { action: () => void }) {
   const { startTask, finishTask, setTaskAction } = useTaskCenter();
-  const id = taskKey("update", "oneagent-update");
+  const id = taskKey("update", "bootagent-update");
   return (
     <>
       <button type="button" onClick={() => startTask({
-        id, kind: "update", target: "oneagent-update", title: "更新 OneAgent", route: "/overview",
+        id, kind: "update", target: "bootagent-update", title: "更新 BootAgent", route: "/overview",
       })}>启动更新</button>
       <button type="button" onClick={() => finishTask(id, { kind: "success", message: "更新已下载" })}>完成更新</button>
       <button type="button" onClick={() => setTaskAction(id, { label: "重启并更新", run: action })}>添加操作</button>
@@ -847,7 +847,7 @@ cancel; a resolved request renders Restart and update; and a rejected restart
 leaves that action available with the failure message.
 
 The approved-download assertion should look for the versioned task title
-Update OneAgent 1.4.0, then click the card's Cancel task control and assert the
+Update BootAgent 1.4.0, then click the card's Cancel task control and assert the
 fake request's cancel function was called exactly once.
 
 Use these concrete terminal-action assertions:
@@ -889,11 +889,11 @@ Expected: FAIL because AppUpdater and the new backend methods do not exist.
 Add these keys to the english dictionary in frontend/src/i18n.tsx:
 
 ~~~ts
-  "OneAgent 更新": "OneAgent update",
-  "发现 OneAgent 新版本 {version}，现在下载吗？": "OneAgent {version} is available. Download it now?",
+  "BootAgent 更新": "BootAgent update",
+  "发现 BootAgent 新版本 {version}，现在下载吗？": "BootAgent {version} is available. Download it now?",
   "暂不": "Not now",
-  "更新 OneAgent": "Update OneAgent",
-  "更新 OneAgent {version}": "Update OneAgent {version}",
+  "更新 BootAgent": "Update BootAgent",
+  "更新 BootAgent {version}": "Update BootAgent {version}",
   "更新已下载": "Update downloaded",
   "重启并更新": "Restart and update",
   "更新失败": "Update failed",
@@ -935,7 +935,7 @@ export function AppUpdater() {
       kind: "update",
       target: OTA_PROGRESS_TARGET,
       progressTarget: OTA_PROGRESS_TARGET,
-      title: t("更新 OneAgent {version}", { version }),
+      title: t("更新 BootAgent {version}", { version }),
       route: "/overview",
     })) return;
 
@@ -967,8 +967,8 @@ export function AppUpdater() {
     try {
       const update = t("更新");
       const choice = await Dialogs.Question({
-        Title: t("OneAgent 更新"),
-        Message: t("发现 OneAgent 新版本 {version}，现在下载吗？", { version }),
+        Title: t("BootAgent 更新"),
+        Message: t("发现 BootAgent 新版本 {version}，现在下载吗？", { version }),
         Buttons: [
           { Label: update, IsDefault: true },
           { Label: t("暂不"), IsCancel: true },
@@ -1089,7 +1089,7 @@ the existing third-party verification and non-OTA artifact names; use the ota
 field only for OTA zip names. Keep the existing linker flag exactly:
 
 ~~~bash
-version_ldflag="-X github.com/MaimoryLab/OneAgent/internal/version.Version=$RELEASE_VERSION"
+version_ldflag="-X github.com/MaimoryLab/BootAgent/internal/version.Version=$RELEASE_VERSION"
 ~~~
 
 The concrete substitutions are:
@@ -1097,7 +1097,7 @@ The concrete substitutions are:
 ~~~yaml
     name: ${{ matrix.target.platform }} ${{ matrix.arch.label }}
           --verify-platform "${{ matrix.target.platform }}-${{ matrix.arch.label }}"
-          name: OneAgent-${{ matrix.target.platform }}-${{ matrix.arch.label }}
+          name: BootAgent-${{ matrix.target.platform }}-${{ matrix.arch.label }}
 ~~~
 
 - [ ] **Step 3: Zip exactly one top-level desktop payload per matrix entry**
@@ -1109,29 +1109,29 @@ After the existing macOS bundle/license verification, add:
         if: matrix.target.platform == 'macos'
         shell: bash
         run: |
-          (cd bin && zip -qry "OneAgent-darwin-${{ matrix.arch.ota }}.zip" OneAgent.app)
-          roots=$(unzip -Z1 "bin/OneAgent-darwin-${{ matrix.arch.ota }}.zip" | awk -F/ 'NF {print $1}' | sort -u)
-          test "$roots" = "OneAgent.app"
+          (cd bin && zip -qry "BootAgent-darwin-${{ matrix.arch.ota }}.zip" BootAgent.app)
+          roots=$(unzip -Z1 "bin/BootAgent-darwin-${{ matrix.arch.ota }}.zip" | awk -F/ 'NF {print $1}' | sort -u)
+          test "$roots" = "BootAgent.app"
 
       - name: Package Windows OTA archive
         if: matrix.target.platform == 'windows'
         shell: pwsh
         run: |
-          $archive = "bin/OneAgent-windows-${{ matrix.arch.ota }}.zip"
-          Compress-Archive -Path bin/oneagent-desktop.exe -DestinationPath $archive -CompressionLevel Optimal
+          $archive = "bin/BootAgent-windows-${{ matrix.arch.ota }}.zip"
+          Compress-Archive -Path bin/bootagent-desktop.exe -DestinationPath $archive -CompressionLevel Optimal
           $roots = @(tar -tf $archive | ForEach-Object { ($_ -split '/')[0] } | Sort-Object -Unique)
-          if ($roots.Count -ne 1 -or $roots[0] -ne 'oneagent-desktop.exe') { throw 'OTA archive has unexpected top-level entries' }
+          if ($roots.Count -ne 1 -or $roots[0] -ne 'bootagent-desktop.exe') { throw 'OTA archive has unexpected top-level entries' }
 
       - name: Upload OTA archive
         uses: actions/upload-artifact@v7
         with:
           name: ota-${{ matrix.target.platform }}-${{ matrix.arch.label }}
-          path: bin/OneAgent-${{ matrix.target.platform }}-${{ matrix.arch.ota }}.zip
+          path: bin/BootAgent-${{ matrix.target.platform }}-${{ matrix.arch.ota }}.zip
           if-no-files-found: error
 ~~~
 
-The macOS archive is made from OneAgent.app only; the Windows archive is made
-from oneagent-desktop.exe only. Compliance files remain inside the macOS app
+The macOS archive is made from BootAgent.app only; the Windows archive is made
+from bootagent-desktop.exe only. Compliance files remain inside the macOS app
 bundle as they do in the existing package.
 
 - [ ] **Step 4: Add a release job that generates SHA256SUMS and creates or updates the release**
@@ -1158,11 +1158,11 @@ Append this job:
         run: |
           set -euo pipefail
           cd release-assets
-          test "$(find . -maxdepth 1 -type f -name 'OneAgent-*.zip' | wc -l)" -eq 4
-          printf '%s\n' OneAgent-darwin-amd64.zip OneAgent-darwin-arm64.zip OneAgent-windows-amd64.zip OneAgent-windows-arm64.zip | while read -r name; do
+          test "$(find . -maxdepth 1 -type f -name 'BootAgent-*.zip' | wc -l)" -eq 4
+          printf '%s\n' BootAgent-darwin-amd64.zip BootAgent-darwin-arm64.zip BootAgent-windows-amd64.zip BootAgent-windows-arm64.zip | while read -r name; do
             test -f "$name"
           done
-          sha256sum OneAgent-*.zip > SHA256SUMS
+          sha256sum BootAgent-*.zip > SHA256SUMS
           test "$(wc -l < SHA256SUMS)" -eq 4
 
       - name: Create or update GitHub Release
@@ -1185,8 +1185,8 @@ Replace the manual-release paragraph in README.md with:
 ~~~md
 Release packages are built and published by .github/workflows/build-artifacts.yml
 when a stable vX.Y.Z tag is pushed. It publishes macOS and Windows amd64/arm64
-OTA archives plus SHA256SUMS; the macOS archives contain OneAgent.app and the
-Windows archives contain oneagent-desktop.exe.
+OTA archives plus SHA256SUMS; the macOS archives contain BootAgent.app and the
+Windows archives contain bootagent-desktop.exe.
 ~~~
 
 - [ ] **Step 6: Validate workflow text and commit**
@@ -1224,7 +1224,7 @@ Run: go test ./... && go vet ./...
 Expected: PASS. If the host lacks native Wails libraries, use the repository's existing non-Wails Go suite and separately run:
 
 ~~~bash
-go test -tags wails ./cmd/oneagent-desktop ./internal/binding -run '^$'
+go test -tags wails ./cmd/bootagent-desktop ./internal/binding -run '^$'
 ~~~
 
 - [ ] **Step 3: Run all frontend checks**
@@ -1240,13 +1240,13 @@ Run the same root-entry checks against temporary fixtures without touching track
 ~~~bash
 tmp_dir=$(mktemp -d)
 trap 'rm -rf "$tmp_dir"' EXIT
-mkdir -p "$tmp_dir/OneAgent.app/Contents/MacOS"
-touch "$tmp_dir/OneAgent.app/Contents/MacOS/oneagent-desktop"
-(cd "$tmp_dir" && zip -qry OneAgent-darwin-amd64.zip OneAgent.app)
-test "$(unzip -Z1 "$tmp_dir/OneAgent-darwin-amd64.zip" | awk -F/ 'NF {print $1}' | sort -u)" = "OneAgent.app"
-printf 'binary' > "$tmp_dir/oneagent-desktop.exe"
-(cd "$tmp_dir" && zip -qry OneAgent-windows-amd64.zip oneagent-desktop.exe)
-test "$(unzip -Z1 "$tmp_dir/OneAgent-windows-amd64.zip" | awk -F/ 'NF {print $1}' | sort -u)" = "oneagent-desktop.exe"
+mkdir -p "$tmp_dir/BootAgent.app/Contents/MacOS"
+touch "$tmp_dir/BootAgent.app/Contents/MacOS/bootagent-desktop"
+(cd "$tmp_dir" && zip -qry BootAgent-darwin-amd64.zip BootAgent.app)
+test "$(unzip -Z1 "$tmp_dir/BootAgent-darwin-amd64.zip" | awk -F/ 'NF {print $1}' | sort -u)" = "BootAgent.app"
+printf 'binary' > "$tmp_dir/bootagent-desktop.exe"
+(cd "$tmp_dir" && zip -qry BootAgent-windows-amd64.zip bootagent-desktop.exe)
+test "$(unzip -Z1 "$tmp_dir/BootAgent-windows-amd64.zip" | awk -F/ 'NF {print $1}' | sort -u)" = "bootagent-desktop.exe"
 echo "archive checks passed"
 ~~~
 
@@ -1267,7 +1267,7 @@ Confirm every spec section has an implementation: release-only startup check, na
 - [ ] **Step 6: Commit the verified final state**
 
 ~~~bash
-git add docs/superpowers/plans/2026-08-06-ota-updater.md internal/version internal/binding cmd/oneagent-desktop frontend .github/workflows/build-artifacts.yml README.md go.mod go.sum
+git add docs/superpowers/plans/2026-08-06-ota-updater.md internal/version internal/binding cmd/bootagent-desktop frontend .github/workflows/build-artifacts.yml README.md go.mod go.sum
 git commit -m "feat: complete GitHub Releases OTA updates"
 ~~~
 

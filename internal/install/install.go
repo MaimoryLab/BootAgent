@@ -11,9 +11,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/MaimoryLab/OneAgent/internal/catalog"
-	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
-	"github.com/MaimoryLab/OneAgent/internal/process"
+	"github.com/MaimoryLab/BootAgent/internal/catalog"
+	oneerrors "github.com/MaimoryLab/BootAgent/internal/errors"
+	"github.com/MaimoryLab/BootAgent/internal/process"
 )
 
 type Options struct {
@@ -65,7 +65,7 @@ func InstalledVersion(ctx context.Context, runtime Runtime, agent catalog.Agent)
 // when one exists and downloads a managed one when it does not.
 const AiderPythonVersion = "3.12"
 
-// managedNPM reports whether this npm came from OneAgent's runtime root.
+// managedNPM reports whether this npm came from BootAgent's runtime root.
 func managedNPM(runtime Runtime, npm string) bool {
 	if npm == "" {
 		return false
@@ -170,7 +170,7 @@ func InstallAgent(ctx context.Context, runtime Runtime, agent catalog.Agent, opt
 			return Result{}, missingToolError(npmPrerequisiteMessage(agent.Name))
 		}
 		// A managed Node has no writable system prefix, and a system Node often
-		// needs sudo for -g. Directing global installs at OneAgent's own prefix
+		// needs sudo for -g. Directing global installs at BootAgent's own prefix
 		// makes both cases work without elevation and keeps the Agent CLIs on
 		// the same PATH entry the runtime bootstrap already records.
 		if managedNPM(runtime, npm) {
@@ -200,7 +200,7 @@ func InstallAgent(ctx context.Context, runtime Runtime, agent catalog.Agent, opt
 		}
 		// uv resolves Python itself. When a matching interpreter is already on
 		// the machine it is reused; otherwise uv downloads a managed CPython
-		// into OneAgent's runtime root, which is why a preinstalled Python 3.12
+		// into BootAgent's runtime root, which is why a preinstalled Python 3.12
 		// is no longer a prerequisite for Aider.
 		environment["UV_PYTHON_INSTALL_DIR"] = filepath.Join(RuntimeRoot(runtime.Home), "python")
 		environment["UV_TOOL_BIN_DIR"] = GlobalBinDir(runtime.Home, runtime.Platform.OS)

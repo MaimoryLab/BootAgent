@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "oneagent_version": "0.2.0-dev",
+  "bootagent_version": "0.2.0-dev",
   "generated_at": "2026-07-22",
   "agents": {
     "codex": {
@@ -130,7 +130,7 @@
       "command": "aider",
       "config_mode": "auto",
       "config_adapter": "aider",
-      "config_path": ".oneagent/aider.env",
+      "config_path": ".bootagent/aider.env",
       "package": {
         "manager": "uv",
         "name": "aider-chat",
@@ -170,7 +170,7 @@
         "linux",
         "windows"
       ],
-      "guide": "OneAgent installs OpenClaw and writes its model provider. Starting the gateway and pairing channels stay with OpenClaw's own commands: openclaw onboard.",
+      "guide": "BootAgent installs OpenClaw and writes its model provider. Starting the gateway and pairing channels stay with OpenClaw's own commands: openclaw onboard.",
       "rank": 6
     },
     "hermes": {
@@ -228,7 +228,7 @@
         "linux",
         "windows"
       ],
-      "guide": "Kimi Code reads credentials only from its own config file and does not fall back to shell environment variables, so OneAgent writes the Provider and model into ~/.kimi-code/config.toml. KIMI_CODE_HOME relocates that directory; if you set it, launch Kimi Code with it set or it will not find this config.",
+      "guide": "Kimi Code reads credentials only from its own config file and does not fall back to shell environment variables, so BootAgent writes the Provider and model into ~/.kimi-code/config.toml. KIMI_CODE_HOME relocates that directory; if you set it, launch Kimi Code with it set or it will not find this config.",
       "rank": 8
     }
   }

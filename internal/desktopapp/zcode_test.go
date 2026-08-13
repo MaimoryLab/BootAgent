@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/MaimoryLab/OneAgent/internal/platform"
-	"github.com/MaimoryLab/OneAgent/internal/process"
+	"github.com/MaimoryLab/BootAgent/internal/platform"
+	"github.com/MaimoryLab/BootAgent/internal/process"
 )
 
 // zcodeFeedYAML builds a manifest shaped like the vendor's, which lists the zip
@@ -86,7 +86,7 @@ func TestZCodeFeedURLPerPlatformAndArch(t *testing.T) {
 		}
 	}
 	if _, err := zcodeFeedURL("linux", "x64"); err == nil {
-		t.Fatal("zcodeFeedURL() accepted linux, which OneAgent cannot verify")
+		t.Fatal("zcodeFeedURL() accepted linux, which BootAgent cannot verify")
 	}
 }
 

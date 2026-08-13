@@ -51,7 +51,7 @@ func TestDiscoverZIPRejectsTraversalDuplicateAndSymlink(t *testing.T) {
 func TestCleanupCandidatesUsesExactZIPStagingRoot(t *testing.T) {
 	stagingParent := t.TempDir()
 	zipPath := makeZip(t, []zipTestEntry{{
-		name: ".oneagent-skill-zip-nested/SKILL.md",
+		name: ".bootagent-skill-zip-nested/SKILL.md",
 		data: "body",
 	}})
 	candidates, err := DiscoverZIP(context.Background(), zipPath, stagingParent)
@@ -165,7 +165,7 @@ func TestPublishTreeReportsRollbackRestorationFailure(t *testing.T) {
 	}
 	rollbackFound := false
 	for _, entry := range entries {
-		if strings.HasPrefix(entry.Name(), ".oneagent-rollback-") {
+		if strings.HasPrefix(entry.Name(), ".bootagent-rollback-") {
 			rollbackFound = true
 			if b, err := os.ReadFile(filepath.Join(parent, entry.Name(), "SKILL.md")); err != nil || string(b) != "old" {
 				t.Fatalf("rollback content = %q, err=%v", b, err)

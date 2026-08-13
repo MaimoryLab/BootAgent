@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/MaimoryLab/OneAgent/internal/catalog"
-	"github.com/MaimoryLab/OneAgent/internal/platform"
-	"github.com/MaimoryLab/OneAgent/internal/process"
+	"github.com/MaimoryLab/BootAgent/internal/catalog"
+	"github.com/MaimoryLab/BootAgent/internal/platform"
+	"github.com/MaimoryLab/BootAgent/internal/process"
 )
 
 // settingsCore builds a UseCases whose region answer is fixed by LANG rather
@@ -167,7 +167,7 @@ func TestBackupRetentionDefaultsForLegacySettingsAndOldCallers(t *testing.T) {
 func TestUnreadableSettingsFallBackToDefaults(t *testing.T) {
 	home := t.TempDir()
 	core := settingsCore(t, home)
-	if err := os.MkdirAll(filepath.Join(home, ".oneagent"), 0o700); err != nil {
+	if err := os.MkdirAll(filepath.Join(home, ".bootagent"), 0o700); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(core.settingsPath(), []byte("{not json"), 0o600); err != nil {

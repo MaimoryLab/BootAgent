@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { StrictMode, useEffect } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { OneAgentApiError } from "../backend/errors";
+import { BootAgentApiError } from "../backend/errors";
 import { OTA_PROGRESS_TARGET } from "../backend/wails";
 import { I18nProvider, LOCALE_STORAGE_KEY } from "../i18n";
 import { taskKey, TaskCenterProvider, useTaskCenter } from "../state/TaskCenterContext";
@@ -96,7 +96,7 @@ describe("AppUpdater", () => {
     await waitFor(() => expect(mocks.checkUpdate).toHaveBeenCalledTimes(1));
     expect(mocks.question).not.toHaveBeenCalled();
     expect(mocks.downloadUpdate).not.toHaveBeenCalled();
-    expect(screen.queryByText("Update OneAgent")).toBeNull();
+    expect(screen.queryByText("Update BootAgent")).toBeNull();
   });
 
   it("does nothing when the OTA task is already running", async () => {
@@ -112,15 +112,15 @@ describe("AppUpdater", () => {
     mocks.checkUpdate.mockResolvedValue("v2.0.0");
     mount();
     await waitFor(() => expect(mocks.question).toHaveBeenCalledWith({
-      Title: "OneAgent update",
-      Message: "OneAgent v2.0.0 is available. Download it now?",
+      Title: "BootAgent update",
+      Message: "BootAgent v2.0.0 is available. Download it now?",
       Buttons: [
         { Label: "Update", IsDefault: true },
         { Label: "Not now", IsCancel: true },
       ],
     }));
     expect(mocks.downloadUpdate).not.toHaveBeenCalled();
-    expect(screen.queryByText("Update OneAgent v2.0.0")).toBeNull();
+    expect(screen.queryByText("Update BootAgent v2.0.0")).toBeNull();
   });
 
   it("starts a versioned cancellable task after approval", async () => {
@@ -131,7 +131,7 @@ describe("AppUpdater", () => {
     mocks.downloadUpdate.mockReturnValue(download.request);
     mount();
 
-    expect(await screen.findByText("Update OneAgent v2.0.0")).toBeTruthy();
+    expect(await screen.findByText("Update BootAgent v2.0.0")).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "Cancel task" }));
     expect(download.request.cancel).toHaveBeenCalledTimes(1);
     expect(screen.getByText("Cancelled")).toBeTruthy();
@@ -160,7 +160,7 @@ describe("AppUpdater", () => {
     mocks.question.mockResolvedValue("Update");
     mocks.downloadUpdate.mockReturnValue(failed.request);
     const view = mount();
-    expect(await screen.findByText("Update OneAgent v2.0.0")).toBeTruthy();
+    expect(await screen.findByText("Update BootAgent v2.0.0")).toBeTruthy();
     failed.reject(new Error("download failed"));
     expect(await screen.findByText(/Failed.*download failed/)).toBeTruthy();
 
@@ -168,15 +168,15 @@ describe("AppUpdater", () => {
     const cancelled = deferredDownload();
     mocks.downloadUpdate.mockReturnValue(cancelled.request);
     mount();
-    expect(await screen.findByText("Update OneAgent v2.0.0")).toBeTruthy();
+    expect(await screen.findByText("Update BootAgent v2.0.0")).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "Cancel task" }));
     cancelled.reject(Object.assign(new Error("cancelled"), { name: "CancelledRejectionError" }));
     expect(await screen.findByText("Cancelled")).toBeTruthy();
   });
 
-  // The updater picked OneAgent-darwin-arm64.dmg over the sibling .zip, and a
+  // The updater picked BootAgent-darwin-arm64.dmg over the sibling .zip, and a
   // .dmg is not a format it unpacks -- so the disk image replaced the installed
-  // OneAgent.app. The backend now refuses that artifact, and the task centre has
+  // BootAgent.app. The backend now refuses that artifact, and the task centre has
   // to carry the hint: the message alone names no way forward, and retrying
   // downloads the same asset.
   it("tells the user to download manually when the update is not installable", async () => {
@@ -185,10 +185,10 @@ describe("AppUpdater", () => {
     mocks.question.mockResolvedValue("Update");
     mocks.downloadUpdate.mockReturnValue(failed.request);
     mount();
-    expect(await screen.findByText("Update OneAgent v2.0.0")).toBeTruthy();
+    expect(await screen.findByText("Update BootAgent v2.0.0")).toBeTruthy();
 
-    failed.reject(new OneAgentApiError(
-      "The downloaded OneAgent update is not installable",
+    failed.reject(new BootAgentApiError(
+      "The downloaded BootAgent update is not installable",
       "UPDATE_NOT_INSTALLABLE",
       false,
       500,

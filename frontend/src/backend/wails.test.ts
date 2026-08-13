@@ -41,8 +41,8 @@ vi.mock("@wailsio/runtime", async (importOriginal) => ({
   })(),
   Events: { On: bridge.eventsOn },
 }));
-vi.mock("../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/statusservice.js", () => ({ GetStatus: bridge.status }));
-vi.mock("../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/providerservice.js", () => ({
+vi.mock("../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/statusservice.js", () => ({ GetStatus: bridge.status }));
+vi.mock("../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/providerservice.js", () => ({
   Probe: bridge.probe,
   ListModels: bridge.models,
   OpenRegistration: bridge.register,
@@ -50,28 +50,28 @@ vi.mock("../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/provider
   SaveProvider: bridge.saveProvider,
   DeleteProvider: bridge.deleteProvider,
 }));
-vi.mock("../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/agentservice.js", () => ({
+vi.mock("../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/agentservice.js", () => ({
   Install: bridge.install,
   Activate: bridge.activate,
   Launch: bridge.launch,
 }));
-vi.mock("../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/desktopagentservice.js", () => ({
+vi.mock("../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/desktopagentservice.js", () => ({
   GetStatus: bridge.desktopStatus,
   Install: bridge.desktopInstall,
   Open: bridge.desktopOpen,
   Configure: bridge.desktopConfigure,
 }));
-vi.mock("../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/profileservice.js", () => ({
+vi.mock("../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/profileservice.js", () => ({
   ListProfiles: bridge.profiles,
   DeleteProfile: bridge.deleteProfile,
   SaveProfile: bridge.saveProfile,
 }));
-vi.mock("../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/updateservice.js", () => ({
+vi.mock("../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/updateservice.js", () => ({
   Check: bridge.updateCheck,
   DownloadAndInstall: bridge.updateDownload,
   Restart: bridge.updateRestart,
 }));
-vi.mock("../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/transferservice.js", () => ({
+vi.mock("../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/transferservice.js", () => ({
   Read: bridge.readTransfer,
   Write: bridge.writeTransfer,
 }));
@@ -170,7 +170,7 @@ describe("Wails backend adapter", () => {
     });
     localStorage.setItem(LOCALE_STORAGE_KEY, "zh-CN");
     expect(normalizeWailsError(new Error("secret-key-value"))).toMatchObject({
-      message: "无法调用本机 OneAgent 服务", code: "INTERNAL_ERROR", status: 500, retryable: true,
+      message: "无法调用本机 BootAgent 服务", code: "INTERNAL_ERROR", status: 500, retryable: true,
     });
   });
 

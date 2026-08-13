@@ -418,7 +418,7 @@ export function ProvidersPage({ create = false }: { create?: boolean }) {
         })}
       </div> : null}
 
-      {!create ? <p className="provider-note">{t("用户模型服务的协议兼容性由你自己保证，OneAgent 不会为它降级或改写请求")}</p> : null}
+      {!create ? <p className="provider-note">{t("用户模型服务的协议兼容性由你自己保证，BootAgent 不会为它降级或改写请求")}</p> : null}
     </PageScaffold>
   );
 }

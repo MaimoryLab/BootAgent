@@ -17,7 +17,7 @@ import (
 type Detected struct {
 	BaseURL           string  `json:"baseUrl"`
 	Model             string  `json:"model"`
-	ManagedByOneAgent bool    `json:"managedByOneAgent"`
+	ManagedByBootAgent bool    `json:"managedByBootAgent"`
 	Unreadable        *string `json:"unreadable"`
 }
 
@@ -35,8 +35,8 @@ func ReadCodexConfig(text string) Detected {
 		}
 	}
 	model, _ := parsed["model"].(string)
-	_, managed := providers["oneagent"]
-	return Detected{BaseURL: baseURL, Model: model, ManagedByOneAgent: managed}
+	_, managed := providers["bootagent"]
+	return Detected{BaseURL: baseURL, Model: model, ManagedByBootAgent: managed}
 }
 
 func ReadClaudeConfig(text string, envVars map[string]string) Detected {
@@ -66,14 +66,14 @@ func ReadClaudeConfig(text string, envVars map[string]string) Detected {
 			break
 		}
 	}
-	return Detected{BaseURL: baseURL, Model: model, ManagedByOneAgent: managed}
+	return Detected{BaseURL: baseURL, Model: model, ManagedByBootAgent: managed}
 }
 
 func ReadOpenAICompatibleConfig(text string) Detected {
 	var parsed map[string]any
 	if err := json.Unmarshal([]byte(text), &parsed); err != nil {
 		if jsoncCommentPattern.MatchString(text) {
-			return unreadable("包含 JSONC 注释，OneAgent 不解析")
+			return unreadable("包含 JSONC 注释，BootAgent 不解析")
 		}
 		return unreadable(fmt.Sprintf("JSON 无法解析：%v", err))
 	}
@@ -91,15 +91,15 @@ func ReadOpenAICompatibleConfig(text string) Detected {
 			}
 		}
 	}
-	_, managed := providers["oneagent"]
-	return Detected{BaseURL: baseURL, Model: bareModel, ManagedByOneAgent: managed}
+	_, managed := providers["bootagent"]
+	return Detected{BaseURL: baseURL, Model: bareModel, ManagedByBootAgent: managed}
 }
 
 // ReadOpenClawConfig reads back what WriteOpenClaw wrote: the provider entry
 // under models.providers and the default model under agents.defaults.
 //
 // The model is stored as "<provider-key>/<model-id>", so the key is stripped to
-// report the bare id the rest of OneAgent uses. Only the entry OneAgent owns is
+// report the bare id the rest of BootAgent uses. Only the entry BootAgent owns is
 // consulted -- a user's other providers are none of its business, and reporting
 // one of those as the current binding would misdescribe the file.
 func ReadOpenClawConfig(text string) Detected {
@@ -109,7 +109,7 @@ func ReadOpenClawConfig(text string) Detected {
 	}
 	models, _ := parsed["models"].(map[string]any)
 	providers, _ := models["providers"].(map[string]any)
-	entry, managed := providers["oneagent"].(map[string]any)
+	entry, managed := providers["bootagent"].(map[string]any)
 	baseURL := ""
 	if managed {
 		baseURL, _ = entry["baseUrl"].(string)
@@ -118,13 +118,13 @@ func ReadOpenClawConfig(text string) Detected {
 	defaults, _ := agents["defaults"].(map[string]any)
 	defaultModel, _ := defaults["model"].(map[string]any)
 	primary, _ := defaultModel["primary"].(string)
-	// Only strip the prefix when it names OneAgent's own entry. A primary pointing
+	// Only strip the prefix when it names BootAgent's own entry. A primary pointing
 	// at another provider is that provider's model, not this binding's.
 	model := ""
-	if suffix, ok := strings.CutPrefix(primary, "oneagent/"); ok {
+	if suffix, ok := strings.CutPrefix(primary, "bootagent/"); ok {
 		model = suffix
 	}
-	return Detected{BaseURL: baseURL, Model: model, ManagedByOneAgent: managed}
+	return Detected{BaseURL: baseURL, Model: model, ManagedByBootAgent: managed}
 }
 
 func ReadAiderConfig(text string) Detected {
@@ -152,13 +152,13 @@ func ReadHermesConfig(text string) Detected {
 	if err := yaml.Unmarshal([]byte(text), &parsed); err != nil {
 		return unreadable(fmt.Sprintf("YAML 无法解析：%v", err))
 	}
-	return Detected{BaseURL: parsed.Model.BaseURL, Model: parsed.Model.Default, ManagedByOneAgent: parsed.Model.BaseURL != ""}
+	return Detected{BaseURL: parsed.Model.BaseURL, Model: parsed.Model.Default, ManagedByBootAgent: parsed.Model.BaseURL != ""}
 }
 
 // ReadKimiCodeConfig reports the endpoint and model behind Kimi Code's
 // default_model alias. The alias names a models entry, which names a providers
 // entry holding the base URL, so both hops are followed rather than assuming
-// OneAgent wrote the file -- a config the user edited by hand still reports the
+// BootAgent wrote the file -- a config the user edited by hand still reports the
 // endpoint actually in effect.
 func ReadKimiCodeConfig(text string) Detected {
 	var parsed map[string]any
@@ -177,11 +177,11 @@ func ReadKimiCodeConfig(text string) Detected {
 			baseURL = value
 		}
 	}
-	// Keyed on the provider entry OneAgent owns, not on the alias in use: a user
+	// Keyed on the provider entry BootAgent owns, not on the alias in use: a user
 	// who repointed default_model at their own entry still has ours on disk, and
-	// reporting otherwise would hide that OneAgent wrote it.
+	// reporting otherwise would hide that BootAgent wrote it.
 	_, managed := providers[kimiOwnedName]
-	return Detected{BaseURL: baseURL, Model: model, ManagedByOneAgent: managed}
+	return Detected{BaseURL: baseURL, Model: model, ManagedByBootAgent: managed}
 }
 
 // DetectFile returns nil only when the file is absent. Any present but empty,

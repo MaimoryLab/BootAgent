@@ -10,7 +10,7 @@ user selects **Apply changes**.
 
 This design borrows cc-switch's useful boundary -- one normalized server model
 with one adapter per Agent -- but does not copy its SQLite, preset, deep-link,
-or compatibility layers. A private JSON file and the existing OneAgent write
+or compatibility layers. A private JSON file and the existing BootAgent write
 pipeline are sufficient for this scope.
 
 ## Scope
@@ -30,7 +30,7 @@ configuration contract. Project-local MCP files, cloud synchronization,
 filesystem watching, presets, server marketplaces, OAuth flows, and command
 execution or health checks are also out of scope.
 
-An Agent is eligible only when OneAgent can detect its command and its native
+An Agent is eligible only when BootAgent can detect its command and its native
 configuration root has already been initialized. Ineligible Agents are absent
 from scans, filters, and target controls. Scanning never creates an Agent
 directory. Applying may create the native configuration file inside an
@@ -42,7 +42,7 @@ already-existing eligible root.
 flowchart LR
     UI["React MCP page"] --> B["Generated Wails binding"]
     B --> U["MCP use case"]
-    U --> R["Private ~/.oneagent/mcp.json"]
+    U --> R["Private ~/.bootagent/mcp.json"]
     U --> A["Agent format adapters"]
     A --> C["Eligible Agent config files"]
     U --> S["securefs atomic writes"]
@@ -61,10 +61,10 @@ flowchart LR
 - The MCP page owns draft state. No MCP server details or credentials enter the
   global status response, task state, browser storage, or logs.
 
-The Registry lives at `~/.oneagent/mcp.json`. It is written with the existing
+The Registry lives at `~/.bootagent/mcp.json`. It is written with the existing
 private-directory, backup, same-directory temporary file, permission-tightening,
 and atomic-replace sequence. It contains credentials and therefore uses secret
-file permissions and the same backup hardening rules as other OneAgent secret
+file permissions and the same backup hardening rules as other BootAgent secret
 stores.
 
 An absent Registry is an empty Registry. Schema version 1 is the only writable
@@ -122,7 +122,7 @@ consistently before comparison. Server IDs must match
 `^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$` at every import and edit boundary.
 
 Some native formats represent all URL transports as a generic `remote` entry.
-They decode to `http` when first discovered. After OneAgent applies an `sse`
+They decode to `http` when first discovered. After BootAgent applies an `sse`
 spec to such an Agent, subsequent scans first compare the native entry with the
 projection of its recorded variant; an unchanged projection keeps the recorded
 transport hint. A genuinely external change is decoded afresh. This prevents a
@@ -155,7 +155,7 @@ writing the Agent file:
   the last known Registry facts for that Agent. A parse failure is never treated
   as deletion.
 
-`Scan` and `Apply` use the existing OneAgent write lock so they cannot race each
+`Scan` and `Apply` use the existing BootAgent write lock so they cannot race each
 other or other configuration mutations. Registry reads see either the old or
 new complete file because writes are atomic.
 
@@ -195,7 +195,7 @@ associations.
 There is no cross-file transaction between an Agent file and the Registry. If
 the Agent write succeeds but the Registry write fails, the result reports
 `config_updated: true` and `registry_updated: false`; the draft remains pending
-and the next scan reconciles the factual Registry. OneAgent does not attempt a
+and the next scan reconciles the factual Registry. BootAgent does not attempt a
 risky rollback of an already-valid Agent configuration.
 
 The page derives status from the factual snapshot and its draft: **synced** is
@@ -225,7 +225,7 @@ diagnostics, errors, and logs redact their values. Secret differences may say
 that a value changed but never show either value.
 
 The Registry is private at rest but is not separately password-encrypted. It is
-protected by OneAgent's private directory and file permissions. Encryption is
+protected by BootAgent's private directory and file permissions. Encryption is
 available for portable export files.
 
 ## Import And Export
@@ -235,7 +235,7 @@ server IDs, their currently applied Registry variants, and actual Agent
 associations. Current unsaved drafts are not exported. Imported target lists are
 intersected with Agents eligible on the destination machine.
 
-Export offers the same three credential modes as existing OneAgent transfers:
+Export offers the same three credential modes as existing BootAgent transfers:
 
 - **Omit secrets** is the default. Sensitive paths are listed in transfer
   metadata and their values are removed.

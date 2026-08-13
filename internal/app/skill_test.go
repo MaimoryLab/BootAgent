@@ -7,8 +7,8 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/MaimoryLab/OneAgent/internal/platform"
-	"github.com/MaimoryLab/OneAgent/internal/skill"
+	"github.com/MaimoryLab/BootAgent/internal/platform"
+	"github.com/MaimoryLab/BootAgent/internal/skill"
 )
 
 func TestScanSkillsDoesNotCreateAgentRootAndReportsUnmanagedCandidate(t *testing.T) {

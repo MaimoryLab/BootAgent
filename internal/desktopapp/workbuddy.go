@@ -258,9 +258,8 @@ func workBuddyWindowsCandidates(edition workBuddyEdition, options Options) []str
 }
 
 func workBuddyWindowsVersion(ctx context.Context, options Options, path string) *string {
-	const key = "ONEAGENT_WORKBUDDY_PATH"
-	argv := []string{"powershell.exe", "-NoProfile", "-NonInteractive", "-Command", `(Get-Item -LiteralPath $env:ONEAGENT_WORKBUDDY_PATH).VersionInfo.ProductVersion`}
-	result, err := runWithEnvironment(options, ctx, argv, map[string]string{key: path}, inspectTimeout)
+	argv := []string{"powershell.exe", "-NoProfile", "-NonInteractive", "-Command", `(Get-Item -LiteralPath $args[0]).VersionInfo.ProductVersion`, path}
+	result, err := runWithEnvironment(options, ctx, argv, nil, inspectTimeout)
 	if err != nil || result.ExitCode != 0 {
 		return nil
 	}
@@ -405,7 +404,7 @@ func installWorkBuddyMacOS(ctx context.Context, edition workBuddyEdition, option
 	if !strings.EqualFold(filepath.Ext(mustParseURLPath(update.URL)), ".zip") {
 		return ActionResult{}, errors.New(edition.name + " macOS installer is not a zip archive")
 	}
-	tempDir, err := os.MkdirTemp("", "oneagent-workbuddy-")
+	tempDir, err := os.MkdirTemp("", "bootagent-workbuddy-")
 	if err != nil {
 		return ActionResult{}, fmt.Errorf("create temporary %s installer directory: %w", edition.name, err)
 	}
@@ -523,7 +522,7 @@ func installWorkBuddyWindows(ctx context.Context, edition workBuddyEdition, opti
 	if !strings.EqualFold(filepath.Ext(mustParseURLPath(update.URL)), ".exe") {
 		return ActionResult{}, errors.New(edition.name + " Windows installer is not an executable")
 	}
-	installer, err := os.CreateTemp("", "oneagent-workbuddy-*.exe")
+	installer, err := os.CreateTemp("", "bootagent-workbuddy-*.exe")
 	if err != nil {
 		return ActionResult{}, fmt.Errorf("create temporary %s installer: %w", edition.name, err)
 	}

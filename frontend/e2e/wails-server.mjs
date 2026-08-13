@@ -6,15 +6,16 @@ import { spawn } from "node:child_process";
 
 const frontendDir = dirname(fileURLToPath(import.meta.url));
 const root = join(frontendDir, "..", "..");
-const home = await mkdtemp(join(tmpdir(), "oneagent-wails-e2e-"));
-const child = spawn("go", ["run", "-tags", "wails,server,e2e", "./cmd/oneagent-desktop"], {
+const home = await mkdtemp(join(tmpdir(), "bootagent-wails-e2e-"));
+const child = spawn("go", ["run", "-tags", "wails,server,e2e", "./cmd/bootagent-desktop"], {
   cwd: root,
   env: {
     ...process.env,
     // Server-mode tests do not use a native WebView; keep Linux CI independent
     // of GTK/WebKitGTK development packages.
     CGO_ENABLED: "0",
-    ONEAGENT_HOME: home,
+    HOME: home,
+    USERPROFILE: home,
   },
   stdio: "inherit",
 });

@@ -12,10 +12,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/MaimoryLab/OneAgent/internal/catalog"
-	"github.com/MaimoryLab/OneAgent/internal/platform"
-	"github.com/MaimoryLab/OneAgent/internal/process"
-	"github.com/MaimoryLab/OneAgent/internal/provider"
+	"github.com/MaimoryLab/BootAgent/internal/catalog"
+	"github.com/MaimoryLab/BootAgent/internal/platform"
+	"github.com/MaimoryLab/BootAgent/internal/process"
+	"github.com/MaimoryLab/BootAgent/internal/provider"
 )
 
 func TestStatusUsesInjectedHomeAndCommandLookup(t *testing.T) {
@@ -41,11 +41,11 @@ func TestStatusUsesInjectedHomeAndCommandLookup(t *testing.T) {
 	if !status.Agents["codex"].Installed || !status.Capabilities.CanInstall["codex"] {
 		t.Fatalf("injected command lookup was not used: %#v", status.Agents["codex"])
 	}
-	if status.Paths["profile"] != filepath.Join(home, ".oneagent", "profile.json") {
+	if status.Paths["profile"] != filepath.Join(home, ".bootagent", "profile.json") {
 		t.Fatalf("profile path escaped injected home: %q", status.Paths["profile"])
 	}
 	// The Task Center renders this directory verbatim. Without it the UI has to
-	// spell out "~/.oneagent/logs", which names nothing on Windows.
+	// spell out "~/.bootagent/logs", which names nothing on Windows.
 	if status.Paths["logs"] != CommandLogDir(home) {
 		t.Fatalf("logs path = %q, want %q", status.Paths["logs"], CommandLogDir(home))
 	}
@@ -83,8 +83,8 @@ func TestStatusReportsExistingConfigWithoutWriting(t *testing.T) {
 
 func TestStatusProjectsProfilesAndActiveEnvironmentWithoutSecrets(t *testing.T) {
 	home := t.TempDir()
-	oneagentDir := filepath.Join(home, ".oneagent")
-	profilesDir := filepath.Join(oneagentDir, "profiles")
+	bootagentDir := filepath.Join(home, ".bootagent")
+	profilesDir := filepath.Join(bootagentDir, "profiles")
 	if err := os.MkdirAll(profilesDir, 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -92,13 +92,13 @@ func TestStatusProjectsProfilesAndActiveEnvironmentWithoutSecrets(t *testing.T) 
 	if err := os.WriteFile(filepath.Join(profilesDir, "team.json"), []byte(profileJSON), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.MkdirAll(filepath.Join(oneagentDir, "secrets"), 0o700); err != nil {
+	if err := os.MkdirAll(filepath.Join(bootagentDir, "secrets"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(oneagentDir, "secrets", "team.env"), []byte("export ONEAGENT_API_KEY=sk-secret\n"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(bootagentDir, "secrets", "team.env"), []byte("export TEST_API_KEY=sk-secret\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(oneagentDir, "profile.json"), []byte(`{"schema_version":2,"active":"team"}`), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(bootagentDir, "profile.json"), []byte(`{"schema_version":2,"active":"team"}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -220,7 +220,7 @@ func TestSaveProfileUsesProtocolEndpoint(t *testing.T) {
 
 func TestStatusProjectsAgentBindingsWithoutUnknownFields(t *testing.T) {
 	home := t.TempDir()
-	path := filepath.Join(home, ".oneagent", "agents", "codex.json")
+	path := filepath.Join(home, ".bootagent", "agents", "codex.json")
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -272,7 +272,7 @@ api_key = "sk-detected-secret"
 		t.Fatal(err)
 	}
 	codex := status.Agents["codex"]
-	if codex.Detected == nil || codex.Detected.BaseURL != "https://api.other-vendor.com/v1" || codex.Detected.Model != "gpt-5-mini" || codex.Detected.ManagedByOneAgent {
+	if codex.Detected == nil || codex.Detected.BaseURL != "https://api.other-vendor.com/v1" || codex.Detected.Model != "gpt-5-mini" || codex.Detected.ManagedByBootAgent {
 		t.Fatalf("codex detected = %#v", codex.Detected)
 	}
 	claude := status.Agents["claude-code"]
@@ -421,7 +421,7 @@ func normalizeFixtureHome(value any, home string) any {
 	return value
 }
 
-func TestStatusReportsFirstRunUntilOneAgentDirExists(t *testing.T) {
+func TestStatusReportsFirstRunUntilBootAgentDirExists(t *testing.T) {
 	home := t.TempDir()
 	core := NewUseCases(StatusOptions{Home: home, Platform: platform.For("linux", "amd64"), Lookup: func(string) (string, bool) { return "", false }})
 	status, err := core.GetStatus(context.Background())
@@ -429,9 +429,9 @@ func TestStatusReportsFirstRunUntilOneAgentDirExists(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !status.FirstRun {
-		t.Fatal("a home without ~/.oneagent must report firstRun")
+		t.Fatal("a home without ~/.bootagent must report firstRun")
 	}
-	if err := os.MkdirAll(filepath.Join(home, ".oneagent"), 0o700); err != nil {
+	if err := os.MkdirAll(filepath.Join(home, ".bootagent"), 0o700); err != nil {
 		t.Fatal(err)
 	}
 	status, err = core.GetStatus(context.Background())
@@ -439,7 +439,7 @@ func TestStatusReportsFirstRunUntilOneAgentDirExists(t *testing.T) {
 		t.Fatal(err)
 	}
 	if status.FirstRun {
-		t.Fatal("firstRun must clear once ~/.oneagent exists")
+		t.Fatal("firstRun must clear once ~/.bootagent exists")
 	}
 }
 
@@ -463,7 +463,7 @@ func TestDeleteProfileRemovesTheProfileAndItsSecret(t *testing.T) {
 	}
 	// The secret is a separate file, so a delete that only unlinked the Profile
 	// would leave a credential behind for an ID the user believes is gone.
-	if entries, _ := os.ReadDir(filepath.Join(home, ".oneagent", "profiles")); len(entries) != 0 {
+	if entries, _ := os.ReadDir(filepath.Join(home, ".bootagent", "profiles")); len(entries) != 0 {
 		t.Fatalf("profile directory still holds %d entries", len(entries))
 	}
 }

@@ -1,10 +1,10 @@
-# OneAgent multi-channel distribution and compliance policy
+# BootAgent multi-channel distribution and compliance policy
 
 ## Status
 
 - Status: Frozen / normative policy
 - Effective date: 2026-07-27
-- Applies to: OneAgent maintainers, build engineers, channel uploaders, organizational
+- Applies to: BootAgent maintainers, build engineers, channel uploaders, organizational
   distributors, and documentation maintainers
 - Applicable channels: GitHub Release, the official site, domestic and overseas
   file-sharing services, corporate cloud drives, and any other public or targeted
@@ -12,22 +12,22 @@
 - Exceptions: any exception must first add an ADR that records the rights basis, the
   risk, the owner, and the withdrawal plan
 
-This document is OneAgent's engineering and operations compliance baseline. It does not
+This document is BootAgent's engineering and operations compliance baseline. It does not
 replace formal legal advice on any specific piece of software, licence, trademark, or
 mode of operation.
 
 ## 1. Fixed product definition
 
-> OneAgent is an environment activator that helps users detect, install, configure, and
+> BootAgent is an environment activator that helps users detect, install, configure, and
 > verify AI development tools through a local GUI.
 
-OneAgent may distribute its own build artifacts through multiple lawful channels, but
+BootAgent may distribute its own build artifacts through multiple lawful channels, but
 the distribution channel does not change the rights requirements or the security
 requirements that apply to the package. File-sharing services, corporate cloud drives,
 and GitHub are download mirrors and nothing more; they are not a substitute for a
 redistribution authorization covering third-party software.
 
-By default OneAgent does not distribute third-party Agent binaries. Agents must be
+By default BootAgent does not distribute third-party Agent binaries. Agents must be
 obtained from an official installation source, a mirror covered by written
 authorization, a manual user installation, or documentation guidance.
 
@@ -39,7 +39,7 @@ or re-sign it.
 
 Every public release contains at least:
 
-- The OneAgent binary archive.
+- The BootAgent binary archive.
 - The SHA-256 matching that archive.
 - The version, the build time, the target environments, and the release status.
 - The third-party licence inventory and full licence texts. The generated source is
@@ -76,10 +76,10 @@ continue to be marked as an official mirror.
 
 ## 3. Permitted package contents
 
-The following may enter the OneAgent release package:
+The following may enter the BootAgent release package:
 
-- OneAgent's own Go code and the built React static assets.
-- OneAgent's own icons, documentation, and Profiles.
+- BootAgent's own Go code and the built React static assets.
+- BootAgent's own icons, documentation, and Profiles.
 - Third-party dependencies whose licence explicitly permits redistribution and whose
   corresponding obligations have already been satisfied.
 - `agents.lock.json`, the official installation entry points, and the manual
@@ -121,7 +121,7 @@ The Agent acquisition order is fixed as:
 
 1. The official package manager or the official release source.
 2. A mirror with an explicit licence or written authorization.
-3. Detection by OneAgent after the user installs manually.
+3. Detection by BootAgent after the user installs manually.
 4. `guide-only` mode, which shows only the official instructions.
 
 Automatic installation must satisfy all of the following:
@@ -137,11 +137,11 @@ Automatic installation must satisfy all of the following:
 - Node.js, Git, VPNs, and system-level networking components are not installed
   automatically. Aider's external Python 3.12 is required by the upstream installation
   flow itself, only when the user explicitly chooses Aider, and never enters the
-  OneAgent package.
+  BootAgent package.
 - Executing a `curl | bash` that has not been pinned and reviewed is prohibited.
 
 When an official source is unreachable, the only permitted response is to report it as
-unreachable and offer a manual installation entry point. OneAgent does not configure
+unreachable and offer a manual installation entry point. BootAgent does not configure
 proxies, does not provide instructions for bypassing network restrictions, and does not
 re-host third-party binaries on a file-sharing service as a stopgap substitute.
 
@@ -149,7 +149,7 @@ re-host third-party binaries on a file-sharing service as a stopgap substitute.
 
 - The user registers or signs in through the Provider's official channels themselves.
 - The user creates and manages API Keys themselves.
-- OneAgent makes no promise of a fixed free quota, permanent free use, eligibility for a
+- BootAgent makes no promise of a fixed free quota, permanent free use, eligibility for a
   particular campaign, or account benefits.
 - Keys are stored only in the permitted key file on the user's own machine, and do not
   enter Profiles, logs, screenshots, telemetry, URLs, command lines, the release
@@ -158,7 +158,7 @@ re-host third-party binaries on a file-sharing service as a stopgap substitute.
   about to be sent to.
 - A custom Provider must reject URL credentials, invalid schemes, and control
   characters.
-- OneAgent does not operate a shared Key pool, does not forward model requests on the
+- BootAgent does not operate a shared Key pool, does not forward model requests on the
   user's behalf, and does not describe a local activator as a unified API gateway.
 
 If a unified gateway, remote configuration, an account system, download statistics,
@@ -169,12 +169,12 @@ independently; the default boundaries of a local tool cannot simply be carried o
 ## 7. Brand and public copy
 
 Using the textual names of third-party products to describe compatibility is permitted,
-but it must not imply that OneAgent is an official product, a domestic edition, a joint
+but it must not imply that BootAgent is an official product, a domestic edition, a joint
 edition, or an authorized agent of the vendor in question.
 
 Recommended wording:
 
-> OneAgent is an independently developed environment configuration tool that helps users
+> BootAgent is an independently developed environment configuration tool that helps users
 > install or configure some third-party AI development tools. The relevant products and
 > trademarks belong to their respective rights holders.
 
@@ -186,8 +186,8 @@ Prohibited wording:
 - "Official OpenAI partner installer"
 - "Claude/Codex built in, no official account needed"
 
-The product's primary visual identity uses OneAgent's own assets or generic icons; a
-third-party logo is not used as OneAgent's brand mark.
+The product's primary visual identity uses BootAgent's own assets or generic icons; a
+third-party logo is not used as BootAgent's brand mark.
 
 ## 8. Channel operations rules
 

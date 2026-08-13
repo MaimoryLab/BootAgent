@@ -1,7 +1,7 @@
 # ADR-005: Channel-Neutral Binary Distribution and Compliance Gates
 
-> Addendum (2026-08-04): `cmd/oneagent-release`, `cmd/oneagent-rc`, and
-> `cmd/oneagent-provider-smoke`, all mentioned below, were removed in `23805b0`;
+> Addendum (2026-08-04): `cmd/bootagent-release`, `cmd/bootagent-rc`, and
+> `cmd/bootagent-provider-smoke`, all mentioned below, were removed in `23805b0`;
 > their responsibilities moved to `.github/workflows/build-artifacts.yml`. The
 > commands here are historical background and are not executable.
 
@@ -16,7 +16,7 @@ Accepted
 ## Context
 
 The early release plan was built around GitHub Actions, four-platform artifacts, and
-GitHub Releases. The current product goal has narrowed to distributing the OneAgent
+GitHub Releases. The current product goal has narrowed to distributing the BootAgent
 binary package directly, where the download channel may be GitHub, the official
 site, a file-sharing service, or a corporate cloud drive, and is not tied to any one
 platform.
@@ -31,7 +31,7 @@ contents carry redistribution rights.
 
 ### Distribution model
 
-OneAgent uses a "one official build, many identical mirrors" distribution model:
+BootAgent uses a "one official build, many identical mirrors" distribution model:
 
 - GitHub, the official site, file-sharing services, and corporate cloud drives are
   interchangeable download channels, nothing more.
@@ -45,7 +45,7 @@ OneAgent uses a "one official build, many identical mirrors" distribution model:
 
 ### Package boundary
 
-- By default, only OneAgent's own code and the runtime dependencies whose licence
+- By default, only BootAgent's own code and the runtime dependencies whose licence
   obligations have been satisfied are distributed.
 - Third-party Agent binaries are not distributed; being officially downloadable is
   not equivalent to being redistributable.
@@ -70,14 +70,14 @@ OneAgent uses a "one official build, many identical mirrors" distribution model:
 - `technical-preview-unsigned` remains in use until the higher-tier release gates
   are met; the Stable label is not used. The Stable bar itself remains in force and
   is verified against the artifacts by the later signing stage of
-  `cmd/oneagent-release` (macOS `codesign` / Windows Authenticode); the current
+  `cmd/bootagent-release` (macOS `codesign` / Windows Authenticode); the current
   stage simply does not publish Stable.
 
 ### Compliance gates
 
 All channels share one set of rights, brand, secret, security, privacy, package, and
 channel-ledger checks. For the full specification see
-[OneAgent multi-channel distribution and compliance policy](../distribution-compliance-policy.md).
+[BootAgent multi-channel distribution and compliance policy](../distribution-compliance-policy.md).
 
 ## Relationship To Previous Decisions
 
@@ -142,7 +142,7 @@ channel-ledger checks. For the full specification see
 - GitHub, file-sharing services, and the official site can use the same artifact, with
   no channel branches to maintain.
 - Users can tell from the SHA-256 whether a mirror has been substituted.
-- Not mixing third-party Agent packages into OneAgent lowers copyright, supply chain,
+- Not mixing third-party Agent packages into BootAgent lowers copyright, supply chain,
   and version maintenance risk.
 - When a vulnerability, key leak, or copyright complaint occurs, every channel can be
   located and withdrawn in sync.

@@ -14,13 +14,13 @@ import * as app$0 from "../app/models.js";
 import * as $models from "./models.js";
 
 export function DeleteProfile(request: $models.ProviderIDRequest): $CancellablePromise<$models.ProviderMutationResponse> {
-    return $Call.ByID(965476673, request);
+    return $Call.ByID(2548092141, request);
 }
 
 export function ListProfiles(): $CancellablePromise<app$0.ProfileSummary[] | null> {
-    return $Call.ByID(192725737);
+    return $Call.ByID(1660942541);
 }
 
 export function SaveProfile(request: $models.SaveProfileRequest): $CancellablePromise<app$0.SaveProfileResult> {
-    return $Call.ByID(972252911, request);
+    return $Call.ByID(1622009115, request);
 }

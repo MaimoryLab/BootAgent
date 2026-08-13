@@ -4,7 +4,7 @@ import type { AgentCatalogItem, ProfileSummary, StatusResponse } from "../types/
  * Display prominence, shared by the overview and the setup selection page.
  *
  * Rank says how widely an Agent is used; it is deliberately independent of
- * whether OneAgent can configure it. Ordering by catalog group instead put Kilo
+ * whether BootAgent can configure it. Ordering by catalog group instead put Kilo
  * and Aider at the top of the page while more widely used Agents sat inside a
  * disclosure, which misrepresented what a machine actually runs.
  */

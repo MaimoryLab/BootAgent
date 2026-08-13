@@ -32,7 +32,7 @@ const (
 	ZCodeFeedBase   = "https://" + ZCodeUpdateHost + "/zcode/electron/releases/update/"
 )
 
-// zcodeFeed is the electron-updater manifest. Only the fields OneAgent acts on
+// zcodeFeed is the electron-updater manifest. Only the fields BootAgent acts on
 // are decoded; the feed also carries release notes in several locales.
 //
 // Files is what gets used, not Path: on macOS the feed lists both a .zip and a
@@ -78,7 +78,7 @@ func inspectZCode(ctx context.Context, options Options) Status {
 }
 
 // baseZCodeStatus marks the platforms ZCode ships for. The vendor's feed also
-// carries linux builds, but OneAgent installs only where it can verify the
+// carries linux builds, but BootAgent installs only where it can verify the
 // package: macOS through codesign and Windows through Authenticode.
 func baseZCodeStatus(osID string) Status {
 	status := Status{ID: ZCodeID, Name: ZCodeName, Source: SourceUnknown}
@@ -202,7 +202,7 @@ func zcodeFeedURL(osID, arch string) (string, error) {
 // fetchZCodeFeed reads the update manifest. The feed is the rolling pointer to
 // the current release, so it is requested with no-cache: the vendor serves it
 // with a year-long max-age, which would otherwise let an intermediary pin
-// OneAgent to a stale version.
+// BootAgent to a stale version.
 func fetchZCodeFeed(ctx context.Context, options Options, osID, arch string) (zcodeFeed, error) {
 	endpoint, err := zcodeFeedURL(osID, arch)
 	if err != nil {
@@ -341,7 +341,7 @@ func installZCodeMacOS(ctx context.Context, options Options) (ActionResult, erro
 	if err != nil {
 		return ActionResult{}, err
 	}
-	tempDir, err := os.MkdirTemp("", "oneagent-zcode-")
+	tempDir, err := os.MkdirTemp("", "bootagent-zcode-")
 	if err != nil {
 		return ActionResult{}, fmt.Errorf("create temporary %s installer directory: %w", ZCodeName, err)
 	}
@@ -419,7 +419,7 @@ func installZCodeMacOS(ctx context.Context, options Options) (ActionResult, erro
 	return ActionResult{}, lastErr
 }
 
-// installZCodeWindows starts the vendor's own installer. OneAgent verifies
+// installZCodeWindows starts the vendor's own installer. BootAgent verifies
 // Authenticode first and then hands over, the same as WorkBuddy: the .exe is an
 // NSIS installer that owns its own placement and shortcuts.
 func installZCodeWindows(ctx context.Context, options Options) (ActionResult, error) {
@@ -427,7 +427,7 @@ func installZCodeWindows(ctx context.Context, options Options) (ActionResult, er
 	if err != nil {
 		return ActionResult{}, err
 	}
-	installer, err := os.CreateTemp("", "oneagent-zcode-*.exe")
+	installer, err := os.CreateTemp("", "bootagent-zcode-*.exe")
 	if err != nil {
 		return ActionResult{}, fmt.Errorf("create temporary %s installer: %w", ZCodeName, err)
 	}

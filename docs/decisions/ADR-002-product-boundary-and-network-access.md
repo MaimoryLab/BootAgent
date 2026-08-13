@@ -1,4 +1,4 @@
-# ADR-002: Fixing OneAgent's Network Access, Distribution and User Scope Boundary
+# ADR-002: Fixing BootAgent's Network Access, Distribution and User Scope Boundary
 
 ## Status
 
@@ -10,7 +10,7 @@ Accepted
 
 ## Context
 
-OneAgent targets individuals, teams and organizational redistributors who need a
+BootAgent targets individuals, teams and organizational redistributors who need a
 local AI development environment. It provides guided Provider signup, API Key
 configuration, model selection and guided Agent installation.
 
@@ -26,7 +26,7 @@ permission and data boundaries need to be fixed.
 
 ## Decision
 
-OneAgent is fixed as:
+BootAgent is fixed as:
 
 > A local activation guide for Provider accounts and model APIs, a coordinator
 > for official Agent installation, and a local configurator.
@@ -45,7 +45,7 @@ unreachable, the product may only report it as unreachable and offer the manual
 path; it does not offer a way around the network.
 
 Users may make direct use of the public benefits shown on their current Provider
-account page, or any other legitimate quota, but OneAgent does not promise a
+account page, or any other legitimate quota, but BootAgent does not promise a
 fixed free quota and does not write any benefit into the core business model.
 
 API Keys are fixed to a model where the user's own Key is stored locally. A
@@ -99,7 +99,7 @@ is not packaged, not installed by default, and does not replace a Provider.
   their organization.
 - Official sources, authorized mirrors and version verification data have to be
   maintained.
-- Public benefits cannot be guaranteed by OneAgent.
+- Public benefits cannot be guaranteed by BootAgent.
 
 ## Release Gate
 
@@ -109,7 +109,7 @@ The following must be checked before release:
   cross-border relay.
 - Public pages do not use wording such as "bypass the firewall", "break through
   restrictions" or "fixed free quota".
-- User Keys do not pass through an OneAgent server.
+- User Keys do not pass through an BootAgent server.
 - Agent licenses, upstream addresses, versions and checksums are complete.
 - Provider benefit descriptions link to the official page and note that what the
   account actually shows is authoritative.

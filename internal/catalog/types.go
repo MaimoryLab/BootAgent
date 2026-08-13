@@ -5,7 +5,7 @@ package catalog
 
 type Manifest struct {
 	SchemaVersion   int              `json:"schema_version"`
-	OneAgentVersion string           `json:"oneagent_version"`
+	BootAgentVersion string           `json:"bootagent_version"`
 	GeneratedAt     string           `json:"generated_at"`
 	Agents          map[string]Agent `json:"agents"`
 	AgentOrder      []string         `json:"-"`

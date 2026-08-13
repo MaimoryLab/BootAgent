@@ -325,7 +325,7 @@ func (r OSRunner) WithEnvironment(env map[string]string) Runner {
 }
 
 // LookPath resolves a command against this runner's own PATH rather than the
-// OneAgent process PATH. That distinction is what makes a runtime installed
+// BootAgent process PATH. That distinction is what makes a runtime installed
 // into a private directory usable: Run() passes r.Env to the child, so a lookup
 // against the parent process environment would report a managed npm or uv as
 // missing and the installer would keep asking to install it again.

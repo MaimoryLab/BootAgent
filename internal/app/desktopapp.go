@@ -6,13 +6,13 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/MaimoryLab/OneAgent/internal/catalog"
-	configWriter "github.com/MaimoryLab/OneAgent/internal/config"
-	"github.com/MaimoryLab/OneAgent/internal/desktopapp"
-	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
-	"github.com/MaimoryLab/OneAgent/internal/process"
-	profileStore "github.com/MaimoryLab/OneAgent/internal/profile"
-	"github.com/MaimoryLab/OneAgent/internal/provider"
+	"github.com/MaimoryLab/BootAgent/internal/catalog"
+	configWriter "github.com/MaimoryLab/BootAgent/internal/config"
+	"github.com/MaimoryLab/BootAgent/internal/desktopapp"
+	oneerrors "github.com/MaimoryLab/BootAgent/internal/errors"
+	"github.com/MaimoryLab/BootAgent/internal/process"
+	profileStore "github.com/MaimoryLab/BootAgent/internal/profile"
+	"github.com/MaimoryLab/BootAgent/internal/provider"
 )
 
 // DesktopAgentStatus is the public projection of the current desktop agent. It is
@@ -36,7 +36,7 @@ type DesktopAgentStatus struct {
 	// Edition distinguishes regional builds of one product, so the UI can label
 	// them without the region being part of Name.
 	Edition string `json:"edition,omitempty"`
-	// ManualInstall reports that OneAgent can detect and configure this app but
+	// ManualInstall reports that BootAgent can detect and configure this app but
 	// cannot fetch it. Without this the UI offered "Install the official desktop
 	// application" for an Agent whose install step only returns a download link,
 	// which is a button that cannot do what it says.

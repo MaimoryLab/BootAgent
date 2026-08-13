@@ -18,8 +18,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/MaimoryLab/OneAgent/internal/platform"
-	"github.com/MaimoryLab/OneAgent/internal/process"
+	"github.com/MaimoryLab/BootAgent/internal/platform"
+	"github.com/MaimoryLab/BootAgent/internal/process"
 )
 
 const (
@@ -308,7 +308,7 @@ func installChatGPTMacOS(ctx context.Context, options Options, replacePath strin
 	if err != nil {
 		return ActionResult{}, fmt.Errorf("validate ChatGPT installer URL: %w", err)
 	}
-	tempDir, err := os.MkdirTemp("", "oneagent-desktop-agent-")
+	tempDir, err := os.MkdirTemp("", "bootagent-desktop-agent-")
 	if err != nil {
 		return ActionResult{}, fmt.Errorf("create temporary installer directory: %w", err)
 	}
@@ -631,7 +631,7 @@ func installChatGPTWindowsInstaller(ctx context.Context, options Options, status
 	if err != nil {
 		return ActionResult{}, fmt.Errorf("validate ChatGPT installer URL: %w", err)
 	}
-	installer, err := os.CreateTemp("", "oneagent-desktop-agent-*.exe")
+	installer, err := os.CreateTemp("", "bootagent-desktop-agent-*.exe")
 	if err != nil {
 		return ActionResult{}, fmt.Errorf("create temporary ChatGPT installer: %w", err)
 	}

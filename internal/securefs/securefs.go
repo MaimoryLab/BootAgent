@@ -18,8 +18,8 @@ import (
 	"strings"
 	"time"
 
-	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
-	"github.com/MaimoryLab/OneAgent/internal/process"
+	oneerrors "github.com/MaimoryLab/BootAgent/internal/errors"
+	"github.com/MaimoryLab/BootAgent/internal/process"
 )
 
 // CommandRunner is injectable so Windows ACL behavior can be tested without
@@ -196,7 +196,7 @@ func (s Store) AtomicWrite(ctx context.Context, path string, content []byte, sec
 		}
 	}
 
-	temporary, err := os.CreateTemp(parent, ".oneagent-tmp-")
+	temporary, err := os.CreateTemp(parent, ".bootagent-tmp-")
 	if err != nil {
 		return backup, writeError("Cannot create temporary file for %s: %v", path, err)
 	}

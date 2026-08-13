@@ -1,9 +1,9 @@
-import type * as AppModels from "../../bindings/github.com/MaimoryLab/OneAgent/internal/app/models.js";
-import type * as BindingModels from "../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/models.js";
-import type * as CatalogModels from "../../bindings/github.com/MaimoryLab/OneAgent/internal/catalog/models.js";
-import type * as PlatformModels from "../../bindings/github.com/MaimoryLab/OneAgent/internal/platform/models.js";
-import type * as ProviderModels from "../../bindings/github.com/MaimoryLab/OneAgent/internal/provider/models.js";
-import type * as MCPModels from "../../bindings/github.com/MaimoryLab/OneAgent/internal/mcp/models.js";
+import type * as AppModels from "../../bindings/github.com/MaimoryLab/BootAgent/internal/app/models.js";
+import type * as BindingModels from "../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/models.js";
+import type * as CatalogModels from "../../bindings/github.com/MaimoryLab/BootAgent/internal/catalog/models.js";
+import type * as PlatformModels from "../../bindings/github.com/MaimoryLab/BootAgent/internal/platform/models.js";
+import type * as ProviderModels from "../../bindings/github.com/MaimoryLab/BootAgent/internal/provider/models.js";
+import type * as MCPModels from "../../bindings/github.com/MaimoryLab/BootAgent/internal/mcp/models.js";
 
 type PlatformId = "macos" | "windows" | "linux";
 type AgentGroupId = "auto" | "gateway" | "platform" | "ide";
@@ -69,6 +69,7 @@ export type StatusResponse = Omit<
   AppModels.StatusResponse,
   "platform" | "capabilities" | "agents" | "catalog" | "groups" | "providers" | "mirrors" | "paths" | "backups" | "profiles" | "runtimes" | "desktopAgents"
 > & {
+	migrationNotice?: string;
   platform: Omit<PlatformModels.Info, "os"> & { os: PlatformId };
   capabilities: Omit<AppModels.Capabilities, "canInstall" | "missingRuntime" | "supportedAgentIds"> & {
     canInstall: Record<string, boolean>;

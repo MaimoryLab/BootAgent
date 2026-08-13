@@ -18,11 +18,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/MaimoryLab/OneAgent/internal/catalog"
-	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
-	"github.com/MaimoryLab/OneAgent/internal/platform"
-	"github.com/MaimoryLab/OneAgent/internal/process"
-	"github.com/MaimoryLab/OneAgent/internal/securefs"
+	"github.com/MaimoryLab/BootAgent/internal/catalog"
+	oneerrors "github.com/MaimoryLab/BootAgent/internal/errors"
+	"github.com/MaimoryLab/BootAgent/internal/platform"
+	"github.com/MaimoryLab/BootAgent/internal/process"
+	"github.com/MaimoryLab/BootAgent/internal/securefs"
 )
 
 type fakeDownloader struct {
@@ -442,7 +442,7 @@ func TestEnsureRuntimeSupportsFlatZipAndSkipsExistingCommand(t *testing.T) {
 		t.Fatalf("uv directory is not on PATH: %q", updated.Env["PATH"])
 	}
 
-	// A host that already provides the command is left untouched: OneAgent does
+	// A host that already provides the command is left untouched: BootAgent does
 	// not replace a user's own installation.
 	existing := Runtime{Home: t.TempDir(), Platform: platform.For("windows", "arm64"), Env: map[string]string{}, Runner: &fakeInstallRunner{paths: map[string]string{"uv": "C:\\tools\\uv.exe"}}}
 	_, installedAgain, err := EnsureRuntime(context.Background(), existing, downloader, "uv", entry, RuntimeOptions{})
@@ -617,7 +617,7 @@ func TestPersistRuntimePathIsIdempotentAndGuardsDuplicates(t *testing.T) {
 		t.Fatal(err)
 	}
 	if strings.Count(string(second), pathMarkerBegin) != 1 {
-		t.Fatalf("profile has duplicate OneAgent blocks: %q", second)
+		t.Fatalf("profile has duplicate BootAgent blocks: %q", second)
 	}
 
 	// A version bump replaces the block instead of appending a second one.

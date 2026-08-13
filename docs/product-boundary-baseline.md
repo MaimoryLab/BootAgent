@@ -1,27 +1,27 @@
-# OneAgent Product Boundary Baseline
+# BootAgent Product Boundary Baseline
 
 ## Status
 
 - Status: Frozen / fixed baseline
 - Effective date: 2026-07-27
-- Scope: OneAgent, the local launcher, public or targeted download packages, all
+- Scope: BootAgent, the local launcher, public or targeted download packages, all
   download mirrors, documentation, and release pages
 - How to change it: any requirement that breaks the "prohibited scope" in this
   document must add an ADR and pass a compliance review
 
 ## 1. One-sentence definition
 
-> OneAgent is a tool that helps users activate, configure, and launch a local AI development environment.
+> BootAgent is a tool that helps users activate, configure, and launch a local AI development environment.
 
 It connects Providers, models, Agents, IDEs, and local config tools. The goal is to help
 the user complete their first successful AI Agent request.
 
-OneAgent is not a VPN, a proxy, a cross-border network access service, a shared API Key
+BootAgent is not a VPN, a proxy, a cross-border network access service, a shared API Key
 platform, or a collection of commercial Agent packages.
 
 ## 2. Target users
 
-OneAgent is for everyone who needs a local AI development environment:
+BootAgent is for everyone who needs a local AI development environment:
 
 - Individual users trying an AI Agent for the first time.
 - Developers who already have a Provider account and an API Key.
@@ -29,7 +29,7 @@ OneAgent is for everyone who needs a local AI development environment:
 - Companies, communities, and other organization distributors.
 
 Organization distributors may offer programs, redemption codes, or benefit descriptions
-outside the project, but that content is not part of the OneAgent core product model.
+outside the project, but that content is not part of the BootAgent core product model.
 
 ## 3. Capabilities explicitly allowed
 
@@ -47,7 +47,7 @@ outside the project, but that content is not part of the OneAgent core product m
 
 The following are permitted:
 
-- Binary and source packages built officially by OneAgent.
+- Binary and source packages built officially by BootAgent.
 - Same-package mirrors on GitHub, the official site, file-hosting services, and
   enterprise cloud drives.
 - Official Provider registration, API Key, and model documentation.
@@ -65,7 +65,7 @@ inside the archive.
 
 The following are permitted:
 
-- OneAgent's built-in configuration.
+- BootAgent's built-in configuration.
 - Standalone instructions for third-party local Profile tools such as CC Switch.
 - Manual configuration and backup restore instructions.
 
@@ -84,14 +84,14 @@ promotional pages, or automation scripts:
 - Product wording such as "download over the wall", "break through restrictions", or
   "reach restricted sites without a proxy".
 - Automatic login, automatic CAPTCHA solving, or automatic claiming of account benefits.
-- Using OneAgent's servers as a relay proxy for users to reach overseas websites.
+- Using BootAgent's servers as a relay proxy for users to reach overseas websites.
 - Writing a long-lived Provider Key into an archive, frontend code, or a public script.
 - Redistributing commercial Agent packages without permission.
 - Mirroring open-source Agent binaries or source without license confirmation.
 - Producing encrypted, password-protected, split, or disguised packages to evade channel
   review.
 - Using third-party brands, logos, or copy in a way that creates the misimpression that
-  OneAgent is an official or joint product.
+  BootAgent is an official or joint product.
 - Publishing archives that share a version number across channels but differ in content
   or checksum.
 - Uploading user API Keys, prompts, source code, or complete model requests by default.
@@ -104,10 +104,10 @@ Every Agent must be configured with one download strategy:
 | --- | --- | --- |
 | 1 | Official install source | npm, uv tool, official Git, official release page |
 | 2 | Licensed mirror | Has a license, a pinned version, a checksum, and an upstream address |
-| 3 | User manual install | OneAgent only detects the path and version |
+| 3 | User manual install | BootAgent only detects the path and version |
 | 4 | Documentation guidance | Does not run the install; only shows the official steps |
 
-If the official site is unreachable from the user's current network, OneAgent only shows
+If the official site is unreachable from the user's current network, BootAgent only shows
 "install source unreachable" plus optional manual install paths. It does not offer a
 proxy or any method of bypassing network restrictions.
 
@@ -119,11 +119,11 @@ proxy or any method of bypassing network restrictions.
 The user signs up for or logs in to a Provider
 → The user creates an API Key
 → The Key is stored on the user's own machine
-→ OneAgent writes the Agent configuration
+→ BootAgent writes the Agent configuration
 ```
 
 Users may use the published benefits shown on their Provider account page, or any other
-lawful quota, but OneAgent makes no promise of a fixed free quota, of permanently free
+lawful quota, but BootAgent makes no promise of a fixed free quota, of permanently free
 access, or of any particular account eligibility.
 
 ### 6.2 Unified gateway model: not part of the current MVP
@@ -144,7 +144,7 @@ is prohibited.
 
 ## 7. Config tool boundary
 
-### OneAgent built-in configuration
+### BootAgent built-in configuration
 
 - The default path for all users.
 - Responsible for the first Provider setup and request validation.
@@ -154,7 +154,7 @@ is prohibited.
 
 - An optional local Profile tool.
 - Not bundled into the launcher package.
-- Not installed by OneAgent by default.
+- Not installed by BootAgent by default.
 - Uses the official project entry point and the current version's instructions.
 - Must not treat any CC Switch service address as a Provider Base URL.
 - After switching, requires the user to restart the target Agent and run a minimal
@@ -196,15 +196,15 @@ indirectly upload Keys or user content through error logs, crash reports, or deb
 
 ### Usage
 
-> OneAgent helps you sign up for or log in to a Provider, create an API Key, and install and configure a local Agent.
+> BootAgent helps you sign up for or log in to a Provider, create an API Key, and install and configure a local Agent.
 
 ### Network unreachable
 
-> The official install source is currently unreachable. Please use the compliant network access provided by your organization or network service provider, or install manually and return to OneAgent to detect it. OneAgent does not provide VPN, proxy, or network-restriction-bypassing features.
+> The official install source is currently unreachable. Please use the compliant network access provided by your organization or network service provider, or install manually and return to BootAgent to detect it. BootAgent does not provide VPN, proxy, or network-restriction-bypassing features.
 
 ### Published benefits
 
-> A Provider's new-user benefits, referral benefits, and public descriptions are whatever the account page currently shows. OneAgent does not guarantee a fixed quota or permanently free access.
+> A Provider's new-user benefits, referral benefits, and public descriptions are whatever the account page currently shows. BootAgent does not guarantee a fixed quota or permanently free access.
 
 ### API Key
 
@@ -218,7 +218,7 @@ indirectly upload Keys or user content through error logs, crash reports, or deb
 - Local config paths for Codex, Claude Code, OpenCode, Kilo CLI, and Aider.
 - Official install and configuration guidance for other Agents.
 - Model list retrieval and first-request validation.
-- OneAgent built-in configuration.
+- BootAgent built-in configuration.
 - Optional CC Switch documentation.
 - Manual configuration and backup restore.
 - Generic project templates.
@@ -235,11 +235,11 @@ indirectly upload Keys or user content through error logs, crash reports, or deb
 
 ### V1 distribution form
 
-- Distribute the official OneAgent binaries directly through GitHub, the official site,
+- Distribute the official BootAgent binaries directly through GitHub, the official site,
   file-hosting services, enterprise cloud drives, or other lawful channels.
 - All channels serve only as mirrors; they do not change package contents, version,
   release status, or checksums.
-- Third-party Agent binaries are not placed in the OneAgent archive by default.
+- Third-party Agent binaries are not placed in the BootAgent archive by default.
 - Each artifact declares only the target environments it was actually built and verified
   for, and promises nothing for unverified platforms.
 - Platform stores, automatic updates, macOS notarization, and Windows Authenticode are
@@ -270,7 +270,7 @@ Before every public or organization-distributor package is released, confirm:
 - [ ] Unsigned builds are clearly marked `technical-preview-unsigned` and do not use a Stable label.
 
 For the complete gates and evidence requirements, see
-[OneAgent multi-channel distribution and compliance policy](distribution-compliance-policy.md).
+[BootAgent multi-channel distribution and compliance policy](distribution-compliance-policy.md).
 
 ## 12. Change control
 

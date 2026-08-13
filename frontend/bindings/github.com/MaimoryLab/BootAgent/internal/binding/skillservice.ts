@@ -16,37 +16,37 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 import * as app$0 from "../app/models.js";
 
 export function Apply(request: app$0.SkillApplyRequest): $CancellablePromise<app$0.SkillApplyResult> {
-    return $Call.ByID(2463384701, request);
+    return $Call.ByID(1186661553, request);
 }
 
 export function Get(id: string): $CancellablePromise<app$0.SkillSummary> {
-    return $Call.ByID(1002729909, id);
+    return $Call.ByID(3833108185, id);
 }
 
 export function List(): $CancellablePromise<app$0.SkillSummary[] | null> {
-    return $Call.ByID(1006911811);
+    return $Call.ByID(2228288007);
 }
 
 export function ListBackups(): $CancellablePromise<app$0.SkillBackupSummary[] | null> {
-    return $Call.ByID(835707622);
+    return $Call.ByID(2983365770);
 }
 
 export function PreviewImport(request: app$0.SkillImportRequest): $CancellablePromise<app$0.SkillImportPreview> {
-    return $Call.ByID(312806924, request);
+    return $Call.ByID(3183728496, request);
 }
 
 export function RestoreBackup(backupID: string, targets: string[] | null): $CancellablePromise<app$0.SkillApplyResult> {
-    return $Call.ByID(3829087753, backupID, targets);
+    return $Call.ByID(1141040797, backupID, targets);
 }
 
 export function Scan(): $CancellablePromise<app$0.SkillScanResult> {
-    return $Call.ByID(3527103466);
+    return $Call.ByID(1882869094);
 }
 
 export function SetDraftState(dirty: boolean, locale: string): $CancellablePromise<void> {
-    return $Call.ByID(2147275381, dirty, locale);
+    return $Call.ByID(3901937233, dirty, locale);
 }
 
 export function Uninstall(id: string): $CancellablePromise<app$0.SkillUninstallResult> {
-    return $Call.ByID(1356241015, id);
+    return $Call.ByID(1913510163, id);
 }

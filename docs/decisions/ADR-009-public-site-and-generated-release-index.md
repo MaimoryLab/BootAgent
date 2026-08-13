@@ -2,7 +2,7 @@
 
 - Status: Partially Superseded (2026-08-04) -- "maintained in the same repository" in
   decision 1 has been overturned, and the site moved out to
-  [MaimoryLab/OneAgent-site](https://github.com/MaimoryLab/OneAgent-site); "do not add
+  [MaimoryLab/BootAgent-site](https://github.com/MaimoryLab/BootAgent-site); "do not add
   marketing routes to the local Launcher" in that same decision, and decisions 2-5,
   still hold. The read path in decision 4 becomes the `data/` copy vendored by the site
   repository, refreshed from release tags. For the current operating guide see
@@ -14,7 +14,7 @@
 
 ## Context
 
-The OneAgent React frontend is the operating UI bundled with the local Wails Launcher.
+The BootAgent React frontend is the operating UI bundled with the local Wails Launcher.
 Public downloads, searchable content, release evidence, and enterprise services need
 static indexable pages, and the two differ in security, caching, routing, and release
 cadence. The site build reads the Release API and repository JSON directly, keeping an

@@ -17,19 +17,19 @@ import * as provider$0 from "../provider/models.js";
 import * as $models from "./models.js";
 
 export function DeleteProvider(request: $models.ProviderIDRequest): $CancellablePromise<$models.ProviderMutationResponse> {
-    return $Call.ByID(116920211, request);
+    return $Call.ByID(3554547039, request);
 }
 
 export function GetProvider(request: $models.ProviderIDRequest): $CancellablePromise<provider$0.Entry> {
-    return $Call.ByID(36265922, request);
+    return $Call.ByID(768780894, request);
 }
 
 export function ListModels(request: $models.ModelsRequest): $CancellablePromise<$models.ModelsResponse> {
-    return $Call.ByID(1201530915, request);
+    return $Call.ByID(1918668407, request);
 }
 
 export function OpenGitHub(): $CancellablePromise<void> {
-    return $Call.ByID(546895834);
+    return $Call.ByID(3161817574);
 }
 
 /**
@@ -38,17 +38,17 @@ export function OpenGitHub(): $CancellablePromise<void> {
  * navigates away from the app or does nothing.
  */
 export function OpenHelp(): $CancellablePromise<void> {
-    return $Call.ByID(214058498);
+    return $Call.ByID(4122050358);
 }
 
 export function OpenRegistration(request: $models.OpenRegistrationRequest): $CancellablePromise<$models.OpenRegistrationResponse> {
-    return $Call.ByID(745368128, request);
+    return $Call.ByID(3410122324, request);
 }
 
 export function Probe(request: $models.ProbeRequest): $CancellablePromise<$models.ProbeResponse> {
-    return $Call.ByID(2223638197, request);
+    return $Call.ByID(3953621849, request);
 }
 
 export function SaveProvider(request: $models.SaveProviderRequest): $CancellablePromise<app$0.SaveProviderResult> {
-    return $Call.ByID(2790810113, request);
+    return $Call.ByID(1664240941, request);
 }

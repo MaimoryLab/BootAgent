@@ -3,7 +3,7 @@
     "other": {
       "x": 1
     },
-    "oneagent": {
+    "bootagent": {
       "npm": "@ai-sdk/openai-compatible",
       "name": "PPIO",
       "options": {
@@ -19,5 +19,5 @@
   },
   "keep": true,
   "$schema": "https://app.kilo.ai/config.json",
-  "model": "oneagent/model-new"
+  "model": "bootagent/model-new"
 }

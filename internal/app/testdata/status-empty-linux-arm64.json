@@ -41,7 +41,7 @@
       "installed": false,
       "configured": false,
       "guideOnly": false,
-      "config": "${HOME}/.oneagent/aider.env",
+      "config": "${HOME}/.bootagent/aider.env",
       "version": null,
       "lockedVersion": null,
       "latestVersion": null,
@@ -380,16 +380,16 @@
     }
   ],
   "paths": {
-    "aider_config": "${HOME}/.oneagent/aider.env",
+    "aider_config": "${HOME}/.bootagent/aider.env",
     "claude-code_config": "${HOME}/.claude/settings.json",
     "codex_config": "${HOME}/.codex/config.toml",
     "hermes_config": "${HOME}/.hermes/config.yaml",
     "kilo-cli_config": "${HOME}/.config/kilo/kilo.jsonc",
     "kimi-code_config": "${HOME}/.kimi-code/config.toml",
-    "logs": "${HOME}/.oneagent/logs",
+    "logs": "${HOME}/.bootagent/logs",
     "openclaw_config": "${HOME}/.openclaw/openclaw.json",
     "opencode_config": "${HOME}/.config/opencode/opencode.json",
-    "profile": "${HOME}/.oneagent/profile.json"
+    "profile": "${HOME}/.bootagent/profile.json"
   },
   "backups": {
     "aider": false,
@@ -419,7 +419,7 @@
       "license": "MIT",
       "licenseUrl": "https://github.com/nodejs/node/blob/main/LICENSE",
       "source": "https://nodejs.org/dist/",
-      "installPath": "${HOME}/.oneagent/runtimes/node/v24.18.1",
+      "installPath": "${HOME}/.bootagent/runtimes/node/v24.18.1",
       "requiredByHint": "Codex, Claude Code, OpenCode +3"
     },
     {
@@ -431,11 +431,11 @@
       "lockedVersion": "0.12.1",
       "managed": false,
       "supported": true,
-      "note": "uv manages its own CPython download for Aider; OneAgent does not fetch Python directly.",
+      "note": "uv manages its own CPython download for Aider; BootAgent does not fetch Python directly.",
       "license": "MIT OR Apache-2.0",
       "licenseUrl": "https://github.com/astral-sh/uv/blob/main/LICENSE-APACHE",
       "source": "https://github.com/astral-sh/uv/releases",
-      "installPath": "${HOME}/.oneagent/runtimes/uv/v0.12.1",
+      "installPath": "${HOME}/.bootagent/runtimes/uv/v0.12.1",
       "requiredByHint": "Aider"
     }
   ],

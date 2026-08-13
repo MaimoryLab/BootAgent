@@ -1,4 +1,4 @@
-name: oneagent-desktop
+name: bootagent-desktop
 arch: ${GOARCH}
 platform: linux
 version: ${VERSION}
@@ -7,17 +7,17 @@ priority: extra
 maintainer: MaimoryLab <opensource@maimorylab.com>
 description: Local AI development environment activator
 vendor: MaimoryLab
-homepage: https://github.com/MaimoryLab/OneAgent
+homepage: https://github.com/MaimoryLab/BootAgent
 license: Apache-2.0
 release: "1"
 
 contents:
-  - src: ./bin/oneagent-desktop
-    dst: /usr/bin/oneagent-desktop
+  - src: ./bin/bootagent-desktop
+    dst: /usr/bin/bootagent-desktop
   - src: ./build/appicon.png
     dst: /usr/share/icons/hicolor/128x128/apps/appicon.png
-  - src: ./build/linux/oneagent-desktop.desktop
-    dst: /usr/share/applications/oneagent-desktop.desktop
+  - src: ./build/linux/bootagent-desktop.desktop
+    dst: /usr/share/applications/bootagent-desktop.desktop
 
 # Wails v3's default Linux backend is GTK4 with WebKitGTK 6.0.
 depends:

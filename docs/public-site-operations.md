@@ -1,8 +1,8 @@
-# OneAgent public site operations and release handbook
+# BootAgent public site operations and release handbook
 
 Status: moved out. For the site's own build commands, environment variables, and
 deployment steps, see the README in
-[MaimoryLab/OneAgent-site](https://github.com/MaimoryLab/OneAgent-site).
+[MaimoryLab/BootAgent-site](https://github.com/MaimoryLab/BootAgent-site).
 
 The public site used to be this repository's `site/` directory and is now a separate
 repository. This file keeps only the parts that still constrain this repository, and no

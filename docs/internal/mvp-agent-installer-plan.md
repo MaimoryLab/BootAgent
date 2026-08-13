@@ -4,8 +4,8 @@
 
 早期原型使用标准库 HTTP GUI、单 Agent CLI 和脚本式配置写入。该原型已由以下实现替代：
 
-- Wails desktop：`cmd/oneagent-desktop`
-- headless CLI：`cmd/oneagent`
+- Wails desktop：`cmd/bootagent-desktop`
+- headless CLI：`cmd/bootagent`
 - Go services/use cases：`internal/app`
 - React bindings：`frontend/bindings`
 

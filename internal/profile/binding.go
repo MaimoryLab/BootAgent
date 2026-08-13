@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
+	oneerrors "github.com/MaimoryLab/BootAgent/internal/errors"
 )
 
 type AgentBinding struct {

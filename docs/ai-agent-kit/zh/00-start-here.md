@@ -1,4 +1,4 @@
-# OneAgent AI 开发环境激活指南
+# BootAgent AI 开发环境激活指南
 
 [English](../en/00-start-here.md) · **简体中文**
 
@@ -10,14 +10,14 @@
 
 ## 开始前准备
 
-- 一台支持的 macOS、Windows 或 Linux 设备；普通 OneAgent 流程不需要 Python。
+- 一台支持的 macOS、Windows 或 Linux 设备；普通 BootAgent 流程不需要 Python。
 - 一个可用的模型 Provider 账号，或准备注册一个。
 - 你准备使用的 Agent，例如 Codex、Claude Code、OpenCode 或 Aider。
 
 ## 推荐路径
 
 ```text
-启动 OneAgent
+启动 BootAgent
 → 注册或登录 Provider
 → 创建 API Key
 → 选择 Agent
@@ -32,7 +32,7 @@
 ## 启动桌面应用
 
 下载对应平台的 `technical-preview-unsigned` 包，解压后直接启动：macOS 是
-`OneAgent.app`，Windows 是 `oneagent-desktop.exe`，Linux 可以直接运行 AppImage。
+`BootAgent.app`，Windows 是 `bootagent-desktop.exe`，Linux 可以直接运行 AppImage。
 Linux 还为 amd64 和 arm64 提供 `deb`、`rpm` 与 OTA `zip`。当前阶段的包未签名也未
 公证，首次打开需要在系统里手动允许。
 
@@ -41,14 +41,14 @@ Linux 还为 amd64 和 arm64 提供 `deb`、`rpm` 与 OTA `zip`。当前阶段�
 ```bash
 cd frontend && pnpm install --frozen-lockfile && pnpm run build
 cd ..
-go run -tags wails ./cmd/oneagent-desktop
+go run -tags wails ./cmd/bootagent-desktop
 ```
 
 ## 三条安全规则
 
 1. 不要把 API Key 发到聊天、Issue、作业或截图中。
 2. 不要把 API Key 直接写进代码仓库。
-3. 如果你不确定某个配置工具是否可信，回到 OneAgent 内置配置路径。
+3. 如果你不确定某个配置工具是否可信，回到 BootAgent 内置配置路径。
 
 ## 下载不到 Agent 时
 
@@ -56,9 +56,9 @@ go run -tags wails ./cmd/oneagent-desktop
 
 1. 使用所在组织或网络服务商提供的合规网络接入。
 2. 使用经过授权的镜像，并核对版本和校验值。
-3. 在其他合规环境手动安装，再回到 OneAgent 做本机检测。
+3. 在其他合规环境手动安装，再回到 BootAgent 做本机检测。
 
-OneAgent 不提供 VPN、代理、节点订阅或绕过网络限制的配置。
+BootAgent 不提供 VPN、代理、节点订阅或绕过网络限制的配置。
 
 ## 遇到问题
 

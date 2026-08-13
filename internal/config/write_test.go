@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/MaimoryLab/OneAgent/internal/securefs"
+	"github.com/MaimoryLab/BootAgent/internal/securefs"
 )
 
 func testWriter(t *testing.T, home, osID string) Writer {
@@ -23,7 +23,7 @@ func TestWriteCodexPreservesUnmanagedTablesAndRoundTrips(t *testing.T) {
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(path, []byte("approval_policy = \"on-request\"\nmodel_provider = \"old\"\nmodel = \"old-model\"\n\n[model_providers.old]\nname = \"Keep Me\"\n\n[model_providers.oneagent]\nname = \"Old\"\nbase_url = \"https://old.example\"\n"), 0o600); err != nil {
+	if err := os.WriteFile(path, []byte("approval_policy = \"on-request\"\nmodel_provider = \"old\"\nmodel = \"old-model\"\n\n[model_providers.old]\nname = \"Keep Me\"\n\n[model_providers.bootagent]\nname = \"Old\"\nbase_url = \"https://old.example\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	writer := testWriter(t, home, "linux")
@@ -41,14 +41,14 @@ func TestWriteCodexPreservesUnmanagedTablesAndRoundTrips(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := string(data)
-	if !strings.Contains(text, "approval_policy = \"on-request\"") || !strings.Contains(text, "name = \"Keep Me\"") || !strings.Contains(text, "model_provider = \"oneagent\"") {
+	if !strings.Contains(text, "approval_policy = \"on-request\"") || !strings.Contains(text, "name = \"Keep Me\"") || !strings.Contains(text, "model_provider = \"bootagent\"") {
 		t.Fatalf("merged Codex config = %s", text)
 	}
 	detected := ReadCodexConfig(text)
-	if detected.BaseURL != "https://api.ppio.com/openai" || detected.Model != "model-a" || !detected.ManagedByOneAgent || detected.Unreadable != nil {
+	if detected.BaseURL != "https://api.ppio.com/openai" || detected.Model != "model-a" || !detected.ManagedByBootAgent || detected.Unreadable != nil {
 		t.Fatalf("round-trip Codex detection = %#v", detected)
 	}
-	for _, invalid := range []string{"model = \"unterminated\n", "[\"model_providers\".\"oneagent\"]\nname = \"quoted\"\n", "\"model\" = \"quoted\"\n"} {
+	for _, invalid := range []string{"model = \"unterminated\n", "[\"model_providers\".\"bootagent\"]\nname = \"quoted\"\n", "\"model\" = \"quoted\"\n"} {
 		if err := os.WriteFile(path, []byte(invalid), 0o600); err != nil {
 			t.Fatal(err)
 		}
@@ -68,8 +68,8 @@ func TestWriteKimiCodePreservesUnmanagedEntriesAndRoundTrips(t *testing.T) {
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	// The parts OneAgent must not own: a top-level preference, the user's own
-	// provider and model, and a stale OneAgent provider plus alias from an
+	// The parts BootAgent must not own: a top-level preference, the user's own
+	// provider and model, and a stale BootAgent provider plus alias from an
 	// earlier write.
 	existing := strings.Join([]string{
 		`default_permission_mode = "manual"`,
@@ -83,13 +83,13 @@ func TestWriteKimiCodePreservesUnmanagedEntriesAndRoundTrips(t *testing.T) {
 		`provider = "mine"`,
 		`model = "gpt-4o"`,
 		``,
-		`[providers.oneagent]`,
+		`[providers.bootagent]`,
 		`type = "openai"`,
 		`base_url = "https://old.example/v1"`,
 		`api_key = "old-key"`,
 		``,
-		`[models."oneagent/old-model"]`,
-		`provider = "oneagent"`,
+		`[models."bootagent/old-model"]`,
+		`provider = "bootagent"`,
 		`model = "old-model"`,
 		``,
 	}, "\n")
@@ -112,13 +112,13 @@ func TestWriteKimiCodePreservesUnmanagedEntriesAndRoundTrips(t *testing.T) {
 	}
 	// The previous alias has to be gone, or Kimi Code keeps a models entry whose
 	// provider no longer describes it.
-	if strings.Contains(text, "oneagent/old-model") || strings.Contains(text, "old-key") || strings.Contains(text, "old.example") {
-		t.Fatalf("Kimi Code config kept the stale OneAgent entry: %s", text)
+	if strings.Contains(text, "bootagent/old-model") || strings.Contains(text, "old-key") || strings.Contains(text, "old.example") {
+		t.Fatalf("Kimi Code config kept the stale BootAgent entry: %s", text)
 	}
 	detected := ReadKimiCodeConfig(text)
 	// Normalised to the /v1 form Kimi Code's `openai` provider type expects, the
 	// same as the OpenCode and Kilo adapters.
-	if detected.BaseURL != "https://api.ppio.com/openai/v1" || detected.Model != "model-a" || !detected.ManagedByOneAgent || detected.Unreadable != nil {
+	if detected.BaseURL != "https://api.ppio.com/openai/v1" || detected.Model != "model-a" || !detected.ManagedByBootAgent || detected.Unreadable != nil {
 		t.Fatalf("round-trip Kimi Code detection = %#v", detected)
 	}
 	// The key shares the file with the endpoint here, unlike Codex, so the file
@@ -163,7 +163,7 @@ func TestWriteKimiCodeRefusesUnsupportedSyntaxWithoutWriting(t *testing.T) {
 	writer := testWriter(t, home, "linux")
 	for _, invalid := range []string{
 		"default_model = \"unterminated\n",
-		"[\"providers\".\"oneagent\"]\ntype = \"openai\"\n",
+		"[\"providers\".\"bootagent\"]\ntype = \"openai\"\n",
 		"\"default_model\" = \"quoted\"\n",
 	} {
 		if err := os.WriteFile(path, []byte(invalid), 0o600); err != nil {
@@ -223,7 +223,7 @@ func TestWriteJSONAdaptersPreserveFieldsAndRejectJSONC(t *testing.T) {
 	}
 	var open map[string]any
 	data, _ = os.ReadFile(openPath)
-	if err := json.Unmarshal(data, &open); err != nil || open["keep"] != true || open["model"] != "oneagent/model-a" {
+	if err := json.Unmarshal(data, &open); err != nil || open["keep"] != true || open["model"] != "bootagent/model-a" {
 		t.Fatalf("OpenCode config = %s, %v", data, err)
 	}
 	if got := string(data); !strings.Contains(got, "\"keep\": true,\n  \"provider\":") || !strings.Contains(got, "\"provider\":") {
@@ -234,7 +234,7 @@ func TestWriteJSONAdaptersPreserveFieldsAndRejectJSONC(t *testing.T) {
 		t.Fatalf("unmanaged provider removed: %#v", providers)
 	}
 	detected := ReadOpenAICompatibleConfig(string(data))
-	if detected.BaseURL != "https://api.ppio.com/openai/v1" || detected.Model != "model-a" || !detected.ManagedByOneAgent {
+	if detected.BaseURL != "https://api.ppio.com/openai/v1" || detected.Model != "model-a" || !detected.ManagedByBootAgent {
 		t.Fatalf("OpenCode round-trip = %#v", detected)
 	}
 	// The Agent reads its own key from this file, so it must be there — and the
@@ -255,7 +255,7 @@ func TestWriteJSONAdaptersPreserveFieldsAndRejectJSONC(t *testing.T) {
 	}
 }
 
-// OpenClaw is a gateway: OneAgent installs it and points its model provider at
+// OpenClaw is a gateway: BootAgent installs it and points its model provider at
 // a Provider, and everything about running it stays with OpenClaw's own
 // commands. So the sections a user configures through `openclaw onboard` --
 // channels, tools, the daemon -- must come back out of a write untouched. That
@@ -286,7 +286,7 @@ func TestWriteOpenClawConfiguresProviderWithoutOwningTheGateway(t *testing.T) {
 		t.Fatalf("OpenClaw config = %s, %v", data, err)
 	}
 
-	// Nothing about pairing or tool permissions is OneAgent's to decide.
+	// Nothing about pairing or tool permissions is BootAgent's to decide.
 	channels, _ := config["channels"].(map[string]any)
 	discord, _ := channels["discord"].(map[string]any)
 	if allow, _ := discord["allowFrom"].([]any); len(allow) != 1 || allow[0] != "user#1" {
@@ -306,7 +306,7 @@ func TestWriteOpenClawConfiguresProviderWithoutOwningTheGateway(t *testing.T) {
 	if other["apiKey"] != "keep-me" {
 		t.Fatalf("another provider's credential was lost: %s", data)
 	}
-	entry, _ := providers["oneagent"].(map[string]any)
+	entry, _ := providers["bootagent"].(map[string]any)
 	if entry["name"] != "PPIO" || entry["api"] != "openai-completions" {
 		t.Fatalf("OpenClaw provider entry = %#v", entry)
 	}
@@ -333,7 +333,7 @@ func TestWriteOpenClawConfiguresProviderWithoutOwningTheGateway(t *testing.T) {
 		t.Fatalf("workspace was rewritten: %s", data)
 	}
 	model, _ := defaults["model"].(map[string]any)
-	if model["primary"] != "oneagent/model-a" {
+	if model["primary"] != "bootagent/model-a" {
 		t.Fatalf("default model = %#v", model)
 	}
 	if fallbacks, _ := model["fallbacks"].([]any); len(fallbacks) != 1 || fallbacks[0] != "other/m" {
@@ -413,7 +413,7 @@ func TestWriteWorkBuddyRejectsInvalidFiles(t *testing.T) {
 func TestWriteAiderQuotesSecretsOnUnixAndWindows(t *testing.T) {
 	linuxHome := t.TempDir()
 	linux := testWriter(t, linuxHome, "linux")
-	linuxPath := filepath.Join(linuxHome, ".oneagent", "aider.env")
+	linuxPath := filepath.Join(linuxHome, ".bootagent", "aider.env")
 	if err := linux.WriteAider(context.Background(), linuxPath, "https://api.example/openai", "key'quoted"); err != nil {
 		t.Fatal(err)
 	}
@@ -428,7 +428,7 @@ func TestWriteAiderQuotesSecretsOnUnixAndWindows(t *testing.T) {
 	windowsHome := t.TempDir()
 	filesystem := securefs.New(securefs.Options{OS: "windows", Username: "tester", Run: func(context.Context, []string) error { return nil }})
 	windows := NewWriter(windowsHome, "windows", filesystem)
-	windowsPath := filepath.Join(windowsHome, ".oneagent", "aider.env")
+	windowsPath := filepath.Join(windowsHome, ".bootagent", "aider.env")
 	if err := windows.WriteAider(context.Background(), windowsPath, "https://api.example/openai", "key'quoted"); err != nil {
 		t.Fatal(err)
 	}
@@ -462,7 +462,7 @@ func TestWriteHermesPreservesExistingConfig(t *testing.T) {
 		}
 	}
 	detected := ReadHermesConfig(text)
-	if detected.BaseURL != "https://api.example/openai/v1" || detected.Model != "model-a" || !detected.ManagedByOneAgent {
+	if detected.BaseURL != "https://api.example/openai/v1" || detected.Model != "model-a" || !detected.ManagedByBootAgent {
 		t.Fatalf("Hermes round-trip = %#v", detected)
 	}
 	info, err := os.Stat(path)
@@ -473,7 +473,7 @@ func TestWriteHermesPreservesExistingConfig(t *testing.T) {
 
 // Reproduces the shape of a real ~/.zcode/v2/config.json: builtin:* entries the
 // app owns beside UUID-keyed custom ones. Preserving both is the whole risk of
-// writing into a file OneAgent does not own.
+// writing into a file BootAgent does not own.
 //
 // Taken from ZCode 3.1.3, which carries no "$schema" key. 3.1.1 did, so this
 // fixture doubles as a record of the version the assumptions were checked against.
@@ -545,15 +545,15 @@ func TestWriteZCodeAddsAProviderAndKeepsTheAppsOwnEntries(t *testing.T) {
 
 	var written map[string]any
 	for key, entry := range providers {
-		if entry["name"] == "OneAgent - PPIO" {
+		if entry["name"] == "BootAgent - PPIO" {
 			written = entry
 			if strings.HasPrefix(key, "builtin:") {
-				t.Errorf("OneAgent reused a builtin key: %q", key)
+				t.Errorf("BootAgent reused a builtin key: %q", key)
 			}
 		}
 	}
 	if written == nil {
-		t.Fatalf("no OneAgent entry written: %#v", providers)
+		t.Fatalf("no BootAgent entry written: %#v", providers)
 	}
 	if written["kind"] != "openai" || written["source"] != "custom" {
 		t.Errorf("entry shape = %#v", written)
@@ -608,7 +608,7 @@ func TestWriteZCodeUpdatesItsOwnEntryInsteadOfAddingAnother(t *testing.T) {
 		t.Fatalf("a second write added an entry: %d providers: %#v", len(providers), providers)
 	}
 	for _, entry := range providers {
-		if entry["name"] != "OneAgent - PPIO" {
+		if entry["name"] != "BootAgent - PPIO" {
 			continue
 		}
 		if entry["options"].(map[string]any)["apiKey"] != "second-key" {

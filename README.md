@@ -1,17 +1,17 @@
 <div align="center">
-  <img src="build/appicon.png" alt="OneAgent" width="96">
-  <h1>OneAgent</h1>
+  <img src="build/appicon.png" alt="BootAgent" width="96">
+  <h1>BootAgent</h1>
   <p>One place to install, configure, and keep your AI coding Agents ready.</p>
   <p>
-    <a href="https://github.com/MaimoryLab/OneAgent/releases/latest"><img src="https://img.shields.io/github/v/release/MaimoryLab/OneAgent?display_name=tag&sort=semver" alt="Latest release"></a>
-    <a href="https://github.com/MaimoryLab/OneAgent/actions/workflows/ci.yml"><img src="https://github.com/MaimoryLab/OneAgent/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-    <a href="https://github.com/MaimoryLab/OneAgent/stargazers"><img src="https://img.shields.io/github/stars/MaimoryLab/OneAgent?style=flat" alt="GitHub stars"></a>
-    <a href="LICENSE"><img src="https://img.shields.io/github/license/MaimoryLab/OneAgent" alt="License"></a>
+    <a href="https://github.com/MaimoryLab/BootAgent/releases/latest"><img src="https://img.shields.io/github/v/release/MaimoryLab/BootAgent?display_name=tag&sort=semver" alt="Latest release"></a>
+    <a href="https://github.com/MaimoryLab/BootAgent/actions/workflows/ci.yml"><img src="https://github.com/MaimoryLab/BootAgent/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+    <a href="https://github.com/MaimoryLab/BootAgent/stargazers"><img src="https://img.shields.io/github/stars/MaimoryLab/BootAgent?style=flat" alt="GitHub stars"></a>
+    <a href="LICENSE"><img src="https://img.shields.io/github/license/MaimoryLab/BootAgent" alt="License"></a>
   </p>
   <p><a href="README_ZH.md">简体中文</a></p>
 </div>
 
-OneAgent is a local desktop workspace for AI coding Agents. It turns a fresh machine into a usable, repeatable setup without asking you to edit several tool-specific config files by hand.
+BootAgent is a local desktop workspace for AI coding Agents. It turns a fresh machine into a usable, repeatable setup without asking you to edit several tool-specific config files by hand.
 
 ## What it does
 
@@ -22,8 +22,8 @@ OneAgent is a local desktop workspace for AI coding Agents. It turns a fresh mac
 - Keeps long-running installs visible and cancellable in the Task Center.
 - Imports and exports Providers, Profiles, and selected MCP servers. API keys and MCP secrets are excluded by default; password-encrypted or explicitly confirmed plaintext export is also available.
 - Discovers MCP servers from initialized Claude Code, Codex, OpenCode, Kilo CLI, and Hermes installations, and applies selected servers across them from the MCP Registry. Scanning runs in the background; edits are explicit and local.
-- Creates backups, writes atomically, and keeps credentials in private local storage. The latest three historical versions are kept per Profile, Provider, MCP, Agent configuration target, and Skill; backups live under `~/.oneagent/backup` and the per-target count can be changed in Settings.
-- Checks for OneAgent updates and installs release artifacts through the built-in updater.
+- Creates backups, writes atomically, and keeps credentials in private local storage. The latest three historical versions are kept per Profile, Provider, MCP, Agent configuration target, and Skill; backups live under `~/.bootagent/backup` and the per-target count can be changed in Settings.
+- Checks for BootAgent updates and installs release artifacts through the built-in updater.
 
 ## Supported Agents
 
@@ -34,25 +34,25 @@ OneAgent is a local desktop workspace for AI coding Agents. It turns a fresh mac
 | Hermes Agent · OpenClaw | |
 | Kimi Code | |
 
-PPIO and Novita are built in. Any OpenAI-compatible or Anthropic-compatible Provider can be added from the Provider page. OneAgent probes the protocol an Agent actually uses; an endpoint that only exposes a different API is rejected before configuration is written.
+PPIO and Novita are built in. Any OpenAI-compatible or Anthropic-compatible Provider can be added from the Provider page. BootAgent probes the protocol an Agent actually uses; an endpoint that only exposes a different API is rejected before configuration is written.
 
 The MCP Registry is user-level only and stored locally. It supports stdio, HTTP, and SSE servers for Claude Code, Codex, OpenCode, Kilo CLI, and Hermes. Select sync targets explicitly and apply changes when ready; clearing all targets removes the server from Agent configs but keeps it in the Registry. Deleting a server removes it from Agent configs first and from the Registry only after the application succeeds. MCP exports are selected per server and carry no Agent bindings, so they can be imported on another machine before choosing local targets.
 
 ## Download
 
-Download the latest macOS, Windows, or Linux package from [GitHub Releases](https://github.com/MaimoryLab/OneAgent/releases/latest). Linux releases provide `deb`, `rpm`, AppImage, and OTA `zip` packages for amd64 and arm64. Release artifacts include SHA-256 checksums. The current channel is `technical-preview-unsigned` while Wails remains in Alpha; platform signing and notarization are not yet provided.
+Download the latest macOS, Windows, or Linux package from [GitHub Releases](https://github.com/MaimoryLab/BootAgent/releases/latest). Linux releases provide `deb`, `rpm`, AppImage, and OTA `zip` packages for amd64 and arm64. Release artifacts include SHA-256 checksums. The current channel is `technical-preview-unsigned` while Wails remains in Alpha; platform signing and notarization are not yet provided.
 
-OneAgent does not redistribute Agent packages and does not bundle Node.js, Git, WebView, or API keys. Missing prerequisites are reported with a link to the official installation instructions.
+BootAgent does not redistribute Agent packages and does not bundle Node.js, Git, WebView, or API keys. Missing prerequisites are reported with a link to the official installation instructions.
 
 ## Build from source
 
 Requirements: Go, Node.js, pnpm 11.21.0, and the target platform's WebView dependencies. Linux builds use GTK4 and WebKitGTK 6.0; GTK3 is not supported.
 
 ```text
-git clone https://github.com/MaimoryLab/OneAgent.git
-cd OneAgent
+git clone https://github.com/MaimoryLab/BootAgent.git
+cd BootAgent
 cd frontend && pnpm install --frozen-lockfile && pnpm run build && cd ..
-go run -tags wails ./cmd/oneagent-desktop
+go run -tags wails ./cmd/bootagent-desktop
 ```
 
 For the usual development loop, install [Task](https://taskfile.dev/) and run `task dev`. Useful checks:
@@ -68,16 +68,16 @@ cd frontend && pnpm run test && pnpm run build
 
 - [AI Agent Kit](docs/ai-agent-kit/README.md): set up an Agent environment step by step
 - [Documentation](docs/): specifications and architecture decisions
-- [Public site repository](https://github.com/MaimoryLab/OneAgent-site)
-- [Issues and feature requests](https://github.com/MaimoryLab/OneAgent/issues)
+- [Public site repository](https://github.com/MaimoryLab/BootAgent-site)
+- [Issues and feature requests](https://github.com/MaimoryLab/BootAgent/issues)
 
 ## Star History
 
-<a href="https://www.star-history.com/?type=date&repos=MaimoryLab%2FOneAgent">
+<a href="https://www.star-history.com/?type=date&repos=MaimoryLab%2FBootAgent">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=MaimoryLab/OneAgent&type=date&theme=dark&legend=top-left&sealed_token=84lSKNkgdwfnYMfYU-oYgjwZ_hAFohYbDV5eeoXC_1lQvIsQnaD9EW37_C6-_seReMYRMGKR7G3W_APuS4xO13KlMBwwPHZ-_wtA04c4MxouycuOV7gip89Hd-BFzTAiz1lqDcHOxb7-X6zZRxKElZpRpC-VXe1pWUL8vp_gu9qq9OKkeA-fMShYgEqI" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=MaimoryLab/OneAgent&type=date&legend=top-left&sealed_token=84lSKNkgdwfnYMfYU-oYgjwZ_hAFohYbDV5eeoXC_1lQvIsQnaD9EW37_C6-_seReMYRMGKR7G3W_APuS4xO13KlMBwwPHZ-_wtA04c4MxouycuOV7gip89Hd-BFzTAiz1lqDcHOxb7-X6zZRxKElZpRpC-VXe1pWUL8vp_gu9qq9OKkeA-fMShYgEqI" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=MaimoryLab/OneAgent&type=date&legend=top-left&sealed_token=84lSKNkgdwfnYMfYU-oYgjwZ_hAFohYbDV5eeoXC_1lQvIsQnaD9EW37_C6-_seReMYRMGKR7G3W_APuS4xO13KlMBwwPHZ-_wtA04c4MxouycuOV7gip89Hd-BFzTAiz1lqDcHOxb7-X6zZRxKElZpRpC-VXe1pWUL8vp_gu9qq9OKkeA-fMShYgEqI" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=MaimoryLab/BootAgent&type=date&theme=dark&legend=top-left&sealed_token=84lSKNkgdwfnYMfYU-oYgjwZ_hAFohYbDV5eeoXC_1lQvIsQnaD9EW37_C6-_seReMYRMGKR7G3W_APuS4xO13KlMBwwPHZ-_wtA04c4MxouycuOV7gip89Hd-BFzTAiz1lqDcHOxb7-X6zZRxKElZpRpC-VXe1pWUL8vp_gu9qq9OKkeA-fMShYgEqI" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=MaimoryLab/BootAgent&type=date&legend=top-left&sealed_token=84lSKNkgdwfnYMfYU-oYgjwZ_hAFohYbDV5eeoXC_1lQvIsQnaD9EW37_C6-_seReMYRMGKR7G3W_APuS4xO13KlMBwwPHZ-_wtA04c4MxouycuOV7gip89Hd-BFzTAiz1lqDcHOxb7-X6zZRxKElZpRpC-VXe1pWUL8vp_gu9qq9OKkeA-fMShYgEqI" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=MaimoryLab/BootAgent&type=date&legend=top-left&sealed_token=84lSKNkgdwfnYMfYU-oYgjwZ_hAFohYbDV5eeoXC_1lQvIsQnaD9EW37_C6-_seReMYRMGKR7G3W_APuS4xO13KlMBwwPHZ-_wtA04c4MxouycuOV7gip89Hd-BFzTAiz1lqDcHOxb7-X6zZRxKElZpRpC-VXe1pWUL8vp_gu9qq9OKkeA-fMShYgEqI" />
  </picture>
 </a>
 
@@ -89,4 +89,4 @@ cd frontend && pnpm run test && pnpm run build
   <a href="https://novita.ai/"><img src="docs/assets/sponsors/novita-color.png" alt="Novita" height="40"></a>
 </p>
 
-OneAgent is released under the [Apache License 2.0](LICENSE). Third-party notices are listed in [NOTICE](NOTICE).
+BootAgent is released under the [Apache License 2.0](LICENSE). Third-party notices are listed in [NOTICE](NOTICE).

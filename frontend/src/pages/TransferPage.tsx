@@ -69,7 +69,7 @@ export function TransferPage() {
     // whose message ("Unexpected token } in JSON at position 412") is not
     // something to show a user.
     if (error instanceof TransferFormatError || error instanceof SyntaxError) {
-      return t("文件格式无效，请确认这是 OneAgent 导出的文件");
+      return t("文件格式无效，请确认这是 BootAgent 导出的文件");
     }
     return describeFailure(error, fallback, t).message;
   };

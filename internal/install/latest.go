@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/MaimoryLab/OneAgent/internal/catalog"
+	"github.com/MaimoryLab/BootAgent/internal/catalog"
 )
 
 // LatestVersionTimeout bounds one registry lookup. Short on purpose: this

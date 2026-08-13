@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
+	oneerrors "github.com/MaimoryLab/BootAgent/internal/errors"
 	"github.com/wailsapp/wails/v3/pkg/updater"
 	"github.com/wailsapp/wails/v3/pkg/updater/providers/github"
 )
@@ -16,22 +16,22 @@ import (
 // pick a disk image.
 func releaseAssets() []github.ReleaseAsset {
 	names := []string{
-		"OneAgent-darwin-amd64.dmg",
-		"ota-OneAgent-darwin-amd64.zip",
-		"OneAgent-darwin-arm64.dmg",
-		"ota-OneAgent-darwin-arm64.zip",
-		"OneAgent-windows-amd64-installer.exe",
-		"ota-OneAgent-windows-amd64.zip",
-		"OneAgent-windows-arm64-installer.exe",
-		"ota-OneAgent-windows-arm64.zip",
-		"OneAgent-linux-amd64.AppImage",
-		"OneAgent-linux-amd64.deb",
-		"OneAgent-linux-amd64.rpm",
-		"ota-OneAgent-linux-amd64.zip",
-		"OneAgent-linux-arm64.AppImage",
-		"OneAgent-linux-arm64.deb",
-		"OneAgent-linux-arm64.rpm",
-		"ota-OneAgent-linux-arm64.zip",
+		"BootAgent-darwin-amd64.dmg",
+		"ota-BootAgent-darwin-amd64.zip",
+		"BootAgent-darwin-arm64.dmg",
+		"ota-BootAgent-darwin-arm64.zip",
+		"BootAgent-windows-amd64-installer.exe",
+		"ota-BootAgent-windows-amd64.zip",
+		"BootAgent-windows-arm64-installer.exe",
+		"ota-BootAgent-windows-arm64.zip",
+		"BootAgent-linux-amd64.AppImage",
+		"BootAgent-linux-amd64.deb",
+		"BootAgent-linux-amd64.rpm",
+		"ota-BootAgent-linux-amd64.zip",
+		"BootAgent-linux-arm64.AppImage",
+		"BootAgent-linux-arm64.deb",
+		"BootAgent-linux-arm64.rpm",
+		"ota-BootAgent-linux-arm64.zip",
 		"SHA256SUMS",
 	}
 	assets := make([]github.ReleaseAsset, len(names))
@@ -48,12 +48,12 @@ func TestExtractableAssetMatcherPicksTheArchiveForEveryPlatform(t *testing.T) {
 		arch     string
 		want     string
 	}{
-		{"darwin", "arm64", "ota-OneAgent-darwin-arm64.zip"},
-		{"darwin", "amd64", "ota-OneAgent-darwin-amd64.zip"},
-		{"windows", "amd64", "ota-OneAgent-windows-amd64.zip"},
-		{"windows", "arm64", "ota-OneAgent-windows-arm64.zip"},
-		{"linux", "amd64", "ota-OneAgent-linux-amd64.zip"},
-		{"linux", "arm64", "ota-OneAgent-linux-arm64.zip"},
+		{"darwin", "arm64", "ota-BootAgent-darwin-arm64.zip"},
+		{"darwin", "amd64", "ota-BootAgent-darwin-amd64.zip"},
+		{"windows", "amd64", "ota-BootAgent-windows-amd64.zip"},
+		{"windows", "arm64", "ota-BootAgent-windows-arm64.zip"},
+		{"linux", "amd64", "ota-BootAgent-linux-amd64.zip"},
+		{"linux", "arm64", "ota-BootAgent-linux-arm64.zip"},
 	} {
 		t.Run(test.platform+"/"+test.arch, func(t *testing.T) {
 			request := updater.CheckRequest{CurrentVersion: "0.4.0", Platform: test.platform, Arch: test.arch}
@@ -79,7 +79,7 @@ func TestDefaultAssetMatcherPicksTheDiskImage(t *testing.T) {
 	if index < 0 {
 		t.Fatal("upstream matcher found nothing; the asset list no longer reproduces the bug")
 	}
-	if got := assets[index].Name; got != "OneAgent-darwin-arm64.dmg" {
+	if got := assets[index].Name; got != "BootAgent-darwin-arm64.dmg" {
 		t.Skipf("upstream matcher now picks %q; ExtractableAssetMatcher may be redundant", got)
 	}
 }
@@ -91,8 +91,8 @@ func TestExtractableAssetMatcherReportsNoCandidate(t *testing.T) {
 	}
 
 	onlyContainers := []github.ReleaseAsset{
-		{Name: "OneAgent-darwin-arm64.dmg"},
-		{Name: "OneAgent-darwin-arm64.pkg"},
+		{Name: "BootAgent-darwin-arm64.dmg"},
+		{Name: "BootAgent-darwin-arm64.pkg"},
 	}
 	request = updater.CheckRequest{CurrentVersion: "0.4.0", Platform: "darwin", Arch: "arm64"}
 	if index := ExtractableAssetMatcher(request, onlyContainers); index != -1 {
@@ -105,24 +105,24 @@ func TestExtractableAssetMatcherReportsNoCandidate(t *testing.T) {
 func TestExtractableAssetMatcherKeepsUpstreamExclusions(t *testing.T) {
 	assets := []github.ReleaseAsset{
 		{Name: "SHA256SUMS"},
-		{Name: "OneAgent-windows-amd64-installer.exe"},
-		{Name: "OneAgent-windows-amd64.zip.sig"},
-		{Name: "ota-OneAgent-windows-amd64.zip"},
+		{Name: "BootAgent-windows-amd64-installer.exe"},
+		{Name: "BootAgent-windows-amd64.zip.sig"},
+		{Name: "ota-BootAgent-windows-amd64.zip"},
 	}
 	request := updater.CheckRequest{CurrentVersion: "0.4.0", Platform: "windows", Arch: "amd64"}
 
 	index := ExtractableAssetMatcher(request, assets)
-	if index < 0 || assets[index].Name != "ota-OneAgent-windows-amd64.zip" {
+	if index < 0 || assets[index].Name != "ota-BootAgent-windows-amd64.zip" {
 		t.Fatalf("index = %d, want the .zip", index)
 	}
 }
 
 func TestUpdateServiceRejectsAnUninstallableArtifact(t *testing.T) {
 	for _, staged := range []string{
-		"/tmp/wails-update-1/OneAgent-darwin-arm64.dmg",
-		"/tmp/wails-update-1/OneAgent-darwin-arm64.zip",
-		"/tmp/wails-update-1/OneAgent-windows-amd64-installer.msi",
-		"/tmp/wails-update-1/OneAgent-linux-amd64.AppImage",
+		"/tmp/wails-update-1/BootAgent-darwin-arm64.dmg",
+		"/tmp/wails-update-1/BootAgent-darwin-arm64.zip",
+		"/tmp/wails-update-1/BootAgent-windows-amd64-installer.msi",
+		"/tmp/wails-update-1/BootAgent-linux-amd64.AppImage",
 	} {
 		t.Run(staged, func(t *testing.T) {
 			service := NewUpdateService(&updateBackendFake{
@@ -144,7 +144,7 @@ func TestUpdateServiceRejectsAnUninstallableArtifact(t *testing.T) {
 			}
 			// The private cause names the artifact; the public message does not.
 			cause := errors.Unwrap(err)
-			if cause == nil || !strings.Contains(cause.Error(), "OneAgent-") {
+			if cause == nil || !strings.Contains(cause.Error(), "BootAgent-") {
 				t.Fatalf("cause = %v", cause)
 			}
 		})
@@ -153,8 +153,8 @@ func TestUpdateServiceRejectsAnUninstallableArtifact(t *testing.T) {
 
 func TestUpdateServiceAcceptsAnInstalledBundle(t *testing.T) {
 	for name, staged := range map[string]string{
-		"macOS bundle": "/tmp/wails-update-1/OneAgent.app",
-		"bare binary":  "/tmp/wails-update-1/OneAgent.exe",
+		"macOS bundle": "/tmp/wails-update-1/BootAgent.app",
+		"bare binary":  "/tmp/wails-update-1/BootAgent.exe",
 		"unreported":   "",
 	} {
 		t.Run(name, func(t *testing.T) {

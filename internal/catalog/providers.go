@@ -6,8 +6,8 @@ import (
 	"maps"
 	"strings"
 
-	oneagent "github.com/MaimoryLab/OneAgent"
-	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
+	bootagent "github.com/MaimoryLab/BootAgent"
+	oneerrors "github.com/MaimoryLab/BootAgent/internal/errors"
 )
 
 const ProviderSchemaVersion = 1
@@ -42,7 +42,7 @@ type providerFile struct {
 }
 
 func LoadEmbeddedProviders() (ProviderManifest, error) {
-	data, err := oneagent.EmbeddedProviderLock()
+	data, err := bootagent.EmbeddedProviderLock()
 	if err != nil {
 		return ProviderManifest{}, oneerrors.New(
 			oneerrors.InvalidRequest,

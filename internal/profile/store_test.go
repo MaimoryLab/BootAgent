@@ -55,7 +55,7 @@ func TestEmptyStoreAndStableListProjection(t *testing.T) {
 	if err := os.MkdirAll(filepath.Dir(secret), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(secret, []byte("export ONEAGENT_API_KEY=hidden\n"), 0o600); err != nil {
+	if err := os.WriteFile(secret, []byte("export TEST_API_KEY=hidden\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	profiles, err := store.List()

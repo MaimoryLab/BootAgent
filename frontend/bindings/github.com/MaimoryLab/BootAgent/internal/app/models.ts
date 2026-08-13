@@ -112,7 +112,7 @@ export interface DesktopAgentStatus {
     "edition"?: string;
 
     /**
-     * ManualInstall reports that OneAgent can detect and configure this app but
+     * ManualInstall reports that BootAgent can detect and configure this app but
      * cannot fetch it. Without this the UI offered "Install the official desktop
      * application" for an Agent whose install step only returns a download link,
      * which is a button that cannot do what it says.
@@ -124,7 +124,7 @@ export interface DesktopAgentStatus {
 export interface DetectedConfig {
     "baseUrl": string;
     "model": string;
-    "managedByOneAgent": boolean;
+    "managedByBootAgent": boolean;
     "unreadable": string | null;
 }
 
@@ -348,11 +348,12 @@ export interface StatusResponse {
     "activeProfile": string | null;
 
     /**
-     * FirstRun reports that ~/.oneagent does not exist yet, which is the signal
+     * FirstRun reports that ~/.bootagent does not exist yet, which is the signal
      * the UI uses to open onboarding instead of the overview. Agent detection is
-     * not a substitute: an Agent installed before OneAgent would suppress it.
+     * not a substitute: an Agent installed before BootAgent would suppress it.
      */
     "firstRun": boolean;
+    "migrationNotice"?: string;
     "runtimes": RuntimeStatus[] | null;
     "environment": any;
     "environmentError": string | null;

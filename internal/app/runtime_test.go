@@ -10,10 +10,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/MaimoryLab/OneAgent/internal/catalog"
-	"github.com/MaimoryLab/OneAgent/internal/install"
-	"github.com/MaimoryLab/OneAgent/internal/platform"
-	"github.com/MaimoryLab/OneAgent/internal/process"
+	"github.com/MaimoryLab/BootAgent/internal/catalog"
+	"github.com/MaimoryLab/BootAgent/internal/install"
+	"github.com/MaimoryLab/BootAgent/internal/platform"
+	"github.com/MaimoryLab/BootAgent/internal/process"
 )
 
 // archiveDoer serves the locked artifact for one runtime from memory so the
@@ -132,11 +132,11 @@ func TestManagedRuntimeIsReusedRatherThanReinstalled(t *testing.T) {
 	artifact := entry.Artifacts[key]
 
 	// Simulate a tree installed by an earlier session, marker included.
-	binDir := filepath.Join(home, ".oneagent", "runtimes", "node", "v"+entry.Version, artifact.BinDir)
+	binDir := filepath.Join(home, ".bootagent", "runtimes", "node", "v"+entry.Version, artifact.BinDir)
 	if err := os.MkdirAll(binDir, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(binDir, ".oneagent-runtime-ok"), []byte(entry.Version+"\n"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(binDir, ".bootagent-runtime-ok"), []byte(entry.Version+"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(binDir, "npm"), []byte("#!/bin/sh\necho 11.0.0\n"), 0o700); err != nil {
@@ -181,7 +181,7 @@ func TestManagedRuntimeIsReusedRatherThanReinstalled(t *testing.T) {
 }
 
 // A managed runtime is only usable if status resolves commands in the same
-// environment installs run in. Resolving against the OneAgent process PATH
+// environment installs run in. Resolving against the BootAgent process PATH
 // instead would report an Agent CLI under the managed global prefix as missing
 // and keep offering to install a runtime that is already there.
 func TestStatusResolvesAgentsInTheManagedEnvironment(t *testing.T) {
@@ -194,15 +194,15 @@ func TestStatusResolvesAgentsInTheManagedEnvironment(t *testing.T) {
 	artifact := entry.Artifacts[catalog.RuntimeArtifactKey("macos", "arm64")]
 
 	// A managed node tree plus an Agent CLI in the global prefix, exactly the
-	// layout an npm install through OneAgent leaves behind.
-	binDir := filepath.Join(home, ".oneagent", "runtimes", "node", "v"+entry.Version, artifact.BinDir)
+	// layout an npm install through BootAgent leaves behind.
+	binDir := filepath.Join(home, ".bootagent", "runtimes", "node", "v"+entry.Version, artifact.BinDir)
 	globalBin := install.GlobalBinDir(home, "macos")
 	for _, directory := range []string{binDir, globalBin} {
 		if err := os.MkdirAll(directory, 0o700); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if err := os.WriteFile(filepath.Join(binDir, ".oneagent-runtime-ok"), []byte(entry.Version+"\n"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(binDir, ".bootagent-runtime-ok"), []byte(entry.Version+"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(binDir, "npm"), []byte("#!/bin/sh\necho 11.0.0\n"), 0o700); err != nil {

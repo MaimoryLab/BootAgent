@@ -2,8 +2,8 @@
 
 > 当前实现位于 `internal/config` 和 `internal/app`。本文保留设计结论，旧脚本路径不再适用。
 
-> 补注（2026-08-04）：本文提到的 `cmd/oneagent-release`、`cmd/oneagent-rc`、
-> `cmd/oneagent-provider-smoke` 已于 `23805b0` 移除，职责交给
+> 补注（2026-08-04）：本文提到的 `cmd/bootagent-release`、`cmd/bootagent-rc`、
+> `cmd/bootagent-provider-smoke` 已于 `23805b0` 移除，职责交给
 > `.github/workflows/build-artifacts.yml`。相关命令是历史背景，不可执行。
 
 ## 适配器
@@ -13,7 +13,7 @@
 | Codex | TOML provider | `~/.codex/auth.json` 的 `OPENAI_API_KEY` |
 | Claude Code | settings JSON | `settings.json` 的 `env.ANTHROPIC_AUTH_TOKEN` |
 | OpenCode / Kilo CLI | OpenAI-compatible JSON | 配置文件里的 `options.apiKey` |
-| Aider | env 文件 | `~/.oneagent/aider.env`（Aider 用 `--env-file` 加载） |
+| Aider | env 文件 | `~/.bootagent/aider.env`（Aider 用 `--env-file` 加载） |
 
 凭据位置由适配器代码决定，**不是** manifest 字段。早期设计用过 `credential_delivery`
 声明，该字段已随 env 文件方案一起删除，见
@@ -32,7 +32,7 @@
 ```text
 go test ./internal/config ./internal/app
 bash tests/install_test.sh
-go run ./cmd/oneagent-rc adopted
+go run ./cmd/bootagent-rc adopted
 ```
 
 配置采用检查使用丢弃端口和假 Key，确保 Agent 读取了配置后才会在网络层失败；它不需要真实 Provider Key。

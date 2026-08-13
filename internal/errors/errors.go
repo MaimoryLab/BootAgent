@@ -49,9 +49,9 @@ var ExitCodes = map[string]int{
 	UpdateLocationBlocked: 10,
 }
 
-// OneAgentError is safe to serialize across the Wails bridge. Message must
+// BootAgentError is safe to serialize across the Wails bridge. Message must
 // already be free of credentials, file contents, and process output.
-type OneAgentError struct {
+type BootAgentError struct {
 	Code      string `json:"error_code"`
 	Message   string `json:"message"`
 	Status    int    `json:"status"`
@@ -60,8 +60,8 @@ type OneAgentError struct {
 	cause     error
 }
 
-func New(code, message string, options ...Option) *OneAgentError {
-	err := &OneAgentError{
+func New(code, message string, options ...Option) *BootAgentError {
+	err := &BootAgentError{
 		Code:     code,
 		Message:  message,
 		Status:   400,
@@ -78,28 +78,28 @@ func New(code, message string, options ...Option) *OneAgentError {
 }
 
 // Option customizes an error without exposing mutable transport details.
-type Option func(*OneAgentError)
+type Option func(*BootAgentError)
 
 func WithStatus(status int) Option {
-	return func(err *OneAgentError) { err.Status = status }
+	return func(err *BootAgentError) { err.Status = status }
 }
 
 func WithRetryable(retryable bool) Option {
-	return func(err *OneAgentError) { err.Retryable = retryable }
+	return func(err *BootAgentError) { err.Retryable = retryable }
 }
 
 func WithCause(cause error) Option {
-	return func(err *OneAgentError) { err.cause = cause }
+	return func(err *BootAgentError) { err.cause = cause }
 }
 
-func (e *OneAgentError) Error() string {
+func (e *BootAgentError) Error() string {
 	if e == nil {
 		return ""
 	}
 	return e.Message
 }
 
-func (e *OneAgentError) Unwrap() error {
+func (e *BootAgentError) Unwrap() error {
 	if e == nil {
 		return nil
 	}
@@ -108,13 +108,13 @@ func (e *OneAgentError) Unwrap() error {
 
 // APIShape preserves the current HTTP response fields while the transport is
 // being replaced by Wails bindings. It deliberately contains no cause or key.
-func (e *OneAgentError) APIShape() map[string]any {
+func (e *BootAgentError) APIShape() map[string]any {
 	if e == nil {
 		return map[string]any{
 			"ok":         false,
 			"error_code": InternalError,
-			"message":    "Unexpected OneAgent failure",
-			"error":      "Unexpected OneAgent failure",
+			"message":    "Unexpected BootAgent failure",
+			"error":      "Unexpected BootAgent failure",
 			"status":     500,
 			"retryable":  true,
 		}
@@ -130,7 +130,7 @@ func (e *OneAgentError) APIShape() map[string]any {
 }
 
 // MarshalJSON keeps the bridge payload restricted to the documented fields.
-func (e *OneAgentError) MarshalJSON() ([]byte, error) {
+func (e *BootAgentError) MarshalJSON() ([]byte, error) {
 	type wire struct {
 		Code      string `json:"error_code"`
 		Message   string `json:"message"`
@@ -139,21 +139,21 @@ func (e *OneAgentError) MarshalJSON() ([]byte, error) {
 		ExitCode  int    `json:"exit_code"`
 	}
 	if e == nil {
-		return json.Marshal(wire{Code: InternalError, Message: "Unexpected OneAgent failure", Status: 500, Retryable: true, ExitCode: ExitCodes[InternalError]})
+		return json.Marshal(wire{Code: InternalError, Message: "Unexpected BootAgent failure", Status: 500, Retryable: true, ExitCode: ExitCodes[InternalError]})
 	}
 	return json.Marshal(wire{Code: e.Code, Message: e.Message, Status: e.Status, Retryable: e.Retryable, ExitCode: e.ExitCode})
 }
 
 // As converts an arbitrary error to the stable transport type. Unknown errors
 // are intentionally generalized so internal details cannot reach the UI.
-func As(err error) *OneAgentError {
+func As(err error) *BootAgentError {
 	if err == nil {
 		return nil
 	}
-	if oneErr, ok := errors.AsType[*OneAgentError](err); ok {
+	if oneErr, ok := errors.AsType[*BootAgentError](err); ok {
 		return oneErr
 	}
-	return New(InternalError, "Unexpected OneAgent failure", WithStatus(500), WithRetryable(true), WithCause(err))
+	return New(InternalError, "Unexpected BootAgent failure", WithStatus(500), WithRetryable(true), WithCause(err))
 }
 
 func Marshal(err error) []byte {
@@ -161,7 +161,7 @@ func Marshal(err error) []byte {
 	if marshalErr != nil {
 		// The shape above only contains primitive values; this is a final guard
 		// for a Wails callback, which cannot return an error itself.
-		return fmt.Appendf(nil, `{"error_code":%q,"message":%q,"status":500,"retryable":true,"exit_code":10}`, InternalError, "Unexpected OneAgent failure")
+		return fmt.Appendf(nil, `{"error_code":%q,"message":%q,"status":500,"retryable":true,"exit_code":10}`, InternalError, "Unexpected BootAgent failure")
 	}
 	return payload
 }

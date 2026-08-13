@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
+	oneerrors "github.com/MaimoryLab/BootAgent/internal/errors"
 )
 
 func TestValidateBaseURL(t *testing.T) {
@@ -95,7 +95,7 @@ func TestInvalidProtocolErrorIsStable(t *testing.T) {
 	}
 }
 
-// The generator IDs the aggregators OneAgent ships actually return. Before the
+// The generator IDs the aggregators BootAgent ships actually return. Before the
 // video and audio terms were added, every one of these was treated as a chat
 // model, so an aggregator listing one first had it probed with a chat payload.
 func TestPickChatModelSkipsGeneratorModels(t *testing.T) {

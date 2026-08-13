@@ -20,7 +20,7 @@ interface RuntimeSectionProps {
 /**
  * The directory the runtimes land in, taken from the backend rather than spelled
  * out here. `installPath` is an absolute, platform-correct path — on Windows it
- * reads C:\Users\<name>\.oneagent\runtimes\..., which a hardcoded "~/.oneagent"
+ * reads C:\Users\<name>\.bootagent\runtimes\..., which a hardcoded "~/.bootagent"
  * would misreport. Two segments come off the end (the runtime id and its
  * versioned directory) to name the shared parent.
  */
@@ -117,7 +117,7 @@ export function RuntimeSection({ runtimes, onInstalled }: RuntimeSectionProps) {
             </span>
             <span className="runtime-fact">
               <small>{t("来源")}</small>
-              <span>{runtime.managed ? t("由 OneAgent 安装") : runtime.installed ? t("本机已有") : runtime.source}</span>
+              <span>{runtime.managed ? t("由 BootAgent 安装") : runtime.installed ? t("本机已有") : runtime.source}</span>
             </span>
             <StatusBadge tone={runtime.installed ? "success" : "warning"}>
               {runtime.installed ? t("已安装") : t("未安装")}
@@ -144,7 +144,7 @@ export function RuntimeSection({ runtimes, onInstalled }: RuntimeSectionProps) {
         <p className="runtime-note">
           {root
             ? t("运行时会安装到 {dir}，并写入登录 PATH，不需要管理员权限").replace("{dir}", root)
-            : t("运行时会安装到 OneAgent 的托管目录，并写入登录 PATH，不需要管理员权限")}
+            : t("运行时会安装到 BootAgent 的托管目录，并写入登录 PATH，不需要管理员权限")}
         </p>
       ) : null}
       <MirrorSetting label={t("下载源")} />

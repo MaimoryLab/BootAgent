@@ -8,14 +8,13 @@ import (
 	"os"
 	"sync"
 	"sync/atomic"
-	"time"
 
-	oneagent "github.com/MaimoryLab/OneAgent"
-	"github.com/MaimoryLab/OneAgent/internal/app"
-	"github.com/MaimoryLab/OneAgent/internal/binding"
-	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
-	"github.com/MaimoryLab/OneAgent/internal/process"
-	"github.com/MaimoryLab/OneAgent/internal/version"
+	bootagent "github.com/MaimoryLab/BootAgent"
+	"github.com/MaimoryLab/BootAgent/internal/app"
+	"github.com/MaimoryLab/BootAgent/internal/binding"
+	oneerrors "github.com/MaimoryLab/BootAgent/internal/errors"
+	"github.com/MaimoryLab/BootAgent/internal/process"
+	"github.com/MaimoryLab/BootAgent/internal/version"
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
 	"github.com/wailsapp/wails/v3/pkg/updater"
@@ -28,14 +27,14 @@ func configureUpdater(appInstance *application.App) binding.UpdateBackend {
 		return nil
 	}
 	provider, err := github.New(github.Config{
-		Repository:    "MaimoryLab/OneAgent",
+		Repository:    "MaimoryLab/BootAgent",
 		ChecksumAsset: "SHA256SUMS",
 		// Every release ships platform-specific installers plus one OTA .zip.
 		// Only the .zip is a format the updater unpacks.
 		AssetMatcher: binding.ExtractableAssetMatcher,
 	})
 	if err != nil {
-		slog.Error("OneAgent updater provider is unavailable", "error", err)
+		slog.Error("BootAgent updater provider is unavailable", "error", err)
 		return nil
 	}
 	if err := appInstance.Updater.Init(updater.Config{
@@ -43,7 +42,7 @@ func configureUpdater(appInstance *application.App) binding.UpdateBackend {
 		Providers:      []updater.Provider{provider},
 		Window:         updater.WindowNone,
 	}); err != nil {
-		slog.Error("OneAgent updater is unavailable", "error", err)
+		slog.Error("BootAgent updater is unavailable", "error", err)
 		return nil
 	}
 	return appInstance.Updater
@@ -53,22 +52,6 @@ func main() {
 	var appInstance *application.App
 	core := newDesktopUseCases()
 	var startupSyncOnce sync.Once
-	var nativeSmokeOnce sync.Once
-	var afterGetStatus func()
-	if os.Getenv("ONEAGENT_NATIVE_SMOKE") == "1" {
-		afterGetStatus = func() {
-			nativeSmokeOnce.Do(func() {
-				if result := os.Getenv("ONEAGENT_NATIVE_SMOKE_RESULT"); result != "" {
-					_ = os.WriteFile(result, []byte("ok\n"), 0o600)
-				}
-				time.AfterFunc(250*time.Millisecond, func() {
-					if appInstance != nil {
-						appInstance.Quit()
-					}
-				})
-			})
-		}
-	}
 	services := binding.NewServicesWithOptions(core, func(url string) error {
 		current := application.Get()
 		if current == nil || current.Browser == nil {
@@ -78,9 +61,6 @@ func main() {
 	}, binding.ServicesOptions{
 		AfterGetStatus: func(status app.StatusResponse) {
 			if status.FirstRun {
-				if afterGetStatus != nil {
-					afterGetStatus()
-				}
 				return
 			}
 			startupSyncOnce.Do(func() {
@@ -91,13 +71,10 @@ func main() {
 					slog.Warn("Skill startup scan failed", "error", err)
 				}
 			})
-			if afterGetStatus != nil {
-				afterGetStatus()
-			}
 		},
 		InstallOutput: func(output process.Output) {
 			if appInstance != nil {
-				appInstance.Event.Emit("oneagent:install-output", output)
+				appInstance.Event.Emit("bootagent:install-output", output)
 			}
 		},
 	})
@@ -105,7 +82,7 @@ func main() {
 	// No Route or RawMessageHandler is configured. The default Wails transport
 	// is internal IPC; the production app does not expose a business HTTP port.
 	appInstance = application.New(application.Options{
-		Name:        "OneAgent",
+		Name:        "BootAgent",
 		Description: "Local AI development environment activator",
 		LogLevel:    slog.LevelInfo,
 		Services: []application.Service{
@@ -121,7 +98,7 @@ func main() {
 		},
 		MarshalError: oneerrors.Marshal,
 		Assets: application.AssetOptions{
-			Handler:        application.AssetFileServerFS(oneagent.FrontendAssets),
+			Handler:        application.AssetFileServerFS(bootagent.FrontendAssets),
 			DisableLogging: true,
 		},
 		Mac: application.MacOptions{ApplicationShouldTerminateAfterLastWindowClosed: true},
@@ -132,7 +109,7 @@ func main() {
 			return
 		}
 		if output, ok := binding.UpdateProgressOutput(event.Data); ok {
-			appInstance.Event.Emit("oneagent:install-output", output)
+			appInstance.Event.Emit("bootagent:install-output", output)
 		}
 	})
 	appInstance.RegisterService(application.NewServiceWithOptions(binding.NewUpdateService(updateBackend), application.ServiceOptions{MarshalError: oneerrors.Marshal}))
@@ -142,7 +119,7 @@ func main() {
 		// This only stops the window being dragged narrower than any breakpoint
 		// accounts for, where the Agent rows and page padding have nothing left.
 		window := appInstance.Window.NewWithOptions(application.WebviewWindowOptions{
-			Title:     "OneAgent",
+			Title:     "BootAgent",
 			Width:     1180,
 			Height:    760,
 			MinWidth:  560,
@@ -164,7 +141,7 @@ func main() {
 				message, discard, cancel = "MCP or Skills changes are not applied. Discard them and close?", "Discard and close", "Cancel"
 			}
 			confirmed := false
-			dialog := application.Get().Dialog.Question().SetTitle("OneAgent").SetMessage(message)
+			dialog := application.Get().Dialog.Question().SetTitle("BootAgent").SetMessage(message)
 			dialog.AddButton(discard).OnClick(func() { confirmed = true })
 			dialog.AddButton(cancel).SetAsCancel()
 			dialog.Show()
@@ -178,7 +155,7 @@ func main() {
 	}
 	if err := appInstance.Run(); err != nil {
 		// Do not print an arbitrary Wails error containing binding arguments.
-		_, _ = os.Stderr.WriteString("OneAgent desktop failed to start\n")
+		_, _ = os.Stderr.WriteString("BootAgent desktop failed to start\n")
 		os.Exit(1)
 	}
 }

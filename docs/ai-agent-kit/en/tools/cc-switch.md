@@ -30,7 +30,7 @@ base address. Do not put the full `/v1/chat/completions` path into the base URL.
 
 ## 3. Filling in the model
 
-Prefer the result of OneAgent's "fetch model list". For OpenAI-compatible configuration
+Prefer the result of BootAgent's "fetch model list". For OpenAI-compatible configuration
 the model ID is the raw ID the server returned — do not add an `openai/` or `ppio/`
 prefix yourself unless the target agent's official documentation requires it.
 
@@ -49,19 +49,19 @@ After switching profiles:
 Agents differ in how configuration takes effect. Do not conclude that an agent has
 reloaded its configuration just because CC Switch says the profile was switched.
 
-## 5. How this relates to OneAgent
+## 5. How this relates to BootAgent
 
 Recommended order:
 
 ```text
-OneAgent probes PPIO
-→ OneAgent fetches the model list
-→ OneAgent verifies one request
+BootAgent probes PPIO
+→ BootAgent fetches the model list
+→ BootAgent verifies one request
 → CC Switch stores the same PPIO profile
 → You switch profiles per project
 ```
 
-That way, when something breaks, you can return to OneAgent's built-in configuration to
+That way, when something breaks, you can return to BootAgent's built-in configuration to
 tell whether PPIO itself is working before questioning the CC Switch profile.
 
 ## 6. Common mistakes
@@ -82,7 +82,7 @@ https://api.ppio.com/openai
 
 ### Using a model ID that is not a PPIO model
 
-Fetch the current model list through OneAgent, confirm the model ID, and then copy it into
+Fetch the current model list through BootAgent, confirm the model ID, and then copy it into
 CC Switch.
 
 ### The agent still uses the old configuration after switching

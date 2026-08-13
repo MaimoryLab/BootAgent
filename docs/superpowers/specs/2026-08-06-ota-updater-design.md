@@ -2,7 +2,7 @@
 
 ## Goal
 
-Add opt-in desktop OTA updates backed by GitHub Releases. OneAgent checks once
+Add opt-in desktop OTA updates backed by GitHub Releases. BootAgent checks once
 per launch, asks before downloading, reports the download through the existing
 task center, supports real cancellation, and lets the user restart when ready.
 
@@ -19,7 +19,7 @@ task center, supports real cancellation, and lets the user restart when ready.
 6. The task card shows byte progress and can cancel the underlying Wails call.
 7. After verification and staging, the completed task exposes `Restart &
    Update`. The Wails updater swaps the executable or app bundle and relaunches
-   OneAgent only after that action.
+   BootAgent only after that action.
 
 The built-in updater window is not used. In the pinned Wails beta.3,
 `CheckAndInstall` opens that window but immediately calls
@@ -32,7 +32,7 @@ updater template.
 ### Backend
 
 - Configure `app.Updater` with the GitHub provider for
-  `MaimoryLab/OneAgent`, `SHA256SUMS`, the linker-injected current version, and
+  `MaimoryLab/BootAgent`, `SHA256SUMS`, the linker-injected current version, and
   `updater.WindowNone`.
 - Strip the leading `v` from `internal/version.Version` before passing it to
   Wails. Do not configure the updater for the default `-dev` version.
@@ -40,7 +40,7 @@ updater template.
   `Restart`. `Check` returns only the available version string; an empty string
   means current or disabled.
 - Translate Wails `EventDownloadProgress` payloads into the existing
-  `oneagent:install-output` progress event with one stable OTA target.
+  `bootagent:install-output` progress event with one stable OTA target.
 
 Wails remains responsible for release comparison, download, checksum
 verification, safe archive extraction, staging, executable/app-bundle swap,
@@ -75,14 +75,14 @@ matching `vX.Y.Z`. Keep the existing Windows/macOS and amd64/arm64 build
 matrix, inject the tag through the existing linker flag, and publish these
 GitHub Release assets:
 
-- `OneAgent-darwin-amd64.zip`
-- `OneAgent-darwin-arm64.zip`
-- `OneAgent-windows-amd64.zip`
-- `OneAgent-windows-arm64.zip`
+- `BootAgent-darwin-amd64.zip`
+- `BootAgent-darwin-arm64.zip`
+- `BootAgent-windows-amd64.zip`
+- `BootAgent-windows-arm64.zip`
 - `SHA256SUMS`
 
-Each macOS archive contains exactly one top-level `OneAgent.app`. Each Windows
-archive contains exactly one top-level `oneagent-desktop.exe`. The platform and
+Each macOS archive contains exactly one top-level `BootAgent.app`. Each Windows
+archive contains exactly one top-level `bootagent-desktop.exe`. The platform and
 architecture tokens intentionally match the Wails GitHub provider's default
 asset matcher. The release job generates `SHA256SUMS` after collecting all four
 archives and creates or updates the release for the pushed tag.

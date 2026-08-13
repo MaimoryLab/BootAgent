@@ -15,20 +15,20 @@
 1. 打开 PPIO 控制台的 API Key 页面。
 2. 创建一个新的 API Key。
 3. 在 Key 首次显示时立即复制。
-4. 粘贴到 OneAgent 的密码输入框。
+4. 粘贴到 BootAgent 的密码输入框。
 5. 点击“测试连接”。
 
 创建后的 Key 只显示一次。不要等离开页面后再尝试查看。
 
-## OneAgent 如何处理 Key
+## BootAgent 如何处理 Key
 
-OneAgent 的默认约束是：
+BootAgent 的默认约束是：
 
 - Key 只通过本地表单传给本地安装流程。
 - Key 不放在命令行参数中。
 - Key 不写入日志和错误信息。
-- Key 不上传到 OneAgent 服务端。
-- 覆盖配置前创建时间戳备份。备份按目标保存在 `~/.oneagent/backup`，默认保留 3 个历史版本，可在“设置”中调整。
+- Key 不上传到 BootAgent 服务端。
+- 覆盖配置前创建时间戳备份。备份按目标保存在 `~/.bootagent/backup`，默认保留 3 个历史版本，可在“设置”中调整。
 
 ## 推荐的本地环境变量
 
@@ -42,7 +42,7 @@ export ONEAGENT_MODEL='你的模型 ID'
 
 ## 发现 Key 泄露时
 
-立即在 PPIO 控制台撤销旧 Key，创建新 Key，并重新运行 OneAgent 配置。不要只删除聊天记录或 Git 提交，因为 Key 可能已经进入缓存、日志或截图。
+立即在 PPIO 控制台撤销旧 Key，创建新 Key，并重新运行 BootAgent 配置。不要只删除聊天记录或 Git 提交，因为 Key 可能已经进入缓存、日志或截图。
 
 ## 官方参考
 

@@ -2,7 +2,7 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "oneagent-frontend",
+      "name": "bootagent-frontend",
       "runtimeExecutable": "pnpm",
       "runtimeArgs": [
         "--dir",
@@ -13,7 +13,7 @@
       "port": 5173
     },
     {
-      "name": "oneagent-desktop-server",
+      "name": "bootagent-desktop-server",
       "runtimeExecutable": "node",
       "runtimeArgs": [
         "./frontend/e2e/wails-server.mjs"

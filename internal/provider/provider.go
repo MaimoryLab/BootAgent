@@ -8,8 +8,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/MaimoryLab/OneAgent/internal/catalog"
-	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
+	"github.com/MaimoryLab/BootAgent/internal/catalog"
+	oneerrors "github.com/MaimoryLab/BootAgent/internal/errors"
 )
 
 const (

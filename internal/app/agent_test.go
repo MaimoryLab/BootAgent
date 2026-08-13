@@ -9,10 +9,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/MaimoryLab/OneAgent/internal/catalog"
-	"github.com/MaimoryLab/OneAgent/internal/config"
-	"github.com/MaimoryLab/OneAgent/internal/platform"
-	"github.com/MaimoryLab/OneAgent/internal/provider"
+	"github.com/MaimoryLab/BootAgent/internal/catalog"
+	"github.com/MaimoryLab/BootAgent/internal/config"
+	"github.com/MaimoryLab/BootAgent/internal/platform"
+	"github.com/MaimoryLab/BootAgent/internal/provider"
 )
 
 func activationCore(t *testing.T, home string, client *provider.Client, osID string) *UseCases {
@@ -54,7 +54,7 @@ func TestActivateAgentWritesPerAgentStateAndKeepsSecretsOutOfResult(t *testing.T
 		t.Fatalf("Codex auth.json = %q, err=%v", authData, err)
 	}
 	configData, err := os.ReadFile(result.Config)
-	if err != nil || strings.Contains(string(configData), "codex-secret") || !strings.Contains(string(configData), `model_provider = "oneagent"`) {
+	if err != nil || strings.Contains(string(configData), "codex-secret") || !strings.Contains(string(configData), `model_provider = "bootagent"`) {
 		t.Fatalf("Codex config = %q, err=%v", configData, err)
 	}
 	binding, err := core.profiles.ReadAgentBinding("codex")
@@ -113,7 +113,7 @@ func TestActivateKimiCodeWritesAConfigCompleteOnItsOwn(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := string(data)
-	for _, want := range []string{"kimi-secret", "api.ppio.com/openai/v1", `type = "openai"`, `default_model = "oneagent/model-a"`} {
+	for _, want := range []string{"kimi-secret", "api.ppio.com/openai/v1", `type = "openai"`, `default_model = "bootagent/model-a"`} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("Kimi Code config missing %q: %s", want, text)
 		}
@@ -137,7 +137,7 @@ func TestActivateKimiCodeWritesAConfigCompleteOnItsOwn(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(string(after), "oneagent/model-a") {
+	if strings.Contains(string(after), "bootagent/model-a") {
 		t.Fatalf("model switch kept the previous alias: %s", after)
 	}
 }
@@ -234,7 +234,7 @@ func TestActivateAgentDispatchesAllManagedAdapters(t *testing.T) {
 	if err != nil || !strings.Contains(string(claude), "adapter-secret-claude-code") {
 		t.Fatalf("Claude native config = %q, err=%v", claude, err)
 	}
-	aider, err := os.ReadFile(filepath.Join(home, ".oneagent", "aider.env"))
+	aider, err := os.ReadFile(filepath.Join(home, ".bootagent", "aider.env"))
 	if err != nil || !strings.Contains(string(aider), "adapter-secret-aider") {
 		t.Fatalf("Aider config = %q, err=%v", aider, err)
 	}
@@ -354,8 +354,8 @@ func TestEveryAutoAgentAdapterCanBeWrittenAndReadBack(t *testing.T) {
 			}
 			continue
 		}
-		if !detected.ManagedByOneAgent {
-			t.Errorf("%s config does not read back as managed by OneAgent", agentID)
+		if !detected.ManagedByBootAgent {
+			t.Errorf("%s config does not read back as managed by BootAgent", agentID)
 		}
 		if detected.Model != "model-probe" {
 			t.Errorf("%s model round-trip = %q, want model-probe", agentID, detected.Model)

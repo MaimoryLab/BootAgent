@@ -8,10 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/MaimoryLab/OneAgent/internal/catalog"
-	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
-	"github.com/MaimoryLab/OneAgent/internal/platform"
-	"github.com/MaimoryLab/OneAgent/internal/process"
+	"github.com/MaimoryLab/BootAgent/internal/catalog"
+	oneerrors "github.com/MaimoryLab/BootAgent/internal/errors"
+	"github.com/MaimoryLab/BootAgent/internal/platform"
+	"github.com/MaimoryLab/BootAgent/internal/process"
 )
 
 type fakeInstallRunner struct {
@@ -64,7 +64,7 @@ func containsArg(argv []string, wanted string) bool {
 
 func runtimeForInstall(runner process.Runner, osID string, env map[string]string) Runtime {
 	return Runtime{
-		Home:     "/tmp/oneagent-install",
+		Home:     "/tmp/bootagent-install",
 		Platform: platform.Info{OS: osID, Arch: "x64", Shell: "bash"},
 		Env:      env,
 		Runner:   runner,
@@ -155,16 +155,16 @@ func TestInstallAgentSupportsAiderRuntimeBoundary(t *testing.T) {
 	if err != nil || !result.Installed {
 		t.Fatalf("uv result = %#v, err=%v", result, err)
 	}
-	// uv resolves the interpreter itself: OneAgent requests 3.12 and lets uv
+	// uv resolves the interpreter itself: BootAgent requests 3.12 and lets uv
 	// reuse a system Python or download a managed one into its own root.
 	if !reflect.DeepEqual(runner.lastCall, []string{"/fake/uv", "tool", "install", "--force", "--python", "3.12", "aider-chat==0.86.2"}) {
 		t.Fatalf("uv command = %#v", runner.lastCall)
 	}
 	installEnv := runner.envs[len(runner.envs)-1]
-	if !strings.HasSuffix(installEnv["UV_PYTHON_INSTALL_DIR"], "/.oneagent/runtimes/python") {
+	if !strings.HasSuffix(installEnv["UV_PYTHON_INSTALL_DIR"], "/.bootagent/runtimes/python") {
 		t.Fatalf("uv python install dir = %q", installEnv["UV_PYTHON_INSTALL_DIR"])
 	}
-	if !strings.HasSuffix(installEnv["UV_TOOL_BIN_DIR"], "/.oneagent/runtimes/global/bin") {
+	if !strings.HasSuffix(installEnv["UV_TOOL_BIN_DIR"], "/.bootagent/runtimes/global/bin") {
 		t.Fatalf("uv tool bin dir = %q", installEnv["UV_TOOL_BIN_DIR"])
 	}
 }

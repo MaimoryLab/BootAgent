@@ -24,17 +24,17 @@ import * as $models from "./models.js";
  * ID is the only user-supplied value; secrets stay in the Go profile store.
  */
 export function Configure(request: $models.DesktopAgentProfileRequest): $CancellablePromise<app$0.DesktopAgentProfileResult> {
-    return $Call.ByID(1718807223, request);
+    return $Call.ByID(2275818587, request);
 }
 
 export function GetStatus(request: $models.DesktopAgentRequest): $CancellablePromise<app$0.DesktopAgentStatus> {
-    return $Call.ByID(2070814877, request);
+    return $Call.ByID(2903876241, request);
 }
 
 export function Install(request: $models.DesktopAgentRequest): $CancellablePromise<app$0.DesktopAgentActionResult> {
-    return $Call.ByID(3711371820, request);
+    return $Call.ByID(587598960, request);
 }
 
 export function Open(request: $models.DesktopAgentRequest): $CancellablePromise<void> {
-    return $Call.ByID(1641870549, request);
+    return $Call.ByID(3748872217, request);
 }

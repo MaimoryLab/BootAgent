@@ -13,10 +13,10 @@ import (
 	"sync"
 	"testing"
 
-	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
-	"github.com/MaimoryLab/OneAgent/internal/platform"
-	profileStore "github.com/MaimoryLab/OneAgent/internal/profile"
-	"github.com/MaimoryLab/OneAgent/internal/provider"
+	oneerrors "github.com/MaimoryLab/BootAgent/internal/errors"
+	"github.com/MaimoryLab/BootAgent/internal/platform"
+	profileStore "github.com/MaimoryLab/BootAgent/internal/profile"
+	"github.com/MaimoryLab/BootAgent/internal/provider"
 )
 
 type appProviderDoer func(*http.Request) (*http.Response, error)

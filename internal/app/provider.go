@@ -8,11 +8,11 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/MaimoryLab/OneAgent/internal/catalog"
-	"github.com/MaimoryLab/OneAgent/internal/desktopapp"
-	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
-	profileStore "github.com/MaimoryLab/OneAgent/internal/profile"
-	"github.com/MaimoryLab/OneAgent/internal/provider"
+	"github.com/MaimoryLab/BootAgent/internal/catalog"
+	"github.com/MaimoryLab/BootAgent/internal/desktopapp"
+	oneerrors "github.com/MaimoryLab/BootAgent/internal/errors"
+	profileStore "github.com/MaimoryLab/BootAgent/internal/profile"
+	"github.com/MaimoryLab/BootAgent/internal/provider"
 )
 
 type ProviderProbeOptions struct {

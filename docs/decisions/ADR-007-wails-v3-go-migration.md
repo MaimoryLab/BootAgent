@@ -4,7 +4,7 @@
 - Date: 2026-07-30
 - Supersedes: the Python-core, localhost-HTTP and PyInstaller decisions in ADR-003 only
 
-> Addendum (2026-08-06): the standalone `cmd/oneagent` CLI and its tests were
+> Addendum (2026-08-06): the standalone `cmd/bootagent` CLI and its tests were
 > removed. The desktop application is now the only product entry point. CLI
 > references below describe the decision as originally implemented.
 

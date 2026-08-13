@@ -13,10 +13,10 @@ import (
 	"strconv"
 	"strings"
 
-	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
-	"github.com/MaimoryLab/OneAgent/internal/jsonorder"
-	"github.com/MaimoryLab/OneAgent/internal/provider"
-	"github.com/MaimoryLab/OneAgent/internal/securefs"
+	oneerrors "github.com/MaimoryLab/BootAgent/internal/errors"
+	"github.com/MaimoryLab/BootAgent/internal/jsonorder"
+	"github.com/MaimoryLab/BootAgent/internal/provider"
+	"github.com/MaimoryLab/BootAgent/internal/securefs"
 	"github.com/pelletier/go-toml/v2"
 	"gopkg.in/yaml.v3"
 )
@@ -27,9 +27,9 @@ type Writer struct {
 	FS   securefs.Store
 }
 
-// kimiOwnedName is the provider entry and model-alias prefix OneAgent owns in
+// kimiOwnedName is the provider entry and model-alias prefix BootAgent owns in
 // Kimi Code's config. Everything else under providers/models is the user's.
-const kimiOwnedName = "oneagent"
+const kimiOwnedName = "bootagent"
 
 func NewWriter(home, osID string, filesystem securefs.Store) Writer {
 	return Writer{Home: home, OS: osID, FS: filesystem}
@@ -41,10 +41,10 @@ func NewWriter(home, osID string, filesystem securefs.Store) Writer {
 // variable.
 func (w Writer) WriteCodex(ctx context.Context, path, providerName, baseURL, apiKey, model string) error {
 	managed := strings.Join([]string{
-		"model_provider = \"oneagent\"",
+		"model_provider = \"bootagent\"",
 		"model = " + quoteTOML(model),
 		"",
-		"[model_providers.oneagent]",
+		"[model_providers.bootagent]",
 		"name = " + quoteTOML(providerName),
 		"base_url = " + quoteTOML(baseURL),
 		"wire_api = \"responses\"",
@@ -119,22 +119,22 @@ func (w Writer) WriteOpenAICompatible(ctx context.Context, path, schemaURL, prov
 	modelEntry := jsonorder.NewObject()
 	modelEntry.Set("name", model)
 	models.Set(model, modelEntry)
-	oneagent := jsonorder.NewObject()
-	oneagent.Set("npm", "@ai-sdk/openai-compatible")
-	oneagent.Set("name", providerName)
-	oneagent.Set("options", options)
-	oneagent.Set("models", models)
-	providers.Set("oneagent", oneagent)
-	document.Set("model", "oneagent/"+model)
+	bootagent := jsonorder.NewObject()
+	bootagent.Set("npm", "@ai-sdk/openai-compatible")
+	bootagent.Set("name", providerName)
+	bootagent.Set("options", options)
+	bootagent.Set("models", models)
+	providers.Set("bootagent", bootagent)
+	document.Set("model", "bootagent/"+model)
 	return w.writeJSON(ctx, path, document, true)
 }
 
-// zcodeOwnedName labels the provider entry OneAgent maintains. ZCode keys custom
+// zcodeOwnedName labels the provider entry BootAgent maintains. ZCode keys custom
 // providers by a generated UUID rather than by a stable name, so the name is the
-// only field that can identify an earlier OneAgent write.
-const zcodeOwnedName = "OneAgent"
+// only field that can identify an earlier BootAgent write.
+const zcodeOwnedName = "BootAgent"
 
-// WriteZCode adds or updates OneAgent's provider entry in ~/.zcode/v2/config.json.
+// WriteZCode adds or updates BootAgent's provider entry in ~/.zcode/v2/config.json.
 //
 // It writes the provider only, and deliberately does not select a model. ZCode
 // keeps no top-level "model" key and where it records the active model is neither
@@ -167,7 +167,7 @@ func (w Writer) WriteZCode(ctx context.Context, path, providerName, baseURL, api
 	// No "$schema" is written. ZCode 3.1.1 declared OpenCode's schema URL and
 	// 3.1.3 dropped the key entirely, so writing it back would reintroduce a field
 	// the current version chose to remove. Only the one provider entry below is
-	// OneAgent's to manage; every other key in this file belongs to ZCode and is
+	// BootAgent's to manage; every other key in this file belongs to ZCode and is
 	// left exactly as found.
 	providers, err := document.Child("provider")
 	if err != nil {
@@ -207,7 +207,7 @@ func (w Writer) WriteZCode(ctx context.Context, path, providerName, baseURL, api
 // user may open.
 func zcodeNewKey(name string) string {
 	digest := sha256.Sum256([]byte(name))
-	return "oneagent-" + hex.EncodeToString(digest[:8])
+	return "bootagent-" + hex.EncodeToString(digest[:8])
 }
 
 // zcodeProviderKey reuses the key of a provider already carrying this name, so a
@@ -280,15 +280,15 @@ func (w Writer) WriteWorkBuddy(ctx context.Context, path, baseURL, apiKey, model
 // Scope is deliberately narrower than the rest of the file: this writes the
 // provider and the default model, and nothing else. OpenClaw is a gateway whose
 // own commands own the daemon, the channel pairing and the Control UI, so
-// OneAgent does not touch `agents`, `channels` or `tools` here -- those are the
+// BootAgent does not touch `agents`, `channels` or `tools` here -- those are the
 // parts a user configures through `openclaw onboard`, and rewriting them from a
-// Provider record would overwrite decisions OneAgent has no input on.
+// Provider record would overwrite decisions BootAgent has no input on.
 //
 // Credentials sit at the top of the provider entry in camelCase (baseUrl,
 // apiKey), matching what OpenClaw reads. `api` names the wire protocol; the
 // catalog maps this adapter to OpenAI Chat Completions, so it is fixed here
 // rather than derived, and changing one without the other would write a config
-// whose declared protocol does not match the endpoint OneAgent probed.
+// whose declared protocol does not match the endpoint BootAgent probed.
 func (w Writer) WriteOpenClaw(ctx context.Context, path, providerName, baseURL, apiKey, model string) error {
 	document, err := loadJSON(path)
 	if err != nil {
@@ -310,7 +310,7 @@ func (w Writer) WriteOpenClaw(ctx context.Context, path, providerName, baseURL, 
 	modelEntry := jsonorder.NewObject()
 	modelEntry.Set("id", model)
 	entry.Set("models", []any{modelEntry})
-	providers.Set("oneagent", entry)
+	providers.Set("bootagent", entry)
 	// OpenClaw addresses a model as "<provider-key>/<model-id>", so the default
 	// has to name the entry written above, not the bare model id.
 	agents, err := document.Child("agents")
@@ -325,7 +325,7 @@ func (w Writer) WriteOpenClaw(ctx context.Context, path, providerName, baseURL, 
 	if err != nil {
 		return configError("Existing OpenClaw default model must contain an object: %s", path)
 	}
-	defaultModel.Set("primary", "oneagent/"+model)
+	defaultModel.Set("primary", "bootagent/"+model)
 	return w.writeJSON(ctx, path, document, true)
 }
 
@@ -346,7 +346,7 @@ func (w Writer) WriteAider(ctx context.Context, path, baseURL, apiKey string) er
 // written as a secret for that reason.
 //
 // type is "openai", not Kimi Code's own "kimi": that one means Moonshot's
-// first-party endpoint, while a OneAgent Provider is an arbitrary
+// first-party endpoint, while a BootAgent Provider is an arbitrary
 // OpenAI-compatible base URL.
 func (w Writer) WriteKimiCode(ctx context.Context, path, baseURL, apiKey, model string) error {
 	// The alias is namespaced under the owned provider name so it cannot collide
@@ -484,7 +484,7 @@ func loadJSON(path string) (*jsonorder.Object, error) {
 		// OpenCode and Kilo parse their JSON with JSON5, so comments can appear in
 		// a plain .json file too; the extension does not decide this.
 		if jsoncCommentPattern.MatchString(text) {
-			return nil, configError("%s contains JSONC comments, which OneAgent cannot preserve when it rewrites the file", path)
+			return nil, configError("%s contains JSONC comments, which BootAgent cannot preserve when it rewrites the file", path)
 		}
 		return nil, configError("Existing JSON configuration is invalid: %s: %v", path, err)
 	}
@@ -496,7 +496,7 @@ func mergeCodexTOML(existing, managed, path string) (string, error) {
 		topLevelKeys:   topLevelKeyPattern,
 		managedSection: managedSectionPattern,
 		ownedKeys:      []string{"model_provider", "model"},
-		ownedTables:    [][2]string{{"model_providers", "oneagent"}},
+		ownedTables:    [][2]string{{"model_providers", "bootagent"}},
 	})
 }
 
@@ -510,14 +510,14 @@ func MergeCodexMCPTOML(existing, managed, path, serverID string) (string, error)
 	})
 }
 
-// managedTOMLShape names the parts of a TOML config OneAgent owns, so the merge
+// managedTOMLShape names the parts of a TOML config BootAgent owns, so the merge
 // below can serve Agents whose file layout differs. Anything it does not name is
 // carried through untouched.
 type managedTOMLShape struct {
-	// topLevelKeys matches the bare keys OneAgent rewrites, so a stale value
+	// topLevelKeys matches the bare keys BootAgent rewrites, so a stale value
 	// above the first table header is dropped rather than duplicated.
 	topLevelKeys *regexp.Regexp
-	// managedSection matches the table headers OneAgent owns outright; their
+	// managedSection matches the table headers BootAgent owns outright; their
 	// bodies are discarded and replaced.
 	managedSection *regexp.Regexp
 	// ownedKeys and ownedTables are the same ground truth expressed against the
@@ -571,7 +571,7 @@ func mergeManagedTOML(existing, managed, path string, shape managedTOMLShape) (s
 			continue
 		}
 		if _, exists := parent[owned[1]]; exists && !managedFound {
-			return "", configError("Unsupported OneAgent TOML table syntax in %s", path)
+			return "", configError("Unsupported BootAgent TOML table syntax in %s", path)
 		}
 	}
 	for _, key := range shape.ownedKeys {
@@ -620,16 +620,16 @@ func configError(format string, values ...any) error {
 
 var (
 	topLevelKeyPattern    = regexp.MustCompile(`^\s*(model_provider|model)\s*=`)
-	managedSectionPattern = regexp.MustCompile(`^\[model_providers\.oneagent(?:\..+)?\]$`)
+	managedSectionPattern = regexp.MustCompile(`^\[model_providers\.bootagent(?:\..+)?\]$`)
 
 	kimiTopLevelKeyPattern = regexp.MustCompile(`^\s*(default_model)\s*=`)
-	// Both tables OneAgent owns, quoted or bare: providers.oneagent, and every
-	// models."oneagent/…" alias it has written. Matching every alias rather than
+	// Both tables BootAgent owns, quoted or bare: providers.bootagent, and every
+	// models."bootagent/…" alias it has written. Matching every alias rather than
 	// just the current one is what stops a model switch from leaving the previous
 	// alias behind, pointing at a provider entry that no longer describes it.
 	//
 	// The quotes are matched independently on each side because RE2 has no
 	// backreferences. A mismatched pair is not valid TOML, so it cannot reach
 	// here from a file that parsed.
-	kimiManagedSectionPattern = regexp.MustCompile(`^\[(?:providers\."?oneagent"?|models\."?oneagent/.+)\]$`)
+	kimiManagedSectionPattern = regexp.MustCompile(`^\[(?:providers\."?bootagent"?|models\."?bootagent/.+)\]$`)
 )

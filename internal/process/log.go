@@ -14,7 +14,7 @@ import (
 // day's log unreadable.
 const maxLogEntryBytes = 8 << 10
 
-// LoggingRunner records every command it runs to a file under the OneAgent home
+// LoggingRunner records every command it runs to a file under the BootAgent home
 // and otherwise behaves exactly like the runner it wraps. It exists because a
 // subprocess failure in the desktop build has no console to print to: without
 // this, a command that fails between two Wails calls leaves nothing to read.

@@ -1,6 +1,6 @@
 package app
 
-import "github.com/MaimoryLab/OneAgent/internal/jsonorder"
+import "github.com/MaimoryLab/BootAgent/internal/jsonorder"
 
 // IsCheckOnly reports whether this result came from the agent-presence check
 // path. It is intentionally a method rather than a serialized field: the

@@ -1,8 +1,8 @@
-# OneAgent 开发约定
+# BootAgent 开发约定
 
 当前代码线是 Go/Wails 稳定化主线。不要在本文硬编码发布版本；发布版本以 Git tag、
 GitHub Release 和构建工作流注入的版本为准。唯一产品入口是
-`cmd/oneagent-desktop`，React 只能通过生成的 Wails bindings 调用后端。
+`cmd/bootagent-desktop`，React 只能通过生成的 Wails bindings 调用后端。
 
 ## 目录
 
@@ -20,22 +20,22 @@ GitHub Release 和构建工作流注入的版本为准。唯一产品入口是
   Agent、Profile、Runtime、DesktopAgent、Transfer 和 MCP 八个服务；UpdateService 在桌面
   入口中单独注册。这里的 DTO 发生变化时，必须重新生成 `frontend/bindings`，并同步
   `frontend/src/backend/wails.ts` 与 `frontend/src/types/api.ts`。
-- `cmd/oneagent-desktop`：Wails 桌面入口。
+- `cmd/bootagent-desktop`：Wails 桌面入口。
 - `frontend/bindings`：Wails 生成文件，禁止手工编辑。
 
-`cmd/oneagent-release`、`cmd/oneagent-rc` 和 `cmd/oneagent-provider-smoke` 已在
+`cmd/bootagent-release`、`cmd/bootagent-rc` 和 `cmd/bootagent-provider-smoke` 已在
 `23805b0` 删除，其职责转移到 `.github/workflows/build-artifacts.yml`。历史文档中
 出现这些命令只代表背景，不是可执行指令。
 
 公共站点已迁移到
-[MaimoryLab/OneAgent-site](https://github.com/MaimoryLab/OneAgent-site)，本仓库不再
+[MaimoryLab/BootAgent-site](https://github.com/MaimoryLab/BootAgent-site)，本仓库不再
 包含 `site/`。站点把发布 tag 中的 `agents.lock.json` 和 `providers.lock.json` 复制到
 自己的 `data/` 目录；发布完成后，构建工作流会通知站点刷新。直接修改本仓库的
 `main` 不应立即改变站点，因为站点描述的是已发布版本支持的内容。
 
 `providers.lock.json` 是内置 Provider endpoint、fallback model 和公共站点商业披露
 字段的唯一事实来源。用户 Provider 与内置 Provider 覆盖项保存在
-`~/.oneagent/providers.json`。
+`~/.bootagent/providers.json`。
 
 ## 本地命令
 
@@ -61,7 +61,7 @@ Frontend、Docs 和 Release compliance。Go 门禁还运行 `staticcheck`。
 
 应用常规测试与 Wails 构建不依赖 Python。文档和发行合规脚本使用 Python 3。
 安装 Aider 需要 Python 3.12，但不要求预装：uv 会复用匹配的本地解释器，或把托管的
-CPython 下载到 `~/.oneagent/runtimes/python`。发布包仍不内置 Python。
+CPython 下载到 `~/.bootagent/runtimes/python`。发布包仍不内置 Python。
 
 ## CodeGraph
 
@@ -160,7 +160,7 @@ key。行为准则事件使用 GitHub 的内容举报功能发送给仓库管理
 Standards 页面或以下 API 复核：
 
 ```bash
-gh api repos/MaimoryLab/OneAgent/community/profile
+gh api repos/MaimoryLab/BootAgent/community/profile
 ```
 
 ## README 维护

@@ -5,7 +5,7 @@ import type { Translate } from "../i18n";
  *
  * Every Go message reaching the UI is English, and describeError passed it
  * through verbatim: normalizeWailsError wraps each backend failure in
- * OneAgentApiError, so the Chinese `t()` fallbacks callers supplied almost never
+ * BootAgentApiError, so the Chinese `t()` fallbacks callers supplied almost never
  * fired. This maps the stable error contract -- `error_code` from
  * internal/errors, plus the HTTP `status` a probe carries -- onto copy the i18n
  * table owns.
@@ -94,7 +94,7 @@ export function failureCopyFor(code: string | null | undefined, status: number |
     case "UPDATE_LOCATION_BLOCKED":
       // Withheld at check time on purpose: the swap runs after the app exits, so
       // this is the last moment anything can tell the user.
-      return { message: t("OneAgent 无法在当前位置自我更新"), hint: t("请先把 OneAgent 拖到「应用程序」文件夹，再重新检查更新") };
+      return { message: t("BootAgent 无法在当前位置自我更新"), hint: t("请先把 BootAgent 拖到「应用程序」文件夹，再重新检查更新") };
     case "UPDATE_NOT_INSTALLABLE":
       // Retrying re-downloads the same asset, so the hint has to send the user
       // somewhere else rather than suggest another attempt.

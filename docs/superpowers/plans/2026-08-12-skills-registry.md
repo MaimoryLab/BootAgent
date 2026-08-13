@@ -26,7 +26,7 @@ Modify only the existing integration files below unless a generated command upda
 
 - `internal/catalog/types.go`, `internal/catalog/manifest.go`, `internal/catalog/catalog_test.go`, `manifests/agents.lock.json` — catalog Skills contract.
 - `internal/app/status.go`, `internal/app/mcp.go` — shared dirty-window state while preserving the MCP compatibility methods.
-- `internal/binding/services.go`, `internal/binding/services_test.go`, `cmd/oneagent-desktop/main_wails.go` — service registration and close guard.
+- `internal/binding/services.go`, `internal/binding/services_test.go`, `cmd/bootagent-desktop/main_wails.go` — service registration and close guard.
 - `frontend/src/backend/wails.ts`, `frontend/src/backend/api.ts`, `frontend/src/types/api.ts`, `frontend/src/App.tsx`, `frontend/src/components/NavigationSidebar.tsx`, `frontend/src/i18n.tsx`, `frontend/src/styles/app.css` — bridge, route, navigation, translations, and layout.
 - `README.md`, `README_ZH.md`, `docs/internal/skills-registry-acceptance.md` — user-visible behavior and maintainer acceptance notes.
 - `frontend/bindings/**` — generated only by `task generate:bindings`; never hand edit.
@@ -218,7 +218,7 @@ func CopyTree(ctx context.Context, source, destination string) error
 func PublishTree(ctx context.Context, source, destination string) error
 ```
 
-`ScanAgentRoot` examines immediate child directories only. Folder discovery treats the selected directory as one candidate when it contains `SKILL.md`; otherwise it recursively examines directories and reports each invalid candidate independently. ZIP extraction enforces 128 MiB compressed input, 10,000 entries, 512 MiB expanded bytes, normalized slash paths, no absolute/`..`/duplicate names, and no symlink or special entries. All extraction and copy destinations are created under a caller-owned staging directory, and every destination path is checked with `filepath.Rel` before writing. `CopyTree` uses `Lstat` and never follows links. `PublishTree` stages beside the destination, renames an existing destination to a random `.oneagent-rollback-*` sibling, renames the staged directory into place, and restores the rollback sibling if publication fails.
+`ScanAgentRoot` examines immediate child directories only. Folder discovery treats the selected directory as one candidate when it contains `SKILL.md`; otherwise it recursively examines directories and reports each invalid candidate independently. ZIP extraction enforces 128 MiB compressed input, 10,000 entries, 512 MiB expanded bytes, normalized slash paths, no absolute/`..`/duplicate names, and no symlink or special entries. All extraction and copy destinations are created under a caller-owned staging directory, and every destination path is checked with `filepath.Rel` before writing. `CopyTree` uses `Lstat` and never follows links. `PublishTree` stages beside the destination, renames an existing destination to a random `.bootagent-rollback-*` sibling, renames the staged directory into place, and restores the rollback sibling if publication fails.
 
 - [ ] **Step 4: Add tests for copy preservation and failed rename rollback, then run them.**
 
@@ -253,7 +253,7 @@ func TestStoreAbsentRegistryIsEmpty(t *testing.T) {
 
 func TestVariantPathUsesComputedHash(t *testing.T) {
 	s := NewStore("/home/user", securefs.Store{})
-	if got := s.VariantPath("review", strings.Repeat("a", 64)); got != "/home/user/.oneagent/skills/review/variants/"+strings.Repeat("a", 64) { t.Fatal(got) }
+	if got := s.VariantPath("review", strings.Repeat("a", 64)); got != "/home/user/.bootagent/skills/review/variants/"+strings.Repeat("a", 64) { t.Fatal(got) }
 }
 ```
 
@@ -320,7 +320,7 @@ func TestUninstallCreatesBackupBeforeRemovingSSOT(t *testing.T)
 func TestSkillDraftSharesCloseGuardWithMCP(t *testing.T)
 ```
 
-The first test asserts `os.IsNotExist(~/.codex/skills)` after `ScanSkills`; the second asserts the scan candidate has `Stored == false` and `.oneagent/skills` is absent; Apply assertions check unrelated children remain and target result rows identify success/failure independently.
+The first test asserts `os.IsNotExist(~/.codex/skills)` after `ScanSkills`; the second asserts the scan candidate has `Stored == false` and `.bootagent/skills` is absent; Apply assertions check unrelated children remain and target result rows identify success/failure independently.
 
 - [ ] **Step 2: Run the tests to verify the app API is missing.**
 
@@ -401,7 +401,7 @@ git commit -m "feat: add Skills Registry use cases"
 - Create: `internal/binding/skill_dialog_other.go`
 - Modify: `internal/binding/services.go`
 - Modify: `internal/binding/services_test.go`
-- Modify: `cmd/oneagent-desktop/main_wails.go`
+- Modify: `cmd/bootagent-desktop/main_wails.go`
 - Test: `internal/binding/skill_test.go`
 
 - [ ] **Step 1: Write failing service allowlist and cancellation tests.**
@@ -424,12 +424,12 @@ Register `services.Skill` in `main_wails.go`. Replace the close hook’s `MCPDra
 
 - [ ] **Step 5: Run binding tests and commit.**
 
-Run: `gofmt -w internal/binding/skill*.go internal/binding/services.go internal/binding/services_test.go cmd/oneagent-desktop/main_wails.go && go test ./internal/binding -run 'Skill|ServiceMethodAllowlist' -count=1`
+Run: `gofmt -w internal/binding/skill*.go internal/binding/services.go internal/binding/services_test.go cmd/bootagent-desktop/main_wails.go && go test ./internal/binding -run 'Skill|ServiceMethodAllowlist' -count=1`
 
 Expected: PASS; reflection confirms no extra exported service methods.
 
 ```bash
-git add internal/binding/skill*.go internal/binding/services.go internal/binding/services_test.go cmd/oneagent-desktop/main_wails.go
+git add internal/binding/skill*.go internal/binding/services.go internal/binding/services_test.go cmd/bootagent-desktop/main_wails.go
 git commit -m "feat: expose Skills Registry through Wails"
 ```
 
@@ -543,7 +543,7 @@ git commit -m "feat: add Skills Registry page"
 - Modify: `README.md`
 - Modify: `README_ZH.md`
 - Create: `docs/internal/skills-registry-acceptance.md`
-- Modify: `cmd/oneagent-desktop/core_e2e.go`, `internal/binding/skill_dialog_server.go`, `frontend/e2e/wails-server.mjs`, `frontend/e2e/wails.spec.ts`
+- Modify: `cmd/bootagent-desktop/core_e2e.go`, `internal/binding/skill_dialog_server.go`, `frontend/e2e/wails-server.mjs`, `frontend/e2e/wails.spec.ts`
 - Test: `frontend/e2e/wails.spec.ts`
 
 - [ ] **Step 1: Document the shipped behavior in both README languages.**
@@ -556,7 +556,7 @@ Create `docs/internal/skills-registry-acceptance.md` with the eight numbered acc
 
 - [ ] **Step 3: Add deterministic server-mode fixtures and two E2E flows.**
 
-Add a server-only `selectSkillFolder` implementation in `internal/binding/skill_dialog_server.go` that reads the test-only `ONEAGENT_E2E_SKILL_FOLDER` environment variable and returns it, while the non-E2E server path returns the existing unavailable-dialog error. In `frontend/e2e/wails-server.mjs`, create one valid folder candidate below the temporary home and set that environment variable before spawning Wails. In `cmd/oneagent-desktop/core_e2e.go`, create initialized Claude/Codex Skills roots containing equal and differing fixture trees so the scan has one synced row and one conflict. Add two tests to `frontend/e2e/wails.spec.ts`: import the folder candidate, choose Codex, Apply, and assert the success state; then select a conflict hash and assert Apply is disabled until the explicit variant choice exists. Keep source paths out of assertions and browser storage.
+Add a server-only `selectSkillFolder` implementation in `internal/binding/skill_dialog_server.go` that reads the test-only `ONEAGENT_E2E_SKILL_FOLDER` environment variable and returns it, while the non-E2E server path returns the existing unavailable-dialog error. In `frontend/e2e/wails-server.mjs`, create one valid folder candidate below the temporary home and set that environment variable before spawning Wails. In `cmd/bootagent-desktop/core_e2e.go`, create initialized Claude/Codex Skills roots containing equal and differing fixture trees so the scan has one synced row and one conflict. Add two tests to `frontend/e2e/wails.spec.ts`: import the folder candidate, choose Codex, Apply, and assert the success state; then select a conflict hash and assert Apply is disabled until the explicit variant choice exists. Keep source paths out of assertions and browser storage.
 
 - [ ] **Step 4: Run documentation and E2E checks, then commit.**
 

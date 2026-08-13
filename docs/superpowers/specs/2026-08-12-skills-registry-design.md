@@ -2,15 +2,15 @@
 
 ## Goal
 
-Add a local Skills Registry to OneAgent. It discovers Skills already present in
+Add a local Skills Registry to BootAgent. It discovers Skills already present in
 supported Agent directories, imports Skills from a local folder or ZIP archive,
-keeps managed content variants in OneAgent's private directory, and copies selected
+keeps managed content variants in BootAgent's private directory, and copies selected
 content to supported Agents. The first release is deliberately local-only: it
 does not download from GitHub or `skills.sh`, run Skill code, or maintain a
 remote catalog.
 
 The design follows the useful part of `cc-switch`: Skill content has a single
-managed source and each Agent receives a projection. It follows OneAgent's MCP
+managed source and each Agent receives a projection. It follows BootAgent's MCP
 Registry for the scan, draft, conflict, Apply, write-lock, and Wails-boundary
 patterns, but it does not force directory trees into the MCP model or add a
 database.
@@ -81,7 +81,7 @@ without inventing a default, the private tree uses deterministic physical
 paths:
 
 ```text
-~/.oneagent/
+~/.bootagent/
   skills/
     <id>/
       variants/
@@ -129,8 +129,8 @@ The writable schema starts at version 1:
 scan. `import_sources` records bounded labels such as `folder` or `zip` without
 retaining a source filesystem path. `stored` says whether the complete variant
 tree currently exists in SSOT. `managed_targets` records the last successful
-OneAgent copy for that exact hash. It is used together with a fresh target hash
-check before OneAgent removes a directory. Target selections that have not been
+BootAgent copy for that exact hash. It is used together with a fresh target hash
+check before BootAgent removes a directory. Target selections that have not been
 applied remain only in React draft state. A scan may report a variant with
 `stored: false` when it exists only in an Agent directory; that candidate is not
 copied into SSOT until the user imports it and Applies the draft.

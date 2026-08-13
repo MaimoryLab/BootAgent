@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/MaimoryLab/OneAgent/internal/platform"
+	"github.com/MaimoryLab/BootAgent/internal/platform"
 )
 
 // settingsSchemaVersion guards the on-disk shape. Only bump it for a change a
@@ -56,7 +56,7 @@ type storedSettings struct {
 }
 
 func (u *UseCases) settingsPath() string {
-	return filepath.Join(u.status.Home, ".oneagent", "settings.json")
+	return filepath.Join(u.status.Home, ".bootagent", "settings.json")
 }
 
 // Settings reads the stored preferences, falling back to the regional default

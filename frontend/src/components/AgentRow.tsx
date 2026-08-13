@@ -42,7 +42,7 @@ export function AgentRow({ agent, status, selected, onToggle, single = false, na
         <span>{agent.guideOnly
           ? t("显示官方安装与配置步骤")
           : agent.packageManager === "official-script"
-            ? t("支持检测、安装与配置，但运行时无法被 OneAgent 管理")
+            ? t("支持检测、安装与配置，但运行时无法被 BootAgent 管理")
             : t("支持检测、安装与初始化配置")}</span>
         {agent.platformNote ? <small>{agent.platformNote}</small> : null}
       </span>

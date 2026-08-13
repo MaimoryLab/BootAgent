@@ -21,6 +21,9 @@ import { I18nProvider, useI18n } from "./i18n";
 import { TaskCenterProvider, useTaskCenter } from "./state/TaskCenterContext";
 import { ThemeProvider } from "./state/ThemeContext";
 import { WizardProvider, useWizard } from "./state/WizardContext";
+import { migrateStorageKeys } from "./storageMigration";
+
+migrateStorageKeys();
 
 function SetupGuard({ stage, children }: { stage: "provider" | "model" | "review" | "activation"; children: React.ReactNode }) {
   const { state } = useWizard();
@@ -51,7 +54,7 @@ function SetupGuard({ stage, children }: { stage: "provider" | "model" | "review
 }
 
 /**
- * Landing route. A machine with no ~/.oneagent has nothing to show on the
+ * Landing route. A machine with no ~/.bootagent has nothing to show on the
  * overview, so it opens onboarding instead. The decision waits for the status
  * call: redirecting on a null status would send every launch to onboarding for
  * one frame and then bounce it back.

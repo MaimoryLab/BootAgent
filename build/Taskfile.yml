@@ -57,7 +57,7 @@ tasks:
     generates:
       - frontend/bindings/**/*
     cmds:
-      - '{{.WAILS3}} generate bindings -f "-tags wails" -ts -i -d frontend/bindings ./cmd/oneagent-desktop'
+      - '{{.WAILS3}} generate bindings -f "-tags wails" -ts -i -d frontend/bindings ./cmd/bootagent-desktop'
 
   generate:darwin:icon:
     summary: Generate the macOS application icon

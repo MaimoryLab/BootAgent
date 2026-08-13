@@ -11,8 +11,8 @@ import (
 	"sort"
 	"strings"
 
-	oneagent "github.com/MaimoryLab/OneAgent"
-	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
+	bootagent "github.com/MaimoryLab/BootAgent"
+	oneerrors "github.com/MaimoryLab/BootAgent/internal/errors"
 )
 
 const SchemaVersion = 1
@@ -20,7 +20,7 @@ const SchemaVersion = 1
 var agentIDPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*$`)
 
 func LoadEmbedded() (Manifest, error) {
-	data, err := oneagent.EmbeddedAgentLock()
+	data, err := bootagent.EmbeddedAgentLock()
 	if err != nil {
 		return Manifest{}, oneerrors.New(
 			oneerrors.InvalidRequest,

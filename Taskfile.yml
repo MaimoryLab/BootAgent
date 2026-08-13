@@ -1,7 +1,7 @@
 version: '3'
 
 vars:
-  APP_NAME: oneagent-desktop
+  APP_NAME: bootagent-desktop
   BIN_DIR: bin
   VITE_PORT: '{{.WAILS_VITE_PORT | default 9245}}'
   # Target OS for build/run. Defaults to the host OS; override with GOOS=... to

@@ -3,7 +3,7 @@
 > 状态：**协议要求仍然有效，执行入口已不存在**（2026-08-04）。
 >
 > 本文描述的三协议槽位、凭据处理和判定口径仍是 Provider 接入的要求。但执行它的
-> `cmd/oneagent-provider-smoke` 已于 `23805b0` 随构建流程迁移而移除，本文的命令
+> `cmd/bootagent-provider-smoke` 已于 `23805b0` 随构建流程迁移而移除，本文的命令
 > **无法运行**。恢复自动化前，正式 RC 需按下面的口径手工执行。
 >
 > 本文引用的 `.github/workflows/release-candidate.yml` 同样不存在；当前仓库只有
@@ -11,7 +11,7 @@
 
 ## 测试层级
 
-OneAgent 将 Provider 测试分为两个层级：
+BootAgent 将 Provider 测试分为两个层级：
 
 1. 本地预检：复用 Go Provider 客户端，验证鉴权头和三类协议请求结构。
 2. 正式 Release Candidate：使用 PPIO、Novita 各自的受保护低权限 Key 验证真实供应商能力。
@@ -42,13 +42,13 @@ ONEAGENT_<PROVIDER>_RESPONSES_MODEL
 ## 本地执行
 
 ```text
-go run ./cmd/oneagent-provider-smoke --provider ppio --timeout 30s
+go run ./cmd/bootagent-provider-smoke --provider ppio --timeout 30s
 ```
 
 命令只从环境变量读取 Key 和模型，不接受命令行凭据，也不会把响应正文写入日志。正式 RC：
 
 ```text
-go run ./cmd/oneagent-provider-smoke --provider all --timeout 30s
+go run ./cmd/bootagent-provider-smoke --provider all --timeout 30s
 ```
 
 `all` 严格只运行 PPIO 和 Novita。自定义端点应在单独的环境隔离中运行，临时代理结果不能替代正式供应商证据。

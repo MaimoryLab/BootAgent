@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/MaimoryLab/OneAgent/internal/catalog"
+	"github.com/MaimoryLab/BootAgent/internal/catalog"
 )
 
 type latestDoer func(*http.Request) (*http.Response, error)

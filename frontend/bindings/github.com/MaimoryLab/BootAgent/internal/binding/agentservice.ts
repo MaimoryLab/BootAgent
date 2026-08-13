@@ -14,21 +14,21 @@ import * as app$0 from "../app/models.js";
 import * as $models from "./models.js";
 
 export function Activate(request: $models.ActivateRequest): $CancellablePromise<$models.ActivateResponse> {
-    return $Call.ByID(1962001654, request);
+    return $Call.ByID(1566640042, request);
 }
 
 export function Install(request: $models.InstallRequest): $CancellablePromise<$models.InstallResponse> {
-    return $Call.ByID(3913480362, request);
+    return $Call.ByID(1289781782, request);
 }
 
 /**
- * Launch opens a terminal window running one Agent with its OneAgent
+ * Launch opens a terminal window running one Agent with its BootAgent
  * configuration already sourced.
  */
 export function Launch(request: $models.LaunchRequest): $CancellablePromise<$models.LaunchResponse> {
-    return $Call.ByID(1510250212, request);
+    return $Call.ByID(255501840, request);
 }
 
 export function Update(request: $models.UpdateRequest): $CancellablePromise<app$0.AgentUpdateResult> {
-    return $Call.ByID(444770282, request);
+    return $Call.ByID(3171706782, request);
 }

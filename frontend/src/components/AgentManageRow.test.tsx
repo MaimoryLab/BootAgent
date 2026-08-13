@@ -3,7 +3,7 @@ import { MemoryRouter } from "react-router-dom";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { OneAgentApiError } from "../backend/errors";
+import { BootAgentApiError } from "../backend/errors";
 import type { AgentCatalogItem, AgentStatus } from "../types/api";
 import { AgentManageRow, compareVersions, isBehind, targetSummary, updateOffer } from "./AgentManageRow";
 
@@ -214,7 +214,7 @@ describe("AgentManageRow", () => {
   });
 
   it("reports a launch failure in the row instead of failing silently", async () => {
-    launchAgent.mockRejectedValue(new OneAgentApiError("没有可用的终端", "PREREQUISITE_MISSING", false, 500));
+    launchAgent.mockRejectedValue(new BootAgentApiError("没有可用的终端", "PREREQUISITE_MISSING", false, 500));
     renderRow();
     await userEvent.click(screen.getByRole("button", { name: /启动/ }));
     await userEvent.click(screen.getByRole("dialog").querySelector("button[type=submit]") as HTMLElement);
@@ -225,7 +225,7 @@ describe("AgentManageRow", () => {
 describe("targetSummary", () => {
   const providers = { ppio: { name: "PPIO", home: "https://ppio.com/", base_url: "https://api.ppio.com/openai" } };
 
-  it("reports a config OneAgent never wrote instead of calling it unconfigured", () => {
+  it("reports a config BootAgent never wrote instead of calling it unconfigured", () => {
     // The defect this exists for: status reported configured=true with a null
     // provider, so a live hand-written configuration rendered as "未配置".
     const summary = targetSummary(
@@ -236,7 +236,7 @@ describe("targetSummary", () => {
         detected: {
           baseUrl: "https://api.other-vendor.com/v1",
           model: "gpt-5-mini",
-          managedByOneAgent: false,
+          managedByBootAgent: false,
           unreadable: null,
         },
       }),
@@ -244,15 +244,15 @@ describe("targetSummary", () => {
     );
     expect(summary.text).toContain("https://api.other-vendor.com/v1");
     expect(summary.text).toContain("gpt-5-mini");
-    expect(summary.note).toContain("非 OneAgent 写入");
+    expect(summary.note).toContain("非 BootAgent 写入");
   });
 
   it("says the file changed under us when the two sources disagree", () => {
-    // Drift means someone edited the config outside OneAgent; the file wins
+    // Drift means someone edited the config outside BootAgent; the file wins
     // because that is what the Agent will actually load.
     const summary = targetSummary(
       agentStatus({
-        detected: { baseUrl: "https://moved.example/v1", model: "m", managedByOneAgent: false, unreadable: null },
+        detected: { baseUrl: "https://moved.example/v1", model: "m", managedByBootAgent: false, unreadable: null },
       }),
       providers,
     );
@@ -266,7 +266,7 @@ describe("targetSummary", () => {
         detected: {
           baseUrl: "https://api.ppio.com/openai",
           model: "deepseek/deepseek-v3",
-          managedByOneAgent: true,
+          managedByBootAgent: true,
           unreadable: null,
         },
       }),
@@ -281,7 +281,7 @@ describe("targetSummary", () => {
       agentStatus({
         provider: null,
         model: null,
-        detected: { baseUrl: "", model: "", managedByOneAgent: false, unreadable: "TOML 无法解析：第 3 行" },
+        detected: { baseUrl: "", model: "", managedByBootAgent: false, unreadable: "TOML 无法解析：第 3 行" },
       }),
       providers,
     );

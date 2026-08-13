@@ -17,33 +17,33 @@ import * as mcp$0 from "../mcp/models.js";
 import * as $models from "./models.js";
 
 export function Apply(request: app$0.MCPApplyRequest): $CancellablePromise<app$0.MCPApplyResult> {
-    return $Call.ByID(1122671950, request);
+    return $Call.ByID(2882099002, request);
 }
 
 export function Export(request: $models.MCPExportRequest): $CancellablePromise<string> {
-    return $Call.ByID(1156741564, request);
+    return $Call.ByID(3184279504, request);
 }
 
 export function Get(id: string, sourceAgent: string): $CancellablePromise<app$0.MCPServerDetail> {
-    return $Call.ByID(2848286610, id, sourceAgent);
+    return $Call.ByID(1746904734, id, sourceAgent);
 }
 
 export function List(): $CancellablePromise<app$0.MCPServerSummary[] | null> {
-    return $Call.ByID(934006466);
+    return $Call.ByID(1289869742);
 }
 
 export function PreviewImport(request: $models.MCPImportRequest): $CancellablePromise<mcp$0.Registry> {
-    return $Call.ByID(3912742423, request);
+    return $Call.ByID(3349625891, request);
 }
 
 export function SaveImported(registry: mcp$0.Registry): $CancellablePromise<void> {
-    return $Call.ByID(3700198299, registry);
+    return $Call.ByID(1751351823, registry);
 }
 
 export function Scan(): $CancellablePromise<app$0.MCPScanResult> {
-    return $Call.ByID(3620222707);
+    return $Call.ByID(174067895);
 }
 
 export function SetDraftState(dirty: boolean, locale: string): $CancellablePromise<void> {
-    return $Call.ByID(3453125470, dirty, locale);
+    return $Call.ByID(1341156914, dirty, locale);
 }

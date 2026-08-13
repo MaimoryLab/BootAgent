@@ -15,20 +15,20 @@ Confirm that:
 1. Open the API key page in the PPIO console.
 2. Create a new API key.
 3. Copy it the moment it is first shown.
-4. Paste it into OneAgent's password field.
+4. Paste it into BootAgent's password field.
 5. Click **Test connection**.
 
 The key is shown only once. Do not leave the page expecting to read it again later.
 
-## How OneAgent handles the key
+## How BootAgent handles the key
 
-OneAgent's standing constraints:
+BootAgent's standing constraints:
 
 - The key travels from the local form to the local install flow, and nowhere else.
 - The key is never passed as a command-line argument.
 - The key is never written to logs or error messages.
-- The key is never uploaded to a OneAgent server.
-- A timestamped backup is created before any configuration is overwritten. Backups are kept per target under `~/.oneagent/backup`; OneAgent keeps three historical versions by default, configurable in Settings.
+- The key is never uploaded to a BootAgent server.
+- A timestamped backup is created before any configuration is overwritten. Backups are kept per target under `~/.bootagent/backup`; BootAgent keeps three historical versions by default, configurable in Settings.
 
 ## Recommended local environment variables
 
@@ -43,7 +43,7 @@ storage and permission guidance for the version you have installed.
 
 ## If a key leaks
 
-Revoke the old key in the PPIO console immediately, create a new one, and run OneAgent's
+Revoke the old key in the PPIO console immediately, create a new one, and run BootAgent's
 setup again. Deleting the chat message or the git commit is not enough — the key may
 already sit in a cache, a log, or a screenshot.
 

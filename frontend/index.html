@@ -6,8 +6,8 @@
     <meta name="color-scheme" content="light dark" />
     <meta name="theme-color" content="#f5f5f7" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#151517" media="(prefers-color-scheme: dark)" />
-    <meta name="description" content="OneAgent is the calm control plane for coding agents, providers, models, and profiles." />
-    <title>OneAgent — every agent, one clear lane</title>
+    <meta name="description" content="BootAgent is the calm control plane for coding agents, providers, models, and profiles." />
+    <title>BootAgent — every agent, one clear lane</title>
     <!--
       Runs before the first paint so a forced theme does not flash the other
       palette while React mounts. Kept inline and dependency-free for that
@@ -16,7 +16,7 @@
     <script>
       (function () {
         try {
-          var stored = window.localStorage.getItem("oneagent.theme");
+          var stored = window.localStorage.getItem("bootagent.theme");
           if (stored === "dark" || stored === "light") {
             document.documentElement.classList.add("theme-" + stored);
           }

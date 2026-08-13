@@ -5,7 +5,7 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/MaimoryLab/OneAgent/internal/app"
+	"github.com/MaimoryLab/BootAgent/internal/app"
 )
 
 // SkillService is the narrow Wails boundary for the local Skills registry.

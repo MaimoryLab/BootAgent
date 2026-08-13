@@ -6,17 +6,17 @@
 import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wailsio/runtime";
 
 export function Check(): $CancellablePromise<string> {
-    return $Call.ByID(4243899107);
+    return $Call.ByID(2185770127);
 }
 
 export function DownloadAndInstall(): $CancellablePromise<void> {
-    return $Call.ByID(697947605);
+    return $Call.ByID(294692985);
 }
 
 export function Restart(): $CancellablePromise<void> {
-    return $Call.ByID(841440456);
+    return $Call.ByID(2631472756);
 }
 
 export function Version(): $CancellablePromise<string> {
-    return $Call.ByID(4072212011);
+    return $Call.ByID(939852495);
 }

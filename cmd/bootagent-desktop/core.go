@@ -2,7 +2,7 @@
 
 package main
 
-import "github.com/MaimoryLab/OneAgent/internal/app"
+import "github.com/MaimoryLab/BootAgent/internal/app"
 
 func newDesktopUseCases() *app.UseCases {
 	return app.NewUseCasesFromEnvironment()

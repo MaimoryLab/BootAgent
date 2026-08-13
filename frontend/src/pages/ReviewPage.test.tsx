@@ -23,7 +23,7 @@ const status = {
   groups: [],
   providers: { ppio: { name: "PPIO", base_url: "https://api.ppinfra.com/openai", has_key: true } },
   mirrors: [],
-  paths: { codex_config: "~/.codex/config.toml", profile: "~/.oneagent/profile.json" },
+  paths: { codex_config: "~/.codex/config.toml", profile: "~/.bootagent/profile.json" },
   backups: {},
   profiles: [],
   activeProfile: null,

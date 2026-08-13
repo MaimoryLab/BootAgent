@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/MaimoryLab/OneAgent/internal/platform"
-	"github.com/MaimoryLab/OneAgent/internal/process"
-	"github.com/MaimoryLab/OneAgent/internal/securefs"
+	"github.com/MaimoryLab/BootAgent/internal/platform"
+	"github.com/MaimoryLab/BootAgent/internal/process"
+	"github.com/MaimoryLab/BootAgent/internal/securefs"
 )
 
 // A Runner that answers PowerShell lookups and records the argv it is handed,
@@ -77,7 +77,7 @@ func TestPersistRuntimePathReportsNoChangeWhenPowerShellIsSilent(t *testing.T) {
 	// The script only prints "updated" when it actually rewrote PATH. Reporting
 	// a change anyway would make the installer claim work it did not do.
 	runner := &pathRunner{found: map[string]string{"powershell": `C:\Windows\powershell.exe`}}
-	changed, err := PersistRuntimePath(context.Background(), windowsRuntime(`C:\Users\u`, runner), securefs.New(securefs.Options{OS: "windows"}), []string{`C:\Users\u\.oneagent\runtimes\node\v1\bin`})
+	changed, err := PersistRuntimePath(context.Background(), windowsRuntime(`C:\Users\u`, runner), securefs.New(securefs.Options{OS: "windows"}), []string{`C:\Users\u\.bootagent\runtimes\node\v1\bin`})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

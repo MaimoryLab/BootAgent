@@ -12,7 +12,7 @@ import { createContext, type PropsWithChildren, useCallback, useContext, useEffe
  */
 export type ThemePreference = "system" | "light" | "dark";
 
-export const THEME_STORAGE_KEY = "oneagent.theme";
+export const THEME_STORAGE_KEY = "bootagent.theme";
 
 function isPreference(value: unknown): value is ThemePreference {
   return value === "system" || value === "light" || value === "dark";

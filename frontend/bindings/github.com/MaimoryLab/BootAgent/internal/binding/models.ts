@@ -115,7 +115,7 @@ export interface ModelsResponse {
     "protocols"?: { [_ in string]?: ProbeResponse } | null;
 
     /**
-     * Model is the ID that was probed, and AutoSelectedModel says OneAgent chose
+     * Model is the ID that was probed, and AutoSelectedModel says BootAgent chose
      * it rather than the user. A failure on a model we picked is not evidence
      * about the user's key, and the UI has to be able to say which it is.
      */
@@ -163,7 +163,7 @@ export interface ProbeResponse {
     "protocols"?: { [_ in string]?: ProbeResponse } | null;
 
     /**
-     * Model is the ID that was probed, and AutoSelectedModel says OneAgent chose
+     * Model is the ID that was probed, and AutoSelectedModel says BootAgent chose
      * it rather than the user. A failure on a model we picked is not evidence
      * about the user's key, and the UI has to be able to say which it is.
      */

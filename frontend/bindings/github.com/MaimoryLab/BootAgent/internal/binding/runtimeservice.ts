@@ -24,20 +24,20 @@ import * as $models from "./models.js";
  * GetSettings reads the machine-level download preferences.
  */
 export function GetSettings(): $CancellablePromise<app$0.Settings> {
-    return $Call.ByID(3037304099);
+    return $Call.ByID(3219146295);
 }
 
 export function InstallRuntime(request: $models.InstallRuntimeRequest): $CancellablePromise<app$0.InstallRuntimeResult> {
-    return $Call.ByID(2509127327, request);
+    return $Call.ByID(3390714163, request);
 }
 
 export function ListRuntimes(): $CancellablePromise<app$0.RuntimeStatus[] | null> {
-    return $Call.ByID(1068151511);
+    return $Call.ByID(1842991307);
 }
 
 /**
  * SaveSettings persists the download preferences and returns what was stored.
  */
 export function SaveSettings(request: app$0.Settings): $CancellablePromise<app$0.Settings> {
-    return $Call.ByID(1805339898, request);
+    return $Call.ByID(3381352702, request);
 }

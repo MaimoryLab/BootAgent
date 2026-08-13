@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/MaimoryLab/OneAgent/internal/catalog"
-	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
-	"github.com/MaimoryLab/OneAgent/internal/securefs"
+	"github.com/MaimoryLab/BootAgent/internal/catalog"
+	oneerrors "github.com/MaimoryLab/BootAgent/internal/errors"
+	"github.com/MaimoryLab/BootAgent/internal/securefs"
 )
 
 const userProviderSchemaVersion = 1
@@ -64,7 +64,7 @@ func NewStore(home string, filesystem securefs.Store) Store {
 }
 
 func (s Store) Path() string {
-	return filepath.Join(s.home, ".oneagent", "providers.json")
+	return filepath.Join(s.home, ".bootagent", "providers.json")
 }
 
 func (s Store) Get(id string) (Entry, error) {
