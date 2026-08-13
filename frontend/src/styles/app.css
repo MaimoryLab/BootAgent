@@ -2210,6 +2210,7 @@
 .skills-import-name strong { grid-column: 2; }
 .skills-import-name small { grid-column: 2; color: var(--text-secondary); line-height: 1.4; }
 .skills-import-name input { grid-column: 1; grid-row: 1 / span 2; }
+.skills-import-name input[type="checkbox"] { width: 19px; height: 19px; margin: 0; accent-color: var(--blue); }
 .skills-import-row > .mcp-targets { min-width: 0; grid-template-columns: repeat(auto-fit, minmax(95px, 1fr)); }
 @media (max-width: 640px) {
   .skills-import-row { grid-template-columns: 1fr; gap: 12px; }
