@@ -40,13 +40,13 @@ The MCP Registry is user-level only and stored locally. It supports stdio, HTTP,
 
 ## Download
 
-Download the latest macOS or Windows installer from [GitHub Releases](https://github.com/MaimoryLab/OneAgent/releases/latest). Release artifacts include SHA-256 checksums. The current channel is `technical-preview-unsigned` while Wails remains in Alpha; platform signing and notarization are not yet provided.
+Download the latest macOS, Windows, or Linux package from [GitHub Releases](https://github.com/MaimoryLab/OneAgent/releases/latest). Linux releases provide `deb`, `rpm`, AppImage, and OTA `zip` packages for amd64 and arm64. Release artifacts include SHA-256 checksums. The current channel is `technical-preview-unsigned` while Wails remains in Alpha; platform signing and notarization are not yet provided.
 
 OneAgent does not redistribute Agent packages and does not bundle Node.js, Git, WebView, or API keys. Missing prerequisites are reported with a link to the official installation instructions.
 
 ## Build from source
 
-Requirements: Go, Node.js, pnpm 11.21.0, and the target platform's WebView dependencies.
+Requirements: Go, Node.js, pnpm 11.21.0, and the target platform's WebView dependencies. Linux builds use GTK4 and WebKitGTK 6.0; GTK3 is not supported.
 
 ```text
 git clone https://github.com/MaimoryLab/OneAgent.git

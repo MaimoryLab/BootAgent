@@ -34,9 +34,10 @@ config method page, then read [Choosing a config tool](./03-config-tools.md) and
 ## Launching the desktop app
 
 Download the `technical-preview-unsigned` package for your platform, unpack it, and
-launch it directly: `OneAgent.app` on macOS, `oneagent-desktop.exe` on Windows. Packages
-at this stage are neither signed nor notarized, so the first launch needs manual approval
-from your operating system.
+launch it directly: `OneAgent.app` on macOS, `oneagent-desktop.exe` on Windows, or the
+Linux AppImage. Linux also provides `deb`, `rpm`, and OTA `zip` packages for amd64 and
+arm64. Packages at this stage are neither signed nor notarized, so the first launch needs
+manual approval from your operating system.
 
 To run from source instead, for development or review:
 

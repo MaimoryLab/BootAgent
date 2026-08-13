@@ -11,9 +11,9 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/updater/providers/github"
 )
 
-// releaseAssets is the asset list published for v0.5.0, in the order the
-// GitHub API returns it (alphabetical). The .dmg preceding the .zip is what
-// made the default matcher pick a disk image.
+// releaseAssets mirrors the release asset set, including Linux's package
+// containers. The .dmg preceding the .zip is what made the default matcher
+// pick a disk image.
 func releaseAssets() []github.ReleaseAsset {
 	names := []string{
 		"OneAgent-darwin-amd64.dmg",
@@ -24,6 +24,14 @@ func releaseAssets() []github.ReleaseAsset {
 		"OneAgent-windows-amd64.zip",
 		"OneAgent-windows-arm64-installer.exe",
 		"OneAgent-windows-arm64.zip",
+		"OneAgent-linux-amd64.AppImage",
+		"OneAgent-linux-amd64.deb",
+		"OneAgent-linux-amd64.rpm",
+		"OneAgent-linux-amd64.zip",
+		"OneAgent-linux-arm64.AppImage",
+		"OneAgent-linux-arm64.deb",
+		"OneAgent-linux-arm64.rpm",
+		"OneAgent-linux-arm64.zip",
 		"SHA256SUMS",
 	}
 	assets := make([]github.ReleaseAsset, len(names))
@@ -44,6 +52,8 @@ func TestExtractableAssetMatcherPicksTheArchiveForEveryPlatform(t *testing.T) {
 		{"darwin", "amd64", "OneAgent-darwin-amd64.zip"},
 		{"windows", "amd64", "OneAgent-windows-amd64.zip"},
 		{"windows", "arm64", "OneAgent-windows-arm64.zip"},
+		{"linux", "amd64", "OneAgent-linux-amd64.zip"},
+		{"linux", "arm64", "OneAgent-linux-arm64.zip"},
 	} {
 		t.Run(test.platform+"/"+test.arch, func(t *testing.T) {
 			request := updater.CheckRequest{CurrentVersion: "0.4.0", Platform: test.platform, Arch: test.arch}
@@ -75,7 +85,7 @@ func TestDefaultAssetMatcherPicksTheDiskImage(t *testing.T) {
 }
 
 func TestExtractableAssetMatcherReportsNoCandidate(t *testing.T) {
-	request := updater.CheckRequest{CurrentVersion: "0.4.0", Platform: "linux", Arch: "arm64"}
+	request := updater.CheckRequest{CurrentVersion: "0.4.0", Platform: "freebsd", Arch: "arm64"}
 	if index := ExtractableAssetMatcher(request, releaseAssets()); index != -1 {
 		t.Fatalf("index = %d, want -1 for a platform with no asset", index)
 	}

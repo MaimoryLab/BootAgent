@@ -6,7 +6,7 @@
 
 | File | Purpose | Needs a key |
 | --- | --- | --- |
-| `OneAgent.app` (macOS) / `oneagent-desktop.exe` (Windows) | Desktop app | No |
+| `OneAgent.app` (macOS) / `oneagent-desktop.exe` (Windows) / Linux AppImage | Desktop app | No |
 
 Release packages are built by `.github/workflows/build-artifacts.yml`. Earlier versions
 launched a local GUI through three scripts — `launcher`, `start.sh`, and `start.command` —

@@ -30,8 +30,8 @@ func configureUpdater(appInstance *application.App) binding.UpdateBackend {
 	provider, err := github.New(github.Config{
 		Repository:    "MaimoryLab/OneAgent",
 		ChecksumAsset: "SHA256SUMS",
-		// Every release ships a .dmg, an installer .exe and a .zip per
-		// platform. Only the .zip is a format the updater unpacks.
+		// Every release ships platform-specific installers plus one OTA .zip.
+		// Only the .zip is a format the updater unpacks.
 		AssetMatcher: binding.ExtractableAssetMatcher,
 	})
 	if err != nil {

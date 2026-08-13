@@ -251,8 +251,133 @@ jobs:
           path: bin/OneAgent-windows-${{ matrix.arch.ota }}-installer.exe
           if-no-files-found: error
 
+  linux:
+    needs: frontend
+    name: Build Linux ${{ matrix.arch.label }}
+    runs-on: ${{ matrix.arch.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        arch:
+          - {label: x64, goarch: amd64, ota: amd64, runner: ubuntu-24.04}
+          - {label: arm64, goarch: arm64, ota: arm64, runner: ubuntu-24.04-arm}
+
+    env:
+      CGO_ENABLED: 1
+      GOARCH: ${{ matrix.arch.goarch }}
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+
+      - name: Download frontend
+        uses: actions/download-artifact@v8
+        with:
+          name: frontend-dist
+          path: frontend/dist
+
+      - name: Install GTK4 build dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential \
+            pkg-config \
+            libgtk-4-dev \
+            libwebkitgtk-6.0-dev
+
+      - name: Build GTK4 Linux binary
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p bin
+          version_ldflag="-X github.com/MaimoryLab/OneAgent/internal/version.Version=$RELEASE_VERSION"
+          go build -tags wails,production -trimpath -buildvcs=false \
+            -ldflags="-w -s $version_ldflag" \
+            -o bin/oneagent-desktop ./cmd/oneagent-desktop
+          file bin/oneagent-desktop
+          expected_arch='${{ matrix.arch.goarch == 'amd64' && 'x86-64' || 'ARM aarch64' }}'
+          file bin/oneagent-desktop | grep -F "$expected_arch"
+
+      - name: Generate Linux packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${RELEASE_VERSION#v}"
+          export VERSION="$version"
+          desktop="build/linux/oneagent-desktop.desktop"
+          appimage_arch='${{ matrix.arch.goarch == 'amd64' && 'x86_64' || 'aarch64' }}'
+          package_arch='${{ matrix.arch.ota }}'
+
+          go run github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.7 \
+            generate .desktop \
+            -name OneAgent \
+            -exec oneagent-desktop \
+            -icon appicon \
+            -outputfile "$desktop" \
+            -categories 'Development;' \
+            -comment 'Local AI development environment activator'
+
+          go run github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.7 \
+            generate appimage \
+            -binary bin/oneagent-desktop \
+            -icon build/appicon.png \
+            -desktopfile "$desktop" \
+            -outputdir bin \
+            -builddir build/linux/appimage/build
+          mv "bin/oneagent-desktop-${appimage_arch}.AppImage" "bin/OneAgent-linux-${package_arch}.AppImage"
+
+          go run github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.7 \
+            tool package \
+            -name oneagent-desktop \
+            -format deb \
+            -config build/linux/nfpm/nfpm.yaml \
+            -out bin
+          test -s bin/oneagent-desktop.deb
+          mv bin/oneagent-desktop.deb "bin/OneAgent-linux-${package_arch}.deb"
+
+          go run github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.7 \
+            tool package \
+            -name oneagent-desktop \
+            -format rpm \
+            -config build/linux/nfpm/nfpm.yaml \
+            -out bin
+          test -s bin/oneagent-desktop.rpm
+          mv bin/oneagent-desktop.rpm "bin/OneAgent-linux-${package_arch}.rpm"
+
+          (cd bin && zip -q "OneAgent-linux-${package_arch}.zip" oneagent-desktop)
+          roots="$(unzip -Z1 "bin/OneAgent-linux-${package_arch}.zip" | awk -F/ 'NF {print $1}' | sort -u)"
+          test "$roots" = oneagent-desktop
+
+      - name: Verify Linux package outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          arch='${{ matrix.arch.ota }}'
+          test -x bin/OneAgent-linux-${arch}.AppImage
+          test -s bin/OneAgent-linux-${arch}.deb
+          test -s bin/OneAgent-linux-${arch}.rpm
+          test -s bin/OneAgent-linux-${arch}.zip
+          test "$(unzip -Z1 bin/OneAgent-linux-${arch}.zip | awk -F/ 'NF {print $1}' | sort -u)" = oneagent-desktop
+
+      - name: Upload Linux packages
+        uses: actions/upload-artifact@v7
+        with:
+          name: installer-linux-${{ matrix.arch.label }}
+          path: |
+            bin/OneAgent-linux-${{ matrix.arch.ota }}.AppImage
+            bin/OneAgent-linux-${{ matrix.arch.ota }}.deb
+            bin/OneAgent-linux-${{ matrix.arch.ota }}.rpm
+            bin/OneAgent-linux-${{ matrix.arch.ota }}.zip
+          if-no-files-found: error
+
   release:
-    needs: build
+    needs: [build, linux]
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     name: Publish release
     runs-on: ubuntu-latest
@@ -283,6 +408,13 @@ jobs:
           path: release-assets
           merge-multiple: true
 
+      - name: Download Linux packages
+        uses: actions/download-artifact@v8
+        with:
+          pattern: installer-linux-*
+          path: release-assets
+          merge-multiple: true
+
       - name: Validate and publish release
         shell: bash
         run: |
@@ -296,12 +428,20 @@ jobs:
             OneAgent-windows-arm64.zip
             OneAgent-windows-amd64-installer.exe
             OneAgent-windows-arm64-installer.exe
+            OneAgent-linux-amd64.AppImage
+            OneAgent-linux-arm64.AppImage
+            OneAgent-linux-amd64.deb
+            OneAgent-linux-arm64.deb
+            OneAgent-linux-amd64.rpm
+            OneAgent-linux-arm64.rpm
+            OneAgent-linux-amd64.zip
+            OneAgent-linux-arm64.zip
           )
           mapfile -t assets < <(find release-assets -maxdepth 1 -type f -name 'OneAgent-*' -printf '%f\n' | sort)
-          test "${#assets[@]}" -eq 8
+          test "${#assets[@]}" -eq 16
           diff <(printf '%s\n' "${expected[@]}" | sort) <(printf '%s\n' "${assets[@]}")
           (cd release-assets && sha256sum OneAgent-* > SHA256SUMS)
-          test "$(wc -l < release-assets/SHA256SUMS)" -eq 8
+          test "$(wc -l < release-assets/SHA256SUMS)" -eq 16
 
           if gh release view "$RELEASE_VERSION" >/dev/null 2>&1; then
             gh release upload "$RELEASE_VERSION" release-assets/* --clobber
