@@ -454,7 +454,7 @@ func rejectSymlinkComponents(base, path string) error {
 		return errors.New("private storage path escapes home")
 	}
 	current := base
-	for _, part := range strings.Split(rel, string(filepath.Separator)) {
+	for part := range strings.SplitSeq(rel, string(filepath.Separator)) {
 		if part == "." || part == "" {
 			continue
 		}

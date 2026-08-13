@@ -9,6 +9,7 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -360,10 +361,8 @@ func safeZIPName(raw string) (string, bool, error) {
 		return "", false, errors.New("zip archive contains unsafe path")
 	}
 	isDir := strings.HasSuffix(raw, "/")
-	for _, part := range strings.Split(strings.TrimSuffix(raw, "/"), "/") {
-		if part == ".." {
-			return "", false, errors.New("zip archive contains unsafe path")
-		}
+	if slices.Contains(strings.Split(strings.TrimSuffix(raw, "/"), "/"), "..") {
+		return "", false, errors.New("zip archive contains unsafe path")
 	}
 	clean := filepath.ToSlash(filepath.Clean(filepath.FromSlash(raw)))
 	if clean == "." || clean == "" || clean == ".." || strings.HasPrefix(clean, "../") || strings.HasPrefix(clean, "/") {

@@ -114,7 +114,7 @@ func TestStoreBoundsFactMetadataAndImportSources(t *testing.T) {
 func TestStoreSaveRejectsOversizedRegistry(t *testing.T) {
 	s := testStore(t)
 	registry := Registry{SchemaVersion: RegistrySchemaVersion, Skills: make(map[string]Fact, 9000)}
-	for i := 0; i < 9000; i++ {
+	for i := range 9000 {
 		registry.Skills[fmt.Sprintf("skill-%05d", i)] = Fact{Description: strings.Repeat("d", 1024)}
 	}
 	if err := s.Save(context.Background(), registry); err == nil || !strings.Contains(err.Error(), "size limit") {
@@ -205,7 +205,7 @@ func TestBackupRestoreAndRetention(t *testing.T) {
 		{Hash: strings.Repeat("f", 64), ObservedAgents: []string{"codex"}},
 	}}
 	var first BackupSummary
-	for i := 0; i < 21; i++ {
+	for i := range 21 {
 		backup, err := s.CreateBackup(context.Background(), "review", fact)
 		if err != nil {
 			t.Fatal(err)

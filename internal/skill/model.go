@@ -188,15 +188,15 @@ func ReadMetadata(ctx context.Context, root, fallbackID string) (name, descripti
 		return name, "", "metadata front matter missing"
 	}
 	rest := text[4:]
-	end := strings.Index(rest, "\n---")
-	if end < 0 {
+	before, _, ok := strings.Cut(rest, "\n---")
+	if !ok {
 		return name, "", "metadata front matter invalid"
 	}
 	var front struct {
 		Name        string `yaml:"name"`
 		Description string `yaml:"description"`
 	}
-	if err := yaml.Unmarshal([]byte(rest[:end]), &front); err != nil {
+	if err := yaml.Unmarshal([]byte(before), &front); err != nil {
 		return name, "", "metadata front matter invalid"
 	}
 	if strings.TrimSpace(front.Name) != "" {
