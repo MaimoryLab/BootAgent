@@ -114,6 +114,43 @@ func CopyWithStallTimeout(ctx context.Context, destination io.Writer, source io.
 // quiet" from "the overall budget ran out".
 var ErrStalled = errors.New("transfer stalled: no data received within the stall timeout")
 
+// StallGuardedBody applies the same stall bound as CopyWithStallTimeout to a
+// body the caller does not copy itself.
+//
+// CopyWithStallTimeout owns the copy loop, which is no use when the reading
+// happens somewhere we do not control -- a dependency that takes an
+// *http.Client and streams the response internally. Wrapping the body is the
+// only hook left, so this hands back a ReadCloser that fails with ErrStalled
+// once no bytes have arrived for stallTimeout, and reports the context's error
+// if that is cancelled first.
+//
+// Closing the returned value stops the watchdog and closes body. stallTimeout
+// <= 0 returns body unchanged, so a caller with its own bound is unaffected.
+func StallGuardedBody(ctx context.Context, body io.ReadCloser, stallTimeout time.Duration) io.ReadCloser {
+	if body == nil || stallTimeout <= 0 {
+		return body
+	}
+	tracked := &stallReader{ctx: ctx, source: body, timeout: stallTimeout}
+	tracked.touch()
+	return &guardedBody{tracked: tracked, body: body, stop: tracked.watch()}
+}
+
+type guardedBody struct {
+	tracked *stallReader
+	body    io.ReadCloser
+	stop    func()
+	once    sync.Once
+}
+
+func (g *guardedBody) Read(buffer []byte) (int, error) { return g.tracked.Read(buffer) }
+
+func (g *guardedBody) Close() error {
+	// Once, because the watchdog's stop channel is closed rather than sent on,
+	// and http.Client may close a body more than once on the error paths.
+	g.once.Do(g.stop)
+	return g.body.Close()
+}
+
 // stallReader wraps a body so a watchdog can observe whether reads are still
 // arriving. It does not interrupt Read itself -- that is impossible for an
 // arbitrary io.Reader -- it closes the underlying body when one is available,
