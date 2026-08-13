@@ -382,15 +382,15 @@ func (u *UseCases) ApplySkills(ctx context.Context, req SkillApplyRequest) Skill
 				continue
 			}
 		}
+		deleteSkill := change.Delete && len(change.Targets) == 0
 		targetIDs := append([]string(nil), change.Targets...)
 		if change.Delete && len(targetIDs) == 0 && variantIdx >= 0 {
 			targetIDs = append(targetIDs, fact.Variants[variantIdx].ManagedTargets...)
 		}
-		if change.Delete && len(targetIDs) == 0 {
+		if change.Delete && len(targetIDs) == 0 && !deleteSkill {
 			result.Results = append(result.Results, SkillAgentApplyResult{Error: "Skill target is not managed"})
 			continue
 		}
-		deleteSkill := change.Delete && len(change.Targets) == 0
 		deleteFailed := false
 		for _, agentID := range targetIDs {
 			item := SkillAgentApplyResult{Agent: agentID}
