@@ -1,8 +1,9 @@
-import { AppWindow, Download, Play, Plus, RefreshCw, SlidersHorizontal, TriangleAlert } from "lucide-react";
+import { AppWindow, Download, History, Play, Plus, RefreshCw, SlidersHorizontal, TriangleAlert } from "lucide-react";
 import { useState } from "react";
 
 import { api, describeFailure } from "../backend/api";
 import { useI18n } from "../i18n";
+import { useConversationMigration } from "../hooks/useConversationMigration";
 import { taskCanceller, taskKey, useTaskCenter, useTaskRoute } from "../state/TaskCenterContext";
 import type { DesktopAgentStatus, ProfileSummary } from "../types/api";
 import { DownloadProgress } from "./DownloadProgress";
@@ -28,6 +29,7 @@ export function DesktopAppSection({ app: desktopApp, onChanged, onSetup, onConfi
   const { t } = useI18n();
   const { startTask, finishTask, setTaskCanceller, taskFor } = useTaskCenter();
   const route = useTaskRoute();
+  const migration = useConversationMigration();
   const [pending, setPending] = useState<Action | "">("");
   const [localNotice, setLocalNotice] = useState("");
   const [localFailure, setLocalFailure] = useState("");
@@ -157,6 +159,12 @@ export function DesktopAppSection({ app: desktopApp, onChanged, onSetup, onConfi
         <div className="desktop-app-actions">
           {desktopApp.installed ? (
             <>
+              {desktopApp.id === "chatgpt-desktop" ? (
+                <button className="button button-secondary" type="button" onClick={() => void migration.run()} disabled={busy || migration.running}>
+                  {migration.running ? <RefreshCw size={15} className="spin" aria-hidden="true" /> : <History size={15} aria-hidden="true" />}
+                  {migration.running ? t("迁移中") : t("迁移对话")}
+                </button>
+              ) : null}
               {onConfigure ? (
                 <button className="button button-secondary" type="button" onClick={onConfigure} disabled={busy}>
                   <SlidersHorizontal size={15} />

@@ -36,13 +36,22 @@ TARGETS = (
 )
 GO_LICENSES = {
     "github.com/adrg/xdg": "MIT",
+    "github.com/dustin/go-humanize": "MIT",
     "github.com/go-ole/go-ole": "MIT",
+    "github.com/google/uuid": "BSD-3-Clause",
+    "github.com/mattn/go-isatty": "MIT",
+    "github.com/ncruces/go-strftime": "MIT",
     "github.com/pelletier/go-toml/v2": "MIT",
+    "github.com/remyoudompheng/bigfft": "BSD-3-Clause",
     "github.com/wailsapp/wails/v3": "MIT",
     "github.com/tailscale/hujson": "BSD-3-Clause",
     "golang.org/x/sys": "BSD-3-Clause",
     "golang.org/x/mod": "BSD-3-Clause",
     "gopkg.in/yaml.v3": "MIT AND Apache-2.0",
+    "modernc.org/libc": "BSD-3-Clause",
+    "modernc.org/mathutil": "BSD-3-Clause",
+    "modernc.org/memory": "BSD-3-Clause",
+    "modernc.org/sqlite": "BSD-3-Clause",
 }
 LICENSE_PREFIXES = ("license", "licence", "copying", "notice", "copyright")
 

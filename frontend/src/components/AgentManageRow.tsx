@@ -1,10 +1,11 @@
 import { Dialogs } from "@wailsio/runtime";
-import { FolderOpen, Play, RefreshCw, SlidersHorizontal } from "lucide-react";
+import { FolderOpen, History, Play, RefreshCw, SlidersHorizontal } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 
 import { api, describeFailure } from "../backend/api";
 import { sourceTranslate, type Translate, useI18n } from "../i18n";
+import { useConversationMigration } from "../hooks/useConversationMigration";
 import { taskCanceller, taskKey, updateTaskRoute, useTaskCenter, useTaskRoute } from "../state/TaskCenterContext";
 import type { AgentCatalogItem, AgentStatus, ProfileSummary, StatusResponse } from "../types/api";
 import { AgentIcon, agentTagline } from "./icons/agents";
@@ -139,6 +140,7 @@ export function AgentManageRow({
   const [directoryDialog, setDirectoryDialog] = useState(false);
   const updateTaskID = taskKey("update", agentId);
   const updateTask = taskFor(updateTaskID);
+  const migration = useConversationMigration();
   const updating = updateTask?.state === "running" || localUpdating;
   const version = versionNote(status, t);
   const target = targetSummary(status, providers, t);
@@ -208,7 +210,6 @@ export function AgentManageRow({
       setLocalUpdating(false);
     }
   };
-
   return (
     <div className="agent-manage-row" data-testid={`agent-${agentId}`}>
       <div className="agent-manage-summary">
@@ -264,6 +265,12 @@ export function AgentManageRow({
         {/* Always in the row, not only when the Agent cannot launch. Configuring
             an installed Agent was previously reachable only by opening <details>,
             which made the common case the hidden one. */}
+        {agentId === "codex" ? (
+          <button className="button button-secondary" type="button" onClick={() => void migration.run()} disabled={migration.running || launching || updating}>
+            {migration.running ? <RefreshCw size={15} className="spin" aria-hidden="true" /> : <History size={15} aria-hidden="true" />}
+            {migration.running ? t("迁移中") : t("迁移对话")}
+          </button>
+        ) : null}
         {offer.npm ? (
           <button
             className="button button-secondary agent-update-button"

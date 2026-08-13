@@ -14,6 +14,7 @@ const bridge = vi.hoisted(() => ({
   register: vi.fn(),
   activate: vi.fn(),
   launch: vi.fn(),
+  migrateConversations: vi.fn(),
   desktopStatus: vi.fn(),
   desktopInstall: vi.fn(),
   desktopOpen: vi.fn(),
@@ -54,6 +55,7 @@ vi.mock("../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/agentse
   Install: bridge.install,
   Activate: bridge.activate,
   Launch: bridge.launch,
+  MigrateConversations: bridge.migrateConversations,
 }));
 vi.mock("../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/desktopagentservice.js", () => ({
   GetStatus: bridge.desktopStatus,
@@ -108,6 +110,7 @@ describe("Wails backend adapter", () => {
     bridge.register.mockResolvedValue({ ok: true, url: "https://ppio.com/", message: "opened" });
     bridge.activate.mockResolvedValue({ ok: true, agent: "codex", config: "/c", provider: "ppio", model: "m", restart: "restart", next: "next" });
     bridge.launch.mockResolvedValue({ ok: true, agent: "codex", command: "codex" });
+    bridge.migrateConversations.mockResolvedValue({ files: 2, threads: 3 });
     bridge.profiles.mockResolvedValue([profile]);
     bridge.deleteProfile.mockResolvedValue({ ok: true });
     bridge.saveProfile.mockResolvedValue(profile);
@@ -135,6 +138,7 @@ describe("Wails backend adapter", () => {
     await wailsApi.openRegister("ppio", []);
     await wailsApi.activateAgent("codex", { provider: "ppio", apiBaseUrl: "", apiKey: "secret", model: "m" });
     await wailsApi.launchAgent("codex");
+    await expect(wailsApi.migrateConversations()).resolves.toEqual({ files: 2, threads: 3 });
     await expect(wailsApi.listProfiles()).resolves.toEqual([profile]);
     await expect(wailsApi.deleteProfile("team")).resolves.toBeUndefined();
     await expect(wailsApi.saveProfile({ id: "team", label: "Team", provider: "ppio", apiBaseUrl: "", apiKey: "secret", model: "m", configMode: "provider" })).resolves.toBe(profile);

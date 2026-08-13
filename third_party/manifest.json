@@ -111,6 +111,22 @@
       "ecosystem": "go",
       "license": "MIT",
       "license_files": [
+        "licenses/go/github.com_dustin_go-humanize@v1.0.1/LICENSE"
+      ],
+      "modification": "",
+      "name": "github.com/dustin/go-humanize",
+      "platforms": [
+        "macos-arm64",
+        "macos-x64",
+        "windows-arm64",
+        "windows-x64"
+      ],
+      "version": "v1.0.1"
+    },
+    {
+      "ecosystem": "go",
+      "license": "MIT",
+      "license_files": [
         "licenses/go/github.com_go-ole_go-ole@v1.3.0/LICENSE"
       ],
       "modification": "",
@@ -120,6 +136,52 @@
         "windows-x64"
       ],
       "version": "v1.3.0"
+    },
+    {
+      "ecosystem": "go",
+      "license": "BSD-3-Clause",
+      "license_files": [
+        "licenses/go/github.com_google_uuid@v1.6.0/LICENSE"
+      ],
+      "modification": "",
+      "name": "github.com/google/uuid",
+      "platforms": [
+        "macos-arm64",
+        "macos-x64"
+      ],
+      "version": "v1.6.0"
+    },
+    {
+      "ecosystem": "go",
+      "license": "MIT",
+      "license_files": [
+        "licenses/go/github.com_mattn_go-isatty@v0.0.24/LICENSE"
+      ],
+      "modification": "",
+      "name": "github.com/mattn/go-isatty",
+      "platforms": [
+        "macos-arm64",
+        "macos-x64",
+        "windows-arm64",
+        "windows-x64"
+      ],
+      "version": "v0.0.24"
+    },
+    {
+      "ecosystem": "go",
+      "license": "MIT",
+      "license_files": [
+        "licenses/go/github.com_ncruces_go-strftime@v1.0.0/LICENSE"
+      ],
+      "modification": "",
+      "name": "github.com/ncruces/go-strftime",
+      "platforms": [
+        "macos-arm64",
+        "macos-x64",
+        "windows-arm64",
+        "windows-x64"
+      ],
+      "version": "v1.0.0"
     },
     {
       "ecosystem": "go",
@@ -136,6 +198,22 @@
         "windows-x64"
       ],
       "version": "v2.4.3"
+    },
+    {
+      "ecosystem": "go",
+      "license": "BSD-3-Clause",
+      "license_files": [
+        "licenses/go/github.com_remyoudompheng_bigfft@v0.0.0-20230129092748-24d4a6f8daec/LICENSE"
+      ],
+      "modification": "",
+      "name": "github.com/remyoudompheng/bigfft",
+      "platforms": [
+        "macos-arm64",
+        "macos-x64",
+        "windows-arm64",
+        "windows-x64"
+      ],
+      "version": "v0.0.0-20230129092748-24d4a6f8daec"
     },
     {
       "ecosystem": "go",
@@ -194,6 +272,8 @@
       "modification": "",
       "name": "golang.org/x/sys",
       "platforms": [
+        "macos-arm64",
+        "macos-x64",
         "windows-arm64",
         "windows-x64"
       ],
@@ -215,6 +295,74 @@
         "windows-x64"
       ],
       "version": "v3.0.1"
+    },
+    {
+      "ecosystem": "go",
+      "license": "BSD-3-Clause",
+      "license_files": [
+        "licenses/go/modernc.org_libc@v1.74.4/LICENSE",
+        "licenses/go/modernc.org_libc@v1.74.4/LICENSE-3RD-PARTY.md"
+      ],
+      "modification": "",
+      "name": "modernc.org/libc",
+      "platforms": [
+        "macos-arm64",
+        "macos-x64",
+        "windows-arm64",
+        "windows-x64"
+      ],
+      "version": "v1.74.4"
+    },
+    {
+      "ecosystem": "go",
+      "license": "BSD-3-Clause",
+      "license_files": [
+        "licenses/go/modernc.org_mathutil@v1.7.1/LICENSE"
+      ],
+      "modification": "",
+      "name": "modernc.org/mathutil",
+      "platforms": [
+        "macos-arm64",
+        "macos-x64",
+        "windows-arm64",
+        "windows-x64"
+      ],
+      "version": "v1.7.1"
+    },
+    {
+      "ecosystem": "go",
+      "license": "BSD-3-Clause",
+      "license_files": [
+        "licenses/go/modernc.org_memory@v1.11.0/LICENSE",
+        "licenses/go/modernc.org_memory@v1.11.0/LICENSE-GO",
+        "licenses/go/modernc.org_memory@v1.11.0/LICENSE-LOGO",
+        "licenses/go/modernc.org_memory@v1.11.0/LICENSE-MMAP-GO"
+      ],
+      "modification": "",
+      "name": "modernc.org/memory",
+      "platforms": [
+        "macos-arm64",
+        "macos-x64",
+        "windows-arm64",
+        "windows-x64"
+      ],
+      "version": "v1.11.0"
+    },
+    {
+      "ecosystem": "go",
+      "license": "BSD-3-Clause",
+      "license_files": [
+        "licenses/go/modernc.org_sqlite@v1.56.0/LICENSE"
+      ],
+      "modification": "",
+      "name": "modernc.org/sqlite",
+      "platforms": [
+        "macos-arm64",
+        "macos-x64",
+        "windows-arm64",
+        "windows-x64"
+      ],
+      "version": "v1.56.0"
     },
     {
       "ecosystem": "npm",

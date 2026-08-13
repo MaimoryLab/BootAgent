@@ -82,6 +82,7 @@ describe("AgentManageRow", () => {
   it("shows what the Agent is pointed at", () => {
     renderRow();
     expect(screen.getByText("Codex")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "迁移对话" })).toBeTruthy();
     expect(screen.getByText("PPIO", { selector: ".agent-manage-pill" })).toBeTruthy();
     expect(within(screen.getByTestId("agent-codex").querySelector(".agent-manage-summary") as HTMLElement).getByText("deepseek/deepseek-v3")).toBeTruthy();
     expect(within(screen.getByTestId("agent-codex").querySelector(".agent-manage-summary") as HTMLElement).getByText("团队 PPIO")).toBeTruthy();
