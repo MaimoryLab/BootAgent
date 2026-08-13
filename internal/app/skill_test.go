@@ -28,7 +28,7 @@ func TestScanSkillsDoesNotCreateAgentRootAndReportsUnmanagedCandidate(t *testing
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(result.Candidates) != 1 || result.Candidates[0].ID != "review" || result.Candidates[0].Stored {
+	if len(result.Candidates) != 1 || result.Candidates[0].ID != "review" || !result.Candidates[0].Stored {
 		t.Fatalf("candidates = %#v", result.Candidates)
 	}
 	registry, err := core.skillStore().Load()
@@ -36,11 +36,11 @@ func TestScanSkillsDoesNotCreateAgentRootAndReportsUnmanagedCandidate(t *testing
 		t.Fatal(err)
 	}
 	variant := registry.Skills["review"].Variants[0]
-	if variant.Stored || !slices.Equal(variant.ObservedAgents, []string{"codex"}) {
+	if !variant.Stored || !slices.Equal(variant.ObservedAgents, []string{"codex"}) {
 		t.Fatalf("variant = %#v", variant)
 	}
-	if _, err := os.Stat(core.skillStore().VariantPath("review", variant.Hash)); !os.IsNotExist(err) {
-		t.Fatalf("scan imported unmanaged content: %v", err)
+	if _, err := os.Stat(core.skillStore().VariantPath("review", variant.Hash)); err != nil {
+		t.Fatalf("scan did not import Agent content: %v", err)
 	}
 }
 

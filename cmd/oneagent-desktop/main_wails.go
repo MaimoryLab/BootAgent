@@ -3,6 +3,7 @@
 package main
 
 import (
+	"context"
 	"log/slog"
 	"os"
 	"sync"
@@ -50,6 +51,14 @@ func configureUpdater(appInstance *application.App) binding.UpdateBackend {
 func main() {
 	var appInstance *application.App
 	core := newDesktopUseCases()
+	// Reconcile native Agent directories before the renderer opens so Skills and
+	// MCP state reflect what is already installed on disk.
+	if _, err := core.ScanMCP(context.Background()); err != nil {
+		slog.Warn("MCP startup scan failed", "error", err)
+	}
+	if _, err := core.ScanSkills(context.Background()); err != nil {
+		slog.Warn("Skill startup scan failed", "error", err)
+	}
 	var nativeSmokeOnce sync.Once
 	var afterGetStatus func()
 	if os.Getenv("ONEAGENT_NATIVE_SMOKE") == "1" {

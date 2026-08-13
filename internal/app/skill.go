@@ -162,7 +162,6 @@ func (u *UseCases) ScanSkills(ctx context.Context) (SkillScanResult, error) {
 	}
 	diagnostics := []string{}
 	candidates := []SkillCandidate{}
-	rawCandidates := []skill.Candidate{}
 	for _, agentID := range skillAgentIDs(eligible) {
 		agent := eligible[agentID]
 		root := skillPath(u.status.Home, u.status.Platform.OS, agent)
@@ -192,7 +191,6 @@ func (u *UseCases) ScanSkills(ctx context.Context) (SkillScanResult, error) {
 				diagnostics = append(diagnostics, fmt.Sprintf("%s: %s", agentID, candidate.Diagnostic))
 				continue
 			}
-			rawCandidates = append(rawCandidates, candidate)
 			fact := registry.Skills[candidate.ID]
 			fact.Name, fact.Description = candidate.Name, candidate.Description
 			idx := variantIndex(fact.Variants, candidate.Hash)
@@ -209,22 +207,29 @@ func (u *UseCases) ScanSkills(ctx context.Context) (SkillScanResult, error) {
 				}
 			}
 			registry.Skills[candidate.ID] = fact
+			if !fact.Variants[idx].Stored {
+				stats, hashErr := skill.HashTree(ctx, candidate.Path)
+				if hashErr != nil || stats.Hash != candidate.Hash {
+					diagnostics = append(diagnostics, fmt.Sprintf("%s: Skill content could not be stored", candidate.ID))
+					continue
+				}
+				if err := store.SaveVariant(ctx, candidate.ID, candidate.Path, stats); err != nil {
+					diagnostics = append(diagnostics, fmt.Sprintf("%s: Skill content could not be stored", candidate.ID))
+					continue
+				}
+				fact.Variants[idx].Stored = true
+				registry.Skills[candidate.ID] = fact
+			}
 			stored := fact.Variants[idx].Stored
 			out := toCandidate(candidate, stored)
 			out.ObservedAgents = []string{agentID}
-			if !stored {
-				candidates = append(candidates, out)
-			}
+			candidates = append(candidates, out)
 		}
 	}
-	previewToken := ""
-	if len(rawCandidates) > 0 {
-		previewToken = u.storeSkillPreview("agent", rawCandidates)
-	}
 	if err := store.Save(ctx, registry); err != nil {
-		return SkillScanResult{Candidates: candidates, Diagnostics: diagnostics, PreviewToken: previewToken}, err
+		return SkillScanResult{Candidates: candidates, Diagnostics: diagnostics}, err
 	}
-	return SkillScanResult{Skills: summarizeSkills(registry), Candidates: candidates, EligibleAgents: skillAgentIDs(eligible), PreviewToken: previewToken, Diagnostics: diagnostics}, nil
+	return SkillScanResult{Skills: summarizeSkills(registry), Candidates: candidates, EligibleAgents: skillAgentIDs(eligible), Diagnostics: diagnostics}, nil
 }
 
 func (u *UseCases) ListSkills(ctx context.Context) ([]SkillSummary, error) {
