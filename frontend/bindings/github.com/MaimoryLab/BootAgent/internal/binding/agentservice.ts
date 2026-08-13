@@ -29,6 +29,10 @@ export function Launch(request: $models.LaunchRequest): $CancellablePromise<$mod
     return $Call.ByID(255501840, request);
 }
 
+export function MigrateConversations(): $CancellablePromise<app$0.ConversationMigrationResult> {
+    return $Call.ByID(389042760);
+}
+
 export function Update(request: $models.UpdateRequest): $CancellablePromise<app$0.AgentUpdateResult> {
     return $Call.ByID(3171706782, request);
 }

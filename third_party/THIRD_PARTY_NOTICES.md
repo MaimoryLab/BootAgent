@@ -17,13 +17,22 @@ the embedded frontend. Full license and notice texts are included under
 | asset | `openclaw` | `9eac78bcfa8e106ed3267293235281743e161b5accf2ff5c676700b64cfcdbbc` | frontend | MIT | `licenses/assets/openclaw/LICENSE` |
 | asset | `opencode` | `7cfa6e9d6726f7c9fa26c7d9aef0dfec52d20a137380454340f30f12ccbfd302` | frontend | MIT | `licenses/assets/opencode/LICENSE` |
 | go | `github.com/adrg/xdg` | `v0.5.3` | macos-arm64, macos-x64, windows-arm64, windows-x64 | MIT | `licenses/go/github.com_adrg_xdg@v0.5.3/LICENSE` |
+| go | `github.com/dustin/go-humanize` | `v1.0.1` | macos-arm64, macos-x64, windows-arm64, windows-x64 | MIT | `licenses/go/github.com_dustin_go-humanize@v1.0.1/LICENSE` |
 | go | `github.com/go-ole/go-ole` | `v1.3.0` | windows-arm64, windows-x64 | MIT | `licenses/go/github.com_go-ole_go-ole@v1.3.0/LICENSE` |
+| go | `github.com/google/uuid` | `v1.6.0` | macos-arm64, macos-x64 | BSD-3-Clause | `licenses/go/github.com_google_uuid@v1.6.0/LICENSE` |
+| go | `github.com/mattn/go-isatty` | `v0.0.24` | macos-arm64, macos-x64, windows-arm64, windows-x64 | MIT | `licenses/go/github.com_mattn_go-isatty@v0.0.24/LICENSE` |
+| go | `github.com/ncruces/go-strftime` | `v1.0.0` | macos-arm64, macos-x64, windows-arm64, windows-x64 | MIT | `licenses/go/github.com_ncruces_go-strftime@v1.0.0/LICENSE` |
 | go | `github.com/pelletier/go-toml/v2` | `v2.4.3` | macos-arm64, macos-x64, windows-arm64, windows-x64 | MIT | `licenses/go/github.com_pelletier_go-toml_v2@v2.4.3/LICENSE` |
+| go | `github.com/remyoudompheng/bigfft` | `v0.0.0-20230129092748-24d4a6f8daec` | macos-arm64, macos-x64, windows-arm64, windows-x64 | BSD-3-Clause | `licenses/go/github.com_remyoudompheng_bigfft@v0.0.0-20230129092748-24d4a6f8daec/LICENSE` |
 | go | `github.com/tailscale/hujson` | `v0.0.0-20260727124030-b80ff77dac4f` | macos-arm64, macos-x64, windows-arm64, windows-x64 | BSD-3-Clause | `licenses/go/github.com_tailscale_hujson@v0.0.0-20260727124030-b80ff77dac4f/LICENSE` |
 | go | `github.com/wailsapp/wails/v3` | `v3.0.0-beta.8` | macos-arm64, macos-x64, windows-arm64, windows-x64 | MIT | `licenses/go/github.com_wailsapp_wails_v3@v3.0.0-beta.8/LICENSE` |
 | go | `golang.org/x/mod` | `v0.39.0` | macos-arm64, macos-x64, windows-arm64, windows-x64 | BSD-3-Clause | `licenses/go/golang.org_x_mod@v0.39.0/LICENSE` |
-| go | `golang.org/x/sys` | `v0.47.0` | windows-arm64, windows-x64 | BSD-3-Clause | `licenses/go/golang.org_x_sys@v0.47.0/LICENSE` |
+| go | `golang.org/x/sys` | `v0.47.0` | macos-arm64, macos-x64, windows-arm64, windows-x64 | BSD-3-Clause | `licenses/go/golang.org_x_sys@v0.47.0/LICENSE` |
 | go | `gopkg.in/yaml.v3` | `v3.0.1` | macos-arm64, macos-x64, windows-arm64, windows-x64 | MIT AND Apache-2.0 | `licenses/go/gopkg.in_yaml.v3@v3.0.1/LICENSE`<br>`licenses/go/gopkg.in_yaml.v3@v3.0.1/NOTICE` |
+| go | `modernc.org/libc` | `v1.74.4` | macos-arm64, macos-x64, windows-arm64, windows-x64 | BSD-3-Clause | `licenses/go/modernc.org_libc@v1.74.4/LICENSE`<br>`licenses/go/modernc.org_libc@v1.74.4/LICENSE-3RD-PARTY.md` |
+| go | `modernc.org/mathutil` | `v1.7.1` | macos-arm64, macos-x64, windows-arm64, windows-x64 | BSD-3-Clause | `licenses/go/modernc.org_mathutil@v1.7.1/LICENSE` |
+| go | `modernc.org/memory` | `v1.11.0` | macos-arm64, macos-x64, windows-arm64, windows-x64 | BSD-3-Clause | `licenses/go/modernc.org_memory@v1.11.0/LICENSE`<br>`licenses/go/modernc.org_memory@v1.11.0/LICENSE-GO`<br>`licenses/go/modernc.org_memory@v1.11.0/LICENSE-LOGO`<br>`licenses/go/modernc.org_memory@v1.11.0/LICENSE-MMAP-GO` |
+| go | `modernc.org/sqlite` | `v1.56.0` | macos-arm64, macos-x64, windows-arm64, windows-x64 | BSD-3-Clause | `licenses/go/modernc.org_sqlite@v1.56.0/LICENSE` |
 | npm | `@wailsio/runtime` | `3.0.0-beta.8` | frontend | MIT | `licenses/npm/wailsio_runtime@3.0.0-beta.8/LICENSE` |
 | npm | `cookie` | `1.0.1` | frontend | MIT | `licenses/npm/cookie@1.0.1/LICENSE` |
 | npm | `lucide-react` | `1.31.0` | frontend | ISC | `licenses/npm/lucide-react@1.31.0/LICENSE` |

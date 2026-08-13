@@ -342,6 +342,16 @@ type AgentService struct {
 	onOutput process.OutputListener
 }
 
+func (s *AgentService) MigrateConversations(ctx context.Context) (app.ConversationMigrationResult, error) {
+	if err := contextError(ctx); err != nil {
+		return app.ConversationMigrationResult{}, err
+	}
+	if s == nil || s.core == nil {
+		return app.ConversationMigrationResult{}, notReady("Conversation migration is not configured")
+	}
+	return s.core.MigrateCodexConversations(ctx)
+}
+
 func (s *AgentService) Update(ctx context.Context, request UpdateRequest) (app.AgentUpdateResult, error) {
 	if err := contextError(ctx); err != nil {
 		return app.AgentUpdateResult{}, err

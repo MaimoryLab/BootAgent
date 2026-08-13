@@ -66,6 +66,16 @@ describe("DesktopAppSection", () => {
     expect(screen.getByText("Example Desktop 安装完成")).toBeTruthy();
   });
 
+  it("offers conversation migration for installed ChatGPT Desktop", () => {
+    render(
+      <TaskCenterProvider>
+        <DesktopAppSection app={app({ installed: true })} onChanged={vi.fn()} />
+      </TaskCenterProvider>,
+    );
+
+    expect(screen.getByRole("button", { name: "迁移对话" })).toBeTruthy();
+  });
+
   it("delegates an uninstalled app to setup when requested", () => {
     const onSetup = vi.fn();
     render(
