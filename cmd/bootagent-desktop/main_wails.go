@@ -32,6 +32,10 @@ func configureUpdater(appInstance *application.App) binding.UpdateBackend {
 		// Every release ships platform-specific installers plus one OTA .zip.
 		// Only the .zip is a format the updater unpacks.
 		AssetMatcher: binding.ExtractableAssetMatcher,
+		// Supplied rather than left nil: the provider's own default carries a
+		// 30-second Client.Timeout, which bounds the body transfer too and so
+		// made the update impossible on a slow link. See NewUpdateHTTPClient.
+		HTTPClient: binding.NewUpdateHTTPClient(),
 	})
 	if err != nil {
 		slog.Error("BootAgent updater provider is unavailable", "error", err)
