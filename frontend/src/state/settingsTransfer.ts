@@ -158,7 +158,7 @@ export type IncomingProvider = ProviderEntry & { carriesKey: boolean };
 
 export async function parseTransfer(text: string, password = ""): Promise<{ providers: IncomingProvider[]; profiles: TransferProfile[]; timestamp: string; mcp?: unknown }> {
   const file = JSON.parse(text) as Partial<TransferFile> & { encrypted?: EncryptedKey[] | { salt: string; iv: string; data: string }; mcp?: unknown };
-  // Reported separately: a version mismatch is what a file from another OneAgent
+  // Reported separately: a version mismatch is what a file from another BootAgent
   // build hits, and naming the version found is the difference between "this file
   // is broken" and "this file is newer than this app".
   if (file.version !== 1) throw new TransferVersionError(file.version);

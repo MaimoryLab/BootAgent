@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/MaimoryLab/OneAgent/internal/catalog"
-	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
-	"github.com/MaimoryLab/OneAgent/internal/install"
-	"github.com/MaimoryLab/OneAgent/internal/process"
+	"github.com/MaimoryLab/BootAgent/internal/catalog"
+	oneerrors "github.com/MaimoryLab/BootAgent/internal/errors"
+	"github.com/MaimoryLab/BootAgent/internal/install"
+	"github.com/MaimoryLab/BootAgent/internal/process"
 )
 
 // RuntimeStatus is the public projection of one bootstrappable runtime.
@@ -48,7 +48,7 @@ func (u *UseCases) RuntimeStatuses(ctx context.Context) ([]RuntimeStatus, error)
 }
 
 // InstallRuntime downloads and installs one locked runtime, then records its
-// directory on the login PATH so the user's own terminal and later OneAgent
+// directory on the login PATH so the user's own terminal and later BootAgent
 // runs both resolve it.
 func (u *UseCases) InstallRuntime(ctx context.Context, options InstallRuntimeOptions) (InstallRuntimeResult, error) {
 	if u == nil {
@@ -65,7 +65,7 @@ func (u *UseCases) InstallRuntime(ctx context.Context, options InstallRuntimeOpt
 	if !present {
 		return InstallRuntimeResult{}, oneerrors.New(oneerrors.InvalidRequest, "Unknown runtime: "+options.RuntimeID)
 	}
-	// The bootstrap writes into the OneAgent home and touches shell profiles;
+	// The bootstrap writes into the BootAgent home and touches shell profiles;
 	// keep it under the same coordinator as Agent installs so two requests
 	// cannot interleave a profile rewrite.
 	u.writeMu.Lock()
@@ -133,7 +133,7 @@ func (u *UseCases) installRuntime(output process.OutputListener) install.Runtime
 
 // runtimeCapability reads runtime state once for GetStatus and returns a lookup
 // that answers two questions per package manager: is the command available now,
-// and if not, can OneAgent install the runtime that provides it.
+// and if not, can BootAgent install the runtime that provides it.
 func (u *UseCases) runtimeCapability(ctx context.Context) ([]RuntimeStatus, runtimeCapabilityLookup) {
 	manifest, err := catalog.LoadEmbeddedRuntimes()
 	if err != nil {
@@ -203,7 +203,7 @@ func (l runtimeCapabilityLookup) present(command string) bool {
 
 // lookup resolves a command the way an install would. It answers false rather
 // than falling back to the process PATH when no resolver was built, so status
-// cannot report a command OneAgent would not actually be able to run.
+// cannot report a command BootAgent would not actually be able to run.
 func (l runtimeCapabilityLookup) lookup(command string) (string, bool) {
 	if l.resolve == nil || command == "" {
 		return "", false

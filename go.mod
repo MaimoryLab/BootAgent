@@ -1,4 +1,4 @@
-module github.com/MaimoryLab/OneAgent
+module github.com/MaimoryLab/BootAgent
 
 go 1.26.5
 

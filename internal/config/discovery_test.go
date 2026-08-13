@@ -9,8 +9,8 @@ import (
 )
 
 func TestReadCodexFollowsSelectedProviderAndMarker(t *testing.T) {
-	detected := ReadCodexConfig("model_provider = \"vendor\"\nmodel = \"gpt-5-mini\"\n[model_providers.vendor]\nbase_url = \"https://vendor.example/v1\"\n[model_providers.oneagent]\nbase_url = \"https://ours.example/v1\"\napi_key = \"sk-hidden\"\n")
-	if detected.BaseURL != "https://vendor.example/v1" || detected.Model != "gpt-5-mini" || !detected.ManagedByOneAgent || detected.Unreadable != nil {
+	detected := ReadCodexConfig("model_provider = \"vendor\"\nmodel = \"gpt-5-mini\"\n[model_providers.vendor]\nbase_url = \"https://vendor.example/v1\"\n[model_providers.bootagent]\nbase_url = \"https://ours.example/v1\"\napi_key = \"sk-hidden\"\n")
+	if detected.BaseURL != "https://vendor.example/v1" || detected.Model != "gpt-5-mini" || !detected.ManagedByBootAgent || detected.Unreadable != nil {
 		t.Fatalf("codex detection = %#v", detected)
 	}
 	if strings.Contains(mustJSON(t, detected), "sk-hidden") || strings.Contains(mustJSON(t, detected), "api_key") {
@@ -26,11 +26,11 @@ func TestReadClaudeRequiresAllDeclaredVariablesWithoutReturningKey(t *testing.T)
 		"small_fast_model": "ANTHROPIC_SMALL_FAST_MODEL",
 	}
 	partial := ReadClaudeConfig(`{"env":{"ANTHROPIC_BASE_URL":"https://x.example"}}`, declared)
-	if partial.BaseURL != "https://x.example" || partial.ManagedByOneAgent {
+	if partial.BaseURL != "https://x.example" || partial.ManagedByBootAgent {
 		t.Fatalf("partial Claude detection = %#v", partial)
 	}
 	full := ReadClaudeConfig(`{"env":{"ANTHROPIC_AUTH_TOKEN":"sk-secret","ANTHROPIC_BASE_URL":"https://x.example","ANTHROPIC_MODEL":"m","ANTHROPIC_SMALL_FAST_MODEL":"fast"}}`, declared)
-	if !full.ManagedByOneAgent || full.Model != "m" || strings.Contains(mustJSON(t, full), "sk-secret") {
+	if !full.ManagedByBootAgent || full.Model != "m" || strings.Contains(mustJSON(t, full), "sk-secret") {
 		t.Fatalf("full Claude detection = %#v", full)
 	}
 }
@@ -50,7 +50,7 @@ func TestReadOpenAICompatibleAndJSONC(t *testing.T) {
 
 func TestReadAiderNeverExecutesOrReturnsKey(t *testing.T) {
 	detected := ReadAiderConfig("export OPENAI_API_BASE='https://hand.example/v1'\nexport OPENAI_API_KEY='sk-never-return'\n")
-	if detected.BaseURL != "https://hand.example/v1" || detected.ManagedByOneAgent || strings.Contains(mustJSON(t, detected), "sk-never-return") {
+	if detected.BaseURL != "https://hand.example/v1" || detected.ManagedByBootAgent || strings.Contains(mustJSON(t, detected), "sk-never-return") {
 		t.Fatalf("Aider detection = %#v", detected)
 	}
 	if got := ReadAiderConfig("$env:OPENAI_API_BASE = \"https://win.example/v1\"\n"); got.BaseURL != "https://win.example/v1" {

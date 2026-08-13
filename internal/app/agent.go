@@ -6,11 +6,11 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/MaimoryLab/OneAgent/internal/catalog"
-	configWriter "github.com/MaimoryLab/OneAgent/internal/config"
-	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
-	profileStore "github.com/MaimoryLab/OneAgent/internal/profile"
-	"github.com/MaimoryLab/OneAgent/internal/provider"
+	"github.com/MaimoryLab/BootAgent/internal/catalog"
+	configWriter "github.com/MaimoryLab/BootAgent/internal/config"
+	oneerrors "github.com/MaimoryLab/BootAgent/internal/errors"
+	profileStore "github.com/MaimoryLab/BootAgent/internal/profile"
+	"github.com/MaimoryLab/BootAgent/internal/provider"
 )
 
 // ActivateAgentOptions is the transport-independent input for pointing one
@@ -205,7 +205,7 @@ func restartHint(agentID string, agent catalog.Agent) string {
 		return "Restart " + agentID
 	}
 	if agentID == "aider" {
-		return "Quit any running " + agent.Command + " process, then launch it again from OneAgent"
+		return "Quit any running " + agent.Command + " process, then launch it again from BootAgent"
 	}
 	// OpenClaw's gateway is a long-lived process, often registered as a launchd
 	// or systemd user service, so "quit and start again" would be wrong advice:
@@ -221,9 +221,9 @@ func nextStep(osID, agentID string, agent catalog.Agent, model string) string {
 		return ""
 	}
 	if agentID == "aider" {
-		envFile := "~/.oneagent/aider.env"
+		envFile := "~/.bootagent/aider.env"
 		if osID == "windows" {
-			envFile = `"%USERPROFILE%\.oneagent\aider.env"`
+			envFile = `"%USERPROFILE%\.bootagent\aider.env"`
 		}
 		return fmt.Sprintf("%s --env-file %s --model openai/%s", agent.Command, envFile, model)
 	}

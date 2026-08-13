@@ -8,10 +8,10 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/MaimoryLab/OneAgent/internal/desktopapp"
-	"github.com/MaimoryLab/OneAgent/internal/platform"
-	profileStore "github.com/MaimoryLab/OneAgent/internal/profile"
-	"github.com/MaimoryLab/OneAgent/internal/provider"
+	"github.com/MaimoryLab/BootAgent/internal/desktopapp"
+	"github.com/MaimoryLab/BootAgent/internal/platform"
+	profileStore "github.com/MaimoryLab/BootAgent/internal/profile"
+	"github.com/MaimoryLab/BootAgent/internal/provider"
 )
 
 func TestDesktopAgentStatusIsUnsupportedOutsideDesktopPlatforms(t *testing.T) {

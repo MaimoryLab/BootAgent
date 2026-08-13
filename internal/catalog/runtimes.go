@@ -10,13 +10,13 @@ import (
 	"strings"
 	"sync"
 
-	oneagent "github.com/MaimoryLab/OneAgent"
-	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
+	bootagent "github.com/MaimoryLab/BootAgent"
+	oneerrors "github.com/MaimoryLab/BootAgent/internal/errors"
 )
 
 // RuntimeManifest is the pinned download contract for package managers that
-// OneAgent bootstraps itself. Unlike Agent packages resolved by npm or uv, these
-// archives need an immutable URL and checksum before OneAgent extracts them.
+// BootAgent bootstraps itself. Unlike Agent packages resolved by npm or uv, these
+// archives need an immutable URL and checksum before BootAgent extracts them.
 type RuntimeManifest struct {
 	SchemaVersion int                `json:"schema_version"`
 	Runtimes      map[string]Runtime `json:"runtimes"`
@@ -73,7 +73,7 @@ func RuntimeArtifactKey(osID, arch string) string {
 // returned rather than silently degraded.
 func LoadEmbeddedRuntimes() (RuntimeManifest, error) {
 	runtimeOnce.Do(func() {
-		data, err := oneagent.EmbeddedRuntimeLock()
+		data, err := bootagent.EmbeddedRuntimeLock()
 		if err != nil {
 			runtimeErr = oneerrors.New(oneerrors.InvalidRequest, "Cannot load embedded runtime lock manifest", oneerrors.WithCause(err))
 			return

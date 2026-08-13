@@ -14,9 +14,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/MaimoryLab/OneAgent/internal/catalog"
-	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
-	"github.com/MaimoryLab/OneAgent/internal/process"
+	"github.com/MaimoryLab/BootAgent/internal/catalog"
+	oneerrors "github.com/MaimoryLab/BootAgent/internal/errors"
+	"github.com/MaimoryLab/BootAgent/internal/process"
 )
 
 // RuntimeDownloadTimeout is a backstop for one runtime archive download, not the
@@ -81,7 +81,7 @@ type RuntimeState struct {
 
 // RuntimeRoot is the parent of every managed runtime tree.
 func RuntimeRoot(home string) string {
-	return filepath.Join(home, ".oneagent", "runtimes")
+	return filepath.Join(home, ".bootagent", "runtimes")
 }
 
 // runtimeDir is the versioned install directory. Keeping the version in the
@@ -92,7 +92,7 @@ func runtimeDir(home, runtimeID, version string) string {
 }
 
 // ManagedBinDir returns the executable directory of an installed managed
-// runtime, or "" when this runtime is not installed under OneAgent's root.
+// runtime, or "" when this runtime is not installed under BootAgent's root.
 func ManagedBinDir(home string, runtimeID string, runtime catalog.Runtime, artifact catalog.RuntimeArtifact) string {
 	directory := runtimeDir(home, runtimeID, runtime.Version)
 	binDir := artifact.BinDir
@@ -100,7 +100,7 @@ func ManagedBinDir(home string, runtimeID string, runtime catalog.Runtime, artif
 		binDir = ""
 	}
 	candidate := filepath.Join(directory, binDir)
-	if _, err := os.Stat(filepath.Join(candidate, ".oneagent-runtime-ok")); err != nil {
+	if _, err := os.Stat(filepath.Join(candidate, ".bootagent-runtime-ok")); err != nil {
 		return ""
 	}
 	return candidate
@@ -199,7 +199,7 @@ func (o RuntimeOptions) stallTimeout() time.Duration {
 // EnsureRuntime installs a locked runtime when its command is not already
 // resolvable, and returns the runtime with the executable directory prepended
 // to its PATH. An already-satisfied runtime is a no-op: the command resolving
-// on the host is enough, whether it came from OneAgent or the user's own
+// on the host is enough, whether it came from BootAgent or the user's own
 // installation.
 func EnsureRuntime(ctx context.Context, runtime Runtime, client Doer, runtimeID string, entry catalog.Runtime, options RuntimeOptions) (Runtime, bool, error) {
 	if err := checkContext(ctx); err != nil {
@@ -226,7 +226,7 @@ func EnsureRuntime(ctx context.Context, runtime Runtime, client Doer, runtimeID 
 
 // WithManagedPath returns a copy of the runtime whose environment and command
 // lookup both resolve binDir first. Callers that run npm or uv use it so a
-// runtime installed by OneAgent is found the same way a system one would be.
+// runtime installed by BootAgent is found the same way a system one would be.
 func WithManagedPath(runtime Runtime, binDir string) Runtime {
 	return withPath(runtime, binDir)
 }
@@ -317,7 +317,7 @@ func installRuntime(ctx context.Context, runtime Runtime, client Doer, runtimeID
 	}
 	// The marker is written before the rename so it lands atomically with the
 	// tree. Its presence is what makes a directory count as a managed install.
-	if err := os.WriteFile(filepath.Join(binDir, ".oneagent-runtime-ok"), []byte(entry.Version+"\n"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(binDir, ".bootagent-runtime-ok"), []byte(entry.Version+"\n"), 0o600); err != nil {
 		return "", runtimeError(fmt.Sprintf("Cannot finalize the %s installation", entry.Name), err)
 	}
 	if err := checkContext(ctx); err != nil {

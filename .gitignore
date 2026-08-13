@@ -6,7 +6,7 @@
 # silently absent from every clone.
 /dist/
 release/
-# oneagent-release 的中间产物：notice、license 副本和打包暂存目录
+# bootagent-release 的中间产物：notice、license 副本和打包暂存目录
 build/metadata/
 build/release-stage/
 build/windows/nsis/MicrosoftEdgeWebview2Setup.exe
@@ -27,7 +27,7 @@ output/
 # Go 桌面应用的本地构建产物。
 bin/
 
-# 公开站已迁出到 MaimoryLab/OneAgent-site。这一条留着是因为迁出前克隆过本仓库的
+# 公开站已迁出到 MaimoryLab/BootAgent-site。这一条留着是因为迁出前克隆过本仓库的
 # 机器上，site/ 仍然躺在工作区里：不忽略它，git status 会把一整个 Astro 项目
 # 报成未跟踪文件。
 site/
@@ -43,9 +43,9 @@ docs/internal/cc-switch-reference-notes.md
 
 # Windows 资源产物：图标、版本号和 DPI manifest 由 build/windows/ 下的源文件
 # 在构建时编译进 .syso。它必须落在被构建的包目录里链接器才认，构建完即删除。
-cmd/oneagent-desktop/*.syso
+cmd/bootagent-desktop/*.syso
 
-# WorkBuddy 的配置目录，正常落在用户 HOME 下。把 ONEAGENT_HOME 指到仓库根来跑
+# WorkBuddy 的配置目录，正常落在用户 HOME 下。把 BOOTAGENT_HOME 指到仓库根来跑
 # 测试时会在这里生成一份，内容是本机状态而非源码。
 .workbuddy/
 

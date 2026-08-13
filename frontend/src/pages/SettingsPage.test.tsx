@@ -4,7 +4,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { api } from "../backend/api";
-import { OneAgentApiError } from "../backend/errors";
+import { BootAgentApiError } from "../backend/errors";
 import { ThemeProvider } from "../state/ThemeContext";
 import { SettingsPage } from "./SettingsPage";
 
@@ -35,7 +35,7 @@ describe("SettingsPage", () => {
   it("reports a browser that could not be opened", async () => {
     // Otherwise a click that does nothing looks like a dead button.
     vi.spyOn(api, "openHelp").mockRejectedValue(
-      new OneAgentApiError("Unable to open the help site", "INTERNAL_ERROR", true, 500),
+      new BootAgentApiError("Unable to open the help site", "INTERNAL_ERROR", true, 500),
     );
     show();
     fireEvent.click(screen.getByRole("button", { name: /帮助文档/ }));
@@ -76,8 +76,8 @@ describe("SettingsPage", () => {
   // one line is the whole report, so it has to carry the instruction too.
   it("says to move the app when it cannot update in place", async () => {
     const check = vi.spyOn(api, "checkUpdate").mockRejectedValue(
-      new OneAgentApiError(
-        "OneAgent is running from a disk image. Move OneAgent to the Applications folder, then check again.",
+      new BootAgentApiError(
+        "BootAgent is running from a disk image. Move BootAgent to the Applications folder, then check again.",
         "UPDATE_LOCATION_BLOCKED",
         false,
         409,

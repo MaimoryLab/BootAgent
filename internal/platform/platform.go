@@ -5,7 +5,6 @@ package platform
 
 import (
 	"os"
-	"path/filepath"
 	"runtime"
 	"strings"
 )
@@ -46,16 +45,11 @@ func normalizeOS(goos string) string {
 	}
 }
 
-// ResolveHome follows the existing precedence exactly: an explicit
-// ONEAGENT_HOME override, then the native Windows variables, then HOME, then
-// the process home fallback.
+// ResolveHome uses native Windows variables, then HOME, then the process home.
 func ResolveHome(env map[string]string, osID string) string {
 	values := env
 	if values == nil {
 		values = environ()
-	}
-	if value := strings.TrimSpace(values["ONEAGENT_HOME"]); value != "" {
-		return expandUser(value, values, osID)
 	}
 	if osID == "windows" {
 		if value := values["USERPROFILE"]; value != "" {
@@ -83,21 +77,4 @@ func environ() map[string]string {
 		}
 	}
 	return values
-}
-
-func expandUser(value string, env map[string]string, osID string) string {
-	if value != "~" && !strings.HasPrefix(value, "~/") && !strings.HasPrefix(value, `~\`) {
-		return filepath.Clean(value)
-	}
-	home := env["HOME"]
-	if osID == "windows" && env["USERPROFILE"] != "" {
-		home = env["USERPROFILE"]
-	}
-	if home == "" {
-		home, _ = os.UserHomeDir()
-	}
-	if value == "~" {
-		return home
-	}
-	return filepath.Join(home, strings.TrimLeft(value[2:], `/\`))
 }

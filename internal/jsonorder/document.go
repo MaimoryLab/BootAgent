@@ -1,7 +1,7 @@
 // Package jsonorder edits JSON objects without reordering them.
 //
 // encoding/json sorts map keys when it writes them. Config adapters use this
-// package so rewriting a user's file changes only the fields OneAgent manages.
+// package so rewriting a user's file changes only the fields BootAgent manages.
 package jsonorder
 
 import (
@@ -209,7 +209,7 @@ func Parse(raw []byte) (*Object, error) {
 
 // Marshal renders an object with two-space indentation and one trailing
 // newline, matching json.dumps(..., ensure_ascii=False, indent=2) plus the
-// newline used by OneAgent's config files.
+// newline used by BootAgent's config files.
 func Marshal(object *Object) ([]byte, error) {
 	var buffer bytes.Buffer
 	if err := writeValue(&buffer, object, 0); err != nil {

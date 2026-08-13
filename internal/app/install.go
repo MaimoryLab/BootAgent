@@ -8,13 +8,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/MaimoryLab/OneAgent/internal/catalog"
-	configWriter "github.com/MaimoryLab/OneAgent/internal/config"
-	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
-	"github.com/MaimoryLab/OneAgent/internal/install"
-	"github.com/MaimoryLab/OneAgent/internal/process"
-	profileStore "github.com/MaimoryLab/OneAgent/internal/profile"
-	"github.com/MaimoryLab/OneAgent/internal/provider"
+	"github.com/MaimoryLab/BootAgent/internal/catalog"
+	configWriter "github.com/MaimoryLab/BootAgent/internal/config"
+	oneerrors "github.com/MaimoryLab/BootAgent/internal/errors"
+	"github.com/MaimoryLab/BootAgent/internal/install"
+	"github.com/MaimoryLab/BootAgent/internal/process"
+	profileStore "github.com/MaimoryLab/BootAgent/internal/profile"
+	"github.com/MaimoryLab/BootAgent/internal/provider"
 )
 
 // InstallAgentsOptions is one installation request. It stays independent of
@@ -321,7 +321,7 @@ func (r *installRun) step(ctx context.Context, agentID string) {
 
 func (r *installRun) configure(ctx context.Context, agentID string, agent catalog.Agent) error {
 	// The managed runtime directories go on PATH before anything is looked up,
-	// so an npm or uv installed by an earlier OneAgent run is found instead of
+	// so an npm or uv installed by an earlier BootAgent run is found instead of
 	// being reported missing and downloaded again.
 	runtime := r.core.installRuntime(nil)
 	runtime.OnOutput = func(output process.Output) {
@@ -466,7 +466,7 @@ func (r *installRun) launchOfficialInstaller(agent catalog.Agent) error {
 
 // ensureAgentRuntime installs the runtime that provides this Agent's package
 // manager when the command is not resolvable, and returns a runtime whose PATH
-// includes it. A manager already on the machine is left alone: OneAgent does
+// includes it. A manager already on the machine is left alone: BootAgent does
 // not replace a user's own Node or uv.
 func (r *installRun) ensureAgentRuntime(ctx context.Context, agent catalog.Agent, runtime install.Runtime) (install.Runtime, error) {
 	if agent.Package == nil {

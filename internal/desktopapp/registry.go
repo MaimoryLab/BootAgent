@@ -32,7 +32,7 @@ type Definition struct {
 	ConfigPath          string
 	ConfigAdapter       string
 	Protocol            string
-	// ManualInstall marks an app OneAgent can detect and configure but not fetch,
+	// ManualInstall marks an app BootAgent can detect and configure but not fetch,
 	// because no verifiable installer URL is known for it. Home is where the user
 	// gets it instead. Both exist so the UI can avoid offering an install action
 	// that only returns a link.

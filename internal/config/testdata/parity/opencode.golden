@@ -4,7 +4,7 @@
     "other": {
       "x": 1
     },
-    "oneagent": {
+    "bootagent": {
       "npm": "@ai-sdk/openai-compatible",
       "name": "PPIO",
       "options": {
@@ -20,5 +20,5 @@
   },
   "theme": "dark",
   "$schema": "https://opencode.ai/config.json",
-  "model": "oneagent/model-new"
+  "model": "bootagent/model-new"
 }

@@ -2,7 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { OneAgentApiError } from "../backend/errors";
+import { BootAgentApiError } from "../backend/errors";
 import { MirrorSetting } from "./MirrorSetting";
 
 const getSettings = vi.fn();
@@ -71,7 +71,7 @@ describe("MirrorSetting", () => {
   // user back to a slow host on the next launch with no way to tell.
   it("reverts the switch and explains when saving fails", async () => {
     saveSettings.mockImplementation(async () => {
-      throw new OneAgentApiError("磁盘只读", "INTERNAL_ERROR", false, 500);
+      throw new BootAgentApiError("磁盘只读", "INTERNAL_ERROR", false, 500);
     });
     render(<MirrorSetting />);
     await waitFor(() => expect(getSettings).toHaveBeenCalled());
@@ -86,7 +86,7 @@ describe("MirrorSetting", () => {
   // the UI must agree rather than showing a blank or stuck control.
   it("renders the default when settings cannot be read", async () => {
     getSettings.mockImplementation(async () => {
-      throw new OneAgentApiError("读取失败", "INTERNAL_ERROR", false, 500);
+      throw new BootAgentApiError("读取失败", "INTERNAL_ERROR", false, 500);
     });
     render(<MirrorSetting />);
     await userEvent.click(screen.getByRole("button", { name: heading }));

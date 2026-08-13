@@ -36,8 +36,8 @@ export function AppUpdater() {
       let choice: string;
       try {
         choice = await Dialogs.Question({
-          Title: t("OneAgent 更新"),
-          Message: t("发现 OneAgent 新版本 {version}，现在下载吗？", { version }),
+          Title: t("BootAgent 更新"),
+          Message: t("发现 BootAgent 新版本 {version}，现在下载吗？", { version }),
           Buttons: [
             { Label: updateLabel, IsDefault: true },
             { Label: t("暂不"), IsCancel: true },
@@ -51,7 +51,7 @@ export function AppUpdater() {
         kind: "update",
         target: OTA_PROGRESS_TARGET,
         progressTarget: OTA_PROGRESS_TARGET,
-        title: t("更新 OneAgent {version}", { version }),
+        title: t("更新 BootAgent {version}", { version }),
         route: updateTaskRoute(OTA_PROGRESS_TARGET),
       })) return;
 

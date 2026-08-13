@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 // Every test addresses a route directly. "/" is a decision, not a page: on a
-// home without ~/.oneagent it opens onboarding, so landing there would make
+// home without ~/.bootagent it opens onboarding, so landing there would make
 // these tests depend on whichever one ran first and wrote state.
 // selectOption is gone from these tests: the pickers are custom listboxes now,
 // because a native select's popup is drawn by the OS and cannot be styled. The
@@ -64,7 +64,7 @@ test("every sidebar control at the bottom is actually clickable", async ({ page 
   }
 });
 
-test("a machine with no OneAgent state opens onboarding from the landing route", async ({ page }) => {
+test("a machine with no BootAgent state opens onboarding from the landing route", async ({ page }) => {
   await page.goto("/#/");
   await expect(page.getByRole("heading", { name: "选择 Agent", level: 1 })).toBeVisible();
 });
@@ -97,13 +97,13 @@ test("onboarding installs one Agent end to end and writes its Profile", async ({
   await page.getByRole("button", { name: "继续" }).click();
 
   await expect(page.getByRole("heading", { name: "连接模型服务" })).toBeVisible();
-  await page.getByLabel("测试用模型（可选）").fill("oneagent-e2e-model");
+  await page.getByLabel("测试用模型（可选）").fill("bootagent-e2e-model");
   await page.getByRole("button", { name: "测试连接" }).click();
   // The model step is gated on a passing Provider probe.
   await page.getByRole("button", { name: "继续选择模型" }).click();
 
   await expect(page.getByRole("heading", { name: "选择模型" })).toBeVisible();
-  await page.getByRole("radio", { name: /oneagent-e2e-model/ }).click();
+  await page.getByRole("radio", { name: /bootagent-e2e-model/ }).click();
   await page.getByRole("button", { name: "继续" }).click();
 
   await expect(page.getByRole("heading", { name: "确认激活" })).toBeVisible();
@@ -154,7 +154,7 @@ test("a discovered model can be selected in the Profile editor", async ({ page }
   // an endpoint actually returns, the list rendered "no matching models" directly
   // below a notice saying how many had been found, and none could be chosen.
   //
-  // The fake Provider returns exactly one model, "oneagent-e2e-model", which
+  // The fake Provider returns exactly one model, "bootagent-e2e-model", which
   // shares no substring with the prefilled default -- so this passes only when the
   // typed query and the committed model ID are tracked separately.
   await page.goto("/#/providers");
@@ -175,10 +175,10 @@ test("a discovered model can be selected in the Profile editor", async ({ page }
   await expect(page.getByRole("radiogroup")).toHaveCount(0);
 
   await page.getByRole("button", { name: "展开模型列表" }).click();
-  await page.getByRole("radio", { name: /oneagent-e2e-model/ }).click();
-  await expect(model).toHaveValue("oneagent-e2e-model");
+  await page.getByRole("radio", { name: /bootagent-e2e-model/ }).click();
+  await expect(model).toHaveValue("bootagent-e2e-model");
   await expect(page.getByRole("radiogroup")).toHaveCount(0);
 
   await page.getByRole("button", { name: /保存配置模版/ }).click();
-  await expect(page.getByTestId(/^profile-/).first()).toContainText("oneagent-e2e-model");
+  await expect(page.getByTestId(/^profile-/).first()).toContainText("bootagent-e2e-model");
 });

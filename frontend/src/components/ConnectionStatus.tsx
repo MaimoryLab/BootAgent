@@ -62,7 +62,7 @@ export function ConnectionStatus({ state, result }: { state: AsyncState; result:
   // any. Falls through to the raw message otherwise -- INVALID_REQUEST carries
   // field-level detail a generic sentence would lose.
   const copy = failureCopyFor(result?.error_code, result?.status, t);
-  // A model OneAgent chose is named in the failure. A Provider's catalogue is
+  // A model BootAgent chose is named in the failure. A Provider's catalogue is
   // mostly image, video and audio generators, and one of those rejecting a chat
   // payload otherwise reads as a broken key -- a wrong verdict about the user's
   // credentials. Not shown when the key itself was rejected, which is about the
@@ -76,7 +76,7 @@ export function ConnectionStatus({ state, result }: { state: AsyncState; result:
         {/* The auto-selected model explains the failure, so it wins over the
             generic hint: a hint about the key is wrong when the model is at fault. */}
         {blamedModel ? (
-          <small>{t("测试使用的模型 {model} 由 OneAgent 自动选择，可能不支持对话。可在上方自定义模型名称后重试", { model: blamedModel })}</small>
+          <small>{t("测试使用的模型 {model} 由 BootAgent 自动选择，可能不支持对话。可在上方自定义模型名称后重试", { model: blamedModel })}</small>
         ) : copy?.hint ? <small>{copy.hint}</small> : null}
         {breakdown}
       </span>

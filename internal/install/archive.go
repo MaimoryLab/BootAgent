@@ -141,7 +141,7 @@ func writeEntry(path string, source io.Reader, mode os.FileMode) error {
 		return runtimeError("Cannot create a runtime directory", err)
 	}
 	// The archive is a downloaded runtime, not a secret, but it lives under the
-	// user's private OneAgent directory: keep it owner-only and preserve only
+	// user's private BootAgent directory: keep it owner-only and preserve only
 	// the executable bit the archive declared.
 	permissions := os.FileMode(0o600)
 	if mode&0o111 != 0 {

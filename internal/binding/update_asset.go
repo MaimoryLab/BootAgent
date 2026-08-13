@@ -38,9 +38,9 @@ func hasAnySuffix(name string, suffixes []string) bool {
 //
 // The default matcher takes the first asset whose name contains both the
 // platform and the architecture, and the GitHub API returns assets in
-// alphabetical order -- so "OneAgent-darwin-arm64.dmg" wins over the sibling
+// alphabetical order -- so "BootAgent-darwin-arm64.dmg" wins over the sibling
 // ".zip". A .dmg is not an archive the updater recognises, so it reached the
-// helper unextracted and replaced the installed OneAgent.app with the disk
+// helper unextracted and replaced the installed BootAgent.app with the disk
 // image file. Filtering first keeps the upstream sidecar and architecture
 // handling intact while making that outcome unreachable.
 func ExtractableAssetMatcher(request updater.CheckRequest, assets []github.ReleaseAsset) int {

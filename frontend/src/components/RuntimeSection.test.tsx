@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { OneAgentApiError } from "../backend/errors";
+import { BootAgentApiError } from "../backend/errors";
 import type { RuntimeStatus } from "../types/api";
 import { TaskCenterProvider } from "../state/TaskCenterContext";
 import { RuntimePrompt } from "./RuntimePrompt";
@@ -40,7 +40,7 @@ function runtime(overrides: Partial<RuntimeStatus> = {}): RuntimeStatus {
     license: "MIT",
     licenseUrl: "https://example.test/license",
     source: "https://nodejs.org/dist/",
-    installPath: "/home/user/.oneagent/runtimes/node/v24.18.1",
+    installPath: "/home/user/.bootagent/runtimes/node/v24.18.1",
     requiredByHint: "Codex, Claude Code",
     ...overrides,
   };
@@ -91,7 +91,7 @@ describe("RuntimeSection", () => {
 
   it("surfaces an install failure without refreshing status", async () => {
     installRuntime.mockImplementation(async () => {
-      throw new OneAgentApiError("校验和不匹配", "AGENT_INSTALL_FAILED", true, 400);
+      throw new BootAgentApiError("校验和不匹配", "AGENT_INSTALL_FAILED", true, 400);
     });
     const onInstalled = vi.fn();
     render(
@@ -131,28 +131,28 @@ describe("RuntimeSection", () => {
 });
 
 describe("runtimeRoot", () => {
-  // The install note used to spell out "~/.oneagent/runtimes", which names a
+  // The install note used to spell out "~/.bootagent/runtimes", which names a
   // path that does not exist on Windows. The directory now comes from the
   // backend's installPath, so both separator styles have to work.
   it("names the managed parent from a Windows path", () => {
-    expect(runtimeRoot([runtime({ installPath: "C:\\Users\\u\\.oneagent\\runtimes\\node\\v24.18.1" })])).toBe(
-      "C:\\Users\\u\\.oneagent\\runtimes",
+    expect(runtimeRoot([runtime({ installPath: "C:\\Users\\u\\.bootagent\\runtimes\\node\\v24.18.1" })])).toBe(
+      "C:\\Users\\u\\.bootagent\\runtimes",
     );
   });
 
   it("names the managed parent from a POSIX path", () => {
-    expect(runtimeRoot([runtime()])).toBe("/home/user/.oneagent/runtimes");
+    expect(runtimeRoot([runtime()])).toBe("/home/user/.bootagent/runtimes");
   });
 
   it("skips a runtime with no path and uses the next one", () => {
-    expect(runtimeRoot([runtime({ installPath: "" }), runtime()])).toBe("/home/user/.oneagent/runtimes");
+    expect(runtimeRoot([runtime({ installPath: "" }), runtime()])).toBe("/home/user/.bootagent/runtimes");
   });
 
   it("does not collapse a mixed-separator path to the drive letter", () => {
     // Picking one separator for the whole string turned this into "C:", which
     // the note then rendered as the install directory.
-    expect(runtimeRoot([runtime({ installPath: "C:\\Users\\u/.oneagent/runtimes/node/v1" })])).toBe(
-      "C:\\Users\\u\\.oneagent\\runtimes",
+    expect(runtimeRoot([runtime({ installPath: "C:\\Users\\u/.bootagent/runtimes/node/v1" })])).toBe(
+      "C:\\Users\\u\\.bootagent\\runtimes",
     );
   });
 

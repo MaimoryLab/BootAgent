@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/MaimoryLab/OneAgent/internal/platform"
+	"github.com/MaimoryLab/BootAgent/internal/platform"
 )
 
 // The two editions install side by side, so each must ignore the other. Their
@@ -55,7 +55,7 @@ func TestWorkBuddyEditionsDoNotDetectEachOther(t *testing.T) {
 // A SearchRoots entry pointing straight at an .app skips the filename check, so
 // the bundle identifier has to be what rejects the wrong edition. Without it a
 // user with only the international build installed would see the Chinese Agent
-// reported as installed, and OneAgent would write to the wrong config file.
+// reported as installed, and BootAgent would write to the wrong config file.
 func TestWorkBuddyPinnedPathStillChecksBundleIdentifier(t *testing.T) {
 	root := t.TempDir()
 	appPath := makeBundle(t, root, "WorkBuddy AI.app")

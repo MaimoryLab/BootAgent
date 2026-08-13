@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/MaimoryLab/OneAgent/internal/securefs"
+	"github.com/MaimoryLab/BootAgent/internal/securefs"
 )
 
 const maxRegistryBytes = 8 << 20
@@ -47,17 +47,17 @@ type backupMetadata struct {
 func NewStore(home string, fs securefs.Store) Store { return Store{home: home, fs: fs} }
 
 func (s Store) RegistryPath() string {
-	return filepath.Join(s.home, ".oneagent", "skill-registry.json")
+	return filepath.Join(s.home, ".bootagent", "skill-registry.json")
 }
-func (s Store) SkillsRoot() string { return filepath.Join(s.home, ".oneagent", "skills") }
+func (s Store) SkillsRoot() string { return filepath.Join(s.home, ".bootagent", "skills") }
 func (s Store) BackupRoot() string {
 	root := s.fs.BackupRoot()
 	if root == "" {
-		root = filepath.Join(s.home, ".oneagent", "backup")
+		root = filepath.Join(s.home, ".bootagent", "backup")
 	}
 	return filepath.Join(root, "skills")
 }
-func (s Store) LegacyBackupRoot() string         { return filepath.Join(s.home, ".oneagent", "skill-backups") }
+func (s Store) LegacyBackupRoot() string         { return filepath.Join(s.home, ".bootagent", "skill-backups") }
 func (s Store) skillBackupRoot(id string) string { return filepath.Join(s.BackupRoot(), id) }
 func (s Store) VariantPath(id, hash string) string {
 	return filepath.Join(s.SkillsRoot(), id, "variants", hash)
@@ -122,7 +122,7 @@ func (s Store) SaveVariant(ctx context.Context, id, source string, stats TreeSta
 	if err := s.ensurePrivateDir(ctx, parent); err != nil {
 		return err
 	}
-	stage, err := os.MkdirTemp(parent, ".oneagent-private-")
+	stage, err := os.MkdirTemp(parent, ".bootagent-private-")
 	if err != nil {
 		return err
 	}
@@ -183,7 +183,7 @@ func (s Store) CreateBackup(ctx context.Context, id string, fact Fact) (summary 
 	}
 	created := time.Now().UTC()
 	prefix := created.Format("20060102T150405.000000000Z") + "-" + id + "-"
-	dir, err := os.MkdirTemp(root, ".oneagent-backup-pending-")
+	dir, err := os.MkdirTemp(root, ".bootagent-backup-pending-")
 	if err != nil {
 		return summary, err
 	}
@@ -284,7 +284,7 @@ func (s Store) RestoreBackup(ctx context.Context, backupID string) (Fact, error)
 	if err := s.ensurePrivateRoot(ctx, s.SkillsRoot()); err != nil {
 		return Fact{}, err
 	}
-	stage, err := os.MkdirTemp(s.SkillsRoot(), ".oneagent-restore-")
+	stage, err := os.MkdirTemp(s.SkillsRoot(), ".bootagent-restore-")
 	if err != nil {
 		return Fact{}, err
 	}
@@ -362,7 +362,7 @@ func (s Store) loadBackup(backupID string) (backupMetadata, string, error) {
 	if backupID == "" || backupID == "." || backupID == ".." || backupID != filepath.Base(backupID) || strings.ContainsAny(backupID, `/\\`) {
 		return backupMetadata{}, "", errors.New("invalid Skill backup ID")
 	}
-	if strings.HasPrefix(backupID, ".oneagent-backup-pending-") {
+	if strings.HasPrefix(backupID, ".bootagent-backup-pending-") {
 		return backupMetadata{}, "", errors.New("invalid Skill backup ID")
 	}
 	located, err := s.listLocatedBackups(backupID)
@@ -401,7 +401,7 @@ func (s Store) listLocatedBackups(backupID string) ([]locatedBackup, error) {
 		}
 		if root == s.BackupRoot() {
 			for _, skillEntry := range entries {
-				if !skillEntry.IsDir() || strings.HasPrefix(skillEntry.Name(), ".oneagent-backup-pending-") {
+				if !skillEntry.IsDir() || strings.HasPrefix(skillEntry.Name(), ".bootagent-backup-pending-") {
 					continue
 				}
 				skillRoot := filepath.Join(root, skillEntry.Name())
@@ -413,7 +413,7 @@ func (s Store) listLocatedBackups(backupID string) ([]locatedBackup, error) {
 					return nil, readErr
 				}
 				for _, entry := range backups {
-					if !entry.IsDir() || strings.HasPrefix(entry.Name(), ".oneagent-backup-pending-") {
+					if !entry.IsDir() || strings.HasPrefix(entry.Name(), ".bootagent-backup-pending-") {
 						continue
 					}
 					if backupID == "" || entry.Name() == backupID {
@@ -424,7 +424,7 @@ func (s Store) listLocatedBackups(backupID string) ([]locatedBackup, error) {
 			continue
 		}
 		for _, entry := range entries {
-			if !entry.IsDir() || strings.HasPrefix(entry.Name(), ".oneagent-backup-pending-") {
+			if !entry.IsDir() || strings.HasPrefix(entry.Name(), ".bootagent-backup-pending-") {
 				continue
 			}
 			if backupID == "" || entry.Name() == backupID {

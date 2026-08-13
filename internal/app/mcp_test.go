@@ -3,8 +3,8 @@ package app
 import (
 	"testing"
 
-	"github.com/MaimoryLab/OneAgent/internal/catalog"
-	"github.com/MaimoryLab/OneAgent/internal/mcp"
+	"github.com/MaimoryLab/BootAgent/internal/catalog"
+	"github.com/MaimoryLab/BootAgent/internal/mcp"
 )
 
 func TestRemoveMCPAgentPrunesEmptyServers(t *testing.T) {

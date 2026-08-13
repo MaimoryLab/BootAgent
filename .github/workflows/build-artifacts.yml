@@ -96,21 +96,21 @@ jobs:
         shell: bash
         run: |
           mkdir -p bin
-          version_ldflag="-X github.com/MaimoryLab/OneAgent/internal/version.Version=$RELEASE_VERSION"
-          go build -tags wails,production -trimpath -buildvcs=false -ldflags="-w -s $version_ldflag" -o bin/oneagent-desktop ./cmd/oneagent-desktop
+          version_ldflag="-X github.com/MaimoryLab/BootAgent/internal/version.Version=$RELEASE_VERSION"
+          go build -tags wails,production -trimpath -buildvcs=false -ldflags="-w -s $version_ldflag" -o bin/bootagent-desktop ./cmd/bootagent-desktop
 
       - name: Package macOS app
         shell: bash
         run: |
-          mkdir -p "bin/OneAgent.app/Contents/MacOS" "bin/OneAgent.app/Contents/Resources"
-          cp "bin/oneagent-desktop" "bin/OneAgent.app/Contents/MacOS/oneagent-desktop"
-          cp build/darwin/icons.icns "bin/OneAgent.app/Contents/Resources/icons.icns"
-          cp build/darwin/Info.plist "bin/OneAgent.app/Contents/Info.plist"
+          mkdir -p "bin/BootAgent.app/Contents/MacOS" "bin/BootAgent.app/Contents/Resources"
+          cp "bin/bootagent-desktop" "bin/BootAgent.app/Contents/MacOS/bootagent-desktop"
+          cp build/darwin/icons.icns "bin/BootAgent.app/Contents/Resources/icons.icns"
+          cp build/darwin/Info.plist "bin/BootAgent.app/Contents/Info.plist"
           bundle_version="${RELEASE_VERSION#v}"
-          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $bundle_version" "bin/OneAgent.app/Contents/Info.plist"
-          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $bundle_version" "bin/OneAgent.app/Contents/Info.plist"
-          codesign --force --deep --sign - "bin/OneAgent.app"
-          rm "bin/oneagent-desktop"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $bundle_version" "bin/BootAgent.app/Contents/Info.plist"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $bundle_version" "bin/BootAgent.app/Contents/Info.plist"
+          codesign --force --deep --sign - "bin/BootAgent.app"
+          rm "bin/bootagent-desktop"
 
       - name: Package macOS DMG
         shell: bash
@@ -124,14 +124,14 @@ jobs:
           # and silently gives up (#143).
           rm -rf bin/dmg-root
           mkdir -p bin/dmg-root
-          cp -R "bin/OneAgent.app" bin/dmg-root/
+          cp -R "bin/BootAgent.app" bin/dmg-root/
           ln -s /Applications bin/dmg-root/Applications
           hdiutil create \
-            -volname OneAgent \
+            -volname BootAgent \
             -srcfolder bin/dmg-root \
             -ov \
             -format UDZO \
-            "bin/OneAgent-darwin-${{ matrix.arch.ota }}.dmg"
+            "bin/BootAgent-darwin-${{ matrix.arch.ota }}.dmg"
           rm -rf bin/dmg-root
 
       - name: Verify macOS DMG layout
@@ -140,11 +140,11 @@ jobs:
           # A dmg that lost the symlink still installs, so nothing downstream
           # would fail -- the regression would ship silently and only show up as
           # users running the app from the image.
-          dmg="bin/OneAgent-darwin-${{ matrix.arch.ota }}.dmg"
+          dmg="bin/BootAgent-darwin-${{ matrix.arch.ota }}.dmg"
           mountpoint="$(mktemp -d)"
           hdiutil attach "$dmg" -nobrowse -readonly -mountpoint "$mountpoint"
           status=0
-          test -d "$mountpoint/OneAgent.app" || { echo "OneAgent.app missing from dmg" >&2; status=1; }
+          test -d "$mountpoint/BootAgent.app" || { echo "BootAgent.app missing from dmg" >&2; status=1; }
           test -L "$mountpoint/Applications" || { echo "Applications symlink missing from dmg" >&2; status=1; }
           # Must be absolute: a relative link resolves against the mounted
           # volume on the user's machine, where it points at nothing.
@@ -156,22 +156,22 @@ jobs:
       - name: Package macOS OTA archive
         shell: bash
         run: |
-          (cd bin && zip -qry "ota-OneAgent-darwin-${{ matrix.arch.ota }}.zip" OneAgent.app)
-          roots="$(unzip -Z1 "bin/ota-OneAgent-darwin-${{ matrix.arch.ota }}.zip" | awk -F/ 'NF {print $1}' | sort -u)"
-          test "$roots" = OneAgent.app
+          (cd bin && zip -qry "ota-BootAgent-darwin-${{ matrix.arch.ota }}.zip" BootAgent.app)
+          roots="$(unzip -Z1 "bin/ota-BootAgent-darwin-${{ matrix.arch.ota }}.zip" | awk -F/ 'NF {print $1}' | sort -u)"
+          test "$roots" = BootAgent.app
 
       - name: Upload OTA archive
         uses: actions/upload-artifact@v7
         with:
           name: ota-macos-${{ matrix.arch.label }}
-          path: bin/ota-OneAgent-darwin-${{ matrix.arch.ota }}.zip
+          path: bin/ota-BootAgent-darwin-${{ matrix.arch.ota }}.zip
           if-no-files-found: error
 
       - name: Upload macOS DMG
         uses: actions/upload-artifact@v7
         with:
           name: installer-macos-${{ matrix.arch.label }}
-          path: bin/OneAgent-darwin-${{ matrix.arch.ota }}.dmg
+          path: bin/BootAgent-darwin-${{ matrix.arch.ota }}.dmg
           if-no-files-found: error
 
   windows:
@@ -214,15 +214,15 @@ jobs:
             -manifest windows/wails.exe.manifest \
             -info windows/info.generated.json \
             -arch "$GOARCH" \
-            -out "../cmd/oneagent-desktop/rsrc_windows_${GOARCH}.syso"
+            -out "../cmd/bootagent-desktop/rsrc_windows_${GOARCH}.syso"
 
       - name: Build Windows binary
         shell: bash
         run: |
           mkdir -p bin
-          version_ldflag="-X github.com/MaimoryLab/OneAgent/internal/version.Version=$RELEASE_VERSION"
-          go build -tags wails,production -trimpath -buildvcs=false -ldflags="-w -s -H windowsgui $version_ldflag" -o bin/oneagent-desktop.exe ./cmd/oneagent-desktop
-          rm -f "cmd/oneagent-desktop/rsrc_windows_${GOARCH}.syso" build/windows/info.generated.json
+          version_ldflag="-X github.com/MaimoryLab/BootAgent/internal/version.Version=$RELEASE_VERSION"
+          go build -tags wails,production -trimpath -buildvcs=false -ldflags="-w -s -H windowsgui $version_ldflag" -o bin/bootagent-desktop.exe ./cmd/bootagent-desktop
+          rm -f "cmd/bootagent-desktop/rsrc_windows_${GOARCH}.syso" build/windows/info.generated.json
 
       - name: Install NSIS
         uses: repolevedavaj/install-nsis@v1.2.1
@@ -237,16 +237,16 @@ jobs:
           $version = $env:RELEASE_VERSION.TrimStart('v')
           $arch = '${{ matrix.arch.ota }}'
           Set-Location "$env:GITHUB_WORKSPACE/build/windows/nsis"
-          makensis "-DINFO_PRODUCTVERSION=$version" "-DARG_WAILS_${{ matrix.arch.goarch == 'amd64' && 'AMD64' || 'ARM64' }}_BINARY=$env:GITHUB_WORKSPACE\bin\oneagent-desktop.exe" project.nsi
-          Rename-Item "..\..\..\bin\oneagent-desktop-$arch-installer.exe" "OneAgent-windows-$arch-installer.exe"
+          makensis "-DINFO_PRODUCTVERSION=$version" "-DARG_WAILS_${{ matrix.arch.goarch == 'amd64' && 'AMD64' || 'ARM64' }}_BINARY=$env:GITHUB_WORKSPACE\bin\bootagent-desktop.exe" project.nsi
+          Rename-Item "..\..\..\bin\bootagent-desktop-$arch-installer.exe" "BootAgent-windows-$arch-installer.exe"
 
       - name: Package Windows OTA archive
         shell: pwsh
         run: |
-          $archive = "bin/ota-OneAgent-windows-${{ matrix.arch.ota }}.zip"
-          Compress-Archive -Path "bin/oneagent-desktop.exe" -DestinationPath $archive
+          $archive = "bin/ota-BootAgent-windows-${{ matrix.arch.ota }}.zip"
+          Compress-Archive -Path "bin/bootagent-desktop.exe" -DestinationPath $archive
           $roots = @(tar -tf $archive | ForEach-Object { ($_ -split '/')[0] } | Where-Object { $_ } | Sort-Object -Unique)
-          if ($roots.Count -ne 1 -or $roots[0] -ne "oneagent-desktop.exe") {
+          if ($roots.Count -ne 1 -or $roots[0] -ne "bootagent-desktop.exe") {
             throw "unexpected OTA archive roots: $($roots -join ', ')"
           }
 
@@ -254,14 +254,14 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: ota-windows-${{ matrix.arch.label }}
-          path: bin/ota-OneAgent-windows-${{ matrix.arch.ota }}.zip
+          path: bin/ota-BootAgent-windows-${{ matrix.arch.ota }}.zip
           if-no-files-found: error
 
       - name: Upload Windows NSIS installer
         uses: actions/upload-artifact@v7
         with:
           name: installer-windows-${{ matrix.arch.label }}
-          path: bin/OneAgent-windows-${{ matrix.arch.ota }}-installer.exe
+          path: bin/BootAgent-windows-${{ matrix.arch.ota }}-installer.exe
           if-no-files-found: error
 
   linux:
@@ -309,13 +309,13 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p bin
-          version_ldflag="-X github.com/MaimoryLab/OneAgent/internal/version.Version=$RELEASE_VERSION"
+          version_ldflag="-X github.com/MaimoryLab/BootAgent/internal/version.Version=$RELEASE_VERSION"
           go build -tags wails,production -trimpath -buildvcs=false \
             -ldflags="-w -s $version_ldflag" \
-            -o bin/oneagent-desktop ./cmd/oneagent-desktop
-          file bin/oneagent-desktop
+            -o bin/bootagent-desktop ./cmd/bootagent-desktop
+          file bin/bootagent-desktop
           expected_arch='${{ matrix.arch.goarch == 'amd64' && 'x86-64' || 'ARM aarch64' }}'
-          file bin/oneagent-desktop | grep -F "$expected_arch"
+          file bin/bootagent-desktop | grep -F "$expected_arch"
 
       - name: Generate Linux packages
         shell: bash
@@ -323,14 +323,14 @@ jobs:
           set -euo pipefail
           version="${RELEASE_VERSION#v}"
           export VERSION="$version"
-          desktop="build/linux/oneagent-desktop.desktop"
+          desktop="build/linux/bootagent-desktop.desktop"
           appimage_arch='${{ matrix.arch.goarch == 'amd64' && 'x86_64' || 'aarch64' }}'
           package_arch='${{ matrix.arch.ota }}'
 
           go run github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.7 \
             generate .desktop \
-            -name OneAgent \
-            -exec oneagent-desktop \
+            -name BootAgent \
+            -exec bootagent-desktop \
             -icon appicon \
             -outputfile "$desktop" \
             -categories 'Development;' \
@@ -338,55 +338,55 @@ jobs:
 
           go run github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.7 \
             generate appimage \
-            -binary bin/oneagent-desktop \
+            -binary bin/bootagent-desktop \
             -icon build/appicon.png \
             -desktopfile "$desktop" \
             -outputdir bin \
             -builddir build/linux/appimage/build
-          mv "bin/oneagent-desktop-${appimage_arch}.AppImage" "bin/OneAgent-linux-${package_arch}.AppImage"
+          mv "bin/bootagent-desktop-${appimage_arch}.AppImage" "bin/BootAgent-linux-${package_arch}.AppImage"
 
           go run github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.7 \
             tool package \
-            -name oneagent-desktop \
+            -name bootagent-desktop \
             -format deb \
             -config build/linux/nfpm/nfpm.yaml \
             -out bin
-          test -s bin/oneagent-desktop.deb
-          mv bin/oneagent-desktop.deb "bin/OneAgent-linux-${package_arch}.deb"
+          test -s bin/bootagent-desktop.deb
+          mv bin/bootagent-desktop.deb "bin/BootAgent-linux-${package_arch}.deb"
 
           go run github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.7 \
             tool package \
-            -name oneagent-desktop \
+            -name bootagent-desktop \
             -format rpm \
             -config build/linux/nfpm/nfpm.yaml \
             -out bin
-          test -s bin/oneagent-desktop.rpm
-          mv bin/oneagent-desktop.rpm "bin/OneAgent-linux-${package_arch}.rpm"
+          test -s bin/bootagent-desktop.rpm
+          mv bin/bootagent-desktop.rpm "bin/BootAgent-linux-${package_arch}.rpm"
 
-          (cd bin && zip -q "ota-OneAgent-linux-${package_arch}.zip" oneagent-desktop)
-          roots="$(unzip -Z1 "bin/ota-OneAgent-linux-${package_arch}.zip" | awk -F/ 'NF {print $1}' | sort -u)"
-          test "$roots" = oneagent-desktop
+          (cd bin && zip -q "ota-BootAgent-linux-${package_arch}.zip" bootagent-desktop)
+          roots="$(unzip -Z1 "bin/ota-BootAgent-linux-${package_arch}.zip" | awk -F/ 'NF {print $1}' | sort -u)"
+          test "$roots" = bootagent-desktop
 
       - name: Verify Linux package outputs
         shell: bash
         run: |
           set -euo pipefail
           arch='${{ matrix.arch.ota }}'
-          test -x bin/OneAgent-linux-${arch}.AppImage
-          test -s bin/OneAgent-linux-${arch}.deb
-          test -s bin/OneAgent-linux-${arch}.rpm
-          test -s bin/ota-OneAgent-linux-${arch}.zip
-          test "$(unzip -Z1 bin/ota-OneAgent-linux-${arch}.zip | awk -F/ 'NF {print $1}' | sort -u)" = oneagent-desktop
+          test -x bin/BootAgent-linux-${arch}.AppImage
+          test -s bin/BootAgent-linux-${arch}.deb
+          test -s bin/BootAgent-linux-${arch}.rpm
+          test -s bin/ota-BootAgent-linux-${arch}.zip
+          test "$(unzip -Z1 bin/ota-BootAgent-linux-${arch}.zip | awk -F/ 'NF {print $1}' | sort -u)" = bootagent-desktop
 
       - name: Upload Linux packages
         uses: actions/upload-artifact@v7
         with:
           name: installer-linux-${{ matrix.arch.label }}
           path: |
-            bin/OneAgent-linux-${{ matrix.arch.ota }}.AppImage
-            bin/OneAgent-linux-${{ matrix.arch.ota }}.deb
-            bin/OneAgent-linux-${{ matrix.arch.ota }}.rpm
-            bin/ota-OneAgent-linux-${{ matrix.arch.ota }}.zip
+            bin/BootAgent-linux-${{ matrix.arch.ota }}.AppImage
+            bin/BootAgent-linux-${{ matrix.arch.ota }}.deb
+            bin/BootAgent-linux-${{ matrix.arch.ota }}.rpm
+            bin/ota-BootAgent-linux-${{ matrix.arch.ota }}.zip
           if-no-files-found: error
 
   release:
@@ -433,27 +433,27 @@ jobs:
         run: |
           set -euo pipefail
           expected=(
-            ota-OneAgent-darwin-amd64.zip
-            ota-OneAgent-darwin-arm64.zip
-            OneAgent-darwin-amd64.dmg
-            OneAgent-darwin-arm64.dmg
-            ota-OneAgent-windows-amd64.zip
-            ota-OneAgent-windows-arm64.zip
-            OneAgent-windows-amd64-installer.exe
-            OneAgent-windows-arm64-installer.exe
-            OneAgent-linux-amd64.AppImage
-            OneAgent-linux-arm64.AppImage
-            OneAgent-linux-amd64.deb
-            OneAgent-linux-arm64.deb
-            OneAgent-linux-amd64.rpm
-            OneAgent-linux-arm64.rpm
-            ota-OneAgent-linux-amd64.zip
-            ota-OneAgent-linux-arm64.zip
+            ota-BootAgent-darwin-amd64.zip
+            ota-BootAgent-darwin-arm64.zip
+            BootAgent-darwin-amd64.dmg
+            BootAgent-darwin-arm64.dmg
+            ota-BootAgent-windows-amd64.zip
+            ota-BootAgent-windows-arm64.zip
+            BootAgent-windows-amd64-installer.exe
+            BootAgent-windows-arm64-installer.exe
+            BootAgent-linux-amd64.AppImage
+            BootAgent-linux-arm64.AppImage
+            BootAgent-linux-amd64.deb
+            BootAgent-linux-arm64.deb
+            BootAgent-linux-amd64.rpm
+            BootAgent-linux-arm64.rpm
+            ota-BootAgent-linux-amd64.zip
+            ota-BootAgent-linux-arm64.zip
           )
-          mapfile -t assets < <(find release-assets -maxdepth 1 -type f -name 'OneAgent-*' -printf '%f\n' | sort)
+          mapfile -t assets < <(find release-assets -maxdepth 1 -type f -name 'BootAgent-*' -printf '%f\n' | sort)
           test "${#assets[@]}" -eq 16
           diff <(printf '%s\n' "${expected[@]}" | sort) <(printf '%s\n' "${assets[@]}")
-          (cd release-assets && sha256sum OneAgent-* > SHA256SUMS)
+          (cd release-assets && sha256sum BootAgent-* > SHA256SUMS)
           test "$(wc -l < release-assets/SHA256SUMS)" -eq 16
 
           if gh release view "$RELEASE_VERSION" >/dev/null 2>&1; then
@@ -485,6 +485,6 @@ jobs:
           GH_TOKEN: ${{ secrets.SITE_DISPATCH_TOKEN }}
           SITE_DISPATCH_TOKEN: ${{ secrets.SITE_DISPATCH_TOKEN }}
         run: |
-          gh api repos/MaimoryLab/OneAgent-site/dispatches \
+          gh api repos/MaimoryLab/BootAgent-site/dispatches \
             -f event_type=upstream-release \
             -F "client_payload[release]=$RELEASE_VERSION" || true

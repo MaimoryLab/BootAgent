@@ -17,16 +17,16 @@ tasks:
           ARCH: '{{.ARCH | default ARCH}}'
           VERSION: '{{.VERSION}}'
     cmds:
-      - go build {{.BUILD_FLAGS}} -o "{{.OUTPUT}}" ./cmd/oneagent-desktop
+      - go build {{.BUILD_FLAGS}} -o "{{.OUTPUT}}" ./cmd/bootagent-desktop
       # The .syso is a build input for GOOS=windows only. Left in place it would
       # be picked up by a native Windows build of any other target in this repo,
       # and its arch suffix makes it wrong for the other architecture.
-      - cmd: powershell Remove-item "cmd/oneagent-desktop/wails_windows_{{.ARCH | default ARCH}}.syso"
+      - cmd: powershell Remove-item "cmd/bootagent-desktop/wails_windows_{{.ARCH | default ARCH}}.syso"
         platforms: [windows]
-      - cmd: rm -f "cmd/oneagent-desktop/wails_windows_{{.ARCH | default ARCH}}.syso"
+      - cmd: rm -f "cmd/bootagent-desktop/wails_windows_{{.ARCH | default ARCH}}.syso"
         platforms: [linux, darwin]
     vars:
-      BUILD_FLAGS: '{{if eq .DEV "true"}}-tags wails -buildvcs=false -gcflags=all="-l"{{else}}-tags wails,production -trimpath -buildvcs=false -ldflags="-w -s -H windowsgui{{if .VERSION}} -X github.com/MaimoryLab/OneAgent/internal/version.Version={{.VERSION}}{{end}}"{{end}}'
+      BUILD_FLAGS: '{{if eq .DEV "true"}}-tags wails -buildvcs=false -gcflags=all="-l"{{else}}-tags wails,production -trimpath -buildvcs=false -ldflags="-w -s -H windowsgui{{if .VERSION}} -X github.com/MaimoryLab/BootAgent/internal/version.Version={{.VERSION}}{{end}}"{{end}}'
       OUTPUT: '{{.OUTPUT | default (printf "%s/%s.exe" .BIN_DIR .APP_NAME)}}'
     env:
       GOOS: windows
@@ -45,7 +45,7 @@ tasks:
         platforms: [windows]
       - cmd: sed 's/0.0.0/{{.VERSION | default "0.0.0"}}/g' build/windows/info.json > build/windows/info.generated.json
         platforms: [linux, darwin]
-      - '{{.WAILS3}} generate syso -arch {{.ARCH | default ARCH}} -icon build/windows/icon.ico -manifest build/windows/wails.exe.manifest -info build/windows/info.generated.json -out cmd/oneagent-desktop/wails_windows_{{.ARCH | default ARCH}}.syso'
+      - '{{.WAILS3}} generate syso -arch {{.ARCH | default ARCH}} -icon build/windows/icon.ico -manifest build/windows/wails.exe.manifest -info build/windows/info.generated.json -out cmd/bootagent-desktop/wails_windows_{{.ARCH | default ARCH}}.syso'
       - cmd: powershell Remove-item "build/windows/info.generated.json"
         platforms: [windows]
       - cmd: unlink build/windows/info.generated.json

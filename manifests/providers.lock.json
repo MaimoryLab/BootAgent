@@ -11,7 +11,7 @@
       "default_model": "deepseek/deepseek-v4-pro",
       "fallback_probe_model": "deepseek/deepseek-v4-flash",
       "relationship": "sponsor",
-      "disclosure": "PPIO sponsors OneAgent development. Sponsorship does not affect Agent rank, compatibility conclusions, default selection, or connection tests.",
+      "disclosure": "PPIO sponsors BootAgent development. Sponsorship does not affect Agent rank, compatibility conclusions, default selection, or connection tests.",
       "referral_url": "",
       "order": 1,
       "protocols": {
@@ -29,7 +29,7 @@
       "default_model": "deepseek/deepseek-v4-pro",
       "fallback_probe_model": "deepseek/deepseek-v4-flash",
       "relationship": "sponsor",
-      "disclosure": "Novita sponsors OneAgent development. Sponsorship does not affect Agent rank, compatibility conclusions, default selection, or connection tests.",
+      "disclosure": "Novita sponsors BootAgent development. Sponsorship does not affect Agent rank, compatibility conclusions, default selection, or connection tests.",
       "referral_url": "",
       "order": 2,
       "protocols": {

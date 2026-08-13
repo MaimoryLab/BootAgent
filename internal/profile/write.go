@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
-	"github.com/MaimoryLab/OneAgent/internal/provider"
-	"github.com/MaimoryLab/OneAgent/internal/securefs"
+	oneerrors "github.com/MaimoryLab/BootAgent/internal/errors"
+	"github.com/MaimoryLab/BootAgent/internal/provider"
+	"github.com/MaimoryLab/BootAgent/internal/securefs"
 )
 
 type SaveRequest struct {

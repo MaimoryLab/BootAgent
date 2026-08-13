@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
+	oneerrors "github.com/MaimoryLab/BootAgent/internal/errors"
 )
 
 func fixedClock() time.Time {
@@ -19,7 +19,7 @@ func fixedClock() time.Time {
 
 func TestAtomicWriteCreatesPrivateFileAndCollisionSafeBackup(t *testing.T) {
 	root := t.TempDir()
-	target := filepath.Join(root, ".oneagent", "profile.json")
+	target := filepath.Join(root, ".bootagent", "profile.json")
 	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -56,7 +56,7 @@ func TestAtomicWriteCreatesPrivateFileAndCollisionSafeBackup(t *testing.T) {
 
 func TestAtomicWriteUsesManagedBackupRootAndPrunesPerTarget(t *testing.T) {
 	home := t.TempDir()
-	backupRoot := filepath.Join(home, ".oneagent", "backup")
+	backupRoot := filepath.Join(home, ".bootagent", "backup")
 	first := filepath.Join(home, ".config", "first.json")
 	second := filepath.Join(home, ".config", "second.json")
 	if err := os.MkdirAll(filepath.Dir(first), 0o700); err != nil {
@@ -106,13 +106,13 @@ func TestAtomicWriteUsesDefaultBackupRetention(t *testing.T) {
 	if err := os.WriteFile(target, []byte("initial"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	store := New(Options{OS: "linux", BackupRoot: filepath.Join(home, ".oneagent", "backup"), Now: fixedClock})
+	store := New(Options{OS: "linux", BackupRoot: filepath.Join(home, ".bootagent", "backup"), Now: fixedClock})
 	for i := 0; i < 5; i++ {
 		if _, err := store.AtomicWrite(context.Background(), target, []byte(fmt.Sprintf("value-%d", i)), false); err != nil {
 			t.Fatal(err)
 		}
 	}
-	entries, err := os.ReadDir(BackupGroupPath(filepath.Join(home, ".oneagent", "backup"), target))
+	entries, err := os.ReadDir(BackupGroupPath(filepath.Join(home, ".bootagent", "backup"), target))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -137,7 +137,7 @@ func TestAtomicWriteMigratesAndPrunesLegacyBackups(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	backupRoot := filepath.Join(home, ".oneagent", "backup")
+	backupRoot := filepath.Join(home, ".bootagent", "backup")
 	store := New(Options{OS: "linux", BackupRoot: backupRoot, Retention: func() int { return 3 }, Now: fixedClock})
 	if _, err := store.AtomicWrite(context.Background(), target, []byte("replacement"), false); err != nil {
 		t.Fatal(err)
@@ -177,7 +177,7 @@ func TestAtomicWriteRejectsSymlinkedManagedBackupRoot(t *testing.T) {
 		t.Fatal(err)
 	}
 	outside := t.TempDir()
-	backupRoot := filepath.Join(home, ".oneagent", "backup")
+	backupRoot := filepath.Join(home, ".bootagent", "backup")
 	if err := os.MkdirAll(filepath.Dir(backupRoot), 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -226,7 +226,7 @@ func TestSecretBackupSecurityFailureRemovesBackup(t *testing.T) {
 
 func TestTemporarySecurityFailureLeavesNoPublishedReplacement(t *testing.T) {
 	root := t.TempDir()
-	target := filepath.Join(root, ".oneagent", "new")
+	target := filepath.Join(root, ".bootagent", "new")
 	callCount := 0
 	store := New(Options{
 		OS:  "linux",
@@ -253,7 +253,7 @@ func TestTemporarySecurityFailureLeavesNoPublishedReplacement(t *testing.T) {
 		t.Fatal(readErr)
 	}
 	for _, entry := range entries {
-		if strings.HasPrefix(entry.Name(), ".oneagent-tmp-") {
+		if strings.HasPrefix(entry.Name(), ".bootagent-tmp-") {
 			t.Fatalf("temporary file remains: %s", entry.Name())
 		}
 	}

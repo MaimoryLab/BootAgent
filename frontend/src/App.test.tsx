@@ -32,13 +32,13 @@ const status = {
 } satisfies StatusResponse;
 
 describe("landing route", () => {
-  it("opens onboarding on a machine with no ~/.oneagent", async () => {
+  it("opens onboarding on a machine with no ~/.bootagent", async () => {
     vi.spyOn(api, "status").mockResolvedValue({ ...status, firstRun: true });
     render(<MemoryRouter initialEntries={["/"]}><App /></MemoryRouter>);
     expect(await screen.findByRole("heading", { name: "选择 Agent", level: 1 })).toBeTruthy();
   });
 
-  it("opens the overview once OneAgent has state", async () => {
+  it("opens the overview once BootAgent has state", async () => {
     vi.spyOn(api, "status").mockResolvedValue(status);
     render(<MemoryRouter initialEntries={["/"]}><App /></MemoryRouter>);
     expect(await screen.findByRole("heading", { name: "环境总览" })).toBeTruthy();

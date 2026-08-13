@@ -13,15 +13,15 @@ import (
 	"sync"
 	"time"
 
-	"github.com/MaimoryLab/OneAgent/internal/catalog"
-	configReader "github.com/MaimoryLab/OneAgent/internal/config"
-	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
-	"github.com/MaimoryLab/OneAgent/internal/install"
-	"github.com/MaimoryLab/OneAgent/internal/platform"
-	"github.com/MaimoryLab/OneAgent/internal/process"
-	profileStore "github.com/MaimoryLab/OneAgent/internal/profile"
-	"github.com/MaimoryLab/OneAgent/internal/provider"
-	"github.com/MaimoryLab/OneAgent/internal/securefs"
+	"github.com/MaimoryLab/BootAgent/internal/catalog"
+	configReader "github.com/MaimoryLab/BootAgent/internal/config"
+	oneerrors "github.com/MaimoryLab/BootAgent/internal/errors"
+	"github.com/MaimoryLab/BootAgent/internal/install"
+	"github.com/MaimoryLab/BootAgent/internal/platform"
+	"github.com/MaimoryLab/BootAgent/internal/process"
+	profileStore "github.com/MaimoryLab/BootAgent/internal/profile"
+	"github.com/MaimoryLab/BootAgent/internal/provider"
+	"github.com/MaimoryLab/BootAgent/internal/securefs"
 )
 
 type CommandLookup func(string) (string, bool)
@@ -44,13 +44,14 @@ type StatusOptions struct {
 }
 
 type UseCases struct {
-	status      StatusOptions
-	provider    *provider.Client
-	providers   provider.Store
-	profiles    profileStore.Store
-	filesystem  securefs.Store
-	runner      process.Runner
-	environment map[string]string
+	status          StatusOptions
+	provider        *provider.Client
+	providers       provider.Store
+	profiles        profileStore.Store
+	filesystem      securefs.Store
+	runner          process.Runner
+	environment     map[string]string
+	migrationNotice string
 	// httpDoer is shared by internal runtime and desktop-agent downloads. It is
 	// injectable so install behavior is testable without reaching a CDN.
 	httpDoer install.Doer
@@ -116,8 +117,12 @@ func newUseCases(options StatusOptions, client *provider.Client, profiles profil
 	if options.Home == "" {
 		options.Home = platform.ResolveHome(nil, options.Platform.OS)
 	}
+	migrationNotice, migrationErr := migrateLegacyHome(options.Home)
+	if migrationErr != nil {
+		migrationNotice = "无法迁移旧 BootAgent 配置：" + migrationErr.Error()
+	}
 	// Lookup stays nil unless a caller injected one. A default here would resolve
-	// against the OneAgent process PATH, which disagrees with the environment
+	// against the BootAgent process PATH, which disagrees with the environment
 	// installs and version probes actually run in: a managed runtime and any
 	// Agent CLI under the managed global prefix would be reported missing.
 	// runtimeCapability supplies the managed-PATH lookup instead.
@@ -152,12 +157,12 @@ func newUseCases(options StatusOptions, client *provider.Client, profiles profil
 	} else if injectedProfiles && profiles.FS != nil {
 		filesystem = *profiles.FS
 	} else {
-		backupRoot := filepath.Join(options.Home, ".oneagent", "backup")
+		backupRoot := filepath.Join(options.Home, ".bootagent", "backup")
 		filesystem = securefs.New(securefs.Options{
 			OS:         options.Platform.OS,
 			BackupRoot: backupRoot,
 			Retention: func() int {
-				return backupRetentionFromFile(filepath.Join(options.Home, ".oneagent", "settings.json"))
+				return backupRetentionFromFile(filepath.Join(options.Home, ".bootagent", "settings.json"))
 			},
 		})
 	}
@@ -166,24 +171,25 @@ func newUseCases(options StatusOptions, client *provider.Client, profiles profil
 	// production uses the managed backup policy above.
 	profiles.FS = &filesystem
 	return &UseCases{
-		status:      options,
-		provider:    client,
-		providers:   provider.NewStore(options.Home, filesystem),
-		profiles:    profiles,
-		filesystem:  filesystem,
-		runner:      runner,
-		environment: cloneEnvironment(options.Environment),
+		status:          options,
+		provider:        client,
+		providers:       provider.NewStore(options.Home, filesystem),
+		profiles:        profiles,
+		filesystem:      filesystem,
+		runner:          runner,
+		environment:     cloneEnvironment(options.Environment),
+		migrationNotice: migrationNotice,
 	}
 }
 
-// CommandLogDir holds one log file per day recording every subprocess OneAgent
+// CommandLogDir holds one log file per day recording every subprocess BootAgent
 // runs. The desktop build is a GUI process with no console, so these files are
 // the only place a failing npm, uv or launch command can be read back from.
 func CommandLogDir(home string) string {
 	if home == "" {
 		return ""
 	}
-	return filepath.Join(home, ".oneagent", "logs")
+	return filepath.Join(home, ".bootagent", "logs")
 }
 
 func cloneEnvironment(source map[string]string) map[string]string {
@@ -215,10 +221,11 @@ type StatusResponse struct {
 	Backups       map[string]bool             `json:"backups"`
 	Profiles      []ProfileSummary            `json:"profiles"`
 	ActiveProfile *string                     `json:"activeProfile"`
-	// FirstRun reports that ~/.oneagent does not exist yet, which is the signal
+	// FirstRun reports that ~/.bootagent does not exist yet, which is the signal
 	// the UI uses to open onboarding instead of the overview. Agent detection is
-	// not a substitute: an Agent installed before OneAgent would suppress it.
+	// not a substitute: an Agent installed before BootAgent would suppress it.
 	FirstRun         bool                 `json:"firstRun"`
+	MigrationNotice  string               `json:"migrationNotice,omitempty"`
 	Runtimes         []RuntimeStatus      `json:"runtimes"`
 	Environment      any                  `json:"environment"`
 	EnvironmentError *string              `json:"environmentError"`
@@ -259,7 +266,7 @@ type AgentStatus struct {
 type DetectedConfig struct {
 	BaseURL           string  `json:"baseUrl"`
 	Model             string  `json:"model"`
-	ManagedByOneAgent bool    `json:"managedByOneAgent"`
+	ManagedByBootAgent bool    `json:"managedByBootAgent"`
 	Unreadable        *string `json:"unreadable"`
 }
 
@@ -289,11 +296,11 @@ func (u *UseCases) GetStatus(ctx context.Context) (StatusResponse, error) {
 	options := u.status
 	paths := map[string]string{
 		"launch_directory": currentDirectory(),
-		"profile":          filepath.Join(options.Home, ".oneagent", "profile.json"),
+		"profile":          filepath.Join(options.Home, ".bootagent", "profile.json"),
 		// The Task Center points users at this directory when a command fails.
 		// It has to come from here rather than being spelled out in the UI: a
-		// hardcoded "~/.oneagent/logs" names a path that does not exist on
-		// Windows, where this resolves to C:\Users\<name>\.oneagent\logs.
+		// hardcoded "~/.bootagent/logs" names a path that does not exist on
+		// Windows, where this resolves to C:\Users\<name>\.bootagent\logs.
 		"logs": CommandLogDir(options.Home),
 	}
 	capabilities := Capabilities{
@@ -401,7 +408,8 @@ func (u *UseCases) GetStatus(ctx context.Context) (StatusResponse, error) {
 		Runtimes:         runtimes,
 		Environment:      environment,
 		EnvironmentError: environmentError,
-		FirstRun:         !fileExists(filepath.Join(options.Home, ".oneagent")),
+		FirstRun:         !fileExists(filepath.Join(options.Home, ".bootagent")),
+		MigrationNotice:  u.migrationNotice,
 		DesktopAgents:    desktopAgents,
 	}, nil
 }
@@ -490,7 +498,7 @@ func detectedConfig(value *configReader.Detected) *DetectedConfig {
 	return &DetectedConfig{
 		BaseURL:           value.BaseURL,
 		Model:             value.Model,
-		ManagedByOneAgent: value.ManagedByOneAgent,
+		ManagedByBootAgent: value.ManagedByBootAgent,
 		Unreadable:        value.Unreadable,
 	}
 }
@@ -767,7 +775,7 @@ func fileExists(path string) bool {
 
 func backupState(home, osID string, manifest catalog.Manifest) map[string]bool {
 	result := make(map[string]bool)
-	backupRoot := filepath.Join(home, ".oneagent", "backup")
+	backupRoot := filepath.Join(home, ".bootagent", "backup")
 	for _, id := range catalog.AgentIDs(manifest) {
 		agent := manifest.Agents[id]
 		path := configPath(home, osID, agent)
@@ -777,8 +785,8 @@ func backupState(home, osID string, manifest catalog.Manifest) map[string]bool {
 		matches, err := filepath.Glob(path + ".backup-*")
 		result[id] = err == nil && len(matches) > 0 || managedBackupExists(backupRoot, path)
 	}
-	profileMatches, err := filepath.Glob(filepath.Join(home, ".oneagent", "profile.json.backup-*"))
-	profilePath := filepath.Join(home, ".oneagent", "profile.json")
+	profileMatches, err := filepath.Glob(filepath.Join(home, ".bootagent", "profile.json.backup-*"))
+	profilePath := filepath.Join(home, ".bootagent", "profile.json")
 	result["profile"] = err == nil && len(profileMatches) > 0 || managedBackupExists(backupRoot, profilePath)
 	return result
 }

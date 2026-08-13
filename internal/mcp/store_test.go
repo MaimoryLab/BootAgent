@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/MaimoryLab/OneAgent/internal/securefs"
+	"github.com/MaimoryLab/BootAgent/internal/securefs"
 )
 
 func TestStoreLoadAbsentAndRoundTrip(t *testing.T) {

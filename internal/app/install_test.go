@@ -12,13 +12,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/MaimoryLab/OneAgent/internal/catalog"
-	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
-	"github.com/MaimoryLab/OneAgent/internal/install"
-	"github.com/MaimoryLab/OneAgent/internal/platform"
-	"github.com/MaimoryLab/OneAgent/internal/process"
-	"github.com/MaimoryLab/OneAgent/internal/provider"
-	"github.com/MaimoryLab/OneAgent/internal/securefs"
+	"github.com/MaimoryLab/BootAgent/internal/catalog"
+	oneerrors "github.com/MaimoryLab/BootAgent/internal/errors"
+	"github.com/MaimoryLab/BootAgent/internal/install"
+	"github.com/MaimoryLab/BootAgent/internal/platform"
+	"github.com/MaimoryLab/BootAgent/internal/process"
+	"github.com/MaimoryLab/BootAgent/internal/provider"
+	"github.com/MaimoryLab/BootAgent/internal/securefs"
 )
 
 func TestInstallResultWirePreservesFieldPresence(t *testing.T) {
@@ -131,8 +131,8 @@ func TestInstallAgentsWritesAllManagedAdaptersAndPublishesProfileLast(t *testing
 		filepath.Join(home, ".claude", "settings.json"),
 		filepath.Join(home, ".config", "opencode", "opencode.json"),
 		filepath.Join(home, ".config", "kilo", "kilo.jsonc"),
-		filepath.Join(home, ".oneagent", "aider.env"),
-		filepath.Join(home, ".oneagent", "profile.json"),
+		filepath.Join(home, ".bootagent", "aider.env"),
+		filepath.Join(home, ".bootagent", "profile.json"),
 	} {
 		if _, err := os.Stat(path); err != nil {
 			t.Errorf("expected file %s: %v", path, err)
@@ -185,14 +185,14 @@ func TestInstallAgentsRecordsTheGlobalPrefixOnPath(t *testing.T) {
 	}
 	entry := manifest.Runtimes["node"]
 	artifact := entry.Artifacts[catalog.RuntimeArtifactKey("linux", "x64")]
-	nodeBin := filepath.Join(home, ".oneagent", "runtimes", "node", "v"+entry.Version, artifact.BinDir)
+	nodeBin := filepath.Join(home, ".bootagent", "runtimes", "node", "v"+entry.Version, artifact.BinDir)
 	globalBin := install.GlobalBinDir(home, "linux")
 	for _, directory := range []string{nodeBin, globalBin} {
 		if err := os.MkdirAll(directory, 0o700); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if err := os.WriteFile(filepath.Join(nodeBin, ".oneagent-runtime-ok"), []byte(entry.Version+"\n"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(nodeBin, ".bootagent-runtime-ok"), []byte(entry.Version+"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -209,10 +209,10 @@ func TestInstallAgentsRecordsTheGlobalPrefixOnPath(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(profile), "OneAgent managed runtimes") {
+	if !strings.Contains(string(profile), "BootAgent managed runtimes") {
 		t.Fatalf("install did not record the runtime PATH block: %q", profile)
 	}
-	script, err := os.ReadFile(filepath.Join(home, ".oneagent", "runtimes", "runtime-path.sh"))
+	script, err := os.ReadFile(filepath.Join(home, ".bootagent", "runtimes", "runtime-path.sh"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -323,7 +323,7 @@ func TestInstallAgentsDoesNotPublishProfileWhenProbeFails(t *testing.T) {
 func TestInstallAgentsReportsProfileWriteFailure(t *testing.T) {
 	home := t.TempDir()
 	filesystem := securefs.New(securefs.Options{OS: "linux", Secure: func(path string, directory bool) error {
-		if !directory && filepath.Dir(path) == filepath.Join(home, ".oneagent", "profiles") {
+		if !directory && filepath.Dir(path) == filepath.Join(home, ".bootagent", "profiles") {
 			return oneerrors.New(oneerrors.ConfigWriteFailed, "profile write blocked")
 		}
 		return nil

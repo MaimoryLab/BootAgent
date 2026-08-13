@@ -37,7 +37,7 @@ func TestLoggingRunnerRecordsOutcomeAndHidesSecrets(t *testing.T) {
 	inner := &recordingInner{result: Result{ExitCode: 1, Stdout: "using key sk-secret", Stderr: "boom"}}
 	runner := LoggingRunner{Inner: inner, Dir: dir}
 
-	if _, err := runner.Run(context.Background(), []string{"npm", "install", "-g", "codex"}, map[string]string{"ONEAGENT_API_KEY": "sk-secret"}, 0); err != nil {
+	if _, err := runner.Run(context.Background(), []string{"npm", "install", "-g", "codex"}, map[string]string{"TEST_API_KEY": "sk-secret"}, 0); err != nil {
 		t.Fatal(err)
 	}
 	entry, err := os.ReadFile(path)

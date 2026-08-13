@@ -9,11 +9,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/MaimoryLab/OneAgent/internal/app"
-	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
-	"github.com/MaimoryLab/OneAgent/internal/install"
-	"github.com/MaimoryLab/OneAgent/internal/process"
-	"github.com/MaimoryLab/OneAgent/internal/provider"
+	"github.com/MaimoryLab/BootAgent/internal/app"
+	oneerrors "github.com/MaimoryLab/BootAgent/internal/errors"
+	"github.com/MaimoryLab/BootAgent/internal/install"
+	"github.com/MaimoryLab/BootAgent/internal/process"
+	"github.com/MaimoryLab/BootAgent/internal/provider"
 )
 
 // maxInstallTimeoutSeconds caps an explicitly requested timeout. It sits above
@@ -165,8 +165,8 @@ func (s *RuntimeService) SaveSettings(ctx context.Context, request app.Settings)
 // so the URL the app opens is not something a compromised or tampered renderer
 // can choose -- the same reason OpenRegistration re-resolves a Provider's URL
 // instead of accepting one over the bridge.
-const HelpURL = "https://oneagentpro.ai/help/"
-const GitHubURL = "https://github.com/MaimoryLab/OneAgent"
+const HelpURL = "https://bootagentpro.ai/help/"
+const GitHubURL = "https://github.com/MaimoryLab/BootAgent"
 
 type StatusService struct {
 	core           *app.UseCases
@@ -423,7 +423,7 @@ func (s *AgentService) Activate(ctx context.Context, request ActivateRequest) (A
 	}, nil
 }
 
-// Launch opens a terminal window running one Agent with its OneAgent
+// Launch opens a terminal window running one Agent with its BootAgent
 // configuration already sourced.
 func (s *AgentService) Launch(ctx context.Context, request LaunchRequest) (LaunchResponse, error) {
 	if err := contextError(ctx); err != nil {
@@ -567,7 +567,7 @@ type ProbeResponse struct {
 	Retryable bool                     `json:"retryable"`
 	Protocol  *string                  `json:"protocol,omitempty"`
 	Protocols map[string]ProbeResponse `json:"protocols,omitempty"`
-	// Model is the ID that was probed, and AutoSelectedModel says OneAgent chose
+	// Model is the ID that was probed, and AutoSelectedModel says BootAgent chose
 	// it rather than the user. A failure on a model we picked is not evidence
 	// about the user's key, and the UI has to be able to say which it is.
 	Model             string `json:"model,omitempty"`

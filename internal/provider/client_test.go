@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
+	oneerrors "github.com/MaimoryLab/BootAgent/internal/errors"
 )
 
 type fakeDoer func(*http.Request) (*http.Response, error)

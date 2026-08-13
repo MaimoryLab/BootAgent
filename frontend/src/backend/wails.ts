@@ -1,15 +1,15 @@
 import { Events, type CancellablePromiseLike } from "@wailsio/runtime";
 
-import * as AgentService from "../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/agentservice.js";
-import * as DesktopAgentService from "../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/desktopagentservice.js";
-import * as ProfileService from "../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/profileservice.js";
-import * as ProviderService from "../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/providerservice.js";
-import * as RuntimeService from "../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/runtimeservice.js";
-import * as StatusService from "../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/statusservice.js";
-import * as TransferService from "../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/transferservice.js";
-import * as UpdateService from "../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/updateservice.js";
-import * as MCPService from "../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/mcpservice.js";
-import * as SkillService from "../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/skillservice.js";
+import * as AgentService from "../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/agentservice.js";
+import * as DesktopAgentService from "../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/desktopagentservice.js";
+import * as ProfileService from "../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/profileservice.js";
+import * as ProviderService from "../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/providerservice.js";
+import * as RuntimeService from "../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/runtimeservice.js";
+import * as StatusService from "../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/statusservice.js";
+import * as TransferService from "../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/transferservice.js";
+import * as UpdateService from "../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/updateservice.js";
+import * as MCPService from "../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/mcpservice.js";
+import * as SkillService from "../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/skillservice.js";
 import type {
   ActivateAgentResponse,
   DesktopAgentActionResult,
@@ -48,10 +48,10 @@ import type {
   SkillUninstallResult,
 } from "../types/api";
 import { currentLocale, translate } from "../i18n";
-import { isCancellationError, OneAgentApiError } from "./errors";
+import { isCancellationError, BootAgentApiError } from "./errors";
 
-export const INSTALL_OUTPUT_EVENT = "oneagent:install-output";
-export const OTA_PROGRESS_TARGET = "oneagent-update";
+export const INSTALL_OUTPUT_EVENT = "bootagent:install-output";
+export const OTA_PROGRESS_TARGET = "bootagent-update";
 
 export function onInstallOutput(listener: (output: InstallOutput) => void): () => void {
   return Events.On(INSTALL_OUTPUT_EVENT, (event) => {
@@ -88,12 +88,12 @@ function numberValue(value: unknown, fallback: number): number {
 }
 
 /** Convert a Wails bridge rejection into the stable frontend error contract. */
-export function normalizeWailsError(error: unknown): OneAgentApiError {
-  if (error instanceof OneAgentApiError) return error;
+export function normalizeWailsError(error: unknown): BootAgentApiError {
+  if (error instanceof BootAgentApiError) return error;
   const cause = causeOf(error);
   const known = Object.keys(cause).length > 0;
-  return new OneAgentApiError(
-    known ? stringValue(cause.message, translate(currentLocale(), "OneAgent 请求失败")) : translate(currentLocale(), "无法调用本机 OneAgent 服务"),
+  return new BootAgentApiError(
+    known ? stringValue(cause.message, translate(currentLocale(), "BootAgent 请求失败")) : translate(currentLocale(), "无法调用本机 BootAgent 服务"),
     known ? stringValue(cause.error_code, "INTERNAL_ERROR") : "INTERNAL_ERROR",
     known ? cause.retryable === true : true,
     known ? numberValue(cause.status, 500) : 500,
@@ -222,9 +222,9 @@ export const wailsApi = {
   applyMCP: (request: MCPApplyRequest): Promise<MCPApplyResult> => call(() => MCPService.Apply(request)) as Promise<MCPApplyResult>,
   exportMCP: (mode: string, password = "", confirmPlaintext = false, serverIDs: string[] = []): Promise<string> =>
     call(() => MCPService.Export({ mode, password, confirm_plaintext: confirmPlaintext, server_ids: serverIDs })) as Promise<string>,
-  previewImportMCP: (data: string, password = ""): Promise<import("../../bindings/github.com/MaimoryLab/OneAgent/internal/mcp/models.js").Registry> =>
-    call(() => MCPService.PreviewImport({ data, password })) as Promise<import("../../bindings/github.com/MaimoryLab/OneAgent/internal/mcp/models.js").Registry>,
-  saveImportedMCP: (registry: import("../../bindings/github.com/MaimoryLab/OneAgent/internal/mcp/models.js").Registry): Promise<void> => call(() => MCPService.SaveImported(registry)).then(() => undefined),
+  previewImportMCP: (data: string, password = ""): Promise<import("../../bindings/github.com/MaimoryLab/BootAgent/internal/mcp/models.js").Registry> =>
+    call(() => MCPService.PreviewImport({ data, password })) as Promise<import("../../bindings/github.com/MaimoryLab/BootAgent/internal/mcp/models.js").Registry>,
+  saveImportedMCP: (registry: import("../../bindings/github.com/MaimoryLab/BootAgent/internal/mcp/models.js").Registry): Promise<void> => call(() => MCPService.SaveImported(registry)).then(() => undefined),
   setMCPDraftState: (dirty: boolean, locale: string): Promise<void> => call(() => MCPService.SetDraftState(dirty, locale)).then(() => undefined),
   listSkills: (): Promise<SkillSummary[]> => call(() => SkillService.List()).then((items) => items ?? []),
   scanSkills: (): Promise<SkillScanResult> => call(() => SkillService.Scan()) as Promise<SkillScanResult>,

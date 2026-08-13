@@ -2,8 +2,8 @@ version: '3'
 
 info:
   companyName: "MaimoryLab"
-  productName: "OneAgent"
-  productIdentifier: "com.maimorylab.oneagent"
+  productName: "BootAgent"
+  productIdentifier: "com.maimorylab.bootagent"
   description: "Local AI development environment activator"
   copyright: "(c) 2026 MaimoryLab"
   version: "v0.0.0-dev"

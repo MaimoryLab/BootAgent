@@ -1,14 +1,14 @@
 import type { Translate } from "../i18n";
 import { failureCopyFor } from "./failureCopy";
 
-export class OneAgentApiError extends Error {
+export class BootAgentApiError extends Error {
 	readonly code: string;
 	readonly retryable: boolean;
 	readonly status: number;
 
 	constructor(message: string, code: string, retryable: boolean, status: number) {
 		super(message);
-		this.name = "OneAgentApiError";
+		this.name = "BootAgentApiError";
 		this.code = code;
 		this.retryable = retryable;
 		this.status = status;
@@ -32,7 +32,7 @@ export function isCancellationError(error: unknown): boolean {
 
 /** Normalize any thrown value into the stable frontend error contract. */
 export function describeError(error: unknown, fallback: string): FailureDetail {
-	if (error instanceof OneAgentApiError) {
+	if (error instanceof BootAgentApiError) {
 		return { message: error.message, code: error.code, retryable: error.retryable, status: error.status };
 	}
 	return {

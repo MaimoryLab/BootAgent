@@ -25,7 +25,7 @@ describe("ConnectionStatus", () => {
   it("names a model it chose itself when the probe fails", () => {
     show(probe({ model: "wan-ai/wan2.1-t2v-14b", auto_selected_model: true }));
     expect(screen.getByText(/wan-ai\/wan2\.1-t2v-14b/)).toBeTruthy();
-    expect(screen.getByText(/OneAgent chose the model/)).toBeTruthy();
+    expect(screen.getByText(/BootAgent chose the model/)).toBeTruthy();
   });
 
   it("stays quiet about the model the user chose themselves", () => {
@@ -33,14 +33,14 @@ describe("ConnectionStatus", () => {
     // choice would be both wrong and confusing.
     show(probe({ model: "kwai/kling-v1-video", auto_selected_model: false }));
     expect(screen.getByText(/does not serve the selected API type/)).toBeTruthy();
-    expect(screen.queryByText(/OneAgent chose the model/)).toBeNull();
+    expect(screen.queryByText(/BootAgent chose the model/)).toBeNull();
   });
 
   it("does not blame the model when the key itself was rejected", () => {
     // A rejected key is about the key whatever model carried the request.
     show(probe({ error_code: "API_KEY_REJECTED", status: 401, model: "wan-ai/wan2.1-t2v-14b", auto_selected_model: true }));
     expect(screen.getByText("The API key was rejected")).toBeTruthy();
-    expect(screen.queryByText(/OneAgent chose the model/)).toBeNull();
+    expect(screen.queryByText(/BootAgent chose the model/)).toBeNull();
   });
 
   it("reports a successful probe with the provider's own message", () => {

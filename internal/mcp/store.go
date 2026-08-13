@@ -8,7 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/MaimoryLab/OneAgent/internal/securefs"
+	"github.com/MaimoryLab/BootAgent/internal/securefs"
 )
 
 type Store struct {
@@ -18,7 +18,7 @@ type Store struct {
 
 func NewStore(home string, filesystem securefs.Store) Store { return Store{home: home, fs: filesystem} }
 
-func (s Store) Path() string { return filepath.Join(s.home, ".oneagent", "mcp.json") }
+func (s Store) Path() string { return filepath.Join(s.home, ".bootagent", "mcp.json") }
 
 func (s Store) Load() (Registry, error) {
 	empty := Registry{SchemaVersion: RegistrySchemaVersion, Servers: map[string]ServerFact{}}

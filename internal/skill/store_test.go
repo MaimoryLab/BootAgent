@@ -8,13 +8,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/MaimoryLab/OneAgent/internal/securefs"
+	"github.com/MaimoryLab/BootAgent/internal/securefs"
 )
 
 func testStore(t *testing.T) Store {
 	t.Helper()
 	home := t.TempDir()
-	return NewStore(home, securefs.New(securefs.Options{OS: "linux", BackupRoot: filepath.Join(home, ".oneagent", "backup"), Retention: func() int { return 3 }}))
+	return NewStore(home, securefs.New(securefs.Options{OS: "linux", BackupRoot: filepath.Join(home, ".bootagent", "backup"), Retention: func() int { return 3 }}))
 }
 
 func writeStoredSkill(t *testing.T, root, body string) TreeStats {
@@ -132,7 +132,7 @@ func TestStoreSaveRejectsSymlinkedRegistryParent(t *testing.T) {
 	}
 	s := testStore(t)
 	outside := t.TempDir()
-	if err := os.Symlink(outside, filepath.Join(s.home, ".oneagent")); err != nil {
+	if err := os.Symlink(outside, filepath.Join(s.home, ".bootagent")); err != nil {
 		t.Fatal(err)
 	}
 	registry := Registry{SchemaVersion: RegistrySchemaVersion, Skills: map[string]Fact{}}
@@ -261,7 +261,7 @@ func TestBackupRestoreAndRetention(t *testing.T) {
 
 func TestBackupRetentionIsIndependentPerSkill(t *testing.T) {
 	home := t.TempDir()
-	backupRoot := filepath.Join(home, ".oneagent", "backup")
+	backupRoot := filepath.Join(home, ".bootagent", "backup")
 	filesystem := securefs.New(securefs.Options{OS: "linux", BackupRoot: backupRoot, Retention: func() int { return 3 }})
 	s := NewStore(home, filesystem)
 	for _, id := range []string{"review", "other"} {
@@ -370,7 +370,7 @@ func TestCreateBackupValidatesCopiedSnapshot(t *testing.T) {
 		t.Fatal(err)
 	}
 	s.fs = securefs.New(securefs.Options{OS: "linux", Secure: func(path string, directory bool) error {
-		if !directory && strings.Contains(path, ".oneagent-backup-pending-") && filepath.Base(path) == "SKILL.md" {
+		if !directory && strings.Contains(path, ".bootagent-backup-pending-") && filepath.Base(path) == "SKILL.md" {
 			return os.WriteFile(path, []byte("changed"), 0600)
 		}
 		return nil
@@ -416,7 +416,7 @@ func TestBackupRejectsUndeclaredContent(t *testing.T) {
 
 func TestListBackupsSkipsPendingAndInvalidEntries(t *testing.T) {
 	s := testStore(t)
-	if err := os.MkdirAll(filepath.Join(s.BackupRoot(), "review", ".oneagent-backup-pending-test"), 0700); err != nil {
+	if err := os.MkdirAll(filepath.Join(s.BackupRoot(), "review", ".bootagent-backup-pending-test"), 0700); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.MkdirAll(filepath.Join(s.BackupRoot(), "review", "invalid"), 0700); err != nil {
@@ -452,7 +452,7 @@ func TestStoreRejectsSymlinkedPrivateRoots(t *testing.T) {
 		t.Run(operation, func(t *testing.T) {
 			s := testStore(t)
 			outside := t.TempDir()
-			if err := os.MkdirAll(filepath.Join(s.home, ".oneagent"), 0700); err != nil {
+			if err := os.MkdirAll(filepath.Join(s.home, ".bootagent"), 0700); err != nil {
 				t.Fatal(err)
 			}
 			root := s.SkillsRoot()

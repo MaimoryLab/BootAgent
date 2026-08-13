@@ -3,8 +3,8 @@ package binding
 import (
 	"context"
 
-	"github.com/MaimoryLab/OneAgent/internal/app"
-	"github.com/MaimoryLab/OneAgent/internal/mcp"
+	"github.com/MaimoryLab/BootAgent/internal/app"
+	"github.com/MaimoryLab/BootAgent/internal/mcp"
 )
 
 type MCPExportRequest struct {

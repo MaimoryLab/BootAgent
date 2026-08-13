@@ -115,7 +115,7 @@ func DiscoverZIP(ctx context.Context, zipPath, stagingParent string) ([]Candidat
 	if len(archive.File) > maxZIPEntries {
 		return nil, errors.New("zip archive exceeds entry limit")
 	}
-	root, err := os.MkdirTemp(stagingParent, ".oneagent-skill-zip-")
+	root, err := os.MkdirTemp(stagingParent, ".bootagent-skill-zip-")
 	if err != nil {
 		return nil, err
 	}
@@ -246,7 +246,7 @@ func PublishTree(ctx context.Context, source, destination string) error {
 	if err := os.MkdirAll(parent, 0700); err != nil {
 		return err
 	}
-	stage, err := os.MkdirTemp(parent, ".oneagent-skill-stage-")
+	stage, err := os.MkdirTemp(parent, ".bootagent-skill-stage-")
 	if err != nil {
 		return err
 	}
@@ -261,7 +261,7 @@ func PublishTree(ctx context.Context, source, destination string) error {
 	} else if !os.IsNotExist(err) {
 		return err
 	}
-	rollback := filepath.Join(parent, fmt.Sprintf(".oneagent-rollback-%d-%d", time.Now().UnixNano(), rand.Int63()))
+	rollback := filepath.Join(parent, fmt.Sprintf(".bootagent-rollback-%d-%d", time.Now().UnixNano(), rand.Int63()))
 	hadDestination := false
 	if _, err := os.Lstat(destination); err == nil {
 		hadDestination = true

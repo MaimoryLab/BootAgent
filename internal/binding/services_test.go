@@ -16,12 +16,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/MaimoryLab/OneAgent/internal/app"
-	"github.com/MaimoryLab/OneAgent/internal/catalog"
-	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
-	"github.com/MaimoryLab/OneAgent/internal/install"
-	"github.com/MaimoryLab/OneAgent/internal/platform"
-	"github.com/MaimoryLab/OneAgent/internal/provider"
+	"github.com/MaimoryLab/BootAgent/internal/app"
+	"github.com/MaimoryLab/BootAgent/internal/catalog"
+	oneerrors "github.com/MaimoryLab/BootAgent/internal/errors"
+	"github.com/MaimoryLab/BootAgent/internal/install"
+	"github.com/MaimoryLab/BootAgent/internal/platform"
+	"github.com/MaimoryLab/BootAgent/internal/provider"
 )
 
 type providerFakeDoer func(*http.Request) (*http.Response, error)
@@ -137,7 +137,7 @@ func TestOpenHelpOpensThePublishedSite(t *testing.T) {
 		t.Fatalf("OpenHelp opened %q, want %q", opened, HelpURL)
 	}
 	parsed, err := url.Parse(HelpURL)
-	if err != nil || parsed.Scheme != "https" || parsed.Host != "oneagentpro.ai" || parsed.User != nil {
+	if err != nil || parsed.Scheme != "https" || parsed.Host != "bootagentpro.ai" || parsed.User != nil {
 		t.Fatalf("help URL is not a plain https URL on the published host: %q", HelpURL)
 	}
 }
@@ -228,18 +228,18 @@ func TestServiceCancellationUsesStableTimeoutCode(t *testing.T) {
 
 func TestProfileServiceListsPublicSummaries(t *testing.T) {
 	home := t.TempDir()
-	profilesDir := filepath.Join(home, ".oneagent", "profiles")
+	profilesDir := filepath.Join(home, ".bootagent", "profiles")
 	if err := os.MkdirAll(profilesDir, 0o700); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(profilesDir, "team.json"), []byte(`{"schema_version":2,"id":"team","label":"Team","provider":"ppio","model":"model","config_mode":"provider","agent_ids":["codex"]}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	secretDir := filepath.Join(home, ".oneagent", "secrets")
+	secretDir := filepath.Join(home, ".bootagent", "secrets")
 	if err := os.MkdirAll(secretDir, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(secretDir, "team.env"), []byte("export ONEAGENT_API_KEY=sk-secret\n"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(secretDir, "team.env"), []byte("export TEST_API_KEY=sk-secret\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	core := app.NewUseCases(app.StatusOptions{
@@ -362,7 +362,7 @@ func TestAgentServiceInstallsThroughGoUseCase(t *testing.T) {
 	if !strings.Contains(string(wire), `"installed":false`) || !strings.Contains(string(wire), `"version":`) {
 		t.Fatalf("install binding response lost established result fields: %s", wire)
 	}
-	if _, err := os.Stat(filepath.Join(home, ".oneagent", "profile.json")); err != nil {
+	if _, err := os.Stat(filepath.Join(home, ".bootagent", "profile.json")); err != nil {
 		t.Fatalf("Go install did not publish profile: %v", err)
 	}
 }

@@ -4,7 +4,7 @@ includes:
   common: ../Taskfile.yml
 
 vars:
-  BUNDLE_NAME: OneAgent
+  BUNDLE_NAME: BootAgent
 
 tasks:
   build:
@@ -19,7 +19,7 @@ tasks:
       - sh: test "$(uname -s)" = "Darwin"
         msg: "macOS binaries require CGO and must be built on macOS."
     cmds:
-      - go build {{.BUILD_FLAGS}} -o "{{.OUTPUT}}" ./cmd/oneagent-desktop
+      - go build {{.BUILD_FLAGS}} -o "{{.OUTPUT}}" ./cmd/bootagent-desktop
     vars:
       BUILD_FLAGS: '{{if eq .DEV "true"}}-tags wails -buildvcs=false -gcflags=all="-l"{{else}}-tags wails,production -trimpath -buildvcs=false -ldflags="-w -s"{{end}}'
       OUTPUT: '{{.OUTPUT | default (printf "%s/%s" .BIN_DIR .APP_NAME)}}'

@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/MaimoryLab/OneAgent/internal/securefs"
+	"github.com/MaimoryLab/BootAgent/internal/securefs"
 )
 
 func TestJSONWritersMatchGoldenFiles(t *testing.T) {
@@ -18,7 +18,7 @@ func TestJSONWritersMatchGoldenFiles(t *testing.T) {
 		{"claude", filepath.Join(".claude", "settings.json"), `{"keep":true,"env":{"CUSTOM":"value","ANTHROPIC_MODEL":"old"},"other":true}`},
 		{"opencode", filepath.Join(".config", "opencode", "opencode.json"), `{"keep":true,"provider":{"other":{"x":1}},"theme":"dark"}`},
 		{"kilo", filepath.Join(".config", "kilo", "kilo.jsonc"), `{"provider":{"other":{"x":1}},"keep":true}`},
-		// The existing file carries the parts of an OpenClaw config OneAgent must
+		// The existing file carries the parts of an OpenClaw config BootAgent must
 		// not own: a paired channel, a tools profile, and another model provider.
 		// The golden file is what proves they survive.
 		{"openclaw", filepath.Join(".openclaw", "openclaw.json"), `{"channels":{"discord":{"allowFrom":["user#1"]}},"models":{"providers":{"other":{"apiKey":"keep"}}},"tools":{"profile":"safe"},"agents":{"defaults":{"workspace":"~/w","model":{"fallbacks":["other/m"]}}}}`},

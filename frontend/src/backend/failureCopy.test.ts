@@ -86,7 +86,7 @@ describe("failureCopyFor", () => {
 });
 
 describe("UPDATE_NOT_INSTALLABLE", () => {
-  // A .dmg reached the helper unextracted and replaced OneAgent.app with the disk
+  // A .dmg reached the helper unextracted and replaced BootAgent.app with the disk
   // image, leaving an installation that could not launch. The backend now refuses
   // the artifact, and this is the one code whose hint must not suggest retrying:
   // another attempt downloads the same asset.
@@ -105,7 +105,7 @@ describe("UPDATE_LOCATION_BLOCKED", () => {
   // The copy has to name the fix, because nothing later gets the chance.
   it("names moving the app, not retrying", () => {
     const copy = failureCopyFor("UPDATE_LOCATION_BLOCKED", 409, t);
-    expect(copy?.message).toBe("OneAgent 无法在当前位置自我更新");
+    expect(copy?.message).toBe("BootAgent 无法在当前位置自我更新");
     expect(copy?.hint).toContain("应用程序");
     expect(copy?.hint).not.toMatch(/稍后|再试一次/);
   });

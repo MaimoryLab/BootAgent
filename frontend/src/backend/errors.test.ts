@@ -1,17 +1,17 @@
 import { describe, expect, it } from "vitest";
 
 import { sourceTranslate } from "../i18n";
-import { describeError, describeFailure, failureLine, OneAgentApiError } from "./errors";
+import { describeError, describeFailure, failureLine, BootAgentApiError } from "./errors";
 
 const t = sourceTranslate;
 
 /** What normalizeWailsError produces for a backend failure. */
 const apiError = (message: string, code: string, status = 400) =>
-  new OneAgentApiError(message, code, false, status);
+  new BootAgentApiError(message, code, false, status);
 
 describe("describeFailure", () => {
   // The defect this exists for: describeError returns error.message verbatim, and
-  // because normalizeWailsError wraps every backend failure in OneAgentApiError,
+  // because normalizeWailsError wraps every backend failure in BootAgentApiError,
   // the Chinese t() fallbacks callers passed almost never fired. Users read
   // English inside a Chinese UI.
   it("replaces the English backend message with localised copy", () => {
@@ -31,7 +31,7 @@ describe("describeFailure", () => {
   it("preserves the code and the retryable flag", () => {
     // The retry button and the status styling read these, so localising the
     // message must not disturb them.
-    const error = new OneAgentApiError("Cannot write temporary file for /c: permission denied", "CONFIG_WRITE_FAILED", true, 400);
+    const error = new BootAgentApiError("Cannot write temporary file for /c: permission denied", "CONFIG_WRITE_FAILED", true, 400);
     const detail = describeFailure(error, "fallback", t);
     expect(detail.code).toBe("CONFIG_WRITE_FAILED");
     expect(detail.retryable).toBe(true);
@@ -63,7 +63,7 @@ describe("failureLine", () => {
   // actionable half was being dropped -- worst for UPDATE_NOT_INSTALLABLE, where
   // the message alone ("cannot be installed") names no way forward.
   it("keeps the hint for a surface that renders a single line", () => {
-    const error = apiError("The downloaded OneAgent update is not installable", "UPDATE_NOT_INSTALLABLE", 500);
+    const error = apiError("The downloaded BootAgent update is not installable", "UPDATE_NOT_INSTALLABLE", 500);
 
     const line = failureLine(error, "更新失败", t);
     expect(line).toContain("下载到的更新包无法安装");

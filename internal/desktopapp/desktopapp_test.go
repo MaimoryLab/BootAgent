@@ -13,8 +13,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/MaimoryLab/OneAgent/internal/platform"
-	"github.com/MaimoryLab/OneAgent/internal/process"
+	"github.com/MaimoryLab/BootAgent/internal/platform"
+	"github.com/MaimoryLab/BootAgent/internal/process"
 )
 
 type probeRunner struct {
@@ -510,9 +510,6 @@ func TestVerifyWindowsInstallerRequiresValidMicrosoftAuthenticode(t *testing.T) 
 	}
 	if len(runner.calls) != 1 || runner.calls[0][0] != "powershell.exe" {
 		t.Fatalf("verification calls = %#v", runner.calls)
-	}
-	if got := runner.environments[0]["ONEAGENT_AUTHENTICODE_PATH"]; got != `C:\Users\test\ChatGPT.exe` {
-		t.Fatalf("Authenticode path environment = %q", got)
 	}
 }
 

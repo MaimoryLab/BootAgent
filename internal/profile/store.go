@@ -12,8 +12,8 @@ import (
 	"strings"
 	"time"
 
-	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
-	"github.com/MaimoryLab/OneAgent/internal/securefs"
+	oneerrors "github.com/MaimoryLab/BootAgent/internal/errors"
+	"github.com/MaimoryLab/BootAgent/internal/securefs"
 )
 
 var profileIDPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]{0,63}$`)
@@ -89,7 +89,7 @@ func ValidateID(id string) error {
 }
 
 func (s Store) Root() string {
-	return filepath.Join(s.Home, ".oneagent")
+	return filepath.Join(s.Home, ".bootagent")
 }
 
 func (s Store) PointerPath() string {

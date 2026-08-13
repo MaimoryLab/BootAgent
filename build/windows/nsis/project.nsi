@@ -5,13 +5,13 @@ Unicode true
 !include "MUI2.nsh"
 
 !ifndef INFO_PROJECTNAME
-  !define INFO_PROJECTNAME "oneagent-desktop"
+  !define INFO_PROJECTNAME "bootagent-desktop"
 !endif
 !ifndef INFO_COMPANYNAME
   !define INFO_COMPANYNAME "MaimoryLab"
 !endif
 !ifndef INFO_PRODUCTNAME
-  !define INFO_PRODUCTNAME "OneAgent"
+  !define INFO_PRODUCTNAME "BootAgent"
 !endif
 !ifndef INFO_PRODUCTVERSION
   !define INFO_PRODUCTVERSION "0.3.0"
@@ -77,7 +77,7 @@ ShowInstDetails show
 
 Function .onInit
   ${IfNot} ${AtLeastWin10}
-    MessageBox MB_OK "OneAgent requires Windows 10 or later."
+    MessageBox MB_OK "BootAgent requires Windows 10 or later."
     Quit
   ${EndIf}
   !ifdef SUPPORTS_AMD64
@@ -129,13 +129,13 @@ Section
   CreateShortcut "$DESKTOP\${INFO_PRODUCTNAME}.lnk" "$INSTDIR\${PRODUCT_EXECUTABLE}"
   WriteUninstaller "$INSTDIR\uninstall.exe"
   !if "${WAILS_INSTALL_SCOPE}" == "user"
-    WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\OneAgent" "DisplayName" "${INFO_PRODUCTNAME}"
-    WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\OneAgent" "DisplayVersion" "${INFO_PRODUCTVERSION}"
-    WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\OneAgent" "UninstallString" '"$INSTDIR\uninstall.exe"'
+    WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\BootAgent" "DisplayName" "${INFO_PRODUCTNAME}"
+    WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\BootAgent" "DisplayVersion" "${INFO_PRODUCTVERSION}"
+    WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\BootAgent" "UninstallString" '"$INSTDIR\uninstall.exe"'
   !else
-    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\OneAgent" "DisplayName" "${INFO_PRODUCTNAME}"
-    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\OneAgent" "DisplayVersion" "${INFO_PRODUCTVERSION}"
-    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\OneAgent" "UninstallString" '"$INSTDIR\uninstall.exe"'
+    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\BootAgent" "DisplayName" "${INFO_PRODUCTNAME}"
+    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\BootAgent" "DisplayVersion" "${INFO_PRODUCTVERSION}"
+    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\BootAgent" "UninstallString" '"$INSTDIR\uninstall.exe"'
   !endif
 SectionEnd
 
@@ -152,8 +152,8 @@ Section "uninstall"
   Delete "$INSTDIR\uninstall.exe"
   RMDir "$INSTDIR"
   !if "${WAILS_INSTALL_SCOPE}" == "user"
-    DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\OneAgent"
+    DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\BootAgent"
   !else
-    DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\OneAgent"
+    DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\BootAgent"
   !endif
 SectionEnd

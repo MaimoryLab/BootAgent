@@ -9,7 +9,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/MaimoryLab/OneAgent/internal/platform"
+	"github.com/MaimoryLab/BootAgent/internal/platform"
 )
 
 // registryDoer answers any package with one version and records what was asked.

@@ -28,7 +28,7 @@ export function NavigationSidebar() {
           <BrandMark size={22} />
         </span>
         <div>
-          <strong>OneAgent</strong>
+          <strong>BootAgent</strong>
           <span>{t("Agent 管家")}</span>
         </div>
       </div>

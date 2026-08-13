@@ -10,8 +10,8 @@ import (
 	"sort"
 	"sync/atomic"
 
-	"github.com/MaimoryLab/OneAgent/internal/catalog"
-	"github.com/MaimoryLab/OneAgent/internal/mcp"
+	"github.com/MaimoryLab/BootAgent/internal/catalog"
+	"github.com/MaimoryLab/BootAgent/internal/mcp"
 )
 
 type mcpDraftState struct {

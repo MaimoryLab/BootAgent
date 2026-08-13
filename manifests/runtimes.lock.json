@@ -69,7 +69,7 @@
       "license": "MIT OR Apache-2.0",
       "license_url": "https://github.com/astral-sh/uv/blob/main/LICENSE-APACHE",
       "source": "https://github.com/astral-sh/uv/releases",
-      "note": "uv manages its own CPython download for Aider; OneAgent does not fetch Python directly.",
+      "note": "uv manages its own CPython download for Aider; BootAgent does not fetch Python directly.",
       "artifacts": {
         "macos-arm64": {
           "url": "https://github.com/astral-sh/uv/releases/download/0.12.1/uv-aarch64-apple-darwin.tar.gz",

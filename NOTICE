@@ -1,4 +1,4 @@
-OneAgent
+BootAgent
 Copyright 2026 MaimoryLab
 
 This product includes software developed at MaimoryLab.
@@ -6,7 +6,7 @@ This product includes software developed at MaimoryLab.
 Licensed under the Apache License, Version 2.0. See LICENSE for the full text.
 
 ================================================================================
-Third-party software redistributed in OneAgent binaries
+Third-party software redistributed in BootAgent binaries
 ================================================================================
 
 The target-specific dependency and reviewed static-asset inventory is generated
@@ -23,8 +23,8 @@ matches go.mod, go.sum, frontend/package.json and frontend/pnpm-lock.yaml.
 Third-party software downloaded at runtime, not redistributed
 ================================================================================
 
-OneAgent does not bundle these. It downloads them from the official sources
-recorded in runtimes.lock.json, into ~/.oneagent/runtimes, at the user's
+BootAgent does not bundle these. It downloads them from the official sources
+recorded in runtimes.lock.json, into ~/.bootagent/runtimes, at the user's
 request. They remain governed by their own licenses.
 
   Node.js                             MIT                https://nodejs.org/dist/
@@ -33,7 +33,7 @@ request. They remain governed by their own licenses.
 Agent packages are likewise installed from their official registries and are
 never redistributed. Their licenses are recorded per entry in
 agents.lock.json, and include one proprietary package
-(@anthropic-ai/claude-code), which OneAgent installs only on the user's
+(@anthropic-ai/claude-code), which BootAgent installs only on the user's
 explicit request.
 
 ================================================================================
@@ -41,7 +41,7 @@ Third-party trademarks
 ================================================================================
 
 The application identifies supported Agents in a row using either a generic
-OneAgent UI symbol or a separately audited image asset. Generic Lucide symbols
+BootAgent UI symbol or a separately audited image asset. Generic Lucide symbols
 are used for Aider and WorkBuddy, neither of which has a mark in lobe-icons or a
 published vector under a license that permits redistribution, so no website
 favicon is copied into the release. The six retained image assets are listed
@@ -55,7 +55,7 @@ for its <title>: Hermes Agent is Nous Research's product, so the company mark
 identifies it. The sixth, for OpenClaw, is
 not the vendor's own artwork: no official vector is published, so the mark is
 the lobster drawn by the cc-switch project (MIT, Copyright (c) 2025 Jason
-Young), and OneAgent has modified it. The red gradient, the coloured antenna
+Young), and BootAgent has modified it. The red gradient, the coloured antenna
 stroke, and the cyan eye highlights were removed so the mark is a single glyph
 painted with fill="currentColor"; its geometry is unchanged. That modification
 is recorded in the manifest entry, and the cc-switch license text travels with
@@ -67,9 +67,9 @@ Every mark is distributed as a single-colour glyph painted with
 fill="currentColor", so it takes the surrounding text colour rather than
 carrying a brand colour.
 
-OneAgent's own mark is not part of that inventory and is not third-party
+BootAgent's own mark is not part of that inventory and is not third-party
 material. It is MaimoryLab's work, distributed under this repository's Apache-2.0
-license, and appears at frontend/src/components/icons/assets/oneagent-mark.svg
+license, and appears at frontend/src/components/icons/assets/bootagent-mark.svg
 in the interface and at build/appicon.png, build/darwin/icons.icns, and
 build/windows/icon.ico as the application icon. It is recorded under
 `firstPartyAssets` in frontend/src/components/icons/asset-rights.json, kept

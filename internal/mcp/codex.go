@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/MaimoryLab/OneAgent/internal/config"
+	"github.com/MaimoryLab/BootAgent/internal/config"
 	"github.com/pelletier/go-toml/v2"
 )
 

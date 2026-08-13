@@ -12,9 +12,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/MaimoryLab/OneAgent/internal/catalog"
-	"github.com/MaimoryLab/OneAgent/internal/platform"
-	"github.com/MaimoryLab/OneAgent/internal/skill"
+	"github.com/MaimoryLab/BootAgent/internal/catalog"
+	"github.com/MaimoryLab/BootAgent/internal/platform"
+	"github.com/MaimoryLab/BootAgent/internal/skill"
 )
 
 type SkillSummary struct {
@@ -744,7 +744,7 @@ func (u *UseCases) cleanupExpiredSkillPreviewsLocked() {
 }
 
 func (u *UseCases) skillPreviewParent() (string, error) {
-	root := filepath.Join(u.status.Home, ".oneagent", "skill-staging")
+	root := filepath.Join(u.status.Home, ".bootagent", "skill-staging")
 	if hasSymlinkComponent(u.status.Home, root) {
 		return "", errors.New("Skill staging path is not private")
 	}

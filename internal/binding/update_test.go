@@ -7,8 +7,8 @@ import (
 	"reflect"
 	"testing"
 
-	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
-	"github.com/MaimoryLab/OneAgent/internal/process"
+	oneerrors "github.com/MaimoryLab/BootAgent/internal/errors"
+	"github.com/MaimoryLab/BootAgent/internal/process"
 	"github.com/wailsapp/wails/v3/pkg/updater"
 )
 
@@ -23,7 +23,7 @@ type updateBackendFake struct {
 // tripped by the staged-artifact guard.
 func (f *updateBackendFake) DownloadedPath() string {
 	if f.downloadedPath == nil {
-		return "/tmp/wails-update-1/OneAgent.app"
+		return "/tmp/wails-update-1/BootAgent.app"
 	}
 	return f.downloadedPath()
 }
@@ -169,8 +169,8 @@ func TestUpdateServiceConvertsBackendFailures(t *testing.T) {
 		call    func(*UpdateService) error
 	}{
 		{"check", "Unable to check for updates", func(service *UpdateService) error { _, err := service.Check(context.Background()); return err }},
-		{"download", "Unable to download the OneAgent update", func(service *UpdateService) error { return service.DownloadAndInstall(context.Background()) }},
-		{"restart", "Unable to restart OneAgent for update", func(service *UpdateService) error { return service.Restart(context.Background()) }},
+		{"download", "Unable to download the BootAgent update", func(service *UpdateService) error { return service.DownloadAndInstall(context.Background()) }},
+		{"restart", "Unable to restart BootAgent for update", func(service *UpdateService) error { return service.Restart(context.Background()) }},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

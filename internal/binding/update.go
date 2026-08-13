@@ -6,13 +6,13 @@ import (
 	"errors"
 	"os"
 
-	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
-	"github.com/MaimoryLab/OneAgent/internal/process"
-	"github.com/MaimoryLab/OneAgent/internal/version"
+	oneerrors "github.com/MaimoryLab/BootAgent/internal/errors"
+	"github.com/MaimoryLab/BootAgent/internal/process"
+	"github.com/MaimoryLab/BootAgent/internal/version"
 	"github.com/wailsapp/wails/v3/pkg/updater"
 )
 
-const UpdateProgressTarget = "oneagent-update"
+const UpdateProgressTarget = "bootagent-update"
 
 type UpdateBackend interface {
 	Check(context.Context) (*updater.Release, error)
@@ -83,13 +83,13 @@ func (s *UpdateService) locationError() error {
 	case locationTranslocated:
 		return oneerrors.New(
 			oneerrors.UpdateLocationBlocked,
-			"OneAgent is running from a disk image. Move OneAgent to the Applications folder, then check again.",
+			"BootAgent is running from a disk image. Move BootAgent to the Applications folder, then check again.",
 			oneerrors.WithStatus(409),
 		)
 	case locationUnwritable:
 		return oneerrors.New(
 			oneerrors.UpdateLocationBlocked,
-			"OneAgent cannot update itself where it is installed. Move OneAgent to the Applications folder, then check again.",
+			"BootAgent cannot update itself where it is installed. Move BootAgent to the Applications folder, then check again.",
 			oneerrors.WithStatus(409),
 		)
 	}
@@ -104,7 +104,7 @@ func (s *UpdateService) DownloadAndInstall(ctx context.Context) error {
 		return notReady("Update service is not configured")
 	}
 	if err := s.backend.DownloadAndInstall(ctx); err != nil {
-		return updateError(err, "Unable to download the OneAgent update")
+		return updateError(err, "Unable to download the BootAgent update")
 	}
 	// The helper swaps this artifact over the installed application after the
 	// process exits, so an unusable one has to be caught here: once the user
@@ -114,7 +114,7 @@ func (s *UpdateService) DownloadAndInstall(ctx context.Context) error {
 	if err := stagedArtifactError(s.backend.DownloadedPath()); err != nil {
 		return oneerrors.New(
 			oneerrors.UpdateNotInstallable,
-			"The downloaded OneAgent update is not installable",
+			"The downloaded BootAgent update is not installable",
 			oneerrors.WithStatus(500),
 			oneerrors.WithCause(err),
 		)
@@ -130,7 +130,7 @@ func (s *UpdateService) Restart(ctx context.Context) error {
 		return notReady("Update service is not configured")
 	}
 	if err := s.backend.Restart(ctx); err != nil {
-		return updateError(err, "Unable to restart OneAgent for update")
+		return updateError(err, "Unable to restart BootAgent for update")
 	}
 	return nil
 }

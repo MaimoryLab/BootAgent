@@ -1,6 +1,6 @@
-// Package oneagent is the module root. It embeds the catalog files and built
+// Package bootagent is the module root. It embeds the catalog files and built
 // frontend bundle used by the desktop application.
-package oneagent
+package bootagent
 
 import "embed"
 

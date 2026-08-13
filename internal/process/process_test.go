@@ -13,15 +13,15 @@ import (
 )
 
 func TestProcessHelper(_ *testing.T) {
-	if os.Getenv("ONEAGENT_PROCESS_HELPER") != "1" {
+	if os.Getenv("TEST_PROCESS_HELPER") != "1" {
 		return
 	}
-	if os.Getenv("ONEAGENT_PROCESS_EXIT") == "1" {
+	if os.Getenv("TEST_PROCESS_EXIT") == "1" {
 		os.Stderr.WriteString("helper stderr")
 		os.Exit(7)
 	}
-	if os.Getenv("ONEAGENT_PROCESS_WAIT") == "1" {
-		if os.Getenv("ONEAGENT_PROCESS_READY") == "1" {
+	if os.Getenv("TEST_PROCESS_WAIT") == "1" {
+		if os.Getenv("TEST_PROCESS_READY") == "1" {
 			os.Stdout.WriteString("ready")
 		}
 		// Long enough that the caller's deadline always fires first; the runner
@@ -31,7 +31,7 @@ func TestProcessHelper(_ *testing.T) {
 	// Keeps talking for longer than the caller's stall timeout while never going
 	// quiet for as long as it. A healthy slow install looks like this, and it must
 	// not be killed.
-	if os.Getenv("ONEAGENT_PROCESS_DRIP") == "1" {
+	if os.Getenv("TEST_PROCESS_DRIP") == "1" {
 		// Total runtime (~3s) must exceed the caller's stall window while each
 		// individual gap (300ms) stays well inside it. Otherwise the case would
 		// pass simply by finishing before the watchdog first looked.
@@ -44,7 +44,7 @@ func TestProcessHelper(_ *testing.T) {
 	// Writes past MaxOutputBytes so boundedBuffer starts discarding and the
 	// listener stops being called, then keeps writing. Liveness must still be
 	// observed, or a chatty install dies once it crosses 1 MB.
-	if os.Getenv("ONEAGENT_PROCESS_FLOOD") == "1" {
+	if os.Getenv("TEST_PROCESS_FLOOD") == "1" {
 		chunk := strings.Repeat("x", 64*1024)
 		// 1.5 MB up front to push boundedBuffer past MaxOutputBytes, so everything
 		// after this point is written while the buffer accepts nothing and the
@@ -63,14 +63,14 @@ func TestProcessHelper(_ *testing.T) {
 	// Interleaves both streams so the runner's stdout and stderr copiers are
 	// active at the same time. Real installs look like this — npm reports progress
 	// on stderr while printing results on stdout.
-	if os.Getenv("ONEAGENT_PROCESS_BOTH_STREAMS") == "1" {
+	if os.Getenv("TEST_PROCESS_BOTH_STREAMS") == "1" {
 		for range 50 {
 			os.Stdout.WriteString("o")
 			os.Stderr.WriteString("e")
 		}
 		os.Exit(0)
 	}
-	os.Stdout.WriteString(os.Getenv("ONEAGENT_PROCESS_VALUE"))
+	os.Stdout.WriteString(os.Getenv("TEST_PROCESS_VALUE"))
 	os.Exit(0)
 }
 
@@ -93,8 +93,8 @@ func helperRunner(t *testing.T) OSRunner {
 	   what the command produced for a reason that has nothing to do with the
 	   runner. Giving the child a scratch directory keeps its stderr its own. */
 	runner := OSRunner{Env: map[string]string{
-		"ONEAGENT_PROCESS_HELPER": "1",
-		"GOCOVERDIR":              t.TempDir(),
+		"TEST_PROCESS_HELPER": "1",
+		"GOCOVERDIR":          t.TempDir(),
 	}}
 	runner.Lookup = func(command string) (string, bool) {
 		if command == "helper" {
@@ -108,7 +108,7 @@ func helperRunner(t *testing.T) OSRunner {
 func TestOSRunnerUsesArgvAndMergesEnvironment(t *testing.T) {
 	runner := helperRunner(t)
 	result, err := runner.Run(context.Background(), []string{os.Args[0], "-test.run=TestProcessHelper"}, map[string]string{
-		"ONEAGENT_PROCESS_VALUE": "safe-value",
+		"TEST_PROCESS_VALUE": "safe-value",
 	}, helperTimeout)
 	if err != nil || result.ExitCode != 0 || result.Stdout != "safe-value" {
 		t.Fatalf("process result = %#v, err=%v", result, err)
@@ -122,7 +122,7 @@ func TestOSRunnerStreamsOutputWithoutChangingResult(t *testing.T) {
 	runner := helperRunner(t)
 	outputs := make([]Output, 0)
 	result, err := runner.RunWithOutput(context.Background(), []string{os.Args[0], "-test.run=TestProcessHelper"}, map[string]string{
-		"ONEAGENT_PROCESS_VALUE": "stream-value",
+		"TEST_PROCESS_VALUE": "stream-value",
 	}, helperTimeout, func(output Output) { outputs = append(outputs, output) })
 	if err != nil || result.ExitCode != 0 || result.Stdout != "stream-value" {
 		t.Fatalf("streamed process result = %#v, err=%v", result, err)
@@ -141,7 +141,7 @@ func TestOSRunnerSerialisesListenerAcrossStreams(t *testing.T) {
 	runner := helperRunner(t)
 	outputs := make([]Output, 0)
 	result, err := runner.RunWithOutput(context.Background(), []string{os.Args[0], "-test.run=TestProcessHelper"}, map[string]string{
-		"ONEAGENT_PROCESS_BOTH_STREAMS": "1",
+		"TEST_PROCESS_BOTH_STREAMS": "1",
 	}, helperTimeout, func(output Output) { outputs = append(outputs, output) })
 	if err != nil || result.ExitCode != 0 {
 		t.Fatalf("interleaved process result = %#v, err=%v", result, err)
@@ -165,7 +165,7 @@ func TestOSRunnerSerialisesListenerAcrossStreams(t *testing.T) {
 func TestOSRunnerReturnsExitCodeAndCapturesOutput(t *testing.T) {
 	runner := helperRunner(t)
 	result, err := runner.Run(context.Background(), []string{os.Args[0], "-test.run=TestProcessHelper"}, map[string]string{
-		"ONEAGENT_PROCESS_EXIT": "1",
+		"TEST_PROCESS_EXIT": "1",
 	}, helperTimeout)
 	if err != nil || result.ExitCode != 7 || result.Stderr != "helper stderr" {
 		t.Fatalf("non-zero result = %#v, err=%v", result, err)
@@ -192,8 +192,8 @@ func TestOSRunnerKillsARunningProcessWhenCancelled(t *testing.T) {
 	done := make(chan error, 1)
 	go func() {
 		_, err := runner.RunWithOutput(ctx, []string{os.Args[0], "-test.run=TestProcessHelper"}, map[string]string{
-			"ONEAGENT_PROCESS_WAIT":  "1",
-			"ONEAGENT_PROCESS_READY": "1",
+			"TEST_PROCESS_WAIT":  "1",
+			"TEST_PROCESS_READY": "1",
 		}, helperTimeout, func(output Output) {
 			if output.Text == "ready" {
 				select {
@@ -223,7 +223,7 @@ func TestOSRunnerKillsARunningProcessWhenCancelled(t *testing.T) {
 func TestOSRunnerHonorsTimeout(t *testing.T) {
 	runner := helperRunner(t)
 	_, err := runner.Run(context.Background(), []string{os.Args[0], "-test.run=TestProcessHelper"}, map[string]string{
-		"ONEAGENT_PROCESS_WAIT": "1",
+		"TEST_PROCESS_WAIT": "1",
 	}, 10*time.Millisecond)
 	if err == nil || !strings.Contains(err.Error(), "deadline exceeded") {
 		t.Fatalf("timeout error = %v", err)
@@ -244,7 +244,7 @@ func TestMacOSBundleRestoresLoginShellPath(t *testing.T) {
 	if runtime.GOOS != "darwin" {
 		t.Skip("macOS login-shell behavior is platform-specific")
 	}
-	if !macOSBundleExecutable("/Applications/OneAgent.app/Contents/MacOS/oneagent-desktop") || macOSBundleExecutable("/tmp/oneagent-desktop") {
+	if !macOSBundleExecutable("/Applications/BootAgent.app/Contents/MacOS/bootagent-desktop") || macOSBundleExecutable("/tmp/bootagent-desktop") {
 		t.Fatal("macOS bundle executable detection is incorrect")
 	}
 	shell := filepath.Join(t.TempDir(), "shell")
@@ -284,7 +284,7 @@ func TestOSRunnerLetsASlowButTalkingCommandFinish(t *testing.T) {
 	// and that silence counts against the stall window like any other.
 	runner.StallTimeout = 2 * time.Second
 	result, err := runner.RunWithOutput(context.Background(), []string{os.Args[0], "-test.run=TestProcessHelper"}, map[string]string{
-		"ONEAGENT_PROCESS_DRIP": "1",
+		"TEST_PROCESS_DRIP": "1",
 	}, helperTimeout, nil)
 	if err != nil {
 		t.Fatalf("slow but talking command error = %v", err)
@@ -310,7 +310,7 @@ func TestOSRunnerDoesNotMistakeAFloodedBufferForASilentCommand(t *testing.T) {
 	runner.StallTimeout = 2 * time.Second
 	events := 0
 	result, err := runner.RunWithOutput(context.Background(), []string{os.Args[0], "-test.run=TestProcessHelper"}, map[string]string{
-		"ONEAGENT_PROCESS_FLOOD": "1",
+		"TEST_PROCESS_FLOOD": "1",
 	}, helperTimeout, func(Output) { events++ })
 	if err != nil {
 		t.Fatalf("flooding command error = %v", err)
@@ -335,8 +335,8 @@ func TestOSRunnerStopsACommandThatGoesSilent(t *testing.T) {
 	runner.StallTimeout = 300 * time.Millisecond
 	started := time.Now()
 	_, err := runner.RunWithOutput(context.Background(), []string{os.Args[0], "-test.run=TestProcessHelper"}, map[string]string{
-		"ONEAGENT_PROCESS_WAIT":  "1",
-		"ONEAGENT_PROCESS_READY": "1",
+		"TEST_PROCESS_WAIT":  "1",
+		"TEST_PROCESS_READY": "1",
 	}, helperTimeout, nil)
 	if !errors.Is(err, ErrStalled) {
 		t.Fatalf("stalled command error = %v, want ErrStalled", err)
@@ -359,8 +359,8 @@ func TestOSRunnerStillReportsCancellationDistinctlyFromAStall(t *testing.T) {
 	done := make(chan error, 1)
 	go func() {
 		_, err := runner.RunWithOutput(ctx, []string{os.Args[0], "-test.run=TestProcessHelper"}, map[string]string{
-			"ONEAGENT_PROCESS_WAIT":  "1",
-			"ONEAGENT_PROCESS_READY": "1",
+			"TEST_PROCESS_WAIT":  "1",
+			"TEST_PROCESS_READY": "1",
 		}, helperTimeout, func(output Output) {
 			if strings.Contains(output.Text, "ready") {
 				select {
@@ -401,7 +401,7 @@ func TestStallTimeoutZeroTakesTheDefaultAndNegativeDisables(t *testing.T) {
 	runner.StallTimeout = -1
 	// With the watchdog off, a silent command is bounded only by the deadline.
 	_, err := runner.Run(context.Background(), []string{os.Args[0], "-test.run=TestProcessHelper"}, map[string]string{
-		"ONEAGENT_PROCESS_WAIT": "1",
+		"TEST_PROCESS_WAIT": "1",
 	}, 300*time.Millisecond)
 	if !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("disabled watchdog error = %v, want DeadlineExceeded", err)
@@ -417,8 +417,8 @@ func TestOSRunnerKeepsOutputProducedBeforeAStall(t *testing.T) {
 	runner := helperRunner(t)
 	runner.StallTimeout = 300 * time.Millisecond
 	result, err := runner.RunWithOutput(context.Background(), []string{os.Args[0], "-test.run=TestProcessHelper"}, map[string]string{
-		"ONEAGENT_PROCESS_WAIT":  "1",
-		"ONEAGENT_PROCESS_READY": "1",
+		"TEST_PROCESS_WAIT":  "1",
+		"TEST_PROCESS_READY": "1",
 	}, helperTimeout, nil)
 	if !errors.Is(err, ErrStalled) {
 		t.Fatalf("stalled command error = %v, want ErrStalled", err)

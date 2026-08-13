@@ -41,7 +41,7 @@ describe("BrandMark", () => {
     // The MARKS table exists to track vendor artwork with a recorded licence and
     // SHA-256. This mark is first-party, so registering it there would assert a
     // third-party provenance it does not have.
-    expect(AGENT_ICON_IDS).not.toContain("oneagent");
-    expect(agentMarkKind("oneagent")).toBe("fallback");
+    expect(AGENT_ICON_IDS).not.toContain("bootagent");
+    expect(agentMarkKind("bootagent")).toBe("fallback");
   });
 });

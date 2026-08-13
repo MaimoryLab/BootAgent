@@ -47,12 +47,11 @@ func verifyWindowsInstallerPublisher(ctx context.Context, options Options, insta
 		return errors.New("Windows installer path is empty")
 	}
 
-	const environmentKey = "ONEAGENT_AUTHENTICODE_PATH"
 	result, err := runWithEnvironment(
 		options,
 		ctx,
-		windowsAuthenticodeQuery(),
-		map[string]string{environmentKey: installerPath},
+		append(windowsAuthenticodeQuery(), installerPath),
+		nil,
 		installTimeout,
 	)
 	if err != nil {
@@ -98,7 +97,7 @@ func approvedWindowsSigner(value string, allowed []string) bool {
 }
 
 func windowsAuthenticodeQuery() []string {
-	const script = `$signature = Get-AuthenticodeSignature -LiteralPath $env:ONEAGENT_AUTHENTICODE_PATH
+	const script = `$signature = Get-AuthenticodeSignature -LiteralPath $args[0]
 $certificate = $signature.SignerCertificate
 $organization = ""
 $publisher = ""

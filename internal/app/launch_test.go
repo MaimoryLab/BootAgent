@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/MaimoryLab/OneAgent/internal/catalog"
-	"github.com/MaimoryLab/OneAgent/internal/platform"
-	"github.com/MaimoryLab/OneAgent/internal/process"
+	"github.com/MaimoryLab/BootAgent/internal/catalog"
+	"github.com/MaimoryLab/BootAgent/internal/platform"
+	"github.com/MaimoryLab/BootAgent/internal/process"
 )
 
 // launchRunner records the detached argv instead of opening a window.
@@ -89,7 +89,7 @@ func TestLaunchAgentUsesCmdOnWindows(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if line := nextStep("windows", "aider", manifest.Agents["aider"], "model-a"); line != `aider --env-file "%USERPROFILE%\.oneagent\aider.env" --model openai/model-a` {
+	if line := nextStep("windows", "aider", manifest.Agents["aider"], "model-a"); line != `aider --env-file "%USERPROFILE%\.bootagent\aider.env" --model openai/model-a` {
 		t.Fatalf("Aider windows launch line = %q", line)
 	}
 }
