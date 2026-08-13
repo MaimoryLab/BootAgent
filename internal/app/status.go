@@ -117,7 +117,7 @@ func newUseCases(options StatusOptions, client *provider.Client, profiles profil
 	if options.Home == "" {
 		options.Home = platform.ResolveHome(nil, options.Platform.OS)
 	}
-	migrationNotice, migrationErr := migrateLegacyHome(options.Home)
+	migrationNotice, migrationErr := migrateLegacyHome(options.Home, options.Platform.OS)
 	if migrationErr != nil {
 		migrationNotice = "无法迁移旧 BootAgent 配置：" + migrationErr.Error()
 	}
@@ -264,10 +264,10 @@ type AgentStatus struct {
 }
 
 type DetectedConfig struct {
-	BaseURL           string  `json:"baseUrl"`
-	Model             string  `json:"model"`
+	BaseURL            string  `json:"baseUrl"`
+	Model              string  `json:"model"`
 	ManagedByBootAgent bool    `json:"managedByBootAgent"`
-	Unreadable        *string `json:"unreadable"`
+	Unreadable         *string `json:"unreadable"`
 }
 
 // ProfileSummary is intentionally a public projection with no credential field.
@@ -496,10 +496,10 @@ func detectedConfig(value *configReader.Detected) *DetectedConfig {
 		return nil
 	}
 	return &DetectedConfig{
-		BaseURL:           value.BaseURL,
-		Model:             value.Model,
+		BaseURL:            value.BaseURL,
+		Model:              value.Model,
 		ManagedByBootAgent: value.ManagedByBootAgent,
-		Unreadable:        value.Unreadable,
+		Unreadable:         value.Unreadable,
 	}
 }
 

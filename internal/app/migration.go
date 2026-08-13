@@ -1,11 +1,14 @@
 package app
 
 import (
+	"context"
 	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
-	"strings"
+
+	configMigration "github.com/MaimoryLab/BootAgent/internal/config"
+	"github.com/MaimoryLab/BootAgent/internal/securefs"
 )
 
 const (
@@ -16,11 +19,12 @@ const (
 // migrateLegacyHome moves configuration only. Managed runtimes and installed
 // Agent packages live under legacy/runtimes and are not copied. The agents
 // directory contains only the Agent-to-Profile binding files.
-func migrateLegacyHome(home string) (string, error) {
+func migrateLegacyHome(home, osID string) (string, error) {
 	legacy := filepath.Join(home, legacyHomeName)
 	current := filepath.Join(home, currentHomeName)
 	if _, err := os.Stat(legacy); os.IsNotExist(err) {
-		return "", migrateCodexProvider(filepath.Join(home, ".codex", "config.toml"))
+		filesystem := securefs.New(securefs.Options{OS: osID, BackupRoot: filepath.Join(home, currentHomeName, "backup")})
+		return "", configMigration.MigrateLegacyAgentConfigs(context.Background(), home, filesystem)
 	} else if err != nil {
 		return "", fmt.Errorf("inspect legacy configuration: %w", err)
 	}
@@ -39,8 +43,9 @@ func migrateLegacyHome(home string) (string, error) {
 			return "", fmt.Errorf("migrate legacy %s: %w", name, err)
 		}
 	}
-	if err := migrateCodexProvider(filepath.Join(home, ".codex", "config.toml")); err != nil {
-		return "", fmt.Errorf("migrate Codex configuration: %w", err)
+	filesystem := securefs.New(securefs.Options{OS: osID, BackupRoot: filepath.Join(home, currentHomeName, "backup")})
+	if err := configMigration.MigrateLegacyAgentConfigs(context.Background(), home, filesystem); err != nil {
+		return "", fmt.Errorf("migrate Agent configurations: %w", err)
 	}
 	if err := os.RemoveAll(legacy); err != nil {
 		return "", fmt.Errorf("remove legacy configuration: %w", err)
@@ -87,20 +92,4 @@ func copyMigrationEntry(source, target string) error {
 		return err
 	}
 	return os.WriteFile(target, data, 0o600)
-}
-
-func migrateCodexProvider(path string) error {
-	data, err := os.ReadFile(path)
-	if os.IsNotExist(err) {
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-	text := strings.ReplaceAll(string(data), "model_providers.oneagent", "model_providers.bootagent")
-	text = strings.ReplaceAll(text, "model_provider = \"oneagent\"", "model_provider = \"bootagent\"")
-	if text == string(data) {
-		return nil
-	}
-	return os.WriteFile(path, []byte(text), 0o600)
 }

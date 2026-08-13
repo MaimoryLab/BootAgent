@@ -14,11 +14,11 @@ func TestMigrateLegacyHomeCopiesConfigurationOnlyAndRenamesCodexProvider(t *test
 		t.Fatal(err)
 	}
 	for name, content := range map[string]string{
-		"mcp.json":              `{"schema_version":1}`,
-		"providers.json":        `{"schema_version":1}`,
-		"profile.json":          `{"schema_version":2}`,
-		"profiles/team.json":    `{"id":"team"}`,
-		"agents/codex.json":     `{"agent_id":"codex"}`,
+		"mcp.json":               `{"schema_version":1}`,
+		"providers.json":         `{"schema_version":1}`,
+		"profile.json":           `{"schema_version":2}`,
+		"profiles/team.json":     `{"id":"team"}`,
+		"agents/codex.json":      `{"agent_id":"codex"}`,
 		"runtimes/node/bin/node": "must not copy",
 	} {
 		path := filepath.Join(legacy, name)
@@ -36,7 +36,7 @@ func TestMigrateLegacyHomeCopiesConfigurationOnlyAndRenamesCodexProvider(t *test
 	if err := os.WriteFile(codex, []byte("model_provider = \"oneagent\"\n[model_providers.oneagent]\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if notice, err := migrateLegacyHome(home); err != nil || !strings.Contains(notice, "Node.js") {
+	if notice, err := migrateLegacyHome(home, "linux"); err != nil || !strings.Contains(notice, "Node.js") {
 		t.Fatalf("migration = %q, %v", notice, err)
 	}
 	if _, err := os.Stat(legacy); !os.IsNotExist(err) {
