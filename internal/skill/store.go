@@ -242,6 +242,22 @@ func (s Store) ListBackups() ([]BackupSummary, error) {
 	return result, nil
 }
 
+// InspectBackup validates a backup without publishing it. Callers use this to
+// validate user choices before restore mutates the private SSOT.
+func (s Store) InspectBackup(ctx context.Context, backupID string) (string, Fact, error) {
+	if err := contextError(ctx); err != nil {
+		return "", Fact{}, err
+	}
+	metadata, err := s.loadBackup(backupID)
+	if err != nil {
+		return "", Fact{}, err
+	}
+	if err := s.validateStoredFact(ctx, metadata.ID, metadata.Fact, filepath.Join(s.BackupRoot(), backupID, "content")); err != nil {
+		return "", Fact{}, err
+	}
+	return metadata.ID, metadata.Fact, nil
+}
+
 func (s Store) RestoreBackup(ctx context.Context, backupID string) (Fact, error) {
 	metadata, err := s.loadBackup(backupID)
 	if err != nil {

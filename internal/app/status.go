@@ -71,6 +71,24 @@ type UseCases struct {
 	// a request per Agent every time it runs.
 	latestVersions latestVersionCache
 	mcpDraft       mcpDraftState
+	skillDraft     skillDraftState
+	skillPreviewMu sync.Mutex
+	skillPreviews  map[string]skillPreview
+}
+
+// DraftState combines the independent MCP and Skills drafts for the native
+// close guard without coupling either feature's state to the other.
+func (u *UseCases) DraftState() (bool, string) {
+	if u == nil {
+		return false, "zh"
+	}
+	mcpDirty, mcpLocale := u.MCPDraftState()
+	skillDirty, skillLocale := u.SkillDraftState()
+	locale := mcpLocale
+	if skillLocale != "" {
+		locale = skillLocale
+	}
+	return mcpDirty || skillDirty, locale
 }
 
 // SetRuntimeDownloader overrides the HTTP client used for internal downloads.

@@ -96,6 +96,7 @@ func main() {
 			application.NewServiceWithOptions(services.DesktopAgent, application.ServiceOptions{MarshalError: oneerrors.Marshal}),
 			application.NewServiceWithOptions(services.Transfer, application.ServiceOptions{MarshalError: oneerrors.Marshal}),
 			application.NewServiceWithOptions(services.MCP, application.ServiceOptions{MarshalError: oneerrors.Marshal}),
+			application.NewServiceWithOptions(services.Skill, application.ServiceOptions{MarshalError: oneerrors.Marshal}),
 		},
 		MarshalError: oneerrors.Marshal,
 		Assets: application.AssetOptions{
@@ -132,14 +133,14 @@ func main() {
 			if closingBypass.Swap(false) {
 				return
 			}
-			dirty, locale := core.MCPDraftState()
+			dirty, locale := core.DraftState()
 			if !dirty {
 				return
 			}
 			event.Cancel()
-			message, discard, cancel := "MCP 草稿尚未应用，确定放弃并关闭吗？", "放弃并关闭", "取消"
+			message, discard, cancel := "MCP 或 Skills 草稿尚未应用，确定放弃并关闭吗？", "放弃并关闭", "取消"
 			if locale == "en" {
-				message, discard, cancel = "MCP changes are not applied. Discard them and close?", "Discard and close", "Cancel"
+				message, discard, cancel = "MCP or Skills changes are not applied. Discard them and close?", "Discard and close", "Cancel"
 			}
 			confirmed := false
 			dialog := application.Get().Dialog.Question().SetTitle("OneAgent").SetMessage(message)
@@ -148,6 +149,7 @@ func main() {
 			dialog.Show()
 			if confirmed {
 				core.SetMCPDraftState(false, locale)
+				core.SetSkillDraftState(false, locale)
 				closingBypass.Store(true)
 				window.Close()
 			}

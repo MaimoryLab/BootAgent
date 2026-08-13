@@ -253,7 +253,11 @@ func PublishTree(ctx context.Context, source, destination string) error {
 	if err := CopyTree(ctx, source, stage); err != nil {
 		return err
 	}
-	if _, err := os.Lstat(destination); err != nil && !os.IsNotExist(err) {
+	if info, err := os.Lstat(destination); err == nil {
+		if info.Mode()&os.ModeSymlink != 0 || !info.IsDir() {
+			return errors.New("skill destination is not a regular directory")
+		}
+	} else if !os.IsNotExist(err) {
 		return err
 	}
 	rollback := filepath.Join(parent, fmt.Sprintf(".oneagent-rollback-%d-%d", time.Now().UnixNano(), rand.Int63()))

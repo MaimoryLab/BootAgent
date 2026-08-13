@@ -7,6 +7,7 @@ import * as MCPService from "./mcpservice.js";
 import * as ProfileService from "./profileservice.js";
 import * as ProviderService from "./providerservice.js";
 import * as RuntimeService from "./runtimeservice.js";
+import * as SkillService from "./skillservice.js";
 import * as StatusService from "./statusservice.js";
 import * as TransferService from "./transferservice.js";
 import * as UpdateService from "./updateservice.js";
@@ -17,6 +18,7 @@ export {
     ProfileService,
     ProviderService,
     RuntimeService,
+    SkillService,
     StatusService,
     TransferService,
     UpdateService

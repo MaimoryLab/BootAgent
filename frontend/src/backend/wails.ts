@@ -9,6 +9,7 @@ import * as StatusService from "../../bindings/github.com/MaimoryLab/OneAgent/in
 import * as TransferService from "../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/transferservice.js";
 import * as UpdateService from "../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/updateservice.js";
 import * as MCPService from "../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/mcpservice.js";
+import * as SkillService from "../../bindings/github.com/MaimoryLab/OneAgent/internal/binding/skillservice.js";
 import type {
   ActivateAgentResponse,
   DesktopAgentActionResult,
@@ -38,6 +39,13 @@ import type {
   MCPApplyRequest,
   MCPApplyResult,
   MCPSpec,
+  SkillSummary,
+  SkillScanResult,
+  SkillImportPreview,
+  SkillApplyRequest,
+  SkillApplyResult,
+  SkillBackupSummary,
+  SkillUninstallResult,
 } from "../types/api";
 import { currentLocale, translate } from "../i18n";
 import { isCancellationError, OneAgentApiError } from "./errors";
@@ -218,6 +226,14 @@ export const wailsApi = {
     call(() => MCPService.PreviewImport({ data, password })) as Promise<import("../../bindings/github.com/MaimoryLab/OneAgent/internal/mcp/models.js").Registry>,
   saveImportedMCP: (registry: import("../../bindings/github.com/MaimoryLab/OneAgent/internal/mcp/models.js").Registry): Promise<void> => call(() => MCPService.SaveImported(registry)).then(() => undefined),
   setMCPDraftState: (dirty: boolean, locale: string): Promise<void> => call(() => MCPService.SetDraftState(dirty, locale)).then(() => undefined),
+  listSkills: (): Promise<SkillSummary[]> => call(() => SkillService.List()).then((items) => items ?? []),
+  scanSkills: (): Promise<SkillScanResult> => call(() => SkillService.Scan()) as Promise<SkillScanResult>,
+  previewSkillImport: (source: string): Promise<SkillImportPreview> => call(() => SkillService.PreviewImport({ source })) as Promise<SkillImportPreview>,
+  applySkills: (request: SkillApplyRequest): Promise<SkillApplyResult> => call(() => SkillService.Apply(request)) as Promise<SkillApplyResult>,
+  uninstallSkill: (id: string): Promise<SkillUninstallResult> => call(() => SkillService.Uninstall(id)) as Promise<SkillUninstallResult>,
+  listSkillBackups: (): Promise<SkillBackupSummary[]> => call(() => SkillService.ListBackups()).then((items) => items ?? []),
+  restoreSkillBackup: (backupID: string, targets: string[]): Promise<SkillApplyResult> => call(() => SkillService.RestoreBackup(backupID, targets)) as Promise<SkillApplyResult>,
+  setSkillDraftState: (dirty: boolean, locale: string): Promise<void> => call(() => SkillService.SetDraftState(dirty, locale)).then(() => undefined),
   listProfiles: (): Promise<ProfileSummary[]> => call(() => ProfileService.ListProfiles()) as Promise<ProfileSummary[]>,
   deleteProfile: (id: string): Promise<void> =>
     call(() => ProfileService.DeleteProfile({ id })).then(() => undefined),

@@ -30,6 +30,7 @@ type Services struct {
 	DesktopAgent *DesktopAgentService
 	Transfer     *TransferService
 	MCP          *MCPService
+	Skill        *SkillService
 }
 
 type ServicesOptions struct {
@@ -47,6 +48,7 @@ func NewServicesWithOptions(core *app.UseCases, opener BrowserOpener, options Se
 		DesktopAgent: NewDesktopAgentService(core, options.InstallOutput),
 		Transfer:     &TransferService{},
 		MCP:          NewMCPService(core),
+		Skill:        NewSkillService(core),
 	}
 }
 
