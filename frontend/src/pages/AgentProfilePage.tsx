@@ -8,7 +8,7 @@ import { ProviderModelPicker } from "../components/ProviderModelPicker";
 import { ProviderSegment } from "../components/ProviderSegment";
 import { useI18n } from "../i18n";
 import { desktopApps, desktopProfileUsable, desktopProfiles, desktopProtocol, profileAgentIdForDesktop } from "../state/desktopSetup";
-import { byProfileCreatedAt, byProviderCreatedAt } from "../state/ranking";
+import { byProfileCreatedAt, byProviderCreatedAt, preferProviderWithKey } from "../state/ranking";
 import { useWizard } from "../state/WizardContext";
 import type { ProfileSummary, ProtocolId, ProviderId } from "../types/api";
 
@@ -87,7 +87,10 @@ export function AgentProfilePage() {
   const canApply = Boolean(selected && desktopProfileUsable(status, selected));
 
   const openCreate = () => {
-    const provider = byProviderCreatedAt(status.providers).find(([, meta]) => protocol === "anthropic" ? meta.anthropic_base_url : meta.base_url)?.[0] || "jiekou";
+    const usable = byProviderCreatedAt(status.providers).filter(([, meta]) =>
+      protocol === "anthropic" ? meta.anthropic_base_url : meta.base_url,
+    );
+    const provider = preferProviderWithKey(usable)?.[0] || "jiekou";
     const current = selected || profiles[0];
     const baseID = `${owner || "agent"}-${provider}`.toLowerCase().replace(/[^a-z0-9_-]/g, "-");
     const ids = new Set(status.profiles.map((profile) => profile.id));

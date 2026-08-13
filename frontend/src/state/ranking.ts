@@ -75,6 +75,26 @@ export function byProviderCreatedAt(providers: StatusResponse["providers"]): Arr
   });
 }
 
+/**
+ * The Provider to pre-select out of those that can serve a step, preferring one
+ * that already holds a key.
+ *
+ * Display order and pre-selection are different questions, and answering both
+ * with byProviderCreatedAt alone conflated them: Store.Public stamps created_at
+ * onto any Provider holding a key, so sorting built-ins by it descending floated
+ * the configured one up as a side effect. Ordering built-ins by the manifest is
+ * correct for display and took that side effect with it, which left the wizard
+ * pre-selecting a keyless Provider and its connection test permanently disabled.
+ *
+ * Callers pass the candidates they consider usable, already sorted; this only
+ * decides which of them to land on.
+ */
+export function preferProviderWithKey<T extends { has_key?: boolean }>(
+  candidates: ReadonlyArray<[string, T]>,
+): [string, T] | undefined {
+  return candidates.find(([, provider]) => provider.has_key) ?? candidates[0];
+}
+
 export function byProfileCreatedAt(profiles: readonly ProfileSummary[]): ProfileSummary[] {
   return [...profiles].sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
 }

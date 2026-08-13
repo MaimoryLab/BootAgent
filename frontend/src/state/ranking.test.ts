@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { AgentCatalogItem } from "../types/api";
-import { PRIMARY_RANK_LIMIT, byProfileCreatedAt, byProviderCreatedAt, byRank, splitByRank } from "./ranking";
+import { PRIMARY_RANK_LIMIT, byProfileCreatedAt, byProviderCreatedAt, byRank, preferProviderWithKey, splitByRank } from "./ranking";
 
 function item(id: string, rank: number): AgentCatalogItem {
   return {
@@ -93,6 +93,33 @@ describe("ranking", () => {
       ppio: { name: "PPIO", home: "", base_url: "", order: 2 },
     });
     expect(sorted.map(([id]) => id)).toEqual(["mine", "ppio", "deepseek"]);
+  });
+
+  // Only the E2E run caught this: ordering built-ins by the manifest is right for
+  // display, but pre-selection had been riding on the created_at sort, because
+  // Store.Public stamps created_at onto whichever Provider holds a key. Losing it
+  // left the wizard on a keyless Provider whose connection test can never enable.
+  it("prefers a Provider holding a key over an earlier one without", () => {
+    const ranked = byProviderCreatedAt({
+      jiekou: { name: "JieKou.AI", home: "", base_url: "", order: 1 },
+      ppio: { name: "PPIO", home: "", base_url: "", order: 2, has_key: true },
+    });
+    expect(ranked.map(([id]) => id)).toEqual(["jiekou", "ppio"]);
+    expect(preferProviderWithKey(ranked)?.[0]).toBe("ppio");
+  });
+
+  it("falls back to the first candidate when none holds a key", () => {
+    // A fresh machine: nothing is configured yet, so the manifest's first
+    // Provider is the one to land on.
+    const ranked = byProviderCreatedAt({
+      ppio: { name: "PPIO", home: "", base_url: "", order: 2 },
+      jiekou: { name: "JieKou.AI", home: "", base_url: "", order: 1 },
+    });
+    expect(preferProviderWithKey(ranked)?.[0]).toBe("jiekou");
+  });
+
+  it("reports nothing to pre-select when there are no candidates", () => {
+    expect(preferProviderWithKey([])).toBeUndefined();
   });
 
   it("puts newest profiles first", () => {
