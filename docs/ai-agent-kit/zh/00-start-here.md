@@ -32,8 +32,9 @@
 ## 启动桌面应用
 
 下载对应平台的 `technical-preview-unsigned` 包，解压后直接启动：macOS 是
-`OneAgent.app`，Windows 是 `oneagent-desktop.exe`。当前阶段的包未签名也未公证，
-首次打开需要在系统里手动允许。
+`OneAgent.app`，Windows 是 `oneagent-desktop.exe`，Linux 可以直接运行 AppImage。
+Linux 还为 amd64 和 arm64 提供 `deb`、`rpm` 与 OTA `zip`。当前阶段的包未签名也未
+公证，首次打开需要在系统里手动允许。
 
 需要从源码运行（开发或审查用）：
 

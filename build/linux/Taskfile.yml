@@ -5,7 +5,7 @@ includes:
 
 tasks:
   build:
-    summary: Builds the Linux desktop binary (native only, no Docker cross-compilation)
+    summary: Builds the GTK4 Linux desktop binary (native only, no Docker cross-compilation)
     deps:
       - task: common:go:mod:tidy
       - task: common:build:frontend
@@ -18,12 +18,66 @@ tasks:
     cmds:
       - go build {{.BUILD_FLAGS}} -o "{{.OUTPUT}}" ./cmd/oneagent-desktop
     vars:
-      BUILD_FLAGS: '{{if eq .DEV "true"}}-tags wails -buildvcs=false -gcflags=all="-l"{{else}}-tags wails,production -trimpath -buildvcs=false -ldflags="-w -s"{{end}}'
+      BUILD_FLAGS: '{{if eq .DEV "true"}}-tags wails -buildvcs=false -gcflags=all="-l"{{else}}-tags wails,production -trimpath -buildvcs=false -ldflags="-w -s{{if .VERSION}} -X github.com/MaimoryLab/OneAgent/internal/version.Version={{.VERSION}}{{end}}"{{end}}'
       OUTPUT: '{{.OUTPUT | default (printf "%s/%s" .BIN_DIR .APP_NAME)}}'
     env:
       GOOS: linux
       CGO_ENABLED: 1
       GOARCH: '{{.ARCH | default ARCH}}'
+
+  package:
+    summary: Packages the GTK4 Linux application as AppImage, DEB, RPM, and OTA ZIP
+    deps:
+      - task: build
+        vars:
+          ARCH: '{{.ARCH}}'
+          VERSION: '{{.VERSION}}'
+    cmds:
+      - task: generate:dotdesktop
+      - task: generate:appimage
+      - task: generate:deb
+      - task: generate:rpm
+      - task: generate:ota
+
+  generate:dotdesktop:
+    summary: Generates the Linux desktop entry
+    dir: '{{.ROOT_DIR}}/build'
+    cmds:
+      - mkdir -p '{{.ROOT_DIR}}/build/linux/appimage/build'
+      - '{{.WAILS3}} generate .desktop -name OneAgent -exec oneagent-desktop -icon appicon -outputfile "{{.ROOT_DIR}}/build/linux/oneagent-desktop.desktop" -categories "Development;" -comment "Local AI development environment activator"'
+
+  generate:appimage:
+    summary: Generates the GTK4 AppImage
+    deps:
+      - task: generate:dotdesktop
+    cmds:
+      - '{{.WAILS3}} generate appimage -binary "{{.ROOT_DIR}}/bin/{{.APP_NAME}}" -icon "{{.ROOT_DIR}}/build/appicon.png" -desktopfile "{{.ROOT_DIR}}/build/linux/oneagent-desktop.desktop" -outputdir "{{.ROOT_DIR}}/bin" -builddir "{{.ROOT_DIR}}/build/linux/appimage/build"'
+
+  generate:deb:
+    summary: Generates the DEB package
+    deps:
+      - task: generate:dotdesktop
+    cmds:
+      - '{{.WAILS3}} tool package -name "{{.APP_NAME}}" -format deb -config "{{.ROOT_DIR}}/build/linux/nfpm/nfpm.yaml" -out "{{.ROOT_DIR}}/bin"'
+    env:
+      GOARCH: '{{.ARCH | default ARCH}}'
+      VERSION: '{{.VERSION | default "0.0.0"}}'
+
+  generate:rpm:
+    summary: Generates the RPM package
+    deps:
+      - task: generate:dotdesktop
+    cmds:
+      - '{{.WAILS3}} tool package -name "{{.APP_NAME}}" -format rpm -config "{{.ROOT_DIR}}/build/linux/nfpm/nfpm.yaml" -out "{{.ROOT_DIR}}/bin"'
+    env:
+      GOARCH: '{{.ARCH | default ARCH}}'
+      VERSION: '{{.VERSION | default "0.0.0"}}'
+
+  generate:ota:
+    summary: Creates the single-root Linux OTA archive
+    cmds:
+      - mkdir -p '{{.ROOT_DIR}}/bin'
+      - '(cd "{{.ROOT_DIR}}/bin" && rm -f "ota-OneAgent-linux-{{.ARCH | default ARCH}}.zip" && zip -q "ota-OneAgent-linux-{{.ARCH | default ARCH}}.zip" "{{.APP_NAME}}")'
 
   run:
     cmds:

@@ -6,7 +6,7 @@
 
 | 文件 | 作用 | 是否需要密钥 |
 | --- | --- | --- |
-| `OneAgent.app`（macOS）/ `oneagent-desktop.exe`（Windows） | 桌面应用 | 否 |
+| `OneAgent.app`（macOS）/ `oneagent-desktop.exe`（Windows）/ Linux AppImage | 桌面应用 | 否 |
 
 发行包由 `.github/workflows/build-artifacts.yml` 构建。早期版本用 `launcher`、
 `start.sh`、`start.command` 三个脚本启动本地 GUI，Go/Wails 迁移后不再需要。
