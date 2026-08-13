@@ -316,6 +316,7 @@ export interface SkillSummary {
     "name": string;
     "description": string;
     "variants": number;
+    "variant_hashes": string[] | null;
     "agents": string[] | null;
     "conflict": boolean;
 }

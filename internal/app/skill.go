@@ -18,12 +18,13 @@ import (
 )
 
 type SkillSummary struct {
-	ID          string   `json:"id"`
-	Name        string   `json:"name"`
-	Description string   `json:"description"`
-	Variants    int      `json:"variants"`
-	Agents      []string `json:"agents"`
-	Conflict    bool     `json:"conflict"`
+	ID            string   `json:"id"`
+	Name          string   `json:"name"`
+	Description   string   `json:"description"`
+	Variants      int      `json:"variants"`
+	VariantHashes []string `json:"variant_hashes"`
+	Agents        []string `json:"agents"`
+	Conflict      bool     `json:"conflict"`
 }
 type SkillCandidate struct {
 	ID             string   `json:"id"`
@@ -789,7 +790,12 @@ func summarizeSkill(id string, fact skill.Fact) SkillSummary {
 		list = append(list, agent)
 	}
 	sort.Strings(list)
-	return SkillSummary{ID: id, Name: fact.Name, Description: fact.Description, Variants: len(fact.Variants), Agents: list, Conflict: len(fact.Variants) > 1}
+	hashes := make([]string, 0, len(fact.Variants))
+	for _, variant := range fact.Variants {
+		hashes = append(hashes, variant.Hash)
+	}
+	sort.Strings(hashes)
+	return SkillSummary{ID: id, Name: fact.Name, Description: fact.Description, Variants: len(fact.Variants), VariantHashes: hashes, Agents: list, Conflict: len(fact.Variants) > 1}
 }
 func skillAgentIDs(agents map[string]catalog.Agent) []string {
 	ids := make([]string, 0, len(agents))
