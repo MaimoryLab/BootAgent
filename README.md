@@ -73,11 +73,11 @@ cd frontend && pnpm run test && pnpm run build
 
 ## Star History
 
-<a href="https://www.star-history.com/?type=date&repos=MaimoryLab%2FBootAgent">
+<a href="https://www.star-history.com/?repos=MaimoryLab%2FBootAgent&type=date&legend=top-left">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=MaimoryLab/BootAgent&type=date&theme=dark&legend=top-left&sealed_token=84lSKNkgdwfnYMfYU-oYgjwZ_hAFohYbDV5eeoXC_1lQvIsQnaD9EW37_C6-_seReMYRMGKR7G3W_APuS4xO13KlMBwwPHZ-_wtA04c4MxouycuOV7gip89Hd-BFzTAiz1lqDcHOxb7-X6zZRxKElZpRpC-VXe1pWUL8vp_gu9qq9OKkeA-fMShYgEqI" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=MaimoryLab/BootAgent&type=date&legend=top-left&sealed_token=84lSKNkgdwfnYMfYU-oYgjwZ_hAFohYbDV5eeoXC_1lQvIsQnaD9EW37_C6-_seReMYRMGKR7G3W_APuS4xO13KlMBwwPHZ-_wtA04c4MxouycuOV7gip89Hd-BFzTAiz1lqDcHOxb7-X6zZRxKElZpRpC-VXe1pWUL8vp_gu9qq9OKkeA-fMShYgEqI" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=MaimoryLab/BootAgent&type=date&legend=top-left&sealed_token=84lSKNkgdwfnYMfYU-oYgjwZ_hAFohYbDV5eeoXC_1lQvIsQnaD9EW37_C6-_seReMYRMGKR7G3W_APuS4xO13KlMBwwPHZ-_wtA04c4MxouycuOV7gip89Hd-BFzTAiz1lqDcHOxb7-X6zZRxKElZpRpC-VXe1pWUL8vp_gu9qq9OKkeA-fMShYgEqI" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=MaimoryLab/BootAgent&type=date&theme=dark&legend=top-left&sealed_token=wiOLSOTugmyFse5tBQ7xZAHS9_V3irdr9ft2xDkbPA2rgy4SNDmm09LA6m0Umxjop30R4kn8yj675c_d5Q5NHGecjs3fB2FwpnKxVTDGomAZsz2OxbfN5ND7comOV52I39nuTN1T-zShOiDil29DAq92aduIm30ekevoULQV9mSaMacoTpsSo0O0tPPS" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=MaimoryLab/BootAgent&type=date&legend=top-left&sealed_token=wiOLSOTugmyFse5tBQ7xZAHS9_V3irdr9ft2xDkbPA2rgy4SNDmm09LA6m0Umxjop30R4kn8yj675c_d5Q5NHGecjs3fB2FwpnKxVTDGomAZsz2OxbfN5ND7comOV52I39nuTN1T-zShOiDil29DAq92aduIm30ekevoULQV9mSaMacoTpsSo0O0tPPS" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=MaimoryLab/BootAgent&type=date&legend=top-left&sealed_token=wiOLSOTugmyFse5tBQ7xZAHS9_V3irdr9ft2xDkbPA2rgy4SNDmm09LA6m0Umxjop30R4kn8yj675c_d5Q5NHGecjs3fB2FwpnKxVTDGomAZsz2OxbfN5ND7comOV52I39nuTN1T-zShOiDil29DAq92aduIm30ekevoULQV9mSaMacoTpsSo0O0tPPS" />
  </picture>
 </a>
 
