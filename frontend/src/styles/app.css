@@ -2190,6 +2190,8 @@
 .skills-name-cell { min-width: 150px; }
 .skills-detail-cell { min-width: 280px; max-width: 520px; white-space: normal; line-height: 1.45; }
 .skills-detail-cell span, .skills-detail-cell small { display: block; }
+.skills-detail-cell span, .skills-import-name small { font-size: 12px; color: var(--text-secondary); }
+.skills-detail-cell span[title], .skills-import-name small[title] { cursor: help; }
 .skills-detail-cell small { margin-top: 4px; color: var(--text-tertiary); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 .mcp-secret-note { display: block; color: var(--text-secondary); margin-top: 4px; }
 .mcp-modal-backdrop { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 24px; background: rgb(0 0 0 / 35%); }
@@ -2208,7 +2210,7 @@
 .skills-import-name { min-width: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; column-gap: 8px; row-gap: 4px; margin: 0 !important; }
 .skills-import-name strong, .skills-import-name small { min-width: 0; overflow-wrap: anywhere; }
 .skills-import-name strong { grid-column: 2; }
-.skills-import-name small { grid-column: 2; color: var(--text-secondary); line-height: 1.4; }
+.skills-import-name small { grid-column: 2; color: var(--text-secondary); line-height: 1.35; }
 .skills-import-name input { grid-column: 1; grid-row: 1 / span 2; }
 .skills-import-name input[type="checkbox"] { width: 19px; height: 19px; margin: 0; accent-color: var(--blue); }
 .skills-import-row > .mcp-targets { min-width: 0; grid-template-columns: repeat(auto-fit, minmax(95px, 1fr)); }
