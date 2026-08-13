@@ -73,7 +73,7 @@ export function PageScaffold({
               disabled={primaryDisabled || primaryBusy}
               aria-busy={primaryBusy}
             >
-              {primaryBusy ? <span className="spinner spinner-on-blue" /> : null}
+              {primaryBusy ? <span className="spinner spinner-on-accent" /> : null}
               {primaryLabel}
               {!primaryBusy ? <ArrowRight size={16} /> : null}
             </button>

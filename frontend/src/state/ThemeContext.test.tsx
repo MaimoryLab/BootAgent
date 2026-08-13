@@ -112,7 +112,8 @@ describe("ThemeProvider", () => {
     // palette, so the window chrome would keep the desktop's colour.
     stubSystem(false);
     await choose(mount(), "深色");
-    expect(document.head.querySelector<HTMLMetaElement>("meta#theme-color-resolved")?.content).toBe("#151517");
+    // --page-bg on the dark theme. Update alongside tokens.css and index.html.
+    expect(document.head.querySelector<HTMLMetaElement>("meta#theme-color-resolved")?.content).toBe("#161410");
   });
 
   it("treats a barred storage as no stored choice", () => {

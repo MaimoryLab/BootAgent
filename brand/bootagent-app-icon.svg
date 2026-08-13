@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 128 128">
+  <!-- bootAgent app icon -->
+  <rect width="128" height="128" rx="28" fill="#211F1B"/>
+  <g transform="translate(64,64) scale(0.78) translate(-66,-53)">
+    <circle cx="66" cy="65" r="33" fill="none" stroke="#F4EFE6" stroke-width="12"/>
+    <line x1="33" y1="8" x2="33" y2="98" stroke="#D96E49" stroke-width="12" stroke-linecap="round"/>
+  </g>
+</svg>

@@ -82,7 +82,7 @@
 
 .sidebar-link:hover,
 .sidebar-link.is-active {
-  background: rgba(118, 118, 128, 0.1);
+  background: var(--surface-pressed);
 }
 
 .sidebar-link.is-active {
@@ -96,7 +96,7 @@
   width: 3px;
   height: 22px;
   border-radius: 0 2px 2px 0;
-  background: var(--blue);
+  background: var(--accent);
   content: "";
 }
 
@@ -218,7 +218,7 @@
 .transfer-row strong, .transfer-row small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .transfer-row strong { font-size: 13px; }
 .transfer-row small { color: var(--text-secondary); font-size: 11px; }
-.transfer-row em { margin-left: auto; color: var(--blue); font-size: 11px; font-style: normal; white-space: nowrap; }
+.transfer-row em { margin-left: auto; color: var(--accent); font-size: 11px; font-style: normal; white-space: nowrap; }
 /* The apply-targets dialog shares every rule here: same width, same chrome, same
    grid. It is listed alongside rather than given its own block so the two
    confirmations cannot drift apart visually. */
@@ -261,8 +261,8 @@
 .launch-directory-input-row .icon-button { flex: 0 0 34px; width: 34px; height: 34px; border: 1px solid var(--border-strong); background: var(--surface-subtle); }
 .launch-remember-row { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
 .launch-remember-row input[type="checkbox"] { appearance: none; width: 17px; height: 17px; margin: 0; border: 1px solid var(--border-strong); border-radius: 4px; background: var(--window-bg); display: grid; place-content: center; cursor: pointer; }
-.launch-remember-row input[type="checkbox"]::before { content: ""; width: 9px; height: 5px; border-left: 2px solid white; border-bottom: 2px solid white; transform: rotate(-45deg) scale(0); transition: transform 100ms ease-in-out; }
-.launch-remember-row input[type="checkbox"]:checked { border-color: var(--blue); background: var(--blue); }
+.launch-remember-row input[type="checkbox"]::before { content: ""; width: 9px; height: 5px; border-left: 2px solid var(--on-accent); border-bottom: 2px solid var(--on-accent); transform: rotate(-45deg) scale(0); transition: transform 100ms ease-in-out; }
+.launch-remember-row input[type="checkbox"]:checked { border-color: var(--accent); background: var(--accent); }
 .launch-remember-row input[type="checkbox"]:checked::before { transform: rotate(-45deg) scale(1); }
 
 .settings-page { padding-top: 24px; display: flex; flex-direction: column; gap: 28px; }
@@ -377,9 +377,9 @@
 
 .stepper-item.is-active .stepper-marker,
 .stepper-item.is-complete .stepper-marker {
-  color: #ffffff;
-  background: var(--blue);
-  border-color: var(--blue);
+  color: var(--on-accent);
+  background: var(--accent);
+  border-color: var(--accent);
 }
 
 .stepper-item.is-skipped .stepper-marker {
@@ -433,7 +433,7 @@
 
 .agent-tabs { position: relative; z-index: 1; display: flex; gap: 4px; margin: 0 0 10px; border-bottom: 1px solid var(--border); }
 .agent-tab { min-height: 38px; border: 0; border-bottom: 2px solid transparent; padding: 8px 12px; color: var(--text-secondary); background: transparent; cursor: pointer; }
-.agent-tab.is-active { border-bottom-color: var(--blue); color: var(--blue); font-weight: 650; }
+.agent-tab.is-active { border-bottom-color: var(--accent); color: var(--accent); font-weight: 650; }
 
 .agent-row {
   min-height: 68px;
@@ -458,8 +458,8 @@
 }
 
 .agent-row.is-selected {
-  background: var(--blue-soft);
-  box-shadow: inset 3px 0 var(--blue);
+  background: var(--accent-soft);
+  box-shadow: inset 3px 0 var(--accent);
 }
 
 .agent-row.is-disabled {
@@ -471,7 +471,7 @@
   width: 17px;
   height: 17px;
   margin: 0;
-  accent-color: var(--blue);
+  accent-color: var(--accent);
 }
 
 .agent-row input[type="radio"],
@@ -479,7 +479,7 @@
   width: 17px;
   height: 17px;
   margin: 0;
-  accent-color: var(--blue);
+  accent-color: var(--accent);
 }
 
 .desktop-agent-choice { width: 100%; max-width: none; }
@@ -509,7 +509,7 @@
 .profile-choice > .icon-button { grid-column: 2; grid-row: 1; }
 .profile-choice > p,
 .profile-choice > .profile-key-hint { grid-column: 1 / -1; }
-.profile-choice.is-selected { background: var(--blue-soft); box-shadow: inset 3px 0 var(--blue); }
+.profile-choice.is-selected { background: var(--accent-soft); box-shadow: inset 3px 0 var(--accent); }
 .profile-choice.is-disabled { cursor: not-allowed; opacity: 0.58; }
 .agent-icon,
 .choice-icon,
@@ -553,11 +553,17 @@
 /* The product mark, painted in the theme's blue rather than the text colour the
    Agent marks inherit. Those identify a row and should read as neutral UI; this
    one is the brand and carries its colour. */
+/* The mark is two-colour: the ring takes currentColor and the stem paints
+   var(--brand) from inside the SVG. currentColor is --text-primary rather than
+   the accent because the ring is the wordmark's ink -- ink on the light theme,
+   cream on the dark one, which is exactly the reversed lockup the brand set
+   ships. Painting the ring --accent would have made it a third terracotta
+   sitting beside the stem's. */
 .brand-mark-glyph {
   display: inline-grid;
   place-items: center;
   flex: 0 0 auto;
-  color: var(--blue);
+  color: var(--text-primary);
 }
 
 .brand-mark-glyph > svg {
@@ -731,7 +737,7 @@
 .toggle-row input[role="switch"] {
   width: 34px;
   height: 20px;
-  accent-color: var(--blue);
+  accent-color: var(--accent);
 }
 
 .choice-list {
@@ -753,7 +759,7 @@
 }
 
 .choice-row:hover { background: var(--surface-subtle); }
-.choice-row.is-selected { background: var(--blue-soft); box-shadow: inset 3px 0 var(--blue); }
+.choice-row.is-selected { background: var(--accent-soft); box-shadow: inset 3px 0 var(--accent); }
 
 .choice-check {
   width: 20px;
@@ -765,9 +771,9 @@
 }
 
 .choice-row.is-selected .choice-check {
-  color: #ffffff;
-  background: var(--blue);
-  border-color: var(--blue);
+  color: var(--on-accent);
+  background: var(--accent);
+  border-color: var(--accent);
 }
 
 .provider-picker {
@@ -843,8 +849,8 @@
 }
 
 .secure-field:focus-within {
-  border-color: var(--blue);
-  box-shadow: 0 0 0 3px var(--blue-soft);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 .secure-field > svg { color: var(--text-tertiary); }
@@ -1046,7 +1052,7 @@
 
 .model-row:last-child { border-bottom: 0; }
 .model-row:hover { background: var(--surface-subtle); }
-.model-row.is-selected { color: var(--blue); background: var(--blue-soft); }
+.model-row.is-selected { color: var(--accent); background: var(--accent-soft); }
 .model-row > span { min-width: 0; display: grid; gap: 2px; }
 .model-row strong { overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
 .model-row small { color: var(--text-secondary); font-size: 11px; }
@@ -1105,7 +1111,7 @@
   display: flex;
   align-items: flex-start;
   gap: 9px;
-  color: var(--blue);
+  color: var(--accent);
 }
 
 .runtime-download-heading > div {
@@ -1154,8 +1160,12 @@
   padding: 14px;
   overflow: auto;
   border-radius: var(--radius-control);
-  color: #eef2f6;
-  background: #202124;
+  /* Fixed dark in both themes, the way a terminal is, so these two stay
+     literals rather than tokens. Warm literals though, mixed from the brand
+     cream and ink -- the previous cool pair read as a foreign panel once
+     everything around it went warm. 15.02:1. */
+  color: #f4efe6;
+  background: #1d1b16;
   font: 11px/1.55 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -1173,7 +1183,7 @@
 }
 
 .summary-item + .summary-item { border-left: 1px solid var(--border); }
-.summary-item svg { color: var(--blue); }
+.summary-item svg { color: var(--accent); }
 .summary-item span { color: var(--text-secondary); font-size: 11px; }
 .summary-item strong { overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
 
@@ -1293,8 +1303,9 @@
    row was, which the icon and name already say. Reserving hue for state (behind,
    error) makes those actually stand out. */
 .agent-manage-row {
-  --agent-accent: var(--blue);
-  --agent-soft: var(--blue-soft);
+  --agent-accent: var(--accent);
+  --agent-accent-hover: var(--accent-hover);
+  --agent-soft: var(--accent-soft);
   width: min(100%, var(--card-measure));
   min-height: 84px;
   padding: 12px 14px;
@@ -1446,13 +1457,18 @@
 }
 
 .agent-manage-actions .button-primary {
-  color: #ffffff;
+  color: var(--on-accent);
   background: var(--agent-accent);
   border-color: var(--agent-accent);
 }
 
+/* The token, not filter: brightness(). brightness() dimmed the label along
+   with the fill, and on the dark theme -- where the accent is a lifted
+   terracotta -- darkening it moved the hover the wrong way, away from the
+   lighter --accent-hover every other primary button steps to. */
 .agent-manage-actions .button-primary:hover:not(:disabled) {
-  filter: brightness(0.94);
+  background: var(--agent-accent-hover);
+  border-color: var(--agent-accent-hover);
 }
 
 /* Anchor for the update dot. overflow stays visible because the dot sits
@@ -1475,7 +1491,7 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--blue);
+  background: var(--accent);
   box-shadow: 0 0 0 2px var(--surface-subtle);
   pointer-events: none;
 }
@@ -1559,8 +1575,9 @@
 /* Matches .agent-manage-row so the desktop Agent does not read as a different
    kind of object from the CLI Agents listed under it. */
 .desktop-app-row {
-  --agent-accent: var(--blue);
-  --agent-soft: var(--blue-soft);
+  --agent-accent: var(--accent);
+  --agent-accent-hover: var(--accent-hover);
+  --agent-soft: var(--accent-soft);
   min-width: 0;
   min-height: 84px;
   padding: 12px 14px;
@@ -1973,7 +1990,7 @@
   text-decoration: none;
 }
 
-.provider-link:hover { color: var(--blue); }
+.provider-link:hover { color: var(--accent); }
 
 .provider-endpoints {
   margin: 0;
@@ -2176,7 +2193,7 @@
   cursor: pointer;
 }
 
-.advanced-section > button:hover { color: var(--blue); }
+.advanced-section > button:hover { color: var(--accent); }
 
 .advanced-section > button svg { transition: transform 140ms ease; }
 .advanced-section.is-open > button svg { transform: rotate(180deg); }
@@ -2219,7 +2236,7 @@
 .skills-import-name strong { grid-column: 2; }
 .skills-import-name small { grid-column: 2; color: var(--text-secondary); line-height: 1.35; }
 .skills-import-name input { grid-column: 1; grid-row: 1 / span 2; }
-.skills-import-name input[type="checkbox"] { width: 19px; height: 19px; margin: 0; accent-color: var(--blue); }
+.skills-import-name input[type="checkbox"] { width: 19px; height: 19px; margin: 0; accent-color: var(--accent); }
 .skills-import-row > .mcp-targets { min-width: 0; grid-template-columns: repeat(auto-fit, minmax(95px, 1fr)); }
 @media (max-width: 640px) {
   .skills-import-row { grid-template-columns: 1fr; gap: 12px; }
@@ -2386,7 +2403,7 @@
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: var(--blue);
+  background: var(--accent);
 }
 
 .task-center-body {
@@ -2455,7 +2472,7 @@
   cursor: pointer;
 }
 .task-card-action:hover { background: var(--surface-pressed); }
-.task-card-icon { flex: 0 0 auto; margin-top: 1px; color: var(--blue); }
+.task-card-icon { flex: 0 0 auto; margin-top: 1px; color: var(--accent); }
 .task-card.is-success .task-card-icon { color: var(--green); }
 .task-card.is-failure .task-card-icon { color: var(--red); }
 .task-card.is-cancelled .task-card-icon { color: var(--text-tertiary); }
@@ -2464,7 +2481,7 @@
 .task-card-copy > small { color: var(--text-secondary); font-size: 11px; line-height: 1.35; overflow-wrap: anywhere; }
 .task-card-progress { display: grid; gap: 3px; margin-top: 2px; }
 .task-card-progress-track { height: 5px; overflow: hidden; border-radius: 3px; background: var(--surface-pressed); }
-.task-card-progress-fill { display: block; height: 100%; border-radius: 3px; background: var(--blue); transition: width 180ms ease; }
+.task-card-progress-fill { display: block; height: 100%; border-radius: 3px; background: var(--accent); transition: width 180ms ease; }
 .task-card-progress-track.is-indeterminate .task-card-progress-fill { width: 35%; animation: download-sweep 1.1s ease-in-out infinite; }
 .task-card-progress small { color: var(--text-tertiary); font-size: 10px; font-variant-numeric: tabular-nums; }
 .task-card-dismiss {
@@ -2509,7 +2526,7 @@
   display: block;
   height: 100%;
   border-radius: 3px;
-  background: var(--blue);
+  background: var(--accent);
   transition: width 180ms ease;
 }
 

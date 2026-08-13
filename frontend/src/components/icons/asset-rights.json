@@ -63,7 +63,7 @@
   "firstPartyAssets": {
     "bootagent-mark": {
       "file": "assets/bootagent-mark.svg",
-      "note": "BootAgent's own mark, traced from the master raster in MaimoryLab/BootAgent-site (public/images/brand/bootagent-logo.png). MaimoryLab's work under this repository's Apache-2.0 license, so it carries no third-party source, licence text or copyright owner and is deliberately absent from `assets` above -- registering it there would assert a provenance it does not have. Listed here so the compliance gate can tell a first-party asset apart from one nobody attributed."
+      "note": "BootAgent's own mark: a stroked ring at cx/cy 66/65 r 33 with a round-capped stem from 33,8 to 33,98, both 12 units wide on the viewBox 24 -1 84 108. Defined as geometry rather than traced from a raster -- brand/README.md holds the contract, and every icon here and on MaimoryLab/BootAgent-site is rendered from it. MaimoryLab's work under this repository's Apache-2.0 license, so it carries no third-party source, licence text or copyright owner and is deliberately absent from `assets` above -- registering it there would assert a provenance it does not have. Listed here so the compliance gate can tell a first-party asset apart from one nobody attributed."
     }
   },
   "trademarkAssets": {
