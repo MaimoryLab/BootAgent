@@ -2187,6 +2187,10 @@
 .mcp-footer-actions { display: flex; gap: 8px; }
 .mcp-targets { display: grid; gap: 4px; min-width: 130px; }
 .mcp-targets label { display: flex; align-items: center; gap: 6px; white-space: nowrap; color: var(--text-secondary); font-size: 12px; }
+.skills-name-cell { min-width: 150px; }
+.skills-detail-cell { min-width: 280px; max-width: 520px; white-space: normal; line-height: 1.45; }
+.skills-detail-cell span, .skills-detail-cell small { display: block; }
+.skills-detail-cell small { margin-top: 4px; color: var(--text-tertiary); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 .mcp-secret-note { display: block; color: var(--text-secondary); margin-top: 4px; }
 .mcp-modal-backdrop { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 24px; background: rgb(0 0 0 / 35%); }
 .mcp-modal { width: min(620px, 100%); max-height: min(720px, 90vh); overflow: auto; padding: 22px; background: var(--window-bg); border: 1px solid var(--border-strong); box-shadow: var(--shadow-lg); }
