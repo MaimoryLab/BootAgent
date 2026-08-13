@@ -15,6 +15,7 @@ import { ProviderKeyPage } from "./pages/ProviderKeyPage";
 import { ProvidersPage } from "./pages/ProvidersPage";
 import { ReviewPage } from "./pages/ReviewPage";
 import { SettingsPage } from "./pages/SettingsPage";
+import { SkillsPage } from "./pages/SkillsPage";
 import { TransferPage } from "./pages/TransferPage";
 import { I18nProvider, useI18n } from "./i18n";
 import { TaskCenterProvider, useTaskCenter } from "./state/TaskCenterContext";
@@ -88,6 +89,7 @@ function WorkspaceRoutes() {
         <Route path="/providers/new" element={<ProvidersPage create />} />
         <Route path="/profiles" element={<ProfilesPage />} />
         <Route path="/mcp" element={<MCPPage />} />
+        <Route path="/skills" element={<SkillsPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/settings/transfer" element={<TransferPage />} />
         <Route path="/transfer" element={<Navigate to="/settings/transfer" replace />} />

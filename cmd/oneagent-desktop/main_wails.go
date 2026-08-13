@@ -3,6 +3,7 @@
 package main
 
 import (
+	"context"
 	"log/slog"
 	"os"
 	"sync"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	oneagent "github.com/MaimoryLab/OneAgent"
+	"github.com/MaimoryLab/OneAgent/internal/app"
 	"github.com/MaimoryLab/OneAgent/internal/binding"
 	oneerrors "github.com/MaimoryLab/OneAgent/internal/errors"
 	"github.com/MaimoryLab/OneAgent/internal/process"
@@ -50,6 +52,7 @@ func configureUpdater(appInstance *application.App) binding.UpdateBackend {
 func main() {
 	var appInstance *application.App
 	core := newDesktopUseCases()
+	var startupSyncOnce sync.Once
 	var nativeSmokeOnce sync.Once
 	var afterGetStatus func()
 	if os.Getenv("ONEAGENT_NATIVE_SMOKE") == "1" {
@@ -73,7 +76,25 @@ func main() {
 		}
 		return current.Browser.OpenURL(url)
 	}, binding.ServicesOptions{
-		AfterGetStatus: afterGetStatus,
+		AfterGetStatus: func(status app.StatusResponse) {
+			if status.FirstRun {
+				if afterGetStatus != nil {
+					afterGetStatus()
+				}
+				return
+			}
+			startupSyncOnce.Do(func() {
+				if _, err := core.ScanMCP(context.Background()); err != nil {
+					slog.Warn("MCP startup scan failed", "error", err)
+				}
+				if _, err := core.ScanSkills(context.Background()); err != nil {
+					slog.Warn("Skill startup scan failed", "error", err)
+				}
+			})
+			if afterGetStatus != nil {
+				afterGetStatus()
+			}
+		},
 		InstallOutput: func(output process.Output) {
 			if appInstance != nil {
 				appInstance.Event.Emit("oneagent:install-output", output)
@@ -96,6 +117,7 @@ func main() {
 			application.NewServiceWithOptions(services.DesktopAgent, application.ServiceOptions{MarshalError: oneerrors.Marshal}),
 			application.NewServiceWithOptions(services.Transfer, application.ServiceOptions{MarshalError: oneerrors.Marshal}),
 			application.NewServiceWithOptions(services.MCP, application.ServiceOptions{MarshalError: oneerrors.Marshal}),
+			application.NewServiceWithOptions(services.Skill, application.ServiceOptions{MarshalError: oneerrors.Marshal}),
 		},
 		MarshalError: oneerrors.Marshal,
 		Assets: application.AssetOptions{
@@ -132,14 +154,14 @@ func main() {
 			if closingBypass.Swap(false) {
 				return
 			}
-			dirty, locale := core.MCPDraftState()
+			dirty, locale := core.DraftState()
 			if !dirty {
 				return
 			}
 			event.Cancel()
-			message, discard, cancel := "MCP 草稿尚未应用，确定放弃并关闭吗？", "放弃并关闭", "取消"
+			message, discard, cancel := "MCP 或 Skills 草稿尚未应用，确定放弃并关闭吗？", "放弃并关闭", "取消"
 			if locale == "en" {
-				message, discard, cancel = "MCP changes are not applied. Discard them and close?", "Discard and close", "Cancel"
+				message, discard, cancel = "MCP or Skills changes are not applied. Discard them and close?", "Discard and close", "Cancel"
 			}
 			confirmed := false
 			dialog := application.Get().Dialog.Question().SetTitle("OneAgent").SetMessage(message)
@@ -148,6 +170,7 @@ func main() {
 			dialog.Show()
 			if confirmed {
 				core.SetMCPDraftState(false, locale)
+				core.SetSkillDraftState(false, locale)
 				closingBypass.Store(true)
 				window.Close()
 			}

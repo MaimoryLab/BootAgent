@@ -161,6 +161,7 @@ export interface MCPChange {
     "spec"?: mcp$0.Spec | null;
     "agents": string[] | null;
     "delete"?: boolean;
+    "delete_skill"?: boolean;
 }
 
 export interface MCPScanResult {
@@ -248,6 +249,83 @@ export interface Settings {
      * setting that produced it.
      */
     "mirror_from_region": boolean;
+}
+
+export interface SkillAgentApplyResult {
+    "agent": string;
+    "target_updated": boolean;
+    "registry_updated": boolean;
+    "error"?: string;
+}
+
+export interface SkillApplyRequest {
+    "preview_token"?: string;
+    "changes": SkillChange[] | null;
+}
+
+export interface SkillApplyResult {
+    "results": SkillAgentApplyResult[] | null;
+}
+
+export interface SkillBackupSummary {
+    "id": string;
+    "backup_id": string;
+    "created_at": string;
+    "variants": number;
+}
+
+export interface SkillCandidate {
+    "id": string;
+    "name": string;
+    "description": string;
+    "hash": string;
+    "source": string;
+    "files": number;
+    "bytes": number;
+    "diagnostic"?: string;
+    "stored": boolean;
+    "observed_agents"?: string[] | null;
+}
+
+export interface SkillChange {
+    "id": string;
+    "variant_hash": string;
+    "targets": string[] | null;
+    "delete"?: boolean;
+    "import_source"?: string;
+}
+
+export interface SkillImportPreview {
+    "token": string;
+    "candidates": SkillCandidate[] | null;
+}
+
+export interface SkillImportRequest {
+    "source": string;
+}
+
+export interface SkillScanResult {
+    "skills": SkillSummary[] | null;
+    "candidates": SkillCandidate[] | null;
+    "eligible_agents": string[] | null;
+    "preview_token"?: string;
+    "diagnostics"?: string[] | null;
+}
+
+export interface SkillSummary {
+    "id": string;
+    "name": string;
+    "description": string;
+    "variants": number;
+    "variant_hashes": string[] | null;
+    "agents": string[] | null;
+    "conflict": boolean;
+}
+
+export interface SkillUninstallResult {
+    "backup_id"?: string;
+    "registry_updated": boolean;
+    "error"?: string;
 }
 
 export interface StatusResponse {

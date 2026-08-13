@@ -2,6 +2,7 @@ package catalog
 
 import (
 	"encoding/json"
+	"fmt"
 	"reflect"
 	"testing"
 )
@@ -71,6 +72,53 @@ func TestEmbeddedMCPMetadataMatchesRegistryContract(t *testing.T) {
 		if agent.MCPAdapter != "" || agent.MCPConfigPath != "" || agent.MCPSection != "" {
 			t.Errorf("%s unexpectedly has MCP metadata: %#v", id, agent)
 		}
+	}
+}
+
+func TestEmbeddedSkillsMetadataMatchesRegistryContract(t *testing.T) {
+	manifest, err := LoadEmbedded()
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]struct{ path, windows string }{
+		"claude-code": {path: ".claude/skills"},
+		"codex":       {path: ".codex/skills"},
+		"opencode":    {path: ".config/opencode/skills"},
+		"hermes":      {path: ".hermes/skills", windows: "AppData/Local/hermes/skills"},
+	}
+	for id, expected := range want {
+		agent, ok := manifest.Agents[id]
+		if !ok {
+			t.Fatalf("missing skills Agent %q", id)
+		}
+		if agent.SkillsPath != expected.path || agent.SkillsWindowsPath != expected.windows {
+			t.Errorf("%s skills metadata = path %q windows %q", id, agent.SkillsPath, agent.SkillsWindowsPath)
+		}
+	}
+	for _, id := range []string{"aider", "openclaw", "kilo-cli"} {
+		agent := manifest.Agents[id]
+		if agent.SkillsPath != "" || agent.SkillsWindowsPath != "" {
+			t.Errorf("%s unexpectedly has skills metadata: %#v", id, agent)
+		}
+	}
+}
+
+func TestSkillsMetadataRejectsInvalidPaths(t *testing.T) {
+	base := Agent{SkillsPath: ".codex/skills"}
+	for name, agent := range map[string]Agent{
+		"windows-only":   {SkillsWindowsPath: "AppData/Local/hermes/skills"},
+		"absolute":       {SkillsPath: "/tmp/skills"},
+		"parent":         {SkillsPath: "../skills"},
+		"drive":          {SkillsPath: `C:\\skills`},
+		"drive-relative": {SkillsPath: `C:skills`},
+		"unc":            {SkillsPath: `\\\\server\\skills`},
+	} {
+		if err := validateSkillsMetadata("test", agent); err == nil {
+			t.Errorf("%s unexpectedly accepted", name)
+		}
+	}
+	if err := validateSkillsMetadata("test", base); err != nil {
+		t.Fatal(err)
 	}
 }
 
@@ -178,6 +226,18 @@ func TestParseRejectsInvalidManifest(t *testing.T) {
 	} {
 		if _, err := Parse([]byte(data)); err == nil {
 			t.Errorf("Parse(%s) unexpectedly succeeded", data)
+		}
+	}
+}
+
+func TestParseRejectsInvalidSkillsMetadataOnGuideAgent(t *testing.T) {
+	for name, skills := range map[string]string{
+		"windows-only":     `"skills_windows_path":"AppData/Local/hermes/skills"`,
+		"invalid-relative": `"skills_path":"../skills"`,
+	} {
+		data := fmt.Sprintf(`{"schema_version":1,"agents":{"guide":{"name":"Guide","config_mode":"guide","guide":"see docs","platforms":["linux"],"rank":1,%s}}}`, skills)
+		if _, err := Parse([]byte(data)); err == nil {
+			t.Errorf("Parse unexpectedly accepted guide skills metadata for %s", name)
 		}
 	}
 }

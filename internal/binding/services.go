@@ -30,10 +30,11 @@ type Services struct {
 	DesktopAgent *DesktopAgentService
 	Transfer     *TransferService
 	MCP          *MCPService
+	Skill        *SkillService
 }
 
 type ServicesOptions struct {
-	AfterGetStatus func()
+	AfterGetStatus func(app.StatusResponse)
 	InstallOutput  process.OutputListener
 }
 
@@ -47,6 +48,7 @@ func NewServicesWithOptions(core *app.UseCases, opener BrowserOpener, options Se
 		DesktopAgent: NewDesktopAgentService(core, options.InstallOutput),
 		Transfer:     &TransferService{},
 		MCP:          NewMCPService(core),
+		Skill:        NewSkillService(core),
 	}
 }
 
@@ -168,7 +170,7 @@ const GitHubURL = "https://github.com/MaimoryLab/OneAgent"
 
 type StatusService struct {
 	core           *app.UseCases
-	afterGetStatus func()
+	afterGetStatus func(app.StatusResponse)
 }
 
 func (s *StatusService) GetStatus(ctx context.Context) (app.StatusResponse, error) {
@@ -177,7 +179,7 @@ func (s *StatusService) GetStatus(ctx context.Context) (app.StatusResponse, erro
 	}
 	status, err := s.core.GetStatus(ctx)
 	if err == nil && s.afterGetStatus != nil {
-		s.afterGetStatus()
+		s.afterGetStatus(status)
 	}
 	return status, err
 }

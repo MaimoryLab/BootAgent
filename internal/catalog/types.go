@@ -30,6 +30,8 @@ type Agent struct {
 	MCPSection           string            `json:"mcp_section,omitempty"`
 	MCPConfigPath        string            `json:"mcp_config_path,omitempty"`
 	MCPWindowsConfigPath string            `json:"mcp_windows_config_path,omitempty"`
+	SkillsPath           string            `json:"skills_path,omitempty"`
+	SkillsWindowsPath    string            `json:"skills_windows_path,omitempty"`
 	Package              *Package          `json:"package"`
 	VersionArgs          []string          `json:"version_args"`
 	Platforms            []string          `json:"platforms"`

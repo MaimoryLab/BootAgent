@@ -22,5 +22,16 @@ export type {
     SaveProfileResult,
     SaveProviderResult,
     Settings,
+    SkillAgentApplyResult,
+    SkillApplyRequest,
+    SkillApplyResult,
+    SkillBackupSummary,
+    SkillCandidate,
+    SkillChange,
+    SkillImportPreview,
+    SkillImportRequest,
+    SkillScanResult,
+    SkillSummary,
+    SkillUninstallResult,
     StatusResponse
 } from "./models.js";

@@ -16,6 +16,15 @@ export type MCPServerDetail = AppModels.MCPServerDetail;
 export type MCPScanResult = AppModels.MCPScanResult;
 export type MCPApplyRequest = AppModels.MCPApplyRequest;
 export type MCPApplyResult = AppModels.MCPApplyResult;
+export type SkillSummary = AppModels.SkillSummary;
+export type SkillCandidate = AppModels.SkillCandidate;
+export type SkillScanResult = AppModels.SkillScanResult & { preview_token?: string };
+export type SkillImportPreview = AppModels.SkillImportPreview;
+export type SkillApplyRequest = AppModels.SkillApplyRequest;
+export type SkillApplyResult = AppModels.SkillApplyResult;
+export type SkillChange = AppModels.SkillChange;
+export type SkillBackupSummary = AppModels.SkillBackupSummary;
+export type SkillUninstallResult = AppModels.SkillUninstallResult;
 
 export const PROTOCOL_LABELS: Record<ProtocolId, string> = {
   openai: "OpenAI Chat Completions",

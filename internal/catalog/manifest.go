@@ -127,6 +127,9 @@ func validate(manifest Manifest) error {
 				return invalidManifest(id, "platforms contains an unsupported value")
 			}
 		}
+		if err := validateSkillsMetadata(id, agent); err != nil {
+			return err
+		}
 		if agent.ConfigMode == "guide" {
 			if agent.Package != nil || agent.ConfigAdapter != "" || strings.TrimSpace(agent.Guide) == "" {
 				return invalidManifest(id, "guide Agent has an installation contract")
@@ -157,11 +160,38 @@ func validateMCPMetadata(agentID string, agent Agent) error {
 		if value == "" {
 			continue
 		}
+		// Keep MCP's historical host-platform validation unchanged. Skills paths
+		// use the stricter cross-platform predicate below because they are a new
+		// contract; MCP manifests may already contain platform-specific values.
 		if filepath.IsAbs(value) || filepath.Clean(value) != value || strings.HasPrefix(value, "../") || strings.HasPrefix(value, `..\`) {
 			return invalidManifest(agentID, name+" must be a relative user-level path")
 		}
 	}
 	return nil
+}
+
+func validateSkillsMetadata(agentID string, agent Agent) error {
+	if agent.SkillsPath == "" && agent.SkillsWindowsPath == "" {
+		return nil
+	}
+	if agent.SkillsPath == "" {
+		return invalidManifest(agentID, "skills metadata requires skills_path")
+	}
+	for name, value := range map[string]string{"skills_path": agent.SkillsPath, "skills_windows_path": agent.SkillsWindowsPath} {
+		if value != "" && !validUserLevelPath(value) {
+			return invalidManifest(agentID, name+" must be a relative user-level path")
+		}
+	}
+	return nil
+}
+
+func validUserLevelPath(value string) bool {
+	if value == "" || filepath.IsAbs(value) || filepath.Clean(value) != value || strings.HasPrefix(value, "../") || strings.HasPrefix(value, `..\`) {
+		return false
+	}
+	// filepath.IsAbs follows the host OS; explicitly reject Windows absolute
+	// and UNC paths even when validation runs on Unix.
+	return !strings.HasPrefix(value, `\`) && !regexp.MustCompile(`^[A-Za-z]:`).MatchString(value)
 }
 
 func validatePackage(agentID string, pkg Package) error {
