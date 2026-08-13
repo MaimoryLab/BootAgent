@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -73,5 +74,42 @@ func TestMigrateCodexConversationsMovesEveryProviderToBootAgent(t *testing.T) {
 	var count int
 	if err := db.QueryRow(`SELECT COUNT(*) FROM threads WHERE model_provider = 'bootagent'`).Scan(&count); err != nil || count != 3 {
 		t.Fatalf("bootagent thread count = %d, err = %v", count, err)
+	}
+}
+
+func TestMigrateCodexConversationsRollsBackAPartialFileCommit(t *testing.T) {
+	home := t.TempDir()
+	dir := filepath.Join(home, ".codex", "sessions")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	paths := []string{filepath.Join(dir, "a.jsonl"), filepath.Join(dir, "b.jsonl")}
+	original := `{"type":"session_meta","payload":{"id":"one","model_provider":"openai"}}` + "\n"
+	for _, path := range paths {
+		if err := os.WriteFile(path, []byte(original), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	realReplace := replaceConversationFile
+	calls := 0
+	replaceConversationFile = func(source, destination string) error {
+		calls++
+		if calls == 2 {
+			return errors.New("simulated replace failure")
+		}
+		return realReplace(source, destination)
+	}
+	t.Cleanup(func() { replaceConversationFile = realReplace })
+
+	core := NewUseCases(StatusOptions{Home: home, Platform: platform.For("linux", "amd64")})
+	if _, err := core.MigrateCodexConversations(context.Background()); err == nil {
+		t.Fatal("migration succeeded after a replace failure")
+	}
+	for _, path := range paths {
+		data, err := os.ReadFile(path)
+		if err != nil || string(data) != original {
+			t.Fatalf("%s was not rolled back: %q, %v", path, data, err)
+		}
 	}
 }

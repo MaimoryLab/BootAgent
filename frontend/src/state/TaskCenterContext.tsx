@@ -19,7 +19,7 @@ export interface TaskProgress {
   total: number;
 }
 
-export type TaskKind = "install" | "update" | "download";
+export type TaskKind = "install" | "update" | "download" | "migration";
 type TaskState = "running" | "success" | "failure" | "cancelled";
 
 export interface TaskOutcome {
@@ -46,6 +46,10 @@ export interface TaskInput {
   title: string;
   /** Route to return to when the card is clicked. */
   route: string;
+  /** False keeps a status-only task from navigating when clicked. */
+  openable?: boolean;
+  /** False hides cancellation for an operation that must finish atomically. */
+  cancellable?: boolean;
   /** Progress events use this when it differs from target. */
   progressTarget?: string;
   /** Cards backed by one request are cancelled together. */
@@ -168,7 +172,7 @@ export function TaskCenterProvider({ children }: PropsWithChildren) {
   useEffect(
     () =>
       api.onInstallOutput((output: InstallOutput) => {
-        const matchesTask = (task: TaskRecord) => task.state === "running" && (output.agent
+        const matchesTask = (task: TaskRecord) => task.kind !== "migration" && task.state === "running" && (output.agent
           ? task.target === output.agent
           : output.kind === "progress" && (task.progressTarget === output.target || task.target === output.target));
         const targetTasks = tasksRef.current.filter(matchesTask);

@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 
 import { api, describeFailure } from "../backend/api";
 import { sourceTranslate, type Translate, useI18n } from "../i18n";
+import { useConversationMigration } from "../hooks/useConversationMigration";
 import { taskCanceller, taskKey, updateTaskRoute, useTaskCenter, useTaskRoute } from "../state/TaskCenterContext";
 import type { AgentCatalogItem, AgentStatus, ProfileSummary, StatusResponse } from "../types/api";
 import { AgentIcon, agentTagline } from "./icons/agents";
@@ -132,15 +133,14 @@ export function AgentManageRow({
   const { startTask, finishTask, setTaskCanceller, taskFor, isTaskRunning } = useTaskCenter();
   const route = useTaskRoute();
   const [launching, setLaunching] = useState(false);
-  const [migrating, setMigrating] = useState(false);
   const [localUpdating, setLocalUpdating] = useState(false);
   const [failure, setFailure] = useState("");
-  const [notice, setNotice] = useState("");
   const [launchDirectory, setLaunchDirectory] = useState("");
   const [rememberDirectory, setRememberDirectory] = useState(false);
   const [directoryDialog, setDirectoryDialog] = useState(false);
   const updateTaskID = taskKey("update", agentId);
   const updateTask = taskFor(updateTaskID);
+  const migration = useConversationMigration();
   const updating = updateTask?.state === "running" || localUpdating;
   const version = versionNote(status, t);
   const target = targetSummary(status, providers, t);
@@ -210,27 +210,6 @@ export function AgentManageRow({
       setLocalUpdating(false);
     }
   };
-  const migrateConversations = async () => {
-    const confirmLabel = t("继续迁移");
-    const choice = await Dialogs.Question({
-      Title: t("迁移对话"),
-      Message: t("将所有 Codex 与 ChatGPT Desktop 历史对话迁入 BootAgent。此操作不创建备份，无法自动恢复。"),
-      Buttons: [{ Label: confirmLabel }, { Label: t("取消"), IsCancel: true }],
-    }).catch(() => "");
-    if (choice !== confirmLabel) return;
-    setMigrating(true);
-    setFailure("");
-    setNotice("");
-    try {
-      const result = await api.migrateConversations();
-      setNotice(t("已迁移 {files} 个对话文件和 {threads} 条索引记录", { files: result.files, threads: result.threads }));
-    } catch (error) {
-      setFailure(describeFailure(error, t("无法迁移对话"), t).message);
-    } finally {
-      setMigrating(false);
-    }
-  };
-
   return (
     <div className="agent-manage-row" data-testid={`agent-${agentId}`}>
       <div className="agent-manage-summary">
@@ -268,7 +247,6 @@ export function AgentManageRow({
           {statusLabel ? <span className={`agent-manage-state${failure || updateFailure ? " is-error" : ""}`}>{statusLabel}</span> : null}
         </div>
       </div>
-      {notice ? <div className="notice notice-success">{notice}</div> : null}
       {directoryDialog ? (
         <dialog className="transfer-password-dialog" open>
           <form onSubmit={(event) => { event.preventDefault(); void confirmLaunch(); }}>
@@ -288,9 +266,9 @@ export function AgentManageRow({
             an installed Agent was previously reachable only by opening <details>,
             which made the common case the hidden one. */}
         {agentId === "codex" ? (
-          <button className="button button-secondary" type="button" onClick={() => void migrateConversations()} disabled={migrating || launching || updating}>
-            {migrating ? <RefreshCw size={15} className="spin" aria-hidden="true" /> : <History size={15} aria-hidden="true" />}
-            {migrating ? t("迁移中") : t("迁移对话")}
+          <button className="button button-secondary" type="button" onClick={() => void migration.run()} disabled={migration.running || launching || updating}>
+            {migration.running ? <RefreshCw size={15} className="spin" aria-hidden="true" /> : <History size={15} aria-hidden="true" />}
+            {migration.running ? t("迁移中") : t("迁移对话")}
           </button>
         ) : null}
         {offer.npm ? (

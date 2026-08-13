@@ -1,9 +1,9 @@
-import { Dialogs } from "@wailsio/runtime";
 import { AppWindow, Download, History, Play, Plus, RefreshCw, SlidersHorizontal, TriangleAlert } from "lucide-react";
 import { useState } from "react";
 
 import { api, describeFailure } from "../backend/api";
 import { useI18n } from "../i18n";
+import { useConversationMigration } from "../hooks/useConversationMigration";
 import { taskCanceller, taskKey, useTaskCenter, useTaskRoute } from "../state/TaskCenterContext";
 import type { DesktopAgentStatus, ProfileSummary } from "../types/api";
 import { DownloadProgress } from "./DownloadProgress";
@@ -23,12 +23,13 @@ interface DesktopAppSectionProps {
   showHeading?: boolean;
 }
 
-type Action = "install" | "open" | "migrate";
+type Action = "install" | "open";
 
 export function DesktopAppSection({ app: desktopApp, onChanged, onSetup, onConfigure, profile, providerName, model, showUninstalled = true, showHeading = true }: DesktopAppSectionProps) {
   const { t } = useI18n();
   const { startTask, finishTask, setTaskCanceller, taskFor } = useTaskCenter();
   const route = useTaskRoute();
+  const migration = useConversationMigration();
   const [pending, setPending] = useState<Action | "">("");
   const [localNotice, setLocalNotice] = useState("");
   const [localFailure, setLocalFailure] = useState("");
@@ -47,15 +48,6 @@ export function DesktopAppSection({ app: desktopApp, onChanged, onSetup, onConfi
   const failure = localFailure || (!localNotice && installTask?.state === "failure" ? installTask.message : "");
 
   const run = async (action: Action) => {
-    if (action === "migrate") {
-      const confirmLabel = t("继续迁移");
-      const choice = await Dialogs.Question({
-        Title: t("迁移对话"),
-        Message: t("将所有 Codex 与 ChatGPT Desktop 历史对话迁入 BootAgent。此操作不创建备份，无法自动恢复。"),
-        Buttons: [{ Label: confirmLabel }, { Label: t("取消"), IsCancel: true }],
-      }).catch(() => "");
-      if (choice !== confirmLabel) return;
-    }
     const downloads = action === "install";
     if (downloads && !startTask({
       id: installTaskID,
@@ -75,10 +67,7 @@ export function DesktopAppSection({ app: desktopApp, onChanged, onSetup, onConfi
       if (request) setTaskCanceller(installTaskID, taskCanceller(request));
       const result = request ? await request : null;
       let message: string;
-      if (action === "migrate") {
-        const migrated = await api.migrateConversations();
-        message = t("已迁移 {files} 个对话文件和 {threads} 条索引记录", { files: migrated.files, threads: migrated.threads });
-      } else if (action === "open") {
+      if (action === "open") {
         await api.openDesktopAgent(desktopApp.id);
         message = t("{name} 已打开", { name: desktopApp.name });
       } else if (result?.status === "installed") {
@@ -171,9 +160,9 @@ export function DesktopAppSection({ app: desktopApp, onChanged, onSetup, onConfi
           {desktopApp.installed ? (
             <>
               {desktopApp.id === "chatgpt-desktop" ? (
-                <button className="button button-secondary" type="button" onClick={() => void run("migrate")} disabled={busy}>
-                  {pending === "migrate" ? <RefreshCw size={15} className="spin" aria-hidden="true" /> : <History size={15} aria-hidden="true" />}
-                  {pending === "migrate" ? t("迁移中") : t("迁移对话")}
+                <button className="button button-secondary" type="button" onClick={() => void migration.run()} disabled={busy || migration.running}>
+                  {migration.running ? <RefreshCw size={15} className="spin" aria-hidden="true" /> : <History size={15} aria-hidden="true" />}
+                  {migration.running ? t("迁移中") : t("迁移对话")}
                 </button>
               ) : null}
               {onConfigure ? (
