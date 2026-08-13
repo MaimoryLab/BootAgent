@@ -73,8 +73,8 @@ func TestAtomicWriteUsesManagedBackupRootAndPrunesPerTarget(t *testing.T) {
 		Retention:  func() int { return 3 },
 		Now:        fixedClock,
 	})
-	for i := 0; i < 5; i++ {
-		if _, err := store.AtomicWrite(context.Background(), first, []byte(fmt.Sprintf("first-%d", i)), false); err != nil {
+	for i := range 5 {
+		if _, err := store.AtomicWrite(context.Background(), first, fmt.Appendf(nil, "first-%d", i), false); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -107,8 +107,8 @@ func TestAtomicWriteUsesDefaultBackupRetention(t *testing.T) {
 		t.Fatal(err)
 	}
 	store := New(Options{OS: "linux", BackupRoot: filepath.Join(home, ".bootagent", "backup"), Now: fixedClock})
-	for i := 0; i < 5; i++ {
-		if _, err := store.AtomicWrite(context.Background(), target, []byte(fmt.Sprintf("value-%d", i)), false); err != nil {
+	for i := range 5 {
+		if _, err := store.AtomicWrite(context.Background(), target, fmt.Appendf(nil, "value-%d", i), false); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -129,7 +129,7 @@ func TestAtomicWriteMigratesAndPrunesLegacyBackups(t *testing.T) {
 	}
 	for i := range 5 {
 		path := fmt.Sprintf("%s.backup-2026073000000%d", target, i)
-		if err := os.WriteFile(path, []byte(fmt.Sprintf("legacy-%d", i)), 0o600); err != nil {
+		if err := os.WriteFile(path, fmt.Appendf(nil, "legacy-%d", i), 0o600); err != nil {
 			t.Fatal(err)
 		}
 		when := time.Date(2026, time.July, 30, 0, 0, i, 0, time.UTC)
