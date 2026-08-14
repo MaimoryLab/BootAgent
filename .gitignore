@@ -20,8 +20,10 @@ frontend/playwright-report/
 # CI 跑 scripts/ 下的 unittest 会留下字节码
 __pycache__/
 
-# 可再生的产物：imagegen 设计稿与工具自动生成的 repowiki
+# 可再生的产物：imagegen 设计稿与工具自动生成的 repowiki。outputs/ 是同一类目录的
+# 复数写法，单数那条匹配不到它。
 output/
+outputs/
 .qoder/
 
 # Go 桌面应用的本地构建产物。
@@ -55,3 +57,13 @@ cmd/bootagent-desktop/*.syso
 # 一次性的发行走查清单：记录某个 tag 的产物校验与实测结果，对某一次发布有用，
 # 但不是长期有效的规范。留在本机备查，不进仓库。
 docs/internal/v0.3.0-full-platform-test-plan.md
+
+# 把 Release 同步到内部飞书云空间的本机运维脚本：内含私有域名与文件夹 token，
+# 且只对维护者自己的机器有意义。同目录的 launchd plist 写死了本机 HOME 与日志
+# 路径，logs/ 是它的运行时产物。三者都留在本机，不随开源仓库分发。
+scripts/sync_release_to_feishu.py
+scripts/com.bootagent.release-sync.plist
+scripts/logs/
+
+# 仓库现状速览：本机生成的一次性笔记，会随代码立刻过时，读代码比读它更可靠。
+/overview.md
