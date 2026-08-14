@@ -592,3 +592,41 @@ func TestSaveProviderReplacesKeyWhenSupplied(t *testing.T) {
 		t.Fatalf("a supplied key must win even with keepExistingKey, got %q", stored.APIKey)
 	}
 }
+
+func TestSaveProviderPreservesReasoningEffortInBindings(t *testing.T) {
+	home := t.TempDir()
+	core := activationCore(t, home, provider.NewClient(nil), "linux")
+	// Activate with explicit effort set.
+	if _, err := core.ActivateAgent(context.Background(), ActivateAgentOptions{
+		AgentID: "codex", Provider: "ppio", APIKey: "first-key", Model: "model-a",
+		ReasoningEffort: "medium",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	beforeBinding, err := core.profiles.ReadAgentBinding("codex")
+	if err != nil || beforeBinding == nil || beforeBinding.ReasoningEffort != "medium" {
+		t.Fatalf("initial binding = %#v, err=%v", beforeBinding, err)
+	}
+
+	// Edit the Provider (rotate key). Reapply should preserve the effort.
+	result, err := core.SaveProvider(context.Background(), provider.Entry{
+		ID: "ppio", Name: "PPIO", BaseURL: "https://relay.ppio.test/openai", APIKey: "rotated-key",
+	}, false, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Failures) != 0 || !slices.Contains(result.Reapplied, "codex") {
+		t.Fatalf("reapply outcome = %#v", result)
+	}
+
+	afterBinding, err := core.profiles.ReadAgentBinding("codex")
+	if err != nil || afterBinding == nil {
+		t.Fatalf("binding after Provider edit: %v", err)
+	}
+	if afterBinding.ReasoningEffort != "medium" {
+		t.Errorf("Provider edit lost ReasoningEffort: got %q, want %q", afterBinding.ReasoningEffort, "medium")
+	}
+	if !strings.Contains(afterBinding.BaseURL, "relay.ppio.test") {
+		t.Errorf("Provider edit did not update BaseURL: %q", afterBinding.BaseURL)
+	}
+}

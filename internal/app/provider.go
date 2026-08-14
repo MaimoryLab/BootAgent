@@ -208,24 +208,28 @@ func (u *UseCases) SaveProvider(ctx context.Context, entry provider.Entry, creat
 // Provider, keeping its own model and Profile reference. Callers must hold
 // writeMu.
 func (u *UseCases) reapplyProviderLocked(ctx context.Context, target provider.Entry) ([]string, map[string]string, error) {
-	// The Agent's own model stays authoritative; only the Provider changed.
+	// The Agent's own model and reasoning effort stay authoritative; only the
+	// Provider changed.
 	return u.reapplyBindingsLocked(ctx, func(binding profileStore.AgentBinding) bool {
 		return binding.Provider == target.ID
-	}, func(binding profileStore.AgentBinding) (provider.Entry, string) {
-		return target, binding.Model
+	}, func(binding profileStore.AgentBinding) (provider.Entry, string, string) {
+		return target, binding.Model, binding.ReasoningEffort
 	})
 }
 
 // reapplyBindingsLocked rewrites every Agent whose binding `selects`, using the
-// Provider and model that `rewrite` returns for it. Both a Provider edit and a
-// Profile edit need this same per-Agent dispatch -- managed CLI Agents go
-// through activation, desktop Agents split three ways by definition -- and they
-// differ only in which bindings to touch and what to write. Callers must hold
-// writeMu.
+// Provider, model and reasoning effort that `rewrite` returns for it. Both a
+// Provider edit and a Profile edit need this same per-Agent dispatch -- managed
+// CLI Agents go through activation, desktop Agents split three ways by
+// definition -- and they differ only in which bindings to touch and what to
+// write. The effort comes from `rewrite` rather than the binding because the
+// two flows disagree about which value is current: a Provider edit preserves
+// what the binding carries, while a Profile edit is often exactly an effort
+// change, whose old value the binding still holds. Callers must hold writeMu.
 func (u *UseCases) reapplyBindingsLocked(
 	ctx context.Context,
 	selects func(profileStore.AgentBinding) bool,
-	rewrite func(profileStore.AgentBinding) (provider.Entry, string),
+	rewrite func(profileStore.AgentBinding) (provider.Entry, string, string),
 ) ([]string, map[string]string, error) {
 	var reapplied []string
 	var failures map[string]string
@@ -243,16 +247,17 @@ func (u *UseCases) reapplyBindingsLocked(
 		if !selects(binding) {
 			continue
 		}
-		target, model := rewrite(binding)
+		target, model, reasoningEffort := rewrite(binding)
 		var err error
 		if definition, isDesktop := desktopapp.DefinitionFor(agentID); isDesktop {
 			if definition.SharedConfigAgentID != "" {
 				_, err = u.activateAgentLocked(ctx, ActivateAgentOptions{
-					AgentID:   definition.ProfileAgentID,
-					Provider:  target.ID,
-					APIKey:    target.APIKey,
-					Model:     model,
-					ProfileID: binding.ProfileRef,
+					AgentID:         definition.ProfileAgentID,
+					Provider:        target.ID,
+					APIKey:          target.APIKey,
+					Model:           model,
+					ReasoningEffort: reasoningEffort,
+					ProfileID:       binding.ProfileRef,
 				})
 			} else if definition.ConfigAdapter != "" {
 				_, managed, configErr := u.writeDesktopAgentConfig(ctx, definition, target, model)
@@ -262,21 +267,24 @@ func (u *UseCases) reapplyBindingsLocked(
 				}
 				if err == nil && managed {
 					_, err = u.profiles.WriteAgentBinding(ctx, agentID, profileStore.BindingWriteRequest{
-						Provider: target.ID, BaseURL: target.BaseURL, Model: model, ProfileRef: binding.ProfileRef,
+						Provider: target.ID, BaseURL: target.BaseURL, Model: model,
+						ReasoningEffort: reasoningEffort, ProfileRef: binding.ProfileRef,
 					})
 				}
 			} else {
 				_, err = u.profiles.WriteAgentBinding(ctx, agentID, profileStore.BindingWriteRequest{
-					Provider: target.ID, BaseURL: target.BaseURL, Model: model, ProfileRef: binding.ProfileRef,
+					Provider: target.ID, BaseURL: target.BaseURL, Model: model,
+					ReasoningEffort: reasoningEffort, ProfileRef: binding.ProfileRef,
 				})
 			}
 		} else {
 			_, err = u.activateAgentLocked(ctx, ActivateAgentOptions{
-				AgentID:   agentID,
-				Provider:  target.ID,
-				APIKey:    target.APIKey,
-				Model:     model,
-				ProfileID: binding.ProfileRef,
+				AgentID:         agentID,
+				Provider:        target.ID,
+				APIKey:          target.APIKey,
+				Model:           model,
+				ReasoningEffort: reasoningEffort,
+				ProfileID:       binding.ProfileRef,
 			})
 		}
 		if err != nil {

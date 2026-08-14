@@ -653,8 +653,10 @@ func (u *UseCases) reapplyProfileLocked(ctx context.Context, before, after profi
 	}
 	return u.reapplyBindingsLocked(ctx, func(binding profileStore.AgentBinding) bool {
 		return binding.ProfileRef == after.ID
-	}, func(profileStore.AgentBinding) (provider.Entry, string) {
-		return target, model
+	}, func(profileStore.AgentBinding) (provider.Entry, string, string) {
+		// The edited Profile is authoritative for the effort here -- the binding
+		// still carries the value from before this edit.
+		return target, model, after.ReasoningEffort
 	})
 }
 
