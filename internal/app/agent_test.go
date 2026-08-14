@@ -397,3 +397,52 @@ func TestActivateAgentRejectsGuideOnlyAgents(t *testing.T) {
 		t.Fatalf("auto Agent must not be rejected: %v", got)
 	}
 }
+
+func TestDSHRouteProviderIDReturnsBuiltInIDOnlyWhenUnoverridden(t *testing.T) {
+	tests := []struct {
+		name         string
+		target       provider.Entry
+		explicitBase string
+		want         string
+	}{
+		{
+			name:         "built-in DeepSeek with no override",
+			target:       provider.Entry{ID: "deepseek", BuiltIn: true},
+			explicitBase: "",
+			want:         "deepseek",
+		},
+		{
+			name:         "built-in DeepSeek with whitespace-only override",
+			target:       provider.Entry{ID: "deepseek", BuiltIn: true},
+			explicitBase: "   ",
+			want:         "deepseek",
+		},
+		{
+			name:         "built-in DeepSeek with explicit baseURL override",
+			target:       provider.Entry{ID: "deepseek", BuiltIn: true},
+			explicitBase: "https://api.gateway.example/v1",
+			want:         "",
+		},
+		{
+			name:         "custom Provider (never built-in)",
+			target:       provider.Entry{ID: "custom-gateway", BuiltIn: false},
+			explicitBase: "",
+			want:         "",
+		},
+		{
+			name:         "built-in non-DeepSeek Provider",
+			target:       provider.Entry{ID: "anthropic", BuiltIn: true},
+			explicitBase: "",
+			want:         "anthropic",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := dshRouteProviderID(tt.target, tt.explicitBase)
+			if got != tt.want {
+				t.Errorf("dshRouteProviderID(%+v, %q) = %q, want %q", tt.target, tt.explicitBase, got, tt.want)
+			}
+		})
+	}
+}
+

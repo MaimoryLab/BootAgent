@@ -131,7 +131,7 @@ func (u *UseCases) activateAgentLocked(ctx context.Context, options ActivateAgen
 	}
 
 	writer := configWriter.NewWriter(u.status.Home, u.status.Platform.OS, u.filesystem)
-	if err := writeManagedAgentConfig(ctx, writer, agentID, agent, configPath, providerName, configBaseURL, apiKey, model, options.SmallFastModel); err != nil {
+	if err := writeManagedAgentConfig(ctx, writer, agentID, agent, configPath, dshRouteProviderID(target, options.APIBaseURL), providerName, configBaseURL, apiKey, model, options.SmallFastModel); err != nil {
 		return ActivateAgentResult{}, err
 	}
 	binding, err := u.profiles.WriteAgentBinding(ctx, agentID, profileStore.BindingWriteRequest{
@@ -173,7 +173,21 @@ func contextError(ctx context.Context, message string) error {
 	return nil
 }
 
-func writeManagedAgentConfig(ctx context.Context, writer configWriter.Writer, agentID string, agent catalog.Agent, path, providerName, baseURL, apiKey, model, smallFastModel string) error {
+// dshRouteProviderID names the Provider for writeManagedAgentConfig's dsh route
+// selection: the built-in ID only while the entry still points at its catalog
+// endpoint. An explicit base override aims the Provider somewhere else, which
+// dsh's shipped deepseek-official route cannot represent -- its endpoint is
+// fixed -- so an overridden DeepSeek entry must fall back to the hand-declared
+// route like any other custom endpoint. Custom Providers have no shipped route
+// either way and report empty.
+func dshRouteProviderID(target provider.Entry, explicitBase string) string {
+	if !target.BuiltIn || strings.TrimSpace(explicitBase) != "" {
+		return ""
+	}
+	return target.ID
+}
+
+func writeManagedAgentConfig(ctx context.Context, writer configWriter.Writer, agentID string, agent catalog.Agent, path, providerID, providerName, baseURL, apiKey, model, smallFastModel string) error {
 	switch agent.ConfigAdapter {
 	case "codex":
 		return writer.WriteCodex(ctx, path, providerName, baseURL, apiKey, model)
@@ -188,6 +202,15 @@ func writeManagedAgentConfig(ctx context.Context, writer configWriter.Writer, ag
 	case "aider":
 		return writer.WriteAider(ctx, path, baseURL, apiKey)
 	case "dsh":
+		// DeepSeek's own service activates through the shipped deepseek-official
+		// route rather than a hand-declared bootagent route: that shipped route
+		// already carries the endpoint and the model catalog, so declaring one
+		// would be a duplicate that misfiles the credential. Only when the Provider
+		// is something else -- a gateway or custom endpoint -- does a route have to
+		// be declared.
+		if providerID == "deepseek" {
+			return writer.WriteDSHOfficial(ctx, path, apiKey, model)
+		}
 		return writer.WriteDSH(ctx, path, providerName, baseURL, apiKey, model)
 	case "hermes":
 		return writer.WriteHermes(ctx, path, baseURL, apiKey, model)
