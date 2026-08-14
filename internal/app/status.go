@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/MaimoryLab/BootAgent/internal/catalog"
-	configReader "github.com/MaimoryLab/BootAgent/internal/config"
 	configWriter "github.com/MaimoryLab/BootAgent/internal/config"
 	oneerrors "github.com/MaimoryLab/BootAgent/internal/errors"
 	"github.com/MaimoryLab/BootAgent/internal/install"
@@ -362,7 +361,7 @@ func (u *UseCases) GetStatus(ctx context.Context) (StatusResponse, error) {
 		}
 		var detected *DetectedConfig
 		if agent.ConfigMode == "auto" && configPath != "" {
-			detected = detectedConfig(configReader.DetectFile(configPath, agent.ConfigAdapter, agent.EnvVars))
+			detected = detectedConfig(configWriter.DetectFile(configPath, agent.ConfigAdapter, agent.EnvVars))
 		}
 		var installedVersion *string
 		if installed && agent.ConfigMode == "auto" {
@@ -493,7 +492,7 @@ func (u *UseCases) installedVersion(ctx context.Context, executable string, vers
 	return &match[2]
 }
 
-func detectedConfig(value *configReader.Detected) *DetectedConfig {
+func detectedConfig(value *configWriter.Detected) *DetectedConfig {
 	if value == nil {
 		return nil
 	}
