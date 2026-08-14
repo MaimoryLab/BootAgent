@@ -22,6 +22,7 @@ interface ProfileDraft {
   label: string;
   provider: ProviderId;
   model: string;
+  reasoningEffort: string;
   protocol: string;
   originalId: string;
 }
@@ -53,6 +54,7 @@ function editDraft(profile: ProfileSummary, protocol: string): ProfileDraft {
     label: profile.label,
     provider: profile.provider,
     model: profile.model || "",
+    reasoningEffort: profile.reasoningEffort || "",
     protocol,
     originalId: profile.id,
   };
@@ -119,6 +121,7 @@ export function ProfilesPage() {
       // a model ID. Empty for a custom Provider, whose endpoint we know nothing
       // about, which leaves the field required exactly as before.
       model: providerMeta?.default_model || "",
+      reasoningEffort: "",
       protocol: "",
       originalId: "",
     });
@@ -147,14 +150,16 @@ export function ProfilesPage() {
     const model = draft.model.trim() && draft.model !== previous
       ? draft.model
       : status.providers[provider]?.default_model || "";
-    if (draft.originalId) return { ...draft, provider, model };
+    // ReasoningEffort only applies to DeepSeek; clear it when switching away.
+    const reasoningEffort = provider === "deepseek" ? draft.reasoningEffort : "";
+    if (draft.originalId) return { ...draft, provider, model, reasoningEffort };
     const id = draft.id.trim() && draft.id !== suggestProfileID(draft.provider)
       ? draft.id
       : suggestProfileID(provider);
     const label = draft.label.trim() && draft.label !== suggestProfileLabel(draft.provider)
       ? draft.label
       : suggestProfileLabel(provider);
-    return { ...draft, provider, model, id, label };
+    return { ...draft, provider, model, reasoningEffort, id, label };
   };
 
   const save = async (event: FormEvent) => {
@@ -174,6 +179,7 @@ export function ProfilesPage() {
         apiBaseUrl: "",
         apiKey: "",
         model: editor.model.trim(),
+        reasoningEffort: editor.provider === "deepseek" ? editor.reasoningEffort : "",
         configMode: "provider",
         protocol: editor.protocol,
       });
@@ -399,6 +405,30 @@ export function ProfilesPage() {
               inputId="profile-model"
               wide
             />
+            {/* Only for DeepSeek: the vocabulary is what dsh's llm-deepseek
+                adapter dispatches (off/high/max), and no other Agent config
+                BootAgent writes can express a depth today. Unset keeps the
+                model's own default. */}
+            {editor.provider === "deepseek" ? (
+              <div className="profile-editor-wide">
+                <div className="field-stack">
+                  <label htmlFor="profile-reasoning-effort">{t("思考深度")}</label>
+                  <SelectField
+                    id="profile-reasoning-effort"
+                    label={t("思考深度")}
+                    value={editor.reasoningEffort}
+                    onChange={(reasoningEffort) => setEditor({ ...editor, reasoningEffort })}
+                    options={[
+                      { value: "", label: t("未设置（模型默认）") },
+                      { value: "off", label: t("off（关闭）") },
+                      { value: "high", label: t("high（高）") },
+                      { value: "max", label: t("max（最大）") },
+                    ]}
+                  />
+                  <small>{t("目前仅 DeepSeek Harness 会应用此设置")}</small>
+                </div>
+              </div>
+            ) : null}
             {/* The key is the Provider's, so this only reports whether that
                 Provider has one and links to where it is set. */}
             <p className="profile-key-hint profile-editor-wide">

@@ -6,6 +6,7 @@ import { api, describeFailure } from "../backend/api";
 import { PageScaffold } from "../components/PageScaffold";
 import { ProviderModelPicker } from "../components/ProviderModelPicker";
 import { ProviderSegment } from "../components/ProviderSegment";
+import { SelectField } from "../components/SelectField";
 import { useI18n } from "../i18n";
 import { desktopApps, desktopProfileUsable, desktopProfiles, desktopProtocol, profileAgentIdForDesktop } from "../state/desktopSetup";
 import { byProfileCreatedAt, byProviderCreatedAt, preferProviderWithKey } from "../state/ranking";
@@ -17,6 +18,7 @@ interface ProfileDraft {
   label: string;
   provider: ProviderId;
   model: string;
+  reasoningEffort: string;
   originalId: string;
 }
 
@@ -26,6 +28,7 @@ function draftFrom(profile: ProfileSummary): ProfileDraft {
     label: profile.label,
     provider: profile.provider,
     model: profile.model || "",
+    reasoningEffort: profile.reasoningEffort || "",
     originalId: profile.id,
   };
 }
@@ -104,6 +107,7 @@ export function AgentProfilePage() {
       label: t("{name} 配置模版", { name: targetName }),
       provider,
       model: current?.model || currentAgent?.model || "",
+      reasoningEffort: "",
       originalId: "",
     });
   };
@@ -127,6 +131,7 @@ export function AgentProfilePage() {
         apiBaseUrl: "",
         apiKey: "",
         model: draft.model.trim(),
+        reasoningEffort: draft.provider === "deepseek" ? draft.reasoningEffort : "",
         configMode: "provider",
         protocol: app ? desktopProtocol(app) : catalog?.protocol || "",
       });
@@ -212,7 +217,7 @@ export function AgentProfilePage() {
                 value={draft.provider}
                 providers={status.providers}
                 onAdd={() => navigate(`/providers/new?returnTo=${encodeURIComponent(`/agents/${agentId}`)}`)}
-                onChange={(provider) => setDraft({ ...draft, provider })}
+                onChange={(provider) => setDraft({ ...draft, provider, reasoningEffort: provider === "deepseek" ? draft.reasoningEffort : "" })}
                 protocol={protocol}
               />
             </div>
@@ -226,6 +231,27 @@ export function AgentProfilePage() {
               inputId="agent-profile-model"
               wide
             />
+            {/* Only for DeepSeek: the vocabulary is what dsh's llm-deepseek
+                adapter dispatches (off/high/max). Unset keeps the model's own
+                default. */}
+            {draft.provider === "deepseek" ? (
+              <div className="field-stack">
+                <label htmlFor="agent-profile-reasoning-effort">{t("思考深度")}</label>
+                <SelectField
+                  id="agent-profile-reasoning-effort"
+                  label={t("思考深度")}
+                  value={draft.reasoningEffort}
+                  onChange={(reasoningEffort) => setDraft({ ...draft, reasoningEffort })}
+                  options={[
+                    { value: "", label: t("未设置（模型默认）") },
+                    { value: "off", label: t("off（关闭）") },
+                    { value: "high", label: t("high（高）") },
+                    { value: "max", label: t("max（最大）") },
+                  ]}
+                />
+                <small>{t("目前仅 DeepSeek Harness 会应用此设置")}</small>
+              </div>
+            ) : null}
           </div>
           <p className="profile-key-hint">
             {status.providers[draft.provider]?.has_key

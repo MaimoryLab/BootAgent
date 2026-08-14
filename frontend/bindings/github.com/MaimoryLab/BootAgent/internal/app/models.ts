@@ -198,6 +198,7 @@ export interface ProfileSummary {
     "provider": string;
     "baseUrl": string | null;
     "model": string | null;
+    "reasoningEffort"?: string;
     "protocol": string;
     "activatedAt": string | null;
     "createdAt"?: string;

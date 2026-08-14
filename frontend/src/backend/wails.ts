@@ -246,6 +246,7 @@ export const wailsApi = {
     apiBaseUrl: string;
     apiKey: string;
     model: string;
+    reasoningEffort?: string;
     configMode: string;
     protocol?: string;
   }): CancellableRequest<SaveProfileResult> =>
@@ -256,6 +257,7 @@ export const wailsApi = {
       api_base_url: input.apiBaseUrl,
       api_key: input.apiKey,
       model: input.model,
+      reasoning_effort: input.reasoningEffort ?? "",
       config_mode: input.configMode,
       protocol: input.protocol ?? "",
     })) as CancellableRequest<SaveProfileResult>,
