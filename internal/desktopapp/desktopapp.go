@@ -500,7 +500,8 @@ type windowsPackage struct {
 }
 
 func chatGPTWindowsPackageQuery() []string {
-	script := `$items = @(
+	script := `[Console]::OutputEncoding = [Text.Encoding]::UTF8
+$items = @(
   Get-AppxPackage -Name 'OpenAI.Codex' -ErrorAction SilentlyContinue
   Get-AppxPackage -Name 'OpenAI.CodexBeta' -ErrorAction SilentlyContinue
   Get-AppxPackage -Name 'OpenAI.ChatGPT-Desktop' -ErrorAction SilentlyContinue
@@ -510,7 +511,8 @@ $items | Sort-Object Version -Descending | Select-Object -First 1 Name,PackageFu
 }
 
 func chatGPTWindowsStartAppsQuery() []string {
-	script := `Get-StartApps | Where-Object { $_.AppID -like 'OpenAI.Codex_*!App' -or $_.AppID -like 'OpenAI.CodexBeta_*!App' -or $_.AppID -like 'OpenAI.ChatGPT-Desktop_*!App' } | Select-Object -First 1 -ExpandProperty AppID`
+	script := `[Console]::OutputEncoding = [Text.Encoding]::UTF8
+Get-StartApps | Where-Object { $_.AppID -like 'OpenAI.Codex_*!App' -or $_.AppID -like 'OpenAI.CodexBeta_*!App' -or $_.AppID -like 'OpenAI.ChatGPT-Desktop_*!App' } | Select-Object -First 1 -ExpandProperty AppID`
 	return []string{"powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script}
 }
 

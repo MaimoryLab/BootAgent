@@ -755,3 +755,69 @@ func TestVerifyMacOSAppRejectsNonNotarizedDeveloperIDSource(t *testing.T) {
 		t.Fatalf("verification continued after Gatekeeper failure: %#v", runner.calls)
 	}
 }
+
+func TestVerifyWindowsInstallerPassesPathViaEnvironment(t *testing.T) {
+	runner := &scriptedRunner{results: []process.Result{{
+		ExitCode: 0,
+		Stdout:   `{"Status":"Valid","StatusMessage":"Signature verified.","Publisher":"Microsoft Corporation","Organization":"Microsoft Corporation","Subject":"CN=Microsoft Corporation, O=Microsoft Corporation","Issuer":"CN=Microsoft Marketplace CA G 024"}`,
+	}}}
+	installerPath := `C:\Users\test with spaces\ChatGPT's installer.exe`
+
+	if err := verifyChatGPTWindowsInstaller(context.Background(), Options{Runner: runner}, installerPath); err != nil {
+		t.Fatalf("verifyChatGPTWindowsInstaller() error = %v", err)
+	}
+	if len(runner.calls) != 1 {
+		t.Fatalf("verification calls = %#v", runner.calls)
+	}
+	argv := runner.calls[0]
+	// powershell -Command treats trailing tokens as command text, not $args, so
+	// the installer path must never be appended to argv.
+	if argv[len(argv)-1] != argv[4] || len(argv) != 5 {
+		t.Fatalf("installer path appended to powershell argv: %#v", argv)
+	}
+	script := argv[4]
+	if !strings.Contains(script, "$env:BOOTAGENT_VERIFY_PATH") {
+		t.Fatalf("verification script does not read the path environment variable: %q", script)
+	}
+	if got := runner.environments[0]["BOOTAGENT_VERIFY_PATH"]; got != installerPath {
+		t.Fatalf("BOOTAGENT_VERIFY_PATH = %q, want %q", got, installerPath)
+	}
+}
+
+func TestWorkBuddyWindowsVersionPassesPathViaEnvironment(t *testing.T) {
+	runner := &scriptedRunner{results: []process.Result{{ExitCode: 0, Stdout: "5.3.11\n"}}}
+	path := `C:\Users\test\AppData\Local\Programs\WorkBuddy\WorkBuddy.exe`
+
+	version := workBuddyWindowsVersion(context.Background(), Options{Runner: runner}, path)
+	if version == nil || *version != "5.3.11" {
+		t.Fatalf("workBuddyWindowsVersion() = %v, want 5.3.11", version)
+	}
+	argv := runner.calls[0]
+	if len(argv) != 5 {
+		t.Fatalf("version query appended arguments to powershell argv: %#v", argv)
+	}
+	if !strings.Contains(argv[4], "$env:BOOTAGENT_VERSION_PATH") {
+		t.Fatalf("version script does not read the path environment variable: %q", argv[4])
+	}
+	if got := runner.environments[0]["BOOTAGENT_VERSION_PATH"]; got != path {
+		t.Fatalf("BOOTAGENT_VERSION_PATH = %q, want %q", got, path)
+	}
+}
+
+func TestWorkBuddyStartAppsQueryPassesNameViaEnvironment(t *testing.T) {
+	argv, environment := workBuddyStartAppsQuery(workBuddyIntl)
+	if len(argv) != 5 {
+		t.Fatalf("start-apps query argv = %#v", argv)
+	}
+	script := argv[4]
+	if strings.Contains(script, "WorkBuddy") {
+		t.Fatalf("display name interpolated into the script: %q", script)
+	}
+	if !strings.Contains(script, "$env:BOOTAGENT_APP_NAME") {
+		t.Fatalf("start-apps script does not read the name environment variable: %q", script)
+	}
+	expectedName := strings.TrimSuffix(workBuddyIntl.appName, ".app")
+	if got := environment["BOOTAGENT_APP_NAME"]; got != expectedName {
+		t.Fatalf("BOOTAGENT_APP_NAME = %q, want %q", got, expectedName)
+	}
+}

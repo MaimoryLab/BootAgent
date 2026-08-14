@@ -50,8 +50,8 @@ func verifyWindowsInstallerPublisher(ctx context.Context, options Options, insta
 	result, err := runWithEnvironment(
 		options,
 		ctx,
-		append(windowsAuthenticodeQuery(), installerPath),
-		nil,
+		windowsAuthenticodeQuery(),
+		map[string]string{"BOOTAGENT_VERIFY_PATH": installerPath},
 		installTimeout,
 	)
 	if err != nil {
@@ -97,7 +97,8 @@ func approvedWindowsSigner(value string, allowed []string) bool {
 }
 
 func windowsAuthenticodeQuery() []string {
-	const script = `$signature = Get-AuthenticodeSignature -LiteralPath $args[0]
+	const script = `[Console]::OutputEncoding = [Text.Encoding]::UTF8
+$signature = Get-AuthenticodeSignature -LiteralPath $env:BOOTAGENT_VERIFY_PATH
 $certificate = $signature.SignerCertificate
 $organization = ""
 $publisher = ""
