@@ -872,3 +872,175 @@ func TestWriteDSHRefusesAnInvalidSettingsDocument(t *testing.T) {
 		t.Fatal("writing over a non-mapping llm-pi-ai section succeeded")
 	}
 }
+
+// WriteDSHOfficial activates DeepSeek's own service through the deepseek-official
+// route dsh ships, storing the key in DEEPSEEK_API_KEY instead of declaring a
+// custom bootagent route the way WriteDSH does. ReadDSHConfig must recognize
+// the selection and report it without a baseURL -- the shipped route's endpoint
+// is dsh's own fact, not something the settings document records.
+func TestWriteDSHOfficialUsesTheShippedRouteInsteadOfDeclaringOne(t *testing.T) {
+	home := t.TempDir()
+	path := filepath.Join(home, ".dsh", "settings.yaml")
+	credentials := filepath.Join(home, ".dsh", ".credentials.yaml")
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	existing := "ui-onboarding:\n" +
+		"  welcomeNoticeVersion: 2026-08-13.1\n"
+	if err := os.WriteFile(path, []byte(existing), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := testWriter(t, home, "linux").WriteDSHOfficial(context.Background(), path, "sk-deepseek-key", "deepseek-v4-pro"); err != nil {
+		t.Fatal(err)
+	}
+
+	// No bootagent route declared: the shipped route already exists and carries
+	// DeepSeek's endpoint and model catalog.
+	routes := dshSettings(t, path)
+	if _, exists := routes["bootagent"]; exists {
+		t.Errorf("a bootagent route was declared even though the shipped route was used: %v", routes)
+	}
+
+	// The default selection points at the shipped route instead.
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var selection struct {
+		Default struct {
+			Provider string `yaml:"provider"`
+			Model    string `yaml:"model"`
+		} `yaml:"agent-default-model"`
+	}
+	if err := yaml.Unmarshal(data, &selection); err != nil {
+		t.Fatal(err)
+	}
+	if selection.Default.Provider != "deepseek-official" || selection.Default.Model != "deepseek-v4-pro" {
+		t.Errorf("default selection = %+v, want deepseek-official route", selection.Default)
+	}
+
+	// The key lands in DEEPSEEK_API_KEY, the credential the shipped route reads,
+	// not BOOTAGENT_API_KEY.
+	stored := dshCredentials(t, credentials)
+	if stored["DEEPSEEK_API_KEY"] != "sk-deepseek-key" {
+		t.Errorf("DEEPSEEK_API_KEY = %q, want sk-deepseek-key", stored["DEEPSEEK_API_KEY"])
+	}
+	if _, present := stored["BOOTAGENT_API_KEY"]; present {
+		t.Errorf("BOOTAGENT_API_KEY was written even though the shipped route was used")
+	}
+
+	// Unrelated settings survive.
+	if !strings.Contains(string(data), "ui-onboarding") {
+		t.Errorf("unrelated settings section was lost:\n%s", data)
+	}
+
+	detected := ReadDSHConfig(string(data))
+	if detected.BaseURL != "" || detected.Model != "deepseek-v4-pro" || detected.ManagedByBootAgent {
+		t.Errorf("dsh round-trip = %#v, want empty baseURL for shipped route", detected)
+	}
+
+	for _, target := range []string{path, credentials} {
+		info, err := os.Stat(target)
+		if err != nil || info.Mode().Perm() != 0o600 {
+			t.Fatalf("%s mode = %v, err=%v", target, info.Mode().Perm(), err)
+		}
+	}
+}
+
+// An activation against a different Provider after one against DeepSeek's own
+// service must clean up: the bootagent route has to be declared again, and any
+// leftover deepseek-official selection would keep dsh serving the wrong endpoint.
+func TestWriteDSHCleansUpAfterWriteDSHOfficial(t *testing.T) {
+	home := t.TempDir()
+	path := filepath.Join(home, ".dsh", "settings.yaml")
+	credentials := filepath.Join(home, ".dsh", ".credentials.yaml")
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	// First activation: DeepSeek official.
+	if err := testWriter(t, home, "linux").WriteDSHOfficial(context.Background(), path, "sk-deepseek", "deepseek-v4-pro"); err != nil {
+		t.Fatal(err)
+	}
+	// Second activation: a gateway.
+	if err := testWriter(t, home, "linux").WriteDSH(context.Background(), path, "PPIO", "https://api.example/openai", "sk-gateway", "deepseek-v4-pro"); err != nil {
+		t.Fatal(err)
+	}
+
+	routes := dshSettings(t, path)
+	if _, exists := routes["bootagent"]; !exists {
+		t.Errorf("no bootagent route was declared for the gateway: %v", routes)
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var selection struct {
+		Default struct {
+			Provider string `yaml:"provider"`
+			Model    string `yaml:"model"`
+		} `yaml:"agent-default-model"`
+	}
+	if err := yaml.Unmarshal(data, &selection); err != nil {
+		t.Fatal(err)
+	}
+	if selection.Default.Provider != "bootagent" {
+		t.Errorf("default selection = %+v, want bootagent", selection.Default)
+	}
+
+	stored := dshCredentials(t, credentials)
+	if stored["BOOTAGENT_API_KEY"] != "sk-gateway" {
+		t.Errorf("BOOTAGENT_API_KEY = %q, want sk-gateway", stored["BOOTAGENT_API_KEY"])
+	}
+	// The DEEPSEEK_API_KEY from the first activation stays: it is unreferenced
+	// and harmless once the selection points elsewhere.
+	if stored["DEEPSEEK_API_KEY"] != "sk-deepseek" {
+		t.Errorf("DEEPSEEK_API_KEY was disturbed: %q", stored["DEEPSEEK_API_KEY"])
+	}
+}
+
+// A second WriteDSHOfficial call after a WriteDSH must remove the bootagent
+// route so ReadDSHConfig reports the official selection, not a stale custom one.
+func TestWriteDSHOfficialCleansUpAStaleBootagentRoute(t *testing.T) {
+	home := t.TempDir()
+	path := filepath.Join(home, ".dsh", "settings.yaml")
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	// First: gateway route.
+	if err := testWriter(t, home, "linux").WriteDSH(context.Background(), path, "PPIO", "https://api.example/openai", "sk-gateway", "deepseek-v4-pro"); err != nil {
+		t.Fatal(err)
+	}
+	// Second: DeepSeek official.
+	if err := testWriter(t, home, "linux").WriteDSHOfficial(context.Background(), path, "sk-deepseek", "deepseek-v4-flash"); err != nil {
+		t.Fatal(err)
+	}
+
+	routes := dshSettings(t, path)
+	if _, exists := routes["bootagent"]; exists {
+		t.Errorf("stale bootagent route survived: %v", routes)
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var selection struct {
+		Default struct {
+			Provider string `yaml:"provider"`
+			Model    string `yaml:"model"`
+		} `yaml:"agent-default-model"`
+	}
+	if err := yaml.Unmarshal(data, &selection); err != nil {
+		t.Fatal(err)
+	}
+	if selection.Default.Provider != "deepseek-official" || selection.Default.Model != "deepseek-v4-flash" {
+		t.Errorf("default selection = %+v, want deepseek-official", selection.Default)
+	}
+
+	detected := ReadDSHConfig(string(data))
+	if detected.BaseURL != "" || detected.Model != "deepseek-v4-flash" {
+		t.Errorf("ReadDSHConfig = %#v, want model without baseURL", detected)
+	}
+}
+

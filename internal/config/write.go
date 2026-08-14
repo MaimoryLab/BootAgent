@@ -41,6 +41,15 @@ const (
 	// storing it cannot disturb the credential dsh's Models page manages for the
 	// shipped DeepSeek route.
 	dshCredentialReference = "BOOTAGENT_API_KEY"
+	// dshOfficialRoute is the provider route dsh itself ships for DeepSeek's
+	// first-party service. Not BootAgent's to declare or replace -- WriteDSHOfficial
+	// only points the default selection at it and stores the key where it looks.
+	dshOfficialRoute = "deepseek-official"
+	// dshOfficialCredential is the credential the shipped route resolves its key
+	// through. The same entry dsh's own Models page manages, which is the point:
+	// an activation against DeepSeek's own service must land the key where that
+	// route already reads it.
+	dshOfficialCredential = "DEEPSEEK_API_KEY"
 )
 
 func NewWriter(home, osID string, filesystem securefs.Store) Writer {
@@ -343,7 +352,9 @@ func (w Writer) WriteOpenClaw(ctx context.Context, path, providerName, baseURL, 
 
 // WriteDSH points DeepSeek Harness at the Provider through a hand-declared
 // pi-ai route in $DSH_HOME/settings.yaml, with the credential in
-// $DSH_HOME/.credentials.yaml.
+// $DSH_HOME/.credentials.yaml. For DeepSeek's own service the caller uses
+// WriteDSHOfficial instead; deciding which is which takes the Provider catalog,
+// so that choice stays with the caller.
 //
 // Those two files rather than $DSH_HOME/.env, which dsh also reads: .env is the
 // *lowest* of four credential layers, and the managed .credentials.yaml document
@@ -374,7 +385,7 @@ func (w Writer) WriteOpenClaw(ctx context.Context, path, providerName, baseURL, 
 func (w Writer) WriteDSH(ctx context.Context, path, providerName, baseURL, apiKey, model string) error {
 	// The credential lands first: a route pointing at a provider dsh cannot
 	// authenticate is worse than an unreferenced key.
-	if err := w.writeDSHCredential(ctx, filepath.Join(filepath.Dir(path), ".credentials.yaml"), apiKey); err != nil {
+	if err := w.writeDSHCredential(ctx, filepath.Join(filepath.Dir(path), ".credentials.yaml"), dshCredentialReference, apiKey); err != nil {
 		return err
 	}
 	root, err := yamlDocument(path, "DeepSeek Harness settings")
@@ -430,19 +441,74 @@ func (w Writer) WriteDSH(ctx context.Context, path, providerName, baseURL, apiKe
 	return w.write(ctx, path, data, false)
 }
 
-// writeDSHCredential merges the key into the managed credential document,
-// keeping every other credential the user stored from dsh's Models page.
+// WriteDSHOfficial points DeepSeek Harness at DeepSeek's own service through
+// the deepseek-official route dsh ships, instead of declaring a bootagent route
+// the way WriteDSH does.
+//
+// The shipped route already knows the endpoint and carries DeepSeek's installed
+// model catalog, so a hand-declared duplicate would add nothing and misfile the
+// credential: that route resolves its key through DEEPSEEK_API_KEY, the same
+// entry dsh's Models page manages, so that is where the key must land for the
+// route to authenticate. This is also why no endpoint is written -- the route's
+// endpoint is dsh's own fact, and the caller only chooses this path when the
+// Provider's endpoint is exactly the one the route already uses.
+//
+// A bootagent route left behind by an earlier activation against a different
+// Provider is removed: BootAgent owns that route, and after this write it would
+// point at an endpoint and credential this activation just replaced --
+// ReadDSHConfig would then report that stale route as the current binding. The
+// BOOTAGENT_API_KEY credential itself stays: once the route is gone it is
+// unreferenced and harmless, and .credentials.yaml is shared with dsh's Models
+// page, so this write touches only the entry it has to.
+//
+// The agent-default-model selection is replaced wholesale for the same reason
+// as in WriteDSH, and a stale reasoningEffort is likewise dropped: dsh treats a
+// saved selection as complete, and an effort saved for another model is not one
+// this selection declares.
+func (w Writer) WriteDSHOfficial(ctx context.Context, path, apiKey, model string) error {
+	// The credential lands first: a selection pointing at a route dsh cannot
+	// authenticate is worse than an unreferenced key.
+	if err := w.writeDSHCredential(ctx, filepath.Join(filepath.Dir(path), ".credentials.yaml"), dshOfficialCredential, apiKey); err != nil {
+		return err
+	}
+	root, err := yamlDocument(path, "DeepSeek Harness settings")
+	if err != nil {
+		return err
+	}
+	// Lookup without creating: when no bootagent route exists there is nothing
+	// to clean up, and checking must not leave an empty llm-pi-ai section behind
+	// as a side effect.
+	if adapter := yamlChild(root.Content[0], "llm-pi-ai"); adapter != nil {
+		if providers := yamlChild(adapter, "providers"); providers != nil {
+			yamlDelete(providers, dshOwnedRoute)
+		}
+	}
+	selection := &yaml.Node{Kind: yaml.MappingNode}
+	yamlSet(selection, "provider", dshOfficialRoute)
+	yamlSet(selection, "model", model)
+	yamlReplace(root.Content[0], "agent-default-model", selection)
+
+	data, err := yaml.Marshal(root)
+	if err != nil {
+		return configError("Cannot encode YAML configuration %s: %v", path, err)
+	}
+	return w.write(ctx, path, data, false)
+}
+
+// writeDSHCredential merges the key into the managed credential document under
+// the given reference, keeping every other credential the user stored from
+// dsh's Models page.
 //
 // The document is a strict credential-to-value mapping: dsh rejects a non-string
 // value, an empty string, or a key that is not a POSIX identifier, and fails loud
 // rather than skipping the entry. So this writes one identifier and nothing else
 // -- no wrapper level, no version field.
-func (w Writer) writeDSHCredential(ctx context.Context, path, apiKey string) error {
+func (w Writer) writeDSHCredential(ctx context.Context, path, reference, apiKey string) error {
 	root, err := yamlDocument(path, "DeepSeek Harness credentials")
 	if err != nil {
 		return err
 	}
-	yamlSet(root.Content[0], dshCredentialReference, apiKey)
+	yamlSet(root.Content[0], reference, apiKey)
 	data, err := yaml.Marshal(root)
 	if err != nil {
 		return configError("Cannot encode YAML credentials %s: %v", path, err)
@@ -568,6 +634,29 @@ func yamlReplace(parent *yaml.Node, key string, value *yaml.Node) {
 		}
 	}
 	parent.Content = append(parent.Content, &yaml.Node{Kind: yaml.ScalarNode, Value: key}, value)
+}
+
+// yamlChild returns the mapping stored under key, or nil when the key is absent
+// or holds something else. Unlike yamlMapping it never creates the entry, so a
+// lookup made only to delete from it cannot leave an empty section behind.
+func yamlChild(parent *yaml.Node, key string) *yaml.Node {
+	for index := 0; index < len(parent.Content); index += 2 {
+		if parent.Content[index].Value == key && parent.Content[index+1].Kind == yaml.MappingNode {
+			return parent.Content[index+1]
+		}
+	}
+	return nil
+}
+
+// yamlDelete removes one key and its value from a mapping; an absent key is a
+// no-op.
+func yamlDelete(parent *yaml.Node, key string) {
+	for index := 0; index < len(parent.Content); index += 2 {
+		if parent.Content[index].Value == key {
+			parent.Content = append(parent.Content[:index], parent.Content[index+2:]...)
+			return
+		}
+	}
 }
 
 // yamlDocument parses a YAML file into a node tree, so comments, key order, and

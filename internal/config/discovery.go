@@ -153,6 +153,14 @@ func ReadAiderConfig(text string) Detected {
 // Keyed on the route BootAgent owns rather than on whichever route is selected:
 // a user who switched dsh to another provider still has ours on disk, and
 // reporting otherwise would hide that BootAgent wrote it.
+//
+// No bootagent route does not mean no BootAgent write: an activation against
+// DeepSeek's own service configures the shipped deepseek-official route instead
+// (WriteDSHOfficial), leaving only the default selection as evidence. That
+// selection is indistinguishable from one the user saved in dsh's Models page,
+// so its model is reported without claiming BootAgent management, and without
+// an endpoint -- the shipped route's endpoint is dsh's own fact, not something
+// this file records.
 func ReadDSHConfig(text string) Detected {
 	var parsed struct {
 		PiAI struct {
@@ -163,11 +171,18 @@ func ReadDSHConfig(text string) Detected {
 				} `yaml:"models"`
 			} `yaml:"providers"`
 		} `yaml:"llm-pi-ai"`
+		Selection struct {
+			Provider string `yaml:"provider"`
+			Model    string `yaml:"model"`
+		} `yaml:"agent-default-model"`
 	}
 	if err := yaml.Unmarshal([]byte(text), &parsed); err != nil {
 		return unreadable(fmt.Sprintf("YAML 无法解析：%v", err))
 	}
 	route, managed := parsed.PiAI.Providers[dshOwnedRoute]
+	if !managed && parsed.Selection.Provider == dshOfficialRoute {
+		return Detected{Model: parsed.Selection.Model}
+	}
 	model := ""
 	// The first entry, not a search for a match: the route's catalog is ordered
 	// and BootAgent seeds it with exactly one model, so the head is what we wrote

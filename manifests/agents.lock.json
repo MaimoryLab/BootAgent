@@ -254,7 +254,7 @@
         "linux",
         "windows"
       ],
-      "guide": "BootAgent 在 ~/.dsh/settings.yaml 里注册一个名为 bootagent 的自定义供应商并设为默认模型，API Key 存入 ~/.dsh/.credentials.yaml。它的界面是本地 Web 应用而非命令行：安装后运行 dsh web，在浏览器打开 http://127.0.0.1:3080。在 Settings - Models 里可以给该供应商补充更多模型或改回其他供应商。改动无需重启，dsh 会热加载。当前为开发者预览版，配置格式仍可能变动。",
+      "guide": "当供应商为 DeepSeek 官方时，BootAgent 配置 ~/.dsh/settings.yaml 使用内置的 deepseek-official 路由，API Key 存入 ~/.dsh/.credentials.yaml 的 DEEPSEEK_API_KEY；当供应商为网关或其他自定义服务时，BootAgent 注册一个名为 bootagent 的自定义供应商并设为默认模型。它的界面是本地 Web 应用而非命令行：安装后运行 dsh web，在浏览器打开 http://127.0.0.1:3080。在 Settings - Models 里可以给该供应商补充更多模型或改回其他供应商。改动无需重启，dsh 会热加载。当前为开发者预览版，配置格式仍可能变动。",
       "rank": 1
     }
   }
