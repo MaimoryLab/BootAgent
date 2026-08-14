@@ -26,6 +26,17 @@ const (
 	// place, most often one running from a mounted disk image. Reported at check
 	// time so the user is not asked to download something that cannot be applied.
 	UpdateLocationBlocked = "UPDATE_LOCATION_BLOCKED"
+	// UpdateStalled marks an OTA download that stopped receiving data. Distinct
+	// from Timeout because Timeout's copy names the model provider -- the only
+	// other thing that reports it -- and a stalled self-update was being shown as
+	// "the connection to the provider timed out", which points the user at
+	// unrelated settings.
+	UpdateStalled = "UPDATE_STALLED"
+	// UpdateInterrupted marks an OTA download that ended before it finished for a
+	// reason that is not a stall: a cancelled context, or a connection that
+	// dropped and could not be resumed. Retryable, and resumption means a retry
+	// usually starts from where this one stopped.
+	UpdateInterrupted = "UPDATE_INTERRUPTED"
 )
 
 // ExitCodes preserves the numeric codes included in existing error payloads.
@@ -47,6 +58,11 @@ var ExitCodes = map[string]int{
 	// Also 10: an environment problem with no distinct CLI contract, and the
 	// numeric codes in existing payloads are pinned by tests.
 	UpdateLocationBlocked: 10,
+	// Both share Timeout's 8: to a script these are the same class of failure
+	// -- the transfer did not finish and the thing to do is run it again -- and
+	// the codes exist to separate the copy, not the exit contract.
+	UpdateStalled:     8,
+	UpdateInterrupted: 8,
 }
 
 // BootAgentError is safe to serialize across the Wails bridge. Message must
