@@ -410,44 +410,19 @@ cd frontend && npm run typecheck
 
 ## 未解决的问题（需要调研）
 
+> **2026-08-14 更新：以下三个问题均已调研完毕并落地，见文末「第二阶段：跨 Agent 适配」。**
+
 ### 1. DSH 的思考深度枚举值
 
-**问题**：DSH 支持的完整值是什么？
-- 候选：`low`, `medium`, `high`, `xhigh`, `max`？
-- 还是只有：`low`, `medium`, `high`？
-
-**调研方法**：
-1. 查看 DSH 源码（如果开源）
-2. 查看 DeepSeek API 文档
-3. 手动测试：在 `~/.dsh/settings.yaml` 中写入不同值，看 DSH 是否接受
-
-**影响**：前端 UI 的下拉选项。
-
----
+**结论**：`off` / `high` / `max`（读自 `@deepseek-ai/dsh-llm-deepseek` 的 serialize.d.ts；缺省时 adapter 默认为 `high`）。已实现于 `ValidateDSHOfficialReasoningEffort`。
 
 ### 2. DeepSeek API 的默认思考深度
 
-**问题**：如果用户不设置 `reasoningEffort`，DeepSeek 使用什么默认值？
-- 是 `medium` 吗？
-- 不同模型是否不同（如 v4-pro vs v4-flash）？
-
-**调研方法**：
-1. 查看 DeepSeek API 文档
-2. 抓包验证
-
-**影响**：决定 `nil` 的语义（「使用模型默认」vs「强制 medium」）。
-
----
+**结论**：不设置时由 dsh 的 llm-deepseek adapter 决定（`high`）。Profile 层用空字符串表达「未设置（模型默认）」。
 
 ### 3. 其他 Agent 的支持情况
 
-**问题**：Codex、Claude Code、Kimi Code 等是否支持类似功能？
-
-**调研方法**：
-1. 查看各 Agent 的配置文件格式
-2. 查看 `internal/config/write.go` 中的其他 Writer 函数
-
-**影响**：决定是否需要「通用化方案」（方案 B）。
+**结论**：见下方适配矩阵。
 
 ---
 
@@ -496,6 +471,63 @@ cd frontend && npm run typecheck
 4. 🔄 **编写测试并验证**
 5. 🔄 **实现 Phase 3-7**（应用层 → 前端）
 6. 🔄 **端到端测试**
+
+---
+
+## 第二阶段：跨 Agent 适配（2026-08-14 完成）
+
+### 适配矩阵
+
+| Agent | 配置位置 | 支持的值 | 映射逻辑 | 写入层 | 验证层 |
+|-------|---------|---------|---------|-------|-------|
+| **DeepSeek Harness** | `~/.dsh/settings.yaml`<br>`agent-default-model.reasoningEffort` | `off` / `high` / `max` | 直通 | `WriteDSHOfficial` | `ValidateDSHOfficialReasoningEffort` |
+| **Codex** | `~/.codex/config.toml`<br>`model_reasoning_effort` | `none` / `low` / `medium` / `high` / `xhigh` | `off→none`<br>`max→xhigh`<br>其余直通 | `WriteCodex` | `codexReasoningEffort` |
+| **OpenCode / Kilo** | `opencode.json` / `kilo.jsonc`<br>模型条目 `options.reasoningEffort` | `low` / `medium` / `high` | 拒绝 `off` 和 `max`<br>其余直通 | `WriteOpenAICompatible` | `validateOpenAIReasoningEffort` |
+| **aider** | `~/.bootagent/aider.env`<br>`AIDER_REASONING_EFFORT` | `low` / `medium` / `high` | 拒绝 `off` 和 `max`<br>其余直通 | `WriteAider` | `validateOpenAIReasoningEffort` |
+| **Claude Code** | 有意忽略 | — | 静默丢弃 | `WriteClaude` 不收 effort | — |
+| **其余（OpenClaw / Hermes / Kimi Code / WorkBuddy / ZCode）** | 有意忽略 | — | 静默丢弃 | 各 Writer 不收 effort | — |
+
+**Claude Code 为何忽略**：其文档化的思考控制是 token 预算（`MAX_THINKING_TOKENS`）和 always-think 布尔开关，没有档位标尺；把五档映射到二者任何一个都是在发明该工具未承诺的语义。`ANTHROPIC_EXTENDED_THINKING` 环境变量行为不稳定（社区报告了配置优先级冲突），不作为写入目标。
+
+**其余 Agent 为何忽略**：这些 Writer 写的配置形态是从单一观测版本读出的、无文档的文件（见 `WriteZCode` 的注释），在应用自有的文件里发明键有破坏其状态的风险。
+
+### Profile 词汇表
+
+统一五档，验证在 `ValidateProfileReasoningEffort`：
+
+```
+"" (空) | "off" | "low" | "medium" | "high" | "max"
+```
+
+前端所有 provider 均显示全部五档；后端在激活时按 Agent 能力拒绝不支持的档位。
+
+### 前端改动
+
+- **ProfilesPage** / **AgentProfilePage**：移除 `provider === "deepseek"` 限制，所有 provider 显示完整五档
+- **i18n.tsx**：新增 `low（低）` / `medium（中）` 和通用说明文案
+- **说明文案**：从「目前仅 DeepSeek Harness 会应用此设置」改为「各 Agent 支持的档位不同，应用时不支持的档位会明确报错」
+
+### 后端改动
+
+- **write.go**：新增 `ValidateProfileReasoningEffort`（保存时的并集门）、`codexReasoningEffort`（映射+校验）、`validateOpenAIReasoningEffort`（aider/OpenCode/Kilo 共用门）；`WriteCodex` / `WriteAider` / `WriteOpenAICompatible` 各增 effort 参数
+- **status.go**：`SaveProfile` 的校验从 dsh 专属换成 Profile 并集门
+- **agent.go**：`writeManagedAgentConfig` 向支持的 adapter 透传 effort，注释记录每个忽略者的理由
+- **write_test.go / agent_test.go**：新增映射、拒绝、清除、绑定记录原值等测试
+
+### 实现决策
+
+1. **诚实报错 vs 静默降级**：Agent 能表达但值不在其标尺上时明确拒绝（返回 `InvalidRequest` 错误并列出该 Agent 的标尺），而非静默降级；Agent 结构上无处可写时静默丢弃（与 dsh 非官方路由的既有语义一致）
+2. **Profile 层统一词汇表**：保存时校验并集五档，激活时由各 adapter 再收窄——「由做决定的那一层配置」
+3. **空字符串语义**：各 Writer 收到空字符串时不写 effort 键，且清除自己先前写入的值，由 Agent 使用其自身默认值
+4. **Codex 两端映射**：`off→none`、`max→xhigh` 是语义精确的翻译而非降级，Codex 对该枚举严格校验、未知值会拒绝启动，所以映射不到的值绝不能落盘
+
+### 未来工作
+
+若有新 Agent 支持 reasoning effort，参考本次实现模式：
+1. 在 `write.go` 新增校验/映射函数
+2. 修改对应 Writer，解析并写入 Agent 配置
+3. 在 `write_test.go` 添加覆盖测试
+4. 更新本文档的适配矩阵
 
 ---
 

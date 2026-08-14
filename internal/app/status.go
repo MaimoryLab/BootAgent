@@ -567,11 +567,14 @@ func (u *UseCases) SaveProfile(ctx context.Context, options SaveProfileOptions) 
 	}
 	u.writeMu.Lock()
 	defer u.writeMu.Unlock()
-	// Rejected at the edit, not on the user's first request: dsh's own settings
-	// schema accepts any string, so a typo here would otherwise surface as a
-	// per-request dispatch error far from the Profile page that caused it.
+	// Rejected at the edit, not on the user's first request: an unsupported
+	// depth would otherwise surface as an activation error, or -- for adapters
+	// whose own schema accepts any string, like dsh's -- as a per-request
+	// dispatch failure far from the Profile page that caused it. The Agent
+	// vocabularies are narrower and each write gates again; this rejects only
+	// what no adapter could ever express.
 	if effort := strings.TrimSpace(options.ReasoningEffort); effort != "" {
-		if err := configWriter.ValidateDSHOfficialReasoningEffort(effort); err != nil {
+		if err := configWriter.ValidateProfileReasoningEffort(effort); err != nil {
 			return SaveProfileResult{}, err
 		}
 	}

@@ -219,20 +219,32 @@ func (u *UseCases) profileReasoningEffort(profileID string) string {
 	return ""
 }
 
+// writeManagedAgentConfig hands the activation to the Agent's config adapter.
+//
+// reasoningEffort reaches the adapters whose file format documents a place for
+// it: Codex (model_reasoning_effort), aider (AIDER_REASONING_EFFORT), the
+// OpenCode/Kilo model options, and dsh's shipped official route. The others
+// deliberately drop it. Claude Code has no depth scale to write -- its
+// documented controls are a thinking-token budget (MAX_THINKING_TOKENS) and an
+// always-think boolean, and mapping a five-level scale onto either would
+// invent semantics the tool never promised. The remaining adapters write
+// config shapes read off one observed version with no documented reasoning
+// field, and inventing keys in files those apps own risks corrupting state
+// they manage (see WriteZCode).
 func writeManagedAgentConfig(ctx context.Context, writer configWriter.Writer, agentID string, agent catalog.Agent, path, providerID, providerName, baseURL, apiKey, model, smallFastModel, reasoningEffort string) error {
 	switch agent.ConfigAdapter {
 	case "codex":
-		return writer.WriteCodex(ctx, path, providerName, baseURL, apiKey, model)
+		return writer.WriteCodex(ctx, path, providerName, baseURL, apiKey, model, reasoningEffort)
 	case "claude-code":
 		return writer.WriteClaude(ctx, path, baseURL, apiKey, model, smallFastModel)
 	case "opencode":
-		return writer.WriteOpenAICompatible(ctx, path, "https://opencode.ai/config.json", providerName, baseURL, apiKey, model)
+		return writer.WriteOpenAICompatible(ctx, path, "https://opencode.ai/config.json", providerName, baseURL, apiKey, model, reasoningEffort)
 	case "kilo-cli":
-		return writer.WriteOpenAICompatible(ctx, path, "https://app.kilo.ai/config.json", providerName, baseURL, apiKey, model)
+		return writer.WriteOpenAICompatible(ctx, path, "https://app.kilo.ai/config.json", providerName, baseURL, apiKey, model, reasoningEffort)
 	case "openclaw":
 		return writer.WriteOpenClaw(ctx, path, providerName, baseURL, apiKey, model)
 	case "aider":
-		return writer.WriteAider(ctx, path, baseURL, apiKey)
+		return writer.WriteAider(ctx, path, baseURL, apiKey, reasoningEffort)
 	case "dsh":
 		// DeepSeek's own service activates through the shipped deepseek-official
 		// route rather than a hand-declared bootagent route: that shipped route

@@ -55,9 +55,9 @@ func jsonWriterOutput(t *testing.T, kind, relative, existing string) []byte {
 	case "claude":
 		err = writer.WriteClaude(context.Background(), path, "https://api.ppio.com/anthropic", "sk-parity", "model-new", "")
 	case "opencode":
-		err = writer.WriteOpenAICompatible(context.Background(), path, "https://opencode.ai/config.json", "PPIO", "https://api.ppio.com/openai", "sk-parity", "model-new")
+		err = writer.WriteOpenAICompatible(context.Background(), path, "https://opencode.ai/config.json", "PPIO", "https://api.ppio.com/openai", "sk-parity", "model-new", "")
 	case "kilo":
-		err = writer.WriteOpenAICompatible(context.Background(), path, "https://app.kilo.ai/config.json", "PPIO", "https://api.ppio.com/openai", "sk-parity", "model-new")
+		err = writer.WriteOpenAICompatible(context.Background(), path, "https://app.kilo.ai/config.json", "PPIO", "https://api.ppio.com/openai", "sk-parity", "model-new", "")
 	case "openclaw":
 		err = writer.WriteOpenClaw(context.Background(), path, "PPIO", "https://api.ppio.com/openai", "sk-parity", "model-new")
 	default:

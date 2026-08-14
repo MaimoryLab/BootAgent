@@ -76,6 +76,72 @@ func ValidateDSHOfficialReasoningEffort(effort string) error {
 		strings.Join(dshOfficialReasoningEfforts, ", "), effort))
 }
 
+// profileReasoningEfforts is the vocabulary a Profile may carry: the union of
+// what every adapter that can express a depth accepts. Each adapter narrows it
+// again at write time -- dsh dispatches off/high/max, Codex maps the whole
+// scale onto its own enum, aider and the OpenCode family take low/medium/high
+// -- so a value valid here can still be refused by the Agent it reaches, with
+// an error naming that Agent's scale.
+var profileReasoningEfforts = []string{"off", "low", "medium", "high", "max"}
+
+// ValidateProfileReasoningEffort rejects a depth outside the Profile
+// vocabulary. This is the save-time gate; the adapter-specific gates below run
+// at activation, when the Agent the value must fit is finally known.
+func ValidateProfileReasoningEffort(effort string) error {
+	for _, allowed := range profileReasoningEfforts {
+		if effort == allowed {
+			return nil
+		}
+	}
+	return oneerrors.New(oneerrors.InvalidRequest, fmt.Sprintf(
+		"Reasoning effort must be one of %s, got %q",
+		strings.Join(profileReasoningEfforts, ", "), effort))
+}
+
+// codexReasoningEffort translates the Profile scale into Codex's
+// model_reasoning_effort enum, read off the Codex config documentation
+// (https://github.com/openai/codex, config.toml reference): none, low, medium,
+// high, xhigh. The two ends map -- off means "do not reason", which Codex
+// spells none, and max is its xhigh -- and the middle three pass through.
+// Codex validates this enum strictly at startup, so an unmapped value must
+// never reach the file: a config Codex refuses to load is worse than a
+// rejected activation.
+func codexReasoningEffort(effort string) (string, error) {
+	switch effort {
+	case "off":
+		return "none", nil
+	case "low", "medium", "high":
+		return effort, nil
+	case "max":
+		return "xhigh", nil
+	}
+	return "", oneerrors.New(oneerrors.InvalidRequest, fmt.Sprintf(
+		"Codex reasoning effort must be one of %s, got %q",
+		strings.Join(profileReasoningEfforts, ", "), effort))
+}
+
+// openAIReasoningEfforts is the reasoning_effort scale of the OpenAI Chat
+// Completions API, which aider (per https://aider.chat/docs/config/reasoning.html)
+// and the OpenCode/Kilo model options pass through verbatim to the provider.
+// off and max are deliberately absent: neither is a value that API accepts, and
+// both adapters forward the string unvalidated, so writing one would fail every
+// request instead of the activation that carried it.
+var openAIReasoningEfforts = []string{"low", "medium", "high"}
+
+// validateOpenAIReasoningEffort rejects a depth the OpenAI-style adapters
+// cannot forward. The message names no Agent because three adapters share the
+// gate; the activation that surfaces it already says which Agent refused.
+func validateOpenAIReasoningEffort(effort string) error {
+	for _, allowed := range openAIReasoningEfforts {
+		if effort == allowed {
+			return nil
+		}
+	}
+	return oneerrors.New(oneerrors.InvalidRequest, fmt.Sprintf(
+		"This Agent accepts a reasoning effort of %s, got %q",
+		strings.Join(openAIReasoningEfforts, ", "), effort))
+}
+
 func NewWriter(home, osID string, filesystem securefs.Store) Writer {
 	return Writer{Home: home, OS: osID, FS: filesystem}
 }
@@ -84,18 +150,33 @@ func NewWriter(home, osID string, filesystem securefs.Store) Writer {
 // ~/.codex/auth.json next to config.toml, and requires_openai_auth tells Codex
 // to authenticate the managed provider with it instead of an environment
 // variable.
-func (w Writer) WriteCodex(ctx context.Context, path, providerName, baseURL, apiKey, model string) error {
-	managed := strings.Join([]string{
+//
+// reasoningEffort lands as model_reasoning_effort, translated through
+// codexReasoningEffort onto Codex's own enum. Empty means unset, and the merge
+// drops any earlier BootAgent-written value: model_reasoning_effort is an
+// owned key, so clearing the depth in the Profile clears it here too instead
+// of leaving the old depth in force.
+func (w Writer) WriteCodex(ctx context.Context, path, providerName, baseURL, apiKey, model, reasoningEffort string) error {
+	lines := []string{
 		"model_provider = \"bootagent\"",
 		"model = " + quoteTOML(model),
+	}
+	if reasoningEffort != "" {
+		mapped, err := codexReasoningEffort(reasoningEffort)
+		if err != nil {
+			return err
+		}
+		lines = append(lines, "model_reasoning_effort = "+quoteTOML(mapped))
+	}
+	managed := strings.Join(append(lines,
 		"",
 		"[model_providers.bootagent]",
-		"name = " + quoteTOML(providerName),
-		"base_url = " + quoteTOML(baseURL),
+		"name = "+quoteTOML(providerName),
+		"base_url = "+quoteTOML(baseURL),
 		"wire_api = \"responses\"",
 		"requires_openai_auth = true",
 		"",
-	}, "\n")
+	), "\n")
 	existing, err := readText(path)
 	if err != nil {
 		return configError("Cannot read existing TOML configuration %s: %v", path, err)
@@ -147,7 +228,13 @@ func (w Writer) WriteClaude(ctx context.Context, path, baseURL, apiKey, model, s
 
 // WriteOpenAICompatible writes the OpenCode/Kilo provider block, including the
 // literal key under options.apiKey so the Agent needs no environment variable.
-func (w Writer) WriteOpenAICompatible(ctx context.Context, path, schemaURL, providerName, baseURL, apiKey, model string) error {
+//
+// reasoningEffort goes under the model's own options -- OpenCode documents
+// model-level options.reasoningEffort on the low/medium/high scale and passes
+// it to the SDK; Kilo declares the same config shape. The whole bootagent
+// provider entry is rebuilt on every write, so an empty effort also clears an
+// earlier one rather than leaving it pinned to the model.
+func (w Writer) WriteOpenAICompatible(ctx context.Context, path, schemaURL, providerName, baseURL, apiKey, model, reasoningEffort string) error {
 	document, err := loadJSON(path)
 	if err != nil {
 		return err
@@ -163,6 +250,14 @@ func (w Writer) WriteOpenAICompatible(ctx context.Context, path, schemaURL, prov
 	models := jsonorder.NewObject()
 	modelEntry := jsonorder.NewObject()
 	modelEntry.Set("name", model)
+	if reasoningEffort != "" {
+		if err := validateOpenAIReasoningEffort(reasoningEffort); err != nil {
+			return err
+		}
+		modelOptions := jsonorder.NewObject()
+		modelOptions.Set("reasoningEffort", reasoningEffort)
+		modelEntry.Set("options", modelOptions)
+	}
 	models.Set(model, modelEntry)
 	bootagent := jsonorder.NewObject()
 	bootagent.Set("npm", "@ai-sdk/openai-compatible")
@@ -548,10 +643,24 @@ func (w Writer) writeDSHCredential(ctx context.Context, path, reference, apiKey 
 	return w.write(ctx, path, data, true)
 }
 
-func (w Writer) WriteAider(ctx context.Context, path, baseURL, apiKey string) error {
+// WriteAider writes the dotenv file the aider launch hint sources. Everything
+// in it is BootAgent's, so the file is rebuilt wholesale on every activation.
+//
+// reasoningEffort becomes AIDER_REASONING_EFFORT, the environment spelling of
+// --reasoning-effort (https://aider.chat/docs/config/reasoning.html). aider
+// forwards the value to the API verbatim, so it is gated through the OpenAI
+// scale first. Empty writes no line, and the wholesale rebuild means a cleared
+// Profile depth disappears from the file instead of surviving as a stale line.
+func (w Writer) WriteAider(ctx context.Context, path, baseURL, apiKey, reasoningEffort string) error {
 	base := provider.OpenAIBaseURL(baseURL)
 	content := "OPENAI_API_BASE=" + dotenvQuote(base) + "\n" +
 		"OPENAI_API_KEY=" + dotenvQuote(apiKey) + "\n"
+	if reasoningEffort != "" {
+		if err := validateOpenAIReasoningEffort(reasoningEffort); err != nil {
+			return err
+		}
+		content += "AIDER_REASONING_EFFORT=" + dotenvQuote(reasoningEffort) + "\n"
+	}
 	return w.write(ctx, path, []byte(content), true)
 }
 
@@ -764,7 +873,7 @@ func mergeCodexTOML(existing, managed, path string) (string, error) {
 	return mergeManagedTOML(existing, managed, path, managedTOMLShape{
 		topLevelKeys:   topLevelKeyPattern,
 		managedSection: managedSectionPattern,
-		ownedKeys:      []string{"model_provider", "model"},
+		ownedKeys:      []string{"model_provider", "model", "model_reasoning_effort"},
 		ownedTables:    [][2]string{{"model_providers", "bootagent"}},
 	})
 }
@@ -888,7 +997,7 @@ func configError(format string, values ...any) error {
 }
 
 var (
-	topLevelKeyPattern    = regexp.MustCompile(`^\s*(model_provider|model)\s*=`)
+	topLevelKeyPattern    = regexp.MustCompile(`^\s*(model_provider|model_reasoning_effort|model)\s*=`)
 	managedSectionPattern = regexp.MustCompile(`^\[model_providers\.bootagent(?:\..+)?\]$`)
 
 	kimiTopLevelKeyPattern = regexp.MustCompile(`^\s*(default_model)\s*=`)
