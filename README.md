@@ -19,6 +19,7 @@ BootAgent is a local desktop workspace for AI coding Agents. It turns a fresh ma
 - Migrates existing Codex and ChatGPT Desktop conversations into BootAgent's `bootagent` provider bucket from their Agent rows. This operation intentionally creates no history backup.
 - Connects Agents to built-in or custom Providers, with model selection and protocol-aware connection checks.
 - Saves reusable Profiles and applies the right configuration to each Agent.
+- Carries a Profile's reasoning effort (`off`, `low`, `medium`, `high`, `max`) into every Agent whose own config format documents a place for it, translating the scale to what each one accepts. Agents with no documented depth setting are left alone rather than given invented keys.
 - Bootstraps required runtimes such as Node.js, uv, and Aider's managed Python when needed.
 - Keeps long-running installs visible and cancellable in the Task Center.
 - Imports and exports Providers, Profiles, and selected MCP servers. API keys and MCP secrets are excluded by default; password-encrypted or explicitly confirmed plaintext export is also available.
@@ -31,11 +32,13 @@ BootAgent is a local desktop workspace for AI coding Agents. It turns a fresh ma
 | CLI Agents | Desktop Agents |
 | --- | --- |
 | Codex · Claude Code | ChatGPT Desktop（macOS/Windows） |
-| Kilo CLI · Aider· OpenCode | WorkBuddy（macOS/Windows） |
-| Hermes Agent · OpenClaw | |
-| Kimi Code | |
+| Kilo CLI · Aider · OpenCode | WorkBuddy · WorkBuddy AI（macOS/Windows） |
+| Hermes Agent · OpenClaw | ZCode（macOS/Windows） |
+| Kimi Code · DeepSeek Harness | |
 
 JieKou.AI, PPIO, Novita, DeepSeek and Moonshot are built in, listed in that order. Any OpenAI-compatible or Anthropic-compatible Provider can be added from the Provider page. BootAgent probes the protocol an Agent actually uses; an endpoint that only exposes a different API is rejected before configuration is written.
+
+DeepSeek Harness can also be activated against DeepSeek's own official route, which its shipped configuration already defines, instead of going through a generic OpenAI-compatible endpoint.
 
 The MCP Registry is user-level only and stored locally. It supports stdio, HTTP, and SSE servers for Claude Code, Codex, OpenCode, Kilo CLI, and Hermes. Select sync targets explicitly and apply changes when ready; clearing all targets removes the server from Agent configs but keeps it in the Registry. Deleting a server removes it from Agent configs first and from the Registry only after the application succeeds. MCP exports are selected per server and carry no Agent bindings, so they can be imported on another machine before choosing local targets.
 
