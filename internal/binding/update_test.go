@@ -193,8 +193,22 @@ func TestUpdateServiceConvertsBackendFailures(t *testing.T) {
 			})
 			err = test.call(cancelled)
 			got = oneerrors.As(err)
-			if got.Code != oneerrors.Timeout || got.Message != test.message+" was cancelled" || !got.Retryable || !errors.Is(err, context.DeadlineExceeded) {
+			if got.Code != oneerrors.UpdateInterrupted || got.Message != test.message+" was cancelled" || !got.Retryable || !errors.Is(err, context.DeadlineExceeded) {
 				t.Fatalf("cancellation error = %#v, cause = %v", got, errors.Unwrap(got))
+			}
+
+			// A stall is the one failure that means the transfer is genuinely
+			// stuck, and it has to arrive under its own code: as Timeout it
+			// inherited copy naming the model provider, which is not involved.
+			stalled := NewUpdateService(&updateBackendFake{
+				check:              func(context.Context) (*updater.Release, error) { return nil, process.ErrStalled },
+				downloadAndInstall: func(context.Context) error { return process.ErrStalled },
+				restart:            func(context.Context) error { return process.ErrStalled },
+			})
+			err = test.call(stalled)
+			got = oneerrors.As(err)
+			if got.Code != oneerrors.UpdateStalled || got.Message != test.message+" stalled" || !got.Retryable || !errors.Is(err, process.ErrStalled) {
+				t.Fatalf("stall error = %#v, cause = %v", got, errors.Unwrap(got))
 			}
 		})
 	}

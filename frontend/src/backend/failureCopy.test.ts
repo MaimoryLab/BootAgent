@@ -68,6 +68,8 @@ describe("failureCopyFor", () => {
       "CONFIG_WRITE_FAILED",
       "UPDATE_NOT_INSTALLABLE",
       "UPDATE_LOCATION_BLOCKED",
+      "UPDATE_STALLED",
+      "UPDATE_INTERRUPTED",
     ]) {
       const copy = failureCopyFor(code, 0, t);
       expect(copy, code).not.toBeNull();
@@ -108,6 +110,33 @@ describe("UPDATE_LOCATION_BLOCKED", () => {
     expect(copy?.message).toBe("BootAgent 无法在当前位置自我更新");
     expect(copy?.hint).toContain("应用程序");
     expect(copy?.hint).not.toMatch(/稍后|再试一次/);
+  });
+});
+
+describe("the self-update download failures", () => {
+  // The defect: internal/binding/update.go mapped both a stalled download and a
+  // cancelled one onto TIMEOUT, whose copy names the model provider because that
+  // is the only other producer of the code. A self-update that lost its
+  // connection was therefore reported as "连接模型服务超时", pointing the user at
+  // provider settings that have nothing to do with it.
+  it("does not borrow the model provider's timeout copy", () => {
+    const provider = failureCopyFor("TIMEOUT", 0, t)?.message;
+    for (const code of ["UPDATE_STALLED", "UPDATE_INTERRUPTED"]) {
+      const copy = failureCopyFor(code, 0, t);
+      expect(copy?.message, code).not.toBe(provider);
+      expect(copy?.message ?? "", code).not.toContain("模型服务");
+    }
+  });
+
+  // A stall is the only failure that means the transfer is genuinely stuck; an
+  // interruption is resumed from where it stopped, so both hints say to retry
+  // and say the progress is kept.
+  it("tells the user a retry resumes rather than restarts", () => {
+    expect(failureCopyFor("UPDATE_STALLED", 0, t)?.message).toBe("更新下载停滞，长时间没有收到数据");
+    expect(failureCopyFor("UPDATE_INTERRUPTED", 0, t)?.message).toBe("更新下载中断");
+    for (const code of ["UPDATE_STALLED", "UPDATE_INTERRUPTED"]) {
+      expect(failureCopyFor(code, 0, t)?.hint, code).toContain("续传");
+    }
   });
 });
 

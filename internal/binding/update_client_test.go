@@ -1,11 +1,15 @@
 package binding
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -151,6 +155,131 @@ func TestUpdateClientCancelReachesTheBodyTransfer(t *testing.T) {
 	}()
 	if _, err := io.ReadAll(response.Body); !errors.Is(err, context.Canceled) {
 		t.Fatalf("cancelled body error = %v, want context.Canceled", err)
+	}
+}
+
+// The defect this guards: the provider's read loop turns any mid-body transport
+// error into a failed update, so one reset near the end of a 7 MB asset discarded
+// everything and the retry began at zero. The bytes handed out across the resume
+// have to equal the whole payload exactly -- the updater hashes the stream as it
+// flows, so a duplicated or missing byte fails verification after the download.
+func TestUpdateClientResumesAfterTheConnectionDrops(t *testing.T) {
+	payload := []byte(strings.Repeat("bootagent", 400))
+	var ranges []string
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		header := request.Header.Get("Range")
+		ranges = append(ranges, header)
+		if header == "" {
+			// Announce the whole length, then cut the connection partway to
+			// reproduce a drop rather than a clean short body.
+			writer.Header().Set("Content-Length", strconv.Itoa(len(payload)))
+			writer.WriteHeader(http.StatusOK)
+			_, _ = writer.Write(payload[:1000])
+			if flusher, ok := writer.(http.Flusher); ok {
+				flusher.Flush()
+			}
+			panic(http.ErrAbortHandler)
+		}
+		start, err := strconv.Atoi(strings.TrimSuffix(strings.TrimPrefix(header, "bytes="), "-"))
+		if err != nil || start > len(payload) {
+			writer.WriteHeader(http.StatusRequestedRangeNotSatisfiable)
+			return
+		}
+		writer.Header().Set("Content-Range", fmt.Sprintf("bytes %d-%d/%d", start, len(payload)-1, len(payload)))
+		writer.WriteHeader(http.StatusPartialContent)
+		_, _ = writer.Write(payload[start:])
+	}))
+	defer server.Close()
+
+	client := &http.Client{Transport: &stallGuardTransport{base: http.DefaultTransport, timeout: time.Minute}}
+	response, err := client.Get(server.URL)
+	if err != nil {
+		t.Fatalf("first request failed: %v", err)
+	}
+	defer response.Body.Close()
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		t.Fatalf("interrupted transfer was not resumed: %v", err)
+	}
+	if !bytes.Equal(body, payload) {
+		t.Fatalf("resumed body is %d bytes, want %d identical bytes", len(body), len(payload))
+	}
+	if len(ranges) != 2 || ranges[0] != "" || ranges[1] != "bytes=1000-" {
+		t.Fatalf("requests = %q, want an unranged attempt then a resume from 1000", ranges)
+	}
+}
+
+// A server that ignores Range and replays the body from zero must fail rather
+// than resume: appending a second copy of what was already read would corrupt
+// the artifact, and the digest would only catch it after the whole download.
+func TestUpdateClientRefusesAResumeThatRestartsTheBody(t *testing.T) {
+	payload := []byte(strings.Repeat("x", 2000))
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		if request.Header.Get("Range") == "" {
+			writer.Header().Set("Content-Length", strconv.Itoa(len(payload)))
+			writer.WriteHeader(http.StatusOK)
+			_, _ = writer.Write(payload[:500])
+			if flusher, ok := writer.(http.Flusher); ok {
+				flusher.Flush()
+			}
+			panic(http.ErrAbortHandler)
+		}
+		// 200 to a ranged request: the whole body again, from the start.
+		writer.WriteHeader(http.StatusOK)
+		_, _ = writer.Write(payload)
+	}))
+	defer server.Close()
+
+	client := &http.Client{Transport: &stallGuardTransport{base: http.DefaultTransport, timeout: time.Minute}}
+	response, err := client.Get(server.URL)
+	if err != nil {
+		t.Fatalf("first request failed: %v", err)
+	}
+	defer response.Body.Close()
+	body, err := io.ReadAll(response.Body)
+	if err == nil {
+		t.Fatalf("a restarted body was accepted, yielding %d bytes", len(body))
+	}
+	if !strings.Contains(err.Error(), "206") {
+		t.Fatalf("error = %v, want it to name the missing 206", err)
+	}
+}
+
+// Resumption must not defeat the stall guard. A transfer that delivers a little,
+// resumes, and then goes quiet still has to end -- otherwise the repair would
+// turn a dead transfer into a permanent one.
+func TestUpdateClientStillAbandonsAStalledResume(t *testing.T) {
+	release := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		if request.Header.Get("Range") == "" {
+			writer.Header().Set("Content-Length", "4096")
+			writer.WriteHeader(http.StatusOK)
+			_, _ = writer.Write([]byte("start"))
+			if flusher, ok := writer.(http.Flusher); ok {
+				flusher.Flush()
+			}
+			panic(http.ErrAbortHandler)
+		}
+		writer.Header().Set("Content-Range", "bytes 5-4095/4096")
+		writer.WriteHeader(http.StatusPartialContent)
+		if flusher, ok := writer.(http.Flusher); ok {
+			flusher.Flush()
+		}
+		<-release
+	}))
+	defer func() {
+		close(release)
+		server.Close()
+	}()
+
+	client := &http.Client{Transport: &stallGuardTransport{base: http.DefaultTransport, timeout: 150 * time.Millisecond}}
+	response, err := client.Get(server.URL)
+	if err != nil {
+		t.Fatalf("first request failed: %v", err)
+	}
+	defer response.Body.Close()
+	if _, err := io.ReadAll(response.Body); !errors.Is(err, process.ErrStalled) {
+		t.Fatalf("stalled resume error = %v, want ErrStalled", err)
 	}
 }
 

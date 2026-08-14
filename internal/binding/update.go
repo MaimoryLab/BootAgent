@@ -135,9 +135,26 @@ func (s *UpdateService) Restart(ctx context.Context) error {
 	return nil
 }
 
+// updateError maps an update failure onto the error contract.
+//
+// The three cases are kept apart because the interface says something different
+// about each, and they used to collapse into two. A stall and a cancellation both
+// became Timeout, whose copy names the model provider -- the only other producer
+// of that code -- so a self-update that stopped receiving data was reported as
+// "the connection to the provider timed out", sending the user to settings that
+// have nothing to do with it.
+//
+// What separates a stall from an interruption is whether the transfer was still
+// moving. process.ErrStalled means nothing arrived for the whole stall window,
+// which is the only condition under which a download is genuinely stuck; a
+// dropped connection is resumed rather than reported (see resumingBody), so
+// reaching here with anything else means the repair did not hold.
 func updateError(err error, message string) error {
+	if errors.Is(err, process.ErrStalled) {
+		return oneerrors.New(oneerrors.UpdateStalled, message+" stalled", oneerrors.WithRetryable(true), oneerrors.WithCause(err))
+	}
 	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-		return oneerrors.New(oneerrors.Timeout, message+" was cancelled", oneerrors.WithRetryable(true), oneerrors.WithCause(err))
+		return oneerrors.New(oneerrors.UpdateInterrupted, message+" was cancelled", oneerrors.WithRetryable(true), oneerrors.WithCause(err))
 	}
 	return oneerrors.New(oneerrors.InternalError, message, oneerrors.WithStatus(500), oneerrors.WithRetryable(true), oneerrors.WithCause(err))
 }

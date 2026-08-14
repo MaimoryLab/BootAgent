@@ -99,6 +99,14 @@ export function failureCopyFor(code: string | null | undefined, status: number |
       // Retrying re-downloads the same asset, so the hint has to send the user
       // somewhere else rather than suggest another attempt.
       return { message: t("下载到的更新包无法安装"), hint: t("请到发布页面手动下载新版本安装") };
+    case "UPDATE_STALLED":
+      // Not the TIMEOUT copy, which names the model provider: this is the
+      // self-update, and nothing about the provider configuration affects it.
+      return { message: t("更新下载停滞，长时间没有收到数据"), hint: t("检查网络连接后重试，已下载的部分会被续传") };
+    case "UPDATE_INTERRUPTED":
+      // The hint is the honest half: a retry resumes from where this stopped, so
+      // it is worth trying again even on the link that just failed.
+      return { message: t("更新下载中断"), hint: t("重试即可，已下载的部分会被续传") };
     default:
       return null;
   }
