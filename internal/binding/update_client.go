@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/MaimoryLab/BootAgent/internal/process"
@@ -70,19 +71,39 @@ type resumingBody struct {
 	base    http.RoundTripper
 	request *http.Request
 	url     string
-	body    io.ReadCloser
+
+	// mu guards body and closed, which the stall watchdog touches from its own
+	// goroutine: interrupting a parked read means closing the body while Read is
+	// blocked on it. It is deliberately never held across that read -- doing so
+	// would block the Close the watchdog needs to make, which is the one thing
+	// that unblocks a stalled transfer.
+	mu     sync.Mutex
+	body   io.ReadCloser
+	closed bool
 
 	// offset counts the bytes handed to the caller, which is where a resume has to
 	// pick up. advanced records whether any arrived since the last resume, so a
-	// repair has to be earned by progress rather than retried in a loop.
+	// repair has to be earned by progress rather than retried in a loop. Both are
+	// reached only from Read and the two helpers it calls, so they stay on the
+	// reading goroutine and need no lock.
 	offset   int64
 	advanced bool
-	closed   bool
+}
+
+// current takes the body to read from without holding the lock across the read.
+func (b *resumingBody) current() (io.ReadCloser, bool) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.body, b.closed
 }
 
 func (b *resumingBody) Read(buffer []byte) (int, error) {
 	for {
-		n, err := b.body.Read(buffer)
+		body, closed := b.current()
+		if closed {
+			return 0, io.ErrClosedPipe
+		}
+		n, err := body.Read(buffer)
 		if n > 0 {
 			b.offset += int64(n)
 			b.advanced = true
@@ -113,7 +134,10 @@ func (b *resumingBody) Read(buffer []byte) (int, error) {
 // because the guard above closes the body to unblock a parked read, and resuming
 // would undo exactly the interruption that was asked for.
 func (b *resumingBody) resumable(err error) bool {
-	if b.closed || errors.Is(err, process.ErrStalled) {
+	if _, closed := b.current(); closed {
+		return false
+	}
+	if errors.Is(err, process.ErrStalled) {
 		return false
 	}
 	if b.request.Context().Err() != nil {
@@ -160,13 +184,32 @@ func (b *resumingBody) resume() error {
 		_ = response.Body.Close()
 		return fmt.Errorf("resume returned range from %d, want %d", start, b.offset)
 	}
+	return b.swap(response.Body)
+}
+
+// swap installs the resumed body, or discards it if the transfer was closed
+// while the ranged request was in flight. Without that check a stall or a
+// cancellation landing during a resume would leave the replacement body open and
+// being read from, which is precisely the transfer that was just abandoned.
+func (b *resumingBody) swap(next io.ReadCloser) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if b.closed {
+		_ = next.Close()
+		return errors.New("resume abandoned: body was closed")
+	}
 	_ = b.body.Close()
-	b.body = response.Body
+	b.body = next
 	b.advanced = false
 	return nil
 }
 
 func (b *resumingBody) Close() error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if b.closed {
+		return nil
+	}
 	b.closed = true
 	return b.body.Close()
 }
