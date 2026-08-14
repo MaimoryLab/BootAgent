@@ -475,14 +475,15 @@ func (s *ProfileService) SaveProfile(ctx context.Context, request SaveProfileReq
 		return app.SaveProfileResult{}, notReady("Profile service is not configured")
 	}
 	return s.core.SaveProfile(ctx, app.SaveProfileOptions{
-		ID:         request.ID,
-		Label:      request.Label,
-		Provider:   request.Provider,
-		APIBaseURL: request.APIBaseURL,
-		APIKey:     request.APIKey,
-		Model:      request.Model,
-		ConfigMode: request.ConfigMode,
-		Protocol:   request.Protocol,
+		ID:              request.ID,
+		Label:           request.Label,
+		Provider:        request.Provider,
+		APIBaseURL:      request.APIBaseURL,
+		APIKey:          request.APIKey,
+		Model:           request.Model,
+		ReasoningEffort: request.ReasoningEffort,
+		ConfigMode:      request.ConfigMode,
+		Protocol:        request.Protocol,
 	})
 }
 
@@ -666,14 +667,15 @@ type LaunchResponse struct {
 }
 
 type SaveProfileRequest struct {
-	ID         string `json:"id"`
-	Label      string `json:"label"`
-	Provider   string `json:"provider"`
-	APIBaseURL string `json:"api_base_url"`
-	APIKey     string `json:"api_key"`
-	Model      string `json:"model"`
-	ConfigMode string `json:"config_mode"`
-	Protocol   string `json:"protocol"`
+	ID              string `json:"id"`
+	Label           string `json:"label"`
+	Provider        string `json:"provider"`
+	APIBaseURL      string `json:"api_base_url"`
+	APIKey          string `json:"api_key"`
+	Model           string `json:"model"`
+	ReasoningEffort string `json:"reasoning_effort,omitempty"`
+	ConfigMode      string `json:"config_mode"`
+	Protocol        string `json:"protocol"`
 }
 
 func contextError(ctx context.Context) error {

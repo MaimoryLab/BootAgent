@@ -22,6 +22,7 @@ interface ProfileDraft {
   label: string;
   provider: ProviderId;
   model: string;
+  reasoningEffort: string;
   protocol: string;
   originalId: string;
 }
@@ -53,6 +54,7 @@ function editDraft(profile: ProfileSummary, protocol: string): ProfileDraft {
     label: profile.label,
     provider: profile.provider,
     model: profile.model || "",
+    reasoningEffort: profile.reasoningEffort || "",
     protocol,
     originalId: profile.id,
   };
@@ -119,6 +121,7 @@ export function ProfilesPage() {
       // a model ID. Empty for a custom Provider, whose endpoint we know nothing
       // about, which leaves the field required exactly as before.
       model: providerMeta?.default_model || "",
+      reasoningEffort: "",
       protocol: "",
       originalId: "",
     });
@@ -174,6 +177,7 @@ export function ProfilesPage() {
         apiBaseUrl: "",
         apiKey: "",
         model: editor.model.trim(),
+        reasoningEffort: editor.reasoningEffort,
         configMode: "provider",
         protocol: editor.protocol,
       });
@@ -399,6 +403,31 @@ export function ProfilesPage() {
               inputId="profile-model"
               wide
             />
+            {/* The full Profile vocabulary. Each Agent narrows it when the
+                Profile is applied: DeepSeek Harness dispatches off/high/max,
+                Codex maps every level onto its own enum, aider and
+                OpenCode/Kilo take low/medium/high, and the rest ignore the
+                setting. Unset keeps each model's own default. */}
+            <div className="profile-editor-wide">
+              <div className="field-stack">
+                <label htmlFor="profile-reasoning-effort">{t("思考深度")}</label>
+                <SelectField
+                  id="profile-reasoning-effort"
+                  label={t("思考深度")}
+                  value={editor.reasoningEffort}
+                  onChange={(reasoningEffort) => setEditor({ ...editor, reasoningEffort })}
+                  options={[
+                    { value: "", label: t("未设置（模型默认）") },
+                    { value: "off", label: t("off（关闭）") },
+                    { value: "low", label: t("low（低）") },
+                    { value: "medium", label: t("medium（中）") },
+                    { value: "high", label: t("high（高）") },
+                    { value: "max", label: t("max（最大）") },
+                  ]}
+                />
+                <small>{t("各 Agent 支持的档位不同，应用时不支持的档位会明确报错")}</small>
+              </div>
+            </div>
             {/* The key is the Provider's, so this only reports whether that
                 Provider has one and links to where it is set. */}
             <p className="profile-key-hint profile-editor-wide">

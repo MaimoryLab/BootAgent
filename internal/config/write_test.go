@@ -18,6 +18,49 @@ func testWriter(t *testing.T, home, osID string) Writer {
 	return NewWriter(home, osID, filesystem)
 }
 
+func TestWriteCodexMapsReasoningEffortToCodexEnum(t *testing.T) {
+	home := t.TempDir()
+	path := filepath.Join(home, ".codex", "config.toml")
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	writer := testWriter(t, home, "linux")
+	// Profile "max" → Codex "xhigh"
+	if err := writer.WriteCodex(context.Background(), path, "P", "https://example.test", "k", "m", "max"); err != nil {
+		t.Fatal(err)
+	}
+	text, _ := os.ReadFile(path)
+	if !strings.Contains(string(text), `model_reasoning_effort = "xhigh"`) {
+		t.Fatalf(`Codex "max" should map to "xhigh": %s`, text)
+	}
+	// Profile "off" → Codex "none"
+	if err := writer.WriteCodex(context.Background(), path, "P", "https://example.test", "k", "m", "off"); err != nil {
+		t.Fatal(err)
+	}
+	text, _ = os.ReadFile(path)
+	if !strings.Contains(string(text), `model_reasoning_effort = "none"`) {
+		t.Fatalf(`Codex "off" should map to "none": %s`, text)
+	}
+	// mid-range passes through
+	for _, level := range []string{"low", "medium", "high"} {
+		if err := writer.WriteCodex(context.Background(), path, "P", "https://example.test", "k", "m", level); err != nil {
+			t.Fatal(err)
+		}
+		text, _ = os.ReadFile(path)
+		if !strings.Contains(string(text), `model_reasoning_effort = "`+level+`"`) {
+			t.Fatalf("Codex %q should pass through: %s", level, text)
+		}
+	}
+	// empty clears the key
+	if err := writer.WriteCodex(context.Background(), path, "P", "https://example.test", "k", "m", ""); err != nil {
+		t.Fatal(err)
+	}
+	text, _ = os.ReadFile(path)
+	if strings.Contains(string(text), "model_reasoning_effort") {
+		t.Fatalf("Codex empty effort should clear the key: %s", text)
+	}
+}
+
 func TestWriteCodexPreservesUnmanagedTablesAndRoundTrips(t *testing.T) {
 	home := t.TempDir()
 	path := filepath.Join(home, ".codex", "config.toml")
@@ -28,7 +71,7 @@ func TestWriteCodexPreservesUnmanagedTablesAndRoundTrips(t *testing.T) {
 		t.Fatal(err)
 	}
 	writer := testWriter(t, home, "linux")
-	if err := writer.WriteCodex(context.Background(), path, "PPIO", "https://api.ppio.com/openai", "sk-codex-secret", "model-a"); err != nil {
+	if err := writer.WriteCodex(context.Background(), path, "PPIO", "https://api.ppio.com/openai", "sk-codex-secret", "model-a", ""); err != nil {
 		t.Fatal(err)
 	}
 	// The key belongs in auth.json, not in the config Codex shares with unmanaged
@@ -53,7 +96,7 @@ func TestWriteCodexPreservesUnmanagedTablesAndRoundTrips(t *testing.T) {
 		if err := os.WriteFile(path, []byte(invalid), 0o600); err != nil {
 			t.Fatal(err)
 		}
-		if err := writer.WriteCodex(context.Background(), path, "PPIO", "https://example.com", "sk-codex-secret", "m"); err == nil {
+		if err := writer.WriteCodex(context.Background(), path, "PPIO", "https://example.com", "sk-codex-secret", "m", ""); err == nil {
 			t.Fatalf("invalid Codex config unexpectedly succeeded: %q", invalid)
 		}
 		got, _ := os.ReadFile(path)
@@ -180,6 +223,45 @@ func TestWriteKimiCodeRefusesUnsupportedSyntaxWithoutWriting(t *testing.T) {
 	}
 }
 
+func TestWriteOpenAICompatibleReasoningEffortLandsInModelOptions(t *testing.T) {
+	home := t.TempDir()
+	writer := testWriter(t, home, "linux")
+	path := filepath.Join(home, ".config", "opencode", "opencode.json")
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := writer.WriteOpenAICompatible(context.Background(), path, "schema", "PPIO", "https://api.example/openai", "k", "model-a", "high"); err != nil {
+		t.Fatal(err)
+	}
+	var config map[string]any
+	data, _ := os.ReadFile(path)
+	if err := json.Unmarshal(data, &config); err != nil {
+		t.Fatalf("OpenCode config = %s, %v", data, err)
+	}
+	providers := config["provider"].(map[string]any)
+	bootagent := providers["bootagent"].(map[string]any)
+	models := bootagent["models"].(map[string]any)
+	model := models["model-a"].(map[string]any)
+	options, _ := model["options"].(map[string]any)
+	if options == nil || options["reasoningEffort"] != "high" {
+		t.Fatalf("model options should carry the effort: %s", data)
+	}
+	// An empty effort rebuilds the entry without options.
+	if err := writer.WriteOpenAICompatible(context.Background(), path, "schema", "PPIO", "https://api.example/openai", "k", "model-a", ""); err != nil {
+		t.Fatal(err)
+	}
+	data, _ = os.ReadFile(path)
+	if strings.Contains(string(data), "reasoningEffort") {
+		t.Fatalf("empty effort should clear the model options: %s", data)
+	}
+	// off and max are not on the scale these Agents forward.
+	for _, effort := range []string{"off", "max"} {
+		if err := writer.WriteOpenAICompatible(context.Background(), path, "schema", "PPIO", "https://api.example/openai", "k", "model-a", effort); err == nil || !strings.Contains(err.Error(), "reasoning effort") {
+			t.Fatalf("OpenCode %q expected a scale error, got %v", effort, err)
+		}
+	}
+}
+
 func TestWriteJSONAdaptersPreserveFieldsAndRejectJSONC(t *testing.T) {
 	home := t.TempDir()
 	writer := testWriter(t, home, "linux")
@@ -219,7 +301,7 @@ func TestWriteJSONAdaptersPreserveFieldsAndRejectJSONC(t *testing.T) {
 	if err := os.WriteFile(openPath, []byte(`{"keep":true,"provider":{"other":{"x":1}}}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := writer.WriteOpenAICompatible(context.Background(), openPath, "https://opencode.ai/config.json", "PPIO", "https://api.ppio.com/openai", "sk-opencode-secret", "model-a"); err != nil {
+	if err := writer.WriteOpenAICompatible(context.Background(), openPath, "https://opencode.ai/config.json", "PPIO", "https://api.ppio.com/openai", "sk-opencode-secret", "model-a", ""); err != nil {
 		t.Fatal(err)
 	}
 	var open map[string]any
@@ -251,7 +333,7 @@ func TestWriteJSONAdaptersPreserveFieldsAndRejectJSONC(t *testing.T) {
 	if err := os.WriteFile(openPath, []byte("{\n // keep\n \"theme\": \"dark\"\n}\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := writer.WriteOpenAICompatible(context.Background(), openPath, "schema", "PPIO", "https://api.ppio.com/openai", "k", "m"); err == nil || !strings.Contains(err.Error(), "JSONC comments") {
+	if err := writer.WriteOpenAICompatible(context.Background(), openPath, "schema", "PPIO", "https://api.ppio.com/openai", "k", "m", ""); err == nil || !strings.Contains(err.Error(), "JSONC comments") {
 		t.Fatalf("JSONC write error = %v", err)
 	}
 }
@@ -415,7 +497,7 @@ func TestWriteAiderQuotesSecretsOnUnixAndWindows(t *testing.T) {
 	linuxHome := t.TempDir()
 	linux := testWriter(t, linuxHome, "linux")
 	linuxPath := filepath.Join(linuxHome, ".bootagent", "aider.env")
-	if err := linux.WriteAider(context.Background(), linuxPath, "https://api.example/openai", "key'quoted"); err != nil {
+	if err := linux.WriteAider(context.Background(), linuxPath, "https://api.example/openai", "key'quoted", ""); err != nil {
 		t.Fatal(err)
 	}
 	data, _ := os.ReadFile(linuxPath)
@@ -430,12 +512,48 @@ func TestWriteAiderQuotesSecretsOnUnixAndWindows(t *testing.T) {
 	filesystem := securefs.New(securefs.Options{OS: "windows", Username: "tester", Run: func(context.Context, []string) error { return nil }})
 	windows := NewWriter(windowsHome, "windows", filesystem)
 	windowsPath := filepath.Join(windowsHome, ".bootagent", "aider.env")
-	if err := windows.WriteAider(context.Background(), windowsPath, "https://api.example/openai", "key'quoted"); err != nil {
+	if err := windows.WriteAider(context.Background(), windowsPath, "https://api.example/openai", "key'quoted", ""); err != nil {
 		t.Fatal(err)
 	}
 	data, _ = os.ReadFile(windowsPath)
 	if !strings.Contains(string(data), `'key\'quoted'`) {
 		t.Fatalf("Windows Aider config = %q", data)
+	}
+}
+
+func TestWriteAiderReasoningEffortWritesEnvAndRejectsForeignScale(t *testing.T) {
+	home := t.TempDir()
+	writer := testWriter(t, home, "linux")
+	envPath := filepath.Join(home, ".bootagent", "aider.env")
+	// The OpenAI scale passes through as AIDER_REASONING_EFFORT.
+	for _, level := range []string{"low", "medium", "high"} {
+		if err := writer.WriteAider(context.Background(), envPath, "https://example.test", "k", level); err != nil {
+			t.Fatal(err)
+		}
+		data, _ := os.ReadFile(envPath)
+		if !strings.Contains(string(data), "AIDER_REASONING_EFFORT="+level) {
+			t.Fatalf("aider %q should land in the env file: %s", level, data)
+		}
+	}
+	// An empty effort rebuilds the file without the line.
+	if err := writer.WriteAider(context.Background(), envPath, "https://example.test", "k", ""); err != nil {
+		t.Fatal(err)
+	}
+	data, _ := os.ReadFile(envPath)
+	if strings.Contains(string(data), "AIDER_REASONING_EFFORT") {
+		t.Fatalf("aider empty effort should clear the line: %s", data)
+	}
+	// off and max are not values the OpenAI scale has; aider forwards the string
+	// verbatim, so both must be refused before they can break every request.
+	for _, effort := range []string{"off", "max"} {
+		err := writer.WriteAider(context.Background(), envPath, "https://example.test", "k", effort)
+		if err == nil || !strings.Contains(err.Error(), "reasoning effort") {
+			t.Fatalf("aider %q expected a scale error, got %v", effort, err)
+		}
+		after, _ := os.ReadFile(envPath)
+		if string(after) != string(data) {
+			t.Fatalf("a refused effort must not modify the file: %s", after)
+		}
 	}
 }
 
@@ -890,7 +1008,7 @@ func TestWriteDSHOfficialUsesTheShippedRouteInsteadOfDeclaringOne(t *testing.T) 
 	if err := os.WriteFile(path, []byte(existing), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := testWriter(t, home, "linux").WriteDSHOfficial(context.Background(), path, "sk-deepseek-key", "deepseek-v4-pro"); err != nil {
+	if err := testWriter(t, home, "linux").WriteDSHOfficial(context.Background(), path, "sk-deepseek-key", "deepseek-v4-pro", ""); err != nil {
 		t.Fatal(err)
 	}
 
@@ -958,7 +1076,7 @@ func TestWriteDSHCleansUpAfterWriteDSHOfficial(t *testing.T) {
 		t.Fatal(err)
 	}
 	// First activation: DeepSeek official.
-	if err := testWriter(t, home, "linux").WriteDSHOfficial(context.Background(), path, "sk-deepseek", "deepseek-v4-pro"); err != nil {
+	if err := testWriter(t, home, "linux").WriteDSHOfficial(context.Background(), path, "sk-deepseek", "deepseek-v4-pro", ""); err != nil {
 		t.Fatal(err)
 	}
 	// Second activation: a gateway.
@@ -1012,7 +1130,7 @@ func TestWriteDSHOfficialCleansUpAStaleBootagentRoute(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Second: DeepSeek official.
-	if err := testWriter(t, home, "linux").WriteDSHOfficial(context.Background(), path, "sk-deepseek", "deepseek-v4-flash"); err != nil {
+	if err := testWriter(t, home, "linux").WriteDSHOfficial(context.Background(), path, "sk-deepseek", "deepseek-v4-flash", ""); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1044,3 +1162,68 @@ func TestWriteDSHOfficialCleansUpAStaleBootagentRoute(t *testing.T) {
 	}
 }
 
+// The selection carries the Profile's thinking depth when one is set, and a
+// rewrite without one must drop a previously-written depth -- dsh treats a
+// saved selection as complete, so a leftover effort would keep applying to a
+// model the user may have changed it away from.
+func TestWriteDSHOfficialCarriesReasoningEffort(t *testing.T) {
+	home := t.TempDir()
+	path := filepath.Join(home, ".dsh", "settings.yaml")
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	writer := testWriter(t, home, "linux")
+	readSelection := func() map[string]string {
+		t.Helper()
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var parsed struct {
+			Selection map[string]string `yaml:"agent-default-model"`
+		}
+		if err := yaml.Unmarshal(data, &parsed); err != nil {
+			t.Fatal(err)
+		}
+		return parsed.Selection
+	}
+
+	if err := writer.WriteDSHOfficial(context.Background(), path, "sk-x", "deepseek-v4-pro", "max"); err != nil {
+		t.Fatal(err)
+	}
+	selection := readSelection()
+	if selection["reasoningEffort"] != "max" || selection["provider"] != "deepseek-official" {
+		t.Errorf("selection = %v, want reasoningEffort max on the official route", selection)
+	}
+
+	// A rewrite without an effort removes the one before it.
+	if err := writer.WriteDSHOfficial(context.Background(), path, "sk-x", "deepseek-v4-pro", ""); err != nil {
+		t.Fatal(err)
+	}
+	if selection := readSelection(); selection["reasoningEffort"] != "" {
+		t.Errorf("stale reasoningEffort survived: %v", selection)
+	}
+}
+
+// llm-deepseek dispatches only off, high, and max; anything else -- including
+// levels llm-pi-ai would accept, like "medium" -- fails on the user's first
+// request, so the write refuses it up front and leaves the settings untouched.
+func TestWriteDSHOfficialRejectsAnUnsupportedReasoningEffort(t *testing.T) {
+	home := t.TempDir()
+	path := filepath.Join(home, ".dsh", "settings.yaml")
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	writer := testWriter(t, home, "linux")
+	if err := writer.WriteDSHOfficial(context.Background(), path, "sk-x", "deepseek-v4-pro", "medium"); err == nil {
+		t.Fatal("an effort the shipped route cannot dispatch was accepted")
+	}
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Errorf("a rejected effort still wrote settings: err=%v", err)
+	}
+	for _, valid := range []string{"off", "high", "max"} {
+		if err := ValidateDSHOfficialReasoningEffort(valid); err != nil {
+			t.Errorf("valid effort %q rejected: %v", valid, err)
+		}
+	}
+}

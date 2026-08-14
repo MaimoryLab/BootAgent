@@ -32,21 +32,27 @@ type Profile struct {
 	Provider      string
 	BaseURL       *string
 	Model         *string
-	ConfigMode    string
-	Protocol      string
-	CreatedAt     string
-	ActivatedAt   *string
+	// ReasoningEffort is the thinking depth the Profile carries into Agents whose
+	// adapter can express one (currently dsh against DeepSeek's own service).
+	// Empty means unset: the model's provider/default behavior applies. A plain
+	// string rather than *string because absence and empty mean the same thing.
+	ReasoningEffort string
+	ConfigMode      string
+	Protocol        string
+	CreatedAt       string
+	ActivatedAt     *string
 }
 
 type Summary struct {
-	ID          string
-	Label       string
-	Provider    string
-	BaseURL     *string
-	Model       *string
-	Protocol    string
-	ActivatedAt *string
-	CreatedAt   string
+	ID              string
+	Label           string
+	Provider        string
+	BaseURL         *string
+	Model           *string
+	ReasoningEffort string
+	Protocol        string
+	ActivatedAt     *string
+	CreatedAt       string
 }
 
 type ActiveResult struct {
@@ -57,16 +63,17 @@ type ActiveResult struct {
 }
 
 type storedProfile struct {
-	SchemaVersion int     `json:"schema_version"`
-	ID            string  `json:"id"`
-	Label         string  `json:"label"`
-	Provider      string  `json:"provider"`
-	BaseURL       *string `json:"base_url,omitempty"`
-	Model         *string `json:"model"`
-	ConfigMode    string  `json:"config_mode"`
-	Protocol      string  `json:"protocol,omitempty"`
-	CreatedAt     string  `json:"created_at"`
-	ActivatedAt   *string `json:"activated_at"`
+	SchemaVersion   int     `json:"schema_version"`
+	ID              string  `json:"id"`
+	Label           string  `json:"label"`
+	Provider        string  `json:"provider"`
+	BaseURL         *string `json:"base_url,omitempty"`
+	Model           *string `json:"model"`
+	ReasoningEffort string  `json:"reasoning_effort,omitempty"`
+	ConfigMode      string  `json:"config_mode"`
+	Protocol        string  `json:"protocol,omitempty"`
+	CreatedAt       string  `json:"created_at"`
+	ActivatedAt     *string `json:"activated_at"`
 }
 
 // activePointer is deliberately a struct rather than a map so the persisted
@@ -212,14 +219,15 @@ func (s Store) LoadActiveContext(ctx context.Context) ActiveResult {
 
 func (p Profile) Summary() Summary {
 	return Summary{
-		ID:          p.ID,
-		Label:       valueOr(p.Label, p.ID),
-		Provider:    p.Provider,
-		BaseURL:     nil,
-		Model:       p.Model,
-		Protocol:    p.Protocol,
-		ActivatedAt: p.ActivatedAt,
-		CreatedAt:   p.CreatedAt,
+		ID:              p.ID,
+		Label:           valueOr(p.Label, p.ID),
+		Provider:        p.Provider,
+		BaseURL:         nil,
+		Model:           p.Model,
+		ReasoningEffort: p.ReasoningEffort,
+		Protocol:        p.Protocol,
+		ActivatedAt:     p.ActivatedAt,
+		CreatedAt:       p.CreatedAt,
 	}
 }
 
@@ -255,12 +263,13 @@ func decodeStored(data []byte) (Profile, error) {
 		Provider:      stored.Provider,
 		// Legacy base_url is intentionally ignored. Provider endpoints are resolved
 		// from the referenced Provider at use time.
-		BaseURL:     nil,
-		Model:       stored.Model,
-		ConfigMode:  stored.ConfigMode,
-		Protocol:    stored.Protocol,
-		CreatedAt:   stored.CreatedAt,
-		ActivatedAt: stored.ActivatedAt,
+		BaseURL:         nil,
+		Model:           stored.Model,
+		ReasoningEffort: stored.ReasoningEffort,
+		ConfigMode:      stored.ConfigMode,
+		Protocol:        stored.Protocol,
+		CreatedAt:       stored.CreatedAt,
+		ActivatedAt:     stored.ActivatedAt,
 	}, nil
 }
 

@@ -23,6 +23,7 @@ type SaveRequest struct {
 	// requiring a duplicate key when the Provider already has one.
 	ProviderKeyAvailable bool
 	Model                string
+	ReasoningEffort      string
 	ConfigMode           string
 	Protocol             string
 }
@@ -71,15 +72,16 @@ func (s Store) Save(ctx context.Context, request SaveRequest) (Profile, error) {
 		created = now
 	}
 	stored := storedProfile{
-		SchemaVersion: 2,
-		ID:            request.ID,
-		Label:         label,
-		Provider:      request.Provider,
-		Model:         stringPointer(model),
-		ConfigMode:    mode,
-		Protocol:      strings.TrimSpace(request.Protocol),
-		CreatedAt:     created,
-		ActivatedAt:   existing.ActivatedAt,
+		SchemaVersion:   2,
+		ID:              request.ID,
+		Label:           label,
+		Provider:        request.Provider,
+		Model:           stringPointer(model),
+		ReasoningEffort: strings.TrimSpace(request.ReasoningEffort),
+		ConfigMode:      mode,
+		Protocol:        strings.TrimSpace(request.Protocol),
+		CreatedAt:       created,
+		ActivatedAt:     existing.ActivatedAt,
 	}
 	if err := s.writeStored(ctx, stored); err != nil {
 		return Profile{}, err

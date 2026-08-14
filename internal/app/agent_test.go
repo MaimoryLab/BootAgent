@@ -13,6 +13,7 @@ import (
 	"github.com/MaimoryLab/BootAgent/internal/config"
 	"github.com/MaimoryLab/BootAgent/internal/platform"
 	"github.com/MaimoryLab/BootAgent/internal/provider"
+	"gopkg.in/yaml.v3"
 )
 
 func activationCore(t *testing.T, home string, client *provider.Client, osID string) *UseCases {
@@ -446,3 +447,170 @@ func TestDSHRouteProviderIDReturnsBuiltInIDOnlyWhenUnoverridden(t *testing.T) {
 	}
 }
 
+// The thinking depth travels from the Profile through activation into dsh's
+// own settings, and a Profile edit that only changes the depth still reaches
+// the bound Agent -- the whole point of carrying it on the Profile is that the
+// user adjusts it there and every following Agent picks it up.
+func TestDSHActivationCarriesProfileReasoningEffort(t *testing.T) {
+	home := t.TempDir()
+	core := activationCore(t, home, provider.NewClient(nil), "linux")
+	settingsPath := filepath.Join(home, ".dsh", "settings.yaml")
+	readSelection := func() map[string]string {
+		t.Helper()
+		data, err := os.ReadFile(settingsPath)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var parsed struct {
+			Selection map[string]string `yaml:"agent-default-model"`
+		}
+		if err := yaml.Unmarshal(data, &parsed); err != nil {
+			t.Fatal(err)
+		}
+		return parsed.Selection
+	}
+
+	if _, err := core.SaveProfile(context.Background(), SaveProfileOptions{
+		ID: "think", Provider: "deepseek", Model: "deepseek-v4-pro",
+		APIKey: "sk-think", ReasoningEffort: "max",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := core.ActivateAgent(context.Background(), ActivateAgentOptions{
+		AgentID: "dsh", Provider: "deepseek", ProfileID: "think",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	selection := readSelection()
+	if selection["provider"] != "deepseek-official" || selection["reasoningEffort"] != "max" {
+		t.Fatalf("selection after activation = %v, want official route at max", selection)
+	}
+	binding, err := core.profiles.ReadAgentBinding("dsh")
+	if err != nil || binding == nil || binding.ReasoningEffort != "max" {
+		t.Fatalf("binding = %#v, err=%v, want reasoningEffort max", binding, err)
+	}
+
+	// An effort-only Profile edit must reach the bound Agent's config.
+	result, err := core.SaveProfile(context.Background(), SaveProfileOptions{
+		ID: "think", Provider: "deepseek", Model: "deepseek-v4-pro",
+		ReasoningEffort: "off",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Reapplied) != 1 || result.Reapplied[0] != "dsh" {
+		t.Fatalf("effort-only edit did not reapply: %#v", result)
+	}
+	if selection := readSelection(); selection["reasoningEffort"] != "off" {
+		t.Fatalf("selection after effort edit = %v, want off", selection)
+	}
+
+	// Removing the depth restores the model's own default behavior: the key
+	// leaves the selection and the binding.
+	if _, err := core.SaveProfile(context.Background(), SaveProfileOptions{
+		ID: "think", Provider: "deepseek", Model: "deepseek-v4-pro",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if selection := readSelection(); selection["reasoningEffort"] != "" {
+		t.Fatalf("removed effort survived in the selection: %v", selection)
+	}
+	binding, err = core.profiles.ReadAgentBinding("dsh")
+	if err != nil || binding == nil || binding.ReasoningEffort != "" {
+		t.Fatalf("binding after removal = %#v, err=%v, want empty effort", binding, err)
+	}
+}
+
+// The Profile vocabulary is the union of every adapter's scale, so a level
+// outside it is refused at the edit, while a level only *some* Agent can
+// dispatch (like medium, which dsh cannot) is deferred to that activation.
+func TestSaveProfileRejectsAnUnsupportedReasoningEffort(t *testing.T) {
+	home := t.TempDir()
+	core := activationCore(t, home, provider.NewClient(nil), "linux")
+	_, err := core.SaveProfile(context.Background(), SaveProfileOptions{
+		ID: "bad-effort", Provider: "deepseek", Model: "deepseek-v4-pro",
+		APIKey: "sk-x", ReasoningEffort: "ultra",
+	})
+	if err == nil {
+		t.Fatal("an unsupported reasoning effort was accepted at the Profile edit")
+	}
+	if !strings.Contains(err.Error(), "off, low, medium, high, max") {
+		t.Fatalf("rejection does not name the allowed levels: %v", err)
+	}
+	// medium is now valid at the Profile layer -- Codex and aider dispatch it --
+	// but dsh's official route cannot, so that narrower gate fires at activation.
+	if _, err := core.SaveProfile(context.Background(), SaveProfileOptions{
+		ID: "mid", Provider: "deepseek", Model: "deepseek-v4-pro",
+		APIKey: "sk-x", ReasoningEffort: "medium",
+	}); err != nil {
+		t.Fatalf("medium must be accepted at the Profile edit: %v", err)
+	}
+	_, err = core.ActivateAgent(context.Background(), ActivateAgentOptions{
+		AgentID: "dsh", Provider: "deepseek", ProfileID: "mid",
+	})
+	if err == nil || !strings.Contains(err.Error(), "off, high, max") {
+		t.Fatalf("dsh activation with medium should name its own scale: %v", err)
+	}
+}
+
+// Every adapter with a documented depth field carries the Profile effort into
+// its own config spelling; each is checked through a real activation.
+func TestActivationCarriesReasoningEffortIntoEachAdapter(t *testing.T) {
+	home := t.TempDir()
+	core := activationCore(t, home, provider.NewClient(nil), "linux")
+	activate := func(agentID, effort string) {
+		t.Helper()
+		if _, err := core.ActivateAgent(context.Background(), ActivateAgentOptions{
+			AgentID: agentID, Provider: "ppio", APIKey: "sk-x", Model: "model-a",
+			ReasoningEffort: effort,
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// Codex spells the depth in its own enum: max becomes xhigh, off becomes none.
+	activate("codex", "max")
+	codexConfig, err := os.ReadFile(filepath.Join(home, ".codex", "config.toml"))
+	if err != nil || !strings.Contains(string(codexConfig), `model_reasoning_effort = "xhigh"`) {
+		t.Fatalf("Codex config after max = %q, err=%v", codexConfig, err)
+	}
+	binding, err := core.profiles.ReadAgentBinding("codex")
+	if err != nil || binding == nil || binding.ReasoningEffort != "max" {
+		t.Fatalf("Codex binding records the Profile value, not the mapped one: %#v, err=%v", binding, err)
+	}
+
+	// aider exports the OpenAI scale verbatim.
+	activate("aider", "medium")
+	aiderEnv, err := os.ReadFile(filepath.Join(home, ".bootagent", "aider.env"))
+	if err != nil || !strings.Contains(string(aiderEnv), "AIDER_REASONING_EFFORT=medium") {
+		t.Fatalf("aider env after medium = %q, err=%v", aiderEnv, err)
+	}
+
+	// OpenCode carries it under the model's own options.
+	activate("opencode", "high")
+	openConfig, err := os.ReadFile(filepath.Join(home, ".config", "opencode", "opencode.json"))
+	if err != nil || !strings.Contains(string(openConfig), `"reasoningEffort": "high"`) {
+		t.Fatalf("OpenCode config after high = %q, err=%v", openConfig, err)
+	}
+
+	// An effort aider cannot dispatch fails that activation with its scale, and
+	// leaves the previous config in place.
+	if _, err := core.ActivateAgent(context.Background(), ActivateAgentOptions{
+		AgentID: "aider", Provider: "ppio", APIKey: "sk-x", Model: "model-a",
+		ReasoningEffort: "max",
+	}); err == nil || !strings.Contains(err.Error(), "low, medium, high") {
+		t.Fatalf("aider with max should name its scale: %v", err)
+	}
+	after, err := os.ReadFile(filepath.Join(home, ".bootagent", "aider.env"))
+	if err != nil || string(after) != string(aiderEnv) {
+		t.Fatalf("a refused aider activation modified the file: %q, err=%v", after, err)
+	}
+
+	// Claude Code has no depth field to write, so the effort is dropped rather
+	// than refused: the activation succeeds and the config stays effort-free.
+	activate("claude-code", "high")
+	claudeConfig, err := os.ReadFile(filepath.Join(home, ".claude", "settings.json"))
+	if err != nil || strings.Contains(strings.ToLower(string(claudeConfig)), "reasoning") || strings.Contains(string(claudeConfig), "THINKING") {
+		t.Fatalf("Claude Code config should carry no depth: %q, err=%v", claudeConfig, err)
+	}
+}

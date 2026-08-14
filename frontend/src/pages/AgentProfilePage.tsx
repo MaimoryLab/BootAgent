@@ -6,6 +6,7 @@ import { api, describeFailure } from "../backend/api";
 import { PageScaffold } from "../components/PageScaffold";
 import { ProviderModelPicker } from "../components/ProviderModelPicker";
 import { ProviderSegment } from "../components/ProviderSegment";
+import { SelectField } from "../components/SelectField";
 import { useI18n } from "../i18n";
 import { desktopApps, desktopProfileUsable, desktopProfiles, desktopProtocol, profileAgentIdForDesktop } from "../state/desktopSetup";
 import { byProfileCreatedAt, byProviderCreatedAt, preferProviderWithKey } from "../state/ranking";
@@ -17,6 +18,7 @@ interface ProfileDraft {
   label: string;
   provider: ProviderId;
   model: string;
+  reasoningEffort: string;
   originalId: string;
 }
 
@@ -26,6 +28,7 @@ function draftFrom(profile: ProfileSummary): ProfileDraft {
     label: profile.label,
     provider: profile.provider,
     model: profile.model || "",
+    reasoningEffort: profile.reasoningEffort || "",
     originalId: profile.id,
   };
 }
@@ -104,6 +107,7 @@ export function AgentProfilePage() {
       label: t("{name} 配置模版", { name: targetName }),
       provider,
       model: current?.model || currentAgent?.model || "",
+      reasoningEffort: "",
       originalId: "",
     });
   };
@@ -127,6 +131,7 @@ export function AgentProfilePage() {
         apiBaseUrl: "",
         apiKey: "",
         model: draft.model.trim(),
+        reasoningEffort: draft.reasoningEffort,
         configMode: "provider",
         protocol: app ? desktopProtocol(app) : catalog?.protocol || "",
       });
@@ -226,6 +231,27 @@ export function AgentProfilePage() {
               inputId="agent-profile-model"
               wide
             />
+            {/* The full Profile vocabulary; the Agent this page configures
+                narrows it when the config is written. Unset keeps the model's
+                own default. */}
+            <div className="field-stack">
+              <label htmlFor="agent-profile-reasoning-effort">{t("思考深度")}</label>
+              <SelectField
+                id="agent-profile-reasoning-effort"
+                label={t("思考深度")}
+                value={draft.reasoningEffort}
+                onChange={(reasoningEffort) => setDraft({ ...draft, reasoningEffort })}
+                options={[
+                  { value: "", label: t("未设置（模型默认）") },
+                  { value: "off", label: t("off（关闭）") },
+                  { value: "low", label: t("low（低）") },
+                  { value: "medium", label: t("medium（中）") },
+                  { value: "high", label: t("high（高）") },
+                  { value: "max", label: t("max（最大）") },
+                ]}
+              />
+              <small>{t("各 Agent 支持的档位不同，应用时不支持的档位会明确报错")}</small>
+            </div>
           </div>
           <p className="profile-key-hint">
             {status.providers[draft.provider]?.has_key

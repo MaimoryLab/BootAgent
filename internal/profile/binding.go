@@ -14,21 +14,23 @@ import (
 )
 
 type AgentBinding struct {
-	SchemaVersion int    `json:"schema_version"`
-	AgentID       string `json:"agent_id"`
-	Provider      string `json:"provider"`
-	BaseURL       string `json:"base_url"`
-	Model         string `json:"model"`
-	ProfileRef    string `json:"profile_ref"`
-	CreatedAt     string `json:"created_at"`
-	UpdatedAt     string `json:"updated_at"`
+	SchemaVersion   int    `json:"schema_version"`
+	AgentID         string `json:"agent_id"`
+	Provider        string `json:"provider"`
+	BaseURL         string `json:"base_url"`
+	Model           string `json:"model"`
+	ReasoningEffort string `json:"reasoning_effort,omitempty"`
+	ProfileRef      string `json:"profile_ref"`
+	CreatedAt       string `json:"created_at"`
+	UpdatedAt       string `json:"updated_at"`
 }
 
 type BindingWriteRequest struct {
-	Provider   string
-	BaseURL    string
-	Model      string
-	ProfileRef string
+	Provider        string
+	BaseURL         string
+	Model           string
+	ReasoningEffort string
+	ProfileRef      string
 }
 
 func (s Store) AgentsPath() string {
@@ -126,15 +128,20 @@ func (s Store) WriteAgentBinding(ctx context.Context, agentID string, request Bi
 			created = existing.CreatedAt
 		}
 	}
+	// ReasoningEffort deliberately gets no such fallback: the caller passes what
+	// this activation actually wrote, and an empty value means the config now
+	// carries none -- preserving the previous one would resurrect a depth the
+	// user just removed on the next reapply.
 	stored := AgentBinding{
-		SchemaVersion: 1,
-		AgentID:       agentID,
-		Provider:      request.Provider,
-		BaseURL:       request.BaseURL,
-		Model:         request.Model,
-		ProfileRef:    profileRef,
-		CreatedAt:     created,
-		UpdatedAt:     now,
+		SchemaVersion:   1,
+		AgentID:         agentID,
+		Provider:        request.Provider,
+		BaseURL:         request.BaseURL,
+		Model:           request.Model,
+		ReasoningEffort: strings.TrimSpace(request.ReasoningEffort),
+		ProfileRef:      profileRef,
+		CreatedAt:       created,
+		UpdatedAt:       now,
 	}
 	data, err := json.MarshalIndent(stored, "", "  ")
 	if err != nil {
