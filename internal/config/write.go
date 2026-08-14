@@ -31,6 +31,18 @@ type Writer struct {
 // Kimi Code's config. Everything else under providers/models is the user's.
 const kimiOwnedName = "bootagent"
 
+const (
+	// dshOwnedRoute is the llm-pi-ai provider route BootAgent owns in DeepSeek
+	// Harness's settings. Every other route under providers is the user's, whether
+	// they declared it by hand or through dsh's Models page.
+	dshOwnedRoute = "bootagent"
+	// dshCredentialReference is the credential this route resolves its key
+	// through. In BootAgent's own namespace rather than DEEPSEEK_API_KEY so
+	// storing it cannot disturb the credential dsh's Models page manages for the
+	// shipped DeepSeek route.
+	dshCredentialReference = "BOOTAGENT_API_KEY"
+)
+
 func NewWriter(home, osID string, filesystem securefs.Store) Writer {
 	return Writer{Home: home, OS: osID, FS: filesystem}
 }
@@ -329,6 +341,115 @@ func (w Writer) WriteOpenClaw(ctx context.Context, path, providerName, baseURL, 
 	return w.writeJSON(ctx, path, document, true)
 }
 
+// WriteDSH points DeepSeek Harness at the Provider through a hand-declared
+// pi-ai route in $DSH_HOME/settings.yaml, with the credential in
+// $DSH_HOME/.credentials.yaml.
+//
+// Those two files rather than $DSH_HOME/.env, which dsh also reads: .env is the
+// *lowest* of four credential layers, and the managed .credentials.yaml document
+// outranks it. dsh's own Models page writes that document, so a key BootAgent
+// left in .env is shadowed the moment the user stores one there -- silently, and
+// permanently. The endpoint loses the same way: llm-deepseek reads
+// $DEEPSEEK_BASE_URL only when no `llm-deepseek:` settings section overrides it,
+// and that section is what the same page writes.
+//
+// Not an override of the shipped deepseek-official route, for the same reason:
+// that route is branded DeepSeek and advertises DeepSeek's model ids, so
+// repointing it at an arbitrary gateway would misrepresent both the provider and
+// the models. A separate route carries the Provider's own name instead. dsh
+// mounts llm-pi-ai dormant precisely so a settings section can register routes
+// into it, and picks them up without a restart.
+//
+// The models list is seeded with the resolved model as the route's only entry: a
+// hand-declared route has no installed catalog to inherit, so an absent list
+// would advertise nothing and leave the picker empty. The user can add more from
+// dsh's Models page, which writes this same section.
+//
+// The agent-default-model selection is repointed at the route too, because
+// registering one only makes it available -- dsh resolves every new Agent from
+// that selection, and the user can still change it from the same page.
+//
+// The endpoint goes in with OpenAIBaseURL's /v1 rather than bare, because the
+// adapter appends only the operation path to whatever it is given.
+func (w Writer) WriteDSH(ctx context.Context, path, providerName, baseURL, apiKey, model string) error {
+	// The credential lands first: a route pointing at a provider dsh cannot
+	// authenticate is worse than an unreferenced key.
+	if err := w.writeDSHCredential(ctx, filepath.Join(filepath.Dir(path), ".credentials.yaml"), apiKey); err != nil {
+		return err
+	}
+	root, err := yamlDocument(path, "DeepSeek Harness settings")
+	if err != nil {
+		return err
+	}
+	adapter, err := yamlMapping(root.Content[0], "llm-pi-ai")
+	if err != nil {
+		return configError("Existing llm-pi-ai settings must contain an object: %s", path)
+	}
+	providers, err := yamlMapping(adapter, "providers")
+	if err != nil {
+		return configError("Existing llm-pi-ai providers must contain an object: %s", path)
+	}
+	route := &yaml.Node{Kind: yaml.MappingNode}
+	for _, item := range []struct{ key, value string }{
+		{"displayName", providerName},
+		{"apiKeyEnv", dshCredentialReference},
+		{"api", "openai-completions"},
+		{"baseURL", provider.OpenAIBaseURL(baseURL)},
+	} {
+		yamlSet(route, item.key, item.value)
+	}
+	entry := &yaml.Node{Kind: yaml.MappingNode}
+	yamlSet(entry, "id", model)
+	route.Content = append(route.Content,
+		&yaml.Node{Kind: yaml.ScalarNode, Value: "models"},
+		&yaml.Node{Kind: yaml.SequenceNode, Content: []*yaml.Node{entry}},
+	)
+	// Replaced wholesale rather than merged field by field: a stale key from an
+	// earlier activation surviving inside our own route would outlive the write
+	// that was supposed to redefine it. Every other route stays untouched.
+	yamlReplace(providers, dshOwnedRoute, route)
+
+	// Registering the route only makes it *available*. dsh creates every Agent
+	// against the agent-default-model selection, so leaving that pointed at the
+	// shipped deepseek-official route would mean activation changed nothing the
+	// user can observe -- the same "configured but not in effect" failure as
+	// writing the endpoint into a layer something else overrides.
+	//
+	// Replaced wholesale rather than merged, and reasoningEffort deliberately
+	// dropped: dsh treats a saved selection as complete, and an effort left over
+	// from a DeepSeek model is not one the seeded model declares.
+	selection := &yaml.Node{Kind: yaml.MappingNode}
+	yamlSet(selection, "provider", dshOwnedRoute)
+	yamlSet(selection, "model", model)
+	yamlReplace(root.Content[0], "agent-default-model", selection)
+
+	data, err := yaml.Marshal(root)
+	if err != nil {
+		return configError("Cannot encode YAML configuration %s: %v", path, err)
+	}
+	return w.write(ctx, path, data, false)
+}
+
+// writeDSHCredential merges the key into the managed credential document,
+// keeping every other credential the user stored from dsh's Models page.
+//
+// The document is a strict credential-to-value mapping: dsh rejects a non-string
+// value, an empty string, or a key that is not a POSIX identifier, and fails loud
+// rather than skipping the entry. So this writes one identifier and nothing else
+// -- no wrapper level, no version field.
+func (w Writer) writeDSHCredential(ctx context.Context, path, apiKey string) error {
+	root, err := yamlDocument(path, "DeepSeek Harness credentials")
+	if err != nil {
+		return err
+	}
+	yamlSet(root.Content[0], dshCredentialReference, apiKey)
+	data, err := yaml.Marshal(root)
+	if err != nil {
+		return configError("Cannot encode YAML credentials %s: %v", path, err)
+	}
+	return w.write(ctx, path, data, true)
+}
+
 func (w Writer) WriteAider(ctx context.Context, path, baseURL, apiKey string) error {
 	base := provider.OpenAIBaseURL(baseURL)
 	content := "OPENAI_API_BASE=" + dotenvQuote(base) + "\n" +
@@ -384,18 +505,9 @@ func (w Writer) WriteKimiCode(ctx context.Context, path, baseURL, apiKey, model 
 }
 
 func (w Writer) WriteHermes(ctx context.Context, path, baseURL, apiKey, model string) error {
-	text, err := readText(path)
+	root, err := yamlDocument(path, "YAML configuration")
 	if err != nil {
-		return configError("Cannot read existing YAML configuration %s: %v", path, err)
-	}
-	root := &yaml.Node{}
-	if strings.TrimSpace(text) == "" {
-		root = &yaml.Node{Kind: yaml.DocumentNode, Content: []*yaml.Node{{Kind: yaml.MappingNode}}}
-	} else if err := yaml.Unmarshal([]byte(text), root); err != nil {
-		return configError("Existing YAML configuration is invalid: %s: %v", path, err)
-	}
-	if len(root.Content) != 1 || root.Content[0].Kind != yaml.MappingNode {
-		return configError("Existing YAML configuration must contain an object: %s", path)
+		return err
 	}
 	modelConfig, err := yamlMapping(root.Content[0], "model")
 	if err != nil {
@@ -443,6 +555,42 @@ func yamlSet(parent *yaml.Node, key, value string) {
 		&yaml.Node{Kind: yaml.ScalarNode, Value: key},
 		&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: value},
 	)
+}
+
+// yamlReplace overwrites one key's whole value node, appending it when absent.
+// Distinct from yamlSet, which carries a scalar: this one hands over a subtree
+// BootAgent owns outright, so nothing of the previous value is kept.
+func yamlReplace(parent *yaml.Node, key string, value *yaml.Node) {
+	for index := 0; index < len(parent.Content); index += 2 {
+		if parent.Content[index].Value == key {
+			parent.Content[index+1] = value
+			return
+		}
+	}
+	parent.Content = append(parent.Content, &yaml.Node{Kind: yaml.ScalarNode, Value: key}, value)
+}
+
+// yamlDocument parses a YAML file into a node tree, so comments, key order, and
+// the formatting of everything BootAgent does not touch survive the rewrite. An
+// absent or blank file starts an empty mapping rather than failing: the caller is
+// about to write the first entry either way. The label names the document in the
+// error a user would see.
+func yamlDocument(path, label string) (*yaml.Node, error) {
+	text, err := readText(path)
+	if err != nil {
+		return nil, configError("Cannot read existing %s %s: %v", label, path, err)
+	}
+	if strings.TrimSpace(text) == "" {
+		return &yaml.Node{Kind: yaml.DocumentNode, Content: []*yaml.Node{{Kind: yaml.MappingNode}}}, nil
+	}
+	root := &yaml.Node{}
+	if err := yaml.Unmarshal([]byte(text), root); err != nil {
+		return nil, configError("Existing %s is invalid: %s: %v", label, path, err)
+	}
+	if len(root.Content) != 1 || root.Content[0].Kind != yaml.MappingNode {
+		return nil, configError("Existing %s must contain an object: %s", label, path)
+	}
+	return root, nil
 }
 
 func (w Writer) write(ctx context.Context, path string, data []byte, secret bool) error {

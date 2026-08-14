@@ -30,6 +30,19 @@
       "ecosystem": "asset",
       "license": "MIT",
       "license_files": [
+        "licenses/assets/dsh/LICENSE"
+      ],
+      "modification": "",
+      "name": "dsh",
+      "platforms": [
+        "frontend"
+      ],
+      "version": "8f9443e351b6dacce71871790201b799d92e8bf96a45ef79aeb5e9bf4db423e2"
+    },
+    {
+      "ecosystem": "asset",
+      "license": "MIT",
+      "license_files": [
         "licenses/assets/hermes/LICENSE"
       ],
       "modification": "",

@@ -3,6 +3,7 @@ import { useLocation } from "react-router-dom";
 
 import { type TranslationKey, useI18n } from "../i18n";
 import { useWizard } from "../state/WizardContext";
+import { wizardNeedsModel } from "../state/wizardReducer";
 
 // Single source of truth for the onboarding sequence: order and labels. Pages
 // no longer pass step numbers; the current step is derived from the route.
@@ -20,13 +21,19 @@ export function SetupStepper() {
   const { pathname } = useLocation();
   const { state } = useWizard();
   const current = steps.findIndex((step) => step.path === pathname) + 1;
+  const needsModel = wizardNeedsModel(state);
 
   return (
     <ol className="setup-stepper" aria-label={t("激活步骤")}>
       {steps.map((step, index) => {
         const number = index + 1;
         const skipped = (state.profileStepSkipped && step.path === "/setup/profile")
-          || (state.reusedProfile && (step.path === "/setup/provider" || step.path === "/setup/model"));
+          || (state.reusedProfile && (step.path === "/setup/provider" || step.path === "/setup/model"))
+          // The Agent owns its model, so there is nothing for this step to ask.
+          // Shown struck through rather than removed: the sequence stays the same
+          // length whichever Agent is being installed, so the step numbers in the
+          // guide and in a support conversation still line up.
+          || (!needsModel && step.path === "/setup/model");
         const complete = number < current && !skipped;
         const active = number === current;
         return (

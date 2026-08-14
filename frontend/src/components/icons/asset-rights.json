@@ -58,6 +58,14 @@
       "sha256": "9eac78bcfa8e106ed3267293235281743e161b5accf2ff5c676700b64cfcdbbc",
       "modified": true,
       "modificationNote": "Recoloured to a single currentColor glyph for theme adaptation: the linearGradient (#ff4d4d to #991b1b), the antenna stroke colour and the cyan eye highlights were removed, and the eyes became a mask cut-out. Geometry is unchanged. Not an official OpenClaw mark; drawn by the cc-switch project."
+    },
+    "dsh": {
+      "file": "assets/deepseek.svg",
+      "source": "https://github.com/lobehub/lobe-icons/blob/master/packages/static-svg/icons/deepseek.svg",
+      "license": "MIT",
+      "licenseSource": "licenses/lobehub/LICENSE",
+      "copyrightOwner": "LobeHub contributors",
+      "sha256": "8f9443e351b6dacce71871790201b799d92e8bf96a45ef79aeb5e9bf4db423e2"
     }
   },
   "firstPartyAssets": {

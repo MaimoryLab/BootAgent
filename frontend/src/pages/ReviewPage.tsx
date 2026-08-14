@@ -7,11 +7,13 @@ import { ReviewGroup, ReviewRow } from "../components/ReviewGroup";
 import { useI18n } from "../i18n";
 import { profileAgentIdForDesktop, selectedDesktopApp } from "../state/desktopSetup";
 import { useWizard } from "../state/WizardContext";
+import { wizardNeedsModel } from "../state/wizardReducer";
 
 export function ReviewPage() {
   const navigate = useNavigate();
   const { t } = useI18n();
   const { state, dispatch } = useWizard();
+  const needsModel = wizardNeedsModel(state);
 
   const selectedCatalog = useMemo(
     () => state.selectedAgentIds.flatMap((id) => state.status?.catalog.find((agent) => agent.id === id) ?? []),
@@ -52,7 +54,7 @@ export function ReviewPage() {
       title={t("确认激活")}
       description={t("核对安装、配置和备份范围。API Key 不会显示在此页")}
       stepper
-      onBack={() => navigate(state.profileId ? "/setup/profile" : "/setup/model")}
+      onBack={() => navigate(state.profileId ? "/setup/profile" : needsModel ? "/setup/model" : "/setup/provider")}
       primaryLabel={t("开始安装")}
       onPrimary={startActivation}
       footerNote={<span className="secure-note"><ShieldCheck size={15} />{t("覆盖前会自动创建时间戳备份")}</span>}
@@ -72,7 +74,11 @@ export function ReviewPage() {
 
         <ReviewGroup title={t("模型服务")}>
           <ReviewRow label={t("模型服务")} value={providerName} />
-          <ReviewRow label={t("模型")} value={state.model} />
+          {needsModel
+            ? <ReviewRow label={t("模型")} value={state.model} />
+            // Stated rather than omitted: a missing row reads as something the
+            // wizard forgot to collect, and the user would go looking for it.
+            : <ReviewRow label={t("模型")} value={t("由 Agent 自行选择")} />}
           <ReviewRow label="Base URL" value={state.status?.providers[state.provider]?.base_url || ""} />
         </ReviewGroup>
 

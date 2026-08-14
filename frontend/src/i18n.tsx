@@ -318,6 +318,7 @@ const english = {
   "连接模型服务": "Connect a model provider",
   "Key 不会进入日志、URL 或前端持久化状态": "The key is never written to logs, URLs, or persistent frontend state",
   "继续选择模型": "Continue to model selection",
+  "继续确认": "Continue to review",
   // The button opens the Provider's key management page, which needs an account
   // the user may not have yet. "Register and get a key" promised the sign-up
   // flow; this wording covers both arriving signed in and having to sign up.
@@ -337,6 +338,7 @@ const english = {
   "未测试连接也可以应用，配置文件会先备份": "You can apply without testing. The configuration file is backed up first",
   "连接测试通过后才能继续选择模型": "Pass the connection test before selecting a model",
   "连接测试是可选的，可以直接继续选择模型": "Connection testing is optional; you can continue to select a model directly",
+  "连接测试是可选的，可以直接继续": "Connection testing is optional; you can continue directly",
   "无法获取模型列表": "Could not load the model list",
   "找到 {count} 个模型": "Found {count} models",
   "选择模型": "Select a model",
@@ -541,6 +543,8 @@ const english = {
   "可扩展的多渠道智能代理": "Extensible multi-channel agent",
   "把聊天工具接到编码代理的自建网关": "Self-hosted gateway bridging chat apps to coding agents",
   "月之暗面的终端编码代理": "Moonshot AI's terminal coding agent",
+  "DeepSeek 的插件式本地 Web 代理": "DeepSeek's plugin-based local web agent",
+  "由 Agent 自行选择": "Chosen by the Agent",
   "AI 编辑器，按官方方式安装": "AI editor installed through the official channel",
   "多渠道 AI 网关，常驻运行": "Persistent multi-channel AI gateway",
   "自我成长型 Agent 框架": "Self-improving agent framework",

@@ -6,6 +6,14 @@ export interface CatalogItem {
     "name": string;
     "group": string;
     "configMode": string;
+
+    /**
+     * SelectsModel is false when the Agent owns its own model choice, so the
+     * wizard can skip that step. Derived from Agent.ModelSelection rather than
+     * exposed raw: the UI needs the decision, not the vocabulary, and a bool it
+     * cannot misread beats a string it can compare against the wrong literal.
+     */
+    "selectsModel": boolean;
     "guideOnly": boolean;
     "lockedVersion": string | null;
     "protocol": string | null;

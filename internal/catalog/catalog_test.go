@@ -28,8 +28,8 @@ func TestEmbeddedManifestMatchesCurrentCatalogContract(t *testing.T) {
 	// entries as a side effect of an unrelated commit and nothing failed, while
 	// the README went on describing them. Changing this number is fine; changing
 	// it without noticing is what this prevents.
-	if automatic != 8 {
-		t.Fatalf("automatic Agent count = %d, want 8", automatic)
+	if automatic != 9 {
+		t.Fatalf("automatic Agent count = %d, want 9", automatic)
 	}
 	items := PublicCatalog(manifest, "windows")
 	if len(items) != len(manifest.Agents) {

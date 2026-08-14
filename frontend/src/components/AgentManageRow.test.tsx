@@ -28,7 +28,7 @@ const catalogAgent: AgentCatalogItem = {
   name: "Codex",
   group: "auto",
   configMode: "auto",
-  guideOnly: false,
+  selectsModel: true, guideOnly: false,
   lockedVersion: "0.145.0",
   protocol: "responses",
   platforms: ["macos", "linux", "windows"],

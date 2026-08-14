@@ -11,6 +11,7 @@ import { SecureKeyField } from "../components/SecureKeyField";
 import { useI18n } from "../i18n";
 import { desktopProtocol, profileAgentIdForDesktop, selectedDesktopApp } from "../state/desktopSetup";
 import { useWizard } from "../state/WizardContext";
+import { wizardNeedsModel } from "../state/wizardReducer";
 import type { ProtocolId, ProviderId } from "../types/api";
 import { PROTOCOL_LABELS } from "../types/api";
 
@@ -58,13 +59,19 @@ export function ProviderKeyPage() {
     dispatch({ type: "SET_PROVIDER", value: provider });
   };
 
+  // Where the provider step hands off: the model step, unless every selected
+  // Agent owns its own model choice, in which case there is nothing to ask and
+  // the wizard goes straight to confirm.
+  const needsModel = wizardNeedsModel(state);
+  const afterProvider = needsModel ? "/setup/model" : "/setup/review";
+
   const continueSetup = async () => {
     // Only when there is nothing to save. Returning early on providerHasKey alone
     // discarded a key typed in this session -- the field is rendered when no key
     // is saved yet, so a save that lands mid-visit (a probe, another tab) turned
     // the user's input into a silent no-op.
     if (providerHasKey && !secret.keyRef.current) {
-      navigate("/setup/model");
+      navigate(afterProvider);
       return;
     }
     if (!providerMeta || !builtInProvider || !secret.keyRef.current) return;
@@ -82,7 +89,7 @@ export function ProviderKeyPage() {
       });
       secret.clearApiKey();
       await refreshStatus();
-      navigate("/setup/model");
+      navigate(afterProvider);
     } catch (error) {
       setSaveFailure(describeFailure(error, t("无法保存模型服务"), t).message);
     } finally {
@@ -126,7 +133,9 @@ export function ProviderKeyPage() {
       description={t("将使用模型服务已保存的 Key")}
       stepper
       onBack={() => navigate("/setup/agents")}
-      primaryLabel={t("继续选择模型")}
+      // The next step is the model unless the Agent owns that choice, in which
+      // case the label would be promising a screen the wizard is about to skip.
+      primaryLabel={needsModel ? t("继续选择模型") : t("继续确认")}
       onPrimary={() => void continueSetup()}
       primaryDisabled={!canContinue || state.connectionState === "loading"}
       primaryBusy={savingKey}
@@ -191,7 +200,7 @@ export function ProviderKeyPage() {
           <ConnectionStatus state={state.connectionState} result={state.connection} />
         </div>
         {providerHasKey && state.connectionState === "idle" && (
-          <small>{t("连接测试是可选的，可以直接继续选择模型")}</small>
+          <small>{needsModel ? t("连接测试是可选的，可以直接继续选择模型") : t("连接测试是可选的，可以直接继续")}</small>
         )}
       </div>
     </PageScaffold>

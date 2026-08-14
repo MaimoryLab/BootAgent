@@ -19,7 +19,7 @@ const status = {
   runtimes: [],
   capabilities: { canInstall: {}, missingRuntime: {}, supportedAgentIds: [] },
   agents: { codex: { installed: false, guideOnly: false } },
-  catalog: [{ id: "codex", name: "Codex", group: "auto", configMode: "auto", guideOnly: false, platforms: ["macos"] }],
+  catalog: [{ id: "codex", name: "Codex", group: "auto", configMode: "auto", selectsModel: true, guideOnly: false, platforms: ["macos"] }],
   groups: [],
   providers: { ppio: { name: "PPIO", base_url: "https://api.ppinfra.com/openai", has_key: true } },
   mirrors: [],
@@ -92,4 +92,17 @@ describe("ReviewPage", () => {
     renderPage();
     expect(document.body.innerHTML).not.toMatch(/sk-|api_key/);
   });
+});
+
+// An Agent that owns its own model choice reaches this page with state.model
+// empty. The row has to say so rather than disappear: a missing row reads as
+// something the wizard forgot to ask, and the user goes looking for it.
+it("says the model is the Agent's to choose when the step was skipped", () => {
+  const dshStatus = {
+    ...status,
+    catalog: [{ id: "dsh", name: "DeepSeek Harness", group: "auto", configMode: "auto", selectsModel: false, guideOnly: false, platforms: ["macos"] }],
+    paths: { dsh_config: "~/.dsh/.env", profile: "~/.bootagent/profile.json" },
+  } as unknown as StatusResponse;
+  renderPage({ status: dshStatus, selectedAgentIds: ["dsh"], model: "" });
+  expect(screen.getByText("由 Agent 自行选择")).toBeTruthy();
 });

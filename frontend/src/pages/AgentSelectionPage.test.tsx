@@ -21,12 +21,12 @@ let mockState: {
 
 /** The real ranks, so a regression in ordering shows up as the real symptom. */
 const CATALOG: AgentCatalogItem[] = [
-  { rank: 1, id: "codex", name: "Codex", group: "auto", configMode: "auto", guideOnly: false },
-  { rank: 2, id: "claude-code", name: "Claude Code", group: "auto", configMode: "auto", guideOnly: false },
-  { rank: 3, id: "opencode", name: "OpenCode", group: "auto", configMode: "auto", guideOnly: false },
-  { rank: 4, id: "kilo-cli", name: "Kilo CLI", group: "auto", configMode: "auto", guideOnly: false },
-  { rank: 5, id: "aider", name: "Aider", group: "auto", configMode: "auto", guideOnly: false },
-  { rank: 6, id: "openclaw", name: "OpenClaw", group: "auto", configMode: "auto", guideOnly: false },
+  { rank: 1, id: "codex", name: "Codex", group: "auto", configMode: "auto", selectsModel: true, guideOnly: false },
+  { rank: 2, id: "claude-code", name: "Claude Code", group: "auto", configMode: "auto", selectsModel: true, guideOnly: false },
+  { rank: 3, id: "opencode", name: "OpenCode", group: "auto", configMode: "auto", selectsModel: true, guideOnly: false },
+  { rank: 4, id: "kilo-cli", name: "Kilo CLI", group: "auto", configMode: "auto", selectsModel: true, guideOnly: false },
+  { rank: 5, id: "aider", name: "Aider", group: "auto", configMode: "auto", selectsModel: true, guideOnly: false },
+  { rank: 6, id: "openclaw", name: "OpenClaw", group: "auto", configMode: "auto", selectsModel: true, guideOnly: false },
 ].map((item) => ({
   ...item,
   group: item.group as AgentCatalogItem["group"],
@@ -63,7 +63,7 @@ function renderPage({ desktop = false }: { desktop?: boolean } = {}) {
           {
             installed: false,
             configured: false,
-            guideOnly: item.guideOnly,
+            selectsModel: true, guideOnly: item.guideOnly,
             config: "/c",
             version: null,
             lockedVersion: item.lockedVersion,

@@ -8,13 +8,28 @@ const (
 	ProtocolResponses = "responses"
 )
 
+// ModelSelectionAgent marks an Agent that owns its own model choice.
+const ModelSelectionAgent = "agent"
+
+// AgentSelectsModel reports whether BootAgent's wizard should collect a model for
+// this Agent. Everything except an explicit "agent" does, so an entry that says
+// nothing keeps the behaviour every Agent had before the field existed.
+func AgentSelectsModel(agent Agent) bool {
+	return agent.ModelSelection != ModelSelectionAgent
+}
+
 var adapterProtocols = map[string]string{
 	"codex":       ProtocolResponses,
 	"claude-code": ProtocolAnthropic,
 	"opencode":    ProtocolOpenAI,
 	"kilo-cli":    ProtocolOpenAI,
 	"aider":       ProtocolOpenAI,
-	"hermes":      ProtocolOpenAI,
+	// DeepSeek Harness's llm-deepseek plugin speaks the DeepSeek API, which is
+	// OpenAI-compatible on the chat-completions path this uses. Its generic
+	// pi-ai route would take an arbitrary endpoint, but that needs a settings
+	// document rather than the environment layer this adapter writes.
+	"dsh":    ProtocolOpenAI,
+	"hermes": ProtocolOpenAI,
 	// Kimi Code's own `openai` provider type, not its `kimi` type: `kimi` is
 	// Moonshot's first-party endpoint, while a BootAgent Provider is an arbitrary
 	// OpenAI-compatible base URL.
@@ -134,6 +149,7 @@ func PublicCatalog(manifest Manifest, platformID string) []CatalogItem {
 			Name:           agent.Name,
 			Group:          agent.Group,
 			ConfigMode:     agent.ConfigMode,
+			SelectsModel:   AgentSelectsModel(agent),
 			GuideOnly:      agent.ConfigMode == "guide",
 			LockedVersion:  nil,
 			Protocol:       protocol,
