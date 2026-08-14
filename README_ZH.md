@@ -19,6 +19,7 @@ BootAgent 是一个本地桌面工作台，用来统一管理 AI 编程 Agent。
 - 可从 Codex 与 ChatGPT Desktop 的 Agent 行把现有对话迁入 BootAgent 的 `bootagent` Provider 分桶；此操作按设计不创建历史备份。
 - 连接内置或自定义模型服务（Provider），选择模型，并按 Agent 实际协议检查连接。
 - 保存可复用的配置模版（Profile），一键应用到对应 Agent。
+- 把 Profile 上的思考深度（`off`、`low`、`medium`、`high`、`max`）写入每个自身配置格式有对应位置的 Agent，并按各自接受的取值做换算。没有文档化深度设置的 Agent 保持原样，不会被塞进自造的字段。
 - 按需准备 Node.js、uv，以及 Aider 所需的托管 Python 运行时。
 - 长时间安装任务在任务中心持续可见，并且可以取消。
 - 导入和导出 Provider、Profile 以及选中的 MCP 服务器；默认不导出 API Key 和 MCP 秘密，也支持密码加密或明确确认后的明文导出。
@@ -31,11 +32,13 @@ BootAgent 是一个本地桌面工作台，用来统一管理 AI 编程 Agent。
 | CLI Agent | 桌面 Agent |
 | --- | --- |
 | Codex · Claude Code | ChatGPT Desktop（macOS/Windows） |
-| Kilo CLI · Aider· OpenCode | WorkBuddy（macOS/Windows） |
-| Hermes Agent · OpenClaw | |
-| Kimi Code | |
+| Kilo CLI · Aider · OpenCode | WorkBuddy · WorkBuddy AI（macOS/Windows） |
+| Hermes Agent · OpenClaw | ZCode（macOS/Windows） |
+| Kimi Code · DeepSeek Harness | |
 
 内置 JieKou.AI、PPIO、Novita、DeepSeek 和 Moonshot，顺序如此；也可以在模型服务页面添加任意 OpenAI 兼容或 Anthropic 兼容服务。BootAgent 会按 Agent 真正使用的协议探测；如果端点只支持另一种 API，会在写入配置前拒绝它。
+
+DeepSeek Harness 除了走通用的 OpenAI 兼容端点，也可以直接激活到 DeepSeek 自己的官方线路——该线路由它出厂配置本身定义。
 
 MCP Registry 只管理用户级配置并保存在本机，支持 Claude Code、Codex、OpenCode、Kilo CLI 和 Hermes 的 stdio、HTTP、SSE 服务器。用户可以单独选择同步目标并显式应用；清空所有同步目标只会从 Agent 配置中移除服务器，仍保留在 Registry 中。点击删除后，会先从 Agent 配置中移除，应用成功后才从 Registry 中删除。MCP 导出按服务器选择且不携带 Agent 绑定，导入其他机器后可重新选择本机同步目标。
 
