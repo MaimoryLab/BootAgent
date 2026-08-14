@@ -15,6 +15,7 @@ import (
 
 	"github.com/MaimoryLab/BootAgent/internal/catalog"
 	configReader "github.com/MaimoryLab/BootAgent/internal/config"
+	configWriter "github.com/MaimoryLab/BootAgent/internal/config"
 	oneerrors "github.com/MaimoryLab/BootAgent/internal/errors"
 	"github.com/MaimoryLab/BootAgent/internal/install"
 	"github.com/MaimoryLab/BootAgent/internal/platform"
@@ -272,14 +273,15 @@ type DetectedConfig struct {
 
 // ProfileSummary is intentionally a public projection with no credential field.
 type ProfileSummary struct {
-	ID          string  `json:"id"`
-	Label       string  `json:"label"`
-	Provider    string  `json:"provider"`
-	BaseURL     *string `json:"baseUrl"`
-	Model       *string `json:"model"`
-	Protocol    string  `json:"protocol"`
-	ActivatedAt *string `json:"activatedAt"`
-	CreatedAt   string  `json:"createdAt,omitempty"`
+	ID              string  `json:"id"`
+	Label           string  `json:"label"`
+	Provider        string  `json:"provider"`
+	BaseURL         *string `json:"baseUrl"`
+	Model           *string `json:"model"`
+	ReasoningEffort string  `json:"reasoningEffort,omitempty"`
+	Protocol        string  `json:"protocol"`
+	ActivatedAt     *string `json:"activatedAt"`
+	CreatedAt       string  `json:"createdAt,omitempty"`
 }
 
 func (u *UseCases) GetStatus(ctx context.Context) (StatusResponse, error) {
@@ -536,14 +538,15 @@ func (u *UseCases) ListAgentBindings(ctx context.Context) (map[string]profileSto
 }
 
 type SaveProfileOptions struct {
-	ID         string
-	Label      string
-	Provider   string
-	APIBaseURL string
-	APIKey     string
-	Model      string
-	ConfigMode string
-	Protocol   string
+	ID              string
+	Label           string
+	Provider        string
+	APIBaseURL      string
+	APIKey          string
+	Model           string
+	ReasoningEffort string
+	ConfigMode      string
+	Protocol        string
 }
 
 // SaveProfileResult reports which Agents followed the Profile to its new
@@ -565,6 +568,14 @@ func (u *UseCases) SaveProfile(ctx context.Context, options SaveProfileOptions) 
 	}
 	u.writeMu.Lock()
 	defer u.writeMu.Unlock()
+	// Rejected at the edit, not on the user's first request: dsh's own settings
+	// schema accepts any string, so a typo here would otherwise surface as a
+	// per-request dispatch error far from the Profile page that caused it.
+	if effort := strings.TrimSpace(options.ReasoningEffort); effort != "" {
+		if err := configWriter.ValidateDSHOfficialReasoningEffort(effort); err != nil {
+			return SaveProfileResult{}, err
+		}
+	}
 	target, err := u.providers.Resolve(options.Provider, options.APIBaseURL)
 	if err != nil {
 		return SaveProfileResult{}, err
@@ -590,6 +601,7 @@ func (u *UseCases) SaveProfile(ctx context.Context, options SaveProfileOptions) 
 		APIKey:               providedKey,
 		ProviderKeyAvailable: strings.TrimSpace(providerKey) != "",
 		Model:                options.Model,
+		ReasoningEffort:      options.ReasoningEffort,
 		ConfigMode:           options.ConfigMode,
 		Protocol:             options.Protocol,
 	})
@@ -619,8 +631,12 @@ func (u *UseCases) reapplyProfileLocked(ctx context.Context, before, after profi
 		previousModel = strings.TrimSpace(*before.Model)
 	}
 	// Nothing an Agent config carries has changed. A label or config-mode edit
-	// leaves every binding correct, so there is nothing to rewrite.
-	if before.ID == after.ID && before.Provider == after.Provider && previousModel == model {
+	// leaves every binding correct, so there is nothing to rewrite. An effort
+	// edit does rewrite: the depth lives in the Agent's own config, so leaving
+	// the bindings would show the new depth on the Profile page while every
+	// Agent kept thinking at the old one.
+	if before.ID == after.ID && before.Provider == after.Provider && previousModel == model &&
+		before.ReasoningEffort == after.ReasoningEffort {
 		return nil, nil, nil
 	}
 	// A Profile with no model cannot produce a valid binding: WriteAgentBinding
@@ -743,14 +759,15 @@ func (u *UseCases) profileSummaries() ([]ProfileSummary, error) {
 func profileSummary(item profileStore.Profile) ProfileSummary {
 	summary := item.Summary()
 	return ProfileSummary{
-		ID:          summary.ID,
-		Label:       summary.Label,
-		Provider:    summary.Provider,
-		BaseURL:     nil,
-		Model:       summary.Model,
-		Protocol:    summary.Protocol,
-		ActivatedAt: summary.ActivatedAt,
-		CreatedAt:   summary.CreatedAt,
+		ID:              summary.ID,
+		Label:           summary.Label,
+		Provider:        summary.Provider,
+		BaseURL:         nil,
+		Model:           summary.Model,
+		ReasoningEffort: summary.ReasoningEffort,
+		Protocol:        summary.Protocol,
+		ActivatedAt:     summary.ActivatedAt,
+		CreatedAt:       summary.CreatedAt,
 	}
 }
 

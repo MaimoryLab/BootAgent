@@ -406,14 +406,18 @@ func (r *installRun) configure(ctx context.Context, agentID string, agent catalo
 			return oneerrors.New(oneerrors.ConfigWriteFailed, fmt.Sprintf("Managed Agent %s has no configuration path", agentID))
 		}
 		writer := configWriter.NewWriter(r.core.status.Home, r.core.status.Platform.OS, r.core.filesystem)
-		if err := writeManagedAgentConfig(ctx, writer, agentID, agent, configPathValue, dshRouteProviderID(target, r.options.APIBaseURL), r.providerName, configBase, r.options.APIKey, r.options.Model, r.options.SmallFastModel); err != nil {
+		// The install flow has no explicit effort input; the Profile it was
+		// launched with is the only carrier.
+		reasoningEffort := r.core.profileReasoningEffort(r.options.ProfileID)
+		if err := writeManagedAgentConfig(ctx, writer, agentID, agent, configPathValue, dshRouteProviderID(target, r.options.APIBaseURL), r.providerName, configBase, r.options.APIKey, r.options.Model, r.options.SmallFastModel, reasoningEffort); err != nil {
 			return err
 		}
 		if _, err := r.core.profiles.WriteAgentBinding(ctx, agentID, profileStore.BindingWriteRequest{
-			Provider:   r.options.Provider,
-			BaseURL:    configBase,
-			Model:      r.options.Model,
-			ProfileRef: r.options.ProfileID,
+			Provider:        r.options.Provider,
+			BaseURL:         configBase,
+			Model:           r.options.Model,
+			ReasoningEffort: reasoningEffort,
+			ProfileRef:      r.options.ProfileID,
 		}); err != nil {
 			return err
 		}

@@ -890,7 +890,7 @@ func TestWriteDSHOfficialUsesTheShippedRouteInsteadOfDeclaringOne(t *testing.T) 
 	if err := os.WriteFile(path, []byte(existing), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := testWriter(t, home, "linux").WriteDSHOfficial(context.Background(), path, "sk-deepseek-key", "deepseek-v4-pro"); err != nil {
+	if err := testWriter(t, home, "linux").WriteDSHOfficial(context.Background(), path, "sk-deepseek-key", "deepseek-v4-pro", ""); err != nil {
 		t.Fatal(err)
 	}
 
@@ -958,7 +958,7 @@ func TestWriteDSHCleansUpAfterWriteDSHOfficial(t *testing.T) {
 		t.Fatal(err)
 	}
 	// First activation: DeepSeek official.
-	if err := testWriter(t, home, "linux").WriteDSHOfficial(context.Background(), path, "sk-deepseek", "deepseek-v4-pro"); err != nil {
+	if err := testWriter(t, home, "linux").WriteDSHOfficial(context.Background(), path, "sk-deepseek", "deepseek-v4-pro", ""); err != nil {
 		t.Fatal(err)
 	}
 	// Second activation: a gateway.
@@ -1012,7 +1012,7 @@ func TestWriteDSHOfficialCleansUpAStaleBootagentRoute(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Second: DeepSeek official.
-	if err := testWriter(t, home, "linux").WriteDSHOfficial(context.Background(), path, "sk-deepseek", "deepseek-v4-flash"); err != nil {
+	if err := testWriter(t, home, "linux").WriteDSHOfficial(context.Background(), path, "sk-deepseek", "deepseek-v4-flash", ""); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1044,3 +1044,68 @@ func TestWriteDSHOfficialCleansUpAStaleBootagentRoute(t *testing.T) {
 	}
 }
 
+// The selection carries the Profile's thinking depth when one is set, and a
+// rewrite without one must drop a previously-written depth -- dsh treats a
+// saved selection as complete, so a leftover effort would keep applying to a
+// model the user may have changed it away from.
+func TestWriteDSHOfficialCarriesReasoningEffort(t *testing.T) {
+	home := t.TempDir()
+	path := filepath.Join(home, ".dsh", "settings.yaml")
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	writer := testWriter(t, home, "linux")
+	readSelection := func() map[string]string {
+		t.Helper()
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var parsed struct {
+			Selection map[string]string `yaml:"agent-default-model"`
+		}
+		if err := yaml.Unmarshal(data, &parsed); err != nil {
+			t.Fatal(err)
+		}
+		return parsed.Selection
+	}
+
+	if err := writer.WriteDSHOfficial(context.Background(), path, "sk-x", "deepseek-v4-pro", "max"); err != nil {
+		t.Fatal(err)
+	}
+	selection := readSelection()
+	if selection["reasoningEffort"] != "max" || selection["provider"] != "deepseek-official" {
+		t.Errorf("selection = %v, want reasoningEffort max on the official route", selection)
+	}
+
+	// A rewrite without an effort removes the one before it.
+	if err := writer.WriteDSHOfficial(context.Background(), path, "sk-x", "deepseek-v4-pro", ""); err != nil {
+		t.Fatal(err)
+	}
+	if selection := readSelection(); selection["reasoningEffort"] != "" {
+		t.Errorf("stale reasoningEffort survived: %v", selection)
+	}
+}
+
+// llm-deepseek dispatches only off, high, and max; anything else -- including
+// levels llm-pi-ai would accept, like "medium" -- fails on the user's first
+// request, so the write refuses it up front and leaves the settings untouched.
+func TestWriteDSHOfficialRejectsAnUnsupportedReasoningEffort(t *testing.T) {
+	home := t.TempDir()
+	path := filepath.Join(home, ".dsh", "settings.yaml")
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	writer := testWriter(t, home, "linux")
+	if err := writer.WriteDSHOfficial(context.Background(), path, "sk-x", "deepseek-v4-pro", "medium"); err == nil {
+		t.Fatal("an effort the shipped route cannot dispatch was accepted")
+	}
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Errorf("a rejected effort still wrote settings: err=%v", err)
+	}
+	for _, valid := range []string{"off", "high", "max"} {
+		if err := ValidateDSHOfficialReasoningEffort(valid); err != nil {
+			t.Errorf("valid effort %q rejected: %v", valid, err)
+		}
+	}
+}

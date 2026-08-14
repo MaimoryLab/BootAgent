@@ -17,13 +17,14 @@ import (
 // managed Agent at a Provider. APIKey is deliberately kept inside the use
 // case and never appears in ActivateAgentResult.
 type ActivateAgentOptions struct {
-	AgentID        string
-	Provider       string
-	APIBaseURL     string
-	APIKey         string
-	Model          string
-	ProfileID      string
-	SmallFastModel string
+	AgentID         string
+	Provider        string
+	APIBaseURL      string
+	APIKey          string
+	Model           string
+	ProfileID       string
+	SmallFastModel  string
+	ReasoningEffort string
 }
 
 // ActivateAgentResult contains only the public outcome needed by the UI. The
@@ -112,14 +113,24 @@ func (u *UseCases) activateAgentLocked(ctx context.Context, options ActivateAgen
 	}
 
 	protocol := provider.ProtocolForAdapter(agent.ConfigAdapter)
+	// The effort in options wins; a Profile-driven activation falls back to what
+	// the Profile carries. Resolved before the write so the binding below records
+	// what actually took effect, not what the caller happened to pass.
+	reasoningEffort := strings.TrimSpace(options.ReasoningEffort)
 	if profileID != "" {
 		profiles, err := u.profiles.List()
 		if err != nil {
 			return ActivateAgentResult{}, err
 		}
 		for _, saved := range profiles {
-			if saved.ID == profileID && saved.Protocol != "" && saved.Protocol != protocol {
+			if saved.ID != profileID {
+				continue
+			}
+			if saved.Protocol != "" && saved.Protocol != protocol {
 				return ActivateAgentResult{}, oneerrors.New(oneerrors.InvalidRequest, fmt.Sprintf("Profile %s uses %s API mode, but %s requires %s", profileID, saved.Protocol, agentID, protocol))
+			}
+			if reasoningEffort == "" {
+				reasoningEffort = saved.ReasoningEffort
 			}
 		}
 	}
@@ -131,14 +142,15 @@ func (u *UseCases) activateAgentLocked(ctx context.Context, options ActivateAgen
 	}
 
 	writer := configWriter.NewWriter(u.status.Home, u.status.Platform.OS, u.filesystem)
-	if err := writeManagedAgentConfig(ctx, writer, agentID, agent, configPath, dshRouteProviderID(target, options.APIBaseURL), providerName, configBaseURL, apiKey, model, options.SmallFastModel); err != nil {
+	if err := writeManagedAgentConfig(ctx, writer, agentID, agent, configPath, dshRouteProviderID(target, options.APIBaseURL), providerName, configBaseURL, apiKey, model, options.SmallFastModel, reasoningEffort); err != nil {
 		return ActivateAgentResult{}, err
 	}
 	binding, err := u.profiles.WriteAgentBinding(ctx, agentID, profileStore.BindingWriteRequest{
-		Provider:   providerID,
-		BaseURL:    configBaseURL,
-		Model:      model,
-		ProfileRef: profileID,
+		Provider:        providerID,
+		BaseURL:         configBaseURL,
+		Model:           model,
+		ReasoningEffort: reasoningEffort,
+		ProfileRef:      profileID,
 	})
 	if err != nil {
 		return ActivateAgentResult{}, err
@@ -187,7 +199,27 @@ func dshRouteProviderID(target provider.Entry, explicitBase string) string {
 	return target.ID
 }
 
-func writeManagedAgentConfig(ctx context.Context, writer configWriter.Writer, agentID string, agent catalog.Agent, path, providerID, providerName, baseURL, apiKey, model, smallFastModel string) error {
+// profileReasoningEffort is the thinking depth a Profile carries, empty when
+// the Profile is absent or names none. For callers that do not already hold
+// the Profile list; activateAgentLocked resolves inline instead.
+func (u *UseCases) profileReasoningEffort(profileID string) string {
+	profileID = strings.TrimSpace(profileID)
+	if profileID == "" {
+		return ""
+	}
+	profiles, err := u.profiles.List()
+	if err != nil {
+		return ""
+	}
+	for _, saved := range profiles {
+		if saved.ID == profileID {
+			return saved.ReasoningEffort
+		}
+	}
+	return ""
+}
+
+func writeManagedAgentConfig(ctx context.Context, writer configWriter.Writer, agentID string, agent catalog.Agent, path, providerID, providerName, baseURL, apiKey, model, smallFastModel, reasoningEffort string) error {
 	switch agent.ConfigAdapter {
 	case "codex":
 		return writer.WriteCodex(ctx, path, providerName, baseURL, apiKey, model)
@@ -208,8 +240,13 @@ func writeManagedAgentConfig(ctx context.Context, writer configWriter.Writer, ag
 		// would be a duplicate that misfiles the credential. Only when the Provider
 		// is something else -- a gateway or custom endpoint -- does a route have to
 		// be declared.
+		//
+		// reasoningEffort reaches only the official path. A hand-declared pi-ai
+		// model carries no reasoning metadata, so dsh rejects every effort against
+		// it at request time (UNSUPPORTED_REASONING_EFFORT) -- writing one there
+		// would break each request instead of deepening any thinking.
 		if providerID == "deepseek" {
-			return writer.WriteDSHOfficial(ctx, path, apiKey, model)
+			return writer.WriteDSHOfficial(ctx, path, apiKey, model, reasoningEffort)
 		}
 		return writer.WriteDSH(ctx, path, providerName, baseURL, apiKey, model)
 	case "hermes":

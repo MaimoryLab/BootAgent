@@ -13,6 +13,7 @@ import (
 	"github.com/MaimoryLab/BootAgent/internal/config"
 	"github.com/MaimoryLab/BootAgent/internal/platform"
 	"github.com/MaimoryLab/BootAgent/internal/provider"
+	"gopkg.in/yaml.v3"
 )
 
 func activationCore(t *testing.T, home string, client *provider.Client, osID string) *UseCases {
@@ -446,3 +447,93 @@ func TestDSHRouteProviderIDReturnsBuiltInIDOnlyWhenUnoverridden(t *testing.T) {
 	}
 }
 
+// The thinking depth travels from the Profile through activation into dsh's
+// own settings, and a Profile edit that only changes the depth still reaches
+// the bound Agent -- the whole point of carrying it on the Profile is that the
+// user adjusts it there and every following Agent picks it up.
+func TestDSHActivationCarriesProfileReasoningEffort(t *testing.T) {
+	home := t.TempDir()
+	core := activationCore(t, home, provider.NewClient(nil), "linux")
+	settingsPath := filepath.Join(home, ".dsh", "settings.yaml")
+	readSelection := func() map[string]string {
+		t.Helper()
+		data, err := os.ReadFile(settingsPath)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var parsed struct {
+			Selection map[string]string `yaml:"agent-default-model"`
+		}
+		if err := yaml.Unmarshal(data, &parsed); err != nil {
+			t.Fatal(err)
+		}
+		return parsed.Selection
+	}
+
+	if _, err := core.SaveProfile(context.Background(), SaveProfileOptions{
+		ID: "think", Provider: "deepseek", Model: "deepseek-v4-pro",
+		APIKey: "sk-think", ReasoningEffort: "max",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := core.ActivateAgent(context.Background(), ActivateAgentOptions{
+		AgentID: "dsh", Provider: "deepseek", ProfileID: "think",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	selection := readSelection()
+	if selection["provider"] != "deepseek-official" || selection["reasoningEffort"] != "max" {
+		t.Fatalf("selection after activation = %v, want official route at max", selection)
+	}
+	binding, err := core.profiles.ReadAgentBinding("dsh")
+	if err != nil || binding == nil || binding.ReasoningEffort != "max" {
+		t.Fatalf("binding = %#v, err=%v, want reasoningEffort max", binding, err)
+	}
+
+	// An effort-only Profile edit must reach the bound Agent's config.
+	result, err := core.SaveProfile(context.Background(), SaveProfileOptions{
+		ID: "think", Provider: "deepseek", Model: "deepseek-v4-pro",
+		ReasoningEffort: "off",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Reapplied) != 1 || result.Reapplied[0] != "dsh" {
+		t.Fatalf("effort-only edit did not reapply: %#v", result)
+	}
+	if selection := readSelection(); selection["reasoningEffort"] != "off" {
+		t.Fatalf("selection after effort edit = %v, want off", selection)
+	}
+
+	// Removing the depth restores the model's own default behavior: the key
+	// leaves the selection and the binding.
+	if _, err := core.SaveProfile(context.Background(), SaveProfileOptions{
+		ID: "think", Provider: "deepseek", Model: "deepseek-v4-pro",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if selection := readSelection(); selection["reasoningEffort"] != "" {
+		t.Fatalf("removed effort survived in the selection: %v", selection)
+	}
+	binding, err = core.profiles.ReadAgentBinding("dsh")
+	if err != nil || binding == nil || binding.ReasoningEffort != "" {
+		t.Fatalf("binding after removal = %#v, err=%v, want empty effort", binding, err)
+	}
+}
+
+// The vocabulary is llm-deepseek's (off, high, max), so a level pi-ai would
+// take must be refused at the Profile edit, before it can break requests.
+func TestSaveProfileRejectsAnUnsupportedReasoningEffort(t *testing.T) {
+	home := t.TempDir()
+	core := activationCore(t, home, provider.NewClient(nil), "linux")
+	_, err := core.SaveProfile(context.Background(), SaveProfileOptions{
+		ID: "bad-effort", Provider: "deepseek", Model: "deepseek-v4-pro",
+		APIKey: "sk-x", ReasoningEffort: "medium",
+	})
+	if err == nil {
+		t.Fatal("an unsupported reasoning effort was accepted at the Profile edit")
+	}
+	if !strings.Contains(err.Error(), "off, high, max") {
+		t.Fatalf("rejection does not name the allowed levels: %v", err)
+	}
+}

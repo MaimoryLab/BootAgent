@@ -52,6 +52,30 @@ const (
 	dshOfficialCredential = "DEEPSEEK_API_KEY"
 )
 
+// dshOfficialReasoningEfforts is what dsh's llm-deepseek adapter accepts as a
+// reasoningEffort, read off @deepseek-ai/dsh-llm-deepseek (serialize.d.ts
+// declares 'off' | 'high' | 'max'; an absent effort resolves to the adapter
+// default, high). Deliberately NOT the seven-level scale llm-pi-ai declares:
+// the shipped official route dispatches through llm-deepseek, and a level like
+// "medium" that pi-ai would accept fails there.
+var dshOfficialReasoningEfforts = []string{"off", "high", "max"}
+
+// ValidateDSHOfficialReasoningEffort rejects an effort the shipped DeepSeek
+// route cannot dispatch. Validated at write time rather than left to dsh:
+// dsh's settings schema accepts any string, and the failure would otherwise
+// surface as an UNSUPPORTED_REASONING_EFFORT error on the user's first request
+// -- far from the Profile edit that caused it.
+func ValidateDSHOfficialReasoningEffort(effort string) error {
+	for _, allowed := range dshOfficialReasoningEfforts {
+		if effort == allowed {
+			return nil
+		}
+	}
+	return oneerrors.New(oneerrors.InvalidRequest, fmt.Sprintf(
+		"DeepSeek reasoning effort must be one of %s, got %q",
+		strings.Join(dshOfficialReasoningEfforts, ", "), effort))
+}
+
 func NewWriter(home, osID string, filesystem securefs.Store) Writer {
 	return Writer{Home: home, OS: osID, FS: filesystem}
 }
@@ -462,10 +486,12 @@ func (w Writer) WriteDSH(ctx context.Context, path, providerName, baseURL, apiKe
 // page, so this write touches only the entry it has to.
 //
 // The agent-default-model selection is replaced wholesale for the same reason
-// as in WriteDSH, and a stale reasoningEffort is likewise dropped: dsh treats a
-// saved selection as complete, and an effort saved for another model is not one
-// this selection declares.
-func (w Writer) WriteDSHOfficial(ctx context.Context, path, apiKey, model string) error {
+// as in WriteDSH. reasoningEffort is written when given and the model is a
+// DeepSeek model that supports it; a stale effort from a previous model is
+// dropped when reasoningEffort is empty, because dsh treats a saved selection
+// as complete and would otherwise keep sending an effort this model never
+// declared.
+func (w Writer) WriteDSHOfficial(ctx context.Context, path, apiKey, model, reasoningEffort string) error {
 	// The credential lands first: a selection pointing at a route dsh cannot
 	// authenticate is worse than an unreferenced key.
 	if err := w.writeDSHCredential(ctx, filepath.Join(filepath.Dir(path), ".credentials.yaml"), dshOfficialCredential, apiKey); err != nil {
@@ -486,6 +512,12 @@ func (w Writer) WriteDSHOfficial(ctx context.Context, path, apiKey, model string
 	selection := &yaml.Node{Kind: yaml.MappingNode}
 	yamlSet(selection, "provider", dshOfficialRoute)
 	yamlSet(selection, "model", model)
+	if reasoningEffort != "" {
+		if err := ValidateDSHOfficialReasoningEffort(reasoningEffort); err != nil {
+			return err
+		}
+		yamlSet(selection, "reasoningEffort", reasoningEffort)
+	}
 	yamlReplace(root.Content[0], "agent-default-model", selection)
 
 	data, err := yaml.Marshal(root)
