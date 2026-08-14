@@ -201,7 +201,8 @@ func inspectWorkBuddyWindows(ctx context.Context, edition workBuddyEdition, opti
 			return status, nil
 		}
 	}
-	result, err := run(options, ctx, workBuddyStartAppsQuery(edition), inspectTimeout)
+	argv, environment := workBuddyStartAppsQuery(edition)
+	result, err := runWithEnvironment(options, ctx, argv, environment, inspectTimeout)
 	if err != nil {
 		return status, err
 	}
@@ -258,8 +259,9 @@ func workBuddyWindowsCandidates(edition workBuddyEdition, options Options) []str
 }
 
 func workBuddyWindowsVersion(ctx context.Context, options Options, path string) *string {
-	argv := []string{"powershell.exe", "-NoProfile", "-NonInteractive", "-Command", `(Get-Item -LiteralPath $args[0]).VersionInfo.ProductVersion`, path}
-	result, err := runWithEnvironment(options, ctx, argv, nil, inspectTimeout)
+	const script = `[Console]::OutputEncoding = [Text.Encoding]::UTF8
+(Get-Item -LiteralPath $env:BOOTAGENT_VERSION_PATH).VersionInfo.ProductVersion`
+	result, err := runWithEnvironment(options, ctx, []string{"powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script}, map[string]string{"BOOTAGENT_VERSION_PATH": path}, inspectTimeout)
 	if err != nil || result.ExitCode != 0 {
 		return nil
 	}
@@ -267,11 +269,14 @@ func workBuddyWindowsVersion(ctx context.Context, options Options, path string) 
 }
 
 // workBuddyStartAppsQuery matches on the Start menu display name, which carries
-// no ".app" suffix.
-func workBuddyStartAppsQuery(edition workBuddyEdition) []string {
+// no ".app" suffix. The name reaches the script through an environment variable
+// rather than string interpolation, so quoting in the display name cannot alter
+// the script. Returns the argv and environment map for runWithEnvironment.
+func workBuddyStartAppsQuery(edition workBuddyEdition) ([]string, map[string]string) {
 	name := strings.TrimSuffix(edition.appName, ".app")
-	script := `Get-StartApps | Where-Object { $_.Name -eq '` + name + `' } | Select-Object -First 1 Name,AppID | ConvertTo-Json -Compress`
-	return []string{"powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script}
+	const script = `[Console]::OutputEncoding = [Text.Encoding]::UTF8
+Get-StartApps | Where-Object { $_.Name -eq $env:BOOTAGENT_APP_NAME } | Select-Object -First 1 Name,AppID | ConvertTo-Json -Compress`
+	return []string{"powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script}, map[string]string{"BOOTAGENT_APP_NAME": name}
 }
 
 func installWorkBuddy(edition workBuddyEdition) func(context.Context, Options) (ActionResult, error) {
