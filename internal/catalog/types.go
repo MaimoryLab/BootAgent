@@ -32,13 +32,21 @@ type Agent struct {
 	MCPWindowsConfigPath string            `json:"mcp_windows_config_path,omitempty"`
 	SkillsPath           string            `json:"skills_path,omitempty"`
 	SkillsWindowsPath    string            `json:"skills_windows_path,omitempty"`
-	Package              *Package          `json:"package"`
-	VersionArgs          []string          `json:"version_args"`
-	Platforms            []string          `json:"platforms"`
-	WindowsPrerequisites []string          `json:"windows_prerequisites"`
-	WindowsNote          string            `json:"windows_note"`
-	Guide                string            `json:"guide"`
-	Rank                 int               `json:"rank"`
+	// ModelSelection says who picks the model. "provider" (the default, and what
+	// an empty value means) is BootAgent's own flow: the wizard offers the
+	// Provider's models and writes the choice into the Agent's config. "agent"
+	// means the Agent owns the decision and has nowhere for us to put it, so the
+	// wizard skips the model step instead of collecting an answer it would drop
+	// on the floor. Named rather than a bool because the wizard has to *explain*
+	// the skip, and "the Agent chooses" is the explanation.
+	ModelSelection       string   `json:"model_selection,omitempty"`
+	Package              *Package `json:"package"`
+	VersionArgs          []string `json:"version_args"`
+	Platforms            []string `json:"platforms"`
+	WindowsPrerequisites []string `json:"windows_prerequisites"`
+	WindowsNote          string   `json:"windows_note"`
+	Guide                string   `json:"guide"`
+	Rank                 int      `json:"rank"`
 }
 
 type Package struct {
@@ -52,10 +60,15 @@ type Package struct {
 }
 
 type CatalogItem struct {
-	ID            string   `json:"id"`
-	Name          string   `json:"name"`
-	Group         string   `json:"group"`
-	ConfigMode    string   `json:"configMode"`
+	ID         string `json:"id"`
+	Name       string `json:"name"`
+	Group      string `json:"group"`
+	ConfigMode string `json:"configMode"`
+	// SelectsModel is false when the Agent owns its own model choice, so the
+	// wizard can skip that step. Derived from Agent.ModelSelection rather than
+	// exposed raw: the UI needs the decision, not the vocabulary, and a bool it
+	// cannot misread beats a string it can compare against the wrong literal.
+	SelectsModel  bool     `json:"selectsModel"`
 	GuideOnly     bool     `json:"guideOnly"`
 	LockedVersion *string  `json:"lockedVersion"`
 	Protocol      *string  `json:"protocol"`

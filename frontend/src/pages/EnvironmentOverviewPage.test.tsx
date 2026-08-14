@@ -29,7 +29,7 @@ function status(): StatusResponse {
   const agent = (installed: boolean, profileId: string | null) => ({
     installed,
     configured: installed,
-    guideOnly: false,
+    selectsModel: true, guideOnly: false,
     config: "/config",
     version: installed ? "1.0.0" : null,
     lockedVersion: "1.0.0",
@@ -49,8 +49,8 @@ function status(): StatusResponse {
     capabilities: { canInstall: {}, missingRuntime: {}, supportedAgentIds: [] },
     agents: { codex: agent(true, "team"), opencode: agent(false, null) },
     catalog: [
-      { id: "opencode", name: "OpenCode", group: "auto", configMode: "auto", guideOnly: false, lockedVersion: "1.0.0", protocol: "openai", platforms: ["macos"], platformNote: "", rank: 4 },
-      { id: "codex", name: "Codex", group: "auto", configMode: "auto", guideOnly: false, lockedVersion: "1.0.0", protocol: "responses", platforms: ["macos"], platformNote: "", rank: 1 },
+      { id: "opencode", name: "OpenCode", group: "auto", configMode: "auto", selectsModel: true, guideOnly: false, lockedVersion: "1.0.0", protocol: "openai", platforms: ["macos"], platformNote: "", rank: 4 },
+      { id: "codex", name: "Codex", group: "auto", configMode: "auto", selectsModel: true, guideOnly: false, lockedVersion: "1.0.0", protocol: "responses", platforms: ["macos"], platformNote: "", rank: 1 },
     ],
     groups: [],
     providers: { ppio: { name: "PPIO", home: "https://ppio.com/", base_url: "https://api.ppio.com/openai" } },

@@ -31,7 +31,7 @@ describe("AgentIcon", () => {
     const assetIds = AGENT_ICON_IDS.filter((id) => agentMarkKind(id) === "asset");
     // chatgpt-desktop is a desktop Agent rather than a CLI, and it reuses the
     // OpenAI mark because it is OpenAI's own product sharing Codex's config.
-    expect(assetIds.sort()).toEqual(["chatgpt-desktop", "claude-code", "codex", "hermes", "kilo-cli", "kimi-code", "openclaw", "opencode"]);
+    expect(assetIds.sort()).toEqual(["chatgpt-desktop", "claude-code", "codex", "dsh", "hermes", "kilo-cli", "kimi-code", "openclaw", "opencode"]);
     for (const id of assetIds) {
       const rights = agentMarkRights(id);
       expect(agentMarkKind(id)).toBe("asset");
@@ -107,13 +107,14 @@ describe("AgentIcon", () => {
     // viewBox is the check: inlining must not rescale or crop the artwork.
     //
     // Each mark is checked against its own source coordinate system rather than
-    // one shared value. The five vendor marks come from lobe-icons at 24x24;
+    // one shared value. The vendor marks come from lobe-icons at 24x24;
     // OpenClaw's is the cc-switch drawing at 120x120, and normalising it to 24
     // would be the re-drawing this test exists to prevent. The recolouring
     // recorded in asset-rights.json does not touch geometry.
     const PUBLISHED_VIEWBOX: Record<string, string> = {
       codex: "0 0 24 24",
       "chatgpt-desktop": "0 0 24 24",
+      dsh: "0 0 24 24",
       opencode: "0 0 24 24",
       "claude-code": "0 0 24 24",
       "kilo-cli": "0 0 24 24",

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { ModelsResponse, ProbeResponse, StatusResponse } from "../types/api";
-import { initialWizardState, wizardReducer, type WizardState } from "./wizardReducer";
+import { initialWizardState, wizardNeedsModel, wizardReducer, type WizardState } from "./wizardReducer";
 
 const status = {
   apiVersion: 1,
@@ -394,5 +394,49 @@ describe("provider default model", () => {
     const loaded = wizardReducer(initialWizardState, { type: "STATUS_LOADED", status: withDefaults });
     const editing = wizardReducer({ ...loaded, model: "half-typed" }, { type: "STATUS_LOADED", status: withDefaults });
     expect(editing.model).toBe("half-typed");
+  });
+});
+
+describe("wizardNeedsModel", () => {
+  const entry = (id: string, selectsModel: boolean) => ({
+    id,
+    name: id,
+    group: "auto" as const,
+    configMode: "auto" as const,
+    selectsModel,
+    guideOnly: false,
+    lockedVersion: null,
+    protocol: "openai" as const,
+    platforms: ["macos" as const],
+    platformNote: "",
+    rank: 1,
+  });
+  const withCatalog = (selected: string[], catalog: ReturnType<typeof entry>[]): WizardState => ({
+    ...initialWizardState,
+    selectedAgentIds: selected,
+    status: { ...status, catalog },
+  });
+
+  it("skips the model step when the Agent owns its own model choice", () => {
+    expect(wizardNeedsModel(withCatalog(["dsh"], [entry("dsh", false)]))).toBe(false);
+  });
+
+  it("asks for a model for an ordinary Agent", () => {
+    expect(wizardNeedsModel(withCatalog(["codex"], [entry("codex", true)]))).toBe(true);
+  });
+
+  // A mixed selection still asks: the Agents that can take a model should get
+  // one, and skipping would silently leave them on whatever they had.
+  it("asks when any selected Agent takes a model", () => {
+    const state = withCatalog(["dsh", "codex"], [entry("dsh", false), entry("codex", true)]);
+    expect(wizardNeedsModel(state)).toBe(true);
+  });
+
+  // Defaulting to true is what keeps a missing catalog from silently skipping a
+  // step the Agent actually needs.
+  it("asks when the status or the selection is not known yet", () => {
+    expect(wizardNeedsModel(initialWizardState)).toBe(true);
+    expect(wizardNeedsModel({ ...initialWizardState, selectedAgentIds: ["codex"] })).toBe(true);
+    expect(wizardNeedsModel(withCatalog(["absent"], [entry("dsh", false)]))).toBe(true);
   });
 });

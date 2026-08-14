@@ -49,7 +49,7 @@ function statusWith(profiles: ProfileSummary[]): StatusResponse {
         id: "codex",
         name: "Codex",
         group: "auto",
-        configMode: "auto",
+        configMode: "auto", selectsModel: true,
         guideOnly: false,
         lockedVersion: "1.0.0",
         protocol: "responses",

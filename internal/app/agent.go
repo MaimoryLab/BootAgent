@@ -187,6 +187,8 @@ func writeManagedAgentConfig(ctx context.Context, writer configWriter.Writer, ag
 		return writer.WriteOpenClaw(ctx, path, providerName, baseURL, apiKey, model)
 	case "aider":
 		return writer.WriteAider(ctx, path, baseURL, apiKey)
+	case "dsh":
+		return writer.WriteDSH(ctx, path, providerName, baseURL, apiKey, model)
 	case "hermes":
 		return writer.WriteHermes(ctx, path, baseURL, apiKey, model)
 	case "kimi-code":
@@ -213,6 +215,13 @@ func restartHint(agentID string, agent catalog.Agent) string {
 	if agentID == "openclaw" {
 		return fmt.Sprintf("Restart the gateway so it re-reads the config: %s gateway restart", agent.Command)
 	}
+	// Both files BootAgent writes for dsh are watched: the settings document is
+	// hot-reloaded and the credential store hot-publishes external edits, and the
+	// adapter re-reads both once per request. Telling the user to restart a running
+	// session would be busywork.
+	if agentID == "dsh" {
+		return "No restart needed: " + agent.Command + " picks up the new endpoint and key on the next request"
+	}
 	return fmt.Sprintf("Quit any running %s process, then start it again", agent.Command)
 }
 
@@ -233,6 +242,14 @@ func nextStep(osID, agentID string, agent catalog.Agent, model string) string {
 	// that would appear to be all that is left.
 	if agentID == "openclaw" {
 		return agent.Command + " onboard"
+	}
+	// dsh boots a profile, and the launcher requires one: the bare command exits
+	// nonzero with "--profile <name> is required". `web` is its hardcoded alias for
+	// --profile web, the local web app this Agent is configured for. LaunchAgent
+	// runs this line in a terminal, so a bare command here is a window that opens
+	// only to print an error.
+	if agentID == "dsh" {
+		return agent.Command + " web"
 	}
 	return agent.Command
 }

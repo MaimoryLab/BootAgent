@@ -14,7 +14,8 @@
       "kilo-cli": false,
       "kimi-code": false,
       "openclaw": false,
-      "opencode": false
+      "opencode": false,
+      "dsh": false
     },
     "missingRuntime": {
       "aider": "uv",
@@ -23,7 +24,8 @@
       "kilo-cli": "node",
       "kimi-code": "node",
       "openclaw": "node",
-      "opencode": "node"
+      "opencode": "node",
+      "dsh": "node"
     },
     "supportedAgentIds": [
       "codex",
@@ -33,7 +35,8 @@
       "aider",
       "openclaw",
       "hermes",
-      "kimi-code"
+      "kimi-code",
+      "dsh"
     ]
   },
   "agents": {
@@ -164,152 +167,195 @@
       "baseUrl": null,
       "updatedAt": null,
       "detected": null
+    },
+    "dsh": {
+      "baseUrl": null,
+      "canInstall": false,
+      "config": "${HOME}/.dsh/settings.yaml",
+      "configured": false,
+      "detected": null,
+      "guideOnly": false,
+      "installed": false,
+      "latestVersion": null,
+      "lockedVersion": null,
+      "model": null,
+      "profileId": null,
+      "provider": null,
+      "updatedAt": null,
+      "version": null
     }
   },
   "catalog": [
     {
-      "id": "codex",
-      "name": "Codex",
-      "group": "auto",
       "configMode": "auto",
+      "group": "auto",
       "guideOnly": false,
+      "id": "dsh",
       "lockedVersion": null,
-      "protocol": "responses",
+      "name": "DeepSeek Harness",
+      "packageManager": "npm",
+      "packageName": "@deepseek-ai/dsh",
+      "platformNote": "",
       "platforms": [
         "macos",
         "linux",
         "windows"
       ],
-      "platformNote": "",
+      "protocol": "openai",
       "rank": 1,
-      "packageManager": "npm",
-      "packageName": "@openai/codex"
+      "selectsModel": false
     },
     {
-      "id": "claude-code",
-      "name": "Claude Code",
-      "group": "auto",
       "configMode": "auto",
+      "group": "auto",
       "guideOnly": false,
+      "id": "codex",
       "lockedVersion": null,
-      "protocol": "anthropic",
+      "name": "Codex",
+      "packageManager": "npm",
+      "packageName": "@openai/codex",
+      "platformNote": "",
       "platforms": [
         "macos",
         "linux",
         "windows"
       ],
-      "platformNote": "",
+      "protocol": "responses",
       "rank": 2,
-      "packageManager": "npm",
-      "packageName": "@anthropic-ai/claude-code"
+      "selectsModel": true
     },
     {
-      "id": "opencode",
-      "name": "OpenCode",
-      "group": "auto",
       "configMode": "auto",
+      "group": "auto",
       "guideOnly": false,
+      "id": "claude-code",
       "lockedVersion": null,
-      "protocol": "openai",
+      "name": "Claude Code",
+      "packageManager": "npm",
+      "packageName": "@anthropic-ai/claude-code",
+      "platformNote": "",
       "platforms": [
         "macos",
         "linux",
         "windows"
       ],
-      "platformNote": "",
+      "protocol": "anthropic",
       "rank": 3,
-      "packageManager": "npm",
-      "packageName": "opencode-ai"
+      "selectsModel": true
     },
     {
-      "id": "kilo-cli",
-      "name": "Kilo CLI",
-      "group": "auto",
       "configMode": "auto",
+      "group": "auto",
       "guideOnly": false,
+      "id": "opencode",
       "lockedVersion": null,
-      "protocol": "openai",
+      "name": "OpenCode",
+      "packageManager": "npm",
+      "packageName": "opencode-ai",
+      "platformNote": "",
       "platforms": [
         "macos",
         "linux",
         "windows"
       ],
-      "platformNote": "",
+      "protocol": "openai",
       "rank": 4,
-      "packageManager": "npm",
-      "packageName": "@kilocode/cli"
+      "selectsModel": true
     },
     {
-      "id": "aider",
-      "name": "Aider",
-      "group": "auto",
       "configMode": "auto",
+      "group": "auto",
       "guideOnly": false,
+      "id": "kilo-cli",
       "lockedVersion": null,
-      "protocol": "openai",
+      "name": "Kilo CLI",
+      "packageManager": "npm",
+      "packageName": "@kilocode/cli",
+      "platformNote": "",
       "platforms": [
         "macos",
         "linux",
         "windows"
       ],
-      "platformNote": "",
+      "protocol": "openai",
       "rank": 5,
+      "selectsModel": true
+    },
+    {
+      "configMode": "auto",
+      "group": "auto",
+      "guideOnly": false,
+      "id": "aider",
+      "lockedVersion": null,
+      "name": "Aider",
       "packageManager": "uv",
-      "packageName": "aider-chat"
-    },
-    {
-      "id": "openclaw",
-      "name": "OpenClaw",
-      "group": "auto",
-      "configMode": "auto",
-      "guideOnly": false,
-      "lockedVersion": null,
-      "protocol": "openai",
+      "packageName": "aider-chat",
+      "platformNote": "",
       "platforms": [
         "macos",
         "linux",
         "windows"
       ],
-      "platformNote": "",
+      "protocol": "openai",
       "rank": 6,
-      "packageManager": "npm",
-      "packageName": "openclaw"
+      "selectsModel": true
     },
     {
-      "id": "hermes",
-      "name": "Hermes Agent",
-      "group": "auto",
       "configMode": "auto",
+      "group": "auto",
       "guideOnly": false,
+      "id": "openclaw",
       "lockedVersion": null,
-      "protocol": "openai",
+      "name": "OpenClaw",
+      "packageManager": "npm",
+      "packageName": "openclaw",
+      "platformNote": "",
       "platforms": [
         "macos",
         "linux",
         "windows"
       ],
-      "platformNote": "",
+      "protocol": "openai",
       "rank": 7,
-      "packageManager": "official-script",
-      "packageName": "hermes-agent"
+      "selectsModel": true
     },
     {
-      "id": "kimi-code",
-      "name": "Kimi Code",
-      "group": "auto",
       "configMode": "auto",
+      "group": "auto",
       "guideOnly": false,
+      "id": "hermes",
       "lockedVersion": null,
-      "protocol": "openai",
+      "name": "Hermes Agent",
+      "packageManager": "official-script",
+      "packageName": "hermes-agent",
+      "platformNote": "",
       "platforms": [
         "macos",
         "linux",
         "windows"
       ],
-      "platformNote": "",
+      "protocol": "openai",
       "rank": 8,
+      "selectsModel": true
+    },
+    {
+      "configMode": "auto",
+      "group": "auto",
+      "guideOnly": false,
+      "id": "kimi-code",
+      "lockedVersion": null,
+      "name": "Kimi Code",
       "packageManager": "npm",
-      "packageName": "@moonshot-ai/kimi-code"
+      "packageName": "@moonshot-ai/kimi-code",
+      "platformNote": "",
+      "platforms": [
+        "macos",
+        "linux",
+        "windows"
+      ],
+      "protocol": "openai",
+      "rank": 9,
+      "selectsModel": true
     }
   ],
   "groups": [
@@ -402,7 +448,8 @@
     "logs": "${HOME}/.bootagent/logs",
     "openclaw_config": "${HOME}/.openclaw/openclaw.json",
     "opencode_config": "${HOME}/.config/opencode/opencode.json",
-    "profile": "${HOME}/.bootagent/profile.json"
+    "profile": "${HOME}/.bootagent/profile.json",
+    "dsh_config": "${HOME}/.dsh/settings.yaml"
   },
   "backups": {
     "aider": false,
@@ -413,7 +460,8 @@
     "kimi-code": false,
     "openclaw": false,
     "opencode": false,
-    "profile": false
+    "profile": false,
+    "dsh": false
   },
   "profiles": [],
   "activeProfile": null,
@@ -433,7 +481,7 @@
       "licenseUrl": "https://github.com/nodejs/node/blob/main/LICENSE",
       "source": "https://nodejs.org/dist/",
       "installPath": "${HOME}/.bootagent/runtimes/node/v24.18.1",
-      "requiredByHint": "Codex, Claude Code, OpenCode +3"
+      "requiredByHint": "Codex, Claude Code, OpenCode +4"
     },
     {
       "id": "uv",

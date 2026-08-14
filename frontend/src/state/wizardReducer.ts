@@ -414,3 +414,25 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
       return state;
   }
 }
+
+/**
+ * Whether the wizard should collect a model for the current selection.
+ *
+ * Derived from the catalog rather than stored, so it cannot fall out of step with
+ * the manifest the way a second list would: the Agent that needs this is the one
+ * whose harness has no model variable at all, and the catalog is where that fact
+ * is recorded.
+ *
+ * True when the selection is unknown or the status has not arrived, so the model
+ * step is the default and a missing catalog never silently skips it. False only
+ * when every selected Agent owns its own model choice -- a mixed selection still
+ * asks, because the ones that can take a model should get one.
+ */
+export function wizardNeedsModel(state: WizardState): boolean {
+  if (!state.status || !state.selectedAgentIds.length) return true;
+  const catalog = state.status.catalog;
+  return state.selectedAgentIds.some((id) => {
+    const entry = catalog.find((item) => item.id === id);
+    return entry ? entry.selectsModel : true;
+  });
+}

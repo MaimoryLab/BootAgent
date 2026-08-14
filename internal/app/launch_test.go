@@ -94,6 +94,41 @@ func TestLaunchAgentUsesCmdOnWindows(t *testing.T) {
 	}
 }
 
+// dsh boots a profile and its launcher requires one: the bare command exits
+// nonzero with "--profile <name> is required". Since LaunchAgent runs this line
+// in a real terminal, a bare command would open a window only to print an error.
+func TestLaunchAgentGivesDSHABootableProfile(t *testing.T) {
+	runner := &launchRunner{paths: map[string]string{"x-terminal-emulator": "/usr/bin/x-terminal-emulator"}}
+	core := launchCore(t, "linux", runner)
+	result, err := core.LaunchAgent(context.Background(), "dsh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Command != "dsh web" {
+		t.Fatalf("dsh launch line = %q, want %q", result.Command, "dsh web")
+	}
+	// The line reaches the terminal wrapped in its shell invocation, so the
+	// assertion is that it carries the profile, not that it is the whole argument.
+	if len(runner.started) != 1 || !slices.ContainsFunc(runner.started[0], func(argument string) bool {
+		return strings.Contains(argument, "dsh web")
+	}) {
+		t.Fatalf("terminal argv = %#v", runner.started)
+	}
+}
+
+// Both files BootAgent writes for dsh are watched and re-read per request, so
+// telling the user to quit a running session would be busywork.
+func TestDSHActivationDoesNotAskForARestart(t *testing.T) {
+	manifest, err := catalog.LoadEmbedded()
+	if err != nil {
+		t.Fatal(err)
+	}
+	hint := restartHint("dsh", manifest.Agents["dsh"])
+	if !strings.Contains(hint, "No restart needed") {
+		t.Fatalf("dsh restart hint = %q", hint)
+	}
+}
+
 func TestLaunchAgentChangesWorkingDirectory(t *testing.T) {
 	directory := t.TempDir()
 	core := launchCore(t, "linux", &launchRunner{paths: map[string]string{"x-terminal-emulator": "/usr/bin/x-terminal-emulator"}})

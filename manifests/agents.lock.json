@@ -29,7 +29,7 @@
         "linux",
         "windows"
       ],
-      "rank": 1
+      "rank": 2
     },
     "claude-code": {
       "name": "Claude Code",
@@ -66,7 +66,7 @@
       "windows_prerequisites": [
         "git"
       ],
-      "rank": 2
+      "rank": 3
     },
     "opencode": {
       "name": "OpenCode",
@@ -95,7 +95,7 @@
         "windows"
       ],
       "windows_note": "Native Windows is supported; WSL is recommended upstream for the best experience.",
-      "rank": 3
+      "rank": 4
     },
     "kilo-cli": {
       "name": "Kilo CLI",
@@ -122,7 +122,7 @@
         "linux",
         "windows"
       ],
-      "rank": 4
+      "rank": 5
     },
     "aider": {
       "name": "Aider",
@@ -146,7 +146,7 @@
         "linux",
         "windows"
       ],
-      "rank": 5
+      "rank": 6
     },
     "openclaw": {
       "name": "OpenClaw",
@@ -171,7 +171,7 @@
         "windows"
       ],
       "guide": "BootAgent installs OpenClaw and writes its model provider. Starting the gateway and pairing channels stay with OpenClaw's own commands: openclaw onboard.",
-      "rank": 6
+      "rank": 7
     },
     "hermes": {
       "name": "Hermes Agent",
@@ -204,7 +204,7 @@
         "windows"
       ],
       "windows_note": "The official PowerShell installer provides Hermes and its isolated prerequisites without requiring WSL.",
-      "rank": 7
+      "rank": 8
     },
     "kimi-code": {
       "name": "Kimi Code",
@@ -229,7 +229,33 @@
         "windows"
       ],
       "guide": "Kimi Code reads credentials only from its own config file and does not fall back to shell environment variables, so BootAgent writes the Provider and model into ~/.kimi-code/config.toml. KIMI_CODE_HOME relocates that directory; if you set it, launch Kimi Code with it set or it will not find this config.",
-      "rank": 8
+      "rank": 9
+    },
+    "dsh": {
+      "name": "DeepSeek Harness",
+      "group": "auto",
+      "command": "dsh",
+      "config_mode": "auto",
+      "config_adapter": "dsh",
+      "model_selection": "agent",
+      "config_path": ".dsh/settings.yaml",
+      "package": {
+        "manager": "npm",
+        "name": "@deepseek-ai/dsh",
+        "source": "https://github.com/deepseek-ai/deepseek-harness",
+        "license": "MIT",
+        "license_url": "https://github.com/deepseek-ai/deepseek-harness/blob/master/LICENSE"
+      },
+      "version_args": [
+        "--version"
+      ],
+      "platforms": [
+        "macos",
+        "linux",
+        "windows"
+      ],
+      "guide": "BootAgent 在 ~/.dsh/settings.yaml 里注册一个名为 bootagent 的自定义供应商并设为默认模型，API Key 存入 ~/.dsh/.credentials.yaml。它的界面是本地 Web 应用而非命令行：安装后运行 dsh web，在浏览器打开 http://127.0.0.1:3080。在 Settings - Models 里可以给该供应商补充更多模型或改回其他供应商。改动无需重启，dsh 会热加载。当前为开发者预览版，配置格式仍可能变动。",
+      "rank": 1
     }
   }
 }

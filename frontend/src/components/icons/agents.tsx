@@ -33,6 +33,7 @@ import { sourceTranslate, type Translate, type TranslationKey } from "../../i18n
 import assetRightsManifest from "./asset-rights.json";
 import claudeCodeMark from "./assets/claude-code.svg?raw";
 import codexMark from "./assets/codex.svg?raw";
+import deepseekMark from "./assets/deepseek.svg?raw";
 import hermesMark from "./assets/hermes.svg?raw";
 import kiloCliMark from "./assets/kilo-cli.svg?raw";
 import kimiCodeMark from "./assets/kimi-code.svg?raw";
@@ -120,6 +121,16 @@ const MARKS: Record<string, Mark> = {
   // Aider has no mark in lobe-icons and no vector to extract, so it keeps a
   // generic symbol.
   aider: { kind: "generic", Icon: GitBranch, source: GENERIC_SOURCE },
+  // DeepSeek's whale, the company mark rather than a Harness-specific one: the
+  // project ships no mark of its own, and the whale is what identifies whose
+  // product this is. Same lobe-icons basis as the six above, so it carries a
+  // licence and a hash rather than being a favicon copied off a website.
+  dsh: {
+    kind: "asset",
+    markup: deepseekMark,
+    source: assetRightsManifest.assets.dsh.source,
+    rights: assetRightsManifest.assets.dsh,
+  },
   // WorkBuddy and ZCode use the vendors' own icons, taken from the installed
   // application bundles. Both ship raster only, so they are the two marks in this
   // set that keep their brand colours instead of taking the theme's. A generic
@@ -168,6 +179,7 @@ const TAGLINES: Record<string, TranslationKey> = {
   hermes: "可扩展的多渠道智能代理",
   openclaw: "把聊天工具接到编码代理的自建网关",
   "kimi-code": "月之暗面的终端编码代理",
+  dsh: "DeepSeek 的插件式本地 Web 代理",
 };
 
 export const AGENT_ICON_IDS = Object.keys(MARKS);

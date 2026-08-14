@@ -11,6 +11,7 @@ the embedded frontend. Full license and notice texts are included under
 | --- | --- | --- | --- | --- | --- |
 | asset | `claude-code` | `365a70a7eb3956d9b9a96086058ebe04e1dbd8e291a756ad964e8a283fbd6d38` | frontend | MIT | `licenses/assets/claude-code/LICENSE` |
 | asset | `codex` | `a595df6b423920c67a7f8f73c063e4bfb72d415948097b6cac063a2366bb5186` | frontend | MIT | `licenses/assets/codex/LICENSE` |
+| asset | `dsh` | `8f9443e351b6dacce71871790201b799d92e8bf96a45ef79aeb5e9bf4db423e2` | frontend | MIT | `licenses/assets/dsh/LICENSE` |
 | asset | `hermes` | `02d43c0a91fc2ee41f2684fc39613ff6687de29a4b079665bace5303671dd63b` | frontend | MIT | `licenses/assets/hermes/LICENSE` |
 | asset | `kilo-cli` | `a2aef0e0bb992ebe768bfb8c3a3ab6ff2c2638448b09dd88db27877de1c07a22` | frontend | MIT | `licenses/assets/kilo-cli/LICENSE` |
 | asset | `kimi-code` | `ed08131b46acf70e6e2144eceb775e74098b58ea65fa21eaee04be7b05cfe63b` | frontend | MIT | `licenses/assets/kimi-code/LICENSE` |

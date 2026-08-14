@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/MaimoryLab/BootAgent/internal/securefs"
+	"gopkg.in/yaml.v3"
 )
 
 func testWriter(t *testing.T, home, osID string) Writer {
@@ -630,5 +631,244 @@ func TestWriteZCodeCreatesTheFileWhenAbsent(t *testing.T) {
 	providers := zcodeProviders(t, path)
 	if len(providers) != 1 {
 		t.Fatalf("provider count = %d, want 1", len(providers))
+	}
+}
+
+// dshSettings returns the pi-ai routes in a settings document.
+func dshSettings(t *testing.T, path string) map[string]map[string]any {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var parsed struct {
+		PiAI struct {
+			Providers map[string]map[string]any `yaml:"providers"`
+		} `yaml:"llm-pi-ai"`
+	}
+	if err := yaml.Unmarshal(data, &parsed); err != nil {
+		t.Fatalf("settings are not valid YAML: %v\n%s", err, data)
+	}
+	return parsed.PiAI.Providers
+}
+
+// dshCredentials returns the credential document as the strict mapping dsh
+// requires it to be: any other shape fails on dsh's side rather than being
+// skipped, so the test asserts the shape too.
+func dshCredentials(t *testing.T, path string) map[string]string {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	parsed := map[string]string{}
+	if err := yaml.Unmarshal(data, &parsed); err != nil {
+		t.Fatalf("credentials are not a string mapping: %v\n%s", err, data)
+	}
+	return parsed
+}
+
+// Both files BootAgent writes for dsh are the user's, shared with dsh's own
+// Models page: settings.yaml holds unrelated sections and the user's own provider
+// routes, and .credentials.yaml holds the keys that page manages. Neither may be
+// rewritten wholesale the way .bootagent/aider.env is.
+func TestWriteDSHRegistersARouteBesideTheUsersOwn(t *testing.T) {
+	home := t.TempDir()
+	path := filepath.Join(home, ".dsh", "settings.yaml")
+	credentials := filepath.Join(home, ".dsh", ".credentials.yaml")
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	existing := "ui-onboarding:\n" +
+		"  welcomeNoticeVersion: 2026-08-13.1\n" +
+		"llm-pi-ai:\n" +
+		"  providers:\n" +
+		"    paigod:\n" +
+		"      displayName: paigod\n" +
+		"      apiKeyEnv: PAIGOD_API_KEY\n" +
+		"      api: openai-completions\n" +
+		"      baseURL: https://apiproxy.paigod.work/v1\n" +
+		"      models:\n" +
+		"        - id: gpt-5.4\n" +
+		// What dsh's own Models page leaves behind once the user has picked a
+		// model: a complete selection, effort included, against a shipped route.
+		"agent-default-model:\n" +
+		"  provider: deepseek-official\n" +
+		"  model: deepseek-v4-flash\n" +
+		"  reasoningEffort: high\n"
+	if err := os.WriteFile(path, []byte(existing), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	// The credential dsh's Models page manages for its shipped DeepSeek route.
+	if err := os.WriteFile(credentials, []byte("DEEPSEEK_API_KEY: sk-users-own\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := testWriter(t, home, "linux").WriteDSH(context.Background(), path, "PPIO", "https://api.example/openai", "sk-new", "deepseek-v4-pro"); err != nil {
+		t.Fatal(err)
+	}
+
+	routes := dshSettings(t, path)
+	if _, ok := routes["paigod"]; !ok {
+		t.Errorf("the user's own route was lost: %v", routes)
+	}
+	route := routes["bootagent"]
+	if route == nil {
+		t.Fatalf("no bootagent route was written: %v", routes)
+	}
+	for key, want := range map[string]any{
+		"displayName": "PPIO",
+		"apiKeyEnv":   "BOOTAGENT_API_KEY",
+		"api":         "openai-completions",
+		// The /v1 the adapter needs, since it appends only the operation path.
+		"baseURL": "https://api.example/openai/v1",
+	} {
+		if route[key] != want {
+			t.Errorf("route %s = %v, want %v", key, route[key], want)
+		}
+	}
+	// A hand-declared route inherits no catalog, so an absent models list would
+	// leave dsh's picker empty for this provider.
+	models, _ := route["models"].([]any)
+	if len(models) != 1 {
+		t.Fatalf("route models = %v, want exactly the resolved model", route["models"])
+	}
+	if entry, _ := models[0].(map[string]any); entry["id"] != "deepseek-v4-pro" {
+		t.Errorf("seeded model = %v, want deepseek-v4-pro", models[0])
+	}
+	// An unrelated section keeps its place.
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), "ui-onboarding") {
+		t.Errorf("unrelated settings section was lost:\n%s", data)
+	}
+
+	// Registering the route only makes it available; dsh resolves every new Agent
+	// from the default selection, so activation has to move that too.
+	var selection struct {
+		Default struct {
+			Provider        string `yaml:"provider"`
+			Model           string `yaml:"model"`
+			ReasoningEffort string `yaml:"reasoningEffort"`
+		} `yaml:"agent-default-model"`
+	}
+	if err := yaml.Unmarshal(data, &selection); err != nil {
+		t.Fatal(err)
+	}
+	if selection.Default.Provider != "bootagent" || selection.Default.Model != "deepseek-v4-pro" {
+		t.Errorf("default selection = %+v, want the bootagent route", selection.Default)
+	}
+	// dsh treats a saved selection as complete, so an effort belonging to the
+	// model this one replaced must not ride along.
+	if selection.Default.ReasoningEffort != "" {
+		t.Errorf("stale reasoningEffort survived: %q", selection.Default.ReasoningEffort)
+	}
+
+	stored := dshCredentials(t, credentials)
+	if stored["BOOTAGENT_API_KEY"] != "sk-new" {
+		t.Errorf("credential = %q, want sk-new", stored["BOOTAGENT_API_KEY"])
+	}
+	// BootAgent uses its own reference precisely so storing it cannot disturb the
+	// one dsh manages for the shipped DeepSeek route.
+	if stored["DEEPSEEK_API_KEY"] != "sk-users-own" {
+		t.Errorf("the user's own credential was disturbed: %q", stored["DEEPSEEK_API_KEY"])
+	}
+
+	detected := ReadDSHConfig(string(data))
+	if detected.BaseURL != "https://api.example/openai/v1" || detected.Model != "deepseek-v4-pro" || !detected.ManagedByBootAgent {
+		t.Fatalf("dsh round-trip = %#v", detected)
+	}
+	// dsh refuses to parse a credential document carrying any group or other
+	// permission bit, and fails before reading it.
+	for _, target := range []string{path, credentials} {
+		info, err := os.Stat(target)
+		if err != nil || info.Mode().Perm() != 0o600 {
+			t.Fatalf("%s mode = %v, err=%v", target, info.Mode().Perm(), err)
+		}
+	}
+}
+
+// Activation reruns on every Provider edit, so a rewrite must not accumulate
+// duplicate routes, models, or credential entries.
+func TestWriteDSHIsIdempotent(t *testing.T) {
+	home := t.TempDir()
+	path := filepath.Join(home, ".dsh", "settings.yaml")
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	writer := testWriter(t, home, "linux")
+	for range 3 {
+		if err := writer.WriteDSH(context.Background(), path, "PPIO", "https://api.example/openai", "sk-x", "m1"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	routes := dshSettings(t, path)
+	if len(routes) != 1 {
+		t.Fatalf("route count = %d, want 1: %v", len(routes), routes)
+	}
+	if models, _ := routes["bootagent"]["models"].([]any); len(models) != 1 {
+		t.Errorf("model count = %d, want 1", len(models))
+	}
+	if stored := dshCredentials(t, filepath.Join(home, ".dsh", ".credentials.yaml")); len(stored) != 1 {
+		t.Errorf("credential count = %d, want 1: %v", len(stored), stored)
+	}
+}
+
+// The route is BootAgent's own, so redefining it must not leave a field from the
+// activation before it behind -- a stale compat block or a narrower model list
+// would keep serving under a route the user believes was just repointed.
+func TestWriteDSHReplacesItsOwnRouteWholesale(t *testing.T) {
+	home := t.TempDir()
+	path := filepath.Join(home, ".dsh", "settings.yaml")
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	existing := "llm-pi-ai:\n" +
+		"  providers:\n" +
+		"    bootagent:\n" +
+		"      displayName: Stale\n" +
+		"      apiKeyEnv: BOOTAGENT_API_KEY\n" +
+		"      api: openai-completions\n" +
+		"      baseURL: https://stale.example/v1\n" +
+		"      compat:\n" +
+		"        thinkingFormat: deepseek\n" +
+		"      models:\n" +
+		"        - id: stale-model\n"
+	if err := os.WriteFile(path, []byte(existing), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := testWriter(t, home, "linux").WriteDSH(context.Background(), path, "PPIO", "https://api.example/openai", "sk-x", "fresh-model"); err != nil {
+		t.Fatal(err)
+	}
+	route := dshSettings(t, path)["bootagent"]
+	if _, ok := route["compat"]; ok {
+		t.Errorf("a stale field survived the rewrite: %v", route)
+	}
+	if route["baseURL"] != "https://api.example/openai/v1" || route["displayName"] != "PPIO" {
+		t.Errorf("route was not repointed: %v", route)
+	}
+	models, _ := route["models"].([]any)
+	if len(models) != 1 {
+		t.Fatalf("model count = %d, want 1: %v", len(models), route["models"])
+	}
+	if entry, _ := models[0].(map[string]any); entry["id"] != "fresh-model" {
+		t.Errorf("stale model survived: %v", models[0])
+	}
+}
+
+// A malformed settings document must fail loudly rather than being replaced: it
+// is the user's file, and dsh would have kept serving from its last good copy.
+func TestWriteDSHRefusesAnInvalidSettingsDocument(t *testing.T) {
+	home := t.TempDir()
+	path := filepath.Join(home, ".dsh", "settings.yaml")
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte("llm-pi-ai: [not, a, mapping]\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := testWriter(t, home, "linux").WriteDSH(context.Background(), path, "PPIO", "https://api.example/openai", "sk-x", "m1"); err == nil {
+		t.Fatal("writing over a non-mapping llm-pi-ai section succeeded")
 	}
 }

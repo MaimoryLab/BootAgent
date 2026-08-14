@@ -15,10 +15,10 @@ import (
 )
 
 type Detected struct {
-	BaseURL           string  `json:"baseUrl"`
-	Model             string  `json:"model"`
+	BaseURL            string  `json:"baseUrl"`
+	Model              string  `json:"model"`
 	ManagedByBootAgent bool    `json:"managedByBootAgent"`
-	Unreadable        *string `json:"unreadable"`
+	Unreadable         *string `json:"unreadable"`
 }
 
 func ReadCodexConfig(text string) Detected {
@@ -142,6 +142,42 @@ func ReadAiderConfig(text string) Detected {
 	return Detected{BaseURL: baseURL}
 }
 
+// ReadDSHConfig reports the endpoint and model behind the llm-pi-ai route
+// BootAgent owns in DeepSeek Harness's $DSH_HOME/settings.yaml.
+//
+// The settings document rather than $DSH_HOME/.env, because that is the layer
+// that decides: a `llm-pi-ai:` section outranks any endpoint in .env, and the
+// managed credential store outranks a key there. Reading .env would report an
+// endpoint dsh has already overridden.
+//
+// Keyed on the route BootAgent owns rather than on whichever route is selected:
+// a user who switched dsh to another provider still has ours on disk, and
+// reporting otherwise would hide that BootAgent wrote it.
+func ReadDSHConfig(text string) Detected {
+	var parsed struct {
+		PiAI struct {
+			Providers map[string]struct {
+				BaseURL string `yaml:"baseURL"`
+				Models  []struct {
+					ID string `yaml:"id"`
+				} `yaml:"models"`
+			} `yaml:"providers"`
+		} `yaml:"llm-pi-ai"`
+	}
+	if err := yaml.Unmarshal([]byte(text), &parsed); err != nil {
+		return unreadable(fmt.Sprintf("YAML 无法解析：%v", err))
+	}
+	route, managed := parsed.PiAI.Providers[dshOwnedRoute]
+	model := ""
+	// The first entry, not a search for a match: the route's catalog is ordered
+	// and BootAgent seeds it with exactly one model, so the head is what we wrote
+	// even after the user appends more from dsh's Models page.
+	if len(route.Models) > 0 {
+		model = route.Models[0].ID
+	}
+	return Detected{BaseURL: route.BaseURL, Model: model, ManagedByBootAgent: managed}
+}
+
 func ReadHermesConfig(text string) Detected {
 	var parsed struct {
 		Model struct {
@@ -232,6 +268,8 @@ func readerFor(adapter string, envVars map[string]string) reader {
 		return ReadOpenClawConfig
 	case "aider":
 		return ReadAiderConfig
+	case "dsh":
+		return ReadDSHConfig
 	case "hermes":
 		return ReadHermesConfig
 	case "kimi-code":

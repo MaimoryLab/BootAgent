@@ -8,7 +8,7 @@ function item(id: string, rank: number): AgentCatalogItem {
     id,
     name: id,
     group: "auto",
-    configMode: "auto",
+    configMode: "auto", selectsModel: true,
     guideOnly: false,
     lockedVersion: null,
     protocol: null,

@@ -21,6 +21,7 @@ import { I18nProvider, useI18n } from "./i18n";
 import { TaskCenterProvider, useTaskCenter } from "./state/TaskCenterContext";
 import { ThemeProvider } from "./state/ThemeContext";
 import { WizardProvider, useWizard } from "./state/WizardContext";
+import { wizardNeedsModel } from "./state/wizardReducer";
 import { migrateStorageKeys } from "./storageMigration";
 
 migrateStorageKeys();
@@ -42,7 +43,13 @@ function SetupGuard({ stage, children }: { stage: "provider" | "model" | "review
     // Provider settings own the key; the connection probe is optional.
     return <Navigate to="/setup/provider" replace />;
   }
-  if ((stage === "review" || stage === "activation") && !state.model) {
+  // An Agent that owns its own model choice has no model to wait for, so the
+  // gate would bounce review straight back to a step it is meant to skip.
+  const needsModel = wizardNeedsModel(state);
+  if (stage === "model" && !needsModel) {
+    return <Navigate to="/setup/review" replace />;
+  }
+  if ((stage === "review" || stage === "activation") && !state.model && needsModel) {
     return <Navigate to="/setup/model" replace />;
   }
   // The activation page only renders a run in progress or its outcome; a deep
