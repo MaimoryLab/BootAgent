@@ -19,10 +19,6 @@ export function Apply(request: app$0.SkillApplyRequest): $CancellablePromise<app
     return $Call.ByID(1186661553, request);
 }
 
-export function Get(id: string): $CancellablePromise<app$0.SkillSummary> {
-    return $Call.ByID(3833108185, id);
-}
-
 export function List(): $CancellablePromise<app$0.SkillSummary[] | null> {
     return $Call.ByID(2228288007);
 }

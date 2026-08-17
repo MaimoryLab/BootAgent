@@ -55,7 +55,7 @@ func TestServiceMethodAllowlist(t *testing.T) {
 		{&RuntimeService{}, []string{"GetSettings", "InstallRuntime", "ListRuntimes", "SaveSettings"}},
 		{&DesktopAgentService{}, []string{"Configure", "GetStatus", "Install", "Open"}},
 		{&TransferService{}, []string{"Read", "Write"}},
-		{&SkillService{}, []string{"Apply", "Get", "List", "ListBackups", "PreviewImport", "RestoreBackup", "Scan", "SetDraftState", "Uninstall"}},
+		{&SkillService{}, []string{"Apply", "List", "ListBackups", "PreviewImport", "RestoreBackup", "Scan", "SetDraftState", "Uninstall"}},
 		{&ConversionService{}, []string{"Get", "Save"}},
 		{&UpdateService{}, []string{"Check", "DownloadAndInstall", "Restart", "Version"}},
 	}
