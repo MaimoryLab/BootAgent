@@ -36,8 +36,8 @@ config method page, then read [Choosing a config tool](./03-config-tools.md) and
 Download the `technical-preview-unsigned` package for your platform, unpack it, and
 launch it directly: `BootAgent.app` on macOS, `bootagent-desktop.exe` on Windows, or the
 Linux AppImage. Linux also provides `deb`, `rpm`, and OTA `zip` packages for amd64 and
-arm64. Packages at this stage are neither signed nor notarized, so the first launch needs
-manual approval from your operating system.
+arm64. macOS packages are Developer ID signed and notarized; Windows and Linux packages
+remain unsigned, so their first launch may need manual approval from the operating system.
 
 To run from source instead, for development or review:
 
