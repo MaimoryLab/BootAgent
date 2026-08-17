@@ -55,6 +55,7 @@ const english = {
   "保存草稿": "Save draft",
   "导入导出": "Import and export",
   "设置": "Settings",
+  "常规设置": "General settings",
   "管理界面偏好与配置迁移": "Manage interface preferences and configuration transfer",
   "界面": "Interface",
   "数据": "Data",

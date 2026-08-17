@@ -34,6 +34,7 @@ export function SettingsPage() {
   const [conversion, setConversion] = useState<ConversionConfig | null>(null);
   const [status, setStatus] = useState<StatusResponse | null>(null);
   const [conversionFailure, setConversionFailure] = useState("");
+  const [settingsTab, setSettingsTab] = useState<"general" | "conversion">("general");
 
   useEffect(() => { void api.version().then(setVersion).catch(() => {}); }, []);
   useEffect(() => { void Promise.all([api.getConversion(), api.status()]).then(([c, s]) => { setConversion(c); setStatus(s); }).catch(() => setConversionFailure(t("无法读取格式转换设置"))); }, [t]);
@@ -141,7 +142,11 @@ export function SettingsPage() {
         </>
       )}
     >
-      <section className="settings-section">
+      <div className="agent-tabs" role="tablist" aria-label={t("设置")}>
+        <button className={`agent-tab${settingsTab === "general" ? " is-active" : ""}`} role="tab" aria-selected={settingsTab === "general"} type="button" onClick={() => setSettingsTab("general")}>{t("常规设置")}</button>
+        <button className={`agent-tab${settingsTab === "conversion" ? " is-active" : ""}`} role="tab" aria-selected={settingsTab === "conversion"} type="button" onClick={() => setSettingsTab("conversion")}>{t("本地格式转换")}</button>
+      </div>
+      {settingsTab === "conversion" ? <section className="settings-section">
         <h2>{t("本地格式转换")}</h2>
         {conversion ? <>
           <div className="settings-row"><Radio size={16} aria-hidden="true" /><label htmlFor="conversion-enabled"><strong>{t("启用本地 API 格式转换")}</strong><small>{t("将 Anthropic Messages 和 OpenAI Responses 转为 OpenAI Chat Completions")}</small></label><input id="conversion-enabled" type="checkbox" checked={conversion.enabled} onChange={(e) => setConversion({ ...conversion, enabled: e.target.checked })} /></div>
@@ -153,7 +158,7 @@ export function SettingsPage() {
           <button className="button button-primary" type="button" onClick={() => void api.saveConversion(conversion).then(setConversion).catch((e) => setConversionFailure(String(e)))}>{t("保存格式转换设置")}</button>
           {conversionFailure ? <p className="settings-field-error" role="status">{conversionFailure}</p> : null}
         </> : <p className="settings-field-error">{conversionFailure}</p>}
-      </section>
+      </section> : <>
       <section className="settings-section">
         <h2>{t("界面")}</h2>
         <div className="settings-row"><ThemePicker /></div>
@@ -214,6 +219,7 @@ export function SettingsPage() {
         </button>
         {helpFailure ? <p className="agent-manage-error">{helpFailure}</p> : null}
       </section>
+      </>}
     </PageScaffold>
   );
 }
