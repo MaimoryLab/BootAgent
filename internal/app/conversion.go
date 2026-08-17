@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -143,7 +144,7 @@ func (u *UseCases) SaveConversion(ctx context.Context, c ConversionConfig) (Conv
 		for _, f := range []string{"anthropic", "responses"} {
 			id := converterPrefix + f
 			_, err = u.SaveProvider(ctx, provider.Entry{ID: id, Name: "BootAgent Converter " + f, BaseURL: provider.OpenAIBaseURL("http://" + c.Listen), APIKey: c.APIKey}, false, false)
-			if err != nil && !strings.Contains(err.Error(), "Unknown Provider") {
+			if err != nil && !errors.Is(err, provider.ErrUnknownProvider) {
 				return c, err
 			}
 			_, err = u.SaveProfile(ctx, SaveProfileOptions{ID: id, Label: "BootAgent Converter " + f, Provider: id, APIKey: c.APIKey, Model: map[string]string{"anthropic": c.AnthropicModel, "responses": c.ResponsesModel}[f], Protocol: map[string]string{"anthropic": "anthropic", "responses": "responses"}[f], ConfigMode: "provider"})
@@ -159,7 +160,9 @@ func (u *UseCases) SaveConversion(ctx context.Context, c ConversionConfig) (Conv
 	if err := os.WriteFile(u.conversionPath(), append(b, '\n'), 0600); err != nil {
 		return c, err
 	}
-	_ = u.conversion.SetConfig(convertproxy.Config{Enabled: c.Enabled, Listen: c.Listen, APIKey: c.APIKey, Models: []string{c.AnthropicModel, c.ResponsesModel}, TargetBaseURL: p.BaseFor("openai"), TargetModel: profileModel(target), TargetReasoningEffort: target.ReasoningEffort, TargetAPIKey: p.APIKey})
+	if err := u.conversion.SetConfig(convertproxy.Config{Enabled: c.Enabled, Listen: c.Listen, APIKey: c.APIKey, Models: []string{c.AnthropicModel, c.ResponsesModel}, TargetBaseURL: p.BaseFor("openai"), TargetModel: profileModel(target), TargetReasoningEffort: target.ReasoningEffort, TargetAPIKey: p.APIKey}); err != nil {
+		return c, err
+	}
 	return c, nil
 }
 

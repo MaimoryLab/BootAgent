@@ -62,6 +62,30 @@ func TestModelsEndpoint(t *testing.T) {
 	}
 }
 
+func TestSetConfigReportsListenError(t *testing.T) {
+	server := New(nil)
+	if err := server.SetConfig(Config{Enabled: true, Listen: "[invalid"}); err == nil {
+		t.Fatal("invalid listen address was accepted")
+	}
+}
+
+func TestConvertedResponseDropsStaleBodyHeaders(t *testing.T) {
+	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Length", "1")
+		w.Header().Set("Content-Encoding", "br")
+		_, _ = io.WriteString(w, `{"id":"chat","model":"m","choices":[]}`)
+	}))
+	defer target.Close()
+	proxy := &Server{client: target.Client(), cfg: Config{TargetBaseURL: target.URL, TargetModel: "m"}}
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/v1/responses", strings.NewReader(`{"model":"client","input":[]}`))
+	proxy.handle(recorder, request)
+	if recorder.Code != http.StatusOK || recorder.Header().Get("Content-Length") != "" || recorder.Header().Get("Content-Encoding") != "" {
+		t.Fatalf("converted headers = %v, status = %d", recorder.Header(), recorder.Code)
+	}
+}
+
 func TestResponsesStreamEmitsCompletion(t *testing.T) {
 	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/event-stream")

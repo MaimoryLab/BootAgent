@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -16,6 +17,9 @@ import (
 )
 
 const userProviderSchemaVersion = 1
+
+// ErrUnknownProvider identifies a missing Provider independently of its UI text.
+var ErrUnknownProvider = errors.New("unknown provider")
 
 var userProviderIDPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,63}$`)
 
@@ -86,7 +90,7 @@ func (s Store) Get(id string) (Entry, error) {
 			FallbackModel:    catalog.FallbackProbeModel(id),
 		}, nil
 	}
-	return Entry{}, oneerrors.New(oneerrors.InvalidRequest, "Unknown Provider: "+id)
+	return Entry{}, oneerrors.New(oneerrors.InvalidRequest, "Unknown Provider: "+id, oneerrors.WithCause(fmt.Errorf("%w: %s", ErrUnknownProvider, id)))
 }
 
 func (s Store) Resolve(id, explicitBase string) (Entry, error) {
@@ -284,7 +288,7 @@ func (s Store) Delete(ctx context.Context, id string) error {
 		return err
 	}
 	if _, ok := file.Providers[id]; !ok {
-		return oneerrors.New(oneerrors.InvalidRequest, "Unknown Provider: "+id)
+		return oneerrors.New(oneerrors.InvalidRequest, "Unknown Provider: "+id, oneerrors.WithCause(fmt.Errorf("%w: %s", ErrUnknownProvider, id)))
 	}
 	delete(file.Providers, id)
 	return s.write(ctx, file)

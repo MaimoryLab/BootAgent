@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -46,28 +47,52 @@ func New(client *http.Client) *Server {
 }
 func (s *Server) SetConfig(cfg Config) error {
 	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.http != nil {
-		_ = s.http.Shutdown(context.Background())
-		s.http = nil
+	old := s.http
+	s.http = nil
+	s.mu.Unlock()
+	if old != nil {
+		if err := shutdownHTTPServer(old); err != nil {
+			return err
+		}
 	}
-	s.cfg = cfg
 	if !cfg.Enabled {
+		s.mu.Lock()
+		s.cfg = cfg
+		s.mu.Unlock()
 		return nil
 	}
-	s.http = &http.Server{Addr: cfg.Listen, Handler: http.HandlerFunc(s.handle)}
-	go s.http.ListenAndServe()
+	listener, err := net.Listen("tcp", cfg.Listen)
+	if err != nil {
+		cfg.Enabled = false
+		s.mu.Lock()
+		s.cfg = cfg
+		s.mu.Unlock()
+		return err
+	}
+	server := &http.Server{Addr: cfg.Listen, Handler: http.HandlerFunc(s.handle)}
+	s.mu.Lock()
+	s.cfg = cfg
+	s.http = server
+	s.mu.Unlock()
+	go func() { _ = server.Serve(listener) }()
 	return nil
 }
 func (s *Server) Close() error {
 	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.http == nil {
+	server := s.http
+	s.http = nil
+	s.cfg.Enabled = false
+	s.mu.Unlock()
+	if server == nil {
 		return nil
 	}
-	err := s.http.Shutdown(context.Background())
-	s.http = nil
-	return err
+	return shutdownHTTPServer(server)
+}
+
+func shutdownHTTPServer(server *http.Server) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	return server.Shutdown(ctx)
 }
 func (s *Server) handle(w http.ResponseWriter, r *http.Request) {
 	s.mu.RLock()
@@ -152,6 +177,10 @@ func (s *Server) forwardConverted(w http.ResponseWriter, r *http.Request, body [
 	for k, v := range resp.Header {
 		w.Header()[k] = v
 	}
+	// The body is read and written again (and may be transformed or transparently
+	// decompressed), so upstream framing/encoding metadata is no longer valid.
+	w.Header().Del("Content-Length")
+	w.Header().Del("Content-Encoding")
 	w.WriteHeader(resp.StatusCode)
 	_, _ = w.Write(data)
 }
