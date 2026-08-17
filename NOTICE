@@ -41,18 +41,23 @@ Third-party trademarks
 ================================================================================
 
 The application identifies supported Agents in a row using either a generic
-BootAgent UI symbol or a separately audited image asset. Generic Lucide symbols
-are used for Aider and WorkBuddy, neither of which has a mark in lobe-icons or a
-published vector under a license that permits redistribution, so no website
-favicon is copied into the release. The six retained image assets are listed
-with source, license, owner, and SHA-256 in
-frontend/src/components/icons/asset-rights.json.
+BootAgent UI symbol or a separately audited image asset. A generic Lucide symbol
+is used for Aider, which has no mark in lobe-icons and no published vector under
+a license that permits redistribution, so no website favicon is copied into the
+release. Every retained image asset is listed with source, license, owner, and
+SHA-256 in frontend/src/components/icons/asset-rights.json, which is the
+authoritative inventory; that manifest is also what generates the per-asset
+license files under licenses/assets/ in the release bundle.
 
-Five of those six -- for Codex, Claude Code, OpenCode, Kilo CLI, and Hermes
-Agent -- come from lobe-icons and are redistributed unmodified. The Hermes Agent
-mark is the drawing lobe-icons also publishes as nousresearch.svg, identical but
-for its <title>: Hermes Agent is Nous Research's product, so the company mark
-identifies it. The sixth, for OpenClaw, is
+All but one of those assets -- the marks for Codex, Claude Code, OpenCode, Kilo
+CLI, Hermes Agent, Kimi Code, DeepSeek Harness, and Pi -- come from lobe-icons
+and are redistributed unmodified. The Hermes Agent mark is the drawing
+lobe-icons also publishes as nousresearch.svg, identical but for its <title>:
+Hermes Agent is Nous Research's product, so the company mark identifies it. The
+DeepSeek Harness mark is likewise DeepSeek's company whale, the project shipping
+no mark of its own. The Pi mark is Pi's blocked "pi" wordmark, and not
+Inflection's Pi.ai assistant, which lobe-icons publishes separately as
+inflection.svg. The one exception, for OpenClaw, is
 not the vendor's own artwork: no official vector is published, so the mark is
 the lobster drawn by the cc-switch project (MIT, Copyright (c) 2025 Jason
 Young), and BootAgent has modified it. The red gradient, the coloured antenna

@@ -213,6 +213,80 @@ func TestWriteKimiCodeQuotesAliasesContainingSeparators(t *testing.T) {
 	}
 }
 
+// The credential must not share a file with the endpoint: Pi resolves keys from
+// auth.json ahead of the models.json apiKey field, so writing it there keeps the
+// secret out of the file describing providers and still wins resolution.
+func TestWritePISeparatesTheCredentialFromTheEndpoint(t *testing.T) {
+	home := t.TempDir()
+	directory := filepath.Join(home, ".pi", "agent")
+	if err := os.MkdirAll(directory, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(directory, "models.json")
+	writer := testWriter(t, home, "linux")
+	if err := writer.WritePI(context.Background(), path, "PPIO", "https://api.ppio.com/openai", "sk-pi-secret", "model-a"); err != nil {
+		t.Fatal(err)
+	}
+	models, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(models), "sk-pi-secret") || strings.Contains(string(models), "apiKey") {
+		t.Fatalf("Pi models.json must carry no credential: %s", models)
+	}
+	// The endpoint is normalised to the /v1 form openai-completions expects, the
+	// same as the OpenCode, Kilo and Kimi Code adapters.
+	if !strings.Contains(string(models), `"baseUrl": "https://api.ppio.com/openai/v1"`) {
+		t.Fatalf("Pi endpoint was not normalised: %s", models)
+	}
+	auth, err := os.ReadFile(filepath.Join(directory, "auth.json"))
+	if err != nil || !strings.Contains(string(auth), "sk-pi-secret") || !strings.Contains(string(auth), `"type": "api_key"`) {
+		t.Fatalf("Pi auth.json = %q, err=%v", auth, err)
+	}
+	// Only the credential file is a secret; the other two describe endpoints and
+	// preferences and are readable like every other Agent config.
+	info, err := os.Stat(filepath.Join(directory, "auth.json"))
+	if err != nil || info.Mode().Perm() != 0o600 {
+		t.Fatalf("Pi auth.json mode = %v, err=%v", info.Mode().Perm(), err)
+	}
+
+	// A second activation must redefine the owned entry rather than accumulate:
+	// a stale endpoint surviving inside it would outlive the write meant to
+	// replace it.
+	if err := writer.WritePI(context.Background(), path, "Novita", "https://api.novita.ai/openai", "sk-second", "model-b"); err != nil {
+		t.Fatal(err)
+	}
+	detected := ReadPIConfig(string(mustReadFile(t, path)))
+	if detected.BaseURL != "https://api.novita.ai/openai/v1" || detected.Model != "model-b" || !detected.ManagedByBootAgent {
+		t.Fatalf("Pi re-activation detection = %#v", detected)
+	}
+	settings := mustReadFile(t, filepath.Join(directory, "settings.json"))
+	if !strings.Contains(string(settings), `"defaultModel": "model-b"`) {
+		t.Fatalf("Pi settings.json kept a stale selection: %s", settings)
+	}
+}
+
+// A models.json with no owned entry describes no binding, so detection reports
+// nothing rather than naming one of the user's own providers.
+func TestReadPIConfigIgnoresProvidersItDoesNotOwn(t *testing.T) {
+	detected := ReadPIConfig(`{"providers":{"my-ollama":{"baseUrl":"http://localhost:11434/v1","models":[{"id":"llama3.1:8b"}]}}}`)
+	if detected.BaseURL != "" || detected.Model != "" || detected.ManagedByBootAgent {
+		t.Fatalf("unowned Pi config should report no binding: %#v", detected)
+	}
+	if detected := ReadPIConfig("{not json"); detected.Unreadable == nil {
+		t.Fatalf("invalid Pi config should report unreadable: %#v", detected)
+	}
+}
+
+func mustReadFile(t *testing.T, path string) []byte {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return data
+}
+
 func TestWriteKimiCodeRefusesUnsupportedSyntaxWithoutWriting(t *testing.T) {
 	home := t.TempDir()
 	path := filepath.Join(home, ".kimi-code", "config.toml")

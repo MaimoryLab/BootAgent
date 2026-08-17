@@ -17,6 +17,7 @@ the embedded frontend. Full license and notice texts are included under
 | asset | `kimi-code` | `ed08131b46acf70e6e2144eceb775e74098b58ea65fa21eaee04be7b05cfe63b` | frontend | MIT | `licenses/assets/kimi-code/LICENSE` |
 | asset | `openclaw` | `9eac78bcfa8e106ed3267293235281743e161b5accf2ff5c676700b64cfcdbbc` | frontend | MIT | `licenses/assets/openclaw/LICENSE` |
 | asset | `opencode` | `7cfa6e9d6726f7c9fa26c7d9aef0dfec52d20a137380454340f30f12ccbfd302` | frontend | MIT | `licenses/assets/opencode/LICENSE` |
+| asset | `pi` | `d82978781b824273c55473822c1f243a6ed34fc6e8c2dbfe1a90dfc66ae43ee8` | frontend | MIT | `licenses/assets/pi/LICENSE` |
 | go | `github.com/adrg/xdg` | `v0.5.3` | macos-arm64, macos-x64, windows-arm64, windows-x64 | MIT | `licenses/go/github.com_adrg_xdg@v0.5.3/LICENSE` |
 | go | `github.com/dustin/go-humanize` | `v1.0.1` | macos-arm64, macos-x64, windows-arm64, windows-x64 | MIT | `licenses/go/github.com_dustin_go-humanize@v1.0.1/LICENSE` |
 | go | `github.com/go-ole/go-ole` | `v1.3.0` | windows-arm64, windows-x64 | MIT | `licenses/go/github.com_go-ole_go-ole@v1.3.0/LICENSE` |

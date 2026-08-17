@@ -230,6 +230,31 @@
       "guide": "Kimi Code reads credentials only from its own config file and does not fall back to shell environment variables, so BootAgent writes the Provider and model into ~/.kimi-code/config.toml. KIMI_CODE_HOME relocates that directory; if you set it, launch Kimi Code with it set or it will not find this config.",
       "rank": 9
     },
+    "pi": {
+      "name": "Pi",
+      "group": "auto",
+      "command": "pi",
+      "config_mode": "auto",
+      "config_adapter": "pi",
+      "config_path": ".pi/agent/models.json",
+      "package": {
+        "manager": "npm",
+        "name": "@earendil-works/pi-coding-agent",
+        "source": "https://github.com/earendil-works/pi",
+        "license": "MIT",
+        "license_url": "https://github.com/earendil-works/pi/blob/main/LICENSE"
+      },
+      "version_args": [
+        "--version"
+      ],
+      "platforms": [
+        "macos",
+        "linux",
+        "windows"
+      ],
+      "guide": "Pi keeps the endpoint in ~/.pi/agent/models.json, the credential in auth.json beside it, and the default selection in settings.json. BootAgent writes one owned provider entry named bootagent in each of the three; every other provider, credential and preference stays as you left it.",
+      "rank": 10
+    },
     "dsh": {
       "name": "DeepSeek Harness",
       "group": "auto",
