@@ -7,6 +7,7 @@ import (
 	_ "embed"
 	"log/slog"
 	"os"
+	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -108,7 +109,11 @@ func configureSystemTray(appInstance *application.App, core *app.UseCases, windo
 	}
 	refresh()
 	tray.SetTooltip("BootAgent")
-	tray.SetIcon(appIcon)
+	if runtime.GOOS == "darwin" {
+		tray.SetTemplateIcon(appIcon)
+	} else {
+		tray.SetIcon(appIcon)
+	}
 	tray.AttachWindow(window).WindowOffset(5)
 }
 
