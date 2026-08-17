@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 
 import { api, describeFailure, failureLine } from "../backend/api";
 import { OTA_PROGRESS_TARGET } from "../backend/wails";
+import { MirrorSetting } from "../components/MirrorSetting";
 import { PageScaffold } from "../components/PageScaffold";
 import { SelectField } from "../components/SelectField";
 import { ThemePicker } from "../components/ThemePicker";
@@ -151,6 +152,10 @@ export function SettingsPage() {
             options={[{ value: "zh-CN", label: "中文" }, { value: "en", label: "English" }]}
           />
         </div>
+      </section>
+      <section className="settings-section">
+        <h2>{t("下载")}</h2>
+        <MirrorSetting />
       </section>
       <section className="settings-section">
         <h2>{t("数据")}</h2>

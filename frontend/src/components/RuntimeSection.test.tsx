@@ -9,8 +9,6 @@ import { RuntimePrompt } from "./RuntimePrompt";
 import { RuntimeSection, runtimeRoot } from "./RuntimeSection";
 
 const installRuntime = vi.fn();
-const getSettings = vi.fn();
-const saveSettings = vi.fn();
 
 vi.mock("../backend/api", async () => {
   const errors = await import("../backend/errors");
@@ -18,8 +16,6 @@ vi.mock("../backend/api", async () => {
     api: {
       onInstallOutput: () => () => {},
       installRuntime: (runtime: string) => installRuntime(runtime),
-      getSettings: () => getSettings(),
-      saveSettings: (settings: unknown) => saveSettings(settings),
     },
     describeError: errors.describeError,
     describeFailure: errors.describeFailure,
@@ -49,15 +45,6 @@ function runtime(overrides: Partial<RuntimeStatus> = {}): RuntimeStatus {
 describe("RuntimeSection", () => {
   beforeEach(() => {
     installRuntime.mockReset();
-    getSettings.mockReset();
-    saveSettings.mockReset();
-    getSettings.mockResolvedValue({ schema_version: 1, prefer_mirror: false, mirror_from_region: false, backup_retention: 3 });
-    saveSettings.mockImplementation(async (settings: { prefer_mirror: boolean; backup_retention: number }) => ({
-      schema_version: 1,
-      prefer_mirror: settings.prefer_mirror,
-      mirror_from_region: false,
-      backup_retention: settings.backup_retention,
-    }));
   });
 
   it("reports installed runtimes with their version and offers no install button", () => {

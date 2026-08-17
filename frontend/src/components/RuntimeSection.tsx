@@ -8,7 +8,6 @@ import { taskCanceller, taskKey, useTaskCenter, useTaskRoute } from "../state/Ta
 import type { RuntimeStatus } from "../types/api";
 import { AdvancedSection } from "./AdvancedSection";
 import { DownloadProgress } from "./DownloadProgress";
-import { MirrorSetting } from "./MirrorSetting";
 import { StatusBadge } from "./StatusBadge";
 
 interface RuntimeSectionProps {
@@ -147,7 +146,6 @@ export function RuntimeSection({ runtimes, onInstalled }: RuntimeSectionProps) {
             : t("运行时会安装到 BootAgent 的托管目录，并写入登录 PATH，不需要管理员权限")}
         </p>
       ) : null}
-      <MirrorSetting label={t("下载源")} />
     </>
   );
 

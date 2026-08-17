@@ -15,9 +15,16 @@ describe("SettingsPage", () => {
   afterEach(() => vi.restoreAllMocks());
 
   it("contains appearance and language settings and opens the transfer child page", () => {
+    vi.spyOn(api, "getSettings").mockResolvedValue({
+      schema_version: 1,
+      prefer_mirror: false,
+      mirror_from_region: false,
+      backup_retention: 3,
+    });
     render(<ThemeProvider><MemoryRouter initialEntries={["/settings"]}><Routes><Route path="/settings" element={<SettingsPage />} /><Route path="/settings/transfer" element={<h1>transfer child</h1>} /></Routes></MemoryRouter></ThemeProvider>);
     expect(screen.getByRole("combobox", { name: "外观" })).toBeTruthy();
     expect(screen.getByRole("combobox", { name: "语言" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /下载源/ })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: /导入导出/ }));
     expect(screen.getByRole("heading", { name: "transfer child" })).toBeTruthy();
   });

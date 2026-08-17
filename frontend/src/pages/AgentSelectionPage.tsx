@@ -5,7 +5,6 @@ import { useNavigate } from "react-router-dom";
 import { AgentRow } from "../components/AgentRow";
 import { EditionTag } from "../components/EditionTag";
 import { AgentIcon } from "../components/icons/agents";
-import { MirrorSetting } from "../components/MirrorSetting";
 import { PageScaffold } from "../components/PageScaffold";
 import { RuntimePrompt } from "../components/RuntimePrompt";
 import { StatusBadge } from "../components/StatusBadge";
@@ -105,8 +104,6 @@ export function AgentSelectionPage() {
               </div>
             )}
           </section>
-
-          <MirrorSetting label={t("Agent 安装源")} />
 
           {/* Installing a selected Agent needs its package manager. Offering the
               runtime here, before the wizard collects a key and a model, keeps the

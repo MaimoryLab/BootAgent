@@ -72,6 +72,7 @@ const english = {
   "常规设置": "General settings",
   "管理界面偏好与配置迁移": "Manage interface preferences and configuration transfer",
   "界面": "Interface",
+  "下载": "Downloads",
   "数据": "Data",
   "备份历史版本数": "Backup history versions",
   "每个目标分别保留历史版本，默认保留 3 个": "Keep history per target; the default is 3 versions",
