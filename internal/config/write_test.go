@@ -141,7 +141,7 @@ func TestWriteKimiCodePreservesUnmanagedEntriesAndRoundTrips(t *testing.T) {
 		t.Fatal(err)
 	}
 	writer := testWriter(t, home, "linux")
-	if err := writer.WriteKimiCode(context.Background(), path, "https://api.ppio.com/openai", "sk-kimi-secret", "model-a"); err != nil {
+	if err := writer.WriteKimiCode(context.Background(), path, "https://api.ppio.com/openai", "sk-kimi-secret", "model-a", false); err != nil {
 		t.Fatal(err)
 	}
 	data, err := os.ReadFile(path)
@@ -149,6 +149,9 @@ func TestWriteKimiCodePreservesUnmanagedEntriesAndRoundTrips(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := string(data)
+	if !strings.Contains(text, "max_context_size = 262144") {
+		t.Fatalf("Kimi Code default context size missing: %s", text)
+	}
 	for _, keep := range []string{`default_permission_mode = "manual"`, `[providers.mine]`, `api_key = "keep-me"`, `[models."mine/gpt-4o"]`} {
 		if !strings.Contains(text, keep) {
 			t.Fatalf("Kimi Code config dropped an unmanaged entry %q: %s", keep, text)
@@ -179,6 +182,13 @@ func TestWriteKimiCodePreservesUnmanagedEntriesAndRoundTrips(t *testing.T) {
 	if !strings.Contains(text, "sk-kimi-secret") {
 		t.Fatalf("Kimi Code config is missing the credential it must carry: %s", text)
 	}
+	if err := writer.WriteKimiCode(context.Background(), path, "https://api.ppio.com/openai", "sk-kimi-secret", "model-a", true); err != nil {
+		t.Fatal(err)
+	}
+	data, err = os.ReadFile(path)
+	if err != nil || !strings.Contains(string(data), "max_context_size = 1048576") {
+		t.Fatalf("Kimi Code 1M context size missing: %s", data)
+	}
 }
 
 // A model ID containing a dot would split into nested tables unquoted, and the
@@ -190,7 +200,7 @@ func TestWriteKimiCodeQuotesAliasesContainingSeparators(t *testing.T) {
 		t.Fatal(err)
 	}
 	writer := testWriter(t, home, "linux")
-	if err := writer.WriteKimiCode(context.Background(), path, "https://api.example.test/v1", "sk-x", "gpt-4.1"); err != nil {
+	if err := writer.WriteKimiCode(context.Background(), path, "https://api.example.test/v1", "sk-x", "gpt-4.1", false); err != nil {
 		t.Fatal(err)
 	}
 	data, err := os.ReadFile(path)
@@ -218,7 +228,7 @@ func TestWriteKimiCodeRefusesUnsupportedSyntaxWithoutWriting(t *testing.T) {
 		if err := os.WriteFile(path, []byte(invalid), 0o600); err != nil {
 			t.Fatal(err)
 		}
-		if err := writer.WriteKimiCode(context.Background(), path, "https://example.com/v1", "sk-x", "m"); err == nil {
+		if err := writer.WriteKimiCode(context.Background(), path, "https://example.com/v1", "sk-x", "m", false); err == nil {
 			t.Fatalf("invalid Kimi Code config unexpectedly succeeded: %q", invalid)
 		}
 		got, _ := os.ReadFile(path)

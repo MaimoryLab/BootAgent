@@ -676,7 +676,11 @@ func (w Writer) WriteAider(ctx context.Context, path, baseURL, apiKey, reasoning
 // type is "openai", not Kimi Code's own "kimi": that one means Moonshot's
 // first-party endpoint, while a BootAgent Provider is an arbitrary
 // OpenAI-compatible base URL.
-func (w Writer) WriteKimiCode(ctx context.Context, path, baseURL, apiKey, model string) error {
+func (w Writer) WriteKimiCode(ctx context.Context, path, baseURL, apiKey, model string, context1M bool) error {
+	maxContextSize := "262144"
+	if context1M {
+		maxContextSize = "1048576"
+	}
 	// The alias is namespaced under the owned provider name so it cannot collide
 	// with a model the user declared. Both table headers are quoted: the alias
 	// contains a slash, and a model ID may contain a dot, either of which TOML
@@ -693,15 +697,7 @@ func (w Writer) WriteKimiCode(ctx context.Context, path, baseURL, apiKey, model 
 		"[models." + quoteTOML(alias) + "]",
 		"provider = " + quoteTOML(kimiOwnedName),
 		"model = " + quoteTOML(model),
-		// Mandatory since Kimi Code 0.27.0: a models entry without a positive
-		// max_context_size fails schema validation, and the CLI *ignores the whole
-		// entry* -- then refuses to start because default_model names a model that
-		// no longer exists. The value is Kimi Code's own DEFAULT_MAX_CONTEXT_SIZE
-		// (262144, read off the 0.27.0 binary), the same limit it applies when the
-		// KIMI_MODEL_MAX_CONTEXT_SIZE environment override is absent. A catalog
-		// Provider does not declare per-model context sizes, so the CLI's own
-		// default is the only value that adds no invented claim.
-		"max_context_size = 262144",
+		"max_context_size = " + maxContextSize,
 		"",
 	}, "\n")
 	existing, err := readText(path)

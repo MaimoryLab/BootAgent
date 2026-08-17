@@ -24,6 +24,7 @@ type SaveRequest struct {
 	ProviderKeyAvailable bool
 	Model                string
 	ReasoningEffort      string
+	Context1M            bool
 	ConfigMode           string
 	Protocol             string
 }
@@ -78,6 +79,7 @@ func (s Store) Save(ctx context.Context, request SaveRequest) (Profile, error) {
 		Provider:        request.Provider,
 		Model:           stringPointer(model),
 		ReasoningEffort: strings.TrimSpace(request.ReasoningEffort),
+		Context1M:       request.Context1M,
 		ConfigMode:      mode,
 		Protocol:        strings.TrimSpace(request.Protocol),
 		CreatedAt:       created,

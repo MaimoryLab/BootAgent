@@ -409,7 +409,8 @@ func (r *installRun) configure(ctx context.Context, agentID string, agent catalo
 		// The install flow has no explicit effort input; the Profile it was
 		// launched with is the only carrier.
 		reasoningEffort := r.core.profileReasoningEffort(r.options.ProfileID)
-		if err := writeManagedAgentConfig(ctx, writer, agentID, agent, configPathValue, dshRouteProviderID(target, r.options.APIBaseURL), r.providerName, configBase, r.options.APIKey, r.options.Model, r.options.SmallFastModel, reasoningEffort); err != nil {
+		context1M := r.core.profileContext1M(r.options.ProfileID)
+		if err := writeManagedAgentConfig(ctx, writer, agentID, agent, configPathValue, dshRouteProviderID(target, r.options.APIBaseURL), r.providerName, configBase, r.options.APIKey, r.options.Model, r.options.SmallFastModel, reasoningEffort, context1M); err != nil {
 			return err
 		}
 		if _, err := r.core.profiles.WriteAgentBinding(ctx, agentID, profileStore.BindingWriteRequest{

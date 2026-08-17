@@ -278,6 +278,7 @@ type ProfileSummary struct {
 	BaseURL         *string `json:"baseUrl"`
 	Model           *string `json:"model"`
 	ReasoningEffort string  `json:"reasoningEffort,omitempty"`
+	Context1M       bool    `json:"context1M"`
 	Protocol        string  `json:"protocol"`
 	ActivatedAt     *string `json:"activatedAt"`
 	CreatedAt       string  `json:"createdAt,omitempty"`
@@ -544,6 +545,7 @@ type SaveProfileOptions struct {
 	APIKey          string
 	Model           string
 	ReasoningEffort string
+	Context1M       bool
 	ConfigMode      string
 	Protocol        string
 }
@@ -604,6 +606,7 @@ func (u *UseCases) SaveProfile(ctx context.Context, options SaveProfileOptions) 
 		ProviderKeyAvailable: strings.TrimSpace(providerKey) != "",
 		Model:                options.Model,
 		ReasoningEffort:      options.ReasoningEffort,
+		Context1M:            options.Context1M,
 		ConfigMode:           options.ConfigMode,
 		Protocol:             options.Protocol,
 	})
@@ -638,7 +641,7 @@ func (u *UseCases) reapplyProfileLocked(ctx context.Context, before, after profi
 	// the bindings would show the new depth on the Profile page while every
 	// Agent kept thinking at the old one.
 	if before.ID == after.ID && before.Provider == after.Provider && previousModel == model &&
-		before.ReasoningEffort == after.ReasoningEffort {
+		before.ReasoningEffort == after.ReasoningEffort && before.Context1M == after.Context1M {
 		return nil, nil, nil
 	}
 	// A Profile with no model cannot produce a valid binding: WriteAgentBinding
@@ -769,6 +772,7 @@ func profileSummary(item profileStore.Profile) ProfileSummary {
 		BaseURL:         nil,
 		Model:           summary.Model,
 		ReasoningEffort: summary.ReasoningEffort,
+		Context1M:       summary.Context1M,
 		Protocol:        summary.Protocol,
 		ActivatedAt:     summary.ActivatedAt,
 		CreatedAt:       summary.CreatedAt,

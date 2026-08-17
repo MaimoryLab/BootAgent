@@ -23,6 +23,7 @@ interface ProfileDraft {
   provider: ProviderId;
   model: string;
   reasoningEffort: string;
+  context1M: boolean;
   protocol: string;
   originalId: string;
 }
@@ -55,6 +56,7 @@ function editDraft(profile: ProfileSummary, protocol: string): ProfileDraft {
     provider: profile.provider,
     model: profile.model || "",
     reasoningEffort: profile.reasoningEffort || "",
+    context1M: Boolean(profile.context1M),
     protocol,
     originalId: profile.id,
   };
@@ -122,6 +124,7 @@ export function ProfilesPage() {
       // about, which leaves the field required exactly as before.
       model: providerMeta?.default_model || "",
       reasoningEffort: "",
+      context1M: false,
       protocol: "",
       originalId: "",
     });
@@ -178,6 +181,7 @@ export function ProfilesPage() {
         apiKey: "",
         model: editor.model.trim(),
         reasoningEffort: editor.reasoningEffort,
+        context1M: editor.context1M,
         configMode: "provider",
         protocol: editor.protocol,
       });
@@ -428,6 +432,10 @@ export function ProfilesPage() {
                 <small>{t("各 Agent 支持的档位不同，应用时不支持的档位会明确报错")}</small>
               </div>
             </div>
+            <label className="toggle-row profile-editor-wide">
+              <span><strong>{t("启用1m上下文")}</strong></span>
+              <input type="checkbox" role="switch" checked={editor.context1M} onChange={(event) => setEditor({ ...editor, context1M: event.target.checked })} />
+            </label>
             {/* The key is the Provider's, so this only reports whether that
                 Provider has one and links to where it is set. */}
             <p className="profile-key-hint profile-editor-wide">

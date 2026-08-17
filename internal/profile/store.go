@@ -37,6 +37,7 @@ type Profile struct {
 	// Empty means unset: the model's provider/default behavior applies. A plain
 	// string rather than *string because absence and empty mean the same thing.
 	ReasoningEffort string
+	Context1M       bool
 	ConfigMode      string
 	Protocol        string
 	CreatedAt       string
@@ -50,6 +51,7 @@ type Summary struct {
 	BaseURL         *string
 	Model           *string
 	ReasoningEffort string
+	Context1M       bool
 	Protocol        string
 	ActivatedAt     *string
 	CreatedAt       string
@@ -70,6 +72,7 @@ type storedProfile struct {
 	BaseURL         *string `json:"base_url,omitempty"`
 	Model           *string `json:"model"`
 	ReasoningEffort string  `json:"reasoning_effort,omitempty"`
+	Context1M       bool    `json:"context_1m,omitempty"`
 	ConfigMode      string  `json:"config_mode"`
 	Protocol        string  `json:"protocol,omitempty"`
 	CreatedAt       string  `json:"created_at"`
@@ -225,6 +228,7 @@ func (p Profile) Summary() Summary {
 		BaseURL:         nil,
 		Model:           p.Model,
 		ReasoningEffort: p.ReasoningEffort,
+		Context1M:       p.Context1M,
 		Protocol:        p.Protocol,
 		ActivatedAt:     p.ActivatedAt,
 		CreatedAt:       p.CreatedAt,
@@ -266,6 +270,7 @@ func decodeStored(data []byte) (Profile, error) {
 		BaseURL:         nil,
 		Model:           stored.Model,
 		ReasoningEffort: stored.ReasoningEffort,
+		Context1M:       stored.Context1M,
 		ConfigMode:      stored.ConfigMode,
 		Protocol:        stored.Protocol,
 		CreatedAt:       stored.CreatedAt,

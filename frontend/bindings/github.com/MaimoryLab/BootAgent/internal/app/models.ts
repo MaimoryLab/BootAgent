@@ -199,6 +199,7 @@ export interface ProfileSummary {
     "baseUrl": string | null;
     "model": string | null;
     "reasoningEffort"?: string;
+    "context1M": boolean;
     "protocol": string;
     "activatedAt": string | null;
     "createdAt"?: string;
