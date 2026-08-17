@@ -28,7 +28,7 @@ func onPath(commands ...string) CommandLookup {
 // The auto choice must reproduce what every build before this setting did, or
 // upgrading silently changes which window opens.
 func TestAutoTerminalKeepsThePreviousPerPlatformDefault(t *testing.T) {
-	macArgv, macID, err := terminalArgv("macos", "codex", onPath(), hasBundles("/System/Applications/Utilities/Terminal.app"), terminalAuto)
+	macArgv, macID, err := terminalArgv("macos", "codex", onPath(), noBundles, terminalAuto)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -114,7 +114,7 @@ func TestChosenTerminalIsUsedWhenInstalled(t *testing.T) {
 // A terminal the user picked and then uninstalled must not break launching. The
 // returned id is what actually ran, so the caller can say so.
 func TestUninstalledChoiceFallsBackToAutoAndReportsWhatRan(t *testing.T) {
-	argv, id, err := terminalArgv("macos", "codex", onPath(), hasBundles("/System/Applications/Utilities/Terminal.app"), "iterm")
+	argv, id, err := terminalArgv("macos", "codex", onPath(), noBundles, "iterm")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -135,6 +135,22 @@ func TestUnknownTerminalIDFallsBackToAuto(t *testing.T) {
 	}
 	if id != "xterm" {
 		t.Fatalf("terminal = %q, want xterm", id)
+	}
+}
+
+// macOS and Windows both guarantee a terminal, so auto must resolve even when
+// nothing is on PATH and no application bundle is present. Probing for
+// Terminal.app broke exactly this: the launch tests run with an empty machine
+// description and passed only on a developer's Mac, then failed on Linux CI.
+func TestAutoAlwaysResolvesOnMacOSAndWindows(t *testing.T) {
+	for _, osID := range []string{"macos", "windows"} {
+		argv, id, err := terminalArgv(osID, "codex", onPath(), noBundles, terminalAuto)
+		if err != nil {
+			t.Fatalf("%s auto on a bare machine: %v", osID, err)
+		}
+		if id == "" || len(argv) == 0 {
+			t.Fatalf("%s auto = %q %#v", osID, id, argv)
+		}
 	}
 }
 

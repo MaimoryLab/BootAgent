@@ -58,10 +58,13 @@ func appleScriptTerminal(app string) func(string) []string {
 // behavior identical to before this setting existed.
 var macTerminals = []terminalDefinition{
 	{
-		id:      "terminal",
-		name:    "Terminal",
-		bundles: []string{"/System/Applications/Utilities/Terminal.app", "/Applications/Utilities/Terminal.app"},
-		argv:    appleScriptTerminal("Terminal"),
+		// No probe, like cmd on Windows: Terminal.app ships with macOS. Gating it
+		// behind a bundle check would invent a "no terminal was found" failure on a
+		// Mac that plainly has one, which is what the previous unconditional
+		// osascript path could never do.
+		id:   "terminal",
+		name: "Terminal",
+		argv: appleScriptTerminal("Terminal"),
 	},
 	{
 		id:      "iterm",
