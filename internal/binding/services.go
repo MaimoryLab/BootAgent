@@ -31,6 +31,7 @@ type Services struct {
 	Transfer     *TransferService
 	MCP          *MCPService
 	Skill        *SkillService
+	Conversion   *ConversionService
 }
 
 type ServicesOptions struct {
@@ -49,7 +50,32 @@ func NewServicesWithOptions(core *app.UseCases, opener BrowserOpener, options Se
 		Transfer:     &TransferService{},
 		MCP:          NewMCPService(core),
 		Skill:        NewSkillService(core),
+		Conversion:   NewConversionService(core),
 	}
+}
+
+type ConversionService struct{ core *app.UseCases }
+
+func NewConversionService(core *app.UseCases) *ConversionService {
+	return &ConversionService{core: core}
+}
+func (s *ConversionService) Get(ctx context.Context) (app.ConversionConfig, error) {
+	if err := contextError(ctx); err != nil {
+		return app.ConversionConfig{}, err
+	}
+	if s == nil || s.core == nil {
+		return app.ConversionConfig{}, notReady("Conversion service is not configured")
+	}
+	return s.core.Conversion(ctx)
+}
+func (s *ConversionService) Save(ctx context.Context, c app.ConversionConfig) (app.ConversionConfig, error) {
+	if err := contextError(ctx); err != nil {
+		return app.ConversionConfig{}, err
+	}
+	if s == nil || s.core == nil {
+		return app.ConversionConfig{}, notReady("Conversion service is not configured")
+	}
+	return s.core.SaveConversion(ctx, c)
 }
 
 // DesktopAgentService exposes the configured desktop Agent lifecycle. Every

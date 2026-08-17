@@ -15,6 +15,7 @@ import (
 
 	"github.com/MaimoryLab/BootAgent/internal/catalog"
 	configWriter "github.com/MaimoryLab/BootAgent/internal/config"
+	"github.com/MaimoryLab/BootAgent/internal/convertproxy"
 	oneerrors "github.com/MaimoryLab/BootAgent/internal/errors"
 	"github.com/MaimoryLab/BootAgent/internal/install"
 	"github.com/MaimoryLab/BootAgent/internal/platform"
@@ -75,6 +76,7 @@ type UseCases struct {
 	skillDraft     skillDraftState
 	skillPreviewMu sync.Mutex
 	skillPreviews  map[string]skillPreview
+	conversion     *convertproxy.Server
 }
 
 // DraftState combines the independent MCP and Skills drafts for the native
@@ -170,7 +172,7 @@ func newUseCases(options StatusOptions, client *provider.Client, profiles profil
 	// and Agent config writes. Tests may inject a filesystem with custom ACL hooks;
 	// production uses the managed backup policy above.
 	profiles.FS = &filesystem
-	return &UseCases{
+	u := &UseCases{
 		status:          options,
 		provider:        client,
 		providers:       provider.NewStore(options.Home, filesystem),
@@ -180,6 +182,9 @@ func newUseCases(options StatusOptions, client *provider.Client, profiles profil
 		environment:     cloneEnvironment(options.Environment),
 		migrationNotice: migrationNotice,
 	}
+	u.conversion = convertproxy.New(nil)
+	_ = u.startSavedConversion()
+	return u
 }
 
 // CommandLogDir holds one log file per day recording every subprocess BootAgent
@@ -388,6 +393,11 @@ func (u *UseCases) GetStatus(ctx context.Context) (StatusResponse, error) {
 	providers, err := u.providers.Public()
 	if err != nil {
 		return StatusResponse{}, err
+	}
+	for id := range providers {
+		if strings.HasPrefix(id, converterPrefix) {
+			delete(providers, id)
+		}
 	}
 	profiles, activeProfile, environment, environmentError, err := u.profileStatus(ctx)
 	if err != nil {
@@ -758,6 +768,9 @@ func (u *UseCases) profileSummaries() ([]ProfileSummary, error) {
 	}
 	result := make([]ProfileSummary, 0, len(stored))
 	for _, item := range stored {
+		if strings.HasPrefix(item.ID, converterPrefix) {
+			continue
+		}
 		result = append(result, profileSummary(item))
 	}
 	return result, nil

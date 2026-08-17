@@ -56,6 +56,7 @@ func TestServiceMethodAllowlist(t *testing.T) {
 		{&DesktopAgentService{}, []string{"Configure", "GetStatus", "Install", "Open"}},
 		{&TransferService{}, []string{"Read", "Write"}},
 		{&SkillService{}, []string{"Apply", "Get", "List", "ListBackups", "PreviewImport", "RestoreBackup", "Scan", "SetDraftState", "Uninstall"}},
+		{&ConversionService{}, []string{"Get", "Save"}},
 		{&UpdateService{}, []string{"Check", "DownloadAndInstall", "Restart", "Version"}},
 	}
 	for _, test := range tests {

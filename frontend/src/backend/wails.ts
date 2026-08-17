@@ -10,6 +10,7 @@ import * as TransferService from "../../bindings/github.com/MaimoryLab/BootAgent
 import * as UpdateService from "../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/updateservice.js";
 import * as MCPService from "../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/mcpservice.js";
 import * as SkillService from "../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/skillservice.js";
+import * as ConversionService from "../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/conversionservice.js";
 import type {
   ActivateAgentResponse,
   DesktopAgentActionResult,
@@ -46,6 +47,7 @@ import type {
   SkillApplyResult,
   SkillBackupSummary,
   SkillUninstallResult,
+  ConversionConfig,
 } from "../types/api";
 import { currentLocale, translate } from "../i18n";
 import { isCancellationError, BootAgentApiError } from "./errors";
@@ -216,6 +218,8 @@ export const wailsApi = {
   getSettings: (): Promise<Settings> => call(() => RuntimeService.GetSettings()) as Promise<Settings>,
   saveSettings: (settings: Settings): Promise<Settings> =>
     call(() => RuntimeService.SaveSettings(settings)) as Promise<Settings>,
+  getConversion: (): Promise<ConversionConfig> => call(() => ConversionService.Get()) as Promise<ConversionConfig>,
+  saveConversion: (config: ConversionConfig): Promise<ConversionConfig> => call(() => ConversionService.Save(config)) as Promise<ConversionConfig>,
   readTransferFile: (): Promise<string> => call(() => TransferService.Read()) as Promise<string>,
   writeTransferFile: (data: string): Promise<void> => call(() => TransferService.Write(data)).then(() => undefined),
   listMCP: (): Promise<MCPServerSummary[]> => call(() => MCPService.List()).then((items) => items ?? []),

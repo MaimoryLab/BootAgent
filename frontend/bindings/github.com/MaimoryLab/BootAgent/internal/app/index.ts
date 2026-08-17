@@ -6,6 +6,7 @@ export type {
     AgentUpdateResult,
     Capabilities,
     ConversationMigrationResult,
+    ConversionConfig,
     DesktopAgentActionResult,
     DesktopAgentProfileResult,
     DesktopAgentStatus,
