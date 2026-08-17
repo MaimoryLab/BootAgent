@@ -74,8 +74,8 @@ export function MirrorSetting() {
           {fromRegion ? <small>{t("已根据系统地区设置默认使用镜像。可以改回官方源")}</small> : null}
           <small>
             {fromRegion
-              ? t("已根据系统语言/地区自动开启。运行时仍校验固定哈希，npm 使用镜像 registry 的包元数据")
-              : t("同时作用于运行时下载和 npm 安装的 Agent；运行时仍校验固定哈希并在下载失败时回退。Aider（uv）不受影响")}
+              ? t("已根据系统语言/地区自动开启。优化中国大陆地区的下载速度")
+              : t("优化中国大陆地区的下载速度")}
           </small>
         </span>
         <input

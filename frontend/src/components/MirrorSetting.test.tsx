@@ -55,7 +55,7 @@ describe("MirrorSetting", () => {
   it("names both downloads it governs", async () => {
     render(<MirrorSetting />);
     await waitFor(() => expect(getSettings).toHaveBeenCalled());
-    expect(screen.getByText(/同时作用于运行时下载和 npm 安装的 Agent/)).toBeTruthy();
+    expect(screen.getByText(/优化中国大陆地区的下载速度/)).toBeTruthy();
   });
 
   // A switch that looks on while the preference was never stored would send the
