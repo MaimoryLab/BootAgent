@@ -164,7 +164,6 @@ export function AgentProfilePage() {
           apiKey: "",
           model: selected.model || "",
           profileId: selected.id,
-          smallFastModel: "",
         });
       }
       setApplied(t("{name} 已应用", { name: selected.label || selected.id }));

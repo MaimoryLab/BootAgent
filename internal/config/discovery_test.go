@@ -20,16 +20,15 @@ func TestReadCodexFollowsSelectedProviderAndMarker(t *testing.T) {
 
 func TestReadClaudeRequiresAllDeclaredVariablesWithoutReturningKey(t *testing.T) {
 	declared := map[string]string{
-		"api_key":          "ANTHROPIC_AUTH_TOKEN",
-		"base_url":         "ANTHROPIC_BASE_URL",
-		"model":            "ANTHROPIC_MODEL",
-		"small_fast_model": "ANTHROPIC_SMALL_FAST_MODEL",
+		"api_key":  "ANTHROPIC_AUTH_TOKEN",
+		"base_url": "ANTHROPIC_BASE_URL",
+		"model":    "ANTHROPIC_MODEL",
 	}
 	partial := ReadClaudeConfig(`{"env":{"ANTHROPIC_BASE_URL":"https://x.example"}}`, declared)
 	if partial.BaseURL != "https://x.example" || partial.ManagedByBootAgent {
 		t.Fatalf("partial Claude detection = %#v", partial)
 	}
-	full := ReadClaudeConfig(`{"env":{"ANTHROPIC_AUTH_TOKEN":"sk-secret","ANTHROPIC_BASE_URL":"https://x.example","ANTHROPIC_MODEL":"m","ANTHROPIC_SMALL_FAST_MODEL":"fast"}}`, declared)
+	full := ReadClaudeConfig(`{"env":{"ANTHROPIC_AUTH_TOKEN":"sk-secret","ANTHROPIC_BASE_URL":"https://x.example","ANTHROPIC_MODEL":"m"}}`, declared)
 	if !full.ManagedByBootAgent || full.Model != "m" || strings.Contains(mustJSON(t, full), "sk-secret") {
 		t.Fatalf("full Claude detection = %#v", full)
 	}

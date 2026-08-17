@@ -23,7 +23,6 @@ type ActivateAgentOptions struct {
 	APIKey          string
 	Model           string
 	ProfileID       string
-	SmallFastModel  string
 	ReasoningEffort string
 	Context1M       bool
 }
@@ -145,7 +144,7 @@ func (u *UseCases) activateAgentLocked(ctx context.Context, options ActivateAgen
 	}
 
 	writer := configWriter.NewWriter(u.status.Home, u.status.Platform.OS, u.filesystem)
-	if err := writeManagedAgentConfig(ctx, writer, agentID, agent, configPath, dshRouteProviderID(target, options.APIBaseURL), providerName, configBaseURL, apiKey, model, options.SmallFastModel, reasoningEffort, context1M); err != nil {
+	if err := writeManagedAgentConfig(ctx, writer, agentID, agent, configPath, dshRouteProviderID(target, options.APIBaseURL), providerName, configBaseURL, apiKey, model, reasoningEffort, context1M); err != nil {
 		return ActivateAgentResult{}, err
 	}
 	binding, err := u.profiles.WriteAgentBinding(ctx, agentID, profileStore.BindingWriteRequest{
@@ -247,12 +246,12 @@ func (u *UseCases) profileContext1M(profileID string) bool {
 // config shapes read off one observed version with no documented reasoning
 // field, and inventing keys in files those apps own risks corrupting state
 // they manage (see WriteZCode).
-func writeManagedAgentConfig(ctx context.Context, writer configWriter.Writer, agentID string, agent catalog.Agent, path, providerID, providerName, baseURL, apiKey, model, smallFastModel, reasoningEffort string, context1M bool) error {
+func writeManagedAgentConfig(ctx context.Context, writer configWriter.Writer, agentID string, agent catalog.Agent, path, providerID, providerName, baseURL, apiKey, model, reasoningEffort string, context1M bool) error {
 	switch agent.ConfigAdapter {
 	case "codex":
 		return writer.WriteCodex(ctx, path, providerName, baseURL, apiKey, model, reasoningEffort)
 	case "claude-code":
-		return writer.WriteClaude(ctx, path, baseURL, apiKey, model, smallFastModel)
+		return writer.WriteClaude(ctx, path, baseURL, apiKey, model)
 	case "opencode":
 		return writer.WriteOpenAICompatible(ctx, path, "https://opencode.ai/config.json", providerName, baseURL, apiKey, model, reasoningEffort)
 	case "kilo-cli":

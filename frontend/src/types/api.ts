@@ -1,9 +1,9 @@
 import type * as AppModels from "../../bindings/github.com/MaimoryLab/BootAgent/internal/app/models.js";
 import type * as BindingModels from "../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/models.js";
 import type * as CatalogModels from "../../bindings/github.com/MaimoryLab/BootAgent/internal/catalog/models.js";
+import type * as MCPModels from "../../bindings/github.com/MaimoryLab/BootAgent/internal/mcp/models.js";
 import type * as PlatformModels from "../../bindings/github.com/MaimoryLab/BootAgent/internal/platform/models.js";
 import type * as ProviderModels from "../../bindings/github.com/MaimoryLab/BootAgent/internal/provider/models.js";
-import type * as MCPModels from "../../bindings/github.com/MaimoryLab/BootAgent/internal/mcp/models.js";
 
 type PlatformId = "macos" | "windows" | "linux";
 type AgentGroupId = "auto" | "gateway" | "platform" | "ide";
@@ -141,7 +141,6 @@ export type InstallRequest = Pick<
   agents: string[];
   provider: ProviderId;
   api_base_url?: string;
-  small_fast_model?: string;
   agent_version?: string;
   registry?: string;
   profile_id?: string;

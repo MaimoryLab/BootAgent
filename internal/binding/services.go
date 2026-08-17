@@ -411,7 +411,6 @@ func (s *AgentService) Install(ctx context.Context, request InstallRequest) (Ins
 		APIBaseURL:     request.APIBaseURL,
 		APIKey:         request.APIKey,
 		Model:          request.Model,
-		SmallFastModel: request.SmallFastModel,
 		ProfileID:      request.ProfileID,
 		ProfileLabel:   request.ProfileLabel,
 		Configure:      request.Configure,
@@ -437,13 +436,12 @@ func (s *AgentService) Activate(ctx context.Context, request ActivateRequest) (A
 		return ActivateResponse{}, notReady("Agent activation is not configured")
 	}
 	result, err := s.core.ActivateAgent(ctx, app.ActivateAgentOptions{
-		AgentID:        request.AgentID,
-		Provider:       request.Provider,
-		APIBaseURL:     request.APIBaseURL,
-		APIKey:         request.APIKey,
-		Model:          request.Model,
-		ProfileID:      request.ProfileID,
-		SmallFastModel: request.SmallFastModel,
+		AgentID:    request.AgentID,
+		Provider:   request.Provider,
+		APIBaseURL: request.APIBaseURL,
+		APIKey:     request.APIKey,
+		Model:      request.Model,
+		ProfileID:  request.ProfileID,
 	})
 	if err != nil {
 		return ActivateResponse{}, err
@@ -618,20 +616,19 @@ type ModelsResponse struct {
 }
 
 type InstallRequest struct {
-	Agents         []string `json:"agents"`
-	Provider       string   `json:"provider"`
-	APIBaseURL     string   `json:"api_base_url"`
-	APIKey         string   `json:"api_key"`
-	Model          string   `json:"model"`
-	SmallFastModel string   `json:"small_fast_model"`
-	ProfileID      string   `json:"profile_id"`
-	ProfileLabel   string   `json:"profile_label"`
-	Configure      bool     `json:"configure"`
-	InstallAgent   bool     `json:"install_agent"`
-	AgentVersion   string   `json:"agent_version"`
-	SkipTest       bool     `json:"skip_test"`
-	Registry       string   `json:"registry"`
-	Timeout        int      `json:"timeout"`
+	Agents       []string `json:"agents"`
+	Provider     string   `json:"provider"`
+	APIBaseURL   string   `json:"api_base_url"`
+	APIKey       string   `json:"api_key"`
+	Model        string   `json:"model"`
+	ProfileID    string   `json:"profile_id"`
+	ProfileLabel string   `json:"profile_label"`
+	Configure    bool     `json:"configure"`
+	InstallAgent bool     `json:"install_agent"`
+	AgentVersion string   `json:"agent_version"`
+	SkipTest     bool     `json:"skip_test"`
+	Registry     string   `json:"registry"`
+	Timeout      int      `json:"timeout"`
 }
 
 type AgentInstallResult struct {
@@ -659,13 +656,12 @@ type InstallResponse struct {
 }
 
 type ActivateRequest struct {
-	AgentID        string `json:"agent_id"`
-	Provider       string `json:"provider"`
-	APIBaseURL     string `json:"api_base_url"`
-	APIKey         string `json:"api_key"`
-	Model          string `json:"model"`
-	ProfileID      string `json:"profile_id"`
-	SmallFastModel string `json:"small_fast_model"`
+	AgentID    string `json:"agent_id"`
+	Provider   string `json:"provider"`
+	APIBaseURL string `json:"api_base_url"`
+	APIKey     string `json:"api_key"`
+	Model      string `json:"model"`
+	ProfileID  string `json:"profile_id"`
 }
 
 type ActivateResponse struct {

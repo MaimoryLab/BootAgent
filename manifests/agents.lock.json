@@ -40,8 +40,7 @@
       "env_vars": {
         "api_key": "ANTHROPIC_AUTH_TOKEN",
         "base_url": "ANTHROPIC_BASE_URL",
-        "model": "ANTHROPIC_MODEL",
-        "small_fast_model": "ANTHROPIC_SMALL_FAST_MODEL"
+        "model": "ANTHROPIC_MODEL"
       },
       "config_path": ".claude/settings.json",
       "mcp_adapter": "claude",
