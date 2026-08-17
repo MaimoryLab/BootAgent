@@ -52,4 +52,15 @@ describe("landing route", () => {
     expect(await screen.findByRole("heading", { name: "环境总览" })).toBeTruthy();
     expect(screen.getByText("offline")).toBeTruthy();
   });
+
+  it("keeps links inside the app instead of starting native drags", async () => {
+    vi.spyOn(api, "status").mockResolvedValue(status);
+    render(<MemoryRouter initialEntries={["/overview"]}><App /></MemoryRouter>);
+
+    const link = await screen.findByRole("link", { name: "设置" });
+    const event = new Event("dragstart", { bubbles: true, cancelable: true });
+    link.dispatchEvent(event);
+
+    expect(event.defaultPrevented).toBe(true);
+  });
 });

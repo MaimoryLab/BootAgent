@@ -8,7 +8,7 @@ export function AppWindow({ children }: PropsWithChildren) {
   const { t } = useI18n();
   const { state } = useWizard();
   return (
-    <div className="desktop-stage">
+    <div className="desktop-stage" onDragStart={(event) => event.preventDefault()}>
       <div className="app-window">
         <NavigationSidebar />
         <main className="app-main">
