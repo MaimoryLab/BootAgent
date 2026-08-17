@@ -169,7 +169,7 @@ export function SettingsPage() {
       </section>
       <section className="settings-section">
         <h2>{t("启动设置")}</h2>
-        <div className="settings-row">
+        <div className="settings-row settings-toggle-row">
           <label className="toggle-row">
             <Power size={16} aria-hidden="true" />
             <span>
@@ -178,6 +178,7 @@ export function SettingsPage() {
             </span>
             <input
               type="checkbox"
+              role="switch"
               aria-label={t("开机自启动")}
               checked={settings?.autostart === true}
               disabled={settings === null}

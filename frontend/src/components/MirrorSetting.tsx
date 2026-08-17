@@ -81,6 +81,7 @@ export function MirrorSetting() {
         <input
           type="checkbox"
           role="switch"
+          aria-label={t("优先使用国内镜像")}
           checked={preferMirror === true}
           disabled={preferMirror === null}
           onChange={(event) => void toggle(event.target.checked)}
