@@ -56,7 +56,6 @@ export function ConversionPage() {
     >
       {failure ? <p className="settings-field-error" role="status">{failure}</p> : null}
       {config ? <div className="provider-editor conversion-editor">
-        <header><strong>{t("格式转换设置")}</strong></header>
         <div className="provider-editor-grid">
           <div className="field-stack provider-editor-wide">
             <label htmlFor="conversion-target">{t("目标 Profile")}</label>

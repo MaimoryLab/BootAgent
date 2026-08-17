@@ -1865,7 +1865,7 @@
 .provider-editor-wide,
 .profile-editor-wide { grid-column: 1 / -1; }
 
-.conversion-editor { width: 100%; max-width: none; border-bottom: 0; }
+.conversion-editor { width: 100%; max-width: none; border-top: 0; border-bottom: 0; }
 .conversion-editor .select-field { width: 100%; }
 .conversion-editor .select-field-trigger { min-height: 38px; border-color: var(--border-strong); background: var(--surface-subtle); }
 .conversion-footer-status { color: var(--text-secondary); font-size: 11px; }
