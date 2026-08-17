@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -72,10 +73,8 @@ var dshOfficialReasoningEfforts = []string{"off", "high", "max"}
 // surface as an UNSUPPORTED_REASONING_EFFORT error on the user's first request
 // -- far from the Profile edit that caused it.
 func ValidateDSHOfficialReasoningEffort(effort string) error {
-	for _, allowed := range dshOfficialReasoningEfforts {
-		if effort == allowed {
-			return nil
-		}
+	if slices.Contains(dshOfficialReasoningEfforts, effort) {
+		return nil
 	}
 	return oneerrors.New(oneerrors.InvalidRequest, fmt.Sprintf(
 		"DeepSeek reasoning effort must be one of %s, got %q",
@@ -100,10 +99,8 @@ var profileReasoningEfforts = []string{"off", "minimal", "low", "medium", "high"
 // vocabulary. This is the save-time gate; the adapter-specific gates below run
 // at activation, when the Agent the value must fit is finally known.
 func ValidateProfileReasoningEffort(effort string) error {
-	for _, allowed := range profileReasoningEfforts {
-		if effort == allowed {
-			return nil
-		}
+	if slices.Contains(profileReasoningEfforts, effort) {
+		return nil
 	}
 	return oneerrors.New(oneerrors.InvalidRequest, fmt.Sprintf(
 		"Reasoning effort must be one of %s, got %q",
@@ -151,10 +148,8 @@ var openAIReasoningEfforts = []string{"low", "medium", "high"}
 // cannot forward. The message names no Agent because three adapters share the
 // gate; the activation that surfaces it already says which Agent refused.
 func validateOpenAIReasoningEffort(effort string) error {
-	for _, allowed := range openAIReasoningEfforts {
-		if effort == allowed {
-			return nil
-		}
+	if slices.Contains(openAIReasoningEfforts, effort) {
+		return nil
 	}
 	return oneerrors.New(oneerrors.InvalidRequest, fmt.Sprintf(
 		"This Agent accepts a reasoning effort of %s, got %q",
