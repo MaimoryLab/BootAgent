@@ -95,6 +95,37 @@ func ReadOpenAICompatibleConfig(text string) Detected {
 	return Detected{BaseURL: baseURL, Model: bareModel, ManagedByBootAgent: managed}
 }
 
+// ReadPIConfig reads back the provider entry WritePI wrote into models.json.
+//
+// Only that file is consulted, though Pi's binding spans three: models.json is
+// the one the catalog points detection at, and it carries both facts the
+// overview reports. The model comes from the owned entry's own models list
+// rather than from settings.json's defaultModel -- reading a second file would
+// report a selection that may name another provider's model entirely.
+//
+// A models.json holding providers BootAgent does not own reports the endpoint
+// as empty rather than picking one: with no owned entry there is no binding to
+// describe, and naming a user's provider would misdescribe the file.
+func ReadPIConfig(text string) Detected {
+	var parsed map[string]any
+	if err := json.Unmarshal([]byte(text), &parsed); err != nil {
+		return unreadable(fmt.Sprintf("JSON 无法解析：%v", err))
+	}
+	providers, _ := parsed["providers"].(map[string]any)
+	entry, managed := providers["bootagent"].(map[string]any)
+	if !managed {
+		return Detected{}
+	}
+	baseURL, _ := entry["baseUrl"].(string)
+	model := ""
+	if models, ok := entry["models"].([]any); ok && len(models) > 0 {
+		if first, ok := models[0].(map[string]any); ok {
+			model, _ = first["id"].(string)
+		}
+	}
+	return Detected{BaseURL: baseURL, Model: model, ManagedByBootAgent: true}
+}
+
 // ReadOpenClawConfig reads back what WriteOpenClaw wrote: the provider entry
 // under models.providers and the default model under agents.defaults.
 //
@@ -289,6 +320,8 @@ func readerFor(adapter string, envVars map[string]string) reader {
 		return ReadHermesConfig
 	case "kimi-code":
 		return ReadKimiCodeConfig
+	case "pi":
+		return ReadPIConfig
 	default:
 		return nil
 	}

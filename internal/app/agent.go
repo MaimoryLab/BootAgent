@@ -240,13 +240,24 @@ func (u *UseCases) profileContext1M(profileID string) bool {
 // reasoningEffort reaches the adapters whose file format documents a place for
 // it: Codex (model_reasoning_effort), aider (AIDER_REASONING_EFFORT), the
 // OpenCode/Kilo model options, and dsh's shipped official route. The others
-// deliberately drop it. Claude Code has no depth scale to write -- its
-// documented controls are a thinking-token budget (MAX_THINKING_TOKENS) and an
-// always-think boolean, and mapping a five-level scale onto either would
-// invent semantics the tool never promised. The remaining adapters write
-// config shapes read off one observed version with no documented reasoning
-// field, and inventing keys in files those apps own risks corrupting state
-// they manage (see WriteZCode).
+// deliberately drop it.
+//
+// Claude Code has no depth scale to write -- its documented controls are a
+// thinking-token budget (MAX_THINKING_TOKENS) and an always-think boolean, and
+// mapping a level scale onto either would invent semantics the tool never
+// promised.
+//
+// Pi drops it too, for a different reason: it has a depth scale, and the
+// widest one here (--thinking off/minimal/low/medium/high/xhigh/max), but that
+// scale is a per-run flag. Its settings.json holds thinkingBudgets, the token
+// budget *per* level, not a default level to start at, so there is no key a
+// depth could persist into. Writing thinkingBudgets from a level would confuse
+// two different things: how deep to think, and how many tokens each depth may
+// spend.
+//
+// The remaining adapters write config shapes read off one observed version with
+// no documented reasoning field, and inventing keys in files those apps own
+// risks corrupting state they manage (see WriteZCode).
 func writeManagedAgentConfig(ctx context.Context, writer configWriter.Writer, agentID string, agent catalog.Agent, path, providerID, providerName, baseURL, apiKey, model, smallFastModel, reasoningEffort string, context1M bool) error {
 	switch agent.ConfigAdapter {
 	case "codex":
@@ -281,6 +292,8 @@ func writeManagedAgentConfig(ctx context.Context, writer configWriter.Writer, ag
 		return writer.WriteHermes(ctx, path, baseURL, apiKey, model)
 	case "kimi-code":
 		return writer.WriteKimiCode(ctx, path, baseURL, apiKey, model, context1M)
+	case "pi":
+		return writer.WritePI(ctx, path, providerName, baseURL, apiKey, model)
 	case "workbuddy":
 		return writer.WriteWorkBuddy(ctx, path, baseURL, apiKey, model)
 	case "zcode":

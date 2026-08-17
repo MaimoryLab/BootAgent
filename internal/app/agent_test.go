@@ -534,8 +534,19 @@ func TestSaveProfileRejectsAnUnsupportedReasoningEffort(t *testing.T) {
 	if err == nil {
 		t.Fatal("an unsupported reasoning effort was accepted at the Profile edit")
 	}
-	if !strings.Contains(err.Error(), "off, low, medium, high, max") {
+	if !strings.Contains(err.Error(), "off, minimal, low, medium, high, xhigh, max") {
 		t.Fatalf("rejection does not name the allowed levels: %v", err)
+	}
+	// The two levels only Pi's ladder has are valid Profile values even though no
+	// adapter persists them: a Profile records the depth wanted for a model, and
+	// Pi can be asked for either at run time.
+	for _, wide := range []string{"minimal", "xhigh"} {
+		if _, err := core.SaveProfile(context.Background(), SaveProfileOptions{
+			ID: "wide-" + wide, Provider: "ppio", Model: "model-a",
+			APIKey: "sk-x", ReasoningEffort: wide,
+		}); err != nil {
+			t.Fatalf("%q must be accepted at the Profile edit: %v", wide, err)
+		}
 	}
 	// medium is now valid at the Profile layer -- Codex and aider dispatch it --
 	// but dsh's official route cannot, so that narrower gate fires at activation.
@@ -606,11 +617,136 @@ func TestActivationCarriesReasoningEffortIntoEachAdapter(t *testing.T) {
 		t.Fatalf("a refused aider activation modified the file: %q, err=%v", after, err)
 	}
 
-	// Claude Code has no depth field to write, so the effort is dropped rather
-	// than refused: the activation succeeds and the config stays effort-free.
+	// Codex is the one adapter that spells xhigh natively, so it passes through
+	// rather than mapping. minimal has no Codex equivalent and is refused.
+	activate("codex", "xhigh")
+	codexConfig, err = os.ReadFile(filepath.Join(home, ".codex", "config.toml"))
+	if err != nil || !strings.Contains(string(codexConfig), `model_reasoning_effort = "xhigh"`) {
+		t.Fatalf("Codex config after xhigh = %q, err=%v", codexConfig, err)
+	}
+	if _, err := core.ActivateAgent(context.Background(), ActivateAgentOptions{
+		AgentID: "codex", Provider: "ppio", APIKey: "sk-x", Model: "model-a",
+		ReasoningEffort: "minimal",
+	}); err == nil || !strings.Contains(err.Error(), "off, low, medium, high, xhigh, max") {
+		t.Fatalf("Codex with minimal should name its own scale: %v", err)
+	}
+
+	// Claude Code and Pi have no depth field to write, so the effort is dropped
+	// rather than refused: each activation succeeds and the config stays
+	// effort-free. Pi has the widest scale of any Agent here, but only as a
+	// per-run --thinking flag, with no settings key to persist a level into.
 	activate("claude-code", "high")
 	claudeConfig, err := os.ReadFile(filepath.Join(home, ".claude", "settings.json"))
 	if err != nil || strings.Contains(strings.ToLower(string(claudeConfig)), "reasoning") || strings.Contains(string(claudeConfig), "THINKING") {
 		t.Fatalf("Claude Code config should carry no depth: %q, err=%v", claudeConfig, err)
 	}
+	activate("pi", "xhigh")
+	for _, name := range []string{"models.json", "settings.json"} {
+		data, err := os.ReadFile(filepath.Join(home, ".pi", "agent", name))
+		if err != nil || strings.Contains(strings.ToLower(string(data)), "thinking") || strings.Contains(strings.ToLower(string(data)), "reasoning") {
+			t.Fatalf("Pi %s should carry no depth: %q, err=%v", name, data, err)
+		}
+	}
+}
+
+// Pi's binding spans three files in ~/.pi/agent: the endpoint in models.json,
+// the credential in auth.json, and the default selection in settings.json.
+func TestPIActivationWritesAllThreeFilesAndKeepsUserEntries(t *testing.T) {
+	home := t.TempDir()
+	core := activationCore(t, home, provider.NewClient(nil), "linux")
+	directory := filepath.Join(home, ".pi", "agent")
+	if err := os.MkdirAll(directory, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	// What Pi itself and the user own: another provider, another credential, and
+	// an unrelated preference. None of it is BootAgent's to touch.
+	if err := os.WriteFile(filepath.Join(directory, "models.json"), []byte(`{"providers":{"my-ollama":{"baseUrl":"http://localhost:11434/v1","api":"openai-completions","models":[{"id":"llama3.1:8b"}]}}}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(directory, "auth.json"), []byte(`{"anthropic":{"type":"api_key","key":"keep-me"}}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(directory, "settings.json"), []byte(`{"theme":"light"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	result, err := core.ActivateAgent(context.Background(), ActivateAgentOptions{
+		AgentID: "pi", Provider: "ppio", APIKey: "sk-pi-secret", Model: "model-a",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Config != filepath.Join(directory, "models.json") {
+		t.Fatalf("Pi activation should report models.json as its config: %q", result.Config)
+	}
+
+	var models map[string]any
+	data, err := os.ReadFile(filepath.Join(directory, "models.json"))
+	if err != nil || json.Unmarshal(data, &models) != nil {
+		t.Fatalf("Pi models.json = %q, err=%v", data, err)
+	}
+	providers, _ := models["providers"].(map[string]any)
+	if _, kept := providers["my-ollama"]; !kept {
+		t.Fatalf("Pi activation dropped the user's own provider: %s", data)
+	}
+	entry, ok := providers["bootagent"].(map[string]any)
+	if !ok || entry["api"] != "openai-completions" || entry["baseUrl"] != "https://api.ppio.com/openai/v1" {
+		t.Fatalf("Pi provider entry = %#v (%s)", entry, data)
+	}
+	// The model entry carries nothing but its id: Pi fills in its own defaults,
+	// and a catalog Provider declares no per-model context window or cost.
+	list, _ := entry["models"].([]any)
+	if len(list) != 1 {
+		t.Fatalf("Pi models list = %#v", list)
+	}
+	first, _ := list[0].(map[string]any)
+	if first["id"] != "model-a" || len(first) != 1 {
+		t.Fatalf("Pi model entry should carry only its id: %#v", first)
+	}
+	// The endpoint file must not hold the credential -- that is auth.json's job.
+	if strings.Contains(string(data), "sk-pi-secret") {
+		t.Fatalf("Pi models.json leaked the credential: %s", data)
+	}
+
+	var auth map[string]any
+	data, err = os.ReadFile(filepath.Join(directory, "auth.json"))
+	if err != nil || json.Unmarshal(data, &auth) != nil {
+		t.Fatalf("Pi auth.json = %q, err=%v", data, err)
+	}
+	if _, kept := auth["anthropic"]; !kept {
+		t.Fatalf("Pi activation dropped a credential it does not own: %s", data)
+	}
+	owned, _ := auth["bootagent"].(map[string]any)
+	if owned["type"] != "api_key" || owned["key"] != "sk-pi-secret" {
+		t.Fatalf("Pi credential entry = %#v", owned)
+	}
+	info, err := os.Stat(filepath.Join(directory, "auth.json"))
+	if err != nil || info.Mode().Perm() != 0o600 {
+		t.Fatalf("Pi auth.json mode = %v, err=%v", info.Mode().Perm(), err)
+	}
+
+	var settings map[string]any
+	data, err = os.ReadFile(filepath.Join(directory, "settings.json"))
+	if err != nil || json.Unmarshal(data, &settings) != nil {
+		t.Fatalf("Pi settings.json = %q, err=%v", data, err)
+	}
+	// Registering the provider only makes it available; without the default
+	// selection the activation would change nothing the user can observe.
+	if settings["theme"] != "light" || settings["defaultProvider"] != "bootagent" || settings["defaultModel"] != "model-a" {
+		t.Fatalf("Pi settings.json = %#v", settings)
+	}
+
+	// The overview reads the binding back from models.json alone.
+	detected := config.ReadPIConfig(string(mustRead(t, filepath.Join(directory, "models.json"))))
+	if detected.BaseURL != "https://api.ppio.com/openai/v1" || detected.Model != "model-a" || !detected.ManagedByBootAgent {
+		t.Fatalf("Pi round-trip detection = %#v", detected)
+	}
+}
+
+func mustRead(t *testing.T, path string) []byte {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return data
 }
