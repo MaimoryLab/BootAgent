@@ -3,6 +3,7 @@ package convertproxy
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"io"
 	"net/http"
 	"strings"
@@ -10,12 +11,12 @@ import (
 )
 
 type Config struct {
-	Enabled       bool   `json:"enabled"`
-	Listen        string `json:"listen"`
-	APIKey        string `json:"api_key"`
-	Model         string `json:"model"`
-	TargetBaseURL string `json:"target_base_url"`
-	TargetAPIKey  string `json:"-"`
+	Enabled       bool     `json:"enabled"`
+	Listen        string   `json:"listen"`
+	APIKey        string   `json:"api_key"`
+	Models        []string `json:"models"`
+	TargetBaseURL string   `json:"target_base_url"`
+	TargetAPIKey  string   `json:"-"`
 }
 
 type Server struct {
@@ -60,8 +61,21 @@ func (s *Server) handle(w http.ResponseWriter, r *http.Request) {
 	s.mu.RLock()
 	cfg := s.cfg
 	s.mu.RUnlock()
-	if cfg.APIKey != "" && strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ") != cfg.APIKey {
+	authorized := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ") == cfg.APIKey || r.Header.Get("x-api-key") == cfg.APIKey
+	if cfg.APIKey != "" && !authorized {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+	if r.Method == http.MethodGet && (r.URL.Path == "/models" || strings.HasSuffix(r.URL.Path, "/v1/models")) {
+		models := make([]map[string]any, 0, len(cfg.Models))
+		for _, id := range cfg.Models {
+			if strings.TrimSpace(id) == "" {
+				continue
+			}
+			models = append(models, map[string]any{"id": id, "object": "model", "created": 0, "owned_by": "bootagent"})
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{"object": "list", "data": models})
 		return
 	}
 	format := ""
