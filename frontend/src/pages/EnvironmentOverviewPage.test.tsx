@@ -162,4 +162,31 @@ describe("EnvironmentOverviewPage", () => {
     expect(footer.getByRole("button", { name: "安装 Agent" })).toBeTruthy();
     expect(screen.getAllByRole("button", { name: "安装 Agent" })).toHaveLength(1);
   });
+
+  // Reading order, and the only thing that fixes it: both sections render
+  // unconditionally in the installed case, so their order is whatever the JSX
+  // says and nothing else would catch a future edit that swaps them back.
+  it("puts desktop Agents above command-line Agents", () => {
+    const current = status();
+    current.desktopAgents = [desktopApp({ installed: true, version: "26.730.61309", profileId: "team" })];
+    mockState = { status: current, statusState: "success", statusError: "" };
+    renderPage();
+
+    const headings = screen.getAllByRole("heading", { name: /桌面 Agent|命令行 Agent/ });
+    expect(headings.map((heading) => heading.textContent)).toEqual(["桌面 Agent", "命令行 Agent"]);
+  });
+
+  // The desktop section is the one that can be absent -- on a platform with no
+  // supported desktop app it renders nothing -- so the empty-state pair has to
+  // hold the order too, not just the populated one.
+  it("keeps that order when both sections are empty", () => {
+    const current = status();
+    current.agents.codex.installed = false;
+    current.desktopAgents = [desktopApp()];
+    mockState = { status: current, statusState: "success", statusError: "" };
+    renderPage();
+
+    const headings = screen.getAllByRole("heading", { name: /桌面 Agent|命令行 Agent/ });
+    expect(headings.map((heading) => heading.textContent)).toEqual(["桌面 Agent", "命令行 Agent"]);
+  });
 });
