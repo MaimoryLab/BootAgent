@@ -56,12 +56,7 @@ export function SettingsPage() {
     setBackupRetention(nextRetention);
     setBackupFailure("");
     try {
-      const saved = await api.saveSettings({
-        ...settings,
-        schema_version: 1,
-        mirror_from_region: false,
-        backup_retention: nextRetention,
-      });
+      const saved = await api.saveSettings({ backup_retention: nextRetention });
       setSettings(saved);
       setBackupRetention(saved.backup_retention ?? nextRetention);
     } catch (error) {
@@ -75,7 +70,7 @@ export function SettingsPage() {
     setSettings({ ...settings, autostart: enabled });
     setAutostartFailure("");
     try {
-      const saved = await api.saveSettings({ ...settings, autostart: enabled });
+      const saved = await api.saveSettings({ autostart: enabled });
       setSettings(saved);
     } catch (error) {
       setSettings({ ...settings, autostart: previous });

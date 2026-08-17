@@ -111,7 +111,8 @@ func TestRuntimeServiceAppliesAutostartCallbacks(t *testing.T) {
 	if got, err := service.GetSettings(context.Background()); err != nil || got.Autostart {
 		t.Fatalf("initial autostart = %#v, err=%v", got, err)
 	}
-	if _, err := service.SaveSettings(context.Background(), app.Settings{Autostart: true}); err != nil {
+	enable := true
+	if _, err := service.SaveSettings(context.Background(), app.SettingsPatch{Autostart: &enable}); err != nil {
 		t.Fatal(err)
 	}
 	if !enabled {

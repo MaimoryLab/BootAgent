@@ -46,6 +46,14 @@ type Settings struct {
 	BackupRetention int `json:"backup_retention"`
 }
 
+// SettingsPatch updates only the machine-level preferences named by the caller.
+// A nil field means "leave the stored value unchanged".
+type SettingsPatch struct {
+	Autostart       *bool `json:"autostart,omitempty"`
+	PreferMirror    *bool `json:"prefer_mirror,omitempty"`
+	BackupRetention *int  `json:"backup_retention,omitempty"`
+}
+
 // storedSettings is the on-disk shape. PreferMirror is a pointer so an absent
 // field ("never chosen", which may take the regional default) is distinct from
 // a stored false ("the user turned it off"). Without that distinction, a user in
@@ -53,9 +61,9 @@ type Settings struct {
 // launch.
 type storedSettings struct {
 	SchemaVersion   int   `json:"schema_version"`
-	Autostart       *bool `json:"autostart"`
-	PreferMirror    *bool `json:"prefer_mirror"`
-	BackupRetention *int  `json:"backup_retention"`
+	Autostart       *bool `json:"autostart,omitempty"`
+	PreferMirror    *bool `json:"prefer_mirror,omitempty"`
+	BackupRetention *int  `json:"backup_retention,omitempty"`
 }
 
 func (u *UseCases) settingsPath() string {
@@ -154,30 +162,66 @@ func (u *UseCases) SaveSettings(ctx context.Context, settings Settings) (Setting
 	} else {
 		settings.BackupRetention = normalizeBackupRetention(settings.BackupRetention)
 	}
-	// Saving is always an explicit choice, so the key is written even for false.
-	// That is what stops the regional default from re-ticking the box for a user
-	// who turned it off.
 	chosen := settings.PreferMirror
 	autostart := settings.Autostart
 	retention := settings.BackupRetention
-	data, err := json.MarshalIndent(storedSettings{
+	return u.saveStoredSettings(ctx, storedSettings{
 		SchemaVersion: settingsSchemaVersion, Autostart: &autostart, PreferMirror: &chosen, BackupRetention: &retention,
-	}, "", "  ")
+	})
+}
+
+// UpdateSettings merges a partial update with the stored preferences. It does
+// not materialize a regional mirror default when that preference was untouched.
+func (u *UseCases) UpdateSettings(ctx context.Context, patch SettingsPatch) (Settings, error) {
+	if u == nil {
+		return Settings{}, nil
+	}
+	if err := contextError(ctx, "Settings request was cancelled"); err != nil {
+		return Settings{}, err
+	}
+	u.writeMu.Lock()
+	stored, _ := u.readStoredSettings()
+	stored.SchemaVersion = settingsSchemaVersion
+	if patch.Autostart != nil {
+		value := *patch.Autostart
+		stored.Autostart = &value
+	}
+	if patch.PreferMirror != nil {
+		value := *patch.PreferMirror
+		stored.PreferMirror = &value
+	}
+	if patch.BackupRetention != nil && *patch.BackupRetention != 0 {
+		value := normalizeBackupRetention(*patch.BackupRetention)
+		stored.BackupRetention = &value
+	}
+	err := u.writeStoredSettings(ctx, stored)
+	u.writeMu.Unlock()
 	if err != nil {
 		return Settings{}, err
 	}
-	settings.MirrorFromRegion = false
-	// Same coordinator as the other writers so a settings write cannot interleave
-	// with an install that is about to read it.
+	return u.Settings(ctx)
+}
+
+func (u *UseCases) saveStoredSettings(ctx context.Context, stored storedSettings) (Settings, error) {
 	u.writeMu.Lock()
-	defer u.writeMu.Unlock()
+	err := u.writeStoredSettings(ctx, stored)
+	u.writeMu.Unlock()
+	if err != nil {
+		return Settings{}, err
+	}
+	return u.Settings(ctx)
+}
+
+func (u *UseCases) writeStoredSettings(ctx context.Context, stored storedSettings) error {
+	data, err := json.MarshalIndent(stored, "", "  ")
+	if err != nil {
+		return err
+	}
 	if err := u.filesystem.EnsurePrivateDir(ctx, filepath.Dir(u.settingsPath())); err != nil {
-		return Settings{}, err
+		return err
 	}
-	if _, err := u.filesystem.AtomicWrite(ctx, u.settingsPath(), append(data, '\n'), false); err != nil {
-		return Settings{}, err
-	}
-	return settings, nil
+	_, err = u.filesystem.AtomicWrite(ctx, u.settingsPath(), append(data, '\n'), false)
+	return err
 }
 
 // preferMirror reports the effective download preference. Reading it here keeps

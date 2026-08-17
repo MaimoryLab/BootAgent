@@ -72,13 +72,7 @@ describe("SettingsPage", () => {
     await userEvent.clear(input);
     await userEvent.type(input, "7");
     await userEvent.tab();
-    await waitFor(() => expect(saveSettings).toHaveBeenCalledWith({
-      schema_version: 1,
-      autostart: false,
-      prefer_mirror: false,
-      mirror_from_region: false,
-      backup_retention: 7,
-    }));
+    await waitFor(() => expect(saveSettings).toHaveBeenCalledWith({ backup_retention: 7 }));
   });
 
   it("saves the launch-at-login checkbox", async () => {

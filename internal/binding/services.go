@@ -189,7 +189,7 @@ func (s *RuntimeService) GetSettings(ctx context.Context) (app.Settings, error) 
 }
 
 // SaveSettings persists the download preferences and returns what was stored.
-func (s *RuntimeService) SaveSettings(ctx context.Context, request app.Settings) (app.Settings, error) {
+func (s *RuntimeService) SaveSettings(ctx context.Context, request app.SettingsPatch) (app.Settings, error) {
 	if err := contextError(ctx); err != nil {
 		return app.Settings{}, err
 	}
@@ -197,20 +197,20 @@ func (s *RuntimeService) SaveSettings(ctx context.Context, request app.Settings)
 		return app.Settings{}, notReady("Runtime service is not configured")
 	}
 	previous, changed := false, false
-	if s.autostart.SetEnabled != nil {
+	if request.Autostart != nil && s.autostart.SetEnabled != nil {
 		if s.autostart.IsEnabled != nil {
 			var err error
 			previous, err = s.autostart.IsEnabled()
 			if err != nil {
 				return app.Settings{}, err
 			}
-			changed = previous != request.Autostart
+			changed = previous != *request.Autostart
 		}
-		if err := s.autostart.SetEnabled(request.Autostart); err != nil {
+		if err := s.autostart.SetEnabled(*request.Autostart); err != nil {
 			return app.Settings{}, err
 		}
 	}
-	saved, err := s.core.SaveSettings(ctx, request)
+	saved, err := s.core.UpdateSettings(ctx, request)
 	if err != nil && changed {
 		_ = s.autostart.SetEnabled(previous)
 	}

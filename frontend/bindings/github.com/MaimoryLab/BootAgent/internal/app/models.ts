@@ -283,6 +283,16 @@ export interface Settings {
     "backup_retention": number;
 }
 
+/**
+ * SettingsPatch updates only the machine-level preferences named by the caller.
+ * A nil field means "leave the stored value unchanged".
+ */
+export interface SettingsPatch {
+    "autostart"?: boolean | null;
+    "prefer_mirror"?: boolean | null;
+    "backup_retention"?: number | null;
+}
+
 export interface SkillAgentApplyResult {
     "agent": string;
     "target_updated": boolean;

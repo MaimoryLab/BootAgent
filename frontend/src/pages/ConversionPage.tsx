@@ -30,7 +30,7 @@ export function ConversionPage() {
         confirmLabel: t("开机自启动"),
         cancelLabel: t("暂不启用"),
       })) return;
-      await api.saveSettings({ ...settings, autostart: true });
+      await api.saveSettings({ autostart: true });
     } catch (error) {
       setFailure(describeFailure(error, t("无法保存开机自启动设置"), t).message);
     }

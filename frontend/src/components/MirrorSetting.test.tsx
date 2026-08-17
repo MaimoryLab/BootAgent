@@ -45,7 +45,7 @@ describe("MirrorSetting", () => {
 
     await userEvent.click(screen.getByRole("switch"));
     await waitFor(() =>
-      expect(saveSettings).toHaveBeenCalledWith({ schema_version: 1, autostart: false, prefer_mirror: true, mirror_from_region: false, backup_retention: 3 }),
+      expect(saveSettings).toHaveBeenCalledWith({ prefer_mirror: true }),
     );
     expect((screen.getByRole("switch") as HTMLInputElement).checked).toBe(true);
   });
@@ -103,7 +103,7 @@ describe("MirrorSetting", () => {
 
     await userEvent.click(screen.getByRole("switch"));
     await waitFor(() =>
-      expect(saveSettings).toHaveBeenCalledWith({ schema_version: 1, autostart: false, prefer_mirror: false, mirror_from_region: false, backup_retention: 3 }),
+      expect(saveSettings).toHaveBeenCalledWith({ prefer_mirror: false }),
     );
     expect((screen.getByRole("switch") as HTMLInputElement).checked).toBe(false);
     // The regional explanation is gone: it is now a stored choice.
