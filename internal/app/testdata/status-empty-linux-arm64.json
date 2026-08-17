@@ -544,6 +544,19 @@
   "environmentError": null,
   "desktopAgents": [
     {
+      "home": "https://dshdesktop.cn",
+      "id": "dsh-desktop",
+      "installed": false,
+      "name": "DSH Desktop",
+      "profileAgentId": "dsh",
+      "profileId": null,
+      "protocol": "openai",
+      "source": "unknown",
+      "supported": false,
+      "unofficial": true,
+      "version": null
+    },
+    {
       "configPath": "${HOME}/.codex/config.toml",
       "configSharedWith": "Codex",
       "id": "chatgpt-desktop",
@@ -586,18 +599,6 @@
       "installed": false,
       "name": "ZCode",
       "profileAgentId": "zcode",
-      "profileId": null,
-      "protocol": "openai",
-      "source": "unknown",
-      "supported": false,
-      "version": null
-    },
-    {
-      "home": "https://dshdesktop.cn",
-      "id": "dsh-desktop",
-      "installed": false,
-      "name": "DSH Desktop",
-      "profileAgentId": "dsh",
       "profileId": null,
       "protocol": "openai",
       "source": "unknown",

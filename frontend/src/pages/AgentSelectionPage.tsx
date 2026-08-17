@@ -93,7 +93,12 @@ export function AgentSelectionPage() {
                     <span className="agent-icon"><AgentIcon agentId={app.id} size={20} /></span>
                     <span className="agent-copy"><span className="agent-name-line"><strong>{app.name}</strong><EditionTag edition={app.edition} /></span><span>{app.installed
                       ? t("已安装，可直接应用配置模版")
-                      : app.manualInstall ? t("需先自行安装，之后可配置") : t("安装官方桌面应用")}</span></span>
+                      : app.manualInstall ? t("需先自行安装，之后可配置")
+                      // Not "官方桌面应用" for a third-party build: the mark is the
+                      // model vendor's, so without this the row would read as if
+                      // the vendor published the download.
+                      : app.unofficial ? t("第三方桌面应用，非官方出品")
+                      : t("安装官方桌面应用")}</span></span>
                     <StatusBadge tone={app.installed ? "success" : app.supported ? "warning" : "neutral"}>{app.installed ? t("已安装") : app.supported ? t("待安装") : t("不支持")}</StatusBadge>
                   </label>;
                 })}

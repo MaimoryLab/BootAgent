@@ -133,6 +133,12 @@ export interface DesktopAgentStatus {
      */
     "manualInstall"?: boolean;
     "home"?: string;
+
+    /**
+     * Unofficial reports that the publisher is not the vendor whose model the app
+     * drives, so the UI can say so instead of calling it the official application.
+     */
+    "unofficial"?: boolean;
 }
 
 export interface DetectedConfig {

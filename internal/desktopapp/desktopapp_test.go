@@ -201,8 +201,18 @@ func TestDSHURLUsesTheNPMMirrorPreference(t *testing.T) {
 
 func TestDesktopDefinitionsExposeIndependentProducts(t *testing.T) {
 	definitions := Definitions()
-	if len(definitions) < 2 || definitions[0].ID != ChatGPTDesktopID || definitions[1].ID != WorkBuddyID {
+	// DSH Desktop leads the list because the UI renders it in this order.
+	if len(definitions) < 3 || definitions[0].ID != DSHDesktopID || definitions[1].ID != ChatGPTDesktopID || definitions[2].ID != WorkBuddyID {
 		t.Fatalf("desktop definitions = %#v", definitions)
+	}
+	// Only the third-party build carries the flag; claiming it for a vendor's own
+	// app would put a false disclaimer on the row.
+	dsh, ok := DefinitionFor(DSHDesktopID)
+	if !ok || !dsh.Unofficial {
+		t.Fatalf("DSH definition = %#v, found=%v", dsh, ok)
+	}
+	if chatGPT, ok := DefinitionFor(ChatGPTDesktopID); !ok || chatGPT.Unofficial {
+		t.Fatalf("ChatGPT must not be marked unofficial: %#v, found=%v", chatGPT, ok)
 	}
 	chatGPT, ok := DefinitionFor(ChatGPTDesktopID)
 	if !ok || chatGPT.ProfileAgentID != CodexAgentID || chatGPT.SharedConfigAgentID != CodexAgentID {

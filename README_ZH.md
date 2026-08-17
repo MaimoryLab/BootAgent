@@ -31,10 +31,12 @@ BootAgent 是一个本地桌面工作台，用来统一管理 AI 编程 Agent。
 
 | CLI Agent | 桌面 Agent |
 | --- | --- |
-| Codex · Claude Code | ChatGPT Desktop（macOS/Windows） |
-| Kilo CLI · Aider · OpenCode | WorkBuddy · WorkBuddy AI（macOS/Windows） |
-| Hermes Agent · OpenClaw | ZCode（macOS/Windows） |
-| Kimi Code · DeepSeek Harness | |
+| Codex · Claude Code | DSH Desktop（macOS/Windows） |
+| Kilo CLI · Aider · OpenCode | ChatGPT Desktop（macOS/Windows） |
+| Hermes Agent · OpenClaw | WorkBuddy · WorkBuddy AI（macOS/Windows） |
+| Kimi Code · DeepSeek Harness | ZCode（macOS/Windows） |
+
+DSH Desktop 排在桌面 Agent 列表首位。它由 anywhere-labs 发布，而不是 DeepSeek，所以下载行会标注它是第三方应用；旁边的 DeepSeek 标识表示它驱动的模型，不代表发布方。
 
 内置 JieKou.AI、PPIO、Novita、DeepSeek 和 Moonshot，顺序如此；也可以在模型服务页面添加任意 OpenAI 兼容或 Anthropic 兼容服务。BootAgent 会按 Agent 真正使用的协议探测；如果端点只支持另一种 API，会在写入配置前拒绝它。
 

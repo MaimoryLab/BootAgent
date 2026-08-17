@@ -31,7 +31,9 @@ describe("AgentIcon", () => {
     const assetIds = AGENT_ICON_IDS.filter((id) => agentMarkKind(id) === "asset");
     // chatgpt-desktop is a desktop Agent rather than a CLI, and it reuses the
     // OpenAI mark because it is OpenAI's own product sharing Codex's config.
-    expect(assetIds.sort()).toEqual(["chatgpt-desktop", "claude-code", "codex", "dsh", "hermes", "kilo-cli", "kimi-code", "openclaw", "opencode", "pi"]);
+    // dsh-desktop reuses the DeepSeek mark for the same reason: it drives
+    // DeepSeek, though anywhere-labs rather than DeepSeek publishes it.
+    expect(assetIds.sort()).toEqual(["chatgpt-desktop", "claude-code", "codex", "dsh", "dsh-desktop", "hermes", "kilo-cli", "kimi-code", "openclaw", "opencode", "pi"]);
     for (const id of assetIds) {
       const rights = agentMarkRights(id);
       expect(agentMarkKind(id)).toBe("asset");
@@ -115,6 +117,7 @@ describe("AgentIcon", () => {
       codex: "0 0 24 24",
       "chatgpt-desktop": "0 0 24 24",
       dsh: "0 0 24 24",
+      "dsh-desktop": "0 0 24 24",
       opencode: "0 0 24 24",
       "claude-code": "0 0 24 24",
       "kilo-cli": "0 0 24 24",
@@ -201,7 +204,7 @@ describe("AgentIcon", () => {
   // Every Agent the app can show needs a mark it was actually given, so a new one
   // does not quietly land on the unknown-Agent fallback.
   it("registers a mark for every Agent and desktop Agent", () => {
-    for (const id of [...ALL, "chatgpt-desktop", "workbuddy"]) {
+    for (const id of [...ALL, "chatgpt-desktop", "dsh-desktop", "workbuddy"]) {
       expect(agentMarkKind(id), `${id} has no registered mark`).not.toBe("fallback");
     }
   });
