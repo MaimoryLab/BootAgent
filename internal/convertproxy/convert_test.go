@@ -145,6 +145,33 @@ func TestTargetModelOverridesClientModel(t *testing.T) {
 	}
 }
 
+func TestChatCompletionsForwardsBodyAndTargetKey(t *testing.T) {
+	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.Header.Get("Authorization"); got != "Bearer target-key" {
+			t.Errorf("target authorization = %q", got)
+		}
+		body, _ := io.ReadAll(r.Body)
+		var request map[string]any
+		if err := json.Unmarshal(body, &request); err != nil {
+			t.Fatal(err)
+		}
+		if request["model"] != "provider-model" || request["max_tokens"] != float64(123) || request["reasoning_effort"] != "client-effort" {
+			t.Errorf("forwarded request = %s", body)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"id":"chat","choices":[]}`)
+	}))
+	defer target.Close()
+	proxy := &Server{client: target.Client(), cfg: Config{TargetBaseURL: target.URL, TargetModel: "provider-model", TargetAPIKey: "target-key", TargetReasoningEffort: "profile-effort"}}
+	request := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(`{"model":"client-model","max_tokens":123,"reasoning_effort":"client-effort","messages":[]}`))
+	request.Header.Set("Authorization", "Bearer local-key")
+	recorder := httptest.NewRecorder()
+	proxy.handle(recorder, request)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("response status = %d", recorder.Code)
+	}
+}
+
 func TestResponsesResponsePreservesReasoningAndToolCalls(t *testing.T) {
 	got, err := FromChat("responses", []byte(`{"id":"chat","model":"upstream","choices":[{"finish_reason":"tool_calls","message":{"reasoning_content":"inspect first","content":null,"tool_calls":[{"id":"call_1","type":"function","function":{"name":"lookup","arguments":"{\"q\":\"x\"}"}}]}}]}`))
 	if err != nil {

@@ -45,7 +45,7 @@ export function ConversionPage() {
   return (
     <PageScaffold
       title={t("本地格式转换")}
-      description={t("将 Anthropic Messages 和 OpenAI Responses 转为 OpenAI Chat Completions")}
+      description={t("将 Anthropic Messages、OpenAI Responses 和 Chat Completions 转发到目标 Profile")}
       bodyClassName="management-page conversion-page"
       footerNote={config ? <span className={`conversion-footer-status${config.enabled ? " is-running" : " is-stopped"}`}>{config.enabled ? t("格式转换正在监听") : t("格式转换当前已停止")}</span> : null}
       secondaryAction={config ? <button className={`button button-secondary conversion-action${config.enabled ? " is-running" : " is-stopped"}`} type="button" onClick={() => void toggle()} disabled={saving || !config.target_profile}><Power size={15} />{config.enabled ? t("停止格式转换") : t("启动格式转换")}</button> : null}
@@ -76,6 +76,10 @@ export function ConversionPage() {
           <div className="field-stack">
             <label htmlFor="conversion-responses-model">{t("Responses 模型")}</label>
             <input id="conversion-responses-model" value={config.responses_model} onChange={(event) => setConfig({ ...config, responses_model: event.target.value })} spellCheck={false} autoCorrect="off" autoCapitalize="none" />
+          </div>
+          <div className="field-stack">
+            <label htmlFor="conversion-chat-model">{t("Chat Completions 模型")}</label>
+            <input id="conversion-chat-model" value={config.chat_model} onChange={(event) => setConfig({ ...config, chat_model: event.target.value })} spellCheck={false} autoCorrect="off" autoCapitalize="none" />
           </div>
         </div>
       </div> : null}
