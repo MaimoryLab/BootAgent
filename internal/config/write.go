@@ -693,6 +693,15 @@ func (w Writer) WriteKimiCode(ctx context.Context, path, baseURL, apiKey, model 
 		"[models." + quoteTOML(alias) + "]",
 		"provider = " + quoteTOML(kimiOwnedName),
 		"model = " + quoteTOML(model),
+		// Mandatory since Kimi Code 0.27.0: a models entry without a positive
+		// max_context_size fails schema validation, and the CLI *ignores the whole
+		// entry* -- then refuses to start because default_model names a model that
+		// no longer exists. The value is Kimi Code's own DEFAULT_MAX_CONTEXT_SIZE
+		// (262144, read off the 0.27.0 binary), the same limit it applies when the
+		// KIMI_MODEL_MAX_CONTEXT_SIZE environment override is absent. A catalog
+		// Provider does not declare per-model context sizes, so the CLI's own
+		// default is the only value that adds no invented claim.
+		"max_context_size = 262144",
 		"",
 	}, "\n")
 	existing, err := readText(path)
