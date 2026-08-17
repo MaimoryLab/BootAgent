@@ -1317,7 +1317,7 @@
   --agent-accent: var(--accent);
   --agent-accent-hover: var(--accent-hover);
   --agent-soft: var(--accent-soft);
-  width: min(100%, var(--card-measure));
+  width: 100%;
   min-height: 84px;
   padding: 12px 14px;
   display: grid;
@@ -1932,7 +1932,7 @@
    set. */
 .provider-list,
 .profile-list {
-  width: min(100%, var(--card-measure));
+  width: 100%;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
   align-items: start;
