@@ -283,7 +283,7 @@ export function AgentProfilePage() {
             const usable = desktopProfileUsable(status, profile);
             const active = selectedId === profile.id;
             return (
-              <article className={`profile-card profile-choice${active ? " is-selected" : ""}${!usable ? " is-disabled" : ""}`} key={profile.id} data-testid={`agent-profile-${profile.id}`}>
+            <article className={`profile-card profile-choice${active ? " is-selected" : ""}${!usable ? " is-disabled" : ""}`} key={profile.id} data-testid={`agent-profile-${profile.id}`} onClick={() => { if (usable) { setSelectedId(profile.id); setApplied(""); } }}>
                 <label className="profile-choice-main">
                   <input type="radio" name="agent-profile" checked={active} disabled={!usable} onChange={() => { setSelectedId(profile.id); setApplied(""); }} aria-label={t("选择 {name}", { name: profile.label })} />
                   <span className="profile-title"><strong>{profile.label}</strong><small>{profile.id}</small></span>
@@ -291,7 +291,7 @@ export function AgentProfilePage() {
                 </label>
                 <p>{status.providers[profile.provider]?.name || profile.provider} · {profile.model || t("未指定模型")}</p>
                 {!usable ? <small className="profile-key-hint">{t("这个配置模版还缺少模型服务 Key 或模型")}</small> : null}
-                {!isConverterID(profile.id) ? <button className="icon-button" type="button" onClick={() => openEdit(profile)} aria-label={t("编辑 {name}", { name: profile.label })} title={t("编辑")}><Pencil size={14} /></button> : null}
+                {!isConverterID(profile.id) ? <button className="icon-button" type="button" onClick={(event) => { event.stopPropagation(); openEdit(profile); }} aria-label={t("编辑 {name}", { name: profile.label })} title={t("编辑")}><Pencil size={14} /></button> : null}
               </article>
             );
           })}

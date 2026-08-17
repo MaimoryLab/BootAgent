@@ -68,7 +68,7 @@ export function ProfileSelectionPage() {
         {profiles.map((profile) => {
           const active = selectedId === profile.id;
           return (
-            <article className={`profile-card profile-choice${active ? " is-selected" : ""}`} key={profile.id}>
+            <article className={`profile-card profile-choice${active ? " is-selected" : ""}`} key={profile.id} onClick={() => setSelectedId(profile.id)}>
               <label className="profile-choice-main">
                 <input type="radio" name="setup-profile" checked={active} onChange={() => setSelectedId(profile.id)} aria-label={t("选择 {name}", { name: profile.label })} />
                 <span className="profile-title"><strong>{profile.label}</strong><small>{profile.id}</small></span>
