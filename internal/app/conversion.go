@@ -14,6 +14,8 @@ import (
 
 const converterPrefix = "bootagent-converter-"
 const legacyConverterPrefix = "bootagent_converter_"
+const defaultAnthropicConversionModel = "claude-sonnet-5"
+const defaultResponsesConversionModel = "gpt-5.6-sol"
 
 func isConverterID(id string) bool {
 	return strings.HasPrefix(id, converterPrefix) || strings.HasPrefix(id, legacyConverterPrefix)
@@ -50,7 +52,7 @@ func (u *UseCases) Conversion(ctx context.Context) (ConversionConfig, error) {
 	}
 	b, err := os.ReadFile(u.conversionPath())
 	if os.IsNotExist(err) {
-		return ConversionConfig{Listen: "127.0.0.1:8787"}, nil
+		return ConversionConfig{Listen: "127.0.0.1:8787", AnthropicModel: defaultAnthropicConversionModel, ResponsesModel: defaultResponsesConversionModel}, nil
 	}
 	if err != nil {
 		return ConversionConfig{}, err
@@ -61,6 +63,12 @@ func (u *UseCases) Conversion(ctx context.Context) (ConversionConfig, error) {
 	}
 	if c.Listen == "" {
 		c.Listen = "127.0.0.1:8787"
+	}
+	if c.AnthropicModel == "" {
+		c.AnthropicModel = defaultAnthropicConversionModel
+	}
+	if c.ResponsesModel == "" {
+		c.ResponsesModel = defaultResponsesConversionModel
 	}
 	for _, prefix := range []string{converterPrefix, legacyConverterPrefix} {
 		if p, e := u.providers.Get(prefix + "anthropic"); e == nil {
@@ -118,10 +126,10 @@ func (u *UseCases) SaveConversion(ctx context.Context, c ConversionConfig) (Conv
 		return c, fmt.Errorf("target Provider has no API key")
 	}
 	if c.AnthropicModel == "" {
-		c.AnthropicModel = stringValue(target.Model)
+		c.AnthropicModel = defaultAnthropicConversionModel
 	}
 	if c.ResponsesModel == "" {
-		c.ResponsesModel = stringValue(target.Model)
+		c.ResponsesModel = defaultResponsesConversionModel
 	}
 	if c.Enabled {
 		for _, f := range []string{"anthropic", "responses"} {
@@ -145,10 +153,4 @@ func (u *UseCases) SaveConversion(ctx context.Context, c ConversionConfig) (Conv
 	}
 	_ = u.conversion.SetConfig(convertproxy.Config{Enabled: c.Enabled, Listen: c.Listen, APIKey: c.APIKey, Models: []string{c.AnthropicModel, c.ResponsesModel}, TargetBaseURL: p.BaseFor("openai"), TargetAPIKey: p.APIKey})
 	return c, nil
-}
-func stringValue(v *string) string {
-	if v == nil {
-		return ""
-	}
-	return *v
 }
