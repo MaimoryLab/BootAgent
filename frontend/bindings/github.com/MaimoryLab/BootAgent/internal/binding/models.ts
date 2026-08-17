@@ -187,6 +187,7 @@ export interface SaveProfileRequest {
     "api_key": string;
     "model": string;
     "reasoning_effort"?: string;
+    "context_1m"?: boolean;
     "config_mode": string;
     "protocol": string;
 }

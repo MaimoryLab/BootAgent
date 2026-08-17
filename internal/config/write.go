@@ -676,7 +676,11 @@ func (w Writer) WriteAider(ctx context.Context, path, baseURL, apiKey, reasoning
 // type is "openai", not Kimi Code's own "kimi": that one means Moonshot's
 // first-party endpoint, while a BootAgent Provider is an arbitrary
 // OpenAI-compatible base URL.
-func (w Writer) WriteKimiCode(ctx context.Context, path, baseURL, apiKey, model string) error {
+func (w Writer) WriteKimiCode(ctx context.Context, path, baseURL, apiKey, model string, context1M bool) error {
+	maxContextSize := "262144"
+	if context1M {
+		maxContextSize = "1048576"
+	}
 	// The alias is namespaced under the owned provider name so it cannot collide
 	// with a model the user declared. Both table headers are quoted: the alias
 	// contains a slash, and a model ID may contain a dot, either of which TOML
@@ -693,6 +697,7 @@ func (w Writer) WriteKimiCode(ctx context.Context, path, baseURL, apiKey, model 
 		"[models." + quoteTOML(alias) + "]",
 		"provider = " + quoteTOML(kimiOwnedName),
 		"model = " + quoteTOML(model),
+		"max_context_size = " + maxContextSize,
 		"",
 	}, "\n")
 	existing, err := readText(path)

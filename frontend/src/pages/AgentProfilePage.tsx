@@ -19,6 +19,7 @@ interface ProfileDraft {
   provider: ProviderId;
   model: string;
   reasoningEffort: string;
+  context1M: boolean;
   originalId: string;
 }
 
@@ -29,6 +30,7 @@ function draftFrom(profile: ProfileSummary): ProfileDraft {
     provider: profile.provider,
     model: profile.model || "",
     reasoningEffort: profile.reasoningEffort || "",
+    context1M: Boolean(profile.context1M),
     originalId: profile.id,
   };
 }
@@ -108,6 +110,7 @@ export function AgentProfilePage() {
       provider,
       model: current?.model || currentAgent?.model || "",
       reasoningEffort: "",
+      context1M: false,
       originalId: "",
     });
   };
@@ -132,6 +135,7 @@ export function AgentProfilePage() {
         apiKey: "",
         model: draft.model.trim(),
         reasoningEffort: draft.reasoningEffort,
+        context1M: draft.context1M,
         configMode: "provider",
         protocol: app ? desktopProtocol(app) : catalog?.protocol || "",
       });
@@ -252,6 +256,10 @@ export function AgentProfilePage() {
               />
               <small>{t("各 Agent 支持的档位不同，应用时不支持的档位会明确报错")}</small>
             </div>
+            <label className="toggle-row">
+              <span><strong>{t("启用1m上下文")}</strong></span>
+              <input type="checkbox" role="switch" checked={draft.context1M} onChange={(event) => setDraft({ ...draft, context1M: event.target.checked })} />
+            </label>
           </div>
           <p className="profile-key-hint">
             {status.providers[draft.provider]?.has_key

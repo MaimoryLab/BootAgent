@@ -61,10 +61,11 @@ export type SaveProviderInput = Omit<BindingModels.SaveProviderRequest, "keep_ex
   keep_existing_key?: boolean;
 };
 export type SaveProviderResult = AppModels.SaveProviderResult;
-export type ProfileSummary = Omit<AppModels.ProfileSummary, "protocol" | "createdAt"> & {
+export type ProfileSummary = Omit<AppModels.ProfileSummary, "protocol" | "createdAt" | "context1M"> & {
   protocol: ProtocolId | "";
   createdAt?: string;
   reasoningEffort?: string;
+  context1M?: boolean;
 };
 // Mirrors SaveProviderResult: saving a Profile can rewrite the Agents bound to
 // it, so the outcome per Agent travels with the saved record.

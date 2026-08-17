@@ -482,6 +482,7 @@ func (s *ProfileService) SaveProfile(ctx context.Context, request SaveProfileReq
 		APIKey:          request.APIKey,
 		Model:           request.Model,
 		ReasoningEffort: request.ReasoningEffort,
+		Context1M:       request.Context1M,
 		ConfigMode:      request.ConfigMode,
 		Protocol:        request.Protocol,
 	})
@@ -674,6 +675,7 @@ type SaveProfileRequest struct {
 	APIKey          string `json:"api_key"`
 	Model           string `json:"model"`
 	ReasoningEffort string `json:"reasoning_effort,omitempty"`
+	Context1M       bool   `json:"context_1m,omitempty"`
 	ConfigMode      string `json:"config_mode"`
 	Protocol        string `json:"protocol"`
 }

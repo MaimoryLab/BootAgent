@@ -192,6 +192,7 @@ const english = {
   "留空则使用配置模版 ID": "Leave blank to use the Profile ID",
   "例如 团队 PPIO": "For example, Team PPIO",
   "思考深度": "Reasoning effort",
+  "启用1m上下文": "Enable 1M context",
   "未设置（模型默认）": "Unset (model default)",
   "off（关闭）": "Off",
   "low（低）": "Low",

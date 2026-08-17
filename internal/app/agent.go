@@ -25,6 +25,7 @@ type ActivateAgentOptions struct {
 	ProfileID       string
 	SmallFastModel  string
 	ReasoningEffort string
+	Context1M       bool
 }
 
 // ActivateAgentResult contains only the public outcome needed by the UI. The
@@ -117,6 +118,7 @@ func (u *UseCases) activateAgentLocked(ctx context.Context, options ActivateAgen
 	// the Profile carries. Resolved before the write so the binding below records
 	// what actually took effect, not what the caller happened to pass.
 	reasoningEffort := strings.TrimSpace(options.ReasoningEffort)
+	context1M := options.Context1M
 	if profileID != "" {
 		profiles, err := u.profiles.List()
 		if err != nil {
@@ -132,6 +134,7 @@ func (u *UseCases) activateAgentLocked(ctx context.Context, options ActivateAgen
 			if reasoningEffort == "" {
 				reasoningEffort = saved.ReasoningEffort
 			}
+			context1M = saved.Context1M
 		}
 	}
 	configBaseURL := target.BaseFor(protocol)
@@ -142,7 +145,7 @@ func (u *UseCases) activateAgentLocked(ctx context.Context, options ActivateAgen
 	}
 
 	writer := configWriter.NewWriter(u.status.Home, u.status.Platform.OS, u.filesystem)
-	if err := writeManagedAgentConfig(ctx, writer, agentID, agent, configPath, dshRouteProviderID(target, options.APIBaseURL), providerName, configBaseURL, apiKey, model, options.SmallFastModel, reasoningEffort); err != nil {
+	if err := writeManagedAgentConfig(ctx, writer, agentID, agent, configPath, dshRouteProviderID(target, options.APIBaseURL), providerName, configBaseURL, apiKey, model, options.SmallFastModel, reasoningEffort, context1M); err != nil {
 		return ActivateAgentResult{}, err
 	}
 	binding, err := u.profiles.WriteAgentBinding(ctx, agentID, profileStore.BindingWriteRequest{
@@ -219,6 +222,19 @@ func (u *UseCases) profileReasoningEffort(profileID string) string {
 	return ""
 }
 
+func (u *UseCases) profileContext1M(profileID string) bool {
+	profiles, err := u.profiles.List()
+	if err != nil {
+		return false
+	}
+	for _, saved := range profiles {
+		if saved.ID == strings.TrimSpace(profileID) {
+			return saved.Context1M
+		}
+	}
+	return false
+}
+
 // writeManagedAgentConfig hands the activation to the Agent's config adapter.
 //
 // reasoningEffort reaches the adapters whose file format documents a place for
@@ -231,7 +247,7 @@ func (u *UseCases) profileReasoningEffort(profileID string) string {
 // config shapes read off one observed version with no documented reasoning
 // field, and inventing keys in files those apps own risks corrupting state
 // they manage (see WriteZCode).
-func writeManagedAgentConfig(ctx context.Context, writer configWriter.Writer, agentID string, agent catalog.Agent, path, providerID, providerName, baseURL, apiKey, model, smallFastModel, reasoningEffort string) error {
+func writeManagedAgentConfig(ctx context.Context, writer configWriter.Writer, agentID string, agent catalog.Agent, path, providerID, providerName, baseURL, apiKey, model, smallFastModel, reasoningEffort string, context1M bool) error {
 	switch agent.ConfigAdapter {
 	case "codex":
 		return writer.WriteCodex(ctx, path, providerName, baseURL, apiKey, model, reasoningEffort)
@@ -264,7 +280,7 @@ func writeManagedAgentConfig(ctx context.Context, writer configWriter.Writer, ag
 	case "hermes":
 		return writer.WriteHermes(ctx, path, baseURL, apiKey, model)
 	case "kimi-code":
-		return writer.WriteKimiCode(ctx, path, baseURL, apiKey, model)
+		return writer.WriteKimiCode(ctx, path, baseURL, apiKey, model, context1M)
 	case "workbuddy":
 		return writer.WriteWorkBuddy(ctx, path, baseURL, apiKey, model)
 	case "zcode":
