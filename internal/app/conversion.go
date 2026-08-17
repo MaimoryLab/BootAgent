@@ -141,7 +141,7 @@ func (u *UseCases) SaveConversion(ctx context.Context, c ConversionConfig) (Conv
 	if c.Enabled {
 		for _, f := range []string{"anthropic", "responses"} {
 			id := converterPrefix + f
-			_, err = u.SaveProvider(ctx, provider.Entry{ID: id, Name: "BootAgent Converter " + f, BaseURL: "http://" + c.Listen, APIKey: c.APIKey}, false, false)
+			_, err = u.SaveProvider(ctx, provider.Entry{ID: id, Name: "BootAgent Converter " + f, BaseURL: provider.OpenAIBaseURL("http://" + c.Listen), APIKey: c.APIKey}, false, false)
 			if err != nil && !strings.Contains(err.Error(), "Unknown Provider") {
 				return c, err
 			}
