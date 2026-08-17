@@ -261,11 +261,12 @@ func stringPointerValue(value *string) string {
 
 func (u *UseCases) desktopAppOptions(output process.OutputListener) desktopapp.Options {
 	return desktopapp.Options{
-		Home:       u.status.Home,
-		Platform:   u.status.Platform,
-		Runner:     u.runner,
-		Output:     output,
-		Downloader: u.httpDoer,
+		Home:         u.status.Home,
+		Platform:     u.status.Platform,
+		Runner:       u.runner,
+		Output:       output,
+		Downloader:   u.httpDoer,
+		PreferMirror: u.preferMirror(context.Background()),
 	}
 }
 

@@ -34,6 +34,24 @@ func verifyWorkBuddyWindowsInstaller(ctx context.Context, edition workBuddyEditi
 	return verifyWindowsInstallerPublisher(ctx, options, installerPath, edition.windowsSigners)
 }
 
+func verifyDSHWindowsInstaller(ctx context.Context, options Options, installerPath string) error {
+	result, err := runWithEnvironment(options, ctx, windowsAuthenticodeQuery(), map[string]string{"BOOTAGENT_VERIFY_PATH": installerPath}, installTimeout)
+	if err != nil {
+		return err
+	}
+	if result.ExitCode != 0 {
+		return commandFailure("run Windows Authenticode verification", result)
+	}
+	signature, err := parseWindowsAuthenticodeSignature(result.Stdout)
+	if err != nil {
+		return err
+	}
+	if !strings.EqualFold(strings.TrimSpace(signature.Status), "Valid") || strings.TrimSpace(signature.Subject) == "" || strings.TrimSpace(signature.Issuer) == "" {
+		return errors.New("DSH Desktop Windows installer has no valid Authenticode signature")
+	}
+	return nil
+}
+
 // verifyZCodeWindowsInstaller pins the EV code-signing subject read out of the
 // vendor's own published .exe -- O and CN both carry this value -- rather than a
 // name taken from documentation. It is the same legal entity behind the macOS

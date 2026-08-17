@@ -185,6 +185,20 @@ func TestDesktopLifecycleRequiresAnExplicitKnownAgent(t *testing.T) {
 	}
 }
 
+func TestDSHURLUsesTheNPMMirrorPreference(t *testing.T) {
+	mac := Options{Platform: platform.For("macos", "arm64")}
+	mac.PreferMirror = true
+	got, err := dshURL(context.Background(), mac)
+	if err != nil || got != DSHDesktopMacMirrorURL {
+		t.Fatalf("mirror dsh URL = %q, %v", got, err)
+	}
+	win := Options{Platform: platform.For("windows", "amd64"), PreferMirror: true}
+	got, err = dshURL(context.Background(), win)
+	if err != nil || got != DSHDesktopWinMirrorURL {
+		t.Fatalf("windows mirror dsh URL = %q, %v", got, err)
+	}
+}
+
 func TestDesktopDefinitionsExposeIndependentProducts(t *testing.T) {
 	definitions := Definitions()
 	if len(definitions) < 2 || definitions[0].ID != ChatGPTDesktopID || definitions[1].ID != WorkBuddyID {

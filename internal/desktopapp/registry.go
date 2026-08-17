@@ -13,6 +13,7 @@ const (
 	ConfigAdapterCodex     = "codex"
 	ConfigAdapterWorkBuddy = "workbuddy"
 	ConfigAdapterZCode     = "zcode"
+	ConfigAdapterDSH       = "dsh"
 
 	// Edition labels a regional build of a product that ships as two separate
 	// applications. It exists so the UI can tell them apart without the region
@@ -111,6 +112,16 @@ var implementations = []implementation{
 		inspect: inspectZCode,
 		install: installZCode,
 		open:    openZCode,
+	},
+	{
+		Definition: Definition{
+			ID: DSHDesktopID, Name: DSHDesktopName, ProfileAgentID: "dsh",
+			ConfigPath: ".dsh/settings.yaml", ConfigAdapter: ConfigAdapterDSH,
+			Protocol: "openai", Home: DSHDesktopHome,
+		},
+		inspect: inspectDSH,
+		install: installDSH,
+		open:    openDSH,
 	},
 }
 

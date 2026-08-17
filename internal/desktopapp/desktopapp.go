@@ -73,6 +73,7 @@ type Options struct {
 	Output          process.OutputListener
 	Downloader      DownloadClient
 	DownloadURL     string
+	PreferMirror    bool
 	SearchRoots     []string
 	ApplicationDirs []string
 }
