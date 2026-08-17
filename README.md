@@ -1,7 +1,7 @@
 <div align="center">
   <img src="build/appicon.png" alt="BootAgent" width="96">
   <h1>BootAgent</h1>
-  <p>One place to install, configure, and keep your AI coding Agents ready.</p>
+  <p><strong>Many Agents. One place to manage them.</strong></p>
   <p>
     <a href="https://github.com/MaimoryLab/BootAgent/releases/latest"><img src="https://img.shields.io/github/v/release/MaimoryLab/BootAgent?display_name=tag&sort=semver" alt="Latest release"></a>
     <a href="https://github.com/MaimoryLab/BootAgent/actions/workflows/ci.yml"><img src="https://github.com/MaimoryLab/BootAgent/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
