@@ -26,6 +26,13 @@ func (u *UseCases) converterEnabled() bool {
 	return err == nil && c.Enabled
 }
 
+func (u *UseCases) CloseConversion() error {
+	if u == nil || u.conversion == nil {
+		return nil
+	}
+	return u.conversion.Close()
+}
+
 type ConversionConfig struct {
 	Enabled        bool   `json:"enabled"`
 	Listen         string `json:"listen"`
@@ -153,4 +160,22 @@ func (u *UseCases) SaveConversion(ctx context.Context, c ConversionConfig) (Conv
 	}
 	_ = u.conversion.SetConfig(convertproxy.Config{Enabled: c.Enabled, Listen: c.Listen, APIKey: c.APIKey, Models: []string{c.AnthropicModel, c.ResponsesModel}, TargetBaseURL: p.BaseFor("openai"), TargetAPIKey: p.APIKey})
 	return c, nil
+}
+
+func (u *UseCases) SetConversionEnabled(ctx context.Context, enabled bool) (ConversionConfig, error) {
+	c, err := u.Conversion(ctx)
+	if err != nil {
+		return c, err
+	}
+	c.Enabled = enabled
+	return u.SaveConversion(ctx, c)
+}
+
+func (u *UseCases) SetConversionTargetProfile(ctx context.Context, profileID string) (ConversionConfig, error) {
+	c, err := u.Conversion(ctx)
+	if err != nil {
+		return c, err
+	}
+	c.TargetProfile = strings.TrimSpace(profileID)
+	return u.SaveConversion(ctx, c)
 }
