@@ -4,9 +4,9 @@ package main
 
 import (
 	"context"
+	_ "embed"
 	"log/slog"
 	"os"
-	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -19,10 +19,12 @@ import (
 	"github.com/MaimoryLab/BootAgent/internal/version"
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
-	"github.com/wailsapp/wails/v3/pkg/icons"
 	"github.com/wailsapp/wails/v3/pkg/updater"
 	"github.com/wailsapp/wails/v3/pkg/updater/providers/github"
 )
+
+//go:embed appicon.png
+var appIcon []byte
 
 func configureUpdater(appInstance *application.App) binding.UpdateBackend {
 	current := version.UpdaterVersion()
@@ -106,11 +108,7 @@ func configureSystemTray(appInstance *application.App, core *app.UseCases, windo
 	}
 	refresh()
 	tray.SetTooltip("BootAgent")
-	if runtime.GOOS == "darwin" {
-		tray.SetTemplateIcon(icons.SystrayMacTemplate)
-	} else {
-		tray.SetIcon(icons.SystrayLight)
-	}
+	tray.SetIcon(appIcon)
 	tray.AttachWindow(window).WindowOffset(5)
 }
 
