@@ -1,4 +1,4 @@
-import { Power, Radio } from "lucide-react";
+import { Power } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { api, describeFailure } from "../backend/api";
@@ -47,6 +47,7 @@ export function ConversionPage() {
       title={t("本地格式转换")}
       description={t("将 Anthropic Messages 和 OpenAI Responses 转为 OpenAI Chat Completions")}
       bodyClassName="management-page conversion-page"
+      footerNote={config ? <span className={`conversion-footer-status${config.enabled ? " is-running" : " is-stopped"}`}>{config.enabled ? t("格式转换正在监听") : t("格式转换当前已停止")}</span> : null}
       secondaryAction={config ? <button className={`button button-secondary conversion-action${config.enabled ? " is-running" : " is-stopped"}`} type="button" onClick={() => void toggle()} disabled={saving || !config.target_profile}><Power size={15} />{config.enabled ? t("停止格式转换") : t("启动格式转换")}</button> : null}
       primaryLabel={t("保存格式转换设置")}
       onPrimary={() => void save()}
@@ -57,7 +58,6 @@ export function ConversionPage() {
       {config ? <div className="provider-editor conversion-editor">
         <header><strong>{t("格式转换设置")}</strong></header>
         <div className="provider-editor-grid">
-          <div className={`conversion-toggle provider-editor-wide${config.enabled ? " is-running" : " is-stopped"}`}><span><strong>{t("格式转换状态")}</strong><small>{config.enabled ? t("格式转换正在监听") : t("格式转换当前已停止")}</small></span></div>
           <div className="field-stack provider-editor-wide">
             <label htmlFor="conversion-target">{t("目标 Profile")}</label>
             <SelectField id="conversion-target" label={t("目标 Profile")} value={config.target_profile} onChange={(value) => setConfig({ ...config, target_profile: value })} options={profiles.map((profile) => ({ value: profile.id, label: profile.label || profile.id }))} />

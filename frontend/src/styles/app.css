@@ -1868,11 +1868,9 @@
 .conversion-editor { width: 100%; max-width: none; border-bottom: 0; }
 .conversion-editor .select-field { width: 100%; }
 .conversion-editor .select-field-trigger { min-height: 38px; border-color: var(--border-strong); background: var(--surface-subtle); }
-.conversion-toggle { min-height: 54px; padding: 4px 0; display: flex; align-items: center; justify-content: flex-end; text-align: right; }
-.conversion-toggle strong { font-size: 13px; }
-.conversion-toggle small { color: var(--text-secondary); font-size: 11px; }
-.conversion-toggle.is-running strong { color: var(--green); font-size: 16px; }
-.conversion-toggle.is-stopped strong { color: var(--red); font-size: 16px; }
+.conversion-footer-status { color: var(--text-secondary); font-size: 11px; }
+.conversion-footer-status.is-running { color: var(--green); }
+.conversion-footer-status.is-stopped { color: var(--red); }
 .conversion-action.is-running { border-color: var(--red); color: var(--red); }
 .conversion-action.is-running:hover { background: var(--red-soft); }
 .conversion-action.is-stopped { border-color: var(--green); color: var(--green); }
