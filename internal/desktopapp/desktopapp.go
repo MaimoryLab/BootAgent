@@ -73,6 +73,7 @@ type Options struct {
 	Output          process.OutputListener
 	Downloader      DownloadClient
 	DownloadURL     string
+	PreferMirror    bool
 	SearchRoots     []string
 	ApplicationDirs []string
 }
@@ -672,6 +673,8 @@ func downloadFile(ctx context.Context, options Options, url, destination, target
 	if err != nil {
 		return err
 	}
+	request.Header.Set("User-Agent", "BootAgent")
+	request.Header.Set("Accept", "application/octet-stream")
 	client := options.Downloader
 	if client == nil {
 		// http.DefaultClient sets no Timeout, which is what we want here: the
