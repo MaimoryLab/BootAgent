@@ -33,8 +33,8 @@
 
 下载对应平台的 `technical-preview-unsigned` 包，解压后直接启动：macOS 是
 `BootAgent.app`，Windows 是 `bootagent-desktop.exe`，Linux 可以直接运行 AppImage。
-Linux 还为 amd64 和 arm64 提供 `deb`、`rpm` 与 OTA `zip`。当前阶段的包未签名也未
-公证，首次打开需要在系统里手动允许。
+Linux 还为 amd64 和 arm64 提供 `deb`、`rpm` 与 OTA `zip`。macOS 包使用 Developer
+ID 签名并经过公证；Windows 和 Linux 包仍未签名，首次打开时可能需要在系统里手动允许。
 
 需要从源码运行（开发或审查用）：
 

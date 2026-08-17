@@ -77,6 +77,7 @@ jobs:
       CGO_LDFLAGS: -mmacosx-version-min=12.0
       GOARCH: ${{ matrix.arch.goarch }}
       MACOSX_DEPLOYMENT_TARGET: '12.0'
+      MACOS_SIGNING_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
 
     steps:
       - uses: actions/checkout@v7
@@ -85,6 +86,12 @@ jobs:
         with:
           go-version-file: go.mod
           cache-dependency-path: go.sum
+
+      - name: Import macOS signing certificate
+        uses: apple-actions/import-codesign-certs@v3
+        with:
+          p12-file-base64: ${{ secrets.MACOS_CERTIFICATE_P12 }}
+          p12-password: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
 
       - name: Download frontend
         uses: actions/download-artifact@v8
@@ -109,8 +116,36 @@ jobs:
           bundle_version="${RELEASE_VERSION#v}"
           /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $bundle_version" "bin/BootAgent.app/Contents/Info.plist"
           /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $bundle_version" "bin/BootAgent.app/Contents/Info.plist"
-          codesign --force --deep --sign - "bin/BootAgent.app"
+          codesign \
+            --force \
+            --deep \
+            --options runtime \
+            --timestamp \
+            --sign "$MACOS_SIGNING_IDENTITY" \
+            "bin/BootAgent.app"
+          codesign --verify --deep --strict --verbose=2 "bin/BootAgent.app"
           rm "bin/bootagent-desktop"
+
+      - name: Notarize macOS app
+        shell: bash
+        env:
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
+        run: |
+          set -euo pipefail
+          key_file="$RUNNER_TEMP/AuthKey_${APPLE_API_KEY_ID}.p8"
+          archive="bin/BootAgent-notary-${{ matrix.arch.ota }}.zip"
+          printf '%s' "$APPLE_API_KEY_P8" > "$key_file"
+          trap 'rm -f "$key_file" "$archive"' EXIT
+          ditto -c -k --keepParent "bin/BootAgent.app" "$archive"
+          xcrun notarytool submit "$archive" \
+            --key "$key_file" \
+            --key-id "$APPLE_API_KEY_ID" \
+            --issuer "$APPLE_API_ISSUER_ID" \
+            --wait
+          xcrun stapler staple "bin/BootAgent.app"
+          xcrun stapler validate "bin/BootAgent.app"
 
       - name: Package macOS DMG
         shell: bash
@@ -152,6 +187,26 @@ jobs:
           test "$target" = /Applications || { echo "Applications links to '$target', want /Applications" >&2; status=1; }
           hdiutil detach "$mountpoint"
           exit "$status"
+
+      - name: Notarize macOS DMG
+        shell: bash
+        env:
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
+        run: |
+          set -euo pipefail
+          key_file="$RUNNER_TEMP/AuthKey_${APPLE_API_KEY_ID}.p8"
+          dmg="bin/BootAgent-darwin-${{ matrix.arch.ota }}.dmg"
+          printf '%s' "$APPLE_API_KEY_P8" > "$key_file"
+          trap 'rm -f "$key_file"' EXIT
+          xcrun notarytool submit "$dmg" \
+            --key "$key_file" \
+            --key-id "$APPLE_API_KEY_ID" \
+            --issuer "$APPLE_API_ISSUER_ID" \
+            --wait
+          xcrun stapler staple "$dmg"
+          xcrun stapler validate "$dmg"
 
       - name: Package macOS OTA archive
         shell: bash

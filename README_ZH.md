@@ -44,7 +44,7 @@ MCP Registry 只管理用户级配置并保存在本机，支持 Claude Code、C
 
 ## 下载
 
-从 [GitHub Releases](https://github.com/MaimoryLab/BootAgent/releases/latest) 下载最新的 macOS、Windows 或 Linux 包。Linux 发行包为 amd64 和 arm64 提供 `deb`、`rpm`、AppImage 以及 OTA `zip`。发行包附带 SHA-256 校验文件。Wails 仍处于 Alpha，当前发布渠道为 `technical-preview-unsigned`，暂不提供平台签名和公证。
+从 [GitHub Releases](https://github.com/MaimoryLab/BootAgent/releases/latest) 下载最新的 macOS、Windows 或 Linux 包。Linux 发行包为 amd64 和 arm64 提供 `deb`、`rpm`、AppImage 以及 OTA `zip`。发行包附带 SHA-256 校验文件。macOS 发行包使用 Developer ID 签名并经过公证；由于 Wails 仍处于 Alpha，当前发布渠道仍为 `technical-preview-unsigned`。
 
 BootAgent 不重新分发 Agent 包，也不捆绑 Node.js、Git、WebView 或 API Key。缺少前置条件时，应用会给出明确错误和官方安装指引。
 

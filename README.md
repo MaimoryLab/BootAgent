@@ -44,7 +44,7 @@ The MCP Registry is user-level only and stored locally. It supports stdio, HTTP,
 
 ## Download
 
-Download the latest macOS, Windows, or Linux package from [GitHub Releases](https://github.com/MaimoryLab/BootAgent/releases/latest). Linux releases provide `deb`, `rpm`, AppImage, and OTA `zip` packages for amd64 and arm64. Release artifacts include SHA-256 checksums. The current channel is `technical-preview-unsigned` while Wails remains in Alpha; platform signing and notarization are not yet provided.
+Download the latest macOS, Windows, or Linux package from [GitHub Releases](https://github.com/MaimoryLab/BootAgent/releases/latest). Linux releases provide `deb`, `rpm`, AppImage, and OTA `zip` packages for amd64 and arm64. Release artifacts include SHA-256 checksums. macOS artifacts are signed with Developer ID and notarized; the release channel remains `technical-preview-unsigned` while Wails is in Alpha.
 
 BootAgent does not redistribute Agent packages and does not bundle Node.js, Git, WebView, or API keys. Missing prerequisites are reported with a link to the official installation instructions.
 
