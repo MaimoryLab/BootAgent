@@ -2,7 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@wailsio/runtime", () => ({ Events: { On: vi.fn(), Off: vi.fn() } }));
 
-import { changeMCPTransport, formatStdioCommandLine, isMCPDraftComplete, mcpRowPending, normalizeAdvancedSpec, parseAdvancedServerID, parseAdvancedSpecJSON, parseStdioCommandLine, previewMCPForm } from "./MCPPage";
+import { changeMCPTransport, filterMCPRows, formatStdioCommandLine, isMCPDraftComplete, mcpRowPending, normalizeAdvancedSpec, parseAdvancedServerID, parseAdvancedSpecJSON, parseStdioCommandLine, previewMCPForm } from "./MCPPage";
+import type { MCPServerSummary } from "../types/api";
 
 describe("stdio command line conversion", () => {
   it("uses the first whitespace-delimited token as command", () => {
@@ -53,5 +54,20 @@ describe("MCP row status", () => {
   it("marks a row pending when only its targets changed", () => {
     expect(mcpRowPending("changed", {}, { changed: ["codex"] })).toBe(true);
     expect(mcpRowPending("unchanged", {}, { changed: ["codex"] })).toBe(false);
+  });
+});
+
+describe("filterMCPRows", () => {
+  const row = (id: string, type: string): MCPServerSummary => ({ id, type, agents: [], variants: 1, conflict: false, has_secrets: false });
+  const rows = [row("codegraph", "stdio"), row("bing-search", "http")];
+
+  it("returns everything for a blank query", () => {
+    expect(filterMCPRows(rows, "   ")).toHaveLength(2);
+  });
+
+  it("matches id and transport case-insensitively", () => {
+    expect(filterMCPRows(rows, "CODE")).toEqual([rows[0]]);
+    expect(filterMCPRows(rows, "http")).toEqual([rows[1]]);
+    expect(filterMCPRows(rows, "nope")).toEqual([]);
   });
 });
