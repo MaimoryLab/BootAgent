@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Globe2 } from "lucide-react";
 
 import { api, describeFailure } from "../backend/api";
 import { useI18n } from "../i18n";
@@ -69,6 +70,7 @@ export function MirrorSetting() {
   return (
     <div className="settings-row mirror-setting-row">
       <label className="toggle-row">
+        <Globe2 size={18} aria-hidden="true" />
         <span>
           <strong>{t("优先使用国内镜像")}</strong>
           {fromRegion ? <small>{t("已根据系统地区设置默认使用镜像。可以改回官方源")}</small> : null}
