@@ -157,6 +157,11 @@ func TestWriteKimiCodePreservesUnmanagedEntriesAndRoundTrips(t *testing.T) {
 			t.Fatalf("Kimi Code config dropped an unmanaged entry %q: %s", keep, text)
 		}
 	}
+	// Without a positive max_context_size Kimi Code 0.27.0 discards the whole
+	// models entry and then refuses to start, so the alias must carry one.
+	if !strings.Contains(text, "max_context_size = 262144") {
+		t.Fatalf("Kimi Code models entry is missing max_context_size: %s", text)
+	}
 	// The previous alias has to be gone, or Kimi Code keeps a models entry whose
 	// provider no longer describes it.
 	if strings.Contains(text, "bootagent/old-model") || strings.Contains(text, "old-key") || strings.Contains(text, "old.example") {
