@@ -19,6 +19,7 @@ type Config struct {
 	APIKey        string   `json:"api_key"`
 	Models        []string `json:"models"`
 	TargetBaseURL string   `json:"target_base_url"`
+	TargetModel   string   `json:"target_model"`
 	TargetAPIKey  string   `json:"-"`
 }
 
@@ -113,6 +114,9 @@ func (s *Server) forward(w http.ResponseWriter, r *http.Request, body []byte, cf
 	s.forwardConverted(w, r, body, cfg, "chat")
 }
 func (s *Server) forwardConverted(w http.ResponseWriter, r *http.Request, body []byte, cfg Config, format string) {
+	if cfg.TargetModel != "" {
+		body = withModel(body, cfg.TargetModel)
+	}
 	target := strings.TrimRight(cfg.TargetBaseURL, "/") + "/chat/completions"
 	req, _ := http.NewRequestWithContext(r.Context(), http.MethodPost, target, bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
@@ -138,6 +142,19 @@ func (s *Server) forwardConverted(w http.ResponseWriter, r *http.Request, body [
 	}
 	w.WriteHeader(resp.StatusCode)
 	_, _ = w.Write(data)
+}
+
+func withModel(body []byte, model string) []byte {
+	var request map[string]any
+	if json.Unmarshal(body, &request) != nil {
+		return body
+	}
+	request["model"] = model
+	updated, err := json.Marshal(request)
+	if err != nil {
+		return body
+	}
+	return updated
 }
 
 func streamRequested(body []byte) bool {

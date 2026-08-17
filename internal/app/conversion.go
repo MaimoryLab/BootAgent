@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/MaimoryLab/BootAgent/internal/convertproxy"
+	profileStore "github.com/MaimoryLab/BootAgent/internal/profile"
 	"github.com/MaimoryLab/BootAgent/internal/provider"
 )
 
@@ -102,7 +103,7 @@ func (u *UseCases) startSavedConversion() error {
 	if err != nil {
 		return err
 	}
-	return u.conversion.SetConfig(convertproxy.Config{Enabled: true, Listen: c.Listen, APIKey: c.APIKey, Models: []string{c.AnthropicModel, c.ResponsesModel}, TargetBaseURL: p.BaseFor("openai"), TargetAPIKey: p.APIKey})
+	return u.conversion.SetConfig(convertproxy.Config{Enabled: true, Listen: c.Listen, APIKey: c.APIKey, Models: []string{c.AnthropicModel, c.ResponsesModel}, TargetBaseURL: p.BaseFor("openai"), TargetModel: profileModel(target), TargetAPIKey: p.APIKey})
 }
 func (u *UseCases) SaveConversion(ctx context.Context, c ConversionConfig) (ConversionConfig, error) {
 	if u == nil {
@@ -158,8 +159,15 @@ func (u *UseCases) SaveConversion(ctx context.Context, c ConversionConfig) (Conv
 	if err := os.WriteFile(u.conversionPath(), append(b, '\n'), 0600); err != nil {
 		return c, err
 	}
-	_ = u.conversion.SetConfig(convertproxy.Config{Enabled: c.Enabled, Listen: c.Listen, APIKey: c.APIKey, Models: []string{c.AnthropicModel, c.ResponsesModel}, TargetBaseURL: p.BaseFor("openai"), TargetAPIKey: p.APIKey})
+	_ = u.conversion.SetConfig(convertproxy.Config{Enabled: c.Enabled, Listen: c.Listen, APIKey: c.APIKey, Models: []string{c.AnthropicModel, c.ResponsesModel}, TargetBaseURL: p.BaseFor("openai"), TargetModel: profileModel(target), TargetAPIKey: p.APIKey})
 	return c, nil
+}
+
+func profileModel(profile profileStore.Profile) string {
+	if profile.Model == nil {
+		return ""
+	}
+	return strings.TrimSpace(*profile.Model)
 }
 
 func (u *UseCases) SetConversionEnabled(ctx context.Context, enabled bool) (ConversionConfig, error) {

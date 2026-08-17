@@ -1,6 +1,8 @@
 package convertproxy
 
 import (
+	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -51,5 +53,26 @@ func TestResponsesStreamEmitsCompletion(t *testing.T) {
 	body := recorder.Body.String()
 	if recorder.Code != http.StatusOK || !strings.Contains(body, "event: response.completed") || !strings.Contains(body, `"delta":"hello"`) {
 		t.Fatalf("responses stream = %d %s", recorder.Code, body)
+	}
+}
+
+func TestTargetModelOverridesClientModel(t *testing.T) {
+	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		var request map[string]any
+		_ = json.Unmarshal(body, &request)
+		if request["model"] != "provider-model" {
+			t.Errorf("target model = %v", request["model"])
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"id":"chat","model":"provider-model","choices":[]}`)
+	}))
+	defer target.Close()
+	proxy := &Server{client: target.Client(), cfg: Config{TargetBaseURL: target.URL, TargetModel: "provider-model"}}
+	request := httptest.NewRequest(http.MethodPost, "/v1/responses", strings.NewReader(`{"model":"client-model","input":[]}`))
+	recorder := httptest.NewRecorder()
+	proxy.handle(recorder, request)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("response status = %d", recorder.Code)
 	}
 }
