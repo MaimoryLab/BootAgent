@@ -1,3 +1,5 @@
+// Package convertproxy translates Anthropic Messages and OpenAI Responses
+// requests to an OpenAI Chat Completions target.
 package convertproxy
 
 import (
@@ -674,34 +676,6 @@ func chatMessageText(message map[string]any) string {
 		}
 	}
 	return text
-}
-func firstChoice(in map[string]any, key string) any {
-	for _, x := range array(in["choices"]) {
-		if b, ok := x.(map[string]any); ok {
-			return b[key]
-		}
-	}
-	return nil
-}
-func chatContent(v any) []any {
-	for _, x := range array(v) {
-		if b, ok := x.(map[string]any); ok {
-			if m, ok := b["message"].(map[string]any); ok {
-				return []any{map[string]any{"type": "text", "text": m["content"]}}
-			}
-		}
-	}
-	return []any{}
-}
-func firstText(in map[string]any) any {
-	for _, x := range array(in["choices"]) {
-		if b, ok := x.(map[string]any); ok {
-			if m, ok := b["message"].(map[string]any); ok {
-				return m["content"]
-			}
-		}
-	}
-	return ""
 }
 func anthropicUsage(v any) map[string]any {
 	if b, ok := v.(map[string]any); ok {

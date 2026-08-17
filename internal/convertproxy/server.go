@@ -1,3 +1,4 @@
+// Package convertproxy serves local protocol conversion endpoints.
 package convertproxy
 
 import (
@@ -132,7 +133,7 @@ func (s *Server) forwardConverted(w http.ResponseWriter, r *http.Request, body [
 	}
 	resp, err := s.client.Do(req)
 	if err != nil {
-		http.Error(w, err.Error(), 502)
+		http.Error(w, err.Error(), http.StatusBadGateway)
 		return
 	}
 	defer resp.Body.Close()
