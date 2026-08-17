@@ -35,24 +35,42 @@ export function ConversionPage() {
     <PageScaffold
       title={t("本地格式转换")}
       description={t("将 Anthropic Messages 和 OpenAI Responses 转为 OpenAI Chat Completions")}
-      bodyClassName="settings-page conversion-page"
+      bodyClassName="management-page conversion-page"
       primaryLabel={t("保存格式转换设置")}
       onPrimary={() => void save()}
       primaryDisabled={!config || !config.target_profile}
       primaryBusy={saving}
     >
       {failure ? <p className="settings-field-error" role="status">{failure}</p> : null}
-      {config ? <section className="settings-section">
-        <div className="settings-row"><Radio size={16} aria-hidden="true" /><label className="toggle-row conversion-toggle">
-          <span><strong>{t("启用本地 API 格式转换")}</strong><small>{t("监听本机端口并将请求转发到目标 Profile")}</small></span>
-          <input type="checkbox" role="switch" checked={config.enabled} onChange={(event) => setConfig({ ...config, enabled: event.target.checked })} />
-        </label></div>
-        <div className="settings-row conversion-field"><label htmlFor="conversion-target"><strong>{t("目标 Profile")}</strong></label><SelectField id="conversion-target" label={t("目标 Profile")} value={config.target_profile} onChange={(value) => setConfig({ ...config, target_profile: value })} options={profiles.map((profile) => ({ value: profile.id, label: profile.label || profile.id }))} /></div>
-        <div className="settings-row conversion-field"><label htmlFor="conversion-listen"><strong>{t("监听地址")}</strong></label><input id="conversion-listen" value={config.listen} onChange={(event) => setConfig({ ...config, listen: event.target.value })} /></div>
-        <div className="settings-row conversion-field"><label htmlFor="conversion-key"><strong>{t("本地 API Key")}</strong></label><input id="conversion-key" type="password" value={config.api_key} onChange={(event) => setConfig({ ...config, api_key: event.target.value })} /></div>
-        <div className="settings-row conversion-field"><label htmlFor="conversion-anthropic-model"><strong>{t("Anthropic 模型")}</strong></label><input id="conversion-anthropic-model" value={config.anthropic_model} onChange={(event) => setConfig({ ...config, anthropic_model: event.target.value })} /></div>
-        <div className="settings-row conversion-field"><label htmlFor="conversion-responses-model"><strong>{t("Responses 模型")}</strong></label><input id="conversion-responses-model" value={config.responses_model} onChange={(event) => setConfig({ ...config, responses_model: event.target.value })} /></div>
-      </section> : null}
+      {config ? <div className="provider-editor conversion-editor">
+        <header><strong>{t("格式转换设置")}</strong></header>
+        <div className="provider-editor-grid">
+          <label className="toggle-row conversion-toggle provider-editor-wide">
+            <span><strong>{t("启用本地 API 格式转换")}</strong><small>{t("监听本机端口并将请求转发到目标 Profile")}</small></span>
+            <input type="checkbox" role="switch" checked={config.enabled} onChange={(event) => setConfig({ ...config, enabled: event.target.checked })} />
+          </label>
+          <div className="field-stack provider-editor-wide">
+            <label htmlFor="conversion-target">{t("目标 Profile")}</label>
+            <SelectField id="conversion-target" label={t("目标 Profile")} value={config.target_profile} onChange={(value) => setConfig({ ...config, target_profile: value })} options={profiles.map((profile) => ({ value: profile.id, label: profile.label || profile.id }))} />
+          </div>
+          <div className="field-stack">
+            <label htmlFor="conversion-listen">{t("监听地址")}</label>
+            <input id="conversion-listen" value={config.listen} onChange={(event) => setConfig({ ...config, listen: event.target.value })} placeholder="127.0.0.1:8787" spellCheck={false} autoCorrect="off" autoCapitalize="none" />
+          </div>
+          <div className="field-stack">
+            <label htmlFor="conversion-key">{t("本地 API Key")}</label>
+            <input id="conversion-key" type="password" value={config.api_key} onChange={(event) => setConfig({ ...config, api_key: event.target.value })} autoComplete="off" />
+          </div>
+          <div className="field-stack">
+            <label htmlFor="conversion-anthropic-model">{t("Anthropic 模型")}</label>
+            <input id="conversion-anthropic-model" value={config.anthropic_model} onChange={(event) => setConfig({ ...config, anthropic_model: event.target.value })} spellCheck={false} autoCorrect="off" autoCapitalize="none" />
+          </div>
+          <div className="field-stack">
+            <label htmlFor="conversion-responses-model">{t("Responses 模型")}</label>
+            <input id="conversion-responses-model" value={config.responses_model} onChange={(event) => setConfig({ ...config, responses_model: event.target.value })} spellCheck={false} autoCorrect="off" autoCapitalize="none" />
+          </div>
+        </div>
+      </div> : null}
     </PageScaffold>
   );
 }

@@ -67,6 +67,7 @@ const english = {
   "无法保存格式转换设置": "Could not save the format conversion settings",
   "监听本机端口并将请求转发到目标 Profile": "Listen on a local port and forward requests to the target Profile",
   "本地格式转换": "Local format conversion",
+  "格式转换设置": "Format conversion settings",
   "启用本地 API 格式转换": "Enable local API format conversion",
   "将 Anthropic Messages 和 OpenAI Responses 转为 OpenAI Chat Completions": "Convert Anthropic Messages and OpenAI Responses to OpenAI Chat Completions",
   "目标 Profile": "Target Profile",

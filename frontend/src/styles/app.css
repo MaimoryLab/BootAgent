@@ -1865,6 +1865,11 @@
 .provider-editor-wide,
 .profile-editor-wide { grid-column: 1 / -1; }
 
+.conversion-editor { max-width: 760px; }
+.conversion-editor .select-field { width: 100%; }
+.conversion-editor .select-field-trigger { min-height: 38px; border-color: var(--border-strong); background: var(--surface-subtle); }
+.conversion-toggle { padding: 4px 0; }
+
 /* Separated from the fields above by a rule rather than only by gap: this block
    performs an action and reports a result, so it is not another field to fill in. */
 .provider-verify {
