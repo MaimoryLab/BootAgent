@@ -338,6 +338,9 @@ func (s *ProviderService) OpenRegistration(ctx context.Context, request OpenRegi
 	if s == nil || s.core == nil {
 		return OpenRegistrationResponse{}, notReady("Provider service is not configured")
 	}
+	if s.opener == nil {
+		return OpenRegistrationResponse{}, notReady("Desktop browser is not configured")
+	}
 	entry, err := s.core.GetProvider(ctx, request.Provider)
 	if err != nil {
 		return OpenRegistrationResponse{}, oneerrors.New(oneerrors.InvalidRequest, "Registration is only available for a configured Provider")

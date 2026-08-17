@@ -186,6 +186,14 @@ func TestOpenRegistrationFallsBackToHomeWithoutAKeyPage(t *testing.T) {
 	}
 }
 
+func TestOpenRegistrationWithoutBrowserReturnsNotReady(t *testing.T) {
+	core := providerCore(t, nil)
+	service := NewProviderService(core, nil)
+	if _, err := service.OpenRegistration(context.Background(), OpenRegistrationRequest{Provider: "ppio"}); err == nil || !strings.Contains(err.Error(), "Desktop browser is not configured") {
+		t.Fatalf("OpenRegistration without browser error = %v", err)
+	}
+}
+
 func TestProviderServicePersistsCRUDAndReturnsKeyOnlyOnExplicitRead(t *testing.T) {
 	home := t.TempDir()
 	core := app.NewUseCases(app.StatusOptions{
