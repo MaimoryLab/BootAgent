@@ -36,5 +36,6 @@ export type {
     SkillScanResult,
     SkillSummary,
     SkillUninstallResult,
-    StatusResponse
+    StatusResponse,
+    TerminalOption
 } from "./models.js";

@@ -82,6 +82,12 @@ export interface LaunchResponse {
     "ok": boolean;
     "agent": string;
     "command": string;
+
+    /**
+     * Terminal is the terminal that actually opened, which can differ from the
+     * stored preference when that one is no longer installed.
+     */
+    "terminal": string;
 }
 
 export interface MCPExportRequest {

@@ -21,6 +21,8 @@ describe("SettingsPage", () => {
       prefer_mirror: false,
       mirror_from_region: false,
       backup_retention: 3,
+      terminal_app: "",
+      terminals: [],
     });
     render(<ThemeProvider><MemoryRouter initialEntries={["/settings"]}><Routes><Route path="/settings" element={<SettingsPage />} /><Route path="/settings/transfer" element={<h1>transfer child</h1>} /></Routes></MemoryRouter></ThemeProvider>);
     expect(screen.getByRole("combobox", { name: "外观" })).toBeTruthy();
@@ -57,6 +59,8 @@ describe("SettingsPage", () => {
       prefer_mirror: false,
       mirror_from_region: false,
       backup_retention: 3,
+      terminal_app: "",
+      terminals: [],
     });
     const saveSettings = vi.spyOn(api, "saveSettings").mockResolvedValue({
       schema_version: 1,
@@ -64,6 +68,8 @@ describe("SettingsPage", () => {
       prefer_mirror: false,
       mirror_from_region: false,
       backup_retention: 7,
+      terminal_app: "",
+      terminals: [],
     });
     show();
     await waitFor(() => expect(getSettings).toHaveBeenCalled());
@@ -82,6 +88,8 @@ describe("SettingsPage", () => {
       prefer_mirror: false,
       mirror_from_region: false,
       backup_retention: 3,
+      terminal_app: "",
+      terminals: [],
     });
     const saveSettings = vi.spyOn(api, "saveSettings").mockResolvedValue({
       schema_version: 1,
@@ -89,11 +97,50 @@ describe("SettingsPage", () => {
       prefer_mirror: false,
       mirror_from_region: false,
       backup_retention: 3,
+      terminal_app: "",
+      terminals: [],
     });
     show();
     const checkbox = await screen.findByRole("switch", { name: "开机自启动" });
     await userEvent.click(checkbox);
     await waitFor(() => expect(saveSettings).toHaveBeenCalledWith(expect.objectContaining({ autostart: true })));
+  });
+
+  it("saves the chosen terminal and keeps uninstalled ones unselectable", async () => {
+    const getSettings = vi.spyOn(api, "getSettings").mockResolvedValue({
+      schema_version: 1,
+      autostart: false,
+      prefer_mirror: false,
+      mirror_from_region: false,
+      backup_retention: 3,
+      terminal_app: "",
+      terminals: [
+        { id: "terminal", name: "Terminal", installed: true },
+        { id: "iterm", name: "iTerm2", installed: true },
+        { id: "kitty", name: "kitty", installed: false },
+      ],
+    });
+    const saveSettings = vi.spyOn(api, "saveSettings").mockResolvedValue({
+      schema_version: 1,
+      autostart: false,
+      prefer_mirror: false,
+      mirror_from_region: false,
+      backup_retention: 3,
+      terminal_app: "iterm",
+      terminals: [
+        { id: "terminal", name: "Terminal", installed: true },
+        { id: "iterm", name: "iTerm2", installed: true },
+        { id: "kitty", name: "kitty", installed: false },
+      ],
+    });
+    show();
+    await waitFor(() => expect(getSettings).toHaveBeenCalled());
+    await userEvent.click(await screen.findByRole("combobox", { name: "启动 CLI Agent 的终端" }));
+    // An uninstalled terminal is listed so a stored choice stays explainable, but
+    // it must not be pickable.
+    expect(screen.getByRole("option", { name: "kitty（未安装）" })).toHaveAttribute("aria-disabled", "true");
+    await userEvent.click(screen.getByRole("option", { name: "iTerm2" }));
+    await waitFor(() => expect(saveSettings).toHaveBeenCalledWith(expect.objectContaining({ terminal_app: "iterm" })));
   });
 
   // An app running from a mounted dmg sits on a read-only volume, so the update

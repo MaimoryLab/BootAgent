@@ -423,7 +423,7 @@ func (r *installRun) configure(ctx context.Context, agentID string, agent catalo
 		}
 	}
 	if launchInstaller {
-		if err := r.launchOfficialInstaller(agent); err != nil {
+		if err := r.launchOfficialInstaller(ctx, agent); err != nil {
 			return err
 		}
 		r.logs = append(r.logs, "## "+agentID+"\nOfficial installer opened in a new terminal.")
@@ -442,7 +442,7 @@ func (r *installRun) configure(ctx context.Context, agentID string, agent catalo
 	return nil
 }
 
-func (r *installRun) launchOfficialInstaller(agent catalog.Agent) error {
+func (r *installRun) launchOfficialInstaller(ctx context.Context, agent catalog.Agent) error {
 	if agent.Package == nil {
 		return oneerrors.New(oneerrors.AgentInstallFailed, agent.Name+" has no official installer")
 	}
@@ -453,7 +453,7 @@ func (r *installRun) launchOfficialInstaller(agent catalog.Agent) error {
 		command = agent.Package.WindowsInstallCommand
 		argv = []string{"powershell.exe", "-NoExit", "-Command", command}
 	} else {
-		argv, err = terminalArgv(r.core.status.Platform.OS, command, r.core.runner.LookPath)
+		argv, _, err = terminalArgv(r.core.status.Platform.OS, command, r.core.lookPath, r.core.pathExists, r.core.terminalApp(ctx))
 		if err != nil {
 			return err
 		}

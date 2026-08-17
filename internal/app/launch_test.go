@@ -163,7 +163,7 @@ func TestOfficialInstallerUsesPowerShellOnWindows(t *testing.T) {
 		t.Fatal(err)
 	}
 	run := installRun{core: core}
-	if err := run.launchOfficialInstaller(manifest.Agents["hermes"]); err != nil {
+	if err := run.launchOfficialInstaller(context.Background(), manifest.Agents["hermes"]); err != nil {
 		t.Fatal(err)
 	}
 	want := []string{"powershell.exe", "-NoExit", "-Command", "& ([scriptblock]::Create((irm https://hermes-agent.nousresearch.com/install.ps1))) -SkipSetup"}

@@ -17,6 +17,10 @@ import (
 type LaunchAgentResult struct {
 	Agent   string `json:"agent"`
 	Command string `json:"command"`
+	// Terminal is the terminal that actually opened. It can differ from the
+	// stored preference when that terminal is no longer installed, so the caller
+	// can say which one ran instead of leaving the substitution invisible.
+	Terminal string `json:"terminal"`
 }
 
 // LaunchAgent opens a terminal window running one configured Agent. It reuses
@@ -71,7 +75,7 @@ func (u *UseCases) LaunchAgent(ctx context.Context, agentID string, directories 
 	if !ok {
 		return LaunchAgentResult{}, oneerrors.New(oneerrors.InternalError, "This build cannot open a terminal window", oneerrors.WithStatus(501))
 	}
-	argv, err := terminalArgv(u.status.Platform.OS, line, u.runner.LookPath)
+	argv, terminal, err := terminalArgv(u.status.Platform.OS, line, u.lookPath, u.pathExists, u.terminalApp(ctx))
 	if err != nil {
 		return LaunchAgentResult{}, err
 	}
@@ -86,7 +90,7 @@ func (u *UseCases) LaunchAgent(ctx context.Context, agentID string, directories 
 			oneerrors.WithStatus(500), oneerrors.WithRetryable(true), oneerrors.WithCause(err),
 		)
 	}
-	return LaunchAgentResult{Agent: agentID, Command: line}, nil
+	return LaunchAgentResult{Agent: agentID, Command: line, Terminal: terminal}, nil
 }
 
 func launchInDirectory(osID, directory, line string) string {
@@ -98,47 +102,6 @@ func launchInDirectory(osID, directory, line string) string {
 
 func shellQuote(value string) string {
 	return "'" + strings.ReplaceAll(value, "'", "'\\''") + "'"
-}
-
-// linuxTerminals lists the emulators to try and how each takes a command. The
-// order prefers the desktop's own default before named emulators.
-var linuxTerminals = []struct {
-	command string
-	args    []string
-}{
-	{"x-terminal-emulator", []string{"-e"}},
-	{"gnome-terminal", []string{"--"}},
-	{"konsole", []string{"-e"}},
-	{"xfce4-terminal", []string{"-e"}},
-	{"kitty", nil},
-	{"alacritty", []string{"-e"}},
-	{"xterm", []string{"-e"}},
-}
-
-// terminalArgv wraps a shell line in the platform's terminal launcher.
-func terminalArgv(osID, line string, look CommandLookup) ([]string, error) {
-	switch osID {
-	case "macos":
-		script := appleScriptQuote(line)
-		return []string{
-			"osascript",
-			"-e", "tell application \"Terminal\" to do script " + script,
-			"-e", "tell application \"Terminal\" to activate",
-		}, nil
-	case "windows":
-		return []string{"cmd", "/K", line}, nil
-	default:
-		// The trailing shell keeps the window open after the Agent exits, so a
-		// failure is readable instead of flashing past.
-		shell := []string{"bash", "-lc", line + "; exec bash -l"}
-		for _, terminal := range linuxTerminals {
-			if _, present := look(terminal.command); !present {
-				continue
-			}
-			return append(append([]string{terminal.command}, terminal.args...), shell...), nil
-		}
-		return nil, oneerrors.New(oneerrors.PrerequisiteMissing, "No terminal emulator was found; install one of x-terminal-emulator, gnome-terminal, konsole, xfce4-terminal or xterm")
-	}
 }
 
 // appleScriptQuote renders a shell line as an AppleScript string literal.

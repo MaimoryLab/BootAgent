@@ -281,6 +281,20 @@ export interface Settings {
      * BackupRetention is the number of historical versions kept per target.
      */
     "backup_retention": number;
+
+    /**
+     * TerminalApp is the terminal used to launch CLI Agents. Empty means auto:
+     * the platform's first installed terminal, which is what every build before
+     * this setting did.
+     */
+    "terminal_app": string;
+
+    /**
+     * Terminals lists this platform's terminals and which are installed. It is
+     * derived from the machine on each read and never persisted, so a terminal
+     * installed or removed after the choice was stored is reflected immediately.
+     */
+    "terminals": TerminalOption[] | null;
 }
 
 /**
@@ -291,6 +305,7 @@ export interface SettingsPatch {
     "autostart"?: boolean | null;
     "prefer_mirror"?: boolean | null;
     "backup_retention"?: number | null;
+    "terminal_app"?: string | null;
 }
 
 export interface SkillAgentApplyResult {
@@ -396,4 +411,15 @@ export interface StatusResponse {
     "environment": any;
     "environmentError": string | null;
     "desktopAgents": DesktopAgentStatus[] | null;
+}
+
+/**
+ * TerminalOption describes one terminal the user may pick for launching CLI
+ * Agents. Installed is resolved on this machine, so the picker can offer only
+ * terminals that will actually open.
+ */
+export interface TerminalOption {
+    "id": string;
+    "name": string;
+    "installed": boolean;
 }

@@ -503,7 +503,7 @@ func (s *AgentService) Launch(ctx context.Context, request LaunchRequest) (Launc
 	if err != nil {
 		return LaunchResponse{}, err
 	}
-	return LaunchResponse{OK: true, Agent: result.Agent, Command: result.Command}, nil
+	return LaunchResponse{OK: true, Agent: result.Agent, Command: result.Command, Terminal: result.Terminal}, nil
 }
 
 type ProfileService struct {
@@ -720,6 +720,9 @@ type LaunchResponse struct {
 	OK      bool   `json:"ok"`
 	Agent   string `json:"agent"`
 	Command string `json:"command"`
+	// Terminal is the terminal that actually opened, which can differ from the
+	// stored preference when that one is no longer installed.
+	Terminal string `json:"terminal"`
 }
 
 type SaveProfileRequest struct {
