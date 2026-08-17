@@ -1,13 +1,16 @@
 package convertproxy
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
 
 type Config struct {
@@ -122,6 +125,10 @@ func (s *Server) forwardConverted(w http.ResponseWriter, r *http.Request, body [
 		return
 	}
 	defer resp.Body.Close()
+	if format == "responses" && resp.StatusCode < 300 && streamRequested(body) && strings.Contains(resp.Header.Get("Content-Type"), "text/event-stream") {
+		s.forwardResponsesStream(w, resp, modelFromRequest(body))
+		return
+	}
 	data, _ := io.ReadAll(resp.Body)
 	if format != "chat" && resp.StatusCode < 300 {
 		data, _ = FromChat(format, data)
@@ -131,4 +138,97 @@ func (s *Server) forwardConverted(w http.ResponseWriter, r *http.Request, body [
 	}
 	w.WriteHeader(resp.StatusCode)
 	_, _ = w.Write(data)
+}
+
+func streamRequested(body []byte) bool {
+	var request struct {
+		Stream bool `json:"stream"`
+	}
+	return json.Unmarshal(body, &request) == nil && request.Stream
+}
+
+func modelFromRequest(body []byte) string {
+	var request struct {
+		Model string `json:"model"`
+	}
+	_ = json.Unmarshal(body, &request)
+	return request.Model
+}
+
+func (s *Server) forwardResponsesStream(w http.ResponseWriter, resp *http.Response, model string) {
+	for k, v := range resp.Header {
+		w.Header()[k] = v
+	}
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Del("Content-Length")
+	w.WriteHeader(resp.StatusCode)
+	flusher, _ := w.(http.Flusher)
+	responseID := "resp_bootagent_" + strconv.FormatInt(time.Now().UnixNano(), 10)
+	messageID := responseID + "_msg"
+	writeEvent := func(event string, value any) {
+		data, _ := json.Marshal(value)
+		_, _ = io.WriteString(w, "event: "+event+"\ndata: "+string(data)+"\n\n")
+		if flusher != nil {
+			flusher.Flush()
+		}
+	}
+	response := map[string]any{"id": responseID, "object": "response", "status": "in_progress", "model": model, "output": []any{}}
+	writeEvent("response.created", map[string]any{"type": "response.created", "response": response})
+	messageAdded := false
+	contentAdded := false
+	var text strings.Builder
+	scanner := bufio.NewScanner(resp.Body)
+	scanner.Buffer(make([]byte, 1024), 1024*1024)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if !strings.HasPrefix(line, "data:") {
+			continue
+		}
+		data := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
+		if data == "[DONE]" {
+			break
+		}
+		var chunk struct {
+			Choices []struct {
+				Delta struct {
+					Content string `json:"content"`
+				} `json:"delta"`
+			} `json:"choices"`
+		}
+		if json.Unmarshal([]byte(data), &chunk) != nil || len(chunk.Choices) == 0 {
+			continue
+		}
+		delta := chunk.Choices[0].Delta.Content
+		if delta == "" {
+			continue
+		}
+		if !messageAdded {
+			writeEvent("response.output_item.added", map[string]any{"type": "response.output_item.added", "output_index": 0, "item": map[string]any{"id": messageID, "type": "message", "status": "in_progress", "role": "assistant", "content": []any{}}})
+			messageAdded = true
+		}
+		if !contentAdded {
+			writeEvent("response.content_part.added", map[string]any{"type": "response.content_part.added", "item_id": messageID, "output_index": 0, "content_index": 0, "part": map[string]any{"type": "output_text", "text": "", "annotations": []any{}}})
+			contentAdded = true
+		}
+		text.WriteString(delta)
+		writeEvent("response.output_text.delta", map[string]any{"type": "response.output_text.delta", "item_id": messageID, "output_index": 0, "content_index": 0, "delta": delta, "logprobs": []any{}})
+	}
+	if messageAdded {
+		writeEvent("response.output_text.done", map[string]any{"type": "response.output_text.done", "item_id": messageID, "output_index": 0, "content_index": 0, "text": text.String()})
+		writeEvent("response.content_part.done", map[string]any{"type": "response.content_part.done", "item_id": messageID, "output_index": 0, "content_index": 0, "part": map[string]any{"type": "output_text", "text": text.String(), "annotations": []any{}}})
+		writeEvent("response.output_item.done", map[string]any{"type": "response.output_item.done", "output_index": 0, "item": map[string]any{"id": messageID, "type": "message", "status": "completed", "role": "assistant", "content": []any{map[string]any{"type": "output_text", "text": text.String(), "annotations": []any{}}}}})
+	}
+	response["status"] = "completed"
+	if messageAdded {
+		response["output"] = []any{
+			map[string]any{
+				"id":      messageID,
+				"type":    "message",
+				"status":  "completed",
+				"role":    "assistant",
+				"content": []any{map[string]any{"type": "output_text", "text": text.String(), "annotations": []any{}}},
+			},
+		}
+	}
+	writeEvent("response.completed", map[string]any{"type": "response.completed", "response": response})
 }

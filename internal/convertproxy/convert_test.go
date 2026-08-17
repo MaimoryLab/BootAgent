@@ -36,3 +36,20 @@ func TestModelsEndpoint(t *testing.T) {
 		t.Fatalf("models response = %d %s", recorder.Code, recorder.Body.String())
 	}
 }
+
+func TestResponsesStreamEmitsCompletion(t *testing.T) {
+	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		_, _ = w.Write([]byte("data: {\"choices\":[{\"delta\":{\"content\":\"hello\"}}]}\n\n"))
+		_, _ = w.Write([]byte("data: [DONE]\n\n"))
+	}))
+	defer target.Close()
+	proxy := &Server{client: target.Client(), cfg: Config{TargetBaseURL: target.URL}}
+	request := httptest.NewRequest(http.MethodPost, "/v1/responses", strings.NewReader(`{"model":"m","stream":true,"input":[]}`))
+	recorder := httptest.NewRecorder()
+	proxy.handle(recorder, request)
+	body := recorder.Body.String()
+	if recorder.Code != http.StatusOK || !strings.Contains(body, "event: response.completed") || !strings.Contains(body, `"delta":"hello"`) {
+		t.Fatalf("responses stream = %d %s", recorder.Code, body)
+	}
+}
