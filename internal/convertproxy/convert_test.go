@@ -19,6 +19,17 @@ func TestAnthropicRequest(t *testing.T) {
 		t.Fatalf("missing system: %s", got)
 	}
 }
+
+func TestResponsesRequestMapsChatInputAndTools(t *testing.T) {
+	got, err := ToChat("responses", []byte(`{"model":"client","input":"hello","tools":[{"type":"function","name":"lookup","description":"find","parameters":{"type":"object"}}]}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := string(got)
+	if !strings.Contains(body, `"role":"user"`) || !strings.Contains(body, `"name":"lookup"`) || !strings.Contains(body, `"parameters":{"type":"object"}`) {
+		t.Fatalf("responses request = %s", body)
+	}
+}
 func contains(s, sub string) bool {
 	for i := 0; i+len(sub) <= len(s); i++ {
 		if s[i:i+len(sub)] == sub {

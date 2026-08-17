@@ -96,6 +96,9 @@ func responsesRequest(in map[string]any) map[string]any {
 	if instructions, ok := in["instructions"].(string); ok && instructions != "" {
 		messages = append(messages, map[string]any{"role": "system", "content": instructions})
 	}
+	if input, ok := in["input"].(string); ok && input != "" {
+		messages = append(messages, map[string]any{"role": "user", "content": input})
+	}
 	for _, raw := range array(in["input"]) {
 		b, ok := raw.(map[string]any)
 		if !ok {
@@ -141,6 +144,14 @@ func responsesTools(v any) any {
 	out := []any{}
 	for _, raw := range array(v) {
 		if b, ok := raw.(map[string]any); ok {
+			if stringValue(b["type"]) == "function" {
+				fn := map[string]any{"name": b["name"], "description": b["description"], "parameters": b["parameters"]}
+				if strict, exists := b["strict"]; exists {
+					fn["strict"] = strict
+				}
+				out = append(out, map[string]any{"type": "function", "function": fn})
+				continue
+			}
 			out = append(out, b)
 		}
 	}
