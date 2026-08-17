@@ -502,7 +502,7 @@
   font-size: 12px;
 }
 
-.desktop-profile-editor { max-width: 760px; }
+.desktop-profile-editor { width: 100%; max-width: none; }
 .profile-choice {
   position: relative;
   grid-template-columns: minmax(0, 1fr) auto;
