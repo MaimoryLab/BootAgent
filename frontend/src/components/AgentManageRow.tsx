@@ -4,8 +4,8 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 
 import { api, describeFailure } from "../backend/api";
-import { sourceTranslate, type Translate, useI18n } from "../i18n";
 import { useConversationMigration } from "../hooks/useConversationMigration";
+import { sourceTranslate, type Translate, useI18n } from "../i18n";
 import { taskCanceller, taskKey, updateTaskRoute, useTaskCenter, useTaskRoute } from "../state/TaskCenterContext";
 import type { AgentCatalogItem, AgentStatus, ProfileSummary, StatusResponse } from "../types/api";
 import { AgentIcon, agentTagline } from "./icons/agents";
@@ -168,7 +168,7 @@ export function AgentManageRow({
   };
   const chooseDirectory = async () => {
     try {
-      const selected = await Dialogs.OpenFile({ Title: t("选择启动目录"), Directory: launchDirectory || defaultDirectory || undefined, CanChooseDirectories: true, CanChooseFiles: false }) as unknown as string | string[];
+      const selected = await Dialogs.OpenFile({ Title: t("选择启动目录"), Directory: launchDirectory || defaultDirectory || undefined, CanChooseDirectories: true, CanChooseFiles: false, CanCreateDirectories: true }) as unknown as string | string[];
       const directory = Array.isArray(selected) ? selected[0] : selected;
       if (directory) setLaunchDirectory(directory);
     } catch { /* cancelled */ }
