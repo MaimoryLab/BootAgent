@@ -551,6 +551,18 @@
       "source": "unknown",
       "supported": false,
       "version": null
+    },
+    {
+      "home": "https://dshdesktop.cn",
+      "id": "dsh-desktop",
+      "installed": false,
+      "name": "DSH Desktop",
+      "profileAgentId": "dsh",
+      "profileId": null,
+      "protocol": "openai",
+      "source": "unknown",
+      "supported": false,
+      "version": null
     }
   ]
 }
