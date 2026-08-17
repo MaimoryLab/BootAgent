@@ -1,4 +1,4 @@
-import { Radio } from "lucide-react";
+import { Power, Radio } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { api, describeFailure } from "../backend/api";
@@ -30,12 +30,22 @@ export function ConversionPage() {
     finally { setSaving(false); }
   };
 
-  const profiles = (status?.profiles ?? []).filter((profile) => profile.model);
+  const toggle = async () => {
+    if (!config) return;
+    setSaving(true);
+    setFailure("");
+    try { setConfig(await api.saveConversion({ ...config, enabled: !config.enabled })); }
+    catch (error) { setFailure(describeFailure(error, t("无法切换格式转换"), t).message); }
+    finally { setSaving(false); }
+  };
+
+  const profiles = (status?.profiles ?? []).filter((profile) => profile.protocol === "openai" && profile.model);
   return (
     <PageScaffold
       title={t("本地格式转换")}
       description={t("将 Anthropic Messages 和 OpenAI Responses 转为 OpenAI Chat Completions")}
       bodyClassName="management-page conversion-page"
+      secondaryAction={config ? <button className="button button-secondary" type="button" onClick={() => void toggle()} disabled={saving || !config.target_profile}><Power size={15} />{config.enabled ? t("停止格式转换") : t("启动格式转换")}</button> : null}
       primaryLabel={t("保存格式转换设置")}
       onPrimary={() => void save()}
       primaryDisabled={!config || !config.target_profile}
@@ -45,10 +55,7 @@ export function ConversionPage() {
       {config ? <div className="provider-editor conversion-editor">
         <header><strong>{t("格式转换设置")}</strong></header>
         <div className="provider-editor-grid">
-          <label className="toggle-row conversion-toggle provider-editor-wide">
-            <span><strong>{t("启用本地 API 格式转换")}</strong><small>{t("监听本机端口并将请求转发到目标 Profile")}</small></span>
-            <input type="checkbox" role="switch" checked={config.enabled} onChange={(event) => setConfig({ ...config, enabled: event.target.checked })} />
-          </label>
+          <div className="conversion-toggle provider-editor-wide"><span><strong>{t("格式转换状态")}</strong><small>{config.enabled ? t("格式转换正在监听") : t("格式转换当前已停止")}</small></span></div>
           <div className="field-stack provider-editor-wide">
             <label htmlFor="conversion-target">{t("目标 Profile")}</label>
             <SelectField id="conversion-target" label={t("目标 Profile")} value={config.target_profile} onChange={(value) => setConfig({ ...config, target_profile: value })} options={profiles.map((profile) => ({ value: profile.id, label: profile.label || profile.id }))} />

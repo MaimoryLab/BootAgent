@@ -1868,7 +1868,9 @@
 .conversion-editor { width: 100%; max-width: none; border-bottom: 0; }
 .conversion-editor .select-field { width: 100%; }
 .conversion-editor .select-field-trigger { min-height: 38px; border-color: var(--border-strong); background: var(--surface-subtle); }
-.conversion-toggle { padding: 4px 0; }
+.conversion-toggle { min-height: 54px; padding: 4px 0; display: grid; gap: 3px; align-content: center; }
+.conversion-toggle strong { font-size: 13px; }
+.conversion-toggle small { color: var(--text-secondary); font-size: 11px; }
 
 /* Separated from the fields above by a rule rather than only by gap: this block
    performs an action and reports a result, so it is not another field to fill in. */

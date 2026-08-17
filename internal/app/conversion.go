@@ -75,6 +75,9 @@ func (u *UseCases) startSavedConversion() error {
 	if target.ID == "" {
 		return nil
 	}
+	if target.Protocol != provider.ProtocolOpenAI {
+		return fmt.Errorf("target Profile must use OpenAI Chat Completions")
+	}
 	p, err := u.providers.Get(target.Provider)
 	if err != nil {
 		return err
@@ -98,6 +101,9 @@ func (u *UseCases) SaveConversion(ctx context.Context, c ConversionConfig) (Conv
 	target := u.profileByID(c.TargetProfile)
 	if target.ID == "" {
 		return c, fmt.Errorf("target Profile not found: %s", c.TargetProfile)
+	}
+	if target.Protocol != provider.ProtocolOpenAI {
+		return c, fmt.Errorf("target Profile must use OpenAI Chat Completions")
 	}
 	p, err := u.providers.Get(target.Provider)
 	if err != nil {
