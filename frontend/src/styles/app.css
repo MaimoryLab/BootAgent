@@ -507,6 +507,7 @@
   position: relative;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
+  align-self: stretch;
   cursor: pointer;
 }
 .profile-choice-main {
