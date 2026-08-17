@@ -15,7 +15,8 @@
       "kimi-code": false,
       "openclaw": false,
       "opencode": false,
-      "dsh": false
+      "dsh": false,
+      "pi": false
     },
     "missingRuntime": {
       "aider": "uv",
@@ -25,7 +26,8 @@
       "kimi-code": "node",
       "openclaw": "node",
       "opencode": "node",
-      "dsh": "node"
+      "dsh": "node",
+      "pi": "node"
     },
     "supportedAgentIds": [
       "codex",
@@ -36,6 +38,7 @@
       "openclaw",
       "hermes",
       "kimi-code",
+      "pi",
       "dsh"
     ]
   },
@@ -172,6 +175,22 @@
       "baseUrl": null,
       "canInstall": false,
       "config": "${HOME}/.dsh/settings.yaml",
+      "configured": false,
+      "detected": null,
+      "guideOnly": false,
+      "installed": false,
+      "latestVersion": null,
+      "lockedVersion": null,
+      "model": null,
+      "profileId": null,
+      "provider": null,
+      "updatedAt": null,
+      "version": null
+    },
+    "pi": {
+      "baseUrl": null,
+      "canInstall": false,
+      "config": "${HOME}/.pi/agent/models.json",
       "configured": false,
       "detected": null,
       "guideOnly": false,
@@ -356,6 +375,25 @@
       "protocol": "openai",
       "rank": 9,
       "selectsModel": true
+    },
+    {
+      "configMode": "auto",
+      "group": "auto",
+      "guideOnly": false,
+      "id": "pi",
+      "lockedVersion": null,
+      "name": "Pi",
+      "packageManager": "npm",
+      "packageName": "@earendil-works/pi-coding-agent",
+      "platformNote": "",
+      "platforms": [
+        "macos",
+        "linux",
+        "windows"
+      ],
+      "protocol": "openai",
+      "rank": 10,
+      "selectsModel": true
     }
   ],
   "groups": [
@@ -449,7 +487,8 @@
     "openclaw_config": "${HOME}/.openclaw/openclaw.json",
     "opencode_config": "${HOME}/.config/opencode/opencode.json",
     "profile": "${HOME}/.bootagent/profile.json",
-    "dsh_config": "${HOME}/.dsh/settings.yaml"
+    "dsh_config": "${HOME}/.dsh/settings.yaml",
+    "pi_config": "${HOME}/.pi/agent/models.json"
   },
   "backups": {
     "aider": false,
@@ -461,43 +500,44 @@
     "openclaw": false,
     "opencode": false,
     "profile": false,
-    "dsh": false
+    "dsh": false,
+    "pi": false
   },
   "profiles": [],
   "activeProfile": null,
   "firstRun": true,
   "runtimes": [
     {
-      "id": "node",
-      "name": "Node.js",
       "command": "npm",
+      "id": "node",
+      "installPath": "${HOME}/.bootagent/runtimes/node/v24.18.1",
       "installed": false,
-      "version": "",
-      "lockedVersion": "24.18.1",
-      "managed": false,
-      "supported": true,
-      "note": "",
       "license": "MIT",
       "licenseUrl": "https://github.com/nodejs/node/blob/main/LICENSE",
+      "lockedVersion": "24.18.1",
+      "managed": false,
+      "name": "Node.js",
+      "note": "",
+      "requiredByHint": "Codex, Claude Code, OpenCode +5",
       "source": "https://nodejs.org/dist/",
-      "installPath": "${HOME}/.bootagent/runtimes/node/v24.18.1",
-      "requiredByHint": "Codex, Claude Code, OpenCode +4"
+      "supported": true,
+      "version": ""
     },
     {
-      "id": "uv",
-      "name": "uv",
       "command": "uv",
+      "id": "uv",
+      "installPath": "${HOME}/.bootagent/runtimes/uv/v0.12.1",
       "installed": false,
-      "version": "",
-      "lockedVersion": "0.12.1",
-      "managed": false,
-      "supported": true,
-      "note": "uv manages its own CPython download for Aider; BootAgent does not fetch Python directly.",
       "license": "MIT OR Apache-2.0",
       "licenseUrl": "https://github.com/astral-sh/uv/blob/main/LICENSE-APACHE",
+      "lockedVersion": "0.12.1",
+      "managed": false,
+      "name": "uv",
+      "note": "uv manages its own CPython download for Aider; BootAgent does not fetch Python directly.",
+      "requiredByHint": "Aider",
       "source": "https://github.com/astral-sh/uv/releases",
-      "installPath": "${HOME}/.bootagent/runtimes/uv/v0.12.1",
-      "requiredByHint": "Aider"
+      "supported": true,
+      "version": ""
     }
   ],
   "environment": null,

@@ -423,9 +423,11 @@ export function ProfilesPage() {
                   options={[
                     { value: "", label: t("未设置（模型默认）") },
                     { value: "off", label: t("off（关闭）") },
+                    { value: "minimal", label: t("minimal（最低）") },
                     { value: "low", label: t("low（低）") },
                     { value: "medium", label: t("medium（中）") },
                     { value: "high", label: t("high（高）") },
+                    { value: "xhigh", label: t("xhigh（极高）") },
                     { value: "max", label: t("max（最大）") },
                   ]}
                 />

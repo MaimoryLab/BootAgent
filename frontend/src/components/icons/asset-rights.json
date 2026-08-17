@@ -66,6 +66,15 @@
       "licenseSource": "licenses/lobehub/LICENSE",
       "copyrightOwner": "LobeHub contributors",
       "sha256": "8f9443e351b6dacce71871790201b799d92e8bf96a45ef79aeb5e9bf4db423e2"
+    },
+    "pi": {
+      "file": "assets/pi.svg",
+      "source": "https://github.com/lobehub/lobe-icons/blob/master/packages/static-svg/icons/pi.svg",
+      "license": "MIT",
+      "licenseSource": "licenses/lobehub/LICENSE",
+      "copyrightOwner": "LobeHub contributors",
+      "sha256": "d82978781b824273c55473822c1f243a6ed34fc6e8c2dbfe1a90dfc66ae43ee8",
+      "note": "Pi's own mark, the blocked-out \"pi\" wordmark, and not Inflection's Pi.ai assistant -- lobe-icons publishes that separately as inflection.svg, a different drawing. Verified against the logo Pi's README points at (https://pi.dev/logo-auto.svg): normalising both to their five equidistant coordinate stops makes the P outline, its counter and the i-dot identical path for path, so this is the same geometry rather than a lookalike. The upstream copy is used in preference to pi.dev's because that one hardcodes #000/#fff through a prefers-color-scheme block, which cannot take the theme colour the way the rest of this set does."
     }
   },
   "firstPartyAssets": {

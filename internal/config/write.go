@@ -31,6 +31,12 @@ type Writer struct {
 // Kimi Code's config. Everything else under providers/models is the user's.
 const kimiOwnedName = "bootagent"
 
+// piOwnedName is the provider id BootAgent owns across Pi's three files: the
+// entry under providers in models.json, the credential in auth.json, and the
+// value defaultProvider points at in settings.json. Everything else in all
+// three is the user's.
+const piOwnedName = "bootagent"
+
 const (
 	// dshOwnedRoute is the llm-pi-ai provider route BootAgent owns in DeepSeek
 	// Harness's settings. Every other route under providers is the user's, whether
@@ -76,13 +82,19 @@ func ValidateDSHOfficialReasoningEffort(effort string) error {
 		strings.Join(dshOfficialReasoningEfforts, ", "), effort))
 }
 
-// profileReasoningEfforts is the vocabulary a Profile may carry: the union of
-// what every adapter that can express a depth accepts. Each adapter narrows it
-// again at write time -- dsh dispatches off/high/max, Codex maps the whole
-// scale onto its own enum, aider and the OpenCode family take low/medium/high
-// -- so a value valid here can still be refused by the Agent it reaches, with
-// an error naming that Agent's scale.
-var profileReasoningEfforts = []string{"off", "low", "medium", "high", "max"}
+// profileReasoningEfforts is the vocabulary a Profile may carry: the widest
+// depth scale any Agent BootAgent knows about expresses, which is Pi's
+// --thinking ladder (off, minimal, low, medium, high, xhigh, max).
+//
+// It is deliberately wider than what the *config-writing* adapters accept. A
+// Profile records the depth the user wants for a model, and Pi can be asked for
+// minimal or xhigh at run time even though no adapter persists those, so the
+// Profile has to be able to hold them. Each adapter narrows the scale again at
+// write time -- dsh dispatches off/high/max, Codex maps onto its own enum,
+// aider and the OpenCode family take low/medium/high -- so a value valid here
+// can still be refused by the Agent it reaches, with an error naming that
+// Agent's scale.
+var profileReasoningEfforts = []string{"off", "minimal", "low", "medium", "high", "xhigh", "max"}
 
 // ValidateProfileReasoningEffort rejects a depth outside the Profile
 // vocabulary. This is the save-time gate; the adapter-specific gates below run
@@ -101,8 +113,14 @@ func ValidateProfileReasoningEffort(effort string) error {
 // codexReasoningEffort translates the Profile scale into Codex's
 // model_reasoning_effort enum, read off the Codex config documentation
 // (https://github.com/openai/codex, config.toml reference): none, low, medium,
-// high, xhigh. The two ends map -- off means "do not reason", which Codex
-// spells none, and max is its xhigh -- and the middle three pass through.
+// high, xhigh.
+//
+// off means "do not reason", which Codex spells none. low/medium/high/xhigh are
+// Codex's own spellings and pass through. max is xhigh, the deepest level Codex
+// has. minimal is the one level with no Codex equivalent and is refused rather
+// than folded into low: silently deepening the thinking the user asked to keep
+// shallowest would be a worse answer than saying Codex cannot express it.
+//
 // Codex validates this enum strictly at startup, so an unmapped value must
 // never reach the file: a config Codex refuses to load is worse than a
 // rejected activation.
@@ -110,22 +128,23 @@ func codexReasoningEffort(effort string) (string, error) {
 	switch effort {
 	case "off":
 		return "none", nil
-	case "low", "medium", "high":
+	case "low", "medium", "high", "xhigh":
 		return effort, nil
 	case "max":
 		return "xhigh", nil
 	}
 	return "", oneerrors.New(oneerrors.InvalidRequest, fmt.Sprintf(
-		"Codex reasoning effort must be one of %s, got %q",
-		strings.Join(profileReasoningEfforts, ", "), effort))
+		"Codex reasoning effort must be one of off, low, medium, high, xhigh, max, got %q", effort))
 }
 
 // openAIReasoningEfforts is the reasoning_effort scale of the OpenAI Chat
 // Completions API, which aider (per https://aider.chat/docs/config/reasoning.html)
 // and the OpenCode/Kilo model options pass through verbatim to the provider.
-// off and max are deliberately absent: neither is a value that API accepts, and
-// both adapters forward the string unvalidated, so writing one would fail every
-// request instead of the activation that carried it.
+//
+// The four Profile levels outside it -- off, minimal, xhigh and max -- are
+// deliberately absent: none is a value that API accepts, and all three adapters
+// forward the string unvalidated, so writing one would fail every request
+// instead of the activation that carried it.
 var openAIReasoningEfforts = []string{"low", "medium", "high"}
 
 // validateOpenAIReasoningEffort rejects a depth the OpenAI-style adapters
@@ -714,6 +733,97 @@ func (w Writer) WriteKimiCode(ctx context.Context, path, baseURL, apiKey, model 
 		return err
 	}
 	return w.write(ctx, path, []byte(content), true)
+}
+
+// WritePI points Pi at the Provider across the three files it keeps in
+// ~/.pi/agent/: the endpoint in models.json, the credential in auth.json, and
+// the default selection in settings.json. BootAgent owns one entry named
+// bootagent in each; every other provider, credential and preference is the
+// user's.
+//
+// The credential goes in auth.json rather than models.json even though a
+// provider entry there accepts an apiKey field. Pi resolves credentials in the
+// order --api-key, auth.json, environment variable, then the models.json
+// apiKey, so auth.json is both the highest-priority persistent location and the
+// one that keeps the key out of the file describing endpoints. Only auth.json is
+// written as a secret, which is what governs whether its backups are secured
+// too -- securefs gives every file it writes 0600 regardless.
+//
+// The model entry carries nothing but its id. Pi fills in its own defaults for
+// contextWindow, maxTokens and cost, and a BootAgent Provider does not declare
+// per-model values for any of them, so writing numbers here would assert facts
+// the catalog never established. This is the opposite of Kimi Code's
+// max_context_size, which is mandatory: Pi validated a bare id in testing
+// against 0.84.2 and listed the model as available.
+//
+// api is "openai-completions": every Provider in providers.lock.json serves the
+// OpenAI protocol, and the endpoint is written in the /v1 form that API type
+// expects, the same normalisation the OpenCode, Kilo and Kimi Code adapters use.
+func (w Writer) WritePI(ctx context.Context, path, providerName, baseURL, apiKey, model string) error {
+	directory := filepath.Dir(path)
+	// The credential lands first: a provider entry Pi cannot authenticate is
+	// worse than an unreferenced key, and the model would show as unavailable.
+	if err := w.writePIAuth(ctx, filepath.Join(directory, "auth.json"), apiKey); err != nil {
+		return err
+	}
+	document, err := loadJSON(path)
+	if err != nil {
+		return err
+	}
+	providers, err := document.Child("providers")
+	if err != nil {
+		return configError("Existing Pi provider configuration must contain an object: %s", path)
+	}
+	entry := jsonorder.NewObject()
+	entry.Set("name", providerName)
+	entry.Set("baseUrl", provider.OpenAIBaseURL(baseURL))
+	entry.Set("api", "openai-completions")
+	modelEntry := jsonorder.NewObject()
+	modelEntry.Set("id", model)
+	entry.Set("models", []any{modelEntry})
+	// Replaced wholesale rather than merged field by field: a stale key from an
+	// earlier activation surviving inside our own entry would outlive the write
+	// that was supposed to redefine it. Every other provider stays untouched.
+	providers.Set(piOwnedName, entry)
+	if err := w.writeJSON(ctx, path, document, false); err != nil {
+		return err
+	}
+	// Registering the provider only makes it available. Pi resolves a run from
+	// defaultProvider/defaultModel, so leaving those alone would mean activation
+	// changed nothing the user can observe without passing --provider and
+	// --model by hand.
+	return w.writePISettings(ctx, filepath.Join(directory, "settings.json"), model)
+}
+
+// writePIAuth merges the key into Pi's auth document under the owned provider
+// id, keeping every other credential /login stored there.
+//
+// The shape is Pi's stored-API-key form, {"type":"api_key","key":...}, read off
+// what its own login flow writes. Replaced wholesale so a field from an earlier
+// login against this id cannot survive.
+func (w Writer) writePIAuth(ctx context.Context, path, apiKey string) error {
+	document, err := loadJSON(path)
+	if err != nil {
+		return err
+	}
+	entry := jsonorder.NewObject()
+	entry.Set("type", "api_key")
+	entry.Set("key", apiKey)
+	document.Set(piOwnedName, entry)
+	return w.writeJSON(ctx, path, document, true)
+}
+
+// writePISettings points Pi's default selection at the owned provider, leaving
+// every other preference in the file alone -- settings.json also holds the
+// theme, keybindings and extension list, none of which are BootAgent's.
+func (w Writer) writePISettings(ctx context.Context, path, model string) error {
+	document, err := loadJSON(path)
+	if err != nil {
+		return err
+	}
+	document.Set("defaultProvider", piOwnedName)
+	document.Set("defaultModel", model)
+	return w.writeJSON(ctx, path, document, false)
 }
 
 func (w Writer) WriteHermes(ctx context.Context, path, baseURL, apiKey, model string) error {

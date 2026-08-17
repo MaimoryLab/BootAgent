@@ -39,6 +39,7 @@ import kiloCliMark from "./assets/kilo-cli.svg?raw";
 import kimiCodeMark from "./assets/kimi-code.svg?raw";
 import openclawMark from "./assets/openclaw.svg?raw";
 import opencodeMark from "./assets/opencode.svg?raw";
+import piMark from "./assets/pi.svg?raw";
 // Raster, so imported as a URL rather than inlined. Neither vendor publishes a
 // vector, and their icons draw the logo in colour on an opaque rounded plate --
 // the alpha channel is just that plate, so a CSS mask would render both as
@@ -131,6 +132,15 @@ const MARKS: Record<string, Mark> = {
     source: assetRightsManifest.assets.dsh.source,
     rights: assetRightsManifest.assets.dsh,
   },
+  // Pi's own mark. lobe-icons also carries inflection.svg for Inflection's
+  // Pi.ai, a different product with a different drawing -- this is the blocked
+  // "pi" wordmark, checked against the logo Pi's own README links to.
+  pi: {
+    kind: "asset",
+    markup: piMark,
+    source: assetRightsManifest.assets.pi.source,
+    rights: assetRightsManifest.assets.pi,
+  },
   // WorkBuddy and ZCode use the vendors' own icons, taken from the installed
   // application bundles. Both ship raster only, so they are the two marks in this
   // set that keep their brand colours instead of taking the theme's. A generic
@@ -180,6 +190,7 @@ const TAGLINES: Record<string, TranslationKey> = {
   openclaw: "把聊天工具接到编码代理的自建网关",
   "kimi-code": "月之暗面的终端编码代理",
   dsh: "DeepSeek 的插件式本地 Web 代理",
+  pi: "可扩展的终端编码代理",
 };
 
 export const AGENT_ICON_IDS = Object.keys(MARKS);
