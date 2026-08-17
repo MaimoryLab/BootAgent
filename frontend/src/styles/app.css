@@ -2223,16 +2223,58 @@
 .mcp-page { min-width: 0; }
 .mcp-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 .mcp-scan-status { display: flex; align-items: center; gap: 8px; color: var(--text-secondary); margin: 12px 0; }
-.mcp-table-wrap { overflow-x: auto; border: 1px solid var(--border-subtle); }
+.mcp-table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius-panel); }
 .mcp-table { width: 100%; min-width: 650px; border-collapse: collapse; }
-.mcp-table th, .mcp-table td { padding: 12px 14px; border-bottom: 1px solid var(--border-subtle); text-align: left; vertical-align: middle; }
+.mcp-table th, .mcp-table td { padding: 12px 14px; border-bottom: 1px solid var(--border-faint); text-align: left; vertical-align: middle; }
+.mcp-table tbody tr:last-child td { border-bottom: 0; }
+.mcp-table tbody tr:hover { background: var(--surface-subtle); }
 .mcp-table th { color: var(--text-secondary); font-size: 12px; font-weight: 600; }
 .mcp-row-actions { white-space: nowrap; text-align: right !important; }
+/* Row actions surface on hover or keyboard focus; a pending-delete row keeps
+   its restore button visible, or the state could not be undone. */
+.mcp-table .row-action { opacity: 0; transition: opacity 120ms ease; }
+.mcp-table tr:hover .row-action, .mcp-table .row-action:focus-visible, .mcp-table .row-action.is-restore { opacity: 1; }
 .mcp-row-deleted { opacity: 0.55; text-decoration: line-through; }
 .mcp-row-deleted .mcp-row-actions, .mcp-row-deleted input { text-decoration: none; }
 .mcp-footer-actions { display: flex; gap: 8px; }
-.mcp-targets { display: grid; gap: 4px; min-width: 130px; }
-.mcp-targets label { display: flex; align-items: center; gap: 6px; white-space: nowrap; color: var(--text-secondary); font-size: 12px; }
+
+/* Toolbar above the management tables: search grows, per-agent tallies trail. */
+.management-toolbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 14px 0; }
+.management-search { position: relative; flex: 1 1 220px; min-width: 180px; max-width: 340px; }
+.management-search-glyph { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-tertiary); pointer-events: none; }
+.management-search input { width: 100%; box-sizing: border-box; padding: 8px 34px 8px 32px; border: 1px solid var(--border-strong); border-radius: var(--radius-control); background: var(--surface-subtle); color: var(--text-primary); font: inherit; font-size: 13px; }
+.management-search input::placeholder { color: var(--text-tertiary); }
+.management-search-clear { position: absolute; right: 3px; top: 50%; transform: translateY(-50%); width: 26px; height: 26px; }
+
+/* Per-agent tallies doubling as tri-state bulk toggles for the draft. */
+.agent-summary-bar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-left: auto; }
+.agent-summary-chip { display: inline-flex; align-items: center; gap: 5px; height: 28px; padding: 0 9px; border: 1px solid var(--border); border-radius: var(--radius-control); background: transparent; color: var(--text-secondary); font: inherit; font-size: 12px; cursor: pointer; }
+.agent-summary-chip:hover:not(:disabled) { background: var(--surface-pressed); color: var(--text-primary); }
+.agent-summary-chip:disabled { cursor: not-allowed; opacity: 0.5; }
+.agent-summary-chip.is-partial { background: var(--surface-pressed); color: var(--text-primary); }
+.agent-summary-chip.is-all { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.agent-summary-count { font-weight: 600; font-variant-numeric: tabular-nums; }
+
+/* One mark per eligible Agent; pressed = targeted in the draft. Selection is
+   carried by fill + border, not colour alone, and the accent pair keeps AA on
+   --accent-soft. Unselected marks dim rather than disappear so the full set
+   stays countable. */
+.agent-target-group { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+/* Inside the tables the group must not wrap: the wrap container already
+   scrolls horizontally, and a wrapped set breaks the one-row-per-item scan
+   the marks exist for. The header stays on one line for the same reason. */
+.mcp-table .agent-target-group { flex-wrap: nowrap; }
+.mcp-table th { white-space: nowrap; }
+.agent-target-toggle { width: 28px; height: 28px; padding: 0; display: inline-grid; place-items: center; border: 1px solid transparent; border-radius: var(--radius-control); background: transparent; color: var(--text-secondary); opacity: 0.38; cursor: pointer; }
+.agent-target-toggle:hover:not(:disabled) { opacity: 0.75; background: var(--surface-pressed); }
+.agent-target-toggle.is-on { opacity: 1; background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.agent-target-toggle:disabled { cursor: not-allowed; }
+.agent-target-toggle .agent-mark { display: inline-grid; place-items: center; }
+.agent-target-toggle .agent-mark svg { width: 100%; height: 100%; }
+
+/* Empty list placeholder with a glyph well, shared by Skills and MCP. */
+.list-empty-glyph { width: 52px; height: 52px; display: grid; place-items: center; border-radius: 50%; background: var(--surface-pressed); color: var(--text-tertiary); }
+
 .skills-name-cell { min-width: 150px; }
 .skills-detail-cell { min-width: 280px; max-width: 520px; white-space: normal; line-height: 1.45; }
 .skills-detail-cell span, .skills-detail-cell small { display: block; }
@@ -2252,14 +2294,13 @@
 .mcp-modal textarea { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; resize: vertical; }
 .mcp-modal footer { margin-top: 20px; }
 .skills-import-modal { width: min(760px, 100%); }
-.skills-import-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(210px, 0.8fr); align-items: center; gap: 24px; padding: 14px 0; border-top: 1px solid var(--border-subtle); }
+.skills-import-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 24px; padding: 14px 0; border-top: 1px solid var(--border-faint); }
 .skills-import-name { min-width: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; column-gap: 8px; row-gap: 4px; margin: 0 !important; }
 .skills-import-name strong, .skills-import-name small { min-width: 0; overflow-wrap: anywhere; }
 .skills-import-name strong { grid-column: 2; }
 .skills-import-name small { grid-column: 2; color: var(--text-secondary); line-height: 1.35; }
 .skills-import-name input { grid-column: 1; grid-row: 1 / span 2; }
 .skills-import-name input[type="checkbox"] { width: 19px; height: 19px; margin: 0; accent-color: var(--accent); }
-.skills-import-row > .mcp-targets { min-width: 0; grid-template-columns: repeat(auto-fit, minmax(95px, 1fr)); }
 @media (max-width: 640px) {
   .skills-import-row { grid-template-columns: 1fr; gap: 12px; }
 }
