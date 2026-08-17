@@ -1,10 +1,14 @@
 package app
 
 import (
+	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/MaimoryLab/BootAgent/internal/securefs"
 )
 
 func TestMigrateLegacyHomeCopiesStateAndRetainsLegacy(t *testing.T) {
@@ -92,5 +96,32 @@ func TestMigrateLegacyHomeDoesNotOverwriteBootAgentState(t *testing.T) {
 	}
 	if _, err := os.Stat(legacy); err != nil {
 		t.Fatalf("legacy directory was not retained after conflict: %v", err)
+	}
+}
+
+func TestCopyMigrationTreeDoesNotPublishWhenSecuringTempFileFails(t *testing.T) {
+	root := t.TempDir()
+	source := filepath.Join(root, "legacy")
+	target := filepath.Join(root, "current")
+	if err := os.MkdirAll(source, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(source, "settings.json"), []byte("legacy"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	filesystem := securefs.New(securefs.Options{
+		OS: "linux",
+		Secure: func(path string, directory bool) error {
+			if !directory && strings.HasPrefix(filepath.Base(path), ".bootagent-tmp-") {
+				return errors.New("injected temp-file security failure")
+			}
+			return nil
+		},
+	})
+	if err := copyMigrationTree(context.Background(), filesystem, source, target, "runtimes"); err == nil {
+		t.Fatal("migration unexpectedly succeeded")
+	}
+	if _, err := os.Stat(filepath.Join(target, "settings.json")); !os.IsNotExist(err) {
+		t.Fatalf("migration published a partial file: %v", err)
 	}
 }

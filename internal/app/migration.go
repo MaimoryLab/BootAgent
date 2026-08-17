@@ -33,7 +33,8 @@ func migrateLegacyHome(home, osID string) (string, error) {
 	if err := os.MkdirAll(current, 0o700); err != nil {
 		return "", fmt.Errorf("create BootAgent configuration directory: %w", err)
 	}
-	if err := copyMigrationTree(legacy, current, "runtimes"); err != nil {
+	copyFilesystem := securefs.New(securefs.Options{OS: osID})
+	if err := copyMigrationTree(context.Background(), copyFilesystem, legacy, current, "runtimes"); err != nil {
 		return "", fmt.Errorf("migrate legacy configuration: %w", err)
 	}
 	filesystem := securefs.New(securefs.Options{OS: osID, BackupRoot: filepath.Join(home, currentHomeName, "backup")})
@@ -47,7 +48,7 @@ func migrateLegacyHome(home, osID string) (string, error) {
 	return fmt.Sprintf("OneAgent configuration was migrated to BootAgent. Node.js, uv, and installed Agents were not migrated; install them again from BootAgent. The original configuration was retained at %s for recovery; delete it after verifying the migration.", retained), nil
 }
 
-func copyMigrationTree(source, target, excludedTopLevel string) error {
+func copyMigrationTree(ctx context.Context, filesystem securefs.Store, source, target, excludedTopLevel string) error {
 	return filepath.WalkDir(source, func(path string, entry fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
@@ -93,6 +94,9 @@ func copyMigrationTree(source, target, excludedTopLevel string) error {
 		} else if !os.IsNotExist(err) {
 			return err
 		}
-		return os.WriteFile(destination, data, 0o600)
+		if _, err := filesystem.AtomicWrite(ctx, destination, data, false); err != nil {
+			return err
+		}
+		return nil
 	})
 }

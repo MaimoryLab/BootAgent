@@ -27,10 +27,12 @@ type Config struct {
 }
 
 type Server struct {
-	mu     sync.RWMutex
-	cfg    Config
-	http   *http.Server
-	client *http.Client
+	mu          sync.RWMutex
+	lifecycleMu sync.Mutex
+	cfg         Config
+	http        *http.Server
+	listener    net.Listener
+	client      *http.Client
 }
 
 type streamedToolCall struct {
@@ -46,10 +48,18 @@ func New(client *http.Client) *Server {
 	return &Server{client: client}
 }
 func (s *Server) SetConfig(cfg Config) error {
+	s.lifecycleMu.Lock()
+	defer s.lifecycleMu.Unlock()
+
 	s.mu.Lock()
 	old := s.http
+	oldListener := s.listener
 	s.http = nil
+	s.listener = nil
 	s.mu.Unlock()
+	if oldListener != nil {
+		_ = oldListener.Close()
+	}
 	if old != nil {
 		if err := shutdownHTTPServer(old); err != nil {
 			return err
@@ -73,16 +83,25 @@ func (s *Server) SetConfig(cfg Config) error {
 	s.mu.Lock()
 	s.cfg = cfg
 	s.http = server
+	s.listener = listener
 	s.mu.Unlock()
 	go func() { _ = server.Serve(listener) }()
 	return nil
 }
 func (s *Server) Close() error {
+	s.lifecycleMu.Lock()
+	defer s.lifecycleMu.Unlock()
+
 	s.mu.Lock()
 	server := s.http
+	listener := s.listener
 	s.http = nil
+	s.listener = nil
 	s.cfg.Enabled = false
 	s.mu.Unlock()
+	if listener != nil {
+		_ = listener.Close()
+	}
 	if server == nil {
 		return nil
 	}

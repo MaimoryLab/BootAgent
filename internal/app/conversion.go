@@ -162,11 +162,10 @@ func (u *UseCases) SaveConversion(ctx context.Context, c ConversionConfig) (Conv
 			}
 		}
 	}
-	b, _ := json.MarshalIndent(storedConversionConfig{Enabled: c.Enabled, Listen: c.Listen, TargetProfile: c.TargetProfile, AnthropicModel: c.AnthropicModel, ResponsesModel: c.ResponsesModel, ChatModel: c.ChatModel}, "", "  ")
-	if err := os.MkdirAll(filepath.Dir(u.conversionPath()), 0700); err != nil {
-		return c, err
-	}
-	if err := os.WriteFile(u.conversionPath(), append(b, '\n'), 0600); err != nil {
+	b, _ := json.MarshalIndent(storedConversionConfig{Enabled: c.Enabled, Listen: c.Listen, TargetProfile: c.TargetProfile, AnthropicModel: c.AnthropicModel, ResponsesModel: c.ResponsesModel}, "", "  ")
+	u.writeMu.Lock()
+	defer u.writeMu.Unlock()
+	if _, err := u.filesystem.AtomicWrite(ctx, u.conversionPath(), append(b, '\n'), false); err != nil {
 		return c, err
 	}
 	if err := u.conversion.SetConfig(convertproxy.Config{Enabled: c.Enabled, Listen: c.Listen, APIKey: c.APIKey, Models: []string{c.AnthropicModel, c.ResponsesModel, c.ChatModel}, TargetBaseURL: p.BaseFor("openai"), TargetModel: profileModel(target), TargetReasoningEffort: target.ReasoningEffort, TargetAPIKey: p.APIKey}); err != nil {

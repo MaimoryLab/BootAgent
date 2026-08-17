@@ -39,16 +39,6 @@ func (s *SkillService) Scan(ctx context.Context) (app.SkillScanResult, error) {
 	return s.core.ScanSkills(ctx)
 }
 
-func (s *SkillService) Get(ctx context.Context, id string) (app.SkillSummary, error) {
-	if err := contextError(ctx); err != nil {
-		return app.SkillSummary{}, err
-	}
-	if s == nil || s.core == nil {
-		return app.SkillSummary{}, notReady("Skill service is not configured")
-	}
-	return s.core.GetSkill(ctx, id)
-}
-
 func (s *SkillService) PreviewImport(ctx context.Context, request app.SkillImportRequest) (app.SkillImportPreview, error) {
 	if err := contextError(ctx); err != nil {
 		return app.SkillImportPreview{}, err
