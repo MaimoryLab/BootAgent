@@ -12,7 +12,12 @@ import (
 	"github.com/MaimoryLab/BootAgent/internal/provider"
 )
 
-const converterPrefix = "bootagent_converter_"
+const converterPrefix = "bootagent-converter-"
+const legacyConverterPrefix = "bootagent_converter_"
+
+func isConverterID(id string) bool {
+	return strings.HasPrefix(id, converterPrefix) || strings.HasPrefix(id, legacyConverterPrefix)
+}
 
 type ConversionConfig struct {
 	Enabled        bool   `json:"enabled"`
@@ -52,8 +57,11 @@ func (u *UseCases) Conversion(ctx context.Context) (ConversionConfig, error) {
 	if c.Listen == "" {
 		c.Listen = "127.0.0.1:8787"
 	}
-	if p, e := u.providers.Get(converterPrefix + "anthropic"); e == nil {
-		c.APIKey = p.APIKey
+	for _, prefix := range []string{converterPrefix, legacyConverterPrefix} {
+		if p, e := u.providers.Get(prefix + "anthropic"); e == nil {
+			c.APIKey = p.APIKey
+			break
+		}
 	}
 	return c, nil
 }

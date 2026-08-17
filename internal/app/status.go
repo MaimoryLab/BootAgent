@@ -395,7 +395,7 @@ func (u *UseCases) GetStatus(ctx context.Context) (StatusResponse, error) {
 		return StatusResponse{}, err
 	}
 	for id := range providers {
-		if strings.HasPrefix(id, converterPrefix) {
+		if isConverterID(id) {
 			delete(providers, id)
 		}
 	}
@@ -768,7 +768,7 @@ func (u *UseCases) profileSummaries() ([]ProfileSummary, error) {
 	}
 	result := make([]ProfileSummary, 0, len(stored))
 	for _, item := range stored {
-		if strings.HasPrefix(item.ID, converterPrefix) {
+		if isConverterID(item.ID) {
 			continue
 		}
 		result = append(result, profileSummary(item))
