@@ -10,13 +10,25 @@ import (
 )
 
 func TestAnthropicRequest(t *testing.T) {
-	got, err := ToChat("anthropic", []byte(`{"model":"m","system":"s","messages":[{"role":"user","content":[{"type":"text","text":"hi"}]}]}`))
+	got, err := ToChat("anthropic", []byte(`{"model":"m","system":[{"type":"text","text":"s"}],"messages":[{"role":"assistant","content":[{"type":"thinking","thinking":"inspect"},{"type":"tool_use","id":"call_1","name":"lookup","input":{"q":"x"}}]},{"role":"user","content":[{"type":"tool_result","tool_use_id":"call_1","content":"ok"}]}],"tools":[{"name":"lookup","description":"find","input_schema":{"type":"object"}}],"tool_choice":{"type":"any"}}`))
 	if err != nil {
 		t.Fatal(err)
 	}
 	want := `"role":"system"`
-	if !contains(string(got), want) {
+	body := string(got)
+	if !contains(body, want) || !contains(body, `"reasoning_content":"inspect"`) || !contains(body, `"tool_calls"`) || !contains(body, `"role":"tool"`) || !contains(body, `"tool_choice":"required"`) {
 		t.Fatalf("missing system: %s", got)
+	}
+}
+
+func TestAnthropicResponsePreservesThinkingAndToolUse(t *testing.T) {
+	got, err := FromChat("anthropic", []byte(`{"id":"chat","model":"m","choices":[{"finish_reason":"tool_calls","message":{"reasoning_content":"inspect","content":null,"tool_calls":[{"id":"call_1","type":"function","function":{"name":"lookup","arguments":"{\"q\":\"x\"}"}}]}}]}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := string(got)
+	if !contains(body, `"type":"thinking"`) || !contains(body, `"type":"tool_use"`) || !contains(body, `"stop_reason":"tool_use"`) {
+		t.Fatalf("anthropic response = %s", body)
 	}
 }
 
@@ -66,6 +78,25 @@ func TestResponsesStreamEmitsCompletion(t *testing.T) {
 	body := recorder.Body.String()
 	if recorder.Code != http.StatusOK || !strings.Contains(body, "event: response.completed") || !strings.Contains(body, `"delta":"hello"`) || !strings.Contains(body, "event: response.reasoning_summary_text.delta") || !strings.Contains(body, "event: response.function_call_arguments.done") {
 		t.Fatalf("responses stream = %d %s", recorder.Code, body)
+	}
+}
+
+func TestAnthropicStreamEmitsAnthropicEvents(t *testing.T) {
+	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		_, _ = w.Write([]byte("data: {\"choices\":[{\"delta\":{\"reasoning_content\":\"think\"}}]}\n\n"))
+		_, _ = w.Write([]byte("data: {\"choices\":[{\"delta\":{\"content\":\"hello\"}}]}\n\n"))
+		_, _ = w.Write([]byte("data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"call_1\",\"function\":{\"name\":\"lookup\",\"arguments\":\"{}\"}}]}}]}\n\n"))
+		_, _ = w.Write([]byte("data: [DONE]\n\n"))
+	}))
+	defer target.Close()
+	proxy := &Server{client: target.Client(), cfg: Config{TargetBaseURL: target.URL}}
+	request := httptest.NewRequest(http.MethodPost, "/v1/messages", strings.NewReader(`{"model":"m","stream":true,"messages":[]}`))
+	recorder := httptest.NewRecorder()
+	proxy.handle(recorder, request)
+	body := recorder.Body.String()
+	if recorder.Code != http.StatusOK || !strings.Contains(body, "event: message_start") || !strings.Contains(body, "thinking_delta") || !strings.Contains(body, "tool_use") || !strings.Contains(body, "event: message_stop") {
+		t.Fatalf("anthropic stream = %d %s", recorder.Code, body)
 	}
 }
 

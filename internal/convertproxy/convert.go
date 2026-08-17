@@ -33,11 +33,20 @@ func anthropicRequest(in map[string]any) map[string]any {
 	if v, ok := in["top_p"]; ok {
 		out["top_p"] = v
 	}
+	if v, ok := in["stop_sequences"]; ok {
+		out["stop"] = v
+	}
+	if v, ok := in["tool_choice"]; ok {
+		out["tool_choice"] = anthropicToolChoice(v)
+	}
+	if effort := anthropicReasoningEffort(in); effort != "" {
+		out["reasoning_effort"] = effort
+	}
 	if v, ok := in["tools"]; ok {
 		out["tools"] = anthropicTools(v)
 	}
 	messages := []any{}
-	if system, ok := in["system"].(string); ok && system != "" {
+	if system := instructionText(in["system"]); system != "" {
 		messages = append(messages, map[string]any{"role": "system", "content": system})
 	}
 	for _, raw := range array(in["messages"]) {
@@ -45,15 +54,101 @@ func anthropicRequest(in map[string]any) map[string]any {
 		if !ok {
 			continue
 		}
-		role := stringValue(m["role"])
-		content := m["content"]
-		messages = append(messages, map[string]any{"role": role, "content": anthropicContent(content)})
+		messages = append(messages, anthropicMessages(m)...)
 	}
 	out["messages"] = messages
 	if stream, ok := in["stream"]; ok {
 		out["stream"] = stream
 	}
 	return out
+}
+
+func anthropicReasoningEffort(in map[string]any) string {
+	if config, ok := in["output_config"].(map[string]any); ok {
+		switch stringValue(config["effort"]) {
+		case "low", "medium", "high":
+			return stringValue(config["effort"])
+		case "max":
+			return "xhigh"
+		}
+	}
+	thinking, _ := in["thinking"].(map[string]any)
+	if stringValue(thinking["type"]) != "enabled" && stringValue(thinking["type"]) != "adaptive" {
+		return ""
+	}
+	if stringValue(thinking["type"]) == "adaptive" {
+		return "xhigh"
+	}
+	budget, _ := thinking["budget_tokens"].(float64)
+	switch {
+	case budget > 0 && budget < 4000:
+		return "low"
+	case budget < 16000:
+		return "medium"
+	default:
+		return "high"
+	}
+}
+
+func anthropicMessages(message map[string]any) []any {
+	role := stringValue(message["role"])
+	content := message["content"]
+	if role == "assistant" {
+		textParts := []any{}
+		toolCalls := []any{}
+		reasoning := ""
+		for _, raw := range array(content) {
+			block, ok := raw.(map[string]any)
+			if !ok {
+				continue
+			}
+			switch stringValue(block["type"]) {
+			case "text":
+				textParts = append(textParts, map[string]any{"type": "text", "text": block["text"]})
+			case "thinking":
+				reasoning = joinReasoning(reasoning, stringValue(block["thinking"]))
+			case "redacted_thinking":
+				reasoning = joinReasoning(reasoning, stringValue(block["data"]))
+			case "tool_use":
+				id := block["id"]
+				toolCalls = append(toolCalls, map[string]any{"id": id, "type": "function", "function": map[string]any{"name": block["name"], "arguments": jsonString(block["input"])}})
+			}
+		}
+		if len(textParts) == 0 && len(toolCalls) == 0 {
+			textParts = []any{}
+		}
+		result := map[string]any{"role": "assistant", "content": anthropicTextContent(textParts)}
+		if reasoning != "" {
+			result["reasoning_content"] = reasoning
+		}
+		if len(toolCalls) > 0 {
+			result["tool_calls"] = toolCalls
+		}
+		return []any{result}
+	}
+	if role == "user" {
+		results := []any{}
+		for _, raw := range array(content) {
+			block, ok := raw.(map[string]any)
+			if !ok || stringValue(block["type"]) != "tool_result" {
+				continue
+			}
+			results = append(results, map[string]any{"role": "tool", "tool_call_id": block["tool_use_id"], "content": toolOutput(block["content"])})
+		}
+		if len(results) > 0 {
+			return results
+		}
+	}
+	return []any{map[string]any{"role": role, "content": anthropicContent(content)}}
+}
+
+func anthropicTextContent(parts []any) any {
+	if len(parts) == 1 {
+		if part, ok := parts[0].(map[string]any); ok {
+			return part["text"]
+		}
+	}
+	return parts
 }
 
 func anthropicContent(v any) any {
@@ -73,13 +168,33 @@ func anthropicContent(v any) any {
 			parts = append(parts, map[string]any{"type": "function", "function": map[string]any{"name": b["name"], "arguments": jsonString(b["input"])}, "id": b["id"]})
 		case "image":
 			if source, ok := b["source"].(map[string]any); ok {
-				if data := stringValue(source["data"]); data != "" {
+				if source["type"] == "url" && stringValue(source["url"]) != "" {
+					parts = append(parts, map[string]any{"type": "image_url", "image_url": map[string]any{"url": source["url"]}})
+				} else if data := stringValue(source["data"]); data != "" {
 					parts = append(parts, map[string]any{"type": "image_url", "image_url": map[string]any{"url": "data:" + stringValue(source["media_type"]) + ";base64," + data}})
 				}
 			}
 		}
 	}
 	return parts
+}
+
+func anthropicToolChoice(v any) any {
+	if value, ok := v.(string); ok {
+		if value == "any" {
+			return "required"
+		}
+		return value
+	}
+	choice, _ := v.(map[string]any)
+	switch stringValue(choice["type"]) {
+	case "any":
+		return "required"
+	case "tool":
+		return map[string]any{"type": "function", "function": map[string]any{"name": choice["name"]}}
+	default:
+		return stringValue(choice["type"])
+	}
 }
 
 func responsesRequest(in map[string]any) map[string]any {
@@ -282,6 +397,9 @@ func anthropicTools(v any) any {
 	out := []any{}
 	for _, raw := range array(v) {
 		if b, ok := raw.(map[string]any); ok {
+			if stringValue(b["type"]) == "BatchTool" {
+				continue
+			}
 			out = append(out, map[string]any{"type": "function", "function": map[string]any{"name": b["name"], "description": b["description"], "parameters": b["input_schema"]}})
 		}
 	}
@@ -356,12 +474,46 @@ func FromChat(format string, body []byte) ([]byte, error) {
 	}
 	switch format {
 	case "anthropic":
-		return json.Marshal(map[string]any{"id": in["id"], "type": "message", "role": "assistant", "model": in["model"], "content": chatContent(in["choices"]), "stop_reason": firstChoice(in, "finish_reason"), "usage": anthropicUsage(in["usage"])})
+		return json.Marshal(chatResponseToAnthropic(in))
 	case "responses":
 		return json.Marshal(chatResponseToResponses(in))
 	default:
 		return body, nil
 	}
+}
+
+func chatResponseToAnthropic(in map[string]any) map[string]any {
+	choice := firstChoiceMap(in)
+	message, _ := choice["message"].(map[string]any)
+	content := []any{}
+	if reasoning := chatReasoning(message); reasoning != "" {
+		content = append(content, map[string]any{"type": "thinking", "thinking": reasoning})
+	}
+	if text := chatMessageText(message); text != "" {
+		content = append(content, map[string]any{"type": "text", "text": text})
+	}
+	for _, raw := range array(message["tool_calls"]) {
+		call, ok := raw.(map[string]any)
+		if !ok {
+			continue
+		}
+		fn, _ := call["function"].(map[string]any)
+		var input any
+		if err := json.Unmarshal([]byte(stringValue(fn["arguments"])), &input); err != nil {
+			input = map[string]any{}
+		}
+		content = append(content, map[string]any{"type": "tool_use", "id": call["id"], "name": fn["name"], "input": input})
+	}
+	stop := stringValue(choice["finish_reason"])
+	switch stop {
+	case "length":
+		stop = "max_tokens"
+	case "tool_calls", "function_call":
+		stop = "tool_use"
+	case "stop":
+		stop = "end_turn"
+	}
+	return map[string]any{"id": in["id"], "type": "message", "role": "assistant", "model": in["model"], "content": content, "stop_reason": stop, "usage": anthropicUsage(in["usage"])}
 }
 
 func chatResponseToResponses(in map[string]any) map[string]any {
