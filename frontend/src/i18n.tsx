@@ -560,6 +560,7 @@ const english = {
   "把聊天工具接到编码代理的自建网关": "Self-hosted gateway bridging chat apps to coding agents",
   "月之暗面的终端编码代理": "Moonshot AI's terminal coding agent",
   "DeepSeek 的插件式本地 Web 代理": "DeepSeek's plugin-based local web agent",
+  "可扩展的终端编码代理": "Extensible terminal coding agent",
   "由 Agent 自行选择": "Chosen by the Agent",
   "AI 编辑器，按官方方式安装": "AI editor installed through the official channel",
   "多渠道 AI 网关，常驻运行": "Persistent multi-channel AI gateway",

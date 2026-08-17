@@ -105,6 +105,19 @@
       "version": "7cfa6e9d6726f7c9fa26c7d9aef0dfec52d20a137380454340f30f12ccbfd302"
     },
     {
+      "ecosystem": "asset",
+      "license": "MIT",
+      "license_files": [
+        "licenses/assets/pi/LICENSE"
+      ],
+      "modification": "",
+      "name": "pi",
+      "platforms": [
+        "frontend"
+      ],
+      "version": "d82978781b824273c55473822c1f243a6ed34fc6e8c2dbfe1a90dfc66ae43ee8"
+    },
+    {
       "ecosystem": "go",
       "license": "MIT",
       "license_files": [

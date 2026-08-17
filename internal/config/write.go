@@ -745,9 +745,9 @@ func (w Writer) WriteKimiCode(ctx context.Context, path, baseURL, apiKey, model 
 // provider entry there accepts an apiKey field. Pi resolves credentials in the
 // order --api-key, auth.json, environment variable, then the models.json
 // apiKey, so auth.json is both the highest-priority persistent location and the
-// one that keeps the key out of the file describing endpoints. models.json can
-// then be written world-readable while only auth.json carries secret
-// permissions.
+// one that keeps the key out of the file describing endpoints. Only auth.json is
+// written as a secret, which is what governs whether its backups are secured
+// too -- securefs gives every file it writes 0600 regardless.
 //
 // The model entry carries nothing but its id. Pi fills in its own defaults for
 // contextWindow, maxTokens and cost, and a BootAgent Provider does not declare
