@@ -394,8 +394,9 @@ func (u *UseCases) GetStatus(ctx context.Context) (StatusResponse, error) {
 	if err != nil {
 		return StatusResponse{}, err
 	}
+	converterEnabled := u.converterEnabled()
 	for id := range providers {
-		if isConverterID(id) {
+		if isConverterID(id) && !converterEnabled {
 			delete(providers, id)
 		}
 	}
@@ -767,8 +768,9 @@ func (u *UseCases) profileSummaries() ([]ProfileSummary, error) {
 		return nil, err
 	}
 	result := make([]ProfileSummary, 0, len(stored))
+	converterEnabled := u.converterEnabled()
 	for _, item := range stored {
-		if isConverterID(item.ID) {
+		if isConverterID(item.ID) && !converterEnabled {
 			continue
 		}
 		result = append(result, profileSummary(item))

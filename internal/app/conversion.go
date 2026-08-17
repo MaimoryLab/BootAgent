@@ -19,6 +19,11 @@ func isConverterID(id string) bool {
 	return strings.HasPrefix(id, converterPrefix) || strings.HasPrefix(id, legacyConverterPrefix)
 }
 
+func (u *UseCases) converterEnabled() bool {
+	c, err := u.Conversion(context.Background())
+	return err == nil && c.Enabled
+}
+
 type ConversionConfig struct {
 	Enabled        bool   `json:"enabled"`
 	Listen         string `json:"listen"`

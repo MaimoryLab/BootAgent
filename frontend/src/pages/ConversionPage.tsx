@@ -5,10 +5,12 @@ import { api, describeFailure } from "../backend/api";
 import { PageScaffold } from "../components/PageScaffold";
 import { SelectField } from "../components/SelectField";
 import { useI18n } from "../i18n";
+import { useWizard } from "../state/WizardContext";
 import type { ConversionConfig, StatusResponse } from "../types/api";
 
 export function ConversionPage() {
   const { t } = useI18n();
+  const { refreshStatus } = useWizard();
   const [config, setConfig] = useState<ConversionConfig | null>(null);
   const [status, setStatus] = useState<StatusResponse | null>(null);
   const [failure, setFailure] = useState("");
@@ -25,7 +27,7 @@ export function ConversionPage() {
     if (!config) return;
     setSaving(true);
     setFailure("");
-    try { setConfig(await api.saveConversion(config)); }
+    try { setConfig(await api.saveConversion(config)); void refreshStatus(); }
     catch (error) { setFailure(describeFailure(error, t("无法保存格式转换设置"), t).message); }
     finally { setSaving(false); }
   };
@@ -34,7 +36,7 @@ export function ConversionPage() {
     if (!config) return;
     setSaving(true);
     setFailure("");
-    try { setConfig(await api.saveConversion({ ...config, enabled: !config.enabled })); }
+    try { setConfig(await api.saveConversion({ ...config, enabled: !config.enabled })); void refreshStatus(); }
     catch (error) { setFailure(describeFailure(error, t("无法切换格式转换"), t).message); }
     finally { setSaving(false); }
   };
