@@ -135,7 +135,7 @@ func installDSH(ctx context.Context, options Options) (ActionResult, error) {
 		name := path.Name()
 		_ = path.Close()
 		defer os.Remove(name)
-		if err := downloadFile(ctx, options, url, name, DSHDesktopID); err != nil {
+		if err := downloadDSH(ctx, options, url, name); err != nil {
 			return ActionResult{}, err
 		}
 		if err := verifyDSHWindowsInstaller(ctx, options, name); err != nil {
@@ -154,7 +154,7 @@ func installDSH(ctx context.Context, options Options) (ActionResult, error) {
 	name := tmp.Name()
 	_ = tmp.Close()
 	defer os.Remove(name)
-	if err := downloadFile(ctx, options, url, name, DSHDesktopID); err != nil {
+	if err := downloadDSH(ctx, options, url, name); err != nil {
 		return ActionResult{}, err
 	}
 	mount := filepath.Dir(name) + "/mount"
@@ -188,6 +188,20 @@ func installDSH(ctx context.Context, options Options) (ActionResult, error) {
 	}
 	status.Installed, status.Path, status.Source = true, dest, SourceMacOSDMG
 	return ActionResult{Status: "installed", Message: DSHDesktopName + " was installed", RefreshNeeded: true, App: status}, nil
+}
+
+func downloadDSH(ctx context.Context, options Options, url, destination string) error {
+	err := downloadFile(ctx, options, url, destination, DSHDesktopID)
+	if err == nil || !options.PreferMirror || !strings.Contains(err.Error(), "HTTP 400") {
+		return err
+	}
+	official := options
+	official.PreferMirror = false
+	githubURL, resolveErr := dshURL(ctx, official)
+	if resolveErr != nil {
+		return err
+	}
+	return downloadFile(ctx, official, githubURL, destination, DSHDesktopID)
 }
 
 func runDSHMacSignatureCheck(ctx context.Context, options Options, app string) error {
