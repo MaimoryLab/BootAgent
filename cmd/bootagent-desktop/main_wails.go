@@ -6,6 +6,8 @@ import (
 	"context"
 	"log/slog"
 	"os"
+	"runtime"
+	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -17,6 +19,7 @@ import (
 	"github.com/MaimoryLab/BootAgent/internal/version"
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
+	"github.com/wailsapp/wails/v3/pkg/icons"
 	"github.com/wailsapp/wails/v3/pkg/updater"
 	"github.com/wailsapp/wails/v3/pkg/updater/providers/github"
 )
@@ -52,9 +55,65 @@ func configureUpdater(appInstance *application.App) binding.UpdateBackend {
 	return appInstance.Updater
 }
 
+func configureSystemTray(appInstance *application.App, core *app.UseCases, window application.Window, quitting *atomic.Bool) {
+	tray := appInstance.SystemTray.New()
+	refresh := func() {}
+	refresh = func() {
+		config, err := core.Conversion(context.Background())
+		if err != nil {
+			slog.Warn("conversion tray state unavailable", "error", err)
+		}
+		menu := appInstance.Menu.New()
+		menu.Add("显示 BootAgent").OnClick(func(*application.Context) { tray.ShowWindow() })
+		menu.AddSeparator()
+		enabled := config.Enabled
+		menu.AddCheckbox("启动 API 转换", enabled).OnClick(func(*application.Context) {
+			if _, err := core.SetConversionEnabled(context.Background(), !enabled); err != nil {
+				slog.Warn("conversion tray toggle failed", "error", err)
+			}
+			refresh()
+		})
+		profilesMenu := menu.AddSubmenu("转换目标 Profile")
+		profiles, err := core.ListProfiles(context.Background())
+		if err == nil {
+			for _, profile := range profiles {
+				if profile.Protocol != "openai" || strings.HasPrefix(profile.ID, "bootagent-converter-") || strings.HasPrefix(profile.ID, "bootagent_converter_") {
+					continue
+				}
+				label := profile.Label
+				if label == "" {
+					label = profile.ID
+				}
+				profileID := profile.ID
+				profilesMenu.AddRadio(label, profileID == config.TargetProfile).OnClick(func(*application.Context) {
+					if _, err := core.SetConversionTargetProfile(context.Background(), profileID); err != nil {
+						slog.Warn("conversion tray profile switch failed", "error", err)
+					}
+					refresh()
+				})
+			}
+		}
+		menu.AddSeparator()
+		menu.Add("退出 BootAgent").OnClick(func(*application.Context) {
+			quitting.Store(true)
+			appInstance.Quit()
+		})
+		tray.SetMenu(menu)
+	}
+	refresh()
+	tray.SetTooltip("BootAgent")
+	if runtime.GOOS == "darwin" {
+		tray.SetTemplateIcon(icons.SystrayMacTemplate)
+	} else {
+		tray.SetIcon(icons.SystrayLight)
+	}
+	tray.AttachWindow(window).WindowOffset(5)
+}
+
 func main() {
 	var appInstance *application.App
 	core := newDesktopUseCases()
+	var quitting atomic.Bool
 	var startupSyncOnce sync.Once
 	services := binding.NewServicesWithOptions(core, func(url string) error {
 		current := application.Get()
@@ -106,8 +165,10 @@ func main() {
 			Handler:        application.AssetFileServerFS(bootagent.FrontendAssets),
 			DisableLogging: true,
 		},
-		Mac: application.MacOptions{ApplicationShouldTerminateAfterLastWindowClosed: true},
+		Mac:        application.MacOptions{ApplicationShouldTerminateAfterLastWindowClosed: false},
+		ShouldQuit: func() bool { return quitting.Load() },
 	})
+	appInstance.OnShutdown(func() { _ = core.CloseConversion() })
 	updateBackend := configureUpdater(appInstance)
 	appInstance.Event.On(updater.EventDownloadProgress, func(event *application.CustomEvent) {
 		if event == nil {
@@ -131,32 +192,14 @@ func main() {
 			MinHeight: 480,
 			URL:       "/",
 		})
-		var closingBypass atomic.Bool
 		window.RegisterHook(events.Common.WindowClosing, func(event *application.WindowEvent) {
-			if closingBypass.Swap(false) {
-				return
-			}
-			dirty, locale := core.DraftState()
-			if !dirty {
+			if quitting.Load() {
 				return
 			}
 			event.Cancel()
-			message, discard, cancel := "MCP 或 Skills 草稿尚未应用，确定放弃并关闭吗？", "放弃并关闭", "取消"
-			if locale == "en" {
-				message, discard, cancel = "MCP or Skills changes are not applied. Discard them and close?", "Discard and close", "Cancel"
-			}
-			confirmed := false
-			dialog := application.Get().Dialog.Question().SetTitle("BootAgent").SetMessage(message)
-			dialog.AddButton(discard).OnClick(func() { confirmed = true })
-			dialog.AddButton(cancel).SetAsCancel()
-			dialog.Show()
-			if confirmed {
-				core.SetMCPDraftState(false, locale)
-				core.SetSkillDraftState(false, locale)
-				closingBypass.Store(true)
-				window.Close()
-			}
+			window.Hide()
 		})
+		configureSystemTray(appInstance, core, window, &quitting)
 	}
 	if err := appInstance.Run(); err != nil {
 		// Do not print an arbitrary Wails error containing binding arguments.
