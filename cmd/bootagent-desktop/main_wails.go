@@ -119,6 +119,20 @@ func configureSystemTray(appInstance *application.App, core *app.UseCases, windo
 
 func main() {
 	var appInstance *application.App
+	var mainWindow application.Window
+	var windowMu sync.RWMutex
+	activatePending := false
+	activateMainWindow := func() {
+		windowMu.Lock()
+		window := mainWindow
+		if window == nil {
+			activatePending = true
+			windowMu.Unlock()
+			return
+		}
+		windowMu.Unlock()
+		window.Show().Focus()
+	}
 	core := newDesktopUseCases()
 	var quitting atomic.Bool
 	var startupSyncOnce sync.Once
@@ -148,13 +162,23 @@ func main() {
 			}
 		},
 	})
+	var singleInstance *application.SingleInstanceOptions
+	if !application.System.IsServer() {
+		singleInstance = &application.SingleInstanceOptions{
+			UniqueID: "com.maimorylab.bootagent",
+			OnSecondInstanceLaunch: func(application.SecondInstanceData) {
+				activateMainWindow()
+			},
+		}
+	}
 
 	// No Route or RawMessageHandler is configured. The default Wails transport
 	// is internal IPC; the production app does not expose a business HTTP port.
 	appInstance = application.New(application.Options{
-		Name:        "BootAgent",
-		Description: "Local AI development environment activator",
-		LogLevel:    slog.LevelInfo,
+		Name:           "BootAgent",
+		Description:    "Local AI development environment activator",
+		LogLevel:       slog.LevelInfo,
+		SingleInstance: singleInstance,
 		Services: []application.Service{
 			application.NewServiceWithOptions(services.Status, application.ServiceOptions{MarshalError: oneerrors.Marshal}),
 			application.NewServiceWithOptions(services.Provider, application.ServiceOptions{MarshalError: oneerrors.Marshal}),
@@ -199,6 +223,14 @@ func main() {
 			MinHeight: 480,
 			URL:       "/",
 		})
+		windowMu.Lock()
+		mainWindow = window
+		pending := activatePending
+		activatePending = false
+		windowMu.Unlock()
+		if pending {
+			window.Show().Focus()
+		}
 		window.RegisterHook(events.Common.WindowClosing, func(event *application.WindowEvent) {
 			if quitting.Load() {
 				return
