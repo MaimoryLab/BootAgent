@@ -256,6 +256,11 @@ export interface Settings {
     "schema_version": number;
 
     /**
+     * Autostart launches BootAgent when the user logs in.
+     */
+    "autostart": boolean;
+
+    /**
      * PreferMirror routes runtime archives through the mirror in
      * runtimes.lock.json and npm-managed Agents through the npmmirror registry.
      * Runtime archives keep their locked checksum verification; npm verifies

@@ -29,6 +29,8 @@ const regionProbeTimeout = 3 * time.Second
 // request and do not belong to a profile.
 type Settings struct {
 	SchemaVersion int `json:"schema_version"`
+	// Autostart launches BootAgent when the user logs in.
+	Autostart bool `json:"autostart"`
 	// PreferMirror routes runtime archives through the mirror in
 	// runtimes.lock.json and npm-managed Agents through the npmmirror registry.
 	// Runtime archives keep their locked checksum verification; npm verifies
@@ -51,6 +53,7 @@ type Settings struct {
 // launch.
 type storedSettings struct {
 	SchemaVersion   int   `json:"schema_version"`
+	Autostart       *bool `json:"autostart"`
 	PreferMirror    *bool `json:"prefer_mirror"`
 	BackupRetention *int  `json:"backup_retention"`
 }
@@ -69,6 +72,9 @@ func (u *UseCases) Settings(ctx context.Context) (Settings, error) {
 		return settings, nil
 	}
 	if stored, ok := u.readStoredSettings(); ok {
+		if stored.Autostart != nil {
+			settings.Autostart = *stored.Autostart
+		}
 		if stored.PreferMirror != nil {
 			settings.PreferMirror = *stored.PreferMirror
 		}
@@ -152,9 +158,10 @@ func (u *UseCases) SaveSettings(ctx context.Context, settings Settings) (Setting
 	// That is what stops the regional default from re-ticking the box for a user
 	// who turned it off.
 	chosen := settings.PreferMirror
+	autostart := settings.Autostart
 	retention := settings.BackupRetention
 	data, err := json.MarshalIndent(storedSettings{
-		SchemaVersion: settingsSchemaVersion, PreferMirror: &chosen, BackupRetention: &retention,
+		SchemaVersion: settingsSchemaVersion, Autostart: &autostart, PreferMirror: &chosen, BackupRetention: &retention,
 	}, "", "  ")
 	if err != nil {
 		return Settings{}, err

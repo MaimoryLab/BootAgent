@@ -95,6 +95,30 @@ func TestStatusServiceRunsNativeSmokeHookAfterSuccess(t *testing.T) {
 	}
 }
 
+func TestRuntimeServiceAppliesAutostartCallbacks(t *testing.T) {
+	core := providerCore(t, nil)
+	enabled := false
+	service := &RuntimeService{
+		core: core,
+		autostart: AutostartCallbacks{
+			IsEnabled: func() (bool, error) { return enabled, nil },
+			SetEnabled: func(next bool) error {
+				enabled = next
+				return nil
+			},
+		},
+	}
+	if got, err := service.GetSettings(context.Background()); err != nil || got.Autostart {
+		t.Fatalf("initial autostart = %#v, err=%v", got, err)
+	}
+	if _, err := service.SaveSettings(context.Background(), app.Settings{Autostart: true}); err != nil {
+		t.Fatal(err)
+	}
+	if !enabled {
+		t.Fatal("autostart callback was not enabled")
+	}
+}
+
 func TestOpenRegistrationUsesConfiguredProviderURL(t *testing.T) {
 	var opened string
 	service := NewProviderService(providerCore(t, nil), func(value string) error {
