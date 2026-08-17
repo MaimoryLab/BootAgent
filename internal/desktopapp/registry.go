@@ -42,6 +42,12 @@ type Definition struct {
 	// Edition distinguishes regional builds of the same product, which install
 	// side by side and are separate Agents here. Empty for single-build products.
 	Edition string
+	// Unofficial marks an app that is not published by the vendor whose model it
+	// drives, so the UI must not offer it as "the official desktop application".
+	// The mark is the vendor's, because it identifies which product the app talks
+	// to; the publisher is a third party, and conflating the two would tell the
+	// user this download came from that vendor.
+	Unofficial bool
 }
 
 type implementation struct {
@@ -51,7 +57,21 @@ type implementation struct {
 	open    func(context.Context, Options) error
 }
 
+// First entry first in the UI: the list is rendered in this order, and DSH
+// Desktop leads it.
 var implementations = []implementation{
+	{
+		Definition: Definition{
+			ID: DSHDesktopID, Name: DSHDesktopName, ProfileAgentID: "dsh",
+			ConfigPath: ".dsh/settings.yaml", ConfigAdapter: ConfigAdapterDSH,
+			Protocol: "openai", Home: DSHDesktopHome,
+			// anywhere-labs builds this, not DeepSeek.
+			Unofficial: true,
+		},
+		inspect: inspectDSH,
+		install: installDSH,
+		open:    openDSH,
+	},
 	{
 		Definition: Definition{
 			ID:                  ChatGPTDesktopID,
@@ -112,16 +132,6 @@ var implementations = []implementation{
 		inspect: inspectZCode,
 		install: installZCode,
 		open:    openZCode,
-	},
-	{
-		Definition: Definition{
-			ID: DSHDesktopID, Name: DSHDesktopName, ProfileAgentID: "dsh",
-			ConfigPath: ".dsh/settings.yaml", ConfigAdapter: ConfigAdapterDSH,
-			Protocol: "openai", Home: DSHDesktopHome,
-		},
-		inspect: inspectDSH,
-		install: installDSH,
-		open:    openDSH,
 	},
 }
 

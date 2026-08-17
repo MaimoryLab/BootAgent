@@ -341,6 +341,7 @@ const english = {
   "与 {name} 共用配置": "Shares configuration with {name}",
   "已安装，可直接应用配置模版": "Installed; a profile can be applied now",
   "安装官方桌面应用": "Install the official desktop application",
+  "第三方桌面应用，非官方出品": "Third-party desktop application, not an official release",
   "需先自行安装，之后可配置": "Install it yourself first, then BootAgent can configure it",
   "检测到本机已有此应用": "This application is already installed",
   "国内版": "China",

@@ -42,6 +42,9 @@ type DesktopAgentStatus struct {
 	// which is a button that cannot do what it says.
 	ManualInstall bool   `json:"manualInstall,omitempty"`
 	Home          string `json:"home,omitempty"`
+	// Unofficial reports that the publisher is not the vendor whose model the app
+	// drives, so the UI can say so instead of calling it the official application.
+	Unofficial bool `json:"unofficial,omitempty"`
 }
 
 // DesktopAgentProfileResult is the non-secret result of applying a saved
@@ -290,6 +293,7 @@ func (u *UseCases) publicDesktopAgentStatus(value desktopapp.Status) DesktopAgen
 	status.ProfileAgentID = definition.ProfileAgentID
 	status.Protocol = definition.Protocol
 	status.ManualInstall = definition.ManualInstall
+	status.Unofficial = definition.Unofficial
 	status.Home = definition.Home
 	status.Edition = definition.Edition
 	if binding, err := u.profiles.ReadAgentBinding(status.ProfileAgentID); err == nil && binding != nil && binding.ProfileRef != "" {
