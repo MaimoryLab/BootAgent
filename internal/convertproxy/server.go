@@ -167,7 +167,11 @@ func (s *Server) forward(w http.ResponseWriter, r *http.Request, body []byte, cf
 }
 func (s *Server) forwardConverted(w http.ResponseWriter, r *http.Request, body []byte, cfg Config, format string) {
 	if cfg.TargetModel != "" {
-		body = withTargetConfig(body, cfg.TargetModel, cfg.TargetReasoningEffort)
+		if format == "chat" {
+			body = withTargetModel(body, cfg.TargetModel)
+		} else {
+			body = withTargetConfig(body, cfg.TargetModel, cfg.TargetReasoningEffort)
+		}
 	}
 	target := strings.TrimRight(cfg.TargetBaseURL, "/") + "/chat/completions"
 	req, _ := http.NewRequestWithContext(r.Context(), http.MethodPost, target, bytes.NewReader(body))
@@ -327,6 +331,19 @@ func (s *Server) forwardAnthropicStream(w http.ResponseWriter, resp *http.Respon
 	}
 	writeEvent("message_delta", map[string]any{"type": "message_delta", "delta": map[string]any{"stop_reason": stopReason, "stop_sequence": nil}, "usage": map[string]any{"output_tokens": 0}})
 	writeEvent("message_stop", map[string]any{"type": "message_stop"})
+}
+
+func withTargetModel(body []byte, model string) []byte {
+	var request map[string]any
+	if json.Unmarshal(body, &request) != nil {
+		return body
+	}
+	request["model"] = model
+	updated, err := json.Marshal(request)
+	if err != nil {
+		return body
+	}
+	return updated
 }
 
 func withTargetConfig(body []byte, model, reasoningEffort string) []byte {

@@ -72,6 +72,7 @@ export interface ConversionConfig {
     "target_profile": string;
     "anthropic_model": string;
     "responses_model": string;
+    "chat_model": string;
 }
 
 /**

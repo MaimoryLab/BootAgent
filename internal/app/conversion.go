@@ -18,6 +18,7 @@ const converterPrefix = "bootagent-converter-"
 const legacyConverterPrefix = "bootagent_converter_"
 const defaultAnthropicConversionModel = "claude-sonnet-5"
 const defaultResponsesConversionModel = "gpt-5.6-sol"
+const defaultChatConversionModel = "gpt-5.6-sol"
 
 func isConverterID(id string) bool {
 	return strings.HasPrefix(id, converterPrefix) || strings.HasPrefix(id, legacyConverterPrefix)
@@ -42,6 +43,7 @@ type ConversionConfig struct {
 	TargetProfile  string `json:"target_profile"`
 	AnthropicModel string `json:"anthropic_model"`
 	ResponsesModel string `json:"responses_model"`
+	ChatModel      string `json:"chat_model"`
 }
 
 type storedConversionConfig struct {
@@ -50,6 +52,7 @@ type storedConversionConfig struct {
 	TargetProfile  string `json:"target_profile"`
 	AnthropicModel string `json:"anthropic_model"`
 	ResponsesModel string `json:"responses_model"`
+	ChatModel      string `json:"chat_model"`
 }
 
 func (u *UseCases) conversionPath() string {
@@ -61,7 +64,7 @@ func (u *UseCases) Conversion(ctx context.Context) (ConversionConfig, error) {
 	}
 	b, err := os.ReadFile(u.conversionPath())
 	if os.IsNotExist(err) {
-		return ConversionConfig{Listen: "127.0.0.1:8787", AnthropicModel: defaultAnthropicConversionModel, ResponsesModel: defaultResponsesConversionModel}, nil
+		return ConversionConfig{Listen: "127.0.0.1:8787", AnthropicModel: defaultAnthropicConversionModel, ResponsesModel: defaultResponsesConversionModel, ChatModel: defaultChatConversionModel}, nil
 	}
 	if err != nil {
 		return ConversionConfig{}, err
@@ -78,6 +81,9 @@ func (u *UseCases) Conversion(ctx context.Context) (ConversionConfig, error) {
 	}
 	if c.ResponsesModel == "" {
 		c.ResponsesModel = defaultResponsesConversionModel
+	}
+	if c.ChatModel == "" {
+		c.ChatModel = defaultChatConversionModel
 	}
 	for _, prefix := range []string{converterPrefix, legacyConverterPrefix} {
 		if p, e := u.providers.Get(prefix + "anthropic"); e == nil {
@@ -104,7 +110,7 @@ func (u *UseCases) startSavedConversion() error {
 	if err != nil {
 		return err
 	}
-	return u.conversion.SetConfig(convertproxy.Config{Enabled: true, Listen: c.Listen, APIKey: c.APIKey, Models: []string{c.AnthropicModel, c.ResponsesModel}, TargetBaseURL: p.BaseFor("openai"), TargetModel: profileModel(target), TargetReasoningEffort: target.ReasoningEffort, TargetAPIKey: p.APIKey})
+	return u.conversion.SetConfig(convertproxy.Config{Enabled: true, Listen: c.Listen, APIKey: c.APIKey, Models: []string{c.AnthropicModel, c.ResponsesModel, c.ChatModel}, TargetBaseURL: p.BaseFor("openai"), TargetModel: profileModel(target), TargetReasoningEffort: target.ReasoningEffort, TargetAPIKey: p.APIKey})
 }
 func (u *UseCases) SaveConversion(ctx context.Context, c ConversionConfig) (ConversionConfig, error) {
 	if u == nil {
@@ -140,14 +146,17 @@ func (u *UseCases) SaveConversion(ctx context.Context, c ConversionConfig) (Conv
 	if c.ResponsesModel == "" {
 		c.ResponsesModel = defaultResponsesConversionModel
 	}
+	if c.ChatModel == "" {
+		c.ChatModel = defaultChatConversionModel
+	}
 	if c.Enabled {
-		for _, f := range []string{"anthropic", "responses"} {
+		for _, f := range []string{"anthropic", "responses", "chat"} {
 			id := converterPrefix + f
 			_, err = u.SaveProvider(ctx, provider.Entry{ID: id, Name: "BootAgent Converter " + f, BaseURL: provider.OpenAIBaseURL("http://" + c.Listen), APIKey: c.APIKey}, false, false)
 			if err != nil && !errors.Is(err, provider.ErrUnknownProvider) {
 				return c, err
 			}
-			_, err = u.SaveProfile(ctx, SaveProfileOptions{ID: id, Label: "BootAgent Converter " + f, Provider: id, APIKey: c.APIKey, Model: map[string]string{"anthropic": c.AnthropicModel, "responses": c.ResponsesModel}[f], Protocol: map[string]string{"anthropic": "anthropic", "responses": "responses"}[f], ConfigMode: "provider"})
+			_, err = u.SaveProfile(ctx, SaveProfileOptions{ID: id, Label: "BootAgent Converter " + f, Provider: id, APIKey: c.APIKey, Model: map[string]string{"anthropic": c.AnthropicModel, "responses": c.ResponsesModel, "chat": c.ChatModel}[f], Protocol: map[string]string{"anthropic": "anthropic", "responses": "responses", "chat": "openai"}[f], ConfigMode: "provider"})
 			if err != nil {
 				return c, err
 			}
@@ -159,7 +168,7 @@ func (u *UseCases) SaveConversion(ctx context.Context, c ConversionConfig) (Conv
 	if _, err := u.filesystem.AtomicWrite(ctx, u.conversionPath(), append(b, '\n'), false); err != nil {
 		return c, err
 	}
-	if err := u.conversion.SetConfig(convertproxy.Config{Enabled: c.Enabled, Listen: c.Listen, APIKey: c.APIKey, Models: []string{c.AnthropicModel, c.ResponsesModel}, TargetBaseURL: p.BaseFor("openai"), TargetModel: profileModel(target), TargetReasoningEffort: target.ReasoningEffort, TargetAPIKey: p.APIKey}); err != nil {
+	if err := u.conversion.SetConfig(convertproxy.Config{Enabled: c.Enabled, Listen: c.Listen, APIKey: c.APIKey, Models: []string{c.AnthropicModel, c.ResponsesModel, c.ChatModel}, TargetBaseURL: p.BaseFor("openai"), TargetModel: profileModel(target), TargetReasoningEffort: target.ReasoningEffort, TargetAPIKey: p.APIKey}); err != nil {
 		return c, err
 	}
 	return c, nil
