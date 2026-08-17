@@ -10,35 +10,35 @@ import (
 )
 
 func TestAnthropicRequest(t *testing.T) {
-	got, err := ToChat("anthropic", []byte(`{"model":"m","system":[{"type":"text","text":"s"}],"messages":[{"role":"assistant","content":[{"type":"thinking","thinking":"inspect"},{"type":"tool_use","id":"call_1","name":"lookup","input":{"q":"x"}}]},{"role":"user","content":[{"type":"tool_result","tool_use_id":"call_1","content":"ok"}]}],"tools":[{"name":"lookup","description":"find","input_schema":{"type":"object"}}],"tool_choice":{"type":"any"}}`))
+	got, err := ToChat("anthropic", []byte(`{"model":"m","system":[{"type":"text","text":"s"}],"messages":[{"role":"assistant","content":[{"type":"thinking","thinking":"inspect"},{"type":"tool_use","id":"call_1","name":"lookup","input":{"q":"x"}}]},{"role":"user","content":[{"type":"tool_result","tool_use_id":"call_1","content":[{"type":"text","text":"ok"},{"type":"image","source":{"type":"base64","media_type":"image/png","data":"abc"}}]},{"type":"document","source":{"type":"url","url":"https://example.test/a.pdf"}},{"type":"audio","source":{"type":"base64","media_type":"audio/wav","data":"xyz"}}]}],"tools":[{"name":"lookup","description":"find","input_schema":{"type":"object"}}],"tool_choice":{"type":"any"}}`))
 	if err != nil {
 		t.Fatal(err)
 	}
 	want := `"role":"system"`
 	body := string(got)
-	if !contains(body, want) || !contains(body, `"reasoning_content":"inspect"`) || !contains(body, `"tool_calls"`) || !contains(body, `"role":"tool"`) || !contains(body, `"tool_choice":"required"`) {
+	if !contains(body, want) || !contains(body, `"reasoning_content":"inspect"`) || !contains(body, `"tool_calls"`) || !contains(body, `"role":"tool"`) || !contains(body, `"image_url"`) || !contains(body, `"type":"file"`) || !contains(body, `"input_audio"`) || !contains(body, `"tool_choice":"required"`) {
 		t.Fatalf("missing system: %s", got)
 	}
 }
 
 func TestAnthropicResponsePreservesThinkingAndToolUse(t *testing.T) {
-	got, err := FromChat("anthropic", []byte(`{"id":"chat","model":"m","choices":[{"finish_reason":"tool_calls","message":{"reasoning_content":"inspect","content":null,"tool_calls":[{"id":"call_1","type":"function","function":{"name":"lookup","arguments":"{\"q\":\"x\"}"}}]}}]}`))
+	got, err := FromChat("anthropic", []byte(`{"id":"chat","model":"m","choices":[{"finish_reason":"tool_calls","message":{"reasoning_content":"inspect","content":[{"type":"text","text":"answer"},{"type":"image_url","image_url":{"url":"https://example.test/out.png"}}],"tool_calls":[{"id":"call_1","type":"function","function":{"name":"lookup","arguments":"{\"q\":\"x\"}"}}]}}]}`))
 	if err != nil {
 		t.Fatal(err)
 	}
 	body := string(got)
-	if !contains(body, `"type":"thinking"`) || !contains(body, `"type":"tool_use"`) || !contains(body, `"stop_reason":"tool_use"`) {
+	if !contains(body, `"type":"thinking"`) || !contains(body, `"type":"tool_use"`) || !contains(body, `"type":"image"`) || !contains(body, `"stop_reason":"tool_use"`) {
 		t.Fatalf("anthropic response = %s", body)
 	}
 }
 
 func TestResponsesRequestMapsChatInputAndTools(t *testing.T) {
-	got, err := ToChat("responses", []byte(`{"model":"client","input":[{"type":"message","role":"assistant","content":[{"type":"output_text","text":"answer"}]},{"type":"reasoning","summary":[{"type":"summary_text","text":"think later"}]},{"type":"function_call","id":"call_1","name":"lookup","arguments":"{}"},{"type":"input_image","image_url":{"url":"https://example.test/a.png"}}],"tools":[{"type":"function","name":"lookup","description":"find","parameters":{"type":"object"}}]}`))
+	got, err := ToChat("responses", []byte(`{"model":"client","input":[{"type":"message","role":"assistant","content":[{"type":"output_text","text":"answer"}]},{"type":"reasoning","summary":[{"type":"summary_text","text":"think later"}]},{"type":"function_call","id":"call_1","name":"lookup","arguments":"{}"},{"type":"input_image","image_url":{"url":"https://example.test/a.png"}},{"type":"input_file","file_url":"https://example.test/a.pdf","filename":"a.pdf"},{"type":"input_audio","input_audio":{"data":"xyz","format":"wav"}}],"tools":[{"type":"function","name":"lookup","description":"find","parameters":{"type":"object"}}]}`))
 	if err != nil {
 		t.Fatal(err)
 	}
 	body := string(got)
-	if !strings.Contains(body, `"role":"assistant"`) || !strings.Contains(body, `"reasoning_content":"think later"`) || !strings.Contains(body, `"id":"call_1"`) || !strings.Contains(body, `"url":"https://example.test/a.png"`) || !strings.Contains(body, `"name":"lookup"`) || !strings.Contains(body, `"parameters":{"type":"object"}`) {
+	if !strings.Contains(body, `"role":"assistant"`) || !strings.Contains(body, `"reasoning_content":"think later"`) || !strings.Contains(body, `"id":"call_1"`) || !strings.Contains(body, `"url":"https://example.test/a.png"`) || !strings.Contains(body, `"type":"file"`) || !strings.Contains(body, `"input_audio"`) || !strings.Contains(body, `"name":"lookup"`) || !strings.Contains(body, `"parameters":{"type":"object"}`) {
 		t.Fatalf("responses request = %s", body)
 	}
 }

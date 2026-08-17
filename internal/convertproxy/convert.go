@@ -137,7 +137,11 @@ func anthropicMessages(message map[string]any) []any {
 				}
 				continue
 			}
-			results = append(results, map[string]any{"role": "tool", "tool_call_id": block["tool_use_id"], "content": toolOutput(block["content"])})
+			toolText, media := anthropicToolResult(block["content"])
+			results = append(results, map[string]any{"role": "tool", "tool_call_id": block["tool_use_id"], "content": toolText})
+			if len(media) > 0 {
+				results = append(results, map[string]any{"role": "user", "content": media})
+			}
 		}
 		if len(results) > 0 {
 			if len(normal) > 0 {
@@ -181,9 +185,54 @@ func anthropicContent(v any) any {
 					parts = append(parts, map[string]any{"type": "image_url", "image_url": map[string]any{"url": "data:" + stringValue(source["media_type"]) + ";base64," + data}})
 				}
 			}
+		case "document":
+			if source, ok := b["source"].(map[string]any); ok {
+				file := map[string]any{}
+				if stringValue(source["type"]) == "url" {
+					file["file_url"] = source["url"]
+				} else if stringValue(source["data"]) != "" {
+					file["file_data"] = "data:" + stringValue(source["media_type"]) + ";base64," + stringValue(source["data"])
+				}
+				if name := stringValue(b["title"]); name != "" {
+					file["filename"] = name
+				}
+				parts = append(parts, map[string]any{"type": "file", "file": file})
+			}
+		case "audio":
+			if source, ok := b["source"].(map[string]any); ok && stringValue(source["data"]) != "" {
+				parts = append(parts, map[string]any{"type": "input_audio", "input_audio": map[string]any{"data": source["data"], "format": strings.TrimPrefix(stringValue(source["media_type"]), "audio/")}})
+			}
+		default:
+			parts = append(parts, b)
 		}
 	}
 	return parts
+}
+
+func anthropicToolResult(v any) (string, []any) {
+	if text, ok := v.(string); ok {
+		return text, nil
+	}
+	text := []string{}
+	media := []any{}
+	for _, raw := range array(v) {
+		block, ok := raw.(map[string]any)
+		if !ok {
+			text = append(text, jsonString(raw))
+			continue
+		}
+		if stringValue(block["type"]) == "text" {
+			text = append(text, stringValue(block["text"]))
+			continue
+		}
+		converted := anthropicContent([]any{block})
+		if parts, ok := converted.([]any); ok {
+			media = append(media, parts...)
+		} else {
+			text = append(text, jsonString(block))
+		}
+	}
+	return strings.Join(text, "\n"), media
 }
 
 func anthropicToolChoice(v any) any {
@@ -392,8 +441,20 @@ func responsesContent(v any) any {
 					imageURL = map[string]any{"url": imageURL}
 				}
 				parts = append(parts, map[string]any{"type": "image_url", "image_url": imageURL})
+			case "input_file":
+				file := map[string]any{}
+				for _, key := range []string{"file_id", "file_data", "file_url", "filename"} {
+					if value, exists := b[key]; exists {
+						file[key] = value
+					}
+				}
+				parts = append(parts, map[string]any{"type": "file", "file": file})
+			case "input_audio":
+				parts = append(parts, map[string]any{"type": "input_audio", "input_audio": b["input_audio"]})
 			case "refusal":
 				parts = append(parts, map[string]any{"type": "text", "text": b["refusal"]})
+			default:
+				parts = append(parts, b)
 			}
 		}
 	}
@@ -496,9 +557,7 @@ func chatResponseToAnthropic(in map[string]any) map[string]any {
 	if reasoning := chatReasoning(message); reasoning != "" {
 		content = append(content, map[string]any{"type": "thinking", "thinking": reasoning})
 	}
-	if text := chatMessageText(message); text != "" {
-		content = append(content, map[string]any{"type": "text", "text": text})
-	}
+	content = append(content, chatResponseContent(message)...)
 	for _, raw := range array(message["tool_calls"]) {
 		call, ok := raw.(map[string]any)
 		if !ok {
@@ -521,6 +580,32 @@ func chatResponseToAnthropic(in map[string]any) map[string]any {
 		stop = "end_turn"
 	}
 	return map[string]any{"id": in["id"], "type": "message", "role": "assistant", "model": in["model"], "content": content, "stop_reason": stop, "usage": anthropicUsage(in["usage"])}
+}
+
+func chatResponseContent(message map[string]any) []any {
+	if text := stringValue(message["content"]); text != "" {
+		return []any{map[string]any{"type": "text", "text": text}}
+	}
+	content := []any{}
+	for _, raw := range array(message["content"]) {
+		part, ok := raw.(map[string]any)
+		if !ok {
+			continue
+		}
+		switch stringValue(part["type"]) {
+		case "text", "output_text":
+			content = append(content, map[string]any{"type": "text", "text": part["text"]})
+		case "image_url":
+			imageURL := part["image_url"]
+			if image, ok := imageURL.(map[string]any); ok {
+				imageURL = image["url"]
+			}
+			content = append(content, map[string]any{"type": "image", "source": map[string]any{"type": "url", "url": imageURL}})
+		default:
+			content = append(content, part)
+		}
+	}
+	return content
 }
 
 func chatResponseToResponses(in map[string]any) map[string]any {
