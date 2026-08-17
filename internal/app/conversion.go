@@ -123,15 +123,17 @@ func (u *UseCases) SaveConversion(ctx context.Context, c ConversionConfig) (Conv
 	if c.ResponsesModel == "" {
 		c.ResponsesModel = stringValue(target.Model)
 	}
-	for _, f := range []string{"anthropic", "responses"} {
-		id := converterPrefix + f
-		_, err = u.SaveProvider(ctx, provider.Entry{ID: id, Name: "BootAgent Converter " + f, BaseURL: "http://" + c.Listen, APIKey: c.APIKey}, false, false)
-		if err != nil && !strings.Contains(err.Error(), "Unknown Provider") {
-			return c, err
-		}
-		_, err = u.SaveProfile(ctx, SaveProfileOptions{ID: id, Label: "BootAgent Converter " + f, Provider: id, APIKey: c.APIKey, Model: map[string]string{"anthropic": c.AnthropicModel, "responses": c.ResponsesModel}[f], Protocol: map[string]string{"anthropic": "anthropic", "responses": "responses"}[f], ConfigMode: "provider"})
-		if err != nil {
-			return c, err
+	if c.Enabled {
+		for _, f := range []string{"anthropic", "responses"} {
+			id := converterPrefix + f
+			_, err = u.SaveProvider(ctx, provider.Entry{ID: id, Name: "BootAgent Converter " + f, BaseURL: "http://" + c.Listen, APIKey: c.APIKey}, false, false)
+			if err != nil && !strings.Contains(err.Error(), "Unknown Provider") {
+				return c, err
+			}
+			_, err = u.SaveProfile(ctx, SaveProfileOptions{ID: id, Label: "BootAgent Converter " + f, Provider: id, APIKey: c.APIKey, Model: map[string]string{"anthropic": c.AnthropicModel, "responses": c.ResponsesModel}[f], Protocol: map[string]string{"anthropic": "anthropic", "responses": "responses"}[f], ConfigMode: "provider"})
+			if err != nil {
+				return c, err
+			}
 		}
 	}
 	b, _ := json.MarshalIndent(storedConversionConfig{Enabled: c.Enabled, Listen: c.Listen, TargetProfile: c.TargetProfile, AnthropicModel: c.AnthropicModel, ResponsesModel: c.ResponsesModel}, "", "  ")

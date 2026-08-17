@@ -10,6 +10,7 @@ import { SelectField } from "../components/SelectField";
 import { useI18n } from "../i18n";
 import { desktopApps, desktopProfileUsable, desktopProfiles, desktopProtocol, profileAgentIdForDesktop } from "../state/desktopSetup";
 import { byProfileCreatedAt, byProviderCreatedAt, preferProviderWithKey } from "../state/ranking";
+import { isConverterID } from "../state/conversion";
 import { useWizard } from "../state/WizardContext";
 import type { ProfileSummary, ProtocolId, ProviderId } from "../types/api";
 
@@ -116,6 +117,7 @@ export function AgentProfilePage() {
   };
 
   const openEdit = (profile: ProfileSummary) => {
+    if (isConverterID(profile.id)) return;
     setFailure("");
     setApplied("");
     setDraft(draftFrom(profile));
@@ -289,7 +291,7 @@ export function AgentProfilePage() {
                 </label>
                 <p>{status.providers[profile.provider]?.name || profile.provider} · {profile.model || t("未指定模型")}</p>
                 {!usable ? <small className="profile-key-hint">{t("这个配置模版还缺少模型服务 Key 或模型")}</small> : null}
-                <button className="icon-button" type="button" onClick={() => openEdit(profile)} aria-label={t("编辑 {name}", { name: profile.label })} title={t("编辑")}><Pencil size={14} /></button>
+                {!isConverterID(profile.id) ? <button className="icon-button" type="button" onClick={() => openEdit(profile)} aria-label={t("编辑 {name}", { name: profile.label })} title={t("编辑")}><Pencil size={14} /></button> : null}
               </article>
             );
           })}
