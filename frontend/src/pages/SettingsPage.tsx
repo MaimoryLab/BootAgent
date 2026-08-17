@@ -1,4 +1,4 @@
-import { Archive, BookOpen, ChevronRight, ExternalLink, Import, Languages, RefreshCw, Radio } from "lucide-react";
+import { Archive, BookOpen, ChevronRight, ExternalLink, Import, Languages, RefreshCw } from "lucide-react";
 import { useState } from "react";
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
@@ -11,7 +11,7 @@ import { ThemePicker } from "../components/ThemePicker";
 import { GitHubMark } from "../components/icons/GitHubMark";
 import { useI18n } from "../i18n";
 import { taskCanceller, taskKey, updateTaskRoute, useTaskCenter } from "../state/TaskCenterContext";
-import type { ConversionConfig, Settings, StatusResponse } from "../types/api";
+import type { Settings } from "../types/api";
 
 const defaultBackupRetention = 3;
 
@@ -31,13 +31,8 @@ export function SettingsPage() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [backupRetention, setBackupRetention] = useState<number | "">("");
   const [backupFailure, setBackupFailure] = useState("");
-  const [conversion, setConversion] = useState<ConversionConfig | null>(null);
-  const [status, setStatus] = useState<StatusResponse | null>(null);
-  const [conversionFailure, setConversionFailure] = useState("");
-  const [settingsTab, setSettingsTab] = useState<"general" | "conversion">("general");
 
   useEffect(() => { void api.version().then(setVersion).catch(() => {}); }, []);
-  useEffect(() => { void Promise.all([api.getConversion(), api.status()]).then(([c, s]) => { setConversion(c); setStatus(s); }).catch(() => setConversionFailure(t("无法读取格式转换设置"))); }, [t]);
   useEffect(() => {
     let active = true;
     void api.getSettings().then((loaded) => {
@@ -142,23 +137,6 @@ export function SettingsPage() {
         </>
       )}
     >
-      <div className="agent-tabs" role="tablist" aria-label={t("设置")}>
-        <button className={`agent-tab${settingsTab === "general" ? " is-active" : ""}`} role="tab" aria-selected={settingsTab === "general"} type="button" onClick={() => setSettingsTab("general")}>{t("常规设置")}</button>
-        <button className={`agent-tab${settingsTab === "conversion" ? " is-active" : ""}`} role="tab" aria-selected={settingsTab === "conversion"} type="button" onClick={() => setSettingsTab("conversion")}>{t("本地格式转换")}</button>
-      </div>
-      {settingsTab === "conversion" ? <section className="settings-section">
-        <h2>{t("本地格式转换")}</h2>
-        {conversion ? <>
-          <div className="settings-row"><Radio size={16} aria-hidden="true" /><label htmlFor="conversion-enabled"><strong>{t("启用本地 API 格式转换")}</strong><small>{t("将 Anthropic Messages 和 OpenAI Responses 转为 OpenAI Chat Completions")}</small></label><input id="conversion-enabled" type="checkbox" checked={conversion.enabled} onChange={(e) => setConversion({ ...conversion, enabled: e.target.checked })} /></div>
-          <div className="settings-row"><label htmlFor="conversion-target"><strong>{t("目标 Profile")}</strong></label><select id="conversion-target" value={conversion.target_profile} onChange={(e) => setConversion({ ...conversion, target_profile: e.target.value })}>{(status?.profiles ?? []).filter((p) => p.model).map((p) => <option key={p.id} value={p.id}>{p.label || p.id}</option>)}</select></div>
-          <div className="settings-row"><label htmlFor="conversion-listen"><strong>{t("监听地址")}</strong></label><input id="conversion-listen" value={conversion.listen} onChange={(e) => setConversion({ ...conversion, listen: e.target.value })} /></div>
-          <div className="settings-row"><label htmlFor="conversion-key"><strong>{t("本地 API Key")}</strong></label><input id="conversion-key" type="password" value={conversion.api_key} onChange={(e) => setConversion({ ...conversion, api_key: e.target.value })} /></div>
-          <div className="settings-row"><label htmlFor="conversion-anthropic-model"><strong>{t("Anthropic 模型")}</strong></label><input id="conversion-anthropic-model" value={conversion.anthropic_model} onChange={(e) => setConversion({ ...conversion, anthropic_model: e.target.value })} /></div>
-          <div className="settings-row"><label htmlFor="conversion-responses-model"><strong>{t("Responses 模型")}</strong></label><input id="conversion-responses-model" value={conversion.responses_model} onChange={(e) => setConversion({ ...conversion, responses_model: e.target.value })} /></div>
-          <button className="button button-primary" type="button" onClick={() => void api.saveConversion(conversion).then(setConversion).catch((e) => setConversionFailure(String(e)))}>{t("保存格式转换设置")}</button>
-          {conversionFailure ? <p className="settings-field-error" role="status">{conversionFailure}</p> : null}
-        </> : <p className="settings-field-error">{conversionFailure}</p>}
-      </section> : <>
       <section className="settings-section">
         <h2>{t("界面")}</h2>
         <div className="settings-row"><ThemePicker /></div>
@@ -219,7 +197,6 @@ export function SettingsPage() {
         </button>
         {helpFailure ? <p className="agent-manage-error">{helpFailure}</p> : null}
       </section>
-      </>}
     </PageScaffold>
   );
 }

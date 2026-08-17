@@ -7,6 +7,7 @@ import { InstallTaskPage } from "./pages/InstallTaskPage";
 import { AgentProfilePage } from "./pages/AgentProfilePage";
 import { AgentSelectionPage } from "./pages/AgentSelectionPage";
 import { EnvironmentOverviewPage } from "./pages/EnvironmentOverviewPage";
+import { ConversionPage } from "./pages/ConversionPage";
 import { ModelSelectionPage } from "./pages/ModelSelectionPage";
 import { MCPPage } from "./pages/MCPPage";
 import { ProfilesPage } from "./pages/ProfilesPage";
@@ -100,6 +101,7 @@ function WorkspaceRoutes() {
         <Route path="/profiles" element={<ProfilesPage />} />
         <Route path="/mcp" element={<MCPPage />} />
         <Route path="/skills" element={<SkillsPage />} />
+        <Route path="/conversion" element={<ConversionPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/settings/transfer" element={<TransferPage />} />
         <Route path="/transfer" element={<Navigate to="/settings/transfer" replace />} />
