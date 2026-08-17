@@ -14,13 +14,14 @@ import (
 )
 
 type Config struct {
-	Enabled       bool     `json:"enabled"`
-	Listen        string   `json:"listen"`
-	APIKey        string   `json:"api_key"`
-	Models        []string `json:"models"`
-	TargetBaseURL string   `json:"target_base_url"`
-	TargetModel   string   `json:"target_model"`
-	TargetAPIKey  string   `json:"-"`
+	Enabled               bool     `json:"enabled"`
+	Listen                string   `json:"listen"`
+	APIKey                string   `json:"api_key"`
+	Models                []string `json:"models"`
+	TargetBaseURL         string   `json:"target_base_url"`
+	TargetModel           string   `json:"target_model"`
+	TargetReasoningEffort string   `json:"target_reasoning_effort"`
+	TargetAPIKey          string   `json:"-"`
 }
 
 type Server struct {
@@ -28,6 +29,12 @@ type Server struct {
 	cfg    Config
 	http   *http.Server
 	client *http.Client
+}
+
+type streamedToolCall struct {
+	id        string
+	name      string
+	arguments strings.Builder
 }
 
 func New(client *http.Client) *Server {
@@ -115,7 +122,7 @@ func (s *Server) forward(w http.ResponseWriter, r *http.Request, body []byte, cf
 }
 func (s *Server) forwardConverted(w http.ResponseWriter, r *http.Request, body []byte, cfg Config, format string) {
 	if cfg.TargetModel != "" {
-		body = withModel(body, cfg.TargetModel)
+		body = withTargetConfig(body, cfg.TargetModel, cfg.TargetReasoningEffort)
 	}
 	target := strings.TrimRight(cfg.TargetBaseURL, "/") + "/chat/completions"
 	req, _ := http.NewRequestWithContext(r.Context(), http.MethodPost, target, bytes.NewReader(body))
@@ -144,12 +151,26 @@ func (s *Server) forwardConverted(w http.ResponseWriter, r *http.Request, body [
 	_, _ = w.Write(data)
 }
 
-func withModel(body []byte, model string) []byte {
+func withTargetConfig(body []byte, model, reasoningEffort string) []byte {
 	var request map[string]any
 	if json.Unmarshal(body, &request) != nil {
 		return body
 	}
 	request["model"] = model
+	if reasoningEffort != "" {
+		request["reasoning_effort"] = reasoningEffort
+	} else {
+		delete(request, "reasoning_effort")
+	}
+	if reasoningModel(model) {
+		if maxTokens, ok := request["max_tokens"]; ok {
+			request["max_completion_tokens"] = maxTokens
+			delete(request, "max_tokens")
+		}
+	} else if maxTokens, ok := request["max_completion_tokens"]; ok {
+		request["max_tokens"] = maxTokens
+		delete(request, "max_completion_tokens")
+	}
 	updated, err := json.Marshal(request)
 	if err != nil {
 		return body
@@ -182,6 +203,7 @@ func (s *Server) forwardResponsesStream(w http.ResponseWriter, resp *http.Respon
 	flusher, _ := w.(http.Flusher)
 	responseID := "resp_bootagent_" + strconv.FormatInt(time.Now().UnixNano(), 10)
 	messageID := responseID + "_msg"
+	reasoningID := responseID + "_reasoning"
 	writeEvent := func(event string, value any) {
 		data, _ := json.Marshal(value)
 		_, _ = io.WriteString(w, "event: "+event+"\ndata: "+string(data)+"\n\n")
@@ -193,7 +215,11 @@ func (s *Server) forwardResponsesStream(w http.ResponseWriter, resp *http.Respon
 	writeEvent("response.created", map[string]any{"type": "response.created", "response": response})
 	messageAdded := false
 	contentAdded := false
+	reasoningAdded := false
+	var reasoningText strings.Builder
 	var text strings.Builder
+	tools := map[int]*streamedToolCall{}
+	maxToolIndex := -1
 	scanner := bufio.NewScanner(resp.Body)
 	scanner.Buffer(make([]byte, 1024), 1024*1024)
 	for scanner.Scan() {
@@ -208,44 +234,133 @@ func (s *Server) forwardResponsesStream(w http.ResponseWriter, resp *http.Respon
 		var chunk struct {
 			Choices []struct {
 				Delta struct {
-					Content string `json:"content"`
+					Content        string `json:"content"`
+					Reasoning      string `json:"reasoning_content"`
+					ReasoningAlias string `json:"reasoning"`
+					ToolCalls      []struct {
+						Index    int    `json:"index"`
+						ID       string `json:"id"`
+						Function struct {
+							Name      string `json:"name"`
+							Arguments string `json:"arguments"`
+						} `json:"function"`
+					} `json:"tool_calls"`
 				} `json:"delta"`
 			} `json:"choices"`
 		}
 		if json.Unmarshal([]byte(data), &chunk) != nil || len(chunk.Choices) == 0 {
 			continue
 		}
+		reasoning := chunk.Choices[0].Delta.Reasoning
+		if reasoning == "" {
+			reasoning = chunk.Choices[0].Delta.ReasoningAlias
+		}
+		if reasoning != "" {
+			if !reasoningAdded {
+				writeEvent("response.output_item.added", map[string]any{"type": "response.output_item.added", "output_index": 0, "item": map[string]any{"id": reasoningID, "type": "reasoning", "status": "in_progress", "summary": []any{}}})
+				writeEvent("response.reasoning_summary_part.added", map[string]any{"type": "response.reasoning_summary_part.added", "item_id": reasoningID, "output_index": 0, "summary_index": 0, "part": map[string]any{"type": "summary_text", "text": ""}})
+				reasoningAdded = true
+			}
+			reasoningText.WriteString(reasoning)
+			writeEvent("response.reasoning_summary_text.delta", map[string]any{"type": "response.reasoning_summary_text.delta", "item_id": reasoningID, "output_index": 0, "summary_index": 0, "delta": reasoning})
+		}
 		delta := chunk.Choices[0].Delta.Content
+		for _, tool := range chunk.Choices[0].Delta.ToolCalls {
+			if tool.Index > maxToolIndex {
+				maxToolIndex = tool.Index
+			}
+			state := tools[tool.Index]
+			if state == nil {
+				state = &streamedToolCall{}
+				tools[tool.Index] = state
+			}
+			if tool.ID != "" {
+				state.id = tool.ID
+			}
+			if tool.Function.Name != "" {
+				state.name = tool.Function.Name
+			}
+			state.arguments.WriteString(tool.Function.Arguments)
+		}
 		if delta == "" {
 			continue
 		}
+		textIndex := 0
+		if reasoningAdded {
+			textIndex = 1
+		}
 		if !messageAdded {
-			writeEvent("response.output_item.added", map[string]any{"type": "response.output_item.added", "output_index": 0, "item": map[string]any{"id": messageID, "type": "message", "status": "in_progress", "role": "assistant", "content": []any{}}})
+			writeEvent("response.output_item.added", map[string]any{"type": "response.output_item.added", "output_index": textIndex, "item": map[string]any{"id": messageID, "type": "message", "status": "in_progress", "role": "assistant", "content": []any{}}})
 			messageAdded = true
 		}
 		if !contentAdded {
-			writeEvent("response.content_part.added", map[string]any{"type": "response.content_part.added", "item_id": messageID, "output_index": 0, "content_index": 0, "part": map[string]any{"type": "output_text", "text": "", "annotations": []any{}}})
+			writeEvent("response.content_part.added", map[string]any{"type": "response.content_part.added", "item_id": messageID, "output_index": textIndex, "content_index": 0, "part": map[string]any{"type": "output_text", "text": "", "annotations": []any{}}})
 			contentAdded = true
 		}
 		text.WriteString(delta)
-		writeEvent("response.output_text.delta", map[string]any{"type": "response.output_text.delta", "item_id": messageID, "output_index": 0, "content_index": 0, "delta": delta, "logprobs": []any{}})
+		writeEvent("response.output_text.delta", map[string]any{"type": "response.output_text.delta", "item_id": messageID, "output_index": textIndex, "content_index": 0, "delta": delta, "logprobs": []any{}})
+	}
+	if reasoningAdded {
+		writeEvent("response.reasoning_summary_text.done", map[string]any{"type": "response.reasoning_summary_text.done", "item_id": reasoningID, "output_index": 0, "summary_index": 0, "text": reasoningText.String()})
+		writeEvent("response.reasoning_summary_part.done", map[string]any{"type": "response.reasoning_summary_part.done", "item_id": reasoningID, "output_index": 0, "summary_index": 0, "part": map[string]any{"type": "summary_text", "text": reasoningText.String()}})
+		writeEvent("response.output_item.done", map[string]any{"type": "response.output_item.done", "output_index": 0, "item": map[string]any{"id": reasoningID, "type": "reasoning", "status": "completed", "summary": []any{map[string]any{"type": "summary_text", "text": reasoningText.String()}}}})
 	}
 	if messageAdded {
-		writeEvent("response.output_text.done", map[string]any{"type": "response.output_text.done", "item_id": messageID, "output_index": 0, "content_index": 0, "text": text.String()})
-		writeEvent("response.content_part.done", map[string]any{"type": "response.content_part.done", "item_id": messageID, "output_index": 0, "content_index": 0, "part": map[string]any{"type": "output_text", "text": text.String(), "annotations": []any{}}})
-		writeEvent("response.output_item.done", map[string]any{"type": "response.output_item.done", "output_index": 0, "item": map[string]any{"id": messageID, "type": "message", "status": "completed", "role": "assistant", "content": []any{map[string]any{"type": "output_text", "text": text.String(), "annotations": []any{}}}}})
+		textIndex := 0
+		if reasoningAdded {
+			textIndex = 1
+		}
+		writeEvent("response.output_text.done", map[string]any{"type": "response.output_text.done", "item_id": messageID, "output_index": textIndex, "content_index": 0, "text": text.String()})
+		writeEvent("response.content_part.done", map[string]any{"type": "response.content_part.done", "item_id": messageID, "output_index": textIndex, "content_index": 0, "part": map[string]any{"type": "output_text", "text": text.String(), "annotations": []any{}}})
+		writeEvent("response.output_item.done", map[string]any{"type": "response.output_item.done", "output_index": textIndex, "item": map[string]any{"id": messageID, "type": "message", "status": "completed", "role": "assistant", "content": []any{map[string]any{"type": "output_text", "text": text.String(), "annotations": []any{}}}}})
+	}
+	textIndex := 0
+	if reasoningAdded {
+		textIndex = 1
+	}
+	toolOutput := textIndex + 1
+	for index := 0; index <= maxToolIndex; index++ {
+		state, ok := tools[index]
+		if !ok {
+			break
+		}
+		if state.id == "" || state.name == "" {
+			continue
+		}
+		item := map[string]any{"id": state.id, "type": "function_call", "status": "completed", "call_id": state.id, "name": state.name, "arguments": state.arguments.String()}
+		writeEvent("response.output_item.added", map[string]any{"type": "response.output_item.added", "output_index": toolOutput, "item": map[string]any{"id": state.id, "type": "function_call", "status": "in_progress", "call_id": state.id, "name": state.name, "arguments": ""}})
+		writeEvent("response.function_call_arguments.delta", map[string]any{"type": "response.function_call_arguments.delta", "item_id": state.id, "output_index": toolOutput, "delta": state.arguments.String()})
+		writeEvent("response.function_call_arguments.done", map[string]any{"type": "response.function_call_arguments.done", "item_id": state.id, "output_index": toolOutput, "arguments": state.arguments.String()})
+		writeEvent("response.output_item.done", map[string]any{"type": "response.output_item.done", "output_index": toolOutput, "item": item})
+		toolOutput++
 	}
 	response["status"] = "completed"
-	if messageAdded {
-		response["output"] = []any{
-			map[string]any{
-				"id":      messageID,
-				"type":    "message",
-				"status":  "completed",
-				"role":    "assistant",
-				"content": []any{map[string]any{"type": "output_text", "text": text.String(), "annotations": []any{}}},
-			},
+	if reasoningAdded || messageAdded || maxToolIndex >= 0 {
+		output := []any{}
+		if reasoningAdded {
+			output = append(output, map[string]any{"id": reasoningID, "type": "reasoning", "status": "completed", "summary": []any{map[string]any{"type": "summary_text", "text": reasoningText.String()}}})
 		}
+		if messageAdded {
+			output = append(output,
+				map[string]any{
+					"id":      messageID,
+					"type":    "message",
+					"status":  "completed",
+					"role":    "assistant",
+					"content": []any{map[string]any{"type": "output_text", "text": text.String(), "annotations": []any{}}},
+				},
+			)
+		}
+		for index := 0; index <= maxToolIndex; index++ {
+			state, ok := tools[index]
+			if !ok {
+				break
+			}
+			if state.id != "" && state.name != "" {
+				output = append(output, map[string]any{"id": state.id, "type": "function_call", "status": "completed", "call_id": state.id, "name": state.name, "arguments": state.arguments.String()})
+			}
+		}
+		response["output"] = output
 	}
 	writeEvent("response.completed", map[string]any{"type": "response.completed", "response": response})
 }
