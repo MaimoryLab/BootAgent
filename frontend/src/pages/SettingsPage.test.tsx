@@ -17,6 +17,7 @@ describe("SettingsPage", () => {
   it("contains appearance and download settings and opens the transfer child page", async () => {
     vi.spyOn(api, "getSettings").mockResolvedValue({
       schema_version: 1,
+      autostart: false,
       prefer_mirror: false,
       mirror_from_region: false,
       backup_retention: 3,
@@ -52,12 +53,14 @@ describe("SettingsPage", () => {
   it("loads and saves per-target backup retention", async () => {
     const getSettings = vi.spyOn(api, "getSettings").mockResolvedValue({
       schema_version: 1,
+      autostart: false,
       prefer_mirror: false,
       mirror_from_region: false,
       backup_retention: 3,
     });
     const saveSettings = vi.spyOn(api, "saveSettings").mockResolvedValue({
       schema_version: 1,
+      autostart: false,
       prefer_mirror: false,
       mirror_from_region: false,
       backup_retention: 7,
@@ -71,10 +74,32 @@ describe("SettingsPage", () => {
     await userEvent.tab();
     await waitFor(() => expect(saveSettings).toHaveBeenCalledWith({
       schema_version: 1,
+      autostart: false,
       prefer_mirror: false,
       mirror_from_region: false,
       backup_retention: 7,
     }));
+  });
+
+  it("saves the launch-at-login checkbox", async () => {
+    vi.spyOn(api, "getSettings").mockResolvedValue({
+      schema_version: 1,
+      autostart: false,
+      prefer_mirror: false,
+      mirror_from_region: false,
+      backup_retention: 3,
+    });
+    const saveSettings = vi.spyOn(api, "saveSettings").mockResolvedValue({
+      schema_version: 1,
+      autostart: true,
+      prefer_mirror: false,
+      mirror_from_region: false,
+      backup_retention: 3,
+    });
+    show();
+    const checkbox = await screen.findByRole("checkbox", { name: "开机自启动" });
+    await userEvent.click(checkbox);
+    await waitFor(() => expect(saveSettings).toHaveBeenCalledWith(expect.objectContaining({ autostart: true })));
   });
 
   // An app running from a mounted dmg sits on a read-only volume, so the update

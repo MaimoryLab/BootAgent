@@ -32,7 +32,7 @@ function hasNativeWebView(): boolean {
   return Boolean(host.chrome?.webview?.postMessage || host.webkit?.messageHandlers?.external?.postMessage || host.wails?.invoke);
 }
 
-export async function confirmDelete(options: {
+export async function confirmAction(options: {
   title: string;
   message: string;
   confirmLabel: string;
@@ -61,4 +61,13 @@ export async function confirmDelete(options: {
   // be shown, "cannot ask" has to mean "do not delete".
   if (typeof window.confirm !== "function") return false;
   return window.confirm(options.message);
+}
+
+export function confirmDelete(options: {
+  title: string;
+  message: string;
+  confirmLabel: string;
+  cancelLabel: string;
+}): Promise<boolean> {
+  return confirmAction(options);
 }

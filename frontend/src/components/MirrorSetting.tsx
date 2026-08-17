@@ -15,6 +15,7 @@ export function MirrorSetting() {
   const { t } = useI18n();
   const [preferMirror, setPreferMirror] = useState<boolean | null>(null);
   const [backupRetention, setBackupRetention] = useState(3);
+  const [autostart, setAutostart] = useState(false);
   // Whether the tick came from the machine's region rather than from a choice.
   // Shown so an already-ticked box does not look like something the user did and
   // forgot, and so it is clear it can be turned off.
@@ -30,6 +31,7 @@ export function MirrorSetting() {
         setPreferMirror(settings.prefer_mirror);
         setFromRegion(settings.mirror_from_region);
         setBackupRetention(settings.backup_retention ?? 3);
+        setAutostart(settings.autostart === true);
       })
       .catch(() => {
         // An unreadable preference is not worth a visible error: the backend
@@ -54,7 +56,7 @@ export function MirrorSetting() {
     setFromRegion(false);
     setFailure("");
     try {
-      const saved = await api.saveSettings({ schema_version: 1, prefer_mirror: next, mirror_from_region: false, backup_retention: backupRetention });
+      const saved = await api.saveSettings({ schema_version: 1, autostart, prefer_mirror: next, mirror_from_region: false, backup_retention: backupRetention });
       setPreferMirror(saved.prefer_mirror);
       setFromRegion(saved.mirror_from_region);
       setBackupRetention(saved.backup_retention ?? backupRetention);
