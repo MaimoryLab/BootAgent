@@ -24,6 +24,7 @@ export type {
     SaveProfileResult,
     SaveProviderResult,
     Settings,
+    SettingsPatch,
     SkillAgentApplyResult,
     SkillApplyRequest,
     SkillApplyResult,

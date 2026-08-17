@@ -1,11 +1,12 @@
 import { Power } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { api, describeFailure } from "../backend/api";
 import { PageScaffold } from "../components/PageScaffold";
 import { SelectField } from "../components/SelectField";
 import { useI18n } from "../i18n";
 import { useWizard } from "../state/WizardContext";
+import { confirmAction } from "../state/confirmDelete";
 import type { ConversionConfig, StatusResponse } from "../types/api";
 
 export function ConversionPage() {
@@ -15,11 +16,31 @@ export function ConversionPage() {
   const [status, setStatus] = useState<StatusResponse | null>(null);
   const [failure, setFailure] = useState("");
   const [saving, setSaving] = useState(false);
+  const autostartPrompted = useRef(false);
+
+  const maybeAskAutostart = async (enabled: boolean) => {
+    if (!enabled || autostartPrompted.current) return;
+    autostartPrompted.current = true;
+    try {
+      const settings = await api.getSettings();
+      if (settings.autostart) return;
+      if (!await confirmAction({
+        title: t("开机自启动"),
+        message: t("API 转换已启用，是否让 BootAgent 随系统启动？"),
+        confirmLabel: t("开机自启动"),
+        cancelLabel: t("暂不启用"),
+      })) return;
+      await api.saveSettings({ autostart: true });
+    } catch (error) {
+      setFailure(describeFailure(error, t("无法保存开机自启动设置"), t).message);
+    }
+  };
 
   useEffect(() => {
     void Promise.all([api.getConversion(), api.status()]).then(([loaded, nextStatus]) => {
       setConfig(loaded);
       setStatus(nextStatus);
+      void maybeAskAutostart(loaded.enabled);
     }).catch((error) => setFailure(describeFailure(error, t("无法读取格式转换设置"), t).message));
   }, [t]);
 
@@ -27,7 +48,12 @@ export function ConversionPage() {
     if (!config) return;
     setSaving(true);
     setFailure("");
-    try { setConfig(await api.saveConversion(config)); void refreshStatus(); }
+    try {
+      const saved = await api.saveConversion(config);
+      setConfig(saved);
+      await maybeAskAutostart(saved.enabled);
+      void refreshStatus();
+    }
     catch (error) { setFailure(describeFailure(error, t("无法保存格式转换设置"), t).message); }
     finally { setSaving(false); }
   };
@@ -36,7 +62,12 @@ export function ConversionPage() {
     if (!config) return;
     setSaving(true);
     setFailure("");
-    try { setConfig(await api.saveConversion({ ...config, enabled: !config.enabled })); void refreshStatus(); }
+    try {
+      const saved = await api.saveConversion({ ...config, enabled: !config.enabled });
+      setConfig(saved);
+      await maybeAskAutostart(saved.enabled);
+      void refreshStatus();
+    }
     catch (error) { setFailure(describeFailure(error, t("无法切换格式转换"), t).message); }
     finally { setSaving(false); }
   };

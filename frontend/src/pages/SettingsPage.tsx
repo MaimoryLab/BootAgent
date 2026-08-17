@@ -1,4 +1,4 @@
-import { Archive, BookOpen, ChevronRight, ExternalLink, Import, Languages, RefreshCw } from "lucide-react";
+import { Archive, BookOpen, ChevronRight, ExternalLink, Import, Languages, Power, RefreshCw } from "lucide-react";
 import { useState } from "react";
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
@@ -32,6 +32,7 @@ export function SettingsPage() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [backupRetention, setBackupRetention] = useState<number | "">("");
   const [backupFailure, setBackupFailure] = useState("");
+  const [autostartFailure, setAutostartFailure] = useState("");
 
   useEffect(() => { void api.version().then(setVersion).catch(() => {}); }, []);
   useEffect(() => {
@@ -55,16 +56,25 @@ export function SettingsPage() {
     setBackupRetention(nextRetention);
     setBackupFailure("");
     try {
-      const saved = await api.saveSettings({
-        ...settings,
-        schema_version: 1,
-        mirror_from_region: false,
-        backup_retention: nextRetention,
-      });
+      const saved = await api.saveSettings({ backup_retention: nextRetention });
       setSettings(saved);
       setBackupRetention(saved.backup_retention ?? nextRetention);
     } catch (error) {
       setBackupFailure(describeFailure(error, t("无法保存备份设置"), t).message);
+    }
+  };
+
+  const toggleAutostart = async (enabled: boolean) => {
+    if (!settings) return;
+    const previous = settings.autostart;
+    setSettings({ ...settings, autostart: enabled });
+    setAutostartFailure("");
+    try {
+      const saved = await api.saveSettings({ autostart: enabled });
+      setSettings(saved);
+    } catch (error) {
+      setSettings({ ...settings, autostart: previous });
+      setAutostartFailure(describeFailure(error, t("无法保存开机自启动设置"), t).message);
     }
   };
 
@@ -156,6 +166,27 @@ export function SettingsPage() {
       <section className="settings-section">
         <h2>{t("下载")}</h2>
         <MirrorSetting />
+      </section>
+      <section className="settings-section">
+        <h2>{t("启动设置")}</h2>
+        <div className="settings-row settings-toggle-row">
+          <label className="toggle-row">
+            <Power size={16} aria-hidden="true" />
+            <span>
+              <strong>{t("开机自启动")}</strong>
+              <small>{t("登录系统后自动启动 BootAgent")}</small>
+            </span>
+            <input
+              type="checkbox"
+              role="switch"
+              aria-label={t("开机自启动")}
+              checked={settings?.autostart === true}
+              disabled={settings === null}
+              onChange={(event) => void toggleAutostart(event.target.checked)}
+            />
+          </label>
+        </div>
+        {autostartFailure ? <p className="settings-field-error" role="status">{autostartFailure}</p> : null}
       </section>
       <section className="settings-section">
         <h2>{t("数据")}</h2>

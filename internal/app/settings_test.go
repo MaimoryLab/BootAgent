@@ -76,6 +76,56 @@ func TestSettingsDefaultToTheOfficialSourceAndSurviveARestart(t *testing.T) {
 	}
 }
 
+func TestAutostartSettingDefaultsOffAndPersists(t *testing.T) {
+	home := t.TempDir()
+	core := settingsCore(t, home)
+	settings, err := core.Settings(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if settings.Autostart {
+		t.Fatal("a fresh install enabled autostart")
+	}
+	if _, err := core.SaveSettings(context.Background(), Settings{Autostart: true}); err != nil {
+		t.Fatal(err)
+	}
+	reloaded, err := settingsCore(t, home).Settings(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reloaded.Autostart {
+		t.Fatal("autostart did not survive a restart")
+	}
+}
+
+func TestUpdateSettingsPreservesUntouchedPreferences(t *testing.T) {
+	home := t.TempDir()
+	core := settingsCore(t, home)
+	if _, err := core.SaveSettings(context.Background(), Settings{PreferMirror: true, BackupRetention: 7}); err != nil {
+		t.Fatal(err)
+	}
+	enable := true
+	updated, err := core.UpdateSettings(context.Background(), SettingsPatch{Autostart: &enable})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !updated.Autostart || !updated.PreferMirror || updated.BackupRetention != 7 {
+		t.Fatalf("partial update changed untouched settings: %#v", updated)
+	}
+
+	china := settingsCore(t, t.TempDir(), "zh_CN.UTF-8")
+	if _, err := china.UpdateSettings(context.Background(), SettingsPatch{Autostart: &enable}); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(china.settingsPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), "prefer_mirror") {
+		t.Fatalf("partial update materialized regional mirror default: %s", data)
+	}
+}
+
 func TestBackupRetentionPersistsAndBoundsValues(t *testing.T) {
 	home := t.TempDir()
 	core := settingsCore(t, home)

@@ -22,6 +22,7 @@ BootAgent 是一个本地桌面工作台，用来统一管理 AI 编程 Agent。
 - 把 Profile 上的思考深度（`off`、`low`、`medium`、`high`、`max`）写入每个自身配置格式有对应位置的 Agent，并按各自接受的取值做换算。没有文档化深度设置的 Agent 保持原样，不会被塞进自造的字段。
 - 按需准备 Node.js、uv，以及 Aider 所需的托管 Python 运行时。
 - 长时间安装任务在任务中心持续可见，并且可以取消。
+- 提供本地 API 格式转换和可选的开机自启动；两者默认关闭，启用格式转换时会询问是否同时开机自启动。
 - 导入和导出 Provider、Profile 以及选中的 MCP 服务器；默认不导出 API Key 和 MCP 秘密，也支持密码加密或明确确认后的明文导出。
 - 从已初始化的 Claude Code、Codex、OpenCode、Kilo CLI 和 Hermes 中发现 MCP 服务器，并在 MCP Registry 页面选择同步目标。扫描在后台进行，编辑必须显式应用并只写入本机。
 - 创建备份、原子写入，并将凭据保存在本机私有存储中。Profile、Provider、MCP、Agent 配置目标和 Skill 分别保留最近 3 个历史版本；备份统一放在 `~/.bootagent/backup`，可在“设置”中修改每个目标的保留数量。

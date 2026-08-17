@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"maps"
 	"net"
 	"net/http"
 	"strconv"
@@ -197,9 +198,7 @@ func (s *Server) forwardConverted(w http.ResponseWriter, r *http.Request, body [
 	if format != "chat" && resp.StatusCode < 300 {
 		data, _ = FromChat(format, data)
 	}
-	for k, v := range resp.Header {
-		w.Header()[k] = v
-	}
+	maps.Copy(w.Header(), resp.Header)
 	// The body is read and written again (and may be transformed or transparently
 	// decompressed), so upstream framing/encoding metadata is no longer valid.
 	w.Header().Del("Content-Length")
@@ -389,9 +388,7 @@ func modelFromRequest(body []byte) string {
 }
 
 func (s *Server) forwardResponsesStream(w http.ResponseWriter, resp *http.Response, model string) {
-	for k, v := range resp.Header {
-		w.Header()[k] = v
-	}
+	maps.Copy(w.Header(), resp.Header)
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Del("Content-Length")
 	w.WriteHeader(resp.StatusCode)

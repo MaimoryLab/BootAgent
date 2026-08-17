@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Globe2 } from "lucide-react";
 
 import { api, describeFailure } from "../backend/api";
 import { useI18n } from "../i18n";
@@ -54,7 +55,7 @@ export function MirrorSetting() {
     setFromRegion(false);
     setFailure("");
     try {
-      const saved = await api.saveSettings({ schema_version: 1, prefer_mirror: next, mirror_from_region: false, backup_retention: backupRetention });
+      const saved = await api.saveSettings({ prefer_mirror: next });
       setPreferMirror(saved.prefer_mirror);
       setFromRegion(saved.mirror_from_region);
       setBackupRetention(saved.backup_retention ?? backupRetention);
@@ -69,6 +70,7 @@ export function MirrorSetting() {
   return (
     <div className="settings-row mirror-setting-row">
       <label className="toggle-row">
+        <Globe2 size={18} aria-hidden="true" />
         <span>
           <strong>{t("优先使用国内镜像")}</strong>
           {fromRegion ? <small>{t("已根据系统地区设置默认使用镜像。可以改回官方源")}</small> : null}
@@ -81,6 +83,7 @@ export function MirrorSetting() {
         <input
           type="checkbox"
           role="switch"
+          aria-label={t("优先使用国内镜像")}
           checked={preferMirror === true}
           disabled={preferMirror === null}
           onChange={(event) => void toggle(event.target.checked)}

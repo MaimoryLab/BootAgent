@@ -143,6 +143,23 @@ func main() {
 		}
 		return current.Browser.OpenURL(url)
 	}, binding.ServicesOptions{
+		Autostart: binding.AutostartCallbacks{
+			IsEnabled: func() (bool, error) {
+				if appInstance == nil || appInstance.Autostart == nil {
+					return false, oneerrors.New(oneerrors.InternalError, "Autostart manager is not ready")
+				}
+				return appInstance.Autostart.IsEnabled()
+			},
+			SetEnabled: func(enabled bool) error {
+				if appInstance == nil || appInstance.Autostart == nil {
+					return oneerrors.New(oneerrors.InternalError, "Autostart manager is not ready")
+				}
+				if enabled {
+					return appInstance.Autostart.Enable()
+				}
+				return appInstance.Autostart.Disable()
+			},
+		},
 		AfterGetStatus: func(status app.StatusResponse) {
 			if status.FirstRun {
 				return
@@ -210,6 +227,13 @@ func main() {
 		}
 	})
 	appInstance.RegisterService(application.NewServiceWithOptions(binding.NewUpdateService(updateBackend), application.ServiceOptions{MarshalError: oneerrors.Marshal}))
+	if settings, err := core.Settings(context.Background()); err != nil {
+		slog.Warn("autostart setting unavailable", "error", err)
+	} else if settings.Autostart {
+		if err := appInstance.Autostart.Enable(); err != nil {
+			slog.Warn("autostart registration failed", "error", err)
+		}
+	}
 	if !application.System.IsServer() {
 		// A floor, not a second breakpoint: the sidebar deliberately collapses to
 		// a 72px icon rail under 900px, and the layout is verified down to 560px.

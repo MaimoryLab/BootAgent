@@ -48,6 +48,7 @@ export type DesktopAgentActionResult = Omit<AppModels.DesktopAgentActionResult, 
 export type DesktopAgentProfileResult = AppModels.DesktopAgentProfileResult;
 export type InstallRuntimeResult = Omit<AppModels.InstallRuntimeResult, "runtimes"> & { runtimes: RuntimeStatus[] };
 export type Settings = AppModels.Settings;
+export type SettingsPatch = AppModels.SettingsPatch;
 export type ConversionConfig = AppModels.ConversionConfig;
 export type ActivateAgentResponse = BindingModels.ActivateResponse;
 export type LaunchAgentResponse = BindingModels.LaunchResponse;

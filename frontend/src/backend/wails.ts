@@ -40,6 +40,7 @@ import type {
   SaveProviderInput,
   SaveProviderResult,
   Settings,
+  SettingsPatch,
   SkillApplyRequest,
   SkillApplyResult,
   SkillBackupSummary,
@@ -213,7 +214,7 @@ export const wailsApi = {
   installRuntime: (runtime: string): CancellableRequest<InstallRuntimeResult> =>
     call(() => RuntimeService.InstallRuntime({ runtime })) as CancellableRequest<InstallRuntimeResult>,
   getSettings: (): Promise<Settings> => call(() => RuntimeService.GetSettings()) as Promise<Settings>,
-  saveSettings: (settings: Settings): Promise<Settings> =>
+  saveSettings: (settings: SettingsPatch): Promise<Settings> =>
     call(() => RuntimeService.SaveSettings(settings)) as Promise<Settings>,
   getConversion: (): Promise<ConversionConfig> => call(() => ConversionService.Get()) as Promise<ConversionConfig>,
   saveConversion: (config: ConversionConfig): Promise<ConversionConfig> => call(() => ConversionService.Save(config)) as Promise<ConversionConfig>,

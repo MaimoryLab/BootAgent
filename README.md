@@ -22,6 +22,7 @@ BootAgent is a local desktop workspace for AI coding Agents. It turns a fresh ma
 - Carries a Profile's reasoning effort (`off`, `low`, `medium`, `high`, `max`) into every Agent whose own config format documents a place for it, translating the scale to what each one accepts. Agents with no documented depth setting are left alone rather than given invented keys.
 - Bootstraps required runtimes such as Node.js, uv, and Aider's managed Python when needed.
 - Keeps long-running installs visible and cancellable in the Task Center.
+- Provides local API format conversion and an optional launch-at-login setting; both are off by default, and enabling conversion offers to enable launch at login.
 - Imports and exports Providers, Profiles, and selected MCP servers. API keys and MCP secrets are excluded by default; password-encrypted or explicitly confirmed plaintext export is also available.
 - Discovers MCP servers from initialized Claude Code, Codex, OpenCode, Kilo CLI, and Hermes installations, and applies selected servers across them from the MCP Registry. Scanning runs in the background; edits are explicit and local.
 - Creates backups, writes atomically, and keeps credentials in private local storage. The latest three historical versions are kept per Profile, Provider, MCP, Agent configuration target, and Skill; backups live under `~/.bootagent/backup` and the per-target count can be changed in Settings.

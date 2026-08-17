@@ -38,6 +38,6 @@ export function ListRuntimes(): $CancellablePromise<app$0.RuntimeStatus[] | null
 /**
  * SaveSettings persists the download preferences and returns what was stored.
  */
-export function SaveSettings(request: app$0.Settings): $CancellablePromise<app$0.Settings> {
+export function SaveSettings(request: app$0.SettingsPatch): $CancellablePromise<app$0.Settings> {
     return $Call.ByID(3381352702, request);
 }

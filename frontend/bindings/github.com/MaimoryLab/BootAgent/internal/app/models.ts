@@ -256,6 +256,11 @@ export interface Settings {
     "schema_version": number;
 
     /**
+     * Autostart launches BootAgent when the user logs in.
+     */
+    "autostart": boolean;
+
+    /**
      * PreferMirror routes runtime archives through the mirror in
      * runtimes.lock.json and npm-managed Agents through the npmmirror registry.
      * Runtime archives keep their locked checksum verification; npm verifies
@@ -276,6 +281,16 @@ export interface Settings {
      * BackupRetention is the number of historical versions kept per target.
      */
     "backup_retention": number;
+}
+
+/**
+ * SettingsPatch updates only the machine-level preferences named by the caller.
+ * A nil field means "leave the stored value unchanged".
+ */
+export interface SettingsPatch {
+    "autostart"?: boolean | null;
+    "prefer_mirror"?: boolean | null;
+    "backup_retention"?: number | null;
 }
 
 export interface SkillAgentApplyResult {

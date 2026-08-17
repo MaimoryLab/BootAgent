@@ -658,10 +658,10 @@ func chatReasoning(message map[string]any) string {
 		}
 	}
 	text := stringValue(message["content"])
-	if strings.HasPrefix(strings.TrimSpace(text), "<think>") {
-		text = strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(text), "<think>"))
-		if end := strings.Index(text, "</think>"); end >= 0 {
-			return strings.TrimSpace(text[:end])
+	if after, ok := strings.CutPrefix(strings.TrimSpace(text), "<think>"); ok {
+		text = strings.TrimSpace(after)
+		if before, _, ok := strings.Cut(text, "</think>"); ok {
+			return strings.TrimSpace(before)
 		}
 	}
 	return ""
@@ -671,8 +671,8 @@ func chatMessageText(message map[string]any) string {
 	text := stringValue(message["content"])
 	if strings.HasPrefix(strings.TrimSpace(text), "<think>") {
 		trimmed := strings.TrimSpace(text)
-		if end := strings.Index(trimmed, "</think>"); end >= 0 {
-			return strings.TrimSpace(trimmed[end+len("</think>"):])
+		if _, after, ok := strings.Cut(trimmed, "</think>"); ok {
+			return strings.TrimSpace(after)
 		}
 	}
 	return text

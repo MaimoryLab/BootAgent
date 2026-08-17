@@ -37,6 +37,12 @@ type Services struct {
 type ServicesOptions struct {
 	AfterGetStatus func(app.StatusResponse)
 	InstallOutput  process.OutputListener
+	Autostart      AutostartCallbacks
+}
+
+type AutostartCallbacks struct {
+	IsEnabled  func() (bool, error)
+	SetEnabled func(bool) error
 }
 
 func NewServicesWithOptions(core *app.UseCases, opener BrowserOpener, options ServicesOptions) *Services {
@@ -45,7 +51,7 @@ func NewServicesWithOptions(core *app.UseCases, opener BrowserOpener, options Se
 		Provider:     NewProviderService(core, opener),
 		Agent:        &AgentService{core: core, onOutput: options.InstallOutput},
 		Profile:      NewProfileService(core),
-		Runtime:      &RuntimeService{core: core, onOutput: options.InstallOutput},
+		Runtime:      &RuntimeService{core: core, onOutput: options.InstallOutput, autostart: options.Autostart},
 		DesktopAgent: NewDesktopAgentService(core, options.InstallOutput),
 		Transfer:     &TransferService{},
 		MCP:          NewMCPService(core),
@@ -135,8 +141,9 @@ func (s *DesktopAgentService) Configure(ctx context.Context, request DesktopAgen
 // output listener so the UI can render runtime byte progress alongside Agent
 // install output; runtime bootstrap does not emit a fake command line.
 type RuntimeService struct {
-	core     *app.UseCases
-	onOutput process.OutputListener
+	core      *app.UseCases
+	onOutput  process.OutputListener
+	autostart AutostartCallbacks
 }
 
 func (s *RuntimeService) ListRuntimes(ctx context.Context) ([]app.RuntimeStatus, error) {
@@ -173,18 +180,41 @@ func (s *RuntimeService) GetSettings(ctx context.Context) (app.Settings, error) 
 	if s == nil || s.core == nil {
 		return app.Settings{}, notReady("Runtime service is not configured")
 	}
-	return s.core.Settings(ctx)
+	settings, err := s.core.Settings(ctx)
+	if err != nil || s.autostart.IsEnabled == nil {
+		return settings, err
+	}
+	settings.Autostart, err = s.autostart.IsEnabled()
+	return settings, err
 }
 
 // SaveSettings persists the download preferences and returns what was stored.
-func (s *RuntimeService) SaveSettings(ctx context.Context, request app.Settings) (app.Settings, error) {
+func (s *RuntimeService) SaveSettings(ctx context.Context, request app.SettingsPatch) (app.Settings, error) {
 	if err := contextError(ctx); err != nil {
 		return app.Settings{}, err
 	}
 	if s == nil || s.core == nil {
 		return app.Settings{}, notReady("Runtime service is not configured")
 	}
-	return s.core.SaveSettings(ctx, request)
+	previous, changed := false, false
+	if request.Autostart != nil && s.autostart.SetEnabled != nil {
+		if s.autostart.IsEnabled != nil {
+			var err error
+			previous, err = s.autostart.IsEnabled()
+			if err != nil {
+				return app.Settings{}, err
+			}
+			changed = previous != *request.Autostart
+		}
+		if err := s.autostart.SetEnabled(*request.Autostart); err != nil {
+			return app.Settings{}, err
+		}
+	}
+	saved, err := s.core.UpdateSettings(ctx, request)
+	if err != nil && changed {
+		_ = s.autostart.SetEnabled(previous)
+	}
+	return saved, err
 }
 
 // HelpURL is the published help site. It lives here rather than in the frontend
