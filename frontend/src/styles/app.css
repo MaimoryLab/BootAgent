@@ -292,6 +292,9 @@
 .backup-retention-row label strong { font-size: 13px; }
 .backup-retention-row label small { color: var(--text-secondary); font-size: 11px; }
 .backup-retention-row input { width: 80px; }
+.mirror-setting-row { display: block; padding: 0 10px; }
+.mirror-setting-row .toggle-row { padding: 8px 0; }
+.mirror-setting-row .notice { margin: 0 0 8px; }
 .settings-field-error { margin: 8px 10px; color: var(--red); font-size: 12px; }
 .settings-link { width: 100%; padding: 0 10px; display: flex; align-items: center; gap: 12px; border-right: 0; border-bottom: 0; border-left: 0; background: transparent; color: var(--text-primary); cursor: pointer; text-align: left; }
 .settings-link > span { min-width: 0; display: grid; flex: 1; gap: 3px; }

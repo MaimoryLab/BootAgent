@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 
 import { api, describeFailure } from "../backend/api";
 import { useI18n } from "../i18n";
-import { AdvancedSection } from "./AdvancedSection";
 
 /**
  * The single download-host preference, shared by every screen that starts a
@@ -10,10 +9,9 @@ import { AdvancedSection } from "./AdvancedSection";
  *
  * One setting rather than one per screen: it governs runtime archives and
  * npm-managed Agent packages together, and a user who chose a mirror because
- * their network is slow means it for both. It is rendered in more than one place
- * only because either screen can be the first one where a download is slow.
+ * their network is slow means it for both.
  */
-export function MirrorSetting({ label }: { label?: string }) {
+export function MirrorSetting() {
   const { t } = useI18n();
   const [preferMirror, setPreferMirror] = useState<boolean | null>(null);
   const [backupRetention, setBackupRetention] = useState(3);
@@ -68,21 +66,12 @@ export function MirrorSetting({ label }: { label?: string }) {
     }
   };
 
-  // The collapsed hint has to state what is actually in effect. Saying "官方源"
-  // on a machine that is about to use the mirror would be worse than saying
-  // nothing.
-  const hint = fromRegion
-    ? t("已根据系统地区设置默认使用镜像。可以改回官方源")
-    : preferMirror
-      ? t("正在优先使用国内镜像")
-      : t("默认使用官方源。国内网络较慢时可以改用镜像");
-
   return (
-    <AdvancedSection label={label ?? t("下载源")} hint={hint}>
-      {failure ? <div className="notice notice-error">{failure}</div> : null}
+    <div className="settings-row mirror-setting-row">
       <label className="toggle-row">
         <span>
           <strong>{t("优先使用国内镜像")}</strong>
+          {fromRegion ? <small>{t("已根据系统地区设置默认使用镜像。可以改回官方源")}</small> : null}
           <small>
             {fromRegion
               ? t("已根据系统语言/地区自动开启。运行时仍校验固定哈希，npm 使用镜像 registry 的包元数据")
@@ -97,6 +86,7 @@ export function MirrorSetting({ label }: { label?: string }) {
           onChange={(event) => void toggle(event.target.checked)}
         />
       </label>
-    </AdvancedSection>
+      {failure ? <div className="notice notice-error">{failure}</div> : null}
+    </div>
   );
 }
