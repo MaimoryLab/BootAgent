@@ -128,14 +128,21 @@ func anthropicMessages(message map[string]any) []any {
 	}
 	if role == "user" {
 		results := []any{}
+		normal := []any{}
 		for _, raw := range array(content) {
 			block, ok := raw.(map[string]any)
 			if !ok || stringValue(block["type"]) != "tool_result" {
+				if ok {
+					normal = append(normal, block)
+				}
 				continue
 			}
 			results = append(results, map[string]any{"role": "tool", "tool_call_id": block["tool_use_id"], "content": toolOutput(block["content"])})
 		}
 		if len(results) > 0 {
+			if len(normal) > 0 {
+				results = append([]any{map[string]any{"role": "user", "content": anthropicContent(normal)}}, results...)
+			}
 			return results
 		}
 	}
