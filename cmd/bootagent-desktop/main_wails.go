@@ -67,7 +67,11 @@ func configureSystemTray(appInstance *application.App, core *app.UseCases, windo
 		menu.Add("显示 BootAgent").OnClick(func(*application.Context) { tray.ShowWindow() })
 		menu.AddSeparator()
 		enabled := config.Enabled
-		menu.AddCheckbox("启动 API 转换", enabled).OnClick(func(*application.Context) {
+		toggleLabel := "启动 API 转换"
+		if enabled {
+			toggleLabel = "停止 API 转换"
+		}
+		menu.AddCheckbox(toggleLabel, enabled).OnClick(func(*application.Context) {
 			if _, err := core.SetConversionEnabled(context.Background(), !enabled); err != nil {
 				slog.Warn("conversion tray toggle failed", "error", err)
 			}
