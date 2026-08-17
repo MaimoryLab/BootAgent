@@ -12,7 +12,7 @@ import (
 	"github.com/MaimoryLab/BootAgent/internal/provider"
 )
 
-const converterPrefix = "__bootagent_converter_"
+const converterPrefix = "bootagent_converter_"
 
 type ConversionConfig struct {
 	Enabled        bool   `json:"enabled"`
