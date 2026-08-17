@@ -75,43 +75,6 @@ export function EnvironmentOverviewPage() {
         </>
       }
     >
-      {installed.length ? (
-        <section className="overview-section">
-          <div className="section-heading">
-            <div><h2>{t("命令行 Agent")}</h2><p>{t("共 {count} 个", { count: installed.length })}</p></div>
-          </div>
-          <div className="agent-manage-list">
-            {installed.map((item) => {
-              const agent = status.agents[item.id];
-              if (!agent) return null;
-              const profile = profileForAgent(item.id, agent);
-              return <AgentManageRow
-                key={item.id}
-                agentId={item.id}
-                catalog={item}
-                status={agent}
-                providers={status.providers}
-                profileName={profile?.label || profile?.id || ""}
-                profile={profile}
-                defaultDirectory={status.paths.launch_directory}
-                onChanged={refreshStatus}
-              />;
-            })}
-          </div>
-        </section>
-      ) : (
-        <section className="overview-section">
-          <div className="section-heading">
-            <div><h2>{t("命令行 Agent")}</h2><p>{t("共 {count} 个", { count: 0 })}</p></div>
-          </div>
-          <div className="uninstalled-agent-action">
-            <span className="visually-hidden">{t("尚未安装任何命令行 Agent")}</span>
-            <Terminal size={28} aria-hidden="true" />
-            <span>{t("按引导安装命令行 Agent")}</span>
-          </div>
-        </section>
-      )}
-
       {installedDesktopApplications.length ? (
         <section className="overview-section desktop-app-section">
           <div className="section-heading">
@@ -155,6 +118,44 @@ export function EnvironmentOverviewPage() {
           </div>
         </section>
       ) : null}
+
+      {installed.length ? (
+        <section className="overview-section">
+          <div className="section-heading">
+            <div><h2>{t("命令行 Agent")}</h2><p>{t("共 {count} 个", { count: installed.length })}</p></div>
+          </div>
+          <div className="agent-manage-list">
+            {installed.map((item) => {
+              const agent = status.agents[item.id];
+              if (!agent) return null;
+              const profile = profileForAgent(item.id, agent);
+              return <AgentManageRow
+                key={item.id}
+                agentId={item.id}
+                catalog={item}
+                status={agent}
+                providers={status.providers}
+                profileName={profile?.label || profile?.id || ""}
+                profile={profile}
+                defaultDirectory={status.paths.launch_directory}
+                onChanged={refreshStatus}
+              />;
+            })}
+          </div>
+        </section>
+      ) : (
+        <section className="overview-section">
+          <div className="section-heading">
+            <div><h2>{t("命令行 Agent")}</h2><p>{t("共 {count} 个", { count: 0 })}</p></div>
+          </div>
+          <div className="uninstalled-agent-action">
+            <span className="visually-hidden">{t("尚未安装任何命令行 Agent")}</span>
+            <Terminal size={28} aria-hidden="true" />
+            <span>{t("按引导安装命令行 Agent")}</span>
+          </div>
+        </section>
+      )}
+
       <RuntimeSection runtimes={status.runtimes ?? []} onInstalled={refreshStatus} />
     </PageScaffold>
   );
