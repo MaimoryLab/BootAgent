@@ -140,6 +140,10 @@ func (s *Server) forwardConverted(w http.ResponseWriter, r *http.Request, body [
 		s.forwardResponsesStream(w, resp, modelFromRequest(body))
 		return
 	}
+	if format == "anthropic" && resp.StatusCode < 300 && streamRequested(body) && strings.Contains(resp.Header.Get("Content-Type"), "text/event-stream") {
+		s.forwardAnthropicStream(w, resp, modelFromRequest(body))
+		return
+	}
 	data, _ := io.ReadAll(resp.Body)
 	if format != "chat" && resp.StatusCode < 300 {
 		data, _ = FromChat(format, data)
@@ -149,6 +153,131 @@ func (s *Server) forwardConverted(w http.ResponseWriter, r *http.Request, body [
 	}
 	w.WriteHeader(resp.StatusCode)
 	_, _ = w.Write(data)
+}
+
+func (s *Server) forwardAnthropicStream(w http.ResponseWriter, resp *http.Response, model string) {
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.WriteHeader(http.StatusOK)
+	flusher, _ := w.(http.Flusher)
+	writeEvent := func(event string, value any) {
+		data, _ := json.Marshal(value)
+		_, _ = io.WriteString(w, "event: "+event+"\ndata: "+string(data)+"\n\n")
+		if flusher != nil {
+			flusher.Flush()
+		}
+	}
+	messageID := "msg_bootagent_" + strconv.FormatInt(time.Now().UnixNano(), 10)
+	writeEvent("message_start", map[string]any{"type": "message_start", "message": map[string]any{"id": messageID, "type": "message", "role": "assistant", "model": model, "content": []any{}, "stop_reason": nil, "stop_sequence": nil, "usage": map[string]any{"input_tokens": 0, "output_tokens": 0}}})
+	blockIndex := 0
+	textStarted, thinkingStarted := false, false
+	var tool *streamedToolCall
+	var thinking strings.Builder
+	var text strings.Builder
+	toolIndex := -1
+	activeKind := ""
+	writeBlockDone := func(index int) {
+		writeEvent("content_block_stop", map[string]any{"type": "content_block_stop", "index": index})
+	}
+	scanner := bufio.NewScanner(resp.Body)
+	scanner.Buffer(make([]byte, 1024), 1024*1024)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if !strings.HasPrefix(line, "data:") {
+			continue
+		}
+		data := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
+		if data == "[DONE]" {
+			break
+		}
+		var chunk struct {
+			Choices []struct {
+				Delta struct {
+					Content        string `json:"content"`
+					Reasoning      string `json:"reasoning_content"`
+					ReasoningAlias string `json:"reasoning"`
+					ToolCalls      []struct {
+						Index    int    `json:"index"`
+						ID       string `json:"id"`
+						Function struct {
+							Name      string `json:"name"`
+							Arguments string `json:"arguments"`
+						} `json:"function"`
+					} `json:"tool_calls"`
+				} `json:"delta"`
+				FinishReason string `json:"finish_reason"`
+			} `json:"choices"`
+		}
+		if json.Unmarshal([]byte(data), &chunk) != nil || len(chunk.Choices) == 0 {
+			continue
+		}
+		delta := chunk.Choices[0].Delta
+		reasoning := delta.Reasoning
+		if reasoning == "" {
+			reasoning = delta.ReasoningAlias
+		}
+		if reasoning != "" {
+			if !thinkingStarted {
+				if activeKind != "" {
+					writeBlockDone(blockIndex)
+					blockIndex++
+				}
+				writeEvent("content_block_start", map[string]any{"type": "content_block_start", "index": blockIndex, "content_block": map[string]any{"type": "thinking", "thinking": ""}})
+				thinkingStarted = true
+				activeKind = "thinking"
+			}
+			thinking.WriteString(reasoning)
+			writeEvent("content_block_delta", map[string]any{"type": "content_block_delta", "index": blockIndex, "delta": map[string]any{"type": "thinking_delta", "thinking": reasoning}})
+		}
+		for _, call := range delta.ToolCalls {
+			if tool == nil || toolIndex != call.Index {
+				if activeKind != "" {
+					writeBlockDone(blockIndex)
+					blockIndex++
+				}
+				tool = &streamedToolCall{id: call.ID, name: call.Function.Name}
+				toolIndex = call.Index
+				writeEvent("content_block_start", map[string]any{"type": "content_block_start", "index": blockIndex, "content_block": map[string]any{"type": "tool_use", "id": tool.id, "name": tool.name, "input": map[string]any{}}})
+				activeKind = "tool"
+			}
+			if call.ID != "" {
+				tool.id = call.ID
+			}
+			if call.Function.Name != "" {
+				tool.name = call.Function.Name
+			}
+			tool.arguments.WriteString(call.Function.Arguments)
+			if call.Function.Arguments != "" {
+				writeEvent("content_block_delta", map[string]any{"type": "content_block_delta", "index": blockIndex, "delta": map[string]any{"type": "input_json_delta", "partial_json": call.Function.Arguments}})
+			}
+		}
+		if delta.Content != "" {
+			if activeKind != "text" {
+				if activeKind != "" {
+					writeBlockDone(blockIndex)
+					blockIndex++
+				}
+				activeKind = "text"
+			}
+			if !textStarted {
+				writeEvent("content_block_start", map[string]any{"type": "content_block_start", "index": blockIndex, "content_block": map[string]any{"type": "text", "text": ""}})
+				textStarted = true
+			}
+			text.WriteString(delta.Content)
+			writeEvent("content_block_delta", map[string]any{"type": "content_block_delta", "index": blockIndex, "delta": map[string]any{"type": "text_delta", "text": delta.Content}})
+		}
+		if chunk.Choices[0].FinishReason != "" {
+			break
+		}
+	}
+	if activeKind != "" {
+		writeBlockDone(blockIndex)
+	}
+	stopReason := "end_turn"
+	if tool != nil {
+		stopReason = "tool_use"
+	}
+	writeEvent("message_delta", map[string]any{"type": "message_delta", "delta": map[string]any{"stop_reason": stopReason, "stop_sequence": nil}, "usage": map[string]any{"output_tokens": 0}})
+	writeEvent("message_stop", map[string]any{"type": "message_stop"})
 }
 
 func withTargetConfig(body []byte, model, reasoningEffort string) []byte {
