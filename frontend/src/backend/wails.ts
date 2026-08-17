@@ -1,54 +1,55 @@
 import { Events, type CancellablePromiseLike } from "@wailsio/runtime";
 
 import * as AgentService from "../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/agentservice.js";
+import * as ConversionService from "../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/conversionservice.js";
 import * as DesktopAgentService from "../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/desktopagentservice.js";
+import * as MCPService from "../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/mcpservice.js";
 import * as ProfileService from "../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/profileservice.js";
 import * as ProviderService from "../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/providerservice.js";
 import * as RuntimeService from "../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/runtimeservice.js";
+import * as SkillService from "../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/skillservice.js";
 import * as StatusService from "../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/statusservice.js";
 import * as TransferService from "../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/transferservice.js";
 import * as UpdateService from "../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/updateservice.js";
-import * as MCPService from "../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/mcpservice.js";
-import * as SkillService from "../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/skillservice.js";
+import { currentLocale, translate } from "../i18n";
 import type {
   ActivateAgentResponse,
+  AgentUpdateResult,
+  ConversionConfig,
   DesktopAgentActionResult,
   DesktopAgentProfileResult,
   DesktopAgentStatus,
-  InstallRequest,
   InstallOutput,
+  InstallRequest,
   InstallResponse,
   InstallRuntimeResult,
   LaunchAgentResponse,
-  AgentUpdateResult,
+  MCPApplyRequest,
+  MCPApplyResult,
+  MCPScanResult,
+  MCPServerDetail,
+  MCPServerSummary,
   ModelsResponse,
   OpenRegistrationResponse,
   ProbeResponse,
-  ProviderEntry,
   ProfileSummary,
+  ProviderEntry,
   ProviderId,
   RuntimeStatus,
   SaveProfileResult,
   SaveProviderInput,
   SaveProviderResult,
   Settings,
-  StatusResponse,
-  MCPServerSummary,
-  MCPScanResult,
-  MCPServerDetail,
-  MCPApplyRequest,
-  MCPApplyResult,
-  MCPSpec,
-  SkillSummary,
-  SkillScanResult,
-  SkillImportPreview,
   SkillApplyRequest,
   SkillApplyResult,
   SkillBackupSummary,
+  SkillImportPreview,
+  SkillScanResult,
+  SkillSummary,
   SkillUninstallResult,
+  StatusResponse
 } from "../types/api";
-import { currentLocale, translate } from "../i18n";
-import { isCancellationError, BootAgentApiError } from "./errors";
+import { BootAgentApiError, isCancellationError } from "./errors";
 
 export const INSTALL_OUTPUT_EVENT = "bootagent:install-output";
 export const OTA_PROGRESS_TARGET = "bootagent-update";
@@ -176,7 +177,6 @@ export const wailsApi = {
       api_base_url: input.api_base_url ?? "",
       api_key: input.api_key,
       model: input.model,
-      small_fast_model: input.small_fast_model ?? "",
       profile_id: input.profile_id ?? "",
       profile_label: input.profile_label ?? "",
       configure: input.configure,
@@ -192,7 +192,7 @@ export const wailsApi = {
     call(() => ProviderService.OpenRegistration({ provider, agents: agents.length ? agents : null })) as Promise<OpenRegistrationResponse>,
   activateAgent: (
     agentId: string,
-    input: { provider: ProviderId; apiBaseUrl: string; apiKey: string; model: string; profileId?: string; smallFastModel?: string },
+    input: { provider: ProviderId; apiBaseUrl: string; apiKey: string; model: string; profileId?: string },
   ): Promise<ActivateAgentResponse> =>
     call(() => AgentService.Activate({
       agent_id: agentId,
@@ -201,7 +201,6 @@ export const wailsApi = {
       api_key: input.apiKey,
       model: input.model,
       profile_id: input.profileId ?? "",
-      small_fast_model: input.smallFastModel ?? "",
     })) as Promise<ActivateAgentResponse>,
   launchAgent: (agentId: string, workingDirectory = ""): Promise<LaunchAgentResponse> =>
     call(() => AgentService.Launch({ agent_id: agentId, working_directory: workingDirectory })) as Promise<LaunchAgentResponse>,
@@ -216,6 +215,8 @@ export const wailsApi = {
   getSettings: (): Promise<Settings> => call(() => RuntimeService.GetSettings()) as Promise<Settings>,
   saveSettings: (settings: Settings): Promise<Settings> =>
     call(() => RuntimeService.SaveSettings(settings)) as Promise<Settings>,
+  getConversion: (): Promise<ConversionConfig> => call(() => ConversionService.Get()) as Promise<ConversionConfig>,
+  saveConversion: (config: ConversionConfig): Promise<ConversionConfig> => call(() => ConversionService.Save(config)) as Promise<ConversionConfig>,
   readTransferFile: (): Promise<string> => call(() => TransferService.Read()) as Promise<string>,
   writeTransferFile: (data: string): Promise<void> => call(() => TransferService.Write(data)).then(() => undefined),
   listMCP: (): Promise<MCPServerSummary[]> => call(() => MCPService.List()).then((items) => items ?? []),

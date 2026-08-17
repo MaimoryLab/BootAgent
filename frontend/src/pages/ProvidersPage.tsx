@@ -11,6 +11,7 @@ import { useI18n } from "../i18n";
 import { confirmDelete } from "../state/confirmDelete";
 import { useWizard } from "../state/WizardContext";
 import { byProviderCreatedAt } from "../state/ranking";
+import { isConverterID } from "../state/conversion";
 import type { AsyncState } from "../state/wizardReducer";
 import type { ProbeResponse, ProviderEntry } from "../types/api";
 
@@ -113,6 +114,7 @@ export function ProvidersPage({ create = false }: { create?: boolean }) {
   };
 
   const edit = async (providerId: string) => {
+    if (isConverterID(providerId)) return;
     setBusy(true);
     setFailure("");
     setApplied("");
@@ -366,7 +368,7 @@ export function ProvidersPage({ create = false }: { create?: boolean }) {
       {applied ? <div className="agent-manage-applied"><strong>{t("应用完成")}</strong><span>{applied}</span></div> : null}
 
       {!create ? <div className="provider-list">
-        {byProviderCreatedAt(status.providers).map(([providerId, meta]) => {
+        {byProviderCreatedAt(Object.fromEntries(Object.entries(status.providers).filter(([providerId]) => !isConverterID(providerId)))).map(([providerId, meta]) => {
           const users = Object.entries(status.agents)
             .filter(([, agent]) => agent.provider === providerId)
             .map(([agentId]) => agentId);

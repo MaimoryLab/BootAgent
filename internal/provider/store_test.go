@@ -2,12 +2,21 @@ package provider
 
 import (
 	"context"
+	"errors"
 	"os"
 	"testing"
 
 	oneerrors "github.com/MaimoryLab/BootAgent/internal/errors"
 	"github.com/MaimoryLab/BootAgent/internal/securefs"
 )
+
+func TestGetUnknownProviderExposesSentinel(t *testing.T) {
+	store := NewStore(t.TempDir(), securefs.New(securefs.Options{OS: "linux"}))
+	_, err := store.Get("missing")
+	if !errors.Is(err, ErrUnknownProvider) {
+		t.Fatalf("unknown Provider error = %v", err)
+	}
+}
 
 func TestStorePersistsCRUDAndPrivateKey(t *testing.T) {
 	home := t.TempDir()

@@ -8,7 +8,6 @@ export interface ActivateRequest {
     "api_key": string;
     "model": string;
     "profile_id": string;
-    "small_fast_model": string;
 }
 
 export interface ActivateResponse {
@@ -50,7 +49,6 @@ export interface InstallRequest {
     "api_base_url": string;
     "api_key": string;
     "model": string;
-    "small_fast_model": string;
     "profile_id": string;
     "profile_label": string;
     "configure": boolean;

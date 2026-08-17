@@ -1,4 +1,5 @@
 import type { DesktopAgentStatus, ProfileSummary, StatusResponse } from "../types/api";
+import { isConverterID } from "./conversion";
 
 export function desktopApps(status: StatusResponse): DesktopAgentStatus[] {
   const seen = new Set<string>();
@@ -34,7 +35,7 @@ export function desktopProfiles(status: StatusResponse, app: DesktopAgentStatus)
 
 export function desktopProfileUsable(status: StatusResponse, profile: ProfileSummary): boolean {
   const provider = status.providers[profile.provider];
-  return Boolean(provider && profile.model?.trim() && provider.has_key);
+  return Boolean(provider && profile.model?.trim() && (provider.has_key || isConverterID(profile.id)));
 }
 
 export function desktopProfileIsShared(app: DesktopAgentStatus): boolean {

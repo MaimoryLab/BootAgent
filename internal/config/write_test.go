@@ -361,7 +361,7 @@ func TestWriteJSONAdaptersPreserveFieldsAndRejectJSONC(t *testing.T) {
 	if err := os.WriteFile(claudePath, []byte(`{"keep":true,"env":{ "CUSTOM":"value" }}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := writer.WriteClaude(context.Background(), claudePath, "https://anthropic.example", "sk-claude-secret", "model-a", ""); err != nil {
+	if err := writer.WriteClaude(context.Background(), claudePath, "https://anthropic.example", "sk-claude-secret", ""); err != nil {
 		t.Fatal(err)
 	}
 	var claude map[string]any
@@ -371,10 +371,6 @@ func TestWriteJSONAdaptersPreserveFieldsAndRejectJSONC(t *testing.T) {
 	}
 	if got := string(data); !strings.Contains(got, "\"keep\": true,\n  \"env\":") {
 		t.Fatalf("Claude top-level key order changed: %s", data)
-	}
-	env := claude["env"].(map[string]any)
-	if env["ANTHROPIC_SMALL_FAST_MODEL"] != "model-a" || env["CUSTOM"] != "value" {
-		t.Fatalf("Claude env = %#v", env)
 	}
 	if got := string(data); !strings.Contains(got, "\"CUSTOM\": \"value\",\n    \"ANTHROPIC_BASE_URL\":") {
 		t.Fatalf("Claude nested key order changed: %s", data)

@@ -65,6 +65,15 @@ export interface ConversationMigrationResult {
     "threads": number;
 }
 
+export interface ConversionConfig {
+    "enabled": boolean;
+    "listen": string;
+    "api_key": string;
+    "target_profile": string;
+    "anthropic_model": string;
+    "responses_model": string;
+}
+
 /**
  * DesktopAgentActionResult reports a local installation action. Windows Store
  * installation continues after its downloaded bootstrapper starts.

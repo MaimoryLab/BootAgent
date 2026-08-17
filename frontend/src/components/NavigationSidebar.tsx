@@ -1,4 +1,4 @@
-import { FolderCog, Gauge, Layers3, Network, Settings, Sparkles } from "lucide-react";
+import { FolderCog, Gauge, Layers3, Network, Radio, Settings, Sparkles } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
 import { type TranslationKey, useI18n } from "../i18n";
@@ -14,6 +14,7 @@ const navItems: Array<{ to: string; label: TranslationKey; icon: typeof Gauge }>
   { to: "/profiles", label: "配置模版", icon: FolderCog },
   { to: "/mcp", label: "MCP 服务器", icon: Network },
   { to: "/skills", label: "Skills", icon: Sparkles },
+  { to: "/conversion", label: "本地格式转换", icon: Radio },
 ];
 
 export function NavigationSidebar() {

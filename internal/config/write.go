@@ -226,7 +226,7 @@ func (w Writer) writeCodexAuth(ctx context.Context, path, apiKey string) error {
 	return w.writeJSON(ctx, path, document, true)
 }
 
-func (w Writer) WriteClaude(ctx context.Context, path, baseURL, apiKey, model, smallFastModel string) error {
+func (w Writer) WriteClaude(ctx context.Context, path, baseURL, apiKey, model string) error {
 	document, err := loadJSON(path)
 	if err != nil {
 		return err
@@ -238,10 +238,6 @@ func (w Writer) WriteClaude(ctx context.Context, path, baseURL, apiKey, model, s
 	env.Set("ANTHROPIC_BASE_URL", baseURL)
 	env.Set("ANTHROPIC_AUTH_TOKEN", apiKey)
 	env.Set("ANTHROPIC_MODEL", model)
-	if smallFastModel == "" {
-		smallFastModel = model
-	}
-	env.Set("ANTHROPIC_SMALL_FAST_MODEL", smallFastModel)
 	return w.writeJSON(ctx, path, document, true)
 }
 

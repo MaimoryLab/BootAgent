@@ -11,6 +11,7 @@ import { SelectField } from "../components/SelectField";
 import { useI18n } from "../i18n";
 import { confirmDelete } from "../state/confirmDelete";
 import { byProviderCreatedAt, preferProviderWithKey } from "../state/ranking";
+import { isConverterID } from "../state/conversion";
 import { installTaskRoute, taskKey, useTaskCenter } from "../state/TaskCenterContext";
 import { useWizard } from "../state/WizardContext";
 import { PROTOCOL_LABELS, type ProfileSummary, type ProtocolId, type ProviderId } from "../types/api";
@@ -83,7 +84,7 @@ export function ProfilesPage() {
     );
   }
 
-  const profiles = status.profiles;
+  const profiles = status.profiles.filter((profile) => !isConverterID(profile.id));
   const configurableAgents = status.catalog.filter((agent) => agent.configMode === "auto");
   const nameOf = (agentId: string) =>
     status.catalog.find((item) => item.id === agentId)?.name || agentId;
@@ -113,7 +114,7 @@ export function ProfilesPage() {
     t("{name} 配置模版", { name: status.providers[provider]?.name || provider });
 
   const openCreate = () => {
-    const [provider = "ppio", providerMeta] = preferProviderWithKey(byProviderCreatedAt(status.providers)) || [];
+    const [provider = "ppio", providerMeta] = preferProviderWithKey(byProviderCreatedAt(Object.fromEntries(Object.entries(status.providers).filter(([providerId]) => !isConverterID(providerId))))) || [];
     setFailure("");
     setEditor({
       id: suggestProfileID(provider),
@@ -132,7 +133,7 @@ export function ProfilesPage() {
 
   const providerForProtocol = (protocol: string, current: ProviderId) => {
     if (!protocol || (status.providers[current] && (protocol === "anthropic" ? status.providers[current].anthropic_base_url : status.providers[current].base_url))) return current;
-    const usable = byProviderCreatedAt(status.providers).filter(([, provider]) =>
+    const usable = byProviderCreatedAt(Object.fromEntries(Object.entries(status.providers).filter(([providerId]) => !isConverterID(providerId)))).filter(([, provider]) =>
       protocol === "anthropic" ? provider.anthropic_base_url : provider.base_url,
     );
     return preferProviderWithKey(usable)?.[0] || current;

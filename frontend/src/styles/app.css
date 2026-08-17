@@ -502,11 +502,12 @@
   font-size: 12px;
 }
 
-.desktop-profile-editor { max-width: 760px; }
+.desktop-profile-editor { width: 100%; max-width: none; }
 .profile-choice {
   position: relative;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
+  align-self: stretch;
   cursor: pointer;
 }
 .profile-choice-main {
@@ -1316,7 +1317,7 @@
   --agent-accent: var(--accent);
   --agent-accent-hover: var(--accent-hover);
   --agent-soft: var(--accent-soft);
-  width: min(100%, var(--card-measure));
+  width: 100%;
   min-height: 84px;
   padding: 12px 14px;
   display: grid;
@@ -1865,6 +1866,17 @@
 .provider-editor-wide,
 .profile-editor-wide { grid-column: 1 / -1; }
 
+.conversion-editor { width: 100%; max-width: none; border-top: 0; border-bottom: 0; }
+.conversion-editor .select-field { width: 100%; }
+.conversion-editor .select-field-trigger { min-height: 38px; border-color: var(--border-strong); background: var(--surface-subtle); }
+.conversion-footer-status { color: var(--text-secondary); font-size: 11px; }
+.conversion-footer-status.is-running { color: var(--green); }
+.conversion-footer-status.is-stopped { color: var(--red); }
+.conversion-action.is-running { border-color: var(--red); color: var(--red); }
+.conversion-action.is-running:hover { background: var(--red-soft); }
+.conversion-action.is-stopped { border-color: var(--green); color: var(--green); }
+.conversion-action.is-stopped:hover { background: var(--green-soft); }
+
 /* Separated from the fields above by a rule rather than only by gap: this block
    performs an action and reports a result, so it is not another field to fill in. */
 .provider-verify {
@@ -1920,7 +1932,7 @@
    set. */
 .provider-list,
 .profile-list {
-  width: min(100%, var(--card-measure));
+  width: 100%;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
   align-items: start;

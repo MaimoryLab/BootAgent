@@ -53,7 +53,7 @@ func jsonWriterOutput(t *testing.T, kind, relative, existing string) []byte {
 	var err error
 	switch kind {
 	case "claude":
-		err = writer.WriteClaude(context.Background(), path, "https://api.ppio.com/anthropic", "sk-parity", "model-new", "")
+		err = writer.WriteClaude(context.Background(), path, "https://api.ppio.com/anthropic", "sk-parity", "model-new")
 	case "opencode":
 		err = writer.WriteOpenAICompatible(context.Background(), path, "https://opencode.ai/config.json", "PPIO", "https://api.ppio.com/openai", "sk-parity", "model-new", "")
 	case "kilo":

@@ -246,7 +246,7 @@ func (u *UseCases) writeDesktopAgentConfig(ctx context.Context, definition deskt
 	}
 	if err := writeManagedAgentConfig(ctx, writer, definition.ID, catalog.Agent{
 		ConfigAdapter: definition.ConfigAdapter,
-	}, path, dshRouteProviderID(target, ""), target.Name, target.BaseFor(protocol), target.APIKey, model, "", "", false); err != nil {
+	}, path, dshRouteProviderID(target, ""), target.Name, target.BaseFor(protocol), target.APIKey, model, "", false); err != nil {
 		return "", false, err
 	}
 	return path, true, nil
