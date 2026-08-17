@@ -3,9 +3,11 @@ package convertproxy
 import (
 	"encoding/json"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -67,6 +69,47 @@ func TestSetConfigReportsListenError(t *testing.T) {
 	if err := server.SetConfig(Config{Enabled: true, Listen: "[invalid"}); err == nil {
 		t.Fatal("invalid listen address was accepted")
 	}
+}
+
+func TestConcurrentSetConfigDoesNotLeakListeners(t *testing.T) {
+	addresses := []string{reserveAddress(t), reserveAddress(t)}
+	server := New(nil)
+
+	var group sync.WaitGroup
+	for _, address := range addresses {
+		group.Add(1)
+		go func(address string) {
+			defer group.Done()
+			if err := server.SetConfig(Config{Enabled: true, Listen: address}); err != nil {
+				t.Errorf("SetConfig(%q): %v", address, err)
+			}
+		}(address)
+	}
+	group.Wait()
+	if err := server.Close(); err != nil {
+		t.Fatal(err)
+	}
+	for _, address := range addresses {
+		listener, err := net.Listen("tcp", address)
+		if err != nil {
+			t.Errorf("listener %q was leaked: %v", address, err)
+			continue
+		}
+		_ = listener.Close()
+	}
+}
+
+func reserveAddress(t *testing.T) string {
+	t.Helper()
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	address := listener.Addr().String()
+	if err := listener.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return address
 }
 
 func TestConvertedResponseDropsStaleBodyHeaders(t *testing.T) {
