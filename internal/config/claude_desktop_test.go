@@ -29,7 +29,7 @@ func TestWriteClaudeDesktopPreservesOtherConfiguration(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	profilePath, err := testWriter(t, home, "macos").WriteClaudeDesktop(context.Background(), "https://anthropic.example", "secret", "claude-sonnet-5", true)
+	profilePath, err := testWriter(t, home, "macos").WriteClaudeDesktop(context.Background(), "https://anthropic.example", "secret", "pa/claude-opus-5-ppinfra", true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -39,7 +39,7 @@ func TestWriteClaudeDesktopPreservesOtherConfiguration(t *testing.T) {
 	var profile map[string]any
 	readJSONFile(t, paths.profile, &profile)
 	models := profile["inferenceModels"].([]any)
-	if profile["inferenceGatewayBaseUrl"] != "https://anthropic.example" || models[0].(map[string]any)["supports1m"] != true {
+	if profile["inferenceGatewayBaseUrl"] != "https://anthropic.example" || models[0].(map[string]any)["name"] != "pa/claude-opus-5-ppinfra" || models[0].(map[string]any)["supports1m"] != true {
 		t.Fatalf("profile = %#v", profile)
 	}
 	var normal map[string]any

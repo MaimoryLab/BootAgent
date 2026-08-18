@@ -33,8 +33,8 @@ func (w Writer) WriteClaudeDesktop(ctx context.Context, baseURL, apiKey, model s
 	if baseURL == "" || apiKey == "" {
 		return "", configError("Claude Desktop requires an Anthropic base URL and API key")
 	}
-	if !claudeDesktopModelOK(model) {
-		return "", configError("Claude Desktop model must use a claude-sonnet-*, claude-opus-*, claude-haiku-*, or claude-fable-* ID")
+	if !strings.Contains(strings.ToLower(model), "claude") {
+		return "", configError(`Claude Desktop model ID must contain "claude"`)
 	}
 
 	profile := map[string]any{
@@ -184,21 +184,4 @@ func marshalClaudeDesktopObject(path string, object any) ([]byte, error) {
 		return nil, configError("Cannot encode Claude Desktop configuration %s: %v", path, err)
 	}
 	return append(data, '\n'), nil
-}
-
-func claudeDesktopModelOK(model string) bool {
-	model = strings.ToLower(strings.TrimSpace(model))
-	tail, ok := strings.CutPrefix(model, "anthropic/claude-")
-	if !ok {
-		tail, ok = strings.CutPrefix(model, "claude-")
-	}
-	if !ok || strings.Contains(tail, "[1m]") {
-		return false
-	}
-	for _, role := range []string{"sonnet-", "opus-", "haiku-", "fable-"} {
-		if value, found := strings.CutPrefix(tail, role); found && value != "" {
-			return true
-		}
-	}
-	return false
 }

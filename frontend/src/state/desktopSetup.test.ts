@@ -68,11 +68,11 @@ describe("desktop profile mapping", () => {
     expect(desktopProfileUsable(status([candidate]), candidate)).toBe(false);
   });
 
-  it("accepts only Claude model ids for Claude Desktop", () => {
+  it("accepts namespaced Claude model ids for Claude Desktop", () => {
     const claude = app({ id: "claude-desktop", protocol: "anthropic", profileAgentId: "claude-desktop" });
     const base = status([]);
     base.providers.ppio = { has_key: true } as StatusResponse["providers"][string];
-    const compatible = { ...profile("claude", "anthropic"), model: "anthropic/claude-sonnet-4-5" };
+    const compatible = { ...profile("claude", "anthropic"), model: "pa/claude-opus-5-ppinfra" };
     const incompatible = { ...compatible, model: "deepseek-chat" };
 
     expect(desktopProfileUsable(base, compatible, claude)).toBe(true);

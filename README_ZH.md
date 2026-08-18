@@ -40,7 +40,7 @@ BootAgent 是一个本地桌面工作台，用来统一管理 AI 编程 Agent。
 
 DSH Desktop 排在桌面 Agent 列表首位。它由 anywhere-labs 发布，而不是 DeepSeek，所以下载行会标注它是第三方应用；旁边的 DeepSeek 标识表示它驱动的模型，不代表发布方。
 
-BootAgent 可在 macOS 和 Windows 上检测并启动 Claude Desktop，但仍需用户自行安装。BootAgent 会为 Anthropic 兼容直连端点写入并选择一个自有的 3P Profile；它不会下载 Claude Desktop、代理请求，也不提供恢复到 1P 的操作。所选模型 ID 必须属于 Claude Sonnet、Opus、Haiku 或 Fable 系列。
+BootAgent 可在 macOS 和 Windows 上检测并启动 Claude Desktop，但仍需用户自行安装。BootAgent 会为 Anthropic 兼容直连端点写入并选择一个自有的 3P Profile；它不会下载 Claude Desktop、代理请求，也不提供恢复到 1P 的操作。所选模型 ID 必须包含 `claude`（不区分大小写）。
 
 内置 JieKou.AI、PPIO、Novita、DeepSeek 和 Moonshot，顺序如此；也可以在模型服务页面添加任意 OpenAI 兼容或 Anthropic 兼容服务。BootAgent 会按 Agent 真正使用的协议探测；如果端点只支持另一种 API，会在写入配置前拒绝它。
 
