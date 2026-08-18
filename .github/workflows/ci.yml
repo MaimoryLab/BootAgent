@@ -77,6 +77,14 @@ jobs:
       # Chinese left in an English-only doc both land on main unnoticed.
       - run: python3 scripts/check-docs.py
 
+      - name: markdownlint-cli2-action
+        uses: DavidAnson/markdownlint-cli2-action@main
+        with:
+          fix: true
+          globs: |
+            docs/**/*.md
+            *.md
+
   frontend:
     name: Frontend
     runs-on: ubuntu-latest
