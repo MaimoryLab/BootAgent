@@ -202,7 +202,7 @@ func TestDSHURLUsesTheNPMMirrorPreference(t *testing.T) {
 func TestDesktopDefinitionsExposeIndependentProducts(t *testing.T) {
 	definitions := Definitions()
 	// DSH Desktop leads the list because the UI renders it in this order.
-	if len(definitions) < 3 || definitions[0].ID != DSHDesktopID || definitions[1].ID != ChatGPTDesktopID || definitions[2].ID != WorkBuddyID {
+	if len(definitions) < 4 || definitions[0].ID != DSHDesktopID || definitions[1].ID != ClaudeDesktopID || definitions[2].ID != ChatGPTDesktopID || definitions[3].ID != WorkBuddyID {
 		t.Fatalf("desktop definitions = %#v", definitions)
 	}
 	// Only the third-party build carries the flag; claiming it for a vendor's own

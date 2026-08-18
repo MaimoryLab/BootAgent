@@ -260,14 +260,14 @@ func (u *UseCases) reapplyBindingsLocked(
 					ProfileID:       binding.ProfileRef,
 				})
 			} else if definition.ConfigAdapter != "" {
-				_, managed, configErr := u.writeDesktopAgentConfig(ctx, definition, target, model)
+				_, managed, configErr := u.writeDesktopAgentConfig(ctx, definition, target, model, u.profileContext1M(binding.ProfileRef))
 				err = configErr
 				if err == nil && !managed {
 					continue
 				}
 				if err == nil && managed {
 					_, err = u.profiles.WriteAgentBinding(ctx, agentID, profileStore.BindingWriteRequest{
-						Provider: target.ID, BaseURL: target.BaseURL, Model: model,
+						Provider: target.ID, BaseURL: target.BaseFor(definition.Protocol), Model: model,
 						ReasoningEffort: reasoningEffort, ProfileRef: binding.ProfileRef,
 					})
 				}

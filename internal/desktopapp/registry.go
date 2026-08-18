@@ -11,6 +11,7 @@ const (
 	ChatGPTDesktopName     = "ChatGPT Desktop"
 	CodexAgentID           = "codex"
 	ConfigAdapterCodex     = "codex"
+	ConfigAdapterClaude    = "claude-desktop"
 	ConfigAdapterWorkBuddy = "workbuddy"
 	ConfigAdapterZCode     = "zcode"
 	ConfigAdapterDSH       = "dsh"
@@ -71,6 +72,16 @@ var implementations = []implementation{
 		inspect: inspectDSH,
 		install: installDSH,
 		open:    openDSH,
+	},
+	{
+		Definition: Definition{
+			ID: ClaudeDesktopID, Name: ClaudeDesktopName, ProfileAgentID: ClaudeDesktopID,
+			ConfigAdapter: ConfigAdapterClaude, Protocol: "anthropic",
+			ManualInstall: true, Home: ClaudeDesktopHome,
+		},
+		inspect: inspectClaudeDesktop,
+		install: installClaudeDesktop,
+		open:    openClaudeDesktop,
 	},
 	{
 		Definition: Definition{
