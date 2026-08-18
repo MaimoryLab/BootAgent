@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -155,7 +155,7 @@ describe("ActivationPage partial results", () => {
         desktopAgents: [{
           id: "claude-desktop", name: "Claude Desktop", installed: false, supported: true,
           version: null, source: "manual", protocol: "anthropic", profileAgentId: "claude-desktop",
-          profileId: null, manualInstall: true,
+          profileId: null, manualInstall: true, home: "https://claude.com/download",
         }],
       },
       statusState: "success",
@@ -168,5 +168,31 @@ describe("ActivationPage partial results", () => {
     render(<MemoryRouter><ActivationPage /></MemoryRouter>);
     await waitFor(() => expect(configure).toHaveBeenCalledWith("claude-desktop", "claude-desktop-jiekou"));
     expect(install).not.toHaveBeenCalled();
+  });
+
+  it("opens the official download page after configuring Claude Desktop", async () => {
+    const install = vi.spyOn(api, "installDesktopAgent").mockResolvedValue({
+      status: "installer-opened", message: "opened", refreshNeeded: false,
+      app: { id: "claude-desktop", name: "Claude Desktop", installed: false, supported: true, version: null, source: "manual", protocol: "anthropic", profileAgentId: "claude-desktop", profileId: null },
+    });
+    state = {
+      ...initialWizardState,
+      status: {
+        ...status,
+        desktopAgents: [{
+          id: "claude-desktop", name: "Claude Desktop", installed: false, supported: true,
+          version: null, source: "manual", protocol: "anthropic", profileAgentId: "claude-desktop",
+          profileId: null, manualInstall: true, home: "https://claude.com/download",
+        }],
+      },
+      statusState: "success",
+      selectedAgentIds: ["claude-desktop"],
+      activationState: "success",
+      activationResults: [result("claude-desktop")],
+    };
+
+    render(<MemoryRouter><ActivationPage /></MemoryRouter>);
+    fireEvent.click(screen.getByRole("button", { name: "前往 Claude Desktop 下载" }));
+    await waitFor(() => expect(install).toHaveBeenCalledWith("claude-desktop"));
   });
 });

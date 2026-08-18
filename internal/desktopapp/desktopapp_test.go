@@ -216,7 +216,7 @@ func TestDesktopDefinitionsExposeIndependentProducts(t *testing.T) {
 		t.Fatalf("ChatGPT must not be marked unofficial: %#v, found=%v", chatGPT, ok)
 	}
 	claude, ok := DefinitionFor(ClaudeDesktopID)
-	if !ok || !claude.ManualInstall || claude.Protocol != "anthropic" || claude.ConfigAdapter != ConfigAdapterClaude {
+	if !ok || !claude.ManualInstall || claude.Home != "https://claude.com/download" || claude.Protocol != "anthropic" || claude.ConfigAdapter != ConfigAdapterClaude {
 		t.Fatalf("Claude Desktop definition = %#v, found=%v", claude, ok)
 	}
 	chatGPT, ok := DefinitionFor(ChatGPTDesktopID)
@@ -226,6 +226,26 @@ func TestDesktopDefinitionsExposeIndependentProducts(t *testing.T) {
 	workBuddy, ok := DefinitionFor(WorkBuddyID)
 	if !ok || workBuddy.ProfileAgentID != WorkBuddyID || workBuddy.Protocol != "openai" {
 		t.Fatalf("WorkBuddy definition = %#v, found=%v", workBuddy, ok)
+	}
+}
+
+func TestClaudeDesktopInstallOpensOfficialDownloadPage(t *testing.T) {
+	for _, test := range []struct {
+		os, arch string
+		want     []string
+	}{
+		{os: "macos", arch: "arm64", want: []string{"/usr/bin/open", ClaudeDesktopHome}},
+		{os: "windows", arch: "amd64", want: []string{"explorer.exe", ClaudeDesktopHome}},
+	} {
+		t.Run(test.os, func(t *testing.T) {
+			runner := &scriptedRunner{}
+			result, err := Install(context.Background(), ClaudeDesktopID, Options{
+				Home: t.TempDir(), Platform: platform.For(test.os, test.arch), SearchRoots: []string{t.TempDir()}, Runner: runner,
+			})
+			if err != nil || result.Status != "installer-opened" || len(runner.started) != 1 || !slices.Equal(runner.started[0], test.want) {
+				t.Fatalf("result=%#v started=%#v err=%v", result, runner.started, err)
+			}
+		})
 	}
 }
 

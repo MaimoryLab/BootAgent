@@ -1,4 +1,4 @@
-import { Download } from "lucide-react";
+import { Download, ExternalLink } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -270,6 +270,16 @@ export function ActivationPage() {
     }
   };
 
+  const openManualDownload = async () => {
+    if (!desktop) return;
+    setBlockedMessage("");
+    try {
+      await api.installDesktopAgent(desktop.id);
+    } catch (error) {
+      setBlockedMessage(describeFailure(error, t("无法打开 Claude Desktop 下载页面"), t).message);
+    }
+  };
+
   const retry = async (agentId: string) => {
     setBlockedMessage("");
     const startedTasks = startActivationTasks([agentId]);
@@ -417,6 +427,15 @@ export function ActivationPage() {
           appends to the log -- which sits behind a collapsed disclosure. So a
           collision with another install left the page showing nothing at all. */}
       {blockedMessage ? <div className="notice notice-error">{blockedMessage}</div> : null}
+      {(allDone || anyConfigured) && desktop?.manualInstall && !desktop.installed && desktop.home ? (
+        <section className="next-command-section">
+          <h2>{t("安装 Claude Desktop")}</h2>
+          <p>{t("配置已写入。请前往 Claude Desktop 官网自行下载并安装")}</p>
+          <button className="button button-primary" type="button" onClick={() => void openManualDownload()}>
+            <ExternalLink size={15} aria-hidden="true" />{t("前往 Claude Desktop 下载")}
+          </button>
+        </section>
+      ) : null}
       {/* The launch commands belong to the moment installation finishes, not to
           the overview a user opens every day. Shown for a partial run too: the
           commands belong to the Agents that succeeded, and hiding them because a

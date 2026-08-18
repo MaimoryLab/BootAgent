@@ -113,7 +113,7 @@ export function DesktopAppSection({ app: desktopApp, onChanged, onSetup, onConfi
         {!desktopApp.installed ? (
           <div className="uninstalled-agent-action">
             <AppWindow size={28} aria-hidden="true" />
-            <span>{desktopApp.manualInstall ? t("需先自行安装，之后可配置") : t("按引导安装桌面 Agent")}</span>
+            <span>{desktopApp.manualInstall ? t("配置完成后前往官网自行安装") : t("按引导安装桌面 Agent")}</span>
             {!desktopApp.manualInstall ? (
               <button className="button button-primary" type="button" aria-label={t("安装")} onClick={() => onSetup ? onSetup(desktopApp.id) : void run("install")} disabled={busy}>
                 {pending === "install" || downloading ? <RefreshCw size={15} className="spin" aria-hidden="true" /> : <Plus size={16} />}

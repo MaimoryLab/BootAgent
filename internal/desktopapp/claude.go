@@ -2,7 +2,6 @@ package desktopapp
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -13,7 +12,7 @@ const (
 	ClaudeDesktopID       = "claude-desktop"
 	ClaudeDesktopName     = "Claude Desktop"
 	ClaudeDesktopBundleID = "com.anthropic.claudefordesktop"
-	ClaudeDesktopHome     = "https://claude.ai/download"
+	ClaudeDesktopHome     = "https://claude.com/download"
 )
 
 func inspectClaudeDesktop(ctx context.Context, options Options) Status {
@@ -125,8 +124,27 @@ func claudeDesktopWindowsCandidates(options Options) []string {
 	}
 }
 
-func installClaudeDesktop(context.Context, Options) (ActionResult, error) {
-	return ActionResult{}, errors.New("Claude Desktop installation is not managed by BootAgent")
+func installClaudeDesktop(ctx context.Context, options Options) (ActionResult, error) {
+	status := inspectClaudeDesktop(ctx, options)
+	if err := contextError(ctx); err != nil {
+		return ActionResult{}, err
+	}
+	if status.Installed {
+		return ActionResult{Status: "already-installed", Message: "Claude Desktop is already installed", App: status}, nil
+	}
+	var argv []string
+	switch options.Platform.OS {
+	case "macos":
+		argv = []string{"/usr/bin/open", ClaudeDesktopHome}
+	case "windows":
+		argv = []string{"explorer.exe", ClaudeDesktopHome}
+	default:
+		return ActionResult{}, fmt.Errorf("%s is not supported on %s", ClaudeDesktopName, options.Platform.OS)
+	}
+	if err := start(options, argv); err != nil {
+		return ActionResult{}, err
+	}
+	return ActionResult{Status: "installer-opened", Message: "Claude Desktop download page opened", App: status}, nil
 }
 
 func openClaudeDesktop(ctx context.Context, options Options) error {

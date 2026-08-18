@@ -37,9 +37,8 @@ type DesktopAgentStatus struct {
 	// them without the region being part of Name.
 	Edition string `json:"edition,omitempty"`
 	// ManualInstall reports that BootAgent can detect and configure this app but
-	// cannot fetch it. Without this the UI offered "Install the official desktop
-	// application" for an Agent whose install step only returns a download link,
-	// which is a button that cannot do what it says.
+	// cannot fetch it. The UI can hand off to its official download page without
+	// claiming BootAgent installs it.
 	ManualInstall bool   `json:"manualInstall,omitempty"`
 	Home          string `json:"home,omitempty"`
 	// Unofficial reports that the publisher is not the vendor whose model the app

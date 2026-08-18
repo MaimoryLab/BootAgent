@@ -128,9 +128,8 @@ export interface DesktopAgentStatus {
 
     /**
      * ManualInstall reports that BootAgent can detect and configure this app but
-     * cannot fetch it. Without this the UI offered "Install the official desktop
-     * application" for an Agent whose install step only returns a download link,
-     * which is a button that cannot do what it says.
+     * cannot fetch it. The UI can hand off to its official download page without
+     * claiming BootAgent installs it.
      */
     "manualInstall"?: boolean;
     "home"?: string;

@@ -97,7 +97,7 @@ describe("DesktopAppSection", () => {
       </TaskCenterProvider>,
     );
 
-    expect(screen.getByText("需先自行安装，之后可配置")).toBeTruthy();
+    expect(screen.getByText("配置完成后前往官网自行安装")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "配置" }));
     expect(onSetup).toHaveBeenCalledWith("claude-desktop");
     expect(bridge.installDesktopAgent).not.toHaveBeenCalled();
