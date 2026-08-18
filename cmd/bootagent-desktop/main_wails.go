@@ -5,6 +5,8 @@ package main
 import (
 	"context"
 	_ "embed"
+	"errors"
+	"io"
 	"log/slog"
 	"os"
 	"runtime"
@@ -27,12 +29,51 @@ import (
 //go:embed appicon.png
 var appIcon []byte
 
-func configureUpdater(appInstance *application.App) binding.UpdateBackend {
+const updateMirrorMetadata = "bootagent.update.mirror"
+
+type updateProvider struct {
+	official, mirror updater.Provider
+	preferMirror     func(context.Context) bool
+}
+
+func (p updateProvider) Name() string { return "bootagent-release" }
+
+func (p updateProvider) Check(ctx context.Context, request updater.CheckRequest) (*updater.Release, error) {
+	mirror := p.preferMirror(ctx)
+	provider := p.official
+	if mirror {
+		provider = p.mirror
+	}
+	release, err := provider.Check(ctx, request)
+	if release != nil {
+		if release.Metadata == nil {
+			release.Metadata = make(map[string]any)
+		}
+		release.Metadata[updateMirrorMetadata] = mirror
+	}
+	return release, err
+}
+
+func (p updateProvider) Download(ctx context.Context, release *updater.Release, dst io.Writer, progress func(int64, int64)) error {
+	if release == nil || release.Metadata == nil {
+		return errors.New("update release source is missing")
+	}
+	mirror, ok := release.Metadata[updateMirrorMetadata].(bool)
+	if !ok {
+		return errors.New("update release source is invalid")
+	}
+	if mirror {
+		return p.mirror.Download(ctx, release, dst, progress)
+	}
+	return p.official.Download(ctx, release, dst, progress)
+}
+
+func configureUpdater(appInstance *application.App, core *app.UseCases) binding.UpdateBackend {
 	current := version.UpdaterVersion()
 	if current == "" {
 		return nil
 	}
-	provider, err := github.New(github.Config{
+	providerConfig := github.Config{
 		Repository:    "MaimoryLab/BootAgent",
 		ChecksumAsset: "SHA256SUMS",
 		// Every release ships platform-specific installers plus one OTA .zip.
@@ -42,11 +83,23 @@ func configureUpdater(appInstance *application.App) binding.UpdateBackend {
 		// 30-second Client.Timeout, which bounds the body transfer too and so
 		// made the update impossible on a slow link. See NewUpdateHTTPClient.
 		HTTPClient: binding.NewUpdateHTTPClient(),
-	})
+	}
+	official, err := github.New(providerConfig)
 	if err != nil {
 		slog.Error("BootAgent updater provider is unavailable", "error", err)
 		return nil
 	}
+	providerConfig.Repository = "maimory/BootAgent"
+	providerConfig.BaseURL = "https://gitee.com/api/v5"
+	mirror, err := github.New(providerConfig)
+	if err != nil {
+		slog.Error("BootAgent mirror updater provider is unavailable", "error", err)
+		return nil
+	}
+	provider := updateProvider{official: official, mirror: mirror, preferMirror: func(ctx context.Context) bool {
+		settings, err := core.Settings(ctx)
+		return err == nil && settings.PreferMirror
+	}}
 	if err := appInstance.Updater.Init(updater.Config{
 		CurrentVersion: current,
 		Providers:      []updater.Provider{provider},
@@ -236,7 +289,7 @@ func main() {
 		ShouldQuit: func() bool { return quitting.Load() },
 	})
 	appInstance.OnShutdown(func() { _ = core.CloseConversion() })
-	updateBackend := configureUpdater(appInstance)
+	updateBackend := configureUpdater(appInstance, core)
 	if updateBackend != nil {
 		updateBackend = quitAwareUpdater{UpdateBackend: updateBackend, quitting: &quitting, restarting: &atomic.Bool{}}
 	}

@@ -3,13 +3,48 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"io"
 	"sync/atomic"
 	"testing"
 
 	"github.com/MaimoryLab/BootAgent/internal/binding"
+	"github.com/wailsapp/wails/v3/pkg/updater"
 )
+
+type updateProviderFake struct {
+	checks, downloads int
+}
+
+func (p *updateProviderFake) Name() string { return "fake" }
+func (p *updateProviderFake) Check(context.Context, updater.CheckRequest) (*updater.Release, error) {
+	p.checks++
+	return &updater.Release{}, nil
+}
+func (p *updateProviderFake) Download(context.Context, *updater.Release, io.Writer, func(int64, int64)) error {
+	p.downloads++
+	return nil
+}
+
+func TestUpdateProviderKeepsCheckedSourceForDownload(t *testing.T) {
+	official, mirror := &updateProviderFake{}, &updateProviderFake{}
+	preferMirror := true
+	provider := updateProvider{official: official, mirror: mirror, preferMirror: func(context.Context) bool { return preferMirror }}
+
+	release, err := provider.Check(context.Background(), updater.CheckRequest{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	preferMirror = false
+	if err := provider.Download(context.Background(), release, &bytes.Buffer{}, func(int64, int64) {}); err != nil {
+		t.Fatal(err)
+	}
+	if mirror.checks != 1 || mirror.downloads != 1 || official.checks != 0 || official.downloads != 0 {
+		t.Fatalf("official checks/downloads = %d/%d, mirror = %d/%d", official.checks, official.downloads, mirror.checks, mirror.downloads)
+	}
+}
 
 type restartBackend struct {
 	binding.UpdateBackend
