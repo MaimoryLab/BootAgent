@@ -379,7 +379,6 @@ jobs:
           version="${RELEASE_VERSION#v}"
           export VERSION="$version"
           desktop="build/linux/bootagent-desktop.desktop"
-          appimage_arch='${{ matrix.arch.goarch == 'amd64' && 'x86_64' || 'aarch64' }}'
           package_arch='${{ matrix.arch.ota }}'
 
           go run github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.8 \
@@ -390,15 +389,6 @@ jobs:
             -outputfile "$desktop" \
             -categories 'Development;' \
             -comment 'Local AI development environment activator'
-
-          go run github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.8 \
-            generate appimage \
-            -binary bin/bootagent-desktop \
-            -icon build/appicon.png \
-            -desktopfile "$desktop" \
-            -outputdir bin \
-            -builddir build/linux/appimage/build
-          mv "bin/bootagent-desktop-${appimage_arch}.AppImage" "bin/BootAgent-linux-${package_arch}.AppImage"
 
           go run github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.8 \
             tool package \
@@ -427,7 +417,6 @@ jobs:
         run: |
           set -euo pipefail
           arch='${{ matrix.arch.ota }}'
-          test -x bin/BootAgent-linux-${arch}.AppImage
           test -s bin/BootAgent-linux-${arch}.deb
           test -s bin/BootAgent-linux-${arch}.rpm
           test -s bin/ota-BootAgent-linux-${arch}.zip
@@ -438,7 +427,6 @@ jobs:
         with:
           name: installer-linux-${{ matrix.arch.label }}
           path: |
-            bin/BootAgent-linux-${{ matrix.arch.ota }}.AppImage
             bin/BootAgent-linux-${{ matrix.arch.ota }}.deb
             bin/BootAgent-linux-${{ matrix.arch.ota }}.rpm
             bin/ota-BootAgent-linux-${{ matrix.arch.ota }}.zip
@@ -496,8 +484,6 @@ jobs:
             ota-BootAgent-windows-arm64.zip
             BootAgent-windows-amd64-installer.exe
             BootAgent-windows-arm64-installer.exe
-            BootAgent-linux-amd64.AppImage
-            BootAgent-linux-arm64.AppImage
             BootAgent-linux-amd64.deb
             BootAgent-linux-arm64.deb
             BootAgent-linux-amd64.rpm
