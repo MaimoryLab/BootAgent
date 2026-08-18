@@ -2,6 +2,10 @@ name: Sync Releases to Gitee
 
 on:
   workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to mirror (defaults to the latest release)
+        required: false
   workflow_run:
     workflows: [Build artifacts]
     types: [completed]
@@ -9,20 +13,51 @@ on:
 permissions:
   contents: read
 
+# Uploads to Gitee measured ~15 kB/s from a runner, so a run is long enough that
+# the next one starts before it ends. Without this the runs pile up and race each
+# other's uploads; five overlapping runs is how the release ended up missing its
+# checksum manifest. Queue rather than cancel: a cancelled run still did useful
+# work, and the script skips whatever already landed.
+concurrency:
+  group: sync-release-gitee
+  cancel-in-progress: false
+
 jobs:
   sync:
     name: Sync Releases to Gitee
     runs-on: ubuntu-latest
+    # The release only exists once the build published it. A failed build has
+    # nothing to mirror, and workflow_run fires for those too.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    # Well clear of the ~70 minutes 62 MiB needs at the observed rate, and short
+    # of the 6-hour default that let one run sit for 1h35m before anyone noticed.
+    timeout-minutes: 120
     steps:
-      - name: Sync GitHub Release to Gitee
-        uses: trustedinster/sync-release-gitee@v1.3
-        with:
-          gitee_owner: maimory
-          gitee_repo: BootAgent
-          gitee_token: ${{ secrets.GITEE_TOKEN }}
-          github_owner: MaimoryLab
-          github_repo: BootAgent
-          gitee_upload_retry_times: 3
-          debug: false
-  
+      - uses: actions/checkout@v4
 
+      - name: Resolve the tag to mirror
+        id: target
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REQUESTED: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          if [ -n "${REQUESTED}" ]; then
+            tag="${REQUESTED}"
+          else
+            tag="$(gh release view --repo "${GITHUB_REPOSITORY}" --json tagName -q .tagName)"
+          fi
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+          echo "Mirroring ${tag}"
+
+      # Only the artifacts a person downloads, checksum manifest first, skipping
+      # whatever a previous run already uploaded. See the script's docstring for
+      # why the off-the-shelf action could not finish.
+      - name: Mirror release artifacts to Gitee
+        env:
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 scripts/sync-gitee-release.py --tag "${{ steps.target.outputs.tag }}"
