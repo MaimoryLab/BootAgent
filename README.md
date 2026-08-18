@@ -20,7 +20,7 @@ BootAgent is a local desktop workspace for AI coding Agents. It turns a fresh ma
 - Detects, installs, updates, and launches supported CLI and desktop Agents. The terminal used to launch CLI Agents can be chosen in Settings; the platform's built-in terminal remains the default.
 - Migrates existing Codex and ChatGPT Desktop conversations into BootAgent's `bootagent` provider bucket from their Agent rows. This operation intentionally creates no history backup.
 - Connects Agents to built-in or custom Providers, with model selection and protocol-aware connection checks.
-- Saves reusable Profiles and applies the right configuration to each Agent.
+- Saves reusable Profiles. An Agent's own configuration screen is where you pick the Profile it uses, and where its model can be changed directly.
 - Carries a Profile's reasoning effort (`off`, `low`, `medium`, `high`, `max`) into every Agent whose own config format documents a place for it, translating the scale to what each one accepts. Agents with no documented depth setting are left alone rather than given invented keys.
 - Bootstraps required runtimes such as Node.js, uv, and Aider's managed Python when needed.
 - Keeps long-running installs visible and cancellable in the Task Center.

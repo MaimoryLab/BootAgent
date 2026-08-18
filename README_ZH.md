@@ -19,7 +19,7 @@ BootAgent 是一个本地桌面工作台，用来统一管理 AI 编程 Agent。
 - 检测、安装、更新并启动支持的 CLI 和桌面 Agent。启动 CLI Agent 使用的终端可在“设置”中选择，默认沿用系统自带终端。
 - 可从 Codex 与 ChatGPT Desktop 的 Agent 行把现有对话迁入 BootAgent 的 `bootagent` Provider 分桶；此操作按设计不创建历史备份。
 - 连接内置或自定义模型服务（Provider），选择模型，并按 Agent 实际协议检查连接。
-- 保存可复用的配置模版（Profile），一键应用到对应 Agent。
+- 保存可复用的配置模版（Profile）。在某个 Agent 的配置页选择要用的模版，模型也可以在同一页直接改。
 - 把 Profile 上的思考深度（`off`、`low`、`medium`、`high`、`max`）写入每个自身配置格式有对应位置的 Agent，并按各自接受的取值做换算。没有文档化深度设置的 Agent 保持原样，不会被塞进自造的字段。
 - 按需准备 Node.js、uv，以及 Aider 所需的托管 Python 运行时。
 - 长时间安装任务在任务中心持续可见，并且可以取消。
