@@ -460,100 +460,24 @@ describe("ProfilesPage", () => {
     expect(screen.getByText("model-beta")).toBeTruthy();
   });
 
-  it("applies a Profile to the Agents confirmed in the dialog", async () => {
-    const activate = vi.spyOn(api, "activateAgent").mockResolvedValue({
-      ok: true,
-      agent: "codex",
-      config: "/c",
-      provider: "ppio",
-      model: "deepseek/deepseek-v3",
-      restart: "restart",
-      next: "next",
-    });
+  // Applying from this side is gone: an Agent is pointed at a Profile from the
+  // Agent's own configuration screen, so the binding has one direction only.
+  // The card still says which Agents use it, which is the read-only half.
+  it("no longer writes to any Agent from the Profile card", () => {
+    const activate = vi.spyOn(api, "activateAgent");
     mockState = { status: statusWith([profile()]), statusState: "success" };
     if (!mockState.status) throw new Error("missing status");
     mockState.status.providers.ppio.has_key = true;
     render(
       <MemoryRouter initialEntries={["/profiles"]}>
-        <Routes><Route path="/profiles" element={<ProfilesPage />} /><Route path="/overview" element={<h1>overview</h1>} /></Routes>
-      </MemoryRouter>,
-    );
-    fireEvent.click(screen.getByRole("button", { name: "应用到 Agent" }));
-    // Nothing is written until the dialog is confirmed. Pressing the card button
-    // used to start the writes immediately.
-    expect(activate).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "应用到 1 个 Agent" }));
-
-    await waitFor(() => expect(activate).toHaveBeenCalledWith("codex", expect.objectContaining({
-      provider: "ppio",
-      model: "deepseek/deepseek-v3",
-      profileId: "team-ppio",
-    })));
-    expect(await screen.findByRole("heading", { name: "overview" })).toBeTruthy();
-  });
-
-  it("offers every protocol match but pre-selects only the Agents already bound", () => {
-    // The bug this replaces: a press wrote every configurable Agent sharing the
-    // protocol. Four Agents map to openai and a fifth defaults to it, so the real
-    // scope could be five config files -- with the count shown nowhere.
-    mockState = { status: statusWith([profile({ protocol: "openai" })]), statusState: "success" };
-    if (!mockState.status) throw new Error("missing status");
-    mockState.status.providers.ppio.has_key = true;
-    const [codex] = mockState.status.catalog;
-    mockState.status.catalog = [
-      { ...codex, id: "opencode", name: "OpenCode", protocol: "openai", rank: 2 },
-      { ...codex, id: "aider", name: "Aider", protocol: "openai", rank: 3 },
-    ];
-    // Only OpenCode follows the Profile; Aider is pointed somewhere else.
-    mockState.status.agents = {
-      opencode: { ...mockState.status.agents.codex, profileId: "team-ppio" },
-      aider: { ...mockState.status.agents.codex, profileId: "other-profile" },
-    };
-    render(
-      <MemoryRouter initialEntries={["/profiles"]}>
         <Routes><Route path="/profiles" element={<ProfilesPage />} /></Routes>
       </MemoryRouter>,
     );
-    fireEvent.click(screen.getByRole("button", { name: "应用到 Agent" }));
-
-    // Both are offered, so pulling in an unbound Agent stays possible.
-    const opencode = screen.getByRole("checkbox", { name: /OpenCode/ });
-    const aider = screen.getByRole("checkbox", { name: /Aider/ });
-    expect((opencode as HTMLInputElement).checked).toBe(true);
-    expect((aider as HTMLInputElement).checked).toBe(false);
-    // The primary button counts what is actually selected, not what matched.
-    expect(screen.getByRole("button", { name: "应用到 1 个 Agent" })).toBeTruthy();
-  });
-
-  it("writes only the Agents left checked", async () => {
-    const activate = vi.spyOn(api, "activateAgent").mockResolvedValue({
-      ok: true, agent: "opencode", config: "/c", provider: "ppio",
-      model: "deepseek/deepseek-v3", restart: "restart", next: "next",
-    });
-    mockState = { status: statusWith([profile({ protocol: "openai" })]), statusState: "success" };
-    if (!mockState.status) throw new Error("missing status");
-    mockState.status.providers.ppio.has_key = true;
-    const [codex] = mockState.status.catalog;
-    mockState.status.catalog = [
-      { ...codex, id: "opencode", name: "OpenCode", protocol: "openai", rank: 2 },
-      { ...codex, id: "aider", name: "Aider", protocol: "openai", rank: 3 },
-    ];
-    mockState.status.agents = {
-      opencode: { ...mockState.status.agents.codex, profileId: "team-ppio" },
-      aider: { ...mockState.status.agents.codex, profileId: "team-ppio" },
-    };
-    render(
-      <MemoryRouter initialEntries={["/profiles"]}>
-        <Routes><Route path="/profiles" element={<ProfilesPage />} /><Route path="/overview" element={<h1>overview</h1>} /></Routes>
-      </MemoryRouter>,
-    );
-    fireEvent.click(screen.getByRole("button", { name: "应用到 Agent" }));
-    // Both start checked because both follow the Profile. Unticking one is the
-    // opt-out that did not exist before.
-    fireEvent.click(screen.getByRole("checkbox", { name: /Aider/ }));
-    fireEvent.click(screen.getByRole("button", { name: "应用到 1 个 Agent" }));
-
-    await waitFor(() => expect(activate).toHaveBeenCalledTimes(1));
-    expect(activate).toHaveBeenCalledWith("opencode", expect.objectContaining({ profileId: "team-ppio" }));
+    expect(screen.queryByRole("button", { name: "应用到 Agent" })).toBeNull();
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(activate).not.toHaveBeenCalled();
+    // Editing and deleting are unaffected.
+    expect(screen.getByRole("button", { name: /编辑/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /删除/ })).toBeTruthy();
   });
 });
