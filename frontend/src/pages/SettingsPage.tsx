@@ -1,4 +1,4 @@
-import { Archive, BookOpen, ChevronRight, ExternalLink, Import, Languages, Power, RefreshCw } from "lucide-react";
+import { Archive, BookOpen, ChevronRight, ExternalLink, Import, Languages, Power, RefreshCw, Terminal as TerminalIcon } from "lucide-react";
 import { useState } from "react";
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
@@ -33,6 +33,7 @@ export function SettingsPage() {
   const [backupRetention, setBackupRetention] = useState<number | "">("");
   const [backupFailure, setBackupFailure] = useState("");
   const [autostartFailure, setAutostartFailure] = useState("");
+  const [terminalFailure, setTerminalFailure] = useState("");
 
   useEffect(() => { void api.version().then(setVersion).catch(() => {}); }, []);
   useEffect(() => {
@@ -49,6 +50,22 @@ export function SettingsPage() {
     });
     return () => { active = false; };
   }, []);
+
+  const saveTerminalApp = async (next: string) => {
+    if (!settings) return;
+    setTerminalFailure("");
+    // Optimistic: the picker is the only writer, so showing the choice now keeps
+    // the control responsive, and a failure below restores the stored value.
+    const previous = settings.terminal_app;
+    setSettings({ ...settings, terminal_app: next });
+    try {
+      const saved = await api.saveSettings({ terminal_app: next });
+      setSettings(saved);
+    } catch (error) {
+      setSettings({ ...settings, terminal_app: previous });
+      setTerminalFailure(describeFailure(error, t("无法保存终端设置"), t).message);
+    }
+  };
 
   const saveBackupRetention = async () => {
     if (!settings) return;
@@ -187,6 +204,31 @@ export function SettingsPage() {
           </label>
         </div>
         {autostartFailure ? <p className="settings-field-error" role="status">{autostartFailure}</p> : null}
+        <div className="settings-row terminal-app-row">
+          <TerminalIcon size={16} aria-hidden="true" />
+          <label htmlFor="terminal-app">
+            <strong>{t("启动 CLI Agent 的终端")}</strong>
+            <small>{t("自动会使用系统默认终端；未安装的终端不可选")}</small>
+          </label>
+          <SelectField
+            id="terminal-app"
+            className="terminal-app-select"
+            label={t("启动 CLI Agent 的终端")}
+            value={settings?.terminal_app ?? ""}
+            onChange={(next) => void saveTerminalApp(next)}
+            options={[
+              { value: "", label: t("自动") },
+              ...(settings?.terminals ?? []).map((terminal) => ({
+                value: terminal.id,
+                // An uninstalled terminal stays in the list but cannot be picked:
+                // dropping it would leave a stored choice unexplained.
+                label: terminal.installed ? terminal.name : t("{name}（未安装）", { name: terminal.name }),
+                disabled: !terminal.installed,
+              })),
+            ]}
+          />
+        </div>
+        {terminalFailure ? <p className="settings-field-error" role="status">{terminalFailure}</p> : null}
       </section>
       <section className="settings-section">
         <h2>{t("数据")}</h2>

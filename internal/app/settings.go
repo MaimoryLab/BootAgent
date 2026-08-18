@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/MaimoryLab/BootAgent/internal/platform"
@@ -44,14 +45,23 @@ type Settings struct {
 	MirrorFromRegion bool `json:"mirror_from_region"`
 	// BackupRetention is the number of historical versions kept per target.
 	BackupRetention int `json:"backup_retention"`
+	// TerminalApp is the terminal used to launch CLI Agents. Empty means auto:
+	// the platform's first installed terminal, which is what every build before
+	// this setting did.
+	TerminalApp string `json:"terminal_app"`
+	// Terminals lists this platform's terminals and which are installed. It is
+	// derived from the machine on each read and never persisted, so a terminal
+	// installed or removed after the choice was stored is reflected immediately.
+	Terminals []TerminalOption `json:"terminals"`
 }
 
 // SettingsPatch updates only the machine-level preferences named by the caller.
 // A nil field means "leave the stored value unchanged".
 type SettingsPatch struct {
-	Autostart       *bool `json:"autostart,omitempty"`
-	PreferMirror    *bool `json:"prefer_mirror,omitempty"`
-	BackupRetention *int  `json:"backup_retention,omitempty"`
+	Autostart       *bool   `json:"autostart,omitempty"`
+	PreferMirror    *bool   `json:"prefer_mirror,omitempty"`
+	BackupRetention *int    `json:"backup_retention,omitempty"`
+	TerminalApp     *string `json:"terminal_app,omitempty"`
 }
 
 // storedSettings is the on-disk shape. PreferMirror is a pointer so an absent
@@ -60,10 +70,11 @@ type SettingsPatch struct {
 // China who prefers the official source would find the box re-ticked on every
 // launch.
 type storedSettings struct {
-	SchemaVersion   int   `json:"schema_version"`
-	Autostart       *bool `json:"autostart,omitempty"`
-	PreferMirror    *bool `json:"prefer_mirror,omitempty"`
-	BackupRetention *int  `json:"backup_retention,omitempty"`
+	SchemaVersion   int     `json:"schema_version"`
+	Autostart       *bool   `json:"autostart,omitempty"`
+	PreferMirror    *bool   `json:"prefer_mirror,omitempty"`
+	BackupRetention *int    `json:"backup_retention,omitempty"`
+	TerminalApp     *string `json:"terminal_app,omitempty"`
 }
 
 func (u *UseCases) settingsPath() string {
@@ -79,6 +90,7 @@ func (u *UseCases) Settings(ctx context.Context) (Settings, error) {
 	if u == nil {
 		return settings, nil
 	}
+	settings.Terminals = availableTerminals(u.status.Platform.OS, u.lookPath, u.pathExists)
 	if stored, ok := u.readStoredSettings(); ok {
 		if stored.Autostart != nil {
 			settings.Autostart = *stored.Autostart
@@ -88,6 +100,9 @@ func (u *UseCases) Settings(ctx context.Context) (Settings, error) {
 		}
 		if stored.BackupRetention != nil {
 			settings.BackupRetention = storedBackupRetention(stored.BackupRetention)
+		}
+		if stored.TerminalApp != nil {
+			settings.TerminalApp = normalizeTerminalApp(u.status.Platform.OS, *stored.TerminalApp)
 		}
 		if stored.PreferMirror != nil {
 			return settings, nil
@@ -165,8 +180,10 @@ func (u *UseCases) SaveSettings(ctx context.Context, settings Settings) (Setting
 	chosen := settings.PreferMirror
 	autostart := settings.Autostart
 	retention := settings.BackupRetention
+	terminal := normalizeTerminalApp(u.status.Platform.OS, settings.TerminalApp)
 	return u.saveStoredSettings(ctx, storedSettings{
 		SchemaVersion: settingsSchemaVersion, Autostart: &autostart, PreferMirror: &chosen, BackupRetention: &retention,
+		TerminalApp: &terminal,
 	})
 }
 
@@ -193,6 +210,10 @@ func (u *UseCases) UpdateSettings(ctx context.Context, patch SettingsPatch) (Set
 	if patch.BackupRetention != nil && *patch.BackupRetention != 0 {
 		value := normalizeBackupRetention(*patch.BackupRetention)
 		stored.BackupRetention = &value
+	}
+	if patch.TerminalApp != nil {
+		value := normalizeTerminalApp(u.status.Platform.OS, *patch.TerminalApp)
+		stored.TerminalApp = &value
 	}
 	err := u.writeStoredSettings(ctx, stored)
 	u.writeMu.Unlock()
@@ -222,6 +243,51 @@ func (u *UseCases) writeStoredSettings(ctx context.Context, stored storedSetting
 	}
 	_, err = u.filesystem.AtomicWrite(ctx, u.settingsPath(), append(data, '\n'), false)
 	return err
+}
+
+// normalizeTerminalApp keeps only an id this platform actually offers. An
+// unknown id is stored as auto rather than rejected: the picker is the guard for
+// a live choice, and refusing the whole save would block an unrelated setting
+// because of a value the user cannot see.
+func normalizeTerminalApp(osID, requested string) string {
+	if requested == terminalAuto {
+		return terminalAuto
+	}
+	for _, definition := range terminalsFor(osID) {
+		if strings.EqualFold(definition.id, requested) {
+			return definition.id
+		}
+	}
+	return terminalAuto
+}
+
+// terminalApp reports the stored terminal choice for a launch. A failed read
+// yields auto, because refusing to open a window over an unreadable preference
+// would be worse than opening the default one.
+func (u *UseCases) terminalApp(ctx context.Context) string {
+	settings, err := u.Settings(ctx)
+	if err != nil {
+		return terminalAuto
+	}
+	return settings.TerminalApp
+}
+
+// lookPath resolves a command without requiring a runner, so reading settings on
+// a build with no runner cannot panic.
+func (u *UseCases) lookPath(command string) (string, bool) {
+	if u == nil || u.runner == nil {
+		return "", false
+	}
+	return u.runner.LookPath(command)
+}
+
+// pathExists reports whether a macOS application bundle is present.
+func (u *UseCases) pathExists(path string) bool {
+	if path == "" {
+		return false
+	}
+	_, err := os.Stat(path)
+	return err == nil
 }
 
 // preferMirror reports the effective download preference. Reading it here keeps
