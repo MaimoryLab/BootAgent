@@ -58,6 +58,20 @@ func configureUpdater(appInstance *application.App) binding.UpdateBackend {
 	return appInstance.Updater
 }
 
+type quitAwareUpdater struct {
+	binding.UpdateBackend
+	quitting *atomic.Bool
+}
+
+func (u quitAwareUpdater) Restart(ctx context.Context) error {
+	u.quitting.Store(true)
+	if err := u.UpdateBackend.Restart(ctx); err != nil {
+		u.quitting.Store(false)
+		return err
+	}
+	return nil
+}
+
 func configureSystemTray(appInstance *application.App, core *app.UseCases, window application.Window, quitting *atomic.Bool) {
 	tray := appInstance.SystemTray.New()
 	refresh := func() {}
@@ -218,6 +232,9 @@ func main() {
 	})
 	appInstance.OnShutdown(func() { _ = core.CloseConversion() })
 	updateBackend := configureUpdater(appInstance)
+	if updateBackend != nil {
+		updateBackend = quitAwareUpdater{UpdateBackend: updateBackend, quitting: &quitting}
+	}
 	appInstance.Event.On(updater.EventDownloadProgress, func(event *application.CustomEvent) {
 		if event == nil {
 			return
