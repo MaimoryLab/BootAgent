@@ -10,6 +10,9 @@ interface ModelPickerProps {
   inputId?: string;
   inputLabel?: string;
   required?: boolean;
+  /** Fired when the text field loses focus, for a caller that commits on blur
+   *  rather than on every keystroke. */
+  onBlur?: () => void;
   /**
    * Hides the list behind a disclosure arrow, for the compact Profile editors.
    * The wizard's model step is a whole page about choosing one, so there the
@@ -18,7 +21,7 @@ interface ModelPickerProps {
   collapsible?: boolean;
 }
 
-export function ModelPicker({ models, value, onChange, inputId = "manual-model", inputLabel, required, collapsible = false }: ModelPickerProps) {
+export function ModelPicker({ models, value, onChange, inputId = "manual-model", inputLabel, required, onBlur, collapsible = false }: ModelPickerProps) {
   const { t } = useI18n();
   const listId = `${inputId}-list`;
   // The typed query is tracked apart from the committed model ID. They used to
@@ -130,6 +133,7 @@ export function ModelPicker({ models, value, onChange, inputId = "manual-model",
                 id={inputId}
                 value={value}
                 onChange={(event) => type(event.target.value)}
+                onBlur={onBlur}
                 onKeyDown={(event) => {
                   if (!collapsible || open || event.key !== "ArrowDown") return;
                   event.preventDefault();
@@ -162,7 +166,7 @@ export function ModelPicker({ models, value, onChange, inputId = "manual-model",
               ) : null}
             </div>
           ) : (
-            <input id={inputId} className="text-field" value={value} onChange={(event) => onChange(event.target.value)} placeholder={t("例如 gpt-4.1")} spellCheck={false} autoCorrect="off" autoCapitalize="none" required={required} />
+            <input id={inputId} className="text-field" value={value} onChange={(event) => onChange(event.target.value)} onBlur={onBlur} placeholder={t("例如 gpt-4.1")} spellCheck={false} autoCorrect="off" autoCapitalize="none" required={required} />
           )}
           {collapsible ? list : null}
         </div>
