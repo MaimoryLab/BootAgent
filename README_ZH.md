@@ -8,6 +8,7 @@
     <a href="https://github.com/MaimoryLab/BootAgent/stargazers"><img src="https://img.shields.io/github/stars/MaimoryLab/BootAgent?style=flat" alt="GitHub Stars"></a>
     <a href="LICENSE"><img src="https://img.shields.io/github/license/MaimoryLab/BootAgent" alt="许可证"></a>
   </p>
+  <a href="https://www.producthunt.com/products/bootagent?embed=true&amp;utm_source=badge-featured&amp;utm_medium=badge&amp;utm_campaign=badge-bootagent" target="_blank" rel="noopener noreferrer"><img alt="BootAgent - Bootstrap and manage all your favorite agents in one place | Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1225464&amp;theme=light&amp;t=1787018185057"></a>
   <p><a href="README.md">English</a></p>
 </div>
 

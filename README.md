@@ -8,8 +8,10 @@
     <a href="https://github.com/MaimoryLab/BootAgent/stargazers"><img src="https://img.shields.io/github/stars/MaimoryLab/BootAgent?style=flat" alt="GitHub stars"></a>
     <a href="LICENSE"><img src="https://img.shields.io/github/license/MaimoryLab/BootAgent" alt="License"></a>
   </p>
+  <a href="https://www.producthunt.com/products/bootagent?embed=true&amp;utm_source=badge-featured&amp;utm_medium=badge&amp;utm_campaign=badge-bootagent" target="_blank" rel="noopener noreferrer"><img alt="BootAgent - Bootstrap and manage all your favorite agents in one place | Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1225464&amp;theme=light&amp;t=1787018185057"></a>
   <p><a href="README_ZH.md">简体中文</a></p>
 </div>
+
 
 BootAgent is a local desktop workspace for AI coding Agents. It turns a fresh machine into a usable, repeatable setup without asking you to edit several tool-specific config files by hand.
 
