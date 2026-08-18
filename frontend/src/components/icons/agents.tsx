@@ -94,6 +94,12 @@ const MARKS: Record<string, Mark> = {
     source: assetRightsManifest.assets["claude-code"].source,
     rights: assetRightsManifest.assets["claude-code"],
   },
+  "claude-desktop": {
+    kind: "asset",
+    markup: claudeCodeMark,
+    source: assetRightsManifest.assets["claude-code"].source,
+    rights: assetRightsManifest.assets["claude-code"],
+  },
   "kilo-cli": {
     kind: "asset",
     markup: kiloCliMark,

@@ -1,7 +1,8 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { api } from "../backend/api";
 import { initialWizardState, type WizardState } from "../state/wizardReducer";
 import type { AgentInstallResult, StatusResponse } from "../types/api";
 import { ActivationPage } from "./ActivationPage";
@@ -57,7 +58,7 @@ function show(results: AgentInstallResult[], next = "") {
 }
 
 describe("ActivationPage partial results", () => {
-  beforeEach(() => { refreshStatus.mockClear(); cancelledTargets.clear(); refuseStart = false; });
+  beforeEach(() => { vi.restoreAllMocks(); refreshStatus.mockClear(); cancelledTargets.clear(); refuseStart = false; });
 
   // One Agent configured and another failed unretryably left no forward button
   // and no retry button -- the only exit was back to the review step, even though
@@ -131,5 +132,67 @@ describe("ActivationPage partial results", () => {
   it("hides the next-step command when nothing succeeded", () => {
     show([result("codex", { status: "failed", retryable: false })], "openclaw onboard");
     expect(screen.queryByText("openclaw onboard")).toBeNull();
+  });
+
+  it("configures a manual desktop app without requesting an install", async () => {
+    vi.spyOn(api, "saveProfile").mockResolvedValue({
+      profile: { id: "claude-desktop-jiekou", label: "Claude Desktop", provider: "jiekou", baseUrl: null, model: "claude-sonnet-4-5", protocol: "anthropic", activatedAt: null },
+      reapplied: null,
+      failures: null,
+    });
+    const install = vi.spyOn(api, "installDesktopAgent");
+    const configure = vi.spyOn(api, "configureDesktopAgent").mockResolvedValue({
+      agent: "claude-desktop",
+      profileId: "claude-desktop-jiekou",
+      profileAgentId: "claude-desktop",
+      config: "/tmp/Claude-3p/claude_desktop_config.json",
+      message: "configured",
+    });
+    state = {
+      ...initialWizardState,
+      status: {
+        ...status,
+        desktopAgents: [{
+          id: "claude-desktop", name: "Claude Desktop", installed: false, supported: true,
+          version: null, source: "manual", protocol: "anthropic", profileAgentId: "claude-desktop",
+          profileId: null, manualInstall: true, home: "https://claude.com/download",
+        }],
+      },
+      statusState: "success",
+      selectedAgentIds: ["claude-desktop"],
+      model: "claude-sonnet-4-5",
+      activationState: "idle",
+      activationRequested: true,
+    };
+
+    render(<MemoryRouter><ActivationPage /></MemoryRouter>);
+    await waitFor(() => expect(configure).toHaveBeenCalledWith("claude-desktop", "claude-desktop-jiekou"));
+    expect(install).not.toHaveBeenCalled();
+  });
+
+  it("opens the official download page after configuring Claude Desktop", async () => {
+    const install = vi.spyOn(api, "installDesktopAgent").mockResolvedValue({
+      status: "installer-opened", message: "opened", refreshNeeded: false,
+      app: { id: "claude-desktop", name: "Claude Desktop", installed: false, supported: true, version: null, source: "manual", protocol: "anthropic", profileAgentId: "claude-desktop", profileId: null },
+    });
+    state = {
+      ...initialWizardState,
+      status: {
+        ...status,
+        desktopAgents: [{
+          id: "claude-desktop", name: "Claude Desktop", installed: false, supported: true,
+          version: null, source: "manual", protocol: "anthropic", profileAgentId: "claude-desktop",
+          profileId: null, manualInstall: true, home: "https://claude.com/download",
+        }],
+      },
+      statusState: "success",
+      selectedAgentIds: ["claude-desktop"],
+      activationState: "success",
+      activationResults: [result("claude-desktop")],
+    };
+
+    render(<MemoryRouter><ActivationPage /></MemoryRouter>);
+    fireEvent.click(screen.getByRole("button", { name: "前往 Claude Desktop 下载" }));
+    await waitFor(() => expect(install).toHaveBeenCalledWith("claude-desktop"));
   });
 });

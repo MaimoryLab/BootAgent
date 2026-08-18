@@ -89,6 +89,20 @@ describe("DesktopAppSection", () => {
     expect(bridge.installDesktopAgent).not.toHaveBeenCalled();
   });
 
+  it("configures a manually installed app without downloading it", () => {
+    const onSetup = vi.fn();
+    render(
+      <TaskCenterProvider>
+        <DesktopAppSection app={app({ id: "claude-desktop", name: "Claude Desktop", manualInstall: true })} onChanged={vi.fn()} onSetup={onSetup} />
+      </TaskCenterProvider>,
+    );
+
+    expect(screen.getByText("配置完成后前往官网自行安装")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "配置" }));
+    expect(onSetup).toHaveBeenCalledWith("claude-desktop");
+    expect(bridge.installDesktopAgent).not.toHaveBeenCalled();
+  });
+
   it("shows download progress until the install request completes", async () => {
     const installed = app({ installed: true, version: "26.727.51351", path: "/Applications/Example.app" });
     let complete!: (result: DesktopAgentActionResult) => void;

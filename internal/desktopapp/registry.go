@@ -11,6 +11,7 @@ const (
 	ChatGPTDesktopName     = "ChatGPT Desktop"
 	CodexAgentID           = "codex"
 	ConfigAdapterCodex     = "codex"
+	ConfigAdapterClaude    = "claude-desktop"
 	ConfigAdapterWorkBuddy = "workbuddy"
 	ConfigAdapterZCode     = "zcode"
 	ConfigAdapterDSH       = "dsh"
@@ -33,10 +34,8 @@ type Definition struct {
 	ConfigPath          string
 	ConfigAdapter       string
 	Protocol            string
-	// ManualInstall marks an app BootAgent can detect and configure but not fetch,
-	// because no verifiable installer URL is known for it. Home is where the user
-	// gets it instead. Both exist so the UI can avoid offering an install action
-	// that only returns a link.
+	// ManualInstall marks an app BootAgent can detect and configure but not fetch.
+	// Home is the official page the UI opens so the user can install it themselves.
 	ManualInstall bool
 	Home          string
 	// Edition distinguishes regional builds of the same product, which install
@@ -71,6 +70,16 @@ var implementations = []implementation{
 		inspect: inspectDSH,
 		install: installDSH,
 		open:    openDSH,
+	},
+	{
+		Definition: Definition{
+			ID: ClaudeDesktopID, Name: ClaudeDesktopName, ProfileAgentID: ClaudeDesktopID,
+			ConfigAdapter: ConfigAdapterClaude, Protocol: "anthropic",
+			ManualInstall: true, Home: ClaudeDesktopHome,
+		},
+		inspect: inspectClaudeDesktop,
+		install: installClaudeDesktop,
+		open:    openClaudeDesktop,
 	},
 	{
 		Definition: Definition{

@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/MaimoryLab/BootAgent/internal/desktopapp"
@@ -128,6 +129,40 @@ func TestConfigureWorkBuddyWritesModelsJSONFromProvider(t *testing.T) {
 	}
 	if binding, err := core.profiles.ReadAgentBinding(desktopapp.WorkBuddyID); err != nil || binding == nil || binding.Model != "model-b" {
 		t.Fatalf("WorkBuddy binding did not follow the Profile: %#v, err=%v", binding, err)
+	}
+}
+
+func TestConfigureClaudeDesktopUsesAnthropicProviderEndpoint(t *testing.T) {
+	home := t.TempDir()
+	core := NewUseCases(StatusOptions{Home: home, Platform: platform.For("macos", "arm64")})
+	if _, err := core.SaveProfile(context.Background(), SaveProfileOptions{
+		ID: "claude-desktop-profile", Label: "Claude Desktop", Provider: "jiekou", APIKey: "provider-secret",
+		Model: "claude-sonnet-5", ConfigMode: "provider", Protocol: "anthropic", Context1M: true,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	result, err := core.ConfigureDesktopAgent(context.Background(), desktopapp.ClaudeDesktopID, "claude-desktop-profile")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.ProfileAgentID != desktopapp.ClaudeDesktopID || result.Restart != "Restart Claude Desktop" || !strings.Contains(result.Config, filepath.Join("Claude-3p", "configLibrary")) {
+		t.Fatalf("Claude Desktop configure result = %#v", result)
+	}
+	data, err := os.ReadFile(result.Config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var profile map[string]any
+	if err := json.Unmarshal(data, &profile); err != nil {
+		t.Fatal(err)
+	}
+	models := profile["inferenceModels"].([]any)
+	if profile["inferenceGatewayBaseUrl"] != "https://api.highwayapi.ai/anthropic" || models[0].(map[string]any)["supports1m"] != true {
+		t.Fatalf("Claude Desktop profile = %#v", profile)
+	}
+	binding, err := core.profiles.ReadAgentBinding(desktopapp.ClaudeDesktopID)
+	if err != nil || binding == nil || binding.BaseURL != "https://api.highwayapi.ai/anthropic" {
+		t.Fatalf("Claude Desktop binding = %#v, err=%v", binding, err)
 	}
 }
 

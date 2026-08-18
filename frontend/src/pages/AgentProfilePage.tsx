@@ -90,7 +90,7 @@ export function AgentProfilePage() {
   const selected = profiles.find((profile) => profile.id === selectedId);
   const duplicateID = Boolean(draft && !draft.originalId && status.profiles.some((profile) => profile.id === draft.id.trim().toLowerCase()));
   const canSave = Boolean(draft?.id.trim() && draft?.provider && draft?.model.trim() && !duplicateID);
-  const canApply = Boolean(selected && desktopProfileUsable(status, selected));
+  const canApply = Boolean(selected && desktopProfileUsable(status, selected, app));
 
   const openCreate = () => {
     const usable = byProviderCreatedAt(status.providers).filter(([, meta]) =>
@@ -282,7 +282,7 @@ export function AgentProfilePage() {
       {profiles.length ? (
         <div className="profile-list desktop-profile-list">
           {profiles.map((profile) => {
-            const usable = desktopProfileUsable(status, profile);
+            const usable = desktopProfileUsable(status, profile, app);
             const active = selectedId === profile.id;
             return (
             <article className={`profile-card profile-choice${active ? " is-selected" : ""}${!usable ? " is-disabled" : ""}`} key={profile.id} data-testid={`agent-profile-${profile.id}`} onClick={() => { if (usable) { setSelectedId(profile.id); setApplied(""); } }}>

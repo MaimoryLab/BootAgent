@@ -37,9 +37,8 @@ type DesktopAgentStatus struct {
 	// them without the region being part of Name.
 	Edition string `json:"edition,omitempty"`
 	// ManualInstall reports that BootAgent can detect and configure this app but
-	// cannot fetch it. Without this the UI offered "Install the official desktop
-	// application" for an Agent whose install step only returns a download link,
-	// which is a button that cannot do what it says.
+	// cannot fetch it. The UI can hand off to its official download page without
+	// claiming BootAgent installs it.
 	ManualInstall bool   `json:"manualInstall,omitempty"`
 	Home          string `json:"home,omitempty"`
 	// Unofficial reports that the publisher is not the vendor whose model the app
@@ -200,19 +199,24 @@ func (u *UseCases) ConfigureDesktopAgent(ctx context.Context, agentID, profileID
 	if err != nil {
 		return DesktopAgentProfileResult{}, err
 	}
+	protocol := definition.Protocol
+	if protocol == "" {
+		protocol = provider.ProtocolForAdapter(definition.ConfigAdapter)
+	}
+	baseURL := target.BaseFor(protocol)
 	model := stringPointerValue(selected.Model)
-	if strings.TrimSpace(model) == "" || strings.TrimSpace(target.BaseURL) == "" {
+	if strings.TrimSpace(model) == "" || strings.TrimSpace(baseURL) == "" {
 		return DesktopAgentProfileResult{}, oneerrors.New(oneerrors.InvalidRequest, "Desktop Agent profile has no provider or model")
 	}
 	u.writeMu.Lock()
 	defer u.writeMu.Unlock()
-	configPath, managed, err := u.writeDesktopAgentConfig(ctx, definition, target, model)
+	configPath, managed, err := u.writeDesktopAgentConfig(ctx, definition, target, model, selected.Context1M)
 	if err != nil {
 		return DesktopAgentProfileResult{}, err
 	}
 	_, err = u.profiles.WriteAgentBinding(ctx, agentID, profileStore.BindingWriteRequest{
 		Provider:   target.ID,
-		BaseURL:    target.BaseURL,
+		BaseURL:    baseURL,
 		Model:      model,
 		ProfileRef: profileID,
 	})
@@ -231,8 +235,8 @@ func (u *UseCases) ConfigureDesktopAgent(ctx context.Context, agentID, profileID
 	return result, nil
 }
 
-func (u *UseCases) writeDesktopAgentConfig(ctx context.Context, definition desktopapp.Definition, target provider.Entry, model string) (string, bool, error) {
-	if strings.TrimSpace(definition.ConfigAdapter) == "" || strings.TrimSpace(definition.ConfigPath) == "" {
+func (u *UseCases) writeDesktopAgentConfig(ctx context.Context, definition desktopapp.Definition, target provider.Entry, model string, context1M bool) (string, bool, error) {
+	if strings.TrimSpace(definition.ConfigAdapter) == "" {
 		return "", false, nil
 	}
 	if u.status.Platform.OS != "macos" && u.status.Platform.OS != "windows" {
@@ -241,12 +245,19 @@ func (u *UseCases) writeDesktopAgentConfig(ctx context.Context, definition deskt
 	if strings.TrimSpace(target.APIKey) == "" {
 		return "", false, oneerrors.New(oneerrors.InvalidRequest, "API key is required")
 	}
-	path := filepath.Join(u.status.Home, filepath.FromSlash(definition.ConfigPath))
 	writer := configWriter.NewWriter(u.status.Home, u.status.Platform.OS, u.filesystem)
 	protocol := definition.Protocol
 	if protocol == "" {
 		protocol = provider.ProtocolForAdapter(definition.ConfigAdapter)
 	}
+	if definition.ConfigAdapter == desktopapp.ConfigAdapterClaude {
+		path, err := writer.WriteClaudeDesktop(ctx, target.BaseFor(protocol), target.APIKey, model, context1M)
+		return path, true, err
+	}
+	if strings.TrimSpace(definition.ConfigPath) == "" {
+		return "", false, nil
+	}
+	path := filepath.Join(u.status.Home, filepath.FromSlash(definition.ConfigPath))
 	if err := writeManagedAgentConfig(ctx, writer, definition.ID, catalog.Agent{
 		ConfigAdapter: definition.ConfigAdapter,
 	}, path, dshRouteProviderID(target, ""), target.Name, target.BaseFor(protocol), target.APIKey, model, "", false); err != nil {

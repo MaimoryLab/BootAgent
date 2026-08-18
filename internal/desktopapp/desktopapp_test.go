@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -202,7 +203,7 @@ func TestDSHURLUsesTheNPMMirrorPreference(t *testing.T) {
 func TestDesktopDefinitionsExposeIndependentProducts(t *testing.T) {
 	definitions := Definitions()
 	// DSH Desktop leads the list because the UI renders it in this order.
-	if len(definitions) < 3 || definitions[0].ID != DSHDesktopID || definitions[1].ID != ChatGPTDesktopID || definitions[2].ID != WorkBuddyID {
+	if len(definitions) < 4 || definitions[0].ID != DSHDesktopID || definitions[1].ID != ClaudeDesktopID || definitions[2].ID != ChatGPTDesktopID || definitions[3].ID != WorkBuddyID {
 		t.Fatalf("desktop definitions = %#v", definitions)
 	}
 	// Only the third-party build carries the flag; claiming it for a vendor's own
@@ -214,6 +215,10 @@ func TestDesktopDefinitionsExposeIndependentProducts(t *testing.T) {
 	if chatGPT, ok := DefinitionFor(ChatGPTDesktopID); !ok || chatGPT.Unofficial {
 		t.Fatalf("ChatGPT must not be marked unofficial: %#v, found=%v", chatGPT, ok)
 	}
+	claude, ok := DefinitionFor(ClaudeDesktopID)
+	if !ok || !claude.ManualInstall || claude.Home != "https://claude.com/download" || claude.Protocol != "anthropic" || claude.ConfigAdapter != ConfigAdapterClaude {
+		t.Fatalf("Claude Desktop definition = %#v, found=%v", claude, ok)
+	}
 	chatGPT, ok := DefinitionFor(ChatGPTDesktopID)
 	if !ok || chatGPT.ProfileAgentID != CodexAgentID || chatGPT.SharedConfigAgentID != CodexAgentID {
 		t.Fatalf("ChatGPT definition = %#v, found=%v", chatGPT, ok)
@@ -221,6 +226,62 @@ func TestDesktopDefinitionsExposeIndependentProducts(t *testing.T) {
 	workBuddy, ok := DefinitionFor(WorkBuddyID)
 	if !ok || workBuddy.ProfileAgentID != WorkBuddyID || workBuddy.Protocol != "openai" {
 		t.Fatalf("WorkBuddy definition = %#v, found=%v", workBuddy, ok)
+	}
+}
+
+func TestClaudeDesktopInstallOpensOfficialDownloadPage(t *testing.T) {
+	for _, test := range []struct {
+		os, arch string
+		want     []string
+	}{
+		{os: "macos", arch: "arm64", want: []string{"/usr/bin/open", ClaudeDesktopHome}},
+		{os: "windows", arch: "amd64", want: []string{"explorer.exe", ClaudeDesktopHome}},
+	} {
+		t.Run(test.os, func(t *testing.T) {
+			runner := &scriptedRunner{}
+			result, err := Install(context.Background(), ClaudeDesktopID, Options{
+				Home: t.TempDir(), Platform: platform.For(test.os, test.arch), SearchRoots: []string{t.TempDir()}, Runner: runner,
+			})
+			if err != nil || result.Status != "installer-opened" || len(runner.started) != 1 || !slices.Equal(runner.started[0], test.want) {
+				t.Fatalf("result=%#v started=%#v err=%v", result, runner.started, err)
+			}
+		})
+	}
+}
+
+func TestClaudeDesktopDetectsAndOpensInstalledApplications(t *testing.T) {
+	app := makeBundle(t, t.TempDir(), "Claude.app")
+	macRunner := &probeRunner{macValues: map[string]string{
+		"CFBundleIdentifier":         ClaudeDesktopBundleID,
+		"CFBundleShortVersionString": "1.2.3",
+	}}
+	mac := Options{Platform: platform.For("macos", "arm64"), SearchRoots: []string{app}, Runner: macRunner}
+	status := Inspect(context.Background(), ClaudeDesktopID, mac)
+	if !status.Installed || status.Path != app || status.Version == nil || *status.Version != "1.2.3" {
+		t.Fatalf("macOS Claude Desktop status = %#v", status)
+	}
+	if err := Open(context.Background(), ClaudeDesktopID, mac); err != nil {
+		t.Fatal(err)
+	}
+	if len(macRunner.started) != 1 || !slices.Equal(macRunner.started[0], []string{"/usr/bin/open", "-a", app}) {
+		t.Fatalf("macOS Claude Desktop start = %#v", macRunner.started)
+	}
+
+	exe := filepath.Join(t.TempDir(), "Claude.exe")
+	if err := os.WriteFile(exe, []byte("stub"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	windowsRunner := &scriptedRunner{}
+	windows := Options{Platform: platform.For("windows", "amd64"), SearchRoots: []string{exe}, Runner: windowsRunner}
+	status = Inspect(context.Background(), ClaudeDesktopID, windows)
+	if !status.Installed || status.Path != exe {
+		t.Fatalf("Windows Claude Desktop status = %#v", status)
+	}
+	if err := Open(context.Background(), ClaudeDesktopID, windows); err != nil {
+		t.Fatal(err)
+	}
+	if len(windowsRunner.started) != 1 || !slices.Equal(windowsRunner.started[0], []string{exe}) {
+		t.Fatalf("Windows Claude Desktop start = %#v", windowsRunner.started)
 	}
 }
 

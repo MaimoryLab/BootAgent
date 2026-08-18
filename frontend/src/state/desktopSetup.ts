@@ -33,9 +33,11 @@ export function desktopProfiles(status: StatusResponse, app: DesktopAgentStatus)
   });
 }
 
-export function desktopProfileUsable(status: StatusResponse, profile: ProfileSummary): boolean {
+export function desktopProfileUsable(status: StatusResponse, profile: ProfileSummary, app?: DesktopAgentStatus | null): boolean {
   const provider = status.providers[profile.provider];
-  return Boolean(provider && profile.model?.trim() && (provider.has_key || isConverterID(profile.id)));
+  const model = profile.model?.trim() || "";
+  if (app?.id === "claude-desktop" && !model.toLowerCase().includes("claude")) return false;
+  return Boolean(provider && model && (provider.has_key || isConverterID(profile.id)));
 }
 
 export function desktopProfileIsShared(app: DesktopAgentStatus): boolean {

@@ -557,6 +557,19 @@
       "version": null
     },
     {
+      "home": "https://claude.com/download",
+      "id": "claude-desktop",
+      "installed": false,
+      "manualInstall": true,
+      "name": "Claude Desktop",
+      "profileAgentId": "claude-desktop",
+      "profileId": null,
+      "protocol": "anthropic",
+      "source": "unknown",
+      "supported": false,
+      "version": null
+    },
+    {
       "configPath": "${HOME}/.codex/config.toml",
       "configSharedWith": "Codex",
       "id": "chatgpt-desktop",
