@@ -13,10 +13,14 @@ import (
 
 type restartBackend struct {
 	binding.UpdateBackend
-	err error
+	err   error
+	calls int
 }
 
-func (b restartBackend) Restart(context.Context) error { return b.err }
+func (b *restartBackend) Restart(context.Context) error {
+	b.calls++
+	return b.err
+}
 
 func TestQuitAwareUpdater(t *testing.T) {
 	for _, test := range []struct {
@@ -29,13 +33,25 @@ func TestQuitAwareUpdater(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			var quitting atomic.Bool
-			updater := quitAwareUpdater{UpdateBackend: restartBackend{err: test.err}, quitting: &quitting}
+			var restarting atomic.Bool
+			backend := &restartBackend{err: test.err}
+			updater := quitAwareUpdater{UpdateBackend: backend, quitting: &quitting, restarting: &restarting}
 
 			if err := updater.Restart(context.Background()); !errors.Is(err, test.err) {
 				t.Fatalf("Restart() error = %v, want %v", err, test.err)
 			}
 			if got := quitting.Load(); got != test.want {
 				t.Fatalf("quitting = %v, want %v", got, test.want)
+			}
+			if err := updater.Restart(context.Background()); !errors.Is(err, test.err) {
+				t.Fatalf("second Restart() error = %v, want %v", err, test.err)
+			}
+			wantCalls := 1
+			if test.err != nil {
+				wantCalls = 2
+			}
+			if backend.calls != wantCalls {
+				t.Fatalf("backend Restart() calls = %d, want %d", backend.calls, wantCalls)
 			}
 		})
 	}

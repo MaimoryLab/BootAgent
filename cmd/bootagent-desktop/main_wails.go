@@ -60,13 +60,18 @@ func configureUpdater(appInstance *application.App) binding.UpdateBackend {
 
 type quitAwareUpdater struct {
 	binding.UpdateBackend
-	quitting *atomic.Bool
+	quitting   *atomic.Bool
+	restarting *atomic.Bool
 }
 
 func (u quitAwareUpdater) Restart(ctx context.Context) error {
+	if !u.restarting.CompareAndSwap(false, true) {
+		return nil
+	}
 	u.quitting.Store(true)
 	if err := u.UpdateBackend.Restart(ctx); err != nil {
 		u.quitting.Store(false)
+		u.restarting.Store(false)
 		return err
 	}
 	return nil
@@ -233,7 +238,7 @@ func main() {
 	appInstance.OnShutdown(func() { _ = core.CloseConversion() })
 	updateBackend := configureUpdater(appInstance)
 	if updateBackend != nil {
-		updateBackend = quitAwareUpdater{UpdateBackend: updateBackend, quitting: &quitting}
+		updateBackend = quitAwareUpdater{UpdateBackend: updateBackend, quitting: &quitting, restarting: &atomic.Bool{}}
 	}
 	appInstance.Event.On(updater.EventDownloadProgress, func(event *application.CustomEvent) {
 		if event == nil {
