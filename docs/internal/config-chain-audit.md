@@ -1,7 +1,6 @@
 # 配置链审计（已实施）
 
 > 更新：2026-07-31。历史审计发现已落实到 Go 核心；本文不再引用已删除的旧实现路径。
-
 > 补注（2026-08-04）：本文提到的 `cmd/bootagent-release`、`cmd/bootagent-rc`、
 > `cmd/bootagent-provider-smoke` 已于 `23805b0` 移除，职责交给
 > `.github/workflows/build-artifacts.yml`。相关命令是历史背景，不可执行。

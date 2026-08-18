@@ -5,7 +5,6 @@
 > [ADR-005](ADR-005-channel-neutral-distribution-and-compliance.md) and
 > `cmd/bootagent-release`. This file is kept for historical background only; it is
 > not an install or release guide.
-
 > Addendum (2026-08-04): `cmd/bootagent-release`, `cmd/bootagent-rc` and
 > `cmd/bootagent-provider-smoke`, mentioned in this document, were removed in
 > `23805b0`, with their responsibilities handed to

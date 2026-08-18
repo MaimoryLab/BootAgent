@@ -46,6 +46,7 @@
 ### Task 1: Version Gate
 
 **Files:**
+
 - Modify: `internal/version/version.go`
 - Create: `internal/version/version_test.go`
 
@@ -57,28 +58,28 @@ package version
 import "testing"
 
 func TestUpdaterVersion(t *testing.T) {
-	original := Version
-	defer func() { Version = original }()
+ original := Version
+ defer func() { Version = original }()
 
-	tests := []struct {
-		name  string
-		value string
-		want  string
-	}{
-		{name: "release with v", value: "v1.2.3", want: "1.2.3"},
-		{name: "release without v", value: "1.2.3", want: "1.2.3"},
-		{name: "development", value: "v0.0.0-dev", want: ""},
-		{name: "development without v", value: "1.2.3-dev", want: ""},
-		{name: "blank", value: "  ", want: ""},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			Version = test.value
-			if got := UpdaterVersion(); got != test.want {
-				t.Fatalf("UpdaterVersion() = %q, want %q", got, test.want)
-			}
-		})
-	}
+ tests := []struct {
+  name  string
+  value string
+  want  string
+ }{
+  {name: "release with v", value: "v1.2.3", want: "1.2.3"},
+  {name: "release without v", value: "1.2.3", want: "1.2.3"},
+  {name: "development", value: "v0.0.0-dev", want: ""},
+  {name: "development without v", value: "1.2.3-dev", want: ""},
+  {name: "blank", value: "  ", want: ""},
+ }
+ for _, test := range tests {
+  t.Run(test.name, func(t *testing.T) {
+   Version = test.value
+   if got := UpdaterVersion(); got != test.want {
+    t.Fatalf("UpdaterVersion() = %q, want %q", got, test.want)
+   }
+  })
+ }
 }
 ~~~
 
@@ -101,11 +102,11 @@ var Version = "v0.0.0-dev"
 // UpdaterVersion returns the Wails semver input. Development builds opt out of
 // OTA so local runs never contact the release feed.
 func UpdaterVersion() string {
-	value := strings.TrimSpace(strings.TrimPrefix(Version, "v"))
-	if value == "" || strings.HasSuffix(value, "-dev") {
-		return ""
-	}
-	return value
+ value := strings.TrimSpace(strings.TrimPrefix(Version, "v"))
+ if value == "" || strings.HasSuffix(value, "-dev") {
+  return ""
+ }
+ return value
 }
 ~~~
 
@@ -125,6 +126,7 @@ git commit -m "feat: gate OTA on release versions"
 ### Task 2: Wails Update Service and Progress Adapter
 
 **Files:**
+
 - Create: `internal/binding/update.go`
 - Create: `internal/binding/update_test.go`
 - Modify: `internal/binding/services_test.go`
@@ -137,128 +139,128 @@ Create `internal/binding/update_test.go` with the following fake and tests:
 package binding
 
 import (
-	"context"
-	"errors"
-	"reflect"
-	"slices"
-	"strings"
-	"testing"
+ "context"
+ "errors"
+ "reflect"
+ "slices"
+ "strings"
+ "testing"
 
-	"github.com/wailsapp/wails/v3/pkg/updater"
+ "github.com/wailsapp/wails/v3/pkg/updater"
 )
 
 type updateBackendFake struct {
-	checkCalls     int
-	downloadCalls  int
-	restartCalls   int
-	release        *updater.Release
-	checkErr       error
-	downloadErr    error
-	restartErr     error
-	lastContext    context.Context
+ checkCalls     int
+ downloadCalls  int
+ restartCalls   int
+ release        *updater.Release
+ checkErr       error
+ downloadErr    error
+ restartErr     error
+ lastContext    context.Context
 }
 
 func (f *updateBackendFake) Check(ctx context.Context) (*updater.Release, error) {
-	f.checkCalls++
-	f.lastContext = ctx
-	return f.release, f.checkErr
+ f.checkCalls++
+ f.lastContext = ctx
+ return f.release, f.checkErr
 }
 
 func (f *updateBackendFake) DownloadAndInstall(ctx context.Context) error {
-	f.downloadCalls++
-	f.lastContext = ctx
-	return f.downloadErr
+ f.downloadCalls++
+ f.lastContext = ctx
+ return f.downloadErr
 }
 
 func (f *updateBackendFake) Restart(ctx context.Context) error {
-	f.restartCalls++
-	f.lastContext = ctx
-	return f.restartErr
+ f.restartCalls++
+ f.lastContext = ctx
+ return f.restartErr
 }
 
 func TestUpdateServiceCheckDisabledAndCurrent(t *testing.T) {
-	service := NewUpdateService(nil)
-	if got, err := service.Check(context.Background()); err != nil || got != "" {
-		t.Fatalf("disabled Check() = %q, %v", got, err)
-	}
+ service := NewUpdateService(nil)
+ if got, err := service.Check(context.Background()); err != nil || got != "" {
+  t.Fatalf("disabled Check() = %q, %v", got, err)
+ }
 
-	fake := &updateBackendFake{}
-	service = NewUpdateService(fake)
-	if got, err := service.Check(context.Background()); err != nil || got != "" || fake.checkCalls != 1 {
-		t.Fatalf("current Check() = %q, %v, calls=%d", got, err, fake.checkCalls)
-	}
+ fake := &updateBackendFake{}
+ service = NewUpdateService(fake)
+ if got, err := service.Check(context.Background()); err != nil || got != "" || fake.checkCalls != 1 {
+  t.Fatalf("current Check() = %q, %v, calls=%d", got, err, fake.checkCalls)
+ }
 }
 
 func TestUpdateServiceDelegatesReleaseDownloadAndRestart(t *testing.T) {
-	fake := &updateBackendFake{release: &updater.Release{Version: "1.4.0"}}
-	service := NewUpdateService(fake)
-	ctx := context.WithValue(context.Background(), struct{}{}, "caller")
+ fake := &updateBackendFake{release: &updater.Release{Version: "1.4.0"}}
+ service := NewUpdateService(fake)
+ ctx := context.WithValue(context.Background(), struct{}{}, "caller")
 
-	if got, err := service.Check(ctx); err != nil || got != "1.4.0" {
-		t.Fatalf("new release Check() = %q, %v", got, err)
-	}
-	if err := service.DownloadAndInstall(ctx); err != nil {
-		t.Fatal(err)
-	}
-	if err := service.Restart(ctx); err != nil {
-		t.Fatal(err)
-	}
-	if fake.checkCalls != 1 || fake.downloadCalls != 1 || fake.restartCalls != 1 || fake.lastContext != ctx {
-		t.Fatalf("backend calls = %#v", fake)
-	}
+ if got, err := service.Check(ctx); err != nil || got != "1.4.0" {
+  t.Fatalf("new release Check() = %q, %v", got, err)
+ }
+ if err := service.DownloadAndInstall(ctx); err != nil {
+  t.Fatal(err)
+ }
+ if err := service.Restart(ctx); err != nil {
+  t.Fatal(err)
+ }
+ if fake.checkCalls != 1 || fake.downloadCalls != 1 || fake.restartCalls != 1 || fake.lastContext != ctx {
+  t.Fatalf("backend calls = %#v", fake)
+ }
 }
 
 func TestUpdateServiceRejectsCancelledRequestsBeforeDelegation(t *testing.T) {
-	fake := &updateBackendFake{}
-	service := NewUpdateService(fake)
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
+ fake := &updateBackendFake{}
+ service := NewUpdateService(fake)
+ ctx, cancel := context.WithCancel(context.Background())
+ cancel()
 
-	if _, err := service.Check(ctx); err == nil {
-		t.Fatal("cancelled Check() succeeded")
-	}
-	if err := service.DownloadAndInstall(ctx); err == nil {
-		t.Fatal("cancelled DownloadAndInstall() succeeded")
-	}
-	if err := service.Restart(ctx); err == nil {
-		t.Fatal("cancelled Restart() succeeded")
-	}
-	if fake.checkCalls != 0 || fake.downloadCalls != 0 || fake.restartCalls != 0 {
-		t.Fatalf("cancelled request reached backend: %#v", fake)
-	}
+ if _, err := service.Check(ctx); err == nil {
+  t.Fatal("cancelled Check() succeeded")
+ }
+ if err := service.DownloadAndInstall(ctx); err == nil {
+  t.Fatal("cancelled DownloadAndInstall() succeeded")
+ }
+ if err := service.Restart(ctx); err == nil {
+  t.Fatal("cancelled Restart() succeeded")
+ }
+ if fake.checkCalls != 0 || fake.downloadCalls != 0 || fake.restartCalls != 0 {
+  t.Fatalf("cancelled request reached backend: %#v", fake)
+ }
 }
 
 func TestUpdateServiceConvertsFailuresAndProgress(t *testing.T) {
-	fake := &updateBackendFake{checkErr: errors.New("network detail")}
-	service := NewUpdateService(fake)
+ fake := &updateBackendFake{checkErr: errors.New("network detail")}
+ service := NewUpdateService(fake)
 
-	if _, err := service.Check(context.Background()); err == nil || !strings.Contains(err.Error(), "Unable to check for updates") {
-		t.Fatalf("check error = %v", err)
-	}
-	output, ok := UpdateProgressOutput(updater.Progress{Written: 12, Total: 30})
-	if !ok || output.Kind != "progress" || output.Target != UpdateProgressTarget || output.Received != 12 || output.Total != 30 {
-		t.Fatalf("progress output = %#v, ok=%v", output, ok)
-	}
-	if _, ok := UpdateProgressOutput(&updater.Progress{Written: 1, Total: 0}); !ok {
-		t.Fatal("pointer progress payload was rejected")
-	}
-	if _, ok := UpdateProgressOutput(struct{}{}); ok {
-		t.Fatal("unrelated payload was accepted")
-	}
+ if _, err := service.Check(context.Background()); err == nil || !strings.Contains(err.Error(), "Unable to check for updates") {
+  t.Fatalf("check error = %v", err)
+ }
+ output, ok := UpdateProgressOutput(updater.Progress{Written: 12, Total: 30})
+ if !ok || output.Kind != "progress" || output.Target != UpdateProgressTarget || output.Received != 12 || output.Total != 30 {
+  t.Fatalf("progress output = %#v, ok=%v", output, ok)
+ }
+ if _, ok := UpdateProgressOutput(&updater.Progress{Written: 1, Total: 0}); !ok {
+  t.Fatal("pointer progress payload was rejected")
+ }
+ if _, ok := UpdateProgressOutput(struct{}{}); ok {
+  t.Fatal("unrelated payload was accepted")
+ }
 }
 
 func TestUpdateServiceMethodAllowlist(t *testing.T) {
-	typeOf := reflect.TypeOf(&UpdateService{})
-	got := make([]string, 0, typeOf.NumMethod())
-	for method := range typeOf.Methods() {
-		got = append(got, method.Name)
-	}
-	want := []string{"Check", "DownloadAndInstall", "Restart"}
-	slices.Sort(got)
-	slices.Sort(want)
-	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("methods = %v, want %v", got, want)
-	}
+ typeOf := reflect.TypeOf(&UpdateService{})
+ got := make([]string, 0, typeOf.NumMethod())
+ for method := range typeOf.Methods() {
+  got = append(got, method.Name)
+ }
+ want := []string{"Check", "DownloadAndInstall", "Restart"}
+ slices.Sort(got)
+ slices.Sort(want)
+ if !reflect.DeepEqual(got, want) {
+  t.Fatalf("methods = %v, want %v", got, want)
+ }
 }
 ~~~
 
@@ -274,97 +276,97 @@ Expected: FAIL with undefined updater-service symbols.
 package binding
 
 import (
-	"context"
-	"errors"
+ "context"
+ "errors"
 
-	oneerrors "github.com/MaimoryLab/BootAgent/internal/errors"
-	"github.com/MaimoryLab/BootAgent/internal/process"
-	"github.com/wailsapp/wails/v3/pkg/updater"
+ oneerrors "github.com/MaimoryLab/BootAgent/internal/errors"
+ "github.com/MaimoryLab/BootAgent/internal/process"
+ "github.com/wailsapp/wails/v3/pkg/updater"
 )
 
 const UpdateProgressTarget = "bootagent-update"
 
 type UpdateBackend interface {
-	Check(context.Context) (*updater.Release, error)
-	DownloadAndInstall(context.Context) error
-	Restart(context.Context) error
+ Check(context.Context) (*updater.Release, error)
+ DownloadAndInstall(context.Context) error
+ Restart(context.Context) error
 }
 
 type UpdateService struct {
-	backend UpdateBackend
+ backend UpdateBackend
 }
 
 func NewUpdateService(backend UpdateBackend) *UpdateService {
-	return &UpdateService{backend: backend}
+ return &UpdateService{backend: backend}
 }
 
 func (s *UpdateService) Check(ctx context.Context) (string, error) {
-	if err := contextError(ctx); err != nil {
-		return "", err
-	}
-	if s == nil || s.backend == nil {
-		return "", nil
-	}
-	release, err := s.backend.Check(ctx)
-	if err != nil {
-		return "", updateError("Unable to check for updates", err)
-	}
-	if release == nil {
-		return "", nil
-	}
-	return release.Version, nil
+ if err := contextError(ctx); err != nil {
+  return "", err
+ }
+ if s == nil || s.backend == nil {
+  return "", nil
+ }
+ release, err := s.backend.Check(ctx)
+ if err != nil {
+  return "", updateError("Unable to check for updates", err)
+ }
+ if release == nil {
+  return "", nil
+ }
+ return release.Version, nil
 }
 
 func (s *UpdateService) DownloadAndInstall(ctx context.Context) error {
-	if err := contextError(ctx); err != nil {
-		return err
-	}
-	if s == nil || s.backend == nil {
-		return notReady("Update service is not configured")
-	}
-	if err := s.backend.DownloadAndInstall(ctx); err != nil {
-		return updateError("Unable to download the BootAgent update", err)
-	}
-	return nil
+ if err := contextError(ctx); err != nil {
+  return err
+ }
+ if s == nil || s.backend == nil {
+  return notReady("Update service is not configured")
+ }
+ if err := s.backend.DownloadAndInstall(ctx); err != nil {
+  return updateError("Unable to download the BootAgent update", err)
+ }
+ return nil
 }
 
 func (s *UpdateService) Restart(ctx context.Context) error {
-	if err := contextError(ctx); err != nil {
-		return err
-	}
-	if s == nil || s.backend == nil {
-		return notReady("Update service is not configured")
-	}
-	if err := s.backend.Restart(ctx); err != nil {
-		return updateError("Unable to restart BootAgent for update", err)
-	}
-	return nil
+ if err := contextError(ctx); err != nil {
+  return err
+ }
+ if s == nil || s.backend == nil {
+  return notReady("Update service is not configured")
+ }
+ if err := s.backend.Restart(ctx); err != nil {
+  return updateError("Unable to restart BootAgent for update", err)
+ }
+ return nil
 }
 
 func UpdateProgressOutput(payload any) (process.Output, bool) {
-	var progress updater.Progress
-	switch value := payload.(type) {
-	case updater.Progress:
-		progress = value
-	case *updater.Progress:
-		if value == nil {
-			return process.Output{}, false
-		}
-		progress = *value
-	default:
-		return process.Output{}, false
-	}
-	return process.Output{
-		Kind: "progress", Target: UpdateProgressTarget,
-		Received: progress.Written, Total: progress.Total,
-	}, true
+ var progress updater.Progress
+ switch value := payload.(type) {
+ case updater.Progress:
+  progress = value
+ case *updater.Progress:
+  if value == nil {
+   return process.Output{}, false
+  }
+  progress = *value
+ default:
+  return process.Output{}, false
+ }
+ return process.Output{
+  Kind: "progress", Target: UpdateProgressTarget,
+  Received: progress.Written, Total: progress.Total,
+ }, true
 }
 
 func updateError(message string, err error) error {
-	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-		return oneerrors.New(oneerrors.Timeout, message+" was cancelled", oneerrors.WithRetryable(true), oneerrors.WithCause(err))
-	}
-	return oneerrors.New(oneerrors.InternalError, message, oneerrors.WithStatus(500), oneerrors.WithRetryable(true), oneerrors.WithCause(err))
+ if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+  return oneerrors.New(oneerrors.Timeout, message+" was cancelled", oneerrors.WithRetryable(true), oneerrors.WithCause(err))
+ }
+ return oneerrors.New(oneerrors.InternalError, message, oneerrors.WithStatus(500), oneerrors.WithRetryable(true), oneerrors.WithCause(err))
 }
 ~~~
 
@@ -392,6 +394,7 @@ git commit -m "feat: expose the Wails updater service"
 ### Task 3: Wails Initialisation and Progress Wiring
 
 **Files:**
+
 - Modify: `cmd/bootagent-desktop/main_wails.go`
 - Modify: `go.mod`
 - Modify: `go.sum`
@@ -401,36 +404,36 @@ git commit -m "feat: expose the Wails updater service"
 Import these packages in `main_wails.go`:
 
 ~~~go
-	"github.com/MaimoryLab/BootAgent/internal/version"
-	"github.com/wailsapp/wails/v3/pkg/updater"
-	"github.com/wailsapp/wails/v3/pkg/updater/providers/github"
+ "github.com/MaimoryLab/BootAgent/internal/version"
+ "github.com/wailsapp/wails/v3/pkg/updater"
+ "github.com/wailsapp/wails/v3/pkg/updater/providers/github"
 ~~~
 
 Add this helper below `main`:
 
 ~~~go
 func configureUpdater(appInstance *application.App) binding.UpdateBackend {
-	current := version.UpdaterVersion()
-	if current == "" {
-		return nil
-	}
-	provider, err := github.New(github.Config{
-		Repository:    "MaimoryLab/BootAgent",
-		ChecksumAsset: "SHA256SUMS",
-	})
-	if err != nil {
-		slog.Error("BootAgent updater provider is unavailable", "error", err)
-		return nil
-	}
-	if err := appInstance.Updater.Init(updater.Config{
-		CurrentVersion: current,
-		Providers:      []updater.Provider{provider},
-		Window:         updater.WindowNone,
-	}); err != nil {
-		slog.Error("BootAgent updater is unavailable", "error", err)
-		return nil
-	}
-	return appInstance.Updater
+ current := version.UpdaterVersion()
+ if current == "" {
+  return nil
+ }
+ provider, err := github.New(github.Config{
+  Repository:    "MaimoryLab/BootAgent",
+  ChecksumAsset: "SHA256SUMS",
+ })
+ if err != nil {
+  slog.Error("BootAgent updater provider is unavailable", "error", err)
+  return nil
+ }
+ if err := appInstance.Updater.Init(updater.Config{
+  CurrentVersion: current,
+  Providers:      []updater.Provider{provider},
+  Window:         updater.WindowNone,
+ }); err != nil {
+  slog.Error("BootAgent updater is unavailable", "error", err)
+  return nil
+ }
+ return appInstance.Updater
 }
 ~~~
 
@@ -441,21 +444,21 @@ func configureUpdater(appInstance *application.App) binding.UpdateBackend {
 Immediately after the `application.New(...)` assignment and before the window creation block, add:
 
 ~~~go
-	updateBackend := configureUpdater(appInstance)
-	appInstance.Event.On(updater.EventDownloadProgress, func(event *application.CustomEvent) {
-		if event == nil {
-			return
-		}
-		output, ok := binding.UpdateProgressOutput(event.Data)
-		if !ok {
-			return
-		}
-		appInstance.Event.Emit("bootagent:install-output", output)
-	})
-	appInstance.RegisterService(application.NewServiceWithOptions(
-		binding.NewUpdateService(updateBackend),
-		application.ServiceOptions{MarshalError: oneerrors.Marshal},
-	))
+ updateBackend := configureUpdater(appInstance)
+ appInstance.Event.On(updater.EventDownloadProgress, func(event *application.CustomEvent) {
+  if event == nil {
+   return
+  }
+  output, ok := binding.UpdateProgressOutput(event.Data)
+  if !ok {
+   return
+  }
+  appInstance.Event.Emit("bootagent:install-output", output)
+ })
+ appInstance.RegisterService(application.NewServiceWithOptions(
+  binding.NewUpdateService(updateBackend),
+  application.ServiceOptions{MarshalError: oneerrors.Marshal},
+ ))
 ~~~
 
 The existing `InstallOutput` callback stays unchanged; both ordinary downloads and OTA downloads now feed the same frontend event name. `RegisterService` is before `Run`, so the generated binding analyser still discovers the concrete service through `NewServiceWithOptions`.
@@ -484,11 +487,13 @@ Expected: compile succeeds without running native windows/macOS UI tests.
 git add cmd/bootagent-desktop/main_wails.go go.mod go.sum frontend/bindings
 git commit -m "feat: wire GitHub Releases into the desktop updater"
 ~~~
-+
+
+-
 
 ### Task 4: Frontend Wails Adapter
 
 **Files:**
+
 - Modify: frontend/src/backend/wails.ts
 - Modify: frontend/src/backend/wails.test.ts
 - Generated: frontend/bindings/github.com/MaimoryLab/BootAgent/internal/binding/updateservice.ts
@@ -577,11 +582,13 @@ Expected: PASS and no TypeScript errors.
 git add frontend/src/backend/wails.ts frontend/src/backend/wails.test.ts frontend/bindings
 git commit -m "feat: expose OTA calls to the frontend"
 ~~~
-+
+
+-
 
 ### Task 5: Terminal Task Actions
 
 **Files:**
+
 - Modify: frontend/src/state/TaskCenterContext.tsx
 - Modify: frontend/src/components/TaskCenter.tsx
 - Modify: frontend/src/components/TaskCenter.test.tsx
@@ -760,11 +767,13 @@ Expected: PASS; existing progress, cancellation, and dismissal tests stay green.
 git add frontend/src/state/TaskCenterContext.tsx frontend/src/components/TaskCenter.tsx frontend/src/components/TaskCenter.test.tsx frontend/src/styles/app.css
 git commit -m "feat: add terminal actions to task cards"
 ~~~
-+
+
+-
 
 ### Task 6: Startup Coordinator and Native Confirmation
 
 **Files:**
+
 - Create: frontend/src/components/AppUpdater.tsx
 - Create: frontend/src/components/AppUpdater.test.tsx
 - Modify: frontend/src/i18n.tsx
@@ -1020,11 +1029,13 @@ Expected: PASS; ignored updates create no card, approved downloads are cancellab
 git add frontend/src/components/AppUpdater.tsx frontend/src/components/AppUpdater.test.tsx frontend/src/i18n.tsx frontend/src/App.tsx
 git commit -m "feat: add consented OTA task flow"
 ~~~
-+
+
+-
 
 ### Task 7: Tag Release Packaging and Checksums
 
 **Files:**
+
 - Modify: .github/workflows/build-artifacts.yml
 - Modify: README.md
 
@@ -1209,6 +1220,7 @@ git commit -m "ci: publish OTA archives on version tags"
 ### Task 8: Full Verification and Handoff
 
 **Files:**
+
 - No new files; inspect all changes and generated output.
 
 - [ ] **Step 1: Regenerate bindings from the current source**

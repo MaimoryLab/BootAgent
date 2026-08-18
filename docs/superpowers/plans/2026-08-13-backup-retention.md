@@ -10,9 +10,10 @@
 
 ---
 
-### Task 1: Add bounded ordinary-file backups
+## Task 1: Add bounded ordinary-file backups
 
 **Files:**
+
 - Modify: `internal/securefs/securefs.go`
 - Test: `internal/securefs/securefs_test.go`
 
@@ -67,6 +68,7 @@ git commit -m "feat: bound ordinary configuration backups"
 ### Task 2: Make retention a persisted application setting
 
 **Files:**
+
 - Modify: `internal/app/settings.go`
 - Modify: `internal/app/status.go`
 - Test: `internal/app/settings_test.go`
@@ -84,7 +86,7 @@ Expected: FAIL because `Settings.BackupRetention` and its persistence are absent
 
 - [ ] **Step 3: Implement validation and shared lookup**
 
-Define `defaultBackupRetention = 3`, `minBackupRetention = 1`, and `maxBackupRetention = 100`. Add `BackupRetention int \`json:"backup_retention"\`` to `Settings` and a pointer field to `storedSettings`. Make `Settings` use the stored value only when it is in range; otherwise return 3. Make `SaveSettings` preserve the stored value when the request is zero (backward-compatible callers), clamp non-zero values to 1..100, and write both mirror and retention fields.
+Define `defaultBackupRetention = 3`, `minBackupRetention = 1`, and `maxBackupRetention = 100`. Add `BackupRetention int \`json:"backup_retention"\`` to `Settings` and a pointer field to `storedSettings`. Make`Settings` use the stored value only when it is in range; otherwise return 3. Make `SaveSettings` preserve the stored value when the request is zero (backward-compatible callers), clamp non-zero values to 1..100, and write both mirror and retention fields.
 
 Configure `newUseCases` to construct its shared filesystem with:
 
@@ -111,6 +113,7 @@ git commit -m "feat: persist backup retention setting"
 ### Task 3: Move and prune Skill snapshots per Skill
 
 **Files:**
+
 - Modify: `internal/skill/store.go`
 - Test: `internal/skill/store_test.go`
 
@@ -144,6 +147,7 @@ git commit -m "feat: retain Skill backups per target"
 ### Task 4: Expose the setting in the Wails frontend
 
 **Files:**
+
 - Modify: `frontend/src/pages/SettingsPage.tsx`
 - Modify: `frontend/src/components/MirrorSetting.tsx`
 - Modify: `frontend/src/i18n.tsx`
@@ -185,6 +189,7 @@ git commit -m "feat: add backup retention setting"
 ### Task 5: Documentation and full verification
 
 **Files:**
+
 - Modify: `README.md`
 - Modify: `README_ZH.md`
 - Modify: `docs/ai-agent-kit/en/02-api-key.md` only if its backup-location wording is now inaccurate

@@ -1,7 +1,6 @@
 # 空白机器可用性验证计划
 
 > 状态：已实施（2026-07-31）。实现入口已从历史脚本切换为 Go CLI、Go RC 命令和 shell cleanroom。
-
 > 补注（2026-08-04）：本文提到的 `cmd/bootagent-release`、`cmd/bootagent-rc`、
 > `cmd/bootagent-provider-smoke` 已于 `23805b0` 移除，职责交给
 > `.github/workflows/build-artifacts.yml`。相关命令是历史背景，不可执行。

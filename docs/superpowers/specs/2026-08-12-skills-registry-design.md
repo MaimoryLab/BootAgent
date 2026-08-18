@@ -355,7 +355,7 @@ guard reports only the boolean dirty flag and locale.
 - binding tests for method allowlists, cancellation, injected dialogs, and
   redacted DTOs.
 
-### Frontend
+### Frontend Tests
 
 Vitest tests cover background scan rendering, candidate selection, conflict
 resolution, target edits, dirty state, Apply partial success/retry, and route
