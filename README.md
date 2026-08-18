@@ -27,7 +27,7 @@ BootAgent is a local desktop workspace for AI coding Agents. It turns a fresh ma
 - Imports and exports Providers, Profiles, and selected MCP servers. API keys and MCP secrets are excluded by default; password-encrypted or explicitly confirmed plaintext export is also available.
 - Discovers MCP servers from initialized Claude Code, Codex, OpenCode, Kilo CLI, and Hermes installations, and applies selected servers across them from the MCP Registry. Scanning runs in the background; edits are explicit and local.
 - Creates backups, writes atomically, and keeps credentials in private local storage. The latest three historical versions are kept per Profile, Provider, MCP, Agent configuration target, and Skill; backups live under `~/.bootagent/backup` and the per-target count can be changed in Settings.
-- Checks for BootAgent updates and installs release artifacts through the built-in updater.
+- Checks for BootAgent updates and installs release artifacts through the built-in updater. When the domestic mirror setting is enabled, update checks and downloads use the Gitee mirror; otherwise they use GitHub.
 
 ## Supported Agents
 
