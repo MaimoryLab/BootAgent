@@ -229,27 +229,12 @@
 .transfer-row strong { font-size: 13px; }
 .transfer-row small { color: var(--text-secondary); font-size: 11px; }
 .transfer-row em { margin-left: auto; color: var(--accent); font-size: 11px; font-style: normal; white-space: nowrap; }
-/* The apply-targets dialog shares every rule here: same width, same chrome, same
-   grid. It is listed alongside rather than given its own block so the two
-   confirmations cannot drift apart visually. */
-.transfer-password-dialog,
-.apply-targets-dialog { width: min(360px, calc(100vw - 32px)); padding: 20px; border: 1px solid var(--border-strong); border-radius: var(--radius-control); background: var(--window-bg); color: var(--text-primary); box-shadow: 0 18px 50px rgba(0, 0, 0, 0.24); }
-.transfer-password-dialog::backdrop,
-.apply-targets-dialog::backdrop { background: rgba(0, 0, 0, 0.28); }
-.transfer-password-dialog form,
-.apply-targets-dialog form { display: grid; gap: 16px; }
-.transfer-password-dialog h2,
-.apply-targets-dialog h2 { margin: 0; font-size: 15px; }
-.apply-targets-dialog { max-height: calc(100vh - 64px); overflow: auto; }
-.apply-targets-dialog p { margin: 0; font-size: 13px; line-height: 1.5; }
-.apply-targets-dialog footer { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
-.apply-targets { margin: -6px 0 0; padding: 0; list-style: none; display: grid; gap: 10px; }
-.apply-targets label { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 4px 8px; cursor: pointer; }
-.apply-targets input[type="checkbox"] { grid-row: span 2; margin: 0; width: 17px; height: 17px; cursor: pointer; }
-.apply-targets span { font-size: 13px; }
+.transfer-password-dialog { width: min(360px, calc(100vw - 32px)); padding: 20px; border: 1px solid var(--border-strong); border-radius: var(--radius-control); background: var(--window-bg); color: var(--text-primary); box-shadow: 0 18px 50px rgba(0, 0, 0, 0.24); }
+.transfer-password-dialog::backdrop { background: rgba(0, 0, 0, 0.28); }
+.transfer-password-dialog form { display: grid; gap: 16px; }
+.transfer-password-dialog h2 { margin: 0; font-size: 15px; }
 /* Why each box starts ticked or not, so the default is explained rather than
    just applied. Subordinate to the Agent name above it. */
-.apply-targets small { color: var(--text-secondary); font-size: 12px; }
 /* Wraps: the export dialog offers four actions and they need more than the 360px
    the dialog is capped at, so on one line the last button ran past its right
    edge. Wrapping keeps the primary action rightmost on whichever row it lands. */
@@ -537,6 +522,11 @@
 .profile-choice > .icon-button { grid-column: 2; grid-row: 1; }
 .profile-choice > p,
 .profile-choice > .profile-key-hint { grid-column: 1 / -1; }
+/* The inline model field on the selected card. Spans the full width like the
+   summary line it replaces, and the card's own pointer cursor is dropped inside
+   it so the field does not look like part of the row-selects-me target. */
+.profile-choice-model { grid-column: 1 / -1; cursor: default; }
+.profile-choice-model .field-stack { gap: 4px; }
 .profile-choice.is-selected { background: var(--accent-soft); box-shadow: inset 3px 0 var(--accent); }
 .profile-choice.is-disabled { cursor: not-allowed; opacity: 0.58; }
 .agent-icon,

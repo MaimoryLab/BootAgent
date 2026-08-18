@@ -1,8 +1,8 @@
-import { KeyRound, Layers, Pencil, Play, Plus, Save, Trash2, X } from "lucide-react";
+import { KeyRound, Layers, Pencil, Plus, Save, Trash2, X } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { api, describeFailure, isCancellationError } from "../backend/api";
+import { api, describeFailure } from "../backend/api";
 import { CardUsers } from "../components/CardUsers";
 import { PageScaffold } from "../components/PageScaffold";
 import { ProviderModelPicker } from "../components/ProviderModelPicker";
@@ -12,7 +12,6 @@ import { useI18n } from "../i18n";
 import { confirmDelete } from "../state/confirmDelete";
 import { byProviderCreatedAt, preferProviderWithKey } from "../state/ranking";
 import { isConverterID } from "../state/conversion";
-import { installTaskRoute, taskKey, useTaskCenter } from "../state/TaskCenterContext";
 import { useWizard } from "../state/WizardContext";
 import { PROTOCOL_LABELS, type ProfileSummary, type ProtocolId, type ProviderId } from "../types/api";
 
@@ -27,27 +26,6 @@ interface ProfileDraft {
   context1M: boolean;
   protocol: string;
   originalId: string;
-}
-
-/**
- * What an apply is about to rewrite, for the confirmation dialog.
- *
- * Applying used to write every configurable Agent whose protocol matched the
- * Profile, with the count shown nowhere and no way to stop it. Four Agents map to
- * `openai` and a fifth falls through to it, so one press could rewrite five
- * config files -- including Agents the user had deliberately pointed somewhere
- * else. Deleting a Profile in this same file has always asked first.
- *
- * `selected` starts as the Agents already following this Profile rather than as
- * every protocol match, because those are different situations: re-applying to a
- * follower is what the button is for, while pulling in an Agent that never
- * followed it is a new decision the user should make deliberately.
- */
-interface ApplyPlan {
-  profile: ProfileSummary;
-  // Every protocol match, so the dialog can offer the ones not yet bound.
-  candidates: { id: string; name: string; bound: boolean }[];
-  selected: Set<string>;
 }
 
 function editDraft(profile: ProfileSummary, protocol: string): ProfileDraft {
@@ -67,14 +45,11 @@ export function ProfilesPage() {
   const navigate = useNavigate();
   const { locale, t } = useI18n();
   const { state, refreshStatus } = useWizard();
-  const { startTask, finishTask, setTaskCanceller } = useTaskCenter();
   const status = state.status;
   const [editor, setEditor] = useState<ProfileDraft | null>(null);
   const [busy, setBusy] = useState(false);
-  const [applying, setApplying] = useState("");
   const [failure, setFailure] = useState("");
   const [applied, setApplied] = useState("");
-  const [applyPlan, setApplyPlan] = useState<ApplyPlan | null>(null);
 
   if (!status) {
     return (
@@ -204,86 +179,6 @@ export function ProfilesPage() {
       setFailure(describeFailure(error, t("无法保存配置模版"), t).message);
     } finally {
       setBusy(false);
-    }
-  };
-
-  // Opens the confirmation rather than writing anything. The dialog is where the
-  // scope becomes visible and editable; runApply below does the writing.
-  const askApply = (profile: ProfileSummary) => {
-    const matches = configurableAgents.filter((agent) => agent.protocol === protocolOf(profile));
-    if (!profile.model || !matches.length) return;
-    const candidates = matches.map((agent) => ({
-      id: agent.id,
-      name: agent.name,
-      bound: status.agents[agent.id]?.profileId === profile.id,
-    }));
-    // Pre-selecting the followers only. When none follow it yet -- a Profile being
-    // applied for the first time -- an empty selection would make the primary
-    // button do nothing, so the single match is offered instead. With several
-    // matches and no followers the user picks, because there is no basis to guess.
-    const bound = candidates.filter((candidate) => candidate.bound).map((candidate) => candidate.id);
-    const initial = bound.length ? bound : candidates.length === 1 ? [candidates[0].id] : [];
-    setFailure("");
-    setApplyPlan({ profile, candidates, selected: new Set(initial) });
-  };
-
-  const toggleApplyTarget = (agentId: string) => {
-    setApplyPlan((plan) => {
-      if (!plan) return plan;
-      const selected = new Set(plan.selected);
-      if (selected.has(agentId)) selected.delete(agentId);
-      else selected.add(agentId);
-      return { ...plan, selected };
-    });
-  };
-
-  const runApply = async (profile: ProfileSummary, targets: string[]) => {
-    const model = profile.model;
-    if (!model || !targets.length) return;
-    const group = `profile:${profile.id}:${Date.now()}`;
-    const agents = targets.filter((agentId) => startTask({
-      id: taskKey("install", agentId),
-      kind: "install",
-      target: agentId,
-      title: t("应用 {profile} 到 {agent}", {
-        profile: profile.label || profile.id,
-        agent: status.catalog.find((agent) => agent.id === agentId)?.name || agentId,
-      }),
-      route: installTaskRoute(agentId),
-      progressTarget: status.capabilities.missingRuntime[agentId],
-      group,
-    }));
-    if (!agents.length) return;
-    setApplying(profile.id);
-    setFailure("");
-    try {
-      const outcomes = await Promise.allSettled(agents.map(async (agentId) => {
-        try {
-          await api.activateAgent(agentId, {
-            provider: profile.provider,
-            apiBaseUrl: "",
-            apiKey: "",
-            model,
-            profileId: profile.id,
-          });
-          finishTask(taskKey("install", agentId), { kind: "success", message: t("{name} 已应用", { name: profile.label || profile.id }) });
-        } catch (error) {
-          finishTask(taskKey("install", agentId), { kind: "failure", message: describeFailure(error, t("应用配置模版失败"), t).message });
-          throw error;
-        }
-      }));
-      const failure = outcomes.find((outcome): outcome is PromiseRejectedResult => outcome.status === "rejected");
-      if (failure) {
-        throw failure.reason;
-      }
-      await refreshStatus();
-      navigate("/overview", { replace: true });
-    } catch (error) {
-      const cancelled = isCancellationError(error);
-      const message = cancelled ? "" : describeFailure(error, t("无法应用配置模版"), t).message;
-      if (!cancelled) setFailure(message);
-    } finally {
-      setApplying("");
     }
   };
 
@@ -474,12 +369,7 @@ export function ProfilesPage() {
       ) : (
         <div className="profile-list">
           {profiles.map((profile) => {
-            const agents = configurableAgents.filter((agent) => agent.protocol === protocolOf(profile));
             const users = configurableAgents.filter((agent) => status.agents[agent.id]?.profileId === profile.id);
-            const canApply = Boolean(
-              profile.model && agents.length
-                && status.providers[profile.provider]?.has_key,
-            );
             return (
               <article className="profile-card" key={profile.id} data-testid={`profile-${profile.id}`}>
                 <header>
@@ -513,69 +403,17 @@ export function ProfilesPage() {
                 <p className="profile-agents">
                   API mode: {protocolOf(profile) || "-"}
                 </p>
+                {/* Only who uses this Profile. Pointing an Agent at a Profile is
+                    done from the Agent's own configuration screen now, so this
+                    card no longer writes anything. */}
                 <footer>
                   <CardUsers users={users} />
-                  <button
-                    className="button button-secondary"
-                    type="button"
-                    onClick={() => askApply(profile)}
-                    disabled={!canApply || Boolean(applying)}
-                    title={canApply
-                      ? t("选择要应用到的 Agent（{count} 个可选）", { count: agents.length })
-                      : t("请先补全模型和 API mode，并为模型服务保存 Key")}
-                  >
-                    <Play size={14} />
-                    {applying === profile.id ? t("应用中") : t("应用到 Agent")}
-                  </button>
                 </footer>
               </article>
             );
           })}
         </div>
       )}
-      {applyPlan ? (
-        <dialog className="apply-targets-dialog" open>
-          <form
-            onSubmit={(event) => {
-              event.preventDefault();
-              const { profile, selected } = applyPlan;
-              setApplyPlan(null);
-              void runApply(profile, [...selected]);
-            }}
-          >
-            <h2>{t("应用到 Agent")}</h2>
-            <p>{t("「{name}」会写入下列选中 Agent 的配置文件，覆盖它们当前的模型服务与模型。", {
-              name: applyPlan.profile.label || applyPlan.profile.id,
-            })}</p>
-            <ul className="apply-targets">
-              {applyPlan.candidates.map((candidate) => (
-                <li key={candidate.id}>
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={applyPlan.selected.has(candidate.id)}
-                      onChange={() => toggleApplyTarget(candidate.id)}
-                    />
-                    <span>{candidate.name}</span>
-                    {/* Which Agents already follow this Profile is the reason the
-                        defaults are what they are, so it is stated rather than
-                        left for the user to infer from the pre-ticked boxes. */}
-                    <small>{candidate.bound ? t("正在使用此配置模版") : t("当前未使用此配置模版")}</small>
-                  </label>
-                </li>
-              ))}
-            </ul>
-            <footer>
-              <button className="button button-secondary" type="button" onClick={() => setApplyPlan(null)}>
-                {t("取消")}
-              </button>
-              <button className="button button-primary" type="submit" disabled={!applyPlan.selected.size}>
-                {t("应用到 {count} 个 Agent", { count: applyPlan.selected.size })}
-              </button>
-            </footer>
-          </form>
-        </dialog>
-      ) : null}
     </PageScaffold>
   );
 }

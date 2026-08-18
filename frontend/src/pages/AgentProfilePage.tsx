@@ -54,7 +54,10 @@ export function AgentProfilePage() {
   const [draft, setDraft] = useState<ProfileDraft | null>(null);
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState("");
-  const [applied, setApplied] = useState("");
+  // The model of the selected Profile, edited in place. null means "showing what
+  // is stored"; a string means the field has been touched and not yet committed.
+  const [modelDraft, setModelDraft] = useState<string | null>(null);
+  const [savingModel, setSavingModel] = useState(false);
 
   const profiles = useMemo(() => {
     if (!status) return [];
@@ -104,7 +107,6 @@ export function AgentProfilePage() {
     let suffix = 2;
     while (ids.has(id)) id = `${baseID}-${suffix++}`;
     setFailure("");
-    setApplied("");
     setDraft({
       id,
       label: t("{name} 配置模版", { name: targetName }),
@@ -119,7 +121,6 @@ export function AgentProfilePage() {
   const openEdit = (profile: ProfileSummary) => {
     if (isConverterID(profile.id)) return;
     setFailure("");
-    setApplied("");
     setDraft(draftFrom(profile));
   };
 
@@ -151,11 +152,48 @@ export function AgentProfilePage() {
     }
   };
 
+  /**
+   * Writes just the model back to the selected Profile.
+   *
+   * Committed on blur and on picking from the list rather than on every
+   * keystroke: ProviderModelPicker reports each character, and saving those would
+   * write a Profile per letter typed. Everything else about the Profile is passed
+   * through unchanged, so this cannot quietly reset a field the editor owns.
+   */
+  const commitModel = async (profile: ProfileSummary, next: string) => {
+    const model = next.trim();
+    setModelDraft(null);
+    if (!model || model === (profile.model || "")) return;
+    setSavingModel(true);
+    setFailure("");
+    try {
+      await api.saveProfile({
+        id: profile.id,
+        label: profile.label,
+        provider: profile.provider,
+        apiBaseUrl: "",
+        apiKey: "",
+        model,
+        reasoningEffort: profile.reasoningEffort || "",
+        context1M: Boolean(profile.context1M),
+        configMode: "provider",
+        protocol: profile.protocol || (app ? desktopProtocol(app) : catalog?.protocol || ""),
+      });
+      await refreshStatus();
+    } catch (error) {
+      setFailure(describeFailure(error, t("无法保存配置模版"), t).message);
+    } finally {
+      setSavingModel(false);
+    }
+  };
+
   const apply = async () => {
     if (!selected || !canApply) return;
+    // An uncommitted inline model edit is flushed first, so clicking 应用 straight
+    // after typing applies what is on screen rather than the older stored model.
+    if (modelDraft !== null) await commitModel(selected, modelDraft);
     setBusy(true);
     setFailure("");
-    setApplied("");
     try {
       if (app) {
         await api.configureDesktopAgent(app.id, selected.id);
@@ -168,11 +206,15 @@ export function AgentProfilePage() {
           profileId: selected.id,
         });
       }
-      setApplied(t("{name} 已应用", { name: selected.label || selected.id }));
       await refreshStatus();
+      // Straight back to the overview, which is where the result is visible: the
+      // Agent's row now names this Profile. Staying here left the user on a
+      // screen whose job was done, with a success notice as the only feedback and
+      // a second click needed to see the effect. `replace` so Back does not
+      // return to a selection that has already been applied.
+      navigate("/overview", { replace: true });
     } catch (error) {
       setFailure(describeFailure(error, t("应用配置模版失败"), t).message);
-    } finally {
       setBusy(false);
     }
   };
@@ -196,7 +238,6 @@ export function AgentProfilePage() {
       )}
     >
       {failure ? <div className="notice notice-error">{failure}</div> : null}
-      {applied ? <div className="notice notice-success">{applied}</div> : null}
 
       {draft ? (
         <form className="profile-editor desktop-profile-editor" onSubmit={(event) => void save(event)}>
@@ -285,13 +326,38 @@ export function AgentProfilePage() {
             const usable = desktopProfileUsable(status, profile, app);
             const active = selectedId === profile.id;
             return (
-            <article className={`profile-card profile-choice${active ? " is-selected" : ""}${!usable ? " is-disabled" : ""}`} key={profile.id} data-testid={`agent-profile-${profile.id}`} onClick={() => { if (usable) { setSelectedId(profile.id); setApplied(""); } }}>
+            <article className={`profile-card profile-choice${active ? " is-selected" : ""}${!usable ? " is-disabled" : ""}`} key={profile.id} data-testid={`agent-profile-${profile.id}`} onClick={() => { if (usable) setSelectedId(profile.id); }}>
                 <label className="profile-choice-main">
-                  <input type="radio" name="agent-profile" checked={active} disabled={!usable} onChange={() => { setSelectedId(profile.id); setApplied(""); }} aria-label={t("选择 {name}", { name: profile.label })} />
+                  <input type="radio" name="agent-profile" checked={active} disabled={!usable} onChange={() => setSelectedId(profile.id)} aria-label={t("选择 {name}", { name: profile.label })} />
                   <span className="profile-title"><strong>{profile.label}</strong><small>{profile.id}</small></span>
                   {active ? <Check size={16} aria-hidden="true" /> : null}
                 </label>
-                <p>{status.providers[profile.provider]?.name || profile.provider} · {profile.model || t("未指定模型")}</p>
+                {/* The selected Profile's model is editable right here, so the
+                    common change -- same Profile, different model -- costs no
+                    trip through the editor. The others stay one line of text;
+                    a picker on every card would be a wall of inputs. */}
+                {active && !isConverterID(profile.id) ? (
+                  <div className="profile-choice-model" onClick={(event) => event.stopPropagation()}>
+                    <ProviderModelPicker
+                      key={`${profile.id}:${profile.model ?? ""}`}
+                      provider={profile.provider}
+                      protocol={profile.protocol || protocol}
+                      hasKey={Boolean(status.providers[profile.provider]?.has_key)}
+                      value={modelDraft ?? profile.model ?? ""}
+                      // Typing only records; the write happens on blur. There is
+                      // no way to tell a list pick from a keystroke here -- both
+                      // arrive as onChange -- so committing on change would write
+                      // a Profile per letter.
+                      onChange={setModelDraft}
+                      onBlur={() => { if (modelDraft !== null) void commitModel(profile, modelDraft); }}
+                      inputId={`agent-profile-inline-model-${profile.id}`}
+                      inputLabel={t("模型")}
+                      hint={savingModel ? t("正在保存模型") : undefined}
+                    />
+                  </div>
+                ) : (
+                  <p>{status.providers[profile.provider]?.name || profile.provider} · {profile.model || t("未指定模型")}</p>
+                )}
                 {!usable ? <small className="profile-key-hint">{t("这个配置模版还缺少模型服务 Key 或模型")}</small> : null}
                 {!isConverterID(profile.id) ? <button className="icon-button" type="button" onClick={(event) => { event.stopPropagation(); openEdit(profile); }} aria-label={t("编辑 {name}", { name: profile.label })} title={t("编辑")}><Pencil size={14} /></button> : null}
               </article>
