@@ -33,7 +33,7 @@ describe("AgentIcon", () => {
     // OpenAI mark because it is OpenAI's own product sharing Codex's config.
     // dsh-desktop reuses the DeepSeek mark for the same reason: it drives
     // DeepSeek, though anywhere-labs rather than DeepSeek publishes it.
-    expect(assetIds.sort()).toEqual(["chatgpt-desktop", "claude-code", "codex", "dsh", "dsh-desktop", "hermes", "kilo-cli", "kimi-code", "openclaw", "opencode", "pi"]);
+    expect(assetIds.sort()).toEqual(["chatgpt-desktop", "claude-code", "claude-desktop", "codex", "dsh", "dsh-desktop", "hermes", "kilo-cli", "kimi-code", "openclaw", "opencode", "pi"]);
     for (const id of assetIds) {
       const rights = agentMarkRights(id);
       expect(agentMarkKind(id)).toBe("asset");
@@ -120,6 +120,7 @@ describe("AgentIcon", () => {
       "dsh-desktop": "0 0 24 24",
       opencode: "0 0 24 24",
       "claude-code": "0 0 24 24",
+      "claude-desktop": "0 0 24 24",
       "kilo-cli": "0 0 24 24",
       hermes: "0 0 24 24",
       "kimi-code": "0 0 24 24",
@@ -166,6 +167,9 @@ describe("AgentIcon", () => {
     const { container: chatgpt } = render(<AgentIcon agentId="chatgpt-desktop" />);
     const { container: codex } = render(<AgentIcon agentId="codex" />);
     expect(chatgpt.innerHTML).toBe(codex.innerHTML);
+    const { container: claudeDesktop } = render(<AgentIcon agentId="claude-desktop" />);
+    const { container: claudeCode } = render(<AgentIcon agentId="claude-code" />);
+    expect(claudeDesktop.innerHTML).toBe(claudeCode.innerHTML);
 
     // WorkBuddy now uses its own vendor icon, shipped as a bitmap because Tencent
     // publishes no vector. The point this still guards is the one above: whatever
@@ -204,7 +208,7 @@ describe("AgentIcon", () => {
   // Every Agent the app can show needs a mark it was actually given, so a new one
   // does not quietly land on the unknown-Agent fallback.
   it("registers a mark for every Agent and desktop Agent", () => {
-    for (const id of [...ALL, "chatgpt-desktop", "dsh-desktop", "workbuddy"]) {
+    for (const id of [...ALL, "chatgpt-desktop", "claude-desktop", "dsh-desktop", "workbuddy"]) {
       expect(agentMarkKind(id), `${id} has no registered mark`).not.toBe("fallback");
     }
   });
