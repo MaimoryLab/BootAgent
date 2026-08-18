@@ -492,10 +492,8 @@ jobs:
             ota-BootAgent-linux-arm64.zip
           )
           mapfile -t assets < <(find release-assets -maxdepth 1 -type f -name '*BootAgent-*' -printf '%f\n' | sort)
-          test "${#assets[@]}" -eq 16
           diff <(printf '%s\n' "${expected[@]}" | sort) <(printf '%s\n' "${assets[@]}")
           (cd release-assets && sha256sum *BootAgent-* > SHA256SUMS)
-          test "$(wc -l < release-assets/SHA256SUMS)" -eq 14
 
           if gh release view "$RELEASE_VERSION" >/dev/null 2>&1; then
             gh release upload "$RELEASE_VERSION" release-assets/* --clobber
