@@ -58,13 +58,13 @@ func (s *Server) SetConfig(cfg Config) error {
 	s.http = nil
 	s.listener = nil
 	s.mu.Unlock()
-	if oldListener != nil {
-		_ = oldListener.Close()
-	}
 	if old != nil {
 		if err := shutdownHTTPServer(old); err != nil {
 			return err
 		}
+	}
+	if oldListener != nil {
+		_ = oldListener.Close()
 	}
 	if !cfg.Enabled {
 		s.mu.Lock()
@@ -100,13 +100,17 @@ func (s *Server) Close() error {
 	s.listener = nil
 	s.cfg.Enabled = false
 	s.mu.Unlock()
+	if server == nil {
+		if listener != nil {
+			_ = listener.Close()
+		}
+		return nil
+	}
+	err := shutdownHTTPServer(server)
 	if listener != nil {
 		_ = listener.Close()
 	}
-	if server == nil {
-		return nil
-	}
-	return shutdownHTTPServer(server)
+	return err
 }
 
 func shutdownHTTPServer(server *http.Server) error {
