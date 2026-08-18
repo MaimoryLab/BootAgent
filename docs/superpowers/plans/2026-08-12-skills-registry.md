@@ -36,6 +36,7 @@ Each task below is independently testable and ends with a small commit.
 ### Task 1: Add the catalog Skills contract
 
 **Files:**
+
 - Modify: `internal/catalog/types.go`
 - Modify: `internal/catalog/manifest.go`
 - Modify: `manifests/agents.lock.json`
@@ -47,26 +48,26 @@ Add this test beside `TestEmbeddedMCPMetadataMatchesRegistryContract`:
 
 ```go
 func TestEmbeddedSkillsMetadataMatchesRegistryContract(t *testing.T) {
-	manifest, err := LoadEmbedded()
-	if err != nil { t.Fatal(err) }
-	want := map[string][2]string{
-		"claude-code": {".claude/skills", ""},
-		"codex":       {".codex/skills", ""},
-		"opencode":    {".config/opencode/skills", ""},
-		"hermes":      {".hermes/skills", "AppData/Local/hermes/skills"},
-	}
-	for id, paths := range want {
-		agent, ok := manifest.Agents[id]
-		if !ok { t.Fatalf("missing Skills Agent %q", id) }
-		if agent.SkillsPath != paths[0] || agent.SkillsWindowsPath != paths[1] {
-			t.Errorf("%s Skills paths = %q/%q", id, agent.SkillsPath, agent.SkillsWindowsPath)
-		}
-	}
-	for _, id := range []string{"aider", "openclaw", "kilo-cli"} {
-		if agent := manifest.Agents[id]; agent.SkillsPath != "" || agent.SkillsWindowsPath != "" {
-			t.Errorf("%s unexpectedly has Skills metadata", id)
-		}
-	}
+ manifest, err := LoadEmbedded()
+ if err != nil { t.Fatal(err) }
+ want := map[string][2]string{
+  "claude-code": {".claude/skills", ""},
+  "codex":       {".codex/skills", ""},
+  "opencode":    {".config/opencode/skills", ""},
+  "hermes":      {".hermes/skills", "AppData/Local/hermes/skills"},
+ }
+ for id, paths := range want {
+  agent, ok := manifest.Agents[id]
+  if !ok { t.Fatalf("missing Skills Agent %q", id) }
+  if agent.SkillsPath != paths[0] || agent.SkillsWindowsPath != paths[1] {
+   t.Errorf("%s Skills paths = %q/%q", id, agent.SkillsPath, agent.SkillsWindowsPath)
+  }
+ }
+ for _, id := range []string{"aider", "openclaw", "kilo-cli"} {
+  if agent := manifest.Agents[id]; agent.SkillsPath != "" || agent.SkillsWindowsPath != "" {
+   t.Errorf("%s unexpectedly has Skills metadata", id)
+  }
+ }
 }
 ```
 
@@ -103,6 +104,7 @@ git commit -m "feat: add catalog Skills paths"
 ### Task 2: Implement Skill identity, metadata, and deterministic hashing
 
 **Files:**
+
 - Create: `internal/skill/model.go`
 - Test: `internal/skill/model_test.go`
 
@@ -112,24 +114,24 @@ Create tests for the exact contracts below:
 
 ```go
 func TestValidateIDRejectsPathAndReservedNames(t *testing.T) {
-	for _, id := range []string{"", ".", "..", "../x", `a\\b`, "/tmp/x", "CON", "a\x00b", strings.Repeat("a", 129)} {
-		if ValidateID(id) == nil { t.Errorf("ValidateID(%q) accepted", id) }
-	}
+ for _, id := range []string{"", ".", "..", "../x", `a\\b`, "/tmp/x", "CON", "a\x00b", strings.Repeat("a", 129)} {
+  if ValidateID(id) == nil { t.Errorf("ValidateID(%q) accepted", id) }
+ }
 }
 
 func TestHashTreeIsStableAcrossCreationOrder(t *testing.T) {
-	first, second := t.TempDir(), t.TempDir()
-	writeSkill(t, first, map[string]string{"SKILL.md": "---\nname: Review\ndescription: Check code\n---\nbody\n", "z.txt": "z", "nested/a.txt": "a"})
-	writeSkill(t, second, map[string]string{"nested/a.txt": "a", "z.txt": "z", "SKILL.md": "---\nname: Review\ndescription: Check code\n---\nbody\n"})
-	a, err := HashTree(context.Background(), first); if err != nil { t.Fatal(err) }
-	b, err := HashTree(context.Background(), second); if err != nil { t.Fatal(err) }
-	if a.Hash != b.Hash || a.Files != 3 { t.Fatalf("hash/stats = %#v %#v", a, b) }
+ first, second := t.TempDir(), t.TempDir()
+ writeSkill(t, first, map[string]string{"SKILL.md": "---\nname: Review\ndescription: Check code\n---\nbody\n", "z.txt": "z", "nested/a.txt": "a"})
+ writeSkill(t, second, map[string]string{"nested/a.txt": "a", "z.txt": "z", "SKILL.md": "---\nname: Review\ndescription: Check code\n---\nbody\n"})
+ a, err := HashTree(context.Background(), first); if err != nil { t.Fatal(err) }
+ b, err := HashTree(context.Background(), second); if err != nil { t.Fatal(err) }
+ if a.Hash != b.Hash || a.Files != 3 { t.Fatalf("hash/stats = %#v %#v", a, b) }
 }
 
 func TestHashTreeRejectsSymlink(t *testing.T) {
-	root := t.TempDir(); writeSkill(t, root, map[string]string{"SKILL.md": "body"})
-	if err := os.Symlink(filepath.Join(root, "SKILL.md"), filepath.Join(root, "escape")); err != nil { t.Fatal(err) }
-	if _, err := HashTree(context.Background(), root); err == nil { t.Fatal("symlink accepted") }
+ root := t.TempDir(); writeSkill(t, root, map[string]string{"SKILL.md": "body"})
+ if err := os.Symlink(filepath.Join(root, "SKILL.md"), filepath.Join(root, "escape")); err != nil { t.Fatal(err) }
+ if _, err := HashTree(context.Background(), root); err == nil { t.Fatal("symlink accepted") }
 }
 ```
 
@@ -178,6 +180,7 @@ git commit -m "feat: add Skill identity and tree hashing"
 ### Task 3: Add bounded folder/ZIP discovery and directory publication primitives
 
 **Files:**
+
 - Create: `internal/skill/discovery.go`
 - Test: `internal/skill/discovery_test.go`
 
@@ -187,16 +190,16 @@ Cover one direct folder candidate, recursive nested candidates, ZIP traversal, d
 
 ```go
 func TestDiscoverFolderFindsNestedSkillDirectories(t *testing.T) {
-	root := t.TempDir(); writeSkill(t, filepath.Join(root, "pack", "review"), map[string]string{"SKILL.md": "body"}); writeSkill(t, filepath.Join(root, "pack", "lint"), map[string]string{"SKILL.md": "body2"})
-	got, err := DiscoverFolder(context.Background(), root)
-	if err != nil || len(got) != 2 { t.Fatalf("candidates = %#v, err=%v", got, err) }
+ root := t.TempDir(); writeSkill(t, filepath.Join(root, "pack", "review"), map[string]string{"SKILL.md": "body"}); writeSkill(t, filepath.Join(root, "pack", "lint"), map[string]string{"SKILL.md": "body2"})
+ got, err := DiscoverFolder(context.Background(), root)
+ if err != nil || len(got) != 2 { t.Fatalf("candidates = %#v, err=%v", got, err) }
 }
 
 func TestExtractZIPRejectsTraversalAndDuplicate(t *testing.T) {
-	for _, names := range [][]string{{"../SKILL.md"}, {"a/SKILL.md", "a/./SKILL.md"}} {
-		zipPath := makeZip(t, names)
-		if _, err := DiscoverZIP(context.Background(), zipPath, t.TempDir()); err == nil { t.Fatalf("accepted %v", names) }
-	}
+ for _, names := range [][]string{{"../SKILL.md"}, {"a/SKILL.md", "a/./SKILL.md"}} {
+  zipPath := makeZip(t, names)
+  if _, err := DiscoverZIP(context.Background(), zipPath, t.TempDir()); err == nil { t.Fatalf("accepted %v", names) }
+ }
 }
 ```
 
@@ -238,6 +241,7 @@ git commit -m "feat: safely discover and publish Skill trees"
 ### Task 4: Persist the private Registry and backup/restore data
 
 **Files:**
+
 - Create: `internal/skill/store.go`
 - Test: `internal/skill/store_test.go`
 
@@ -247,13 +251,13 @@ Assert absent-as-empty, malformed/new schema rejection, atomic save mode, determ
 
 ```go
 func TestStoreAbsentRegistryIsEmpty(t *testing.T) {
-	s := NewStore(t.TempDir(), securefs.New(securefs.Options{OS: "linux"}))
-	r, err := s.Load(); if err != nil || r.SchemaVersion != RegistrySchemaVersion || r.Skills == nil { t.Fatalf("registry = %#v, err=%v", r, err) }
+ s := NewStore(t.TempDir(), securefs.New(securefs.Options{OS: "linux"}))
+ r, err := s.Load(); if err != nil || r.SchemaVersion != RegistrySchemaVersion || r.Skills == nil { t.Fatalf("registry = %#v, err=%v", r, err) }
 }
 
 func TestVariantPathUsesComputedHash(t *testing.T) {
-	s := NewStore("/home/user", securefs.Store{})
-	if got := s.VariantPath("review", strings.Repeat("a", 64)); got != "/home/user/.bootagent/skills/review/variants/"+strings.Repeat("a", 64) { t.Fatal(got) }
+ s := NewStore("/home/user", securefs.Store{})
+ if got := s.VariantPath("review", strings.Repeat("a", 64)); got != "/home/user/.bootagent/skills/review/variants/"+strings.Repeat("a", 64) { t.Fatal(got) }
 }
 ```
 
@@ -301,6 +305,7 @@ git commit -m "feat: persist Skill registry and backups"
 ### Task 5: Add the app-level scan, preview, Apply, uninstall, and restore use cases
 
 **Files:**
+
 - Modify: `internal/app/status.go`
 - Modify: `internal/app/mcp.go`
 - Create: `internal/app/skill.go`
@@ -334,12 +339,12 @@ Keep `SetMCPDraftState` and `MCPDraftState`, add `skillDraftState`, `SetSkillDra
 
 ```go
 func (u *UseCases) DraftState() (dirty bool, locale string) {
-	if u == nil { return false, "zh" }
-	mcpDirty, mcpLocale := u.MCPDraftState()
-	skillDirty, skillLocale := u.SkillDraftState()
-	locale = mcpLocale
-	if skillLocale != "" { locale = skillLocale }
-	return mcpDirty || skillDirty, locale
+ if u == nil { return false, "zh" }
+ mcpDirty, mcpLocale := u.MCPDraftState()
+ skillDirty, skillLocale := u.SkillDraftState()
+ locale = mcpLocale
+ if skillLocale != "" { locale = skillLocale }
+ return mcpDirty || skillDirty, locale
 }
 ```
 
@@ -396,6 +401,7 @@ git commit -m "feat: add Skills Registry use cases"
 ### Task 6: Expose the service through Wails and update the close guard
 
 **Files:**
+
 - Create: `internal/binding/skill.go`
 - Create: `internal/binding/skill_dialog_wails.go`
 - Create: `internal/binding/skill_dialog_other.go`
@@ -436,6 +442,7 @@ git commit -m "feat: expose Skills Registry through Wails"
 ### Task 7: Regenerate bindings and add the typed frontend bridge
 
 **Files:**
+
 - Modify: `frontend/src/backend/wails.ts`
 - Modify: `frontend/src/backend/api.ts`
 - Modify: `frontend/src/types/api.ts`
@@ -493,6 +500,7 @@ git commit -m "feat: add typed Skills Wails bridge"
 ### Task 8: Build the Skills page, route, navigation, and localized UI
 
 **Files:**
+
 - Create: `frontend/src/pages/SkillsPage.tsx`
 - Create: `frontend/src/pages/SkillsPage.test.tsx`
 - Modify: `frontend/src/App.tsx`
@@ -540,6 +548,7 @@ git commit -m "feat: add Skills Registry page"
 ### Task 9: Add documentation and fake-runner coverage
 
 **Files:**
+
 - Modify: `README.md`
 - Modify: `README_ZH.md`
 - Create: `docs/internal/skills-registry-acceptance.md`
@@ -572,6 +581,7 @@ git commit -m "docs: document Skills Registry workflow"
 ### Task 10: Run repository gates and inspect the final diff
 
 **Files:**
+
 - Test only; no source changes unless a gate identifies a concrete defect.
 
 - [ ] **Step 1: Run all Go gates.**

@@ -51,7 +51,7 @@
 - [ ] Extend manifest decoding, validation, and clone logic. Reject a non-empty MCP adapter without a section or path, and reject an MCP path that is absolute or project-local.
 - [ ] Add metadata to the lock manifest: Claude Code claude / .claude.json / mcpServers; Codex codex / .codex/config.toml / mcp_servers; OpenCode opencode / .config/opencode/opencode.json / mcp; Kilo kilo / .config/kilo/kilo.jsonc / mcp; Hermes hermes / .hermes/config.yaml / mcp_servers. Kilo accepts an existing .json fallback in its adapter without a new catalog entry.
 - [ ] Add platform-aware path selection tests for Unix and Windows metadata.
-- [ ] Add github.com/tailscale/hujson with GOPROXY=https://proxy.golang.org go get github.com/tailscale/hujson; run go mod tidy.
+- [ ] Add github.com/tailscale/hujson with GOPROXY=<https://proxy.golang.org> go get github.com/tailscale/hujson; run go mod tidy.
 - [ ] Add the module to GO_LICENSES in scripts/generate_third_party_licenses.py, run python3 scripts/generate_third_party_licenses.py, and verify the generated attribution is BSD-3-Clause.
 - [ ] Run go test ./internal/catalog ./internal/config and commit feat: add MCP catalog metadata.
 

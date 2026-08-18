@@ -1,7 +1,6 @@
 # Per-Agent 配置计划（已实施）
 
 > 当前实现位于 `internal/config` 和 `internal/app`。本文保留设计结论，旧脚本路径不再适用。
-
 > 补注（2026-08-04）：本文提到的 `cmd/bootagent-release`、`cmd/bootagent-rc`、
 > `cmd/bootagent-provider-smoke` 已于 `23805b0` 移除，职责交给
 > `.github/workflows/build-artifacts.yml`。相关命令是历史背景，不可执行。

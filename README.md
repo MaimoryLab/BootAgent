@@ -12,7 +12,6 @@
   <p><a href="README_ZH.md">简体中文</a></p>
 </div>
 
-
 BootAgent is a local desktop workspace for AI coding Agents. It turns a fresh machine into a usable, repeatable setup without asking you to edit several tool-specific config files by hand.
 
 ## What it does

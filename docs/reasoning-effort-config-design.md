@@ -66,21 +66,25 @@ config.WriteDSH() / WriteDSHOfficial()
 **问题**：现有用户的 `~/.bootagent/profiles/store.json` 是 `version: 2`，新增字段后需要处理向后兼容。
 
 **现有迁移机制**：
+
 - `internal/profile/store.go:127-139` - `loadStore()` 函数
 - 当前只处理 v1 → v2 迁移（`migrateToV2()`）
 
 **方案**：
+
 - 添加 `migrateToV3()` 函数
 - 对于旧 Profile（无 `reasoningEffort` 字段），有两个选择：
   1. **默认为 `nil`**（推荐）：表示「未配置」，Agent 使用其默认值
   2. **默认为 `"medium"`**：强制设置一个初始值
 
 **推荐**：使用 `nil`（Go 中为 `*string`），因为：
+
 - 不同模型的默认思考深度不同（DeepSeek 默认是什么？需确认）
 - 用户可能之前从未接触过这个概念，不应该强制设置
 - UI 中可以显示为「未设置（使用模型默认值）」
 
 **测试覆盖**：
+
 - 加载 v2 store → 自动迁移到 v3，字段为 `nil`
 - 保存新 Profile 时正确写入 v3
 - v3 store 能正确反序列化
@@ -92,6 +96,7 @@ config.WriteDSH() / WriteDSHOfficial()
 **问题**：`reasoningEffort` 是 DeepSeek 特有的参数，其他 Agent 可能不支持。
 
 **需要调研的 Agent**（从 `writeManagedAgentConfig` switch 中）：
+
 ```go
 - codex          // Codex 是否支持？
 - claude-code    // Claude 使用 extended_thinking，不是 reasoningEffort
@@ -107,6 +112,7 @@ config.WriteDSH() / WriteDSHOfficial()
 ```
 
 **现实问题**：
+
 1. **字段名不统一**：
    - DeepSeek: `reasoningEffort`
    - OpenAI: `reasoning_effort`（驼峰 vs 下划线）
@@ -118,13 +124,16 @@ config.WriteDSH() / WriteDSHOfficial()
    - Claude: `enabled` / `disabled`（布尔语义）
 
 **方案 A - 最小化方案（推荐给第一阶段）**：
+
 - Profile 中只存储 `reasoningEffort` 字段
 - **仅在 DSH 激活时应用**
 - 其他 Agent 忽略该字段
 - UI 中添加说明「仅适用于支持该功能的 Agent」
 
 **方案 B - 通用化方案（未来扩展）**：
+
 - Profile 中存储 `thinkingConfig` 对象：
+
   ```json
   {
     "thinkingConfig": {
@@ -134,6 +143,7 @@ config.WriteDSH() / WriteDSHOfficial()
     }
   }
   ```
+
 - 每个 Agent 的 Writer 从对应的子字段读取
 
 **推荐**：先实现方案 A，验证需求后再考虑方案 B。
@@ -145,11 +155,13 @@ config.WriteDSH() / WriteDSHOfficial()
 **问题**：思考深度的可选值是什么？如何在 UI 中展示？
 
 **需要确认的问题**：
+
 1. DSH 支持的完整枚举值（`low`, `medium`, `high`, `xhigh`, `max`？）
 2. 是否需要「自动」或「未设置」选项？
 3. 不同模型的思考深度是否有差异（如 v4-pro vs v4-flash）？
 
 **UI 方案**：
+
 ```tsx
 <select name="reasoningEffort">
   <option value="">未设置（使用模型默认）</option>
@@ -160,6 +172,7 @@ config.WriteDSH() / WriteDSHOfficial()
 ```
 
 或使用 Radio 按钮组（更清晰）：
+
 ```tsx
 <fieldset>
   <legend>思考深度（仅适用于支持的模型）</legend>
@@ -171,6 +184,7 @@ config.WriteDSH() / WriteDSHOfficial()
 ```
 
 **测试需求**：
+
 - 手动测试：创建 Profile → 设置思考深度 → 激活 → 验证 `~/.dsh/settings.yaml`
 - 自动化测试：E2E 测试涵盖完整流程
 
@@ -181,14 +195,17 @@ config.WriteDSH() / WriteDSHOfficial()
 **问题**：`internal/config/discovery.go` 的 `ReadDSHConfig` 是否需要读取 `reasoningEffort`？
 
 **当前行为**：
+
 - `ReadDSHConfig` 只读取 `baseURL` 和 `model`
 - 用于 Desktop App 的「配置检测」功能
 
 **需求判断**：
+
 - 如果只是「激活时写入」，不需要修改 `ReadDSHConfig`
 - 如果需要「显示当前配置的思考深度」，需要添加该字段
 
 **推荐**：第一阶段不修改，因为：
+
 - `reasoningEffort` 不影响「Agent 是否已激活」的判断
 - 用户可以在 DSH 的 Web UI 中查看当前配置
 
@@ -215,9 +232,11 @@ config.WriteDSH() / WriteDSHOfficial()
 ### Phase 1: 数据模型与持久化（低风险）
 
 **文件**：
+
 - `internal/profile/store.go`
 
 **改动**：
+
 ```go
 // storedProfile - 添加字段
 type storedProfile struct {
@@ -247,6 +266,7 @@ const currentVersion = 3
 ```
 
 **测试**：
+
 ```bash
 go test ./internal/profile -v
 ```
@@ -258,9 +278,11 @@ go test ./internal/profile -v
 ### Phase 2: 配置写入层（中风险）
 
 **文件**：
+
 - `internal/config/write.go`
 
 **改动**：
+
 ```go
 // WriteDSH - 添加 reasoningEffort 参数
 func (w Writer) WriteDSH(ctx context.Context, path, providerName, baseURL, apiKey, model string, reasoningEffort *string) error {
@@ -290,11 +312,13 @@ func (w Writer) WriteDSHOfficial(ctx context.Context, path, apiKey, model string
 ```
 
 **测试**：
+
 ```bash
 go test ./internal/config -run TestWriteDSH -v
 ```
 
 **风险点**：
+
 - 需要更新所有调用 `WriteDSH` 的地方（3 处）
 - 旧测试用例需要传入 `nil`
 
@@ -303,10 +327,12 @@ go test ./internal/config -run TestWriteDSH -v
 ### Phase 3: 应用层传递（中风险）
 
 **文件**：
+
 - `internal/app/agent.go`
 - `internal/binding/services.go`
 
 **改动**：
+
 ```go
 // services.go - ActivateAgentOptions
 type ActivateAgentOptions struct {
@@ -331,6 +357,7 @@ func writeManagedAgentConfig(ctx context.Context, writer configWriter.Writer, ag
 ```
 
 **测试**：
+
 ```bash
 go test ./internal/app -run TestActivateAgent -v
 ```
@@ -340,13 +367,16 @@ go test ./internal/app -run TestActivateAgent -v
 ### Phase 4: API 层（低风险）
 
 **文件**：
+
 - `internal/binding/binding.go`
 
 **改动**：
+
 - 确认 `SaveProfile` API 是否需要修改
 - 通常只需确保 JSON 反序列化正确处理新字段
 
 **测试**：
+
 ```bash
 go test ./internal/binding -v
 ```
@@ -356,9 +386,11 @@ go test ./internal/binding -v
 ### Phase 5: 前端类型定义（低风险）
 
 **文件**：
+
 - `frontend/src/types/api.ts`
 
 **改动**：
+
 ```typescript
 export interface ProfileSummary {
   // ... 现有字段
@@ -372,6 +404,7 @@ export interface ProfileDraft {
 ```
 
 **测试**：
+
 ```bash
 cd frontend && npm run typecheck
 ```
@@ -381,14 +414,17 @@ cd frontend && npm run typecheck
 ### Phase 6: 前端 UI（高风险）
 
 **文件**：
+
 - `frontend/src/pages/AgentProfilePage.tsx`
 
 **改动**：
+
 1. 添加表单控件（`<select>` 或 `<input type="radio">`）
 2. 在 `save()` 函数中包含 `reasoningEffort` 字段
 3. 添加说明文字：「思考深度仅适用于支持该功能的模型（如 DeepSeek）」
 
 **测试**：
+
 - 手动测试：创建 Profile → 填写 → 保存 → 激活 → 验证文件
 - E2E 测试（如果有）
 
@@ -397,6 +433,7 @@ cd frontend && npm run typecheck
 ### Phase 7: 端到端验证（关键）
 
 **验证清单**：
+
 1. ✅ 创建新 Profile，设置 `reasoningEffort: "high"`
 2. ✅ 保存后，`~/.bootagent/profiles/store.json` 包含该字段
 3. ✅ 激活 DSH Agent，`~/.dsh/settings.yaml` 的 `agent-default-model` 包含 `reasoningEffort: high`
@@ -447,7 +484,7 @@ cd frontend && npm run typecheck
 ## 时间估算
 
 | 阶段 | 工作量 | 风险 |
-|------|--------|------|
+| ------ | -------- | ------ |
 | Phase 1: 数据模型 | 2 小时 | 低 |
 | Phase 2: 配置写入 | 3 小时 | 中 |
 | Phase 3: 应用层 | 2 小时 | 中 |
@@ -458,6 +495,7 @@ cd frontend && npm run typecheck
 | **总计** | **14 小时** | |
 
 **建议**：分两个 PR：
+
 - PR 1：Phase 1-4（后端，低风险）
 - PR 2：Phase 5-7（前端 + 集成，需要人工验证）
 
@@ -479,7 +517,7 @@ cd frontend && npm run typecheck
 ### 适配矩阵
 
 | Agent | 配置位置 | 支持的值 | 映射逻辑 | 写入层 | 验证层 |
-|-------|---------|---------|---------|-------|-------|
+| ------- | --------- | --------- | --------- | ------- | ------- |
 | **DeepSeek Harness** | `~/.dsh/settings.yaml`<br>`agent-default-model.reasoningEffort` | `off` / `high` / `max` | 直通 | `WriteDSHOfficial` | `ValidateDSHOfficialReasoningEffort` |
 | **Codex** | `~/.codex/config.toml`<br>`model_reasoning_effort` | `none` / `low` / `medium` / `high` / `xhigh` | `off→none`<br>`max→xhigh`<br>其余直通 | `WriteCodex` | `codexReasoningEffort` |
 | **OpenCode / Kilo** | `opencode.json` / `kilo.jsonc`<br>模型条目 `options.reasoningEffort` | `low` / `medium` / `high` | 拒绝 `off` 和 `max`<br>其余直通 | `WriteOpenAICompatible` | `validateOpenAIReasoningEffort` |
@@ -524,6 +562,7 @@ cd frontend && npm run typecheck
 ### 未来工作
 
 若有新 Agent 支持 reasoning effort，参考本次实现模式：
+
 1. 在 `write.go` 新增校验/映射函数
 2. 修改对应 Writer，解析并写入 Agent 配置
 3. 在 `write_test.go` 添加覆盖测试

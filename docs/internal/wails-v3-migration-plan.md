@@ -3,7 +3,6 @@
 > 状态：**已完成**（2026-07-31）
 >
 > 本文是收尾验收记录。当前生产实现是 Go + Wails + React；旧脚本和旧测试已删除。Wails 仍为 Alpha，所以发行渠道保持 `technical-preview-unsigned`。
-
 > 补注（2026-08-04）：本文提到的 `cmd/bootagent-release`、`cmd/bootagent-rc`、
 > `cmd/bootagent-provider-smoke` 已于 `23805b0` 移除，职责交给
 > `.github/workflows/build-artifacts.yml`。相关命令是历史背景，不可执行。
