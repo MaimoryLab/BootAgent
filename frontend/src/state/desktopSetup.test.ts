@@ -67,4 +67,15 @@ describe("desktop profile mapping", () => {
     const candidate = profile("team", "responses");
     expect(desktopProfileUsable(status([candidate]), candidate)).toBe(false);
   });
+
+  it("accepts only Claude model ids for Claude Desktop", () => {
+    const claude = app({ id: "claude-desktop", protocol: "anthropic", profileAgentId: "claude-desktop" });
+    const base = status([]);
+    base.providers.ppio = { has_key: true } as StatusResponse["providers"][string];
+    const compatible = { ...profile("claude", "anthropic"), model: "anthropic/claude-sonnet-4-5" };
+    const incompatible = { ...compatible, model: "deepseek-chat" };
+
+    expect(desktopProfileUsable(base, compatible, claude)).toBe(true);
+    expect(desktopProfileUsable(base, incompatible, claude)).toBe(false);
+  });
 });

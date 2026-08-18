@@ -113,11 +113,13 @@ export function DesktopAppSection({ app: desktopApp, onChanged, onSetup, onConfi
         {!desktopApp.installed ? (
           <div className="uninstalled-agent-action">
             <AppWindow size={28} aria-hidden="true" />
-            <span>{t("按引导安装桌面 Agent")}</span>
-            <button className="button button-primary" type="button" aria-label={t("安装")} onClick={() => onSetup ? onSetup(desktopApp.id) : void run("install")} disabled={busy}>
-              {pending === "install" || downloading ? <RefreshCw size={15} className="spin" aria-hidden="true" /> : <Plus size={16} />}
-              {pending === "install" || downloading ? t("安装中") : t("安装桌面 Agent")}
-            </button>
+            <span>{desktopApp.manualInstall ? t("需先自行安装，之后可配置") : t("按引导安装桌面 Agent")}</span>
+            {!desktopApp.manualInstall ? (
+              <button className="button button-primary" type="button" aria-label={t("安装")} onClick={() => onSetup ? onSetup(desktopApp.id) : void run("install")} disabled={busy}>
+                {pending === "install" || downloading ? <RefreshCw size={15} className="spin" aria-hidden="true" /> : <Plus size={16} />}
+                {pending === "install" || downloading ? t("安装中") : t("安装桌面 Agent")}
+              </button>
+            ) : null}
           </div>
         ) : null}
         <div className="desktop-app-summary">
@@ -177,9 +179,9 @@ export function DesktopAppSection({ app: desktopApp, onChanged, onSetup, onConfi
               </button>
             </>
           ) : (
-            <button className="button button-primary" type="button" onClick={() => onSetup ? onSetup(desktopApp.id) : void run("install")} disabled={busy}>
-              {pending === "install" || downloading ? <RefreshCw size={15} className="spin" aria-hidden="true" /> : <Download size={15} aria-hidden="true" />}
-              {pending === "install" || downloading ? t("安装中") : t("安装桌面 Agent")}
+            <button className="button button-primary" type="button" onClick={() => desktopApp.manualInstall ? onSetup?.(desktopApp.id) : onSetup ? onSetup(desktopApp.id) : void run("install")} disabled={busy || (desktopApp.manualInstall && !onSetup)}>
+              {desktopApp.manualInstall ? <SlidersHorizontal size={15} /> : pending === "install" || downloading ? <RefreshCw size={15} className="spin" aria-hidden="true" /> : <Download size={15} aria-hidden="true" />}
+              {desktopApp.manualInstall ? t("配置") : pending === "install" || downloading ? t("安装中") : t("安装桌面 Agent")}
             </button>
           )}
         </div>

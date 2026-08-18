@@ -157,7 +157,7 @@ export function ActivationPage() {
     });
     register(taskCanceller(profileRequest));
     const { profile } = await profileRequest;
-    const installRequest = desktop.installed ? undefined : api.installDesktopAgent(desktop.id);
+    const installRequest = desktop.installed || desktop.manualInstall ? undefined : api.installDesktopAgent(desktop.id);
     if (installRequest) register(taskCanceller(installRequest));
     const installed = installRequest ? await installRequest : undefined;
     const configureRequest = api.configureDesktopAgent(desktop.id, profile.id);
