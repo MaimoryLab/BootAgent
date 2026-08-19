@@ -1,5 +1,5 @@
 import { AppWindow, Download, History, Play, Plus, RefreshCw, SlidersHorizontal, TriangleAlert } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { api, describeFailure } from "../backend/api";
 import { useI18n } from "../i18n";
@@ -25,6 +25,16 @@ interface DesktopAppSectionProps {
 
 type Action = "install" | "open";
 
+/**
+ * How long "{name} 已打开" stays on screen.
+ *
+ * Long enough to be read, short enough that it does not become furniture. This
+ * only bounds the launch confirmation: an install outcome lives in the Task
+ * Center until the user dismisses it, and a failure stays until the next
+ * attempt, because both carry something still worth acting on.
+ */
+const LAUNCH_NOTICE_MS = 4000;
+
 export function DesktopAppSection({ app: desktopApp, onChanged, onSetup, onConfigure, profile, providerName, model, showUninstalled = true, showHeading = true }: DesktopAppSectionProps) {
   const { t } = useI18n();
   const { startTask, finishTask, setTaskCanceller, taskFor } = useTaskCenter();
@@ -46,6 +56,15 @@ export function DesktopAppSection({ app: desktopApp, onChanged, onSetup, onConfi
   const busy = Boolean(pending) || downloading;
   const notice = localNotice || (installTask?.state === "success" ? installTask.message : "");
   const failure = localFailure || (!localNotice && installTask?.state === "failure" ? installTask.message : "");
+
+  // Launching an app says everything it has to say the moment it appears, so it
+  // retires itself. Previously nothing cleared it: it sat there until the user
+  // launched again or navigated away, which unmounted the row.
+  useEffect(() => {
+    if (!localNotice) return;
+    const timer = setTimeout(() => setLocalNotice(""), LAUNCH_NOTICE_MS);
+    return () => clearTimeout(timer);
+  }, [localNotice]);
 
   const run = async (action: Action) => {
     const downloads = action === "install";

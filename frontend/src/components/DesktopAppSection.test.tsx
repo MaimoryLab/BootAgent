@@ -142,6 +142,70 @@ describe("DesktopAppSection", () => {
     expect(screen.getByTitle("版本").textContent).toBe("26.727.51351");
   });
 
+  it("retires the launch notice on its own", async () => {
+    // It used to stay until the user launched again or navigated away, which
+    // unmounted the row -- so on the page where you launch from, it never left.
+    vi.useFakeTimers();
+    try {
+      bridge.openDesktopAgent.mockResolvedValue(undefined);
+      render(
+        <TaskCenterProvider>
+          <DesktopAppSection app={app({ installed: true })} onChanged={vi.fn()} />
+        </TaskCenterProvider>,
+      );
+
+      fireEvent.click(screen.getByRole("button", { name: "启动" }));
+      await vi.waitFor(() => expect(screen.queryByText("Example Desktop 已打开")).toBeTruthy());
+      // Still there a moment later: it is readable, not a flash.
+      await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+      expect(screen.queryByText("Example Desktop 已打开")).toBeTruthy();
+
+      await act(async () => { await vi.advanceTimersByTimeAsync(3000); });
+      expect(screen.queryByText("Example Desktop 已打开")).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("restarts the countdown when the app is launched again", async () => {
+    // The second launch repeats the same message. If the reset to "" did not
+    // land between the two, the effect would not re-run and the notice would
+    // still vanish on the first launch's schedule.
+    vi.useFakeTimers();
+    try {
+      bridge.openDesktopAgent.mockResolvedValue(undefined);
+      render(
+        <TaskCenterProvider>
+          <DesktopAppSection app={app({ installed: true })} onChanged={vi.fn()} />
+        </TaskCenterProvider>,
+      );
+
+      // Settle the launch before reading the clock: the notice is set after an
+      // awaited call, so advancing first would arm the timer mid-advance and
+      // measure from the wrong instant.
+      const launch = async () => {
+        fireEvent.click(screen.getByRole("button", { name: "启动" }));
+        await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+      };
+
+      await launch();
+      expect(screen.queryByText("Example Desktop 已打开")).toBeTruthy();
+      await act(async () => { await vi.advanceTimersByTimeAsync(3000); });
+
+      await launch();
+      expect(bridge.openDesktopAgent).toHaveBeenCalledTimes(2);
+      // 3s of the first window had already elapsed; the notice outliving another
+      // 2s proves the clock restarted rather than carried over.
+      await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
+      expect(screen.queryByText("Example Desktop 已打开")).toBeTruthy();
+
+      await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
+      expect(screen.queryByText("Example Desktop 已打开")).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("keeps the bar and reports the outcome across a navigation mid-download", async () => {
     // The download outlives this row: the user can leave the page while it runs.
     // The bar and the final verdict used to hang off local useState, so
