@@ -14,6 +14,14 @@ export interface CatalogItem {
      * cannot misread beats a string it can compare against the wrong literal.
      */
     "selectsModel": boolean;
+
+    /**
+     * WebApp is true when launching this Agent ends in the browser rather than in
+     * a terminal window. The UI uses it to skip the launch-directory prompt: the
+     * Agent serves a local web app and picks its own workspace, so a directory
+     * asked for there would be collected and then ignored.
+     */
+    "webApp": boolean;
     "guideOnly": boolean;
     "lockedVersion": string | null;
     "protocol": string | null;

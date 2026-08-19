@@ -222,7 +222,8 @@
       ],
       "protocol": "openai",
       "rank": 1,
-      "selectsModel": false
+      "selectsModel": false,
+      "webApp": true
     },
     {
       "configMode": "auto",
@@ -241,7 +242,8 @@
       ],
       "protocol": "responses",
       "rank": 2,
-      "selectsModel": true
+      "selectsModel": true,
+      "webApp": false
     },
     {
       "configMode": "auto",
@@ -260,7 +262,8 @@
       ],
       "protocol": "anthropic",
       "rank": 3,
-      "selectsModel": true
+      "selectsModel": true,
+      "webApp": false
     },
     {
       "configMode": "auto",
@@ -279,7 +282,8 @@
       ],
       "protocol": "openai",
       "rank": 4,
-      "selectsModel": true
+      "selectsModel": true,
+      "webApp": false
     },
     {
       "configMode": "auto",
@@ -298,7 +302,8 @@
       ],
       "protocol": "openai",
       "rank": 5,
-      "selectsModel": true
+      "selectsModel": true,
+      "webApp": false
     },
     {
       "configMode": "auto",
@@ -317,7 +322,8 @@
       ],
       "protocol": "openai",
       "rank": 6,
-      "selectsModel": true
+      "selectsModel": true,
+      "webApp": false
     },
     {
       "configMode": "auto",
@@ -336,7 +342,8 @@
       ],
       "protocol": "openai",
       "rank": 7,
-      "selectsModel": true
+      "selectsModel": true,
+      "webApp": false
     },
     {
       "configMode": "auto",
@@ -355,7 +362,8 @@
       ],
       "protocol": "openai",
       "rank": 8,
-      "selectsModel": true
+      "selectsModel": true,
+      "webApp": false
     },
     {
       "configMode": "auto",
@@ -374,7 +382,8 @@
       ],
       "protocol": "openai",
       "rank": 9,
-      "selectsModel": true
+      "selectsModel": true,
+      "webApp": false
     },
     {
       "configMode": "auto",
@@ -393,7 +402,8 @@
       ],
       "protocol": "openai",
       "rank": 10,
-      "selectsModel": true
+      "selectsModel": true,
+      "webApp": false
     }
   ],
   "groups": [

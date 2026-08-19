@@ -29,7 +29,7 @@ function statusWith(agents: Record<string, string | null>): StatusResponse {
         {
           installed: true,
           configured: Boolean(provider),
-          selectsModel: true, guideOnly: false,
+          selectsModel: true, webApp: false, guideOnly: false,
           config: "/c",
           version: "1.0.0",
           lockedVersion: "1.0.0",
@@ -49,7 +49,7 @@ function statusWith(agents: Record<string, string | null>): StatusResponse {
       name: id === "claude-code" ? "Claude Code" : id,
       group: "auto" as const,
       configMode: "auto" as const,
-      selectsModel: true, guideOnly: false,
+      selectsModel: true, webApp: false, guideOnly: false,
       lockedVersion: "1.0.0",
       latestVersion: null,
       protocol: "openai" as const,

@@ -28,7 +28,7 @@ const catalogAgent: AgentCatalogItem = {
   name: "Codex",
   group: "auto",
   configMode: "auto",
-  selectsModel: true, guideOnly: false,
+  selectsModel: true, webApp: false, guideOnly: false,
   lockedVersion: "0.145.0",
   protocol: "responses",
   platforms: ["macos", "linux", "windows"],
@@ -212,6 +212,24 @@ describe("AgentManageRow", () => {
   it("offers no launch for an Agent that is not installed", () => {
     renderRow({ installed: false, version: null });
     expect(screen.queryByRole("button", { name: /启动/ })).toBeNull();
+  });
+
+  // A web-app Agent serves a local page and picks its own workspace, so the
+  // directory prompt would collect an answer nothing goes on to use.
+  it("launches a web-app Agent without asking for a directory", async () => {
+    renderRow({}, "团队 PPIO", { webApp: true });
+    await userEvent.click(screen.getByRole("button", { name: /启动/ }));
+    await waitFor(() => expect(launchAgent).toHaveBeenCalledWith("codex", ""));
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  // The prompt is dropped for the web-app case only; every other Agent still runs
+  // in a directory the user chooses.
+  it("still asks a terminal Agent where to start", async () => {
+    renderRow();
+    await userEvent.click(screen.getByRole("button", { name: /启动/ }));
+    expect(screen.getByRole("dialog")).toBeTruthy();
+    expect(launchAgent).not.toHaveBeenCalled();
   });
 
   it("reports a launch failure in the row instead of failing silently", async () => {
