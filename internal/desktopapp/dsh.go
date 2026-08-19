@@ -68,11 +68,34 @@ func dshURL(ctx context.Context, options Options) (string, error) {
 		ext = ".exe"
 	}
 	for _, asset := range release.Assets {
-		if strings.HasSuffix(strings.ToLower(asset.Name), ext) && strings.Contains(strings.ToLower(asset.Name), "arm64") == (options.Platform.OS == "macos") {
+		if dshAssetMatches(asset.Name, ext, options.Platform.OS == "macos") {
 			return approvedDownloadURL(asset.URL, "github.com")
 		}
 	}
 	return "", fmt.Errorf("GitHub release has no %s %s asset", DSHDesktopName, ext)
+}
+
+// dshAssetMatches picks the release asset for this platform.
+//
+// The extension is what identifies the platform's package; on macOS the build is
+// a single universal .dmg. An earlier form of this also required "arm64" in the
+// name on macOS, which no release has ever carried -- the asset is published as
+// "DSH.Desktop-<version>-universal.dmg" -- so the GitHub path always ended in
+// "GitHub release has no DSH Desktop .dmg asset". That left the mirror as the
+// only route that could work on macOS, and hid it: the fallback in downloadDSH
+// returns the mirror's error when the official lookup fails, so a mirror failure
+// reported the mirror's status and never mentioned that the fallback had found
+// nothing either. Only the arch guard in dshURL keeps an Intel Mac out, which is
+// where that check belongs.
+func dshAssetMatches(name, ext string, macOS bool) bool {
+	lower := strings.ToLower(name)
+	if !strings.HasSuffix(lower, ext) {
+		return false
+	}
+	if !macOS {
+		return true
+	}
+	return strings.Contains(lower, "universal") || strings.Contains(lower, "arm64")
 }
 
 func inspectDSH(ctx context.Context, options Options) Status {

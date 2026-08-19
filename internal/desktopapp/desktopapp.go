@@ -677,9 +677,12 @@ func downloadFile(ctx context.Context, options Options, url, destination, target
 	request.Header.Set("Accept", "application/octet-stream")
 	client := options.Downloader
 	if client == nil {
-		// http.DefaultClient sets no Timeout, which is what we want here: the
-		// stall check below is the limit on the body transfer.
-		client = http.DefaultClient
+		// Like http.DefaultClient this sets no Timeout, which is what we want
+		// here: the stall check below is the limit on the body transfer. What it
+		// adds is a redirect hook that repairs an unencoded space in the target,
+		// without which the mirror's final CDN hop is rejected -- see
+		// downloadRedirectClient.
+		client = downloadRedirectClient
 	}
 	response, err := client.Do(request)
 	if err != nil {
