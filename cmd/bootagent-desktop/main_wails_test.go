@@ -16,11 +16,21 @@ import (
 
 type updateProviderFake struct {
 	checks, downloads int
+	// checkErr fails Check, and noRelease answers "nothing newer" -- the two
+	// outcomes the fallback has to tell apart.
+	checkErr  error
+	noRelease bool
 }
 
 func (p *updateProviderFake) Name() string { return "fake" }
 func (p *updateProviderFake) Check(context.Context, updater.CheckRequest) (*updater.Release, error) {
 	p.checks++
+	if p.checkErr != nil {
+		return nil, p.checkErr
+	}
+	if p.noRelease {
+		return nil, nil
+	}
 	return &updater.Release{}, nil
 }
 func (p *updateProviderFake) Download(context.Context, *updater.Release, io.Writer, func(int64, int64)) error {
@@ -43,6 +53,100 @@ func TestUpdateProviderKeepsCheckedSourceForDownload(t *testing.T) {
 	}
 	if mirror.checks != 1 || mirror.downloads != 1 || official.checks != 0 || official.downloads != 0 {
 		t.Fatalf("official checks/downloads = %d/%d, mirror = %d/%d", official.checks, official.downloads, mirror.checks, mirror.downloads)
+	}
+}
+
+// Gitee answered 403 on roughly a third of consecutive SHA256SUMS fetches and is
+// missing the windows/arm64 OTA asset outright. Both surfaced as a Check error,
+// which the automatic updater treats as "no update", so mirror users silently
+// stopped being offered releases.
+func TestUpdateCheckFallsBackToOfficialWhenTheMirrorFails(t *testing.T) {
+	mirrorErr := errors.New("checksum sidecar HTTP 403")
+	official, mirror := &updateProviderFake{}, &updateProviderFake{checkErr: mirrorErr}
+	provider := updateProvider{official: official, mirror: mirror, preferMirror: func(context.Context) bool { return true }}
+
+	release, err := provider.Check(context.Background(), updater.CheckRequest{})
+	if err != nil {
+		t.Fatalf("Check() after a mirror failure = %v, want the official result", err)
+	}
+	if mirror.checks != 1 || official.checks != 1 {
+		t.Fatalf("mirror checks = %d, official checks = %d, want 1 and 1", mirror.checks, official.checks)
+	}
+	// The download has to follow the host that answered, or it would look for the
+	// official asset on the mirror.
+	if err := provider.Download(context.Background(), release, &bytes.Buffer{}, func(int64, int64) {}); err != nil {
+		t.Fatal(err)
+	}
+	if official.downloads != 1 || mirror.downloads != 0 {
+		t.Fatalf("official downloads = %d, mirror downloads = %d, want 1 and 0", official.downloads, mirror.downloads)
+	}
+}
+
+func TestUpdateCheckReportsBothFailuresWhenNeitherSourceAnswers(t *testing.T) {
+	mirrorErr, officialErr := errors.New("mirror is unreachable"), errors.New("official is unreachable")
+	official, mirror := &updateProviderFake{checkErr: officialErr}, &updateProviderFake{checkErr: mirrorErr}
+	provider := updateProvider{official: official, mirror: mirror, preferMirror: func(context.Context) bool { return true }}
+
+	release, err := provider.Check(context.Background(), updater.CheckRequest{})
+	if release != nil {
+		t.Fatalf("Check() release = %#v, want nil when both sources fail", release)
+	}
+	// Joined rather than replaced: the mirror's failure is what the user's
+	// configured route did, and updateError matches sentinels through the join.
+	for _, want := range []error{mirrorErr, officialErr} {
+		if !errors.Is(err, want) {
+			t.Errorf("Check() error = %v, want it to wrap %v", err, want)
+		}
+	}
+}
+
+// A source that answers "nothing newer" has answered. Retrying elsewhere would
+// query both hosts on every check, spending the slow link the mirror preference
+// exists to avoid.
+func TestUpdateCheckAcceptsNoUpdateFromTheMirror(t *testing.T) {
+	official, mirror := &updateProviderFake{}, &updateProviderFake{noRelease: true}
+	provider := updateProvider{official: official, mirror: mirror, preferMirror: func(context.Context) bool { return true }}
+
+	release, err := provider.Check(context.Background(), updater.CheckRequest{})
+	if release != nil || err != nil {
+		t.Fatalf("Check() = %#v, %v, want nil, nil", release, err)
+	}
+	if official.checks != 0 {
+		t.Errorf("official checks = %d, want 0: the mirror already answered", official.checks)
+	}
+}
+
+// Cancelling is the caller's decision. Falling back would reopen the request that
+// was just abandoned, and the task centre's cancel button would not stick.
+func TestUpdateCheckDoesNotFallBackAfterCancellation(t *testing.T) {
+	official, mirror := &updateProviderFake{}, &updateProviderFake{checkErr: context.Canceled}
+	provider := updateProvider{official: official, mirror: mirror, preferMirror: func(context.Context) bool { return true }}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	if _, err := provider.Check(ctx, updater.CheckRequest{}); !errors.Is(err, context.Canceled) {
+		t.Fatalf("Check() error = %v, want context.Canceled", err)
+	}
+	if official.checks != 0 {
+		t.Errorf("official checks = %d, want 0 after cancellation", official.checks)
+	}
+}
+
+// The official source is never abandoned for the mirror. Runtime archives may try
+// both hosts in either order because runtimes.lock.json pins each SHA256; an OTA
+// release has no such out-of-band pin, so the digest arrives from whichever host
+// served the artifact. Falling back to the mirror would put a user who never
+// chose it inside the mirror's trust boundary.
+func TestUpdateCheckNeverFallsBackToTheMirror(t *testing.T) {
+	officialErr := errors.New("official is unreachable")
+	official, mirror := &updateProviderFake{checkErr: officialErr}, &updateProviderFake{}
+	provider := updateProvider{official: official, mirror: mirror, preferMirror: func(context.Context) bool { return false }}
+
+	if _, err := provider.Check(context.Background(), updater.CheckRequest{}); !errors.Is(err, officialErr) {
+		t.Fatalf("Check() error = %v, want %v", err, officialErr)
+	}
+	if mirror.checks != 0 {
+		t.Errorf("mirror checks = %d, want 0: falling back to the mirror would widen the trust boundary", mirror.checks)
 	}
 }
 

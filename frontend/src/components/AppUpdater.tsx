@@ -27,7 +27,22 @@ export function AppUpdater() {
       let version: string;
       try {
         version = await api.checkUpdate();
-      } catch {
+      } catch (error) {
+        // Staying silent is right for a check that merely could not reach a
+        // source -- the user did not ask, and a startup dialog about a transient
+        // network failure is noise. UPDATE_LOCATION_BLOCKED is the exception: the
+        // backend only reaches that check once a newer release exists, so it
+        // means an update is waiting and this installation can never apply it.
+        // Left silent, the app stops updating for good with nothing said, and the
+        // only place the reason appears is a settings page the user has no reason
+        // to open.
+        const failure = describeFailure(error, t("检查更新失败"), t);
+        if (active.current && failure.code === "UPDATE_LOCATION_BLOCKED") {
+          void Dialogs.Warning({
+            Title: t("BootAgent 更新"),
+            Message: failure.hint ? `${failure.message}\n\n${failure.hint}` : failure.message,
+          }).catch(() => {});
+        }
         return;
       }
       if (!active.current || !version || latest.current.isTaskRunning(OTA_TASK_ID)) return;
