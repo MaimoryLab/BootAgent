@@ -9,6 +9,7 @@ import { sourceTranslate, type Translate, useI18n } from "../i18n";
 import { taskCanceller, taskKey, updateTaskRoute, useTaskCenter, useTaskRoute } from "../state/TaskCenterContext";
 import type { AgentCatalogItem, AgentStatus, ProfileSummary, StatusResponse } from "../types/api";
 import { AgentIcon, agentTagline } from "./icons/agents";
+import { ModalDialog } from "./ModalDialog";
 
 type Providers = StatusResponse["providers"];
 
@@ -248,7 +249,7 @@ export function AgentManageRow({
         </div>
       </div>
       {directoryDialog ? (
-        <dialog className="transfer-password-dialog" open>
+        <ModalDialog className="transfer-password-dialog" label={t("选择启动目录")} onDismiss={() => setDirectoryDialog(false)}>
           <form onSubmit={(event) => { event.preventDefault(); void confirmLaunch(); }}>
             <h2>{t("选择启动目录")}</h2>
             <label className="launch-directory-label" htmlFor={`launch-directory-${agentId}`}>{t("启动目录")}</label>
@@ -259,7 +260,7 @@ export function AgentManageRow({
             <label className="launch-remember-row"><input type="checkbox" checked={rememberDirectory} onChange={(event) => setRememberDirectory(event.target.checked)} /><span>{t("记住此 Agent 的目录")}</span></label>
             <footer><button className="button button-secondary" type="button" onClick={() => setDirectoryDialog(false)}>{t("取消")}</button><button className="button button-primary" type="submit">{t("启动")}</button></footer>
           </form>
-        </dialog>
+        </ModalDialog>
       ) : null}
       <div className="agent-manage-actions">
         {/* Always in the row, not only when the Agent cannot launch. Configuring
