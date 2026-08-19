@@ -38,8 +38,55 @@ type updateProvider struct {
 
 func (p updateProvider) Name() string { return "bootagent-release" }
 
+// Check asks the preferred source, and falls back to the official one when the
+// mirror could not answer.
+//
+// The mirror needs the fallback because it fails in ways the official source does
+// not. Fetching SHA256SUMS from Gitee answered 403 on roughly a third of
+// consecutive attempts, and the mirror is missing ota-BootAgent-windows-arm64.zip
+// altogether, which is a permanent "no asset for windows/arm64". Neither reaches
+// the user as a failure: the automatic check treats any error as "no update"
+// (AppUpdater), so before this a mirror user simply stopped being offered
+// updates, silently and with nothing to retry.
+//
+// The fallback only runs mirror -> official, never the reverse. Runtime archives
+// can try both hosts in either order because runtimes.lock.json pins each
+// artifact's SHA256, so a bad mirror can only fail rather than substitute
+// anything (see install.downloadSources). An OTA release carries no such
+// out-of-band pin -- the digest comes from the same host as the artifact -- so
+// sending a user who did not choose the mirror to the mirror would widen the
+// trust boundary instead of just improving availability. Falling back toward the
+// authoritative source only ever narrows it.
 func (p updateProvider) Check(ctx context.Context, request updater.CheckRequest) (*updater.Release, error) {
 	mirror := p.preferMirror(ctx)
+	release, err := p.check(ctx, request, mirror)
+	if err == nil || !mirror {
+		return release, err
+	}
+	// A cancelled check is the caller's decision, not a source that failed;
+	// retrying elsewhere would reopen exactly the request that was abandoned.
+	if ctx.Err() != nil {
+		return release, err
+	}
+	slog.Warn("BootAgent mirror update check failed; trying the official source", "error", err)
+	fallbackRelease, fallbackErr := p.check(ctx, request, false)
+	if fallbackErr != nil {
+		// Both errors are kept: the mirror's is what the user's configured route
+		// did, and joining preserves the sentinels updateError matches on.
+		return nil, errors.Join(err, fallbackErr)
+	}
+	return fallbackRelease, nil
+}
+
+// check runs one source and records which one answered, so Download goes back to
+// the host the release was resolved from.
+//
+// A nil release with a nil error means that source has nothing newer, which is an
+// answer rather than a failure and so is returned as-is. A mirror that lags a
+// release behind therefore delays the update until it syncs; that is the cost of
+// honouring the preference, and the alternative -- querying both hosts on every
+// check -- spends the slow link the preference exists to avoid.
+func (p updateProvider) check(ctx context.Context, request updater.CheckRequest, mirror bool) (*updater.Release, error) {
 	provider := p.official
 	if mirror {
 		provider = p.mirror

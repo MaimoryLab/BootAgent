@@ -12,12 +12,13 @@ import { TaskCenter } from "./TaskCenter";
 
 const mocks = vi.hoisted(() => ({
   question: vi.fn(),
+  warning: vi.fn(),
   checkUpdate: vi.fn(),
   downloadUpdate: vi.fn(),
   restartUpdate: vi.fn(),
 }));
 
-vi.mock("@wailsio/runtime", () => ({ Dialogs: { Question: mocks.question } }));
+vi.mock("@wailsio/runtime", () => ({ Dialogs: { Question: mocks.question, Warning: mocks.warning } }));
 vi.mock("../backend/api", async () => {
   const errors = await import("../backend/errors");
   return {
@@ -77,6 +78,7 @@ describe("AppUpdater", () => {
   beforeEach(() => {
     localStorage.setItem(LOCALE_STORAGE_KEY, "en");
     mocks.question.mockReset().mockResolvedValue("Not now");
+    mocks.warning.mockReset().mockResolvedValue(undefined);
     mocks.checkUpdate.mockReset().mockResolvedValue("");
     mocks.downloadUpdate.mockReset();
     mocks.restartUpdate.mockReset();
@@ -96,7 +98,26 @@ describe("AppUpdater", () => {
     await waitFor(() => expect(mocks.checkUpdate).toHaveBeenCalledTimes(1));
     expect(mocks.question).not.toHaveBeenCalled();
     expect(mocks.downloadUpdate).not.toHaveBeenCalled();
+    // A check that could not reach a source stays silent: the user did not ask,
+    // and a startup dialog about a transient network failure is noise.
+    expect(mocks.warning).not.toHaveBeenCalled();
     expect(screen.queryByText("Update BootAgent")).toBeNull();
+  });
+
+  // The backend only reaches its location check once a newer release exists, so
+  // this code means an update is waiting that this installation can never apply.
+  // Silence would end updates for good with nothing said.
+  it("warns when the installation cannot be updated in place", async () => {
+    mocks.checkUpdate.mockRejectedValue(
+      new BootAgentApiError("BootAgent is running from a disk image.", "UPDATE_LOCATION_BLOCKED", false, 409),
+    );
+    mount();
+    await waitFor(() => expect(mocks.warning).toHaveBeenCalledTimes(1));
+    const message = String(mocks.warning.mock.calls[0][0].Message);
+    // The hint carries the instruction, so it has to reach the dialog.
+    expect(message).toContain("Applications");
+    expect(mocks.question).not.toHaveBeenCalled();
+    expect(mocks.downloadUpdate).not.toHaveBeenCalled();
   });
 
   it("does nothing when the OTA task is already running", async () => {
