@@ -158,6 +158,25 @@ func configureUpdater(appInstance *application.App, core *app.UseCases) binding.
 	return appInstance.Updater
 }
 
+// acceptQuit answers a quit request, and records that one was made.
+//
+// Wails asks this only when the user has actually asked the app to quit: the
+// Dock's Quit, Cmd+Q, the app menu, or a logout. It used to answer "no" unless
+// the tray's own Quit item had run first, which made every one of those routes a
+// no-op -- on macOS a false answer becomes NSTerminateCancel, so the Dock
+// reported the quit as cancelled and the process stayed alive. A logout is
+// refused the same way.
+//
+// Staying resident when the window is closed is a separate question, and it is
+// already answered by the WindowClosing hook, which hides the window instead of
+// closing it. Recording the intent here is what lets that hook tell a real quit
+// from a window close, so on the way out the window closes rather than being
+// hidden while the process is already terminating.
+func acceptQuit(quitting *atomic.Bool) bool {
+	quitting.Store(true)
+	return true
+}
+
 type quitAwareUpdater struct {
 	binding.UpdateBackend
 	quitting   *atomic.Bool
@@ -337,7 +356,7 @@ func main() {
 			DisableLogging: true,
 		},
 		Mac:        application.MacOptions{ApplicationShouldTerminateAfterLastWindowClosed: false},
-		ShouldQuit: func() bool { return quitting.Load() },
+		ShouldQuit: func() bool { return acceptQuit(&quitting) },
 	})
 	appInstance.OnShutdown(func() { _ = core.CloseConversion() })
 	updateBackend := configureUpdater(appInstance, core)
