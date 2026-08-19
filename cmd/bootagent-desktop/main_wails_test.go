@@ -161,6 +161,32 @@ func (b *restartBackend) Restart(context.Context) error {
 	return b.err
 }
 
+// The Dock's Quit, Cmd+Q, the app menu and a logout all arrive here. Answering
+// false turns into NSTerminateCancel on macOS, which is why the Dock's Quit left
+// the process running: the flag it gated on was only ever set by the tray's own
+// Quit item.
+func TestQuitIsAcceptedWhateverAskedForIt(t *testing.T) {
+	var quitting atomic.Bool
+	if !acceptQuit(&quitting) {
+		t.Fatal("a quit request was refused; the Dock and Cmd+Q cannot quit the app")
+	}
+	// The WindowClosing hook reads this to tell a real quit from a window close,
+	// so without it the window would be hidden mid-shutdown instead of closing.
+	if !quitting.Load() {
+		t.Fatal("quit intent was not recorded")
+	}
+}
+
+// The tray's Quit sets the flag before asking, and a restart sets it too; asking
+// again must not undo either.
+func TestQuitStaysAcceptedWhenAlreadyQuitting(t *testing.T) {
+	var quitting atomic.Bool
+	quitting.Store(true)
+	if !acceptQuit(&quitting) || !quitting.Load() {
+		t.Fatal("an in-flight quit was reversed")
+	}
+}
+
 func TestQuitAwareUpdater(t *testing.T) {
 	for _, test := range []struct {
 		name string
