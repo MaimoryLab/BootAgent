@@ -69,3 +69,37 @@ beforeEach(() => {
 	installStorage("localStorage");
 	installStorage("sessionStorage");
 });
+
+/**
+ * jsdom 30 ships no HTMLDialogElement methods at all -- `show`, `showModal`,
+ * `close` and `requestClose` are all undefined, though the `open` property does
+ * reflect the attribute. Modals call showModal() because that is what puts them
+ * on the top layer, so without this every test rendering one throws.
+ *
+ * There is no top layer to emulate here, and jsdom does no layout, so this
+ * tracks the observable state a test can assert on: `open`, the implicit
+ * "dialog" role that follows it, and the close/cancel events. Whether the
+ * element truly escapes its stacking context is a browser question, which is
+ * why the E2E suite is what covers position.
+ */
+const dialog = window.HTMLDialogElement.prototype;
+if (typeof dialog.showModal !== "function") {
+	dialog.show = function show(this: HTMLDialogElement) {
+		this.setAttribute("open", "");
+	};
+	dialog.showModal = function showModal(this: HTMLDialogElement) {
+		this.setAttribute("open", "");
+	};
+	dialog.close = function close(this: HTMLDialogElement, returnValue?: string) {
+		if (!this.hasAttribute("open")) return;
+		this.removeAttribute("open");
+		if (returnValue !== undefined) this.returnValue = returnValue;
+		this.dispatchEvent(new window.Event("close"));
+	};
+	dialog.requestClose = function requestClose(this: HTMLDialogElement, returnValue?: string) {
+		if (!this.hasAttribute("open")) return;
+		// Cancel is the event Esc fires, and it is preventable; only close when
+		// nothing prevented it, as the platform does.
+		if (this.dispatchEvent(new window.Event("cancel", { cancelable: true }))) this.close(returnValue);
+	};
+}

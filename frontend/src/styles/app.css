@@ -2313,8 +2313,17 @@
 .skills-detail-cell span[title], .skills-import-name small[title] { cursor: help; }
 .skills-detail-cell small { margin-top: 4px; color: var(--text-tertiary); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 .mcp-secret-note { display: block; color: var(--text-secondary); margin-top: 4px; }
-.mcp-modal-backdrop { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 24px; background: rgb(0 0 0 / 35%); }
-.mcp-modal { width: min(620px, 100%); max-height: min(720px, 90vh); overflow: auto; padding: 22px; background: var(--window-bg); border: 1px solid var(--border-strong); box-shadow: var(--shadow-lg); }
+/* The modal is now the <dialog> itself, opened with showModal(), so the top
+   layer does the centring and covering a fixed wrapper used to do by hand. That
+   wrapper also carried `z-index: 20`, which only tied the task centre's 20 and
+   left DOM order to break the tie; the top layer is above every z-index.
+   Widths resolve against the viewport rather than the wrapper's padded cell, so
+   the small-window guard has to be explicit, as the transfer dialog's is.
+   `color` is restated because the UA sheet sets its own on <dialog>, and a UA
+   declaration beats inheritance -- without it the text is black on the dark
+   theme's dark surface. */
+.mcp-modal::backdrop { background: rgb(0 0 0 / 35%); }
+.mcp-modal { width: min(620px, calc(100vw - 48px)); max-height: min(720px, 90vh); overflow: auto; padding: 22px; background: var(--window-bg); color: var(--text-primary); border: 1px solid var(--border-strong); box-shadow: var(--shadow-lg); }
 .mcp-modal header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .mcp-modal footer { display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
 .mcp-modal label { display: grid; gap: 6px; margin: 16px 0; color: var(--text-secondary); font-size: 13px; }
@@ -2324,7 +2333,7 @@
 .mcp-modal input, .mcp-modal select, .mcp-modal textarea { width: 100%; box-sizing: border-box; border: 1px solid var(--border-strong); background: var(--surface-subtle); color: var(--text-primary); padding: 9px 10px; font: inherit; }
 .mcp-modal textarea { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; resize: vertical; }
 .mcp-modal footer { margin-top: 20px; }
-.skills-import-modal { width: min(760px, 100%); }
+.skills-import-modal { width: min(760px, calc(100vw - 48px)); }
 .skills-import-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 24px; padding: 14px 0; border-top: 1px solid var(--border-faint); }
 .skills-import-name { min-width: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; column-gap: 8px; row-gap: 4px; margin: 0 !important; }
 .skills-import-name strong, .skills-import-name small { min-width: 0; overflow-wrap: anywhere; }

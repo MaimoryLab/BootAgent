@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { api, describeFailure } from "../backend/api";
+import { ModalDialog } from "../components/ModalDialog";
 import { PageScaffold } from "../components/PageScaffold";
 import { useI18n } from "../i18n";
 import { byProviderCreatedAt } from "../state/ranking";
@@ -233,7 +234,11 @@ export function TransferPage() {
       {failure ? <div className="notice notice-error">{failure}</div> : null}
       {success ? <div className="notice notice-success">{success}</div> : null}
       {passwordRequest ? (
-        <dialog className="transfer-password-dialog" open>
+        <ModalDialog
+          className="transfer-password-dialog"
+          label={passwordRequest === "export" ? t("请输入导出密码") : t("请输入导入密码")}
+          onDismiss={() => finishPassword(null)}
+        >
           <form onSubmit={(event) => { event.preventDefault(); finishPassword(passwordValue.trim() || null); }}>
             <h2>{passwordRequest === "export" ? t("请输入导出密码") : t("请输入导入密码")}</h2>
             <div className="secure-field">
@@ -245,10 +250,10 @@ export function TransferPage() {
             </div>
             <footer><button className="button button-secondary" type="button" onClick={() => finishPassword(null)}>{t("取消")}</button><button className="button button-primary" type="submit">{t("确认")}</button></footer>
           </form>
-        </dialog>
+        </ModalDialog>
       ) : null}
       {encryptionRequest ? (
-        <dialog className="transfer-password-dialog" open>
+        <ModalDialog className="transfer-password-dialog" label={t("导出设置")} onDismiss={() => finishEncryption(null)}>
           {/* Not including keys is the default and the submit action: a transfer
               file describes which Providers and Profiles exist, which is useful on
               its own, and carrying live credentials is what turns it into a
@@ -268,10 +273,10 @@ export function TransferPage() {
               <button className="button button-primary" type="submit">{t("不包含 Key")}</button>
             </footer>
           </form>
-        </dialog>
+        </ModalDialog>
       ) : null}
       {importPlan ? (
-        <dialog className="transfer-password-dialog" open>
+        <ModalDialog className="transfer-password-dialog" label={t("确认导入")} onDismiss={() => finishImport(false)}>
           <form onSubmit={(event) => { event.preventDefault(); finishImport(true); }}>
             <h2>{t("确认导入")}</h2>
             {/* The warning has to match the file. Claiming saved keys will be
@@ -304,7 +309,7 @@ export function TransferPage() {
               <button className="button button-primary" type="submit">{t("导入")}</button>
             </footer>
           </form>
-        </dialog>
+        </ModalDialog>
       ) : null}
       <div className="transfer-actions">
         <button className="button button-secondary" type="button" onClick={toggleAll} disabled={busy || (!providers.length && !profiles.length && !mcpServers.length)}>
