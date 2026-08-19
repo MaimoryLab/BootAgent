@@ -12,7 +12,7 @@ export function AppWindow({ children }: PropsWithChildren) {
       <div className="app-window">
         <NavigationSidebar />
         <main className="app-main">
-          {state.status?.migrationNotice ? <p className="provider-note">{state.status.migrationNotice}</p> : null}
+          {state.status?.migrationNotice ? <p className="app-migration-notice">{state.status.migrationNotice}</p> : null}
           {children}
         </main>
       </div>

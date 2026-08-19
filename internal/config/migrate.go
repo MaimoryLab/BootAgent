@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -30,25 +31,54 @@ func MigrateLegacyAgentConfigs(ctx context.Context, home string, filesystem secu
 		{filepath.Join(home, ".kimi-code", "config.toml"), migrateLegacyKimi},
 		{filepath.Join(home, ".zcode", "v2", "config.json"), migrateLegacyZCode},
 	}
+	var failures []error
 	for _, migration := range migrations {
 		data, err := os.ReadFile(migration.path)
 		if os.IsNotExist(err) {
 			continue
 		}
 		if err != nil {
-			return fmt.Errorf("read %s: %w", migration.path, err)
+			failures = append(failures, fmt.Errorf("read %s: %w", migration.path, err))
+			continue
 		}
-		updated, changed, err := migration.migrate(data)
+		updated, changed, err := migration.migrate(stripBOM(data))
 		if err != nil {
-			return fmt.Errorf("migrate %s: %w", migration.path, err)
+			// Collected rather than returned: these files belong to different
+			// Agents and nothing links them, so one unreadable config used to
+			// abandon every migration listed after it. A user with a hand-edited
+			// openclaw.json silently kept an unmigrated .zcode config as well,
+			// and the reported error named only the first file.
+			failures = append(failures, fmt.Errorf("migrate %s: %w", migration.path, err))
+			continue
 		}
 		if changed {
 			if _, err := filesystem.AtomicWrite(ctx, migration.path, updated, true); err != nil {
-				return err
+				failures = append(failures, err)
 			}
 		}
 	}
+	if len(failures) > 0 {
+		return errors.Join(failures...)
+	}
 	return nil
+}
+
+// utf8BOM is the byte order mark Windows editors prepend when saving as UTF-8.
+// Notepad writes it by default, and it is invisible in every editor that does.
+const utf8BOM = "\ufeff"
+
+// stripBOM removes a leading UTF-8 BOM so a config saved by a Windows editor can
+// be parsed.
+//
+// Neither parser tolerates it: hujson reports `invalid character '\ufeff' at
+// start of value` and go-toml reports `invalid character at start of key`. Since
+// a migration failure named only the file, the whole feature looked broken to a
+// user whose only mistake was opening a config in Notepad. The mark is dropped
+// rather than preserved on write, because JSON and TOML both define it as invalid
+// content -- keeping it would mean writing back a file we just proved neither
+// parser will read.
+func stripBOM(data []byte) []byte {
+	return []byte(strings.TrimPrefix(string(data), utf8BOM))
 }
 
 func migrateLegacyCodex(data []byte) ([]byte, bool, error) {
