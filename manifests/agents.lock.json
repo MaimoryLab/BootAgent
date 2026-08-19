@@ -263,6 +263,7 @@
       "config_adapter": "dsh",
       "model_selection": "agent",
       "config_path": ".dsh/settings.yaml",
+      "web_url": "http://127.0.0.1:3080",
       "package": {
         "manager": "npm",
         "name": "@deepseek-ai/dsh",

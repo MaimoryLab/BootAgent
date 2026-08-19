@@ -3,8 +3,11 @@ package app
 import (
 	"context"
 	"fmt"
+	"net"
+	"net/url"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/MaimoryLab/BootAgent/internal/catalog"
 	oneerrors "github.com/MaimoryLab/BootAgent/internal/errors"
@@ -20,7 +23,11 @@ type LaunchAgentResult struct {
 	// Terminal is the terminal that actually opened. It can differ from the
 	// stored preference when that terminal is no longer installed, so the caller
 	// can say which one ran instead of leaving the substitution invisible.
+	// Empty when the Agent's server was already serving and no window was needed.
 	Terminal string `json:"terminal"`
+	// WebURL is the address opened in the browser, set only for Agents whose
+	// interface is a local web app.
+	WebURL string `json:"web_url,omitempty"`
 }
 
 // LaunchAgent opens a terminal window running one configured Agent. It reuses
@@ -79,6 +86,16 @@ func (u *UseCases) LaunchAgent(ctx context.Context, agentID string, directories 
 	if err != nil {
 		return LaunchAgentResult{}, err
 	}
+	// A web-app Agent that is already serving needs no second server: starting one
+	// would only fail to bind the port and leave a terminal window whose whole
+	// content is that error. The page is the destination either way.
+	address, servingAlready := u.webUIAddress(agent)
+	if servingAlready {
+		if err := u.openWebUI(agent); err != nil {
+			return LaunchAgentResult{}, err
+		}
+		return LaunchAgentResult{Agent: agentID, Command: line, WebURL: agent.WebURL}, nil
+	}
 	// The window resolves the Agent the same way status said it could: an Agent
 	// CLI under the managed global prefix is only on PATH once the managed
 	// directories are prepended, and a shell started before that install would
@@ -90,7 +107,100 @@ func (u *UseCases) LaunchAgent(ctx context.Context, agentID string, directories 
 			oneerrors.WithStatus(500), oneerrors.WithRetryable(true), oneerrors.WithCause(err),
 		)
 	}
-	return LaunchAgentResult{Agent: agentID, Command: line, Terminal: terminal}, nil
+	if address != "" {
+		// The server was just asked to start, so the port is not up yet. Waiting
+		// avoids handing the browser an address that would answer "connection
+		// refused"; the wait is bounded so a server that never binds delays the
+		// launch rather than hanging it.
+		u.waitForWebUI(ctx, address)
+		if err := u.openWebUI(agent); err != nil {
+			return LaunchAgentResult{}, err
+		}
+	}
+	return LaunchAgentResult{Agent: agentID, Command: line, Terminal: terminal, WebURL: agent.WebURL}, nil
+}
+
+// webUIDialTimeout bounds one connection attempt, and webUIWaitTimeout the whole
+// wait for a server that was just started. The total is short enough that a
+// launch still feels like a launch if the server never binds.
+const (
+	webUIDialTimeout = 300 * time.Millisecond
+	webUIWaitTimeout = 15 * time.Second
+	webUIPollEvery   = 150 * time.Millisecond
+)
+
+// webUIAddress returns the host:port to probe for a web-app Agent, and whether
+// something is already serving there. Both are empty/false for the ordinary
+// terminal Agents, which is what keeps their launch path unchanged.
+func (u *UseCases) webUIAddress(agent catalog.Agent) (string, bool) {
+	if u == nil || agent.WebURL == "" {
+		return "", false
+	}
+	parsed, err := url.Parse(agent.WebURL)
+	if err != nil || parsed.Host == "" {
+		return "", false
+	}
+	address := parsed.Host
+	if parsed.Port() == "" {
+		// Only the two schemes a local web app would use; anything else is a
+		// manifest mistake rather than something to guess a port for.
+		switch parsed.Scheme {
+		case "http":
+			address = net.JoinHostPort(parsed.Hostname(), "80")
+		case "https":
+			address = net.JoinHostPort(parsed.Hostname(), "443")
+		default:
+			return "", false
+		}
+	}
+	return address, u.dialWebUI(address)
+}
+
+func (u *UseCases) dialWebUI(address string) bool {
+	if u.status.DialWebUI != nil {
+		return u.status.DialWebUI(address)
+	}
+	connection, err := net.DialTimeout("tcp", address, webUIDialTimeout)
+	if err != nil {
+		return false
+	}
+	_ = connection.Close()
+	return true
+}
+
+// waitForWebUI blocks until the address answers, the deadline passes, or the
+// caller gives up. It reports nothing: a timeout still opens the browser, since
+// the user asked for the page and a late server is better served by a reload
+// than by BootAgent deciding the launch failed.
+func (u *UseCases) waitForWebUI(ctx context.Context, address string) {
+	deadline := time.Now().Add(webUIWaitTimeout)
+	for {
+		if u.dialWebUI(address) {
+			return
+		}
+		if time.Now().After(deadline) {
+			return
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(webUIPollEvery):
+		}
+	}
+}
+
+func (u *UseCases) openWebUI(agent catalog.Agent) error {
+	if u.status.OpenURL == nil {
+		return oneerrors.New(oneerrors.InternalError, "Desktop browser is not configured", oneerrors.WithStatus(501))
+	}
+	if err := u.status.OpenURL(agent.WebURL); err != nil {
+		return oneerrors.New(
+			oneerrors.InternalError,
+			"Cannot open "+agent.Name+" at "+agent.WebURL,
+			oneerrors.WithStatus(500), oneerrors.WithRetryable(true), oneerrors.WithCause(err),
+		)
+	}
+	return nil
 }
 
 func launchInDirectory(osID, directory, line string) string {

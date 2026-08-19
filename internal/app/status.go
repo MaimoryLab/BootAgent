@@ -42,6 +42,12 @@ type StatusOptions struct {
 	FileSystem  *securefs.Store
 	Runner      process.Runner
 	Environment map[string]string
+	// OpenURL hands an address to the user's default browser. The desktop entry
+	// point supplies the Wails implementation; tests record the call instead.
+	OpenURL func(string) error
+	// DialWebUI reports whether something is already accepting connections at a
+	// host:port. Injectable so a launch can be tested without binding a port.
+	DialWebUI func(address string) bool
 }
 
 type UseCases struct {
@@ -99,6 +105,15 @@ func (u *UseCases) DraftState() (bool, string) {
 func (u *UseCases) SetRuntimeDownloader(client install.Doer) {
 	if u != nil {
 		u.httpDoer = client
+	}
+}
+
+// SetURLOpener supplies the browser used to open a web-app Agent. The desktop
+// entry point builds its opener from the Wails application, which only exists
+// once the app is running, so this is set after construction.
+func (u *UseCases) SetURLOpener(open func(string) error) {
+	if u != nil {
+		u.status.OpenURL = open
 	}
 }
 
