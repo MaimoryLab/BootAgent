@@ -2124,6 +2124,30 @@
   line-height: 1.6;
 }
 
+/* The migration notice sits above .page-scaffold as its flex sibling, so its
+   height is taken out of the page's. It carries a backend error containing a
+   filesystem path and a parser message, which on a narrow window wrapped to
+   several lines and pushed the footer -- and the buttons in it -- past the
+   bottom edge. .page-scaffold already uses `flex: 1` for this reason, but
+   `flex` alone cannot help: it also sets `min-height: 0`, so the scaffold
+   keeps yielding space to a sibling that has no bound of its own.
+
+   The cap is what makes the page's floor real, and `overflow: auto` keeps the
+   whole message reachable rather than clipping it. `overflow-wrap: anywhere`
+   is for the path: `C:\Users\...\openclaw.json` has no spaces to break at, so
+   without it a long one forces the line wider than the column. */
+.app-migration-notice {
+  flex: 0 0 auto;
+  max-height: 5.5em;
+  overflow: auto;
+  overflow-wrap: anywhere;
+  scrollbar-gutter: stable;
+  margin: 14px 42px 0;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
 .profile-key {
   display: inline-flex;
   align-items: center;
