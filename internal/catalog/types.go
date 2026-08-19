@@ -39,7 +39,13 @@ type Agent struct {
 	// wizard skips the model step instead of collecting an answer it would drop
 	// on the floor. Named rather than a bool because the wizard has to *explain*
 	// the skip, and "the Agent chooses" is the explanation.
-	ModelSelection       string   `json:"model_selection,omitempty"`
+	ModelSelection string `json:"model_selection,omitempty"`
+	// WebURL is set when the Agent's interface is a local web app rather than a
+	// terminal session. Launching such an Agent starts its server and then opens
+	// this address in the user's browser, because the terminal window is only the
+	// means and the page is the actual destination. It lives here rather than in
+	// code so the address stays with the rest of the Agent's facts.
+	WebURL               string   `json:"web_url,omitempty"`
 	Package              *Package `json:"package"`
 	VersionArgs          []string `json:"version_args"`
 	Platforms            []string `json:"platforms"`
@@ -68,7 +74,12 @@ type CatalogItem struct {
 	// wizard can skip that step. Derived from Agent.ModelSelection rather than
 	// exposed raw: the UI needs the decision, not the vocabulary, and a bool it
 	// cannot misread beats a string it can compare against the wrong literal.
-	SelectsModel  bool     `json:"selectsModel"`
+	SelectsModel bool `json:"selectsModel"`
+	// WebApp is true when launching this Agent ends in the browser rather than in
+	// a terminal window. The UI uses it to skip the launch-directory prompt: the
+	// Agent serves a local web app and picks its own workspace, so a directory
+	// asked for there would be collected and then ignored.
+	WebApp        bool     `json:"webApp"`
 	GuideOnly     bool     `json:"guideOnly"`
 	LockedVersion *string  `json:"lockedVersion"`
 	Protocol      *string  `json:"protocol"`

@@ -255,13 +255,17 @@ func main() {
 	core := newDesktopUseCases()
 	var quitting atomic.Bool
 	var startupSyncOnce sync.Once
-	services := binding.NewServicesWithOptions(core, func(url string) error {
+	openInBrowser := func(url string) error {
 		current := application.Get()
 		if current == nil || current.Browser == nil {
 			return oneerrors.New(oneerrors.InternalError, "Desktop browser is not ready")
 		}
 		return current.Browser.OpenURL(url)
-	}, binding.ServicesOptions{
+	}
+	// Launching a web-app Agent ends in the browser, so the core needs the same
+	// opener the Provider pages use.
+	core.SetURLOpener(openInBrowser)
+	services := binding.NewServicesWithOptions(core, openInBrowser, binding.ServicesOptions{
 		Autostart: binding.AutostartCallbacks{
 			IsEnabled: func() (bool, error) {
 				if appInstance == nil || appInstance.Autostart == nil {

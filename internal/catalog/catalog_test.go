@@ -219,6 +219,36 @@ func TestPublicProjectionDoesNotExposeFallbackModel(t *testing.T) {
 	}
 }
 
+// One manifest entry drives both halves of the web-app behaviour: Go opens the
+// address after launching, and the UI drops the launch-directory prompt. The
+// projection is what carries the second half, so a web_url that never became a
+// webApp flag would silently leave the prompt in place.
+func TestWebAppProjectionFollowsTheManifestURL(t *testing.T) {
+	manifest, err := LoadEmbedded()
+	if err != nil {
+		t.Fatal(err)
+	}
+	items := PublicCatalog(manifest, "darwin")
+	seenWebApp := false
+	for _, item := range items {
+		agent := manifest.Agents[item.ID]
+		if want := agent.WebURL != ""; item.WebApp != want {
+			t.Fatalf("agent %q: WebApp = %v, want %v (web_url = %q)", item.ID, item.WebApp, want, agent.WebURL)
+		}
+		if item.WebApp {
+			seenWebApp = true
+		}
+	}
+	// Without this the loop above passes on a manifest where the field was dropped
+	// everywhere, which is the regression most worth catching.
+	if !seenWebApp {
+		t.Fatal("no Agent is marked as a web app; dsh should be")
+	}
+	if url := manifest.Agents["dsh"].WebURL; url != "http://127.0.0.1:3080" {
+		t.Fatalf("dsh web_url = %q", url)
+	}
+}
+
 func TestParseRejectsInvalidManifest(t *testing.T) {
 	for _, data := range []string{
 		`{"schema_version":2,"agents":{}}`,

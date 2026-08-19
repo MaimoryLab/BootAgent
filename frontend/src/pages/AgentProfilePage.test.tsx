@@ -49,7 +49,7 @@ function statusWith(profiles: ProfileSummary[]): StatusResponse {
       },
     },
     catalog: [{
-      id: "codex", name: "Codex", group: "auto", configMode: "auto", selectsModel: true,
+      id: "codex", name: "Codex", group: "auto", configMode: "auto", selectsModel: true, webApp: false,
       guideOnly: false, lockedVersion: "1.0.0", protocol: "responses",
       platforms: ["macos"], platformNote: "", rank: 1,
     }],

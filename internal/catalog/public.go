@@ -18,6 +18,14 @@ func AgentSelectsModel(agent Agent) bool {
 	return agent.ModelSelection != ModelSelectionAgent
 }
 
+// AgentIsWebApp reports whether the Agent's interface is a local web app rather
+// than a terminal session. Derived from WebURL so one manifest entry drives both
+// halves of the behaviour: Go opens the address after launching, and the UI drops
+// the prompts that only make sense for a command in a shell.
+func AgentIsWebApp(agent Agent) bool {
+	return agent.WebURL != ""
+}
+
 var adapterProtocols = map[string]string{
 	"codex":       ProtocolResponses,
 	"claude-code": ProtocolAnthropic,
@@ -150,6 +158,7 @@ func PublicCatalog(manifest Manifest, platformID string) []CatalogItem {
 			Group:          agent.Group,
 			ConfigMode:     agent.ConfigMode,
 			SelectsModel:   AgentSelectsModel(agent),
+			WebApp:         AgentIsWebApp(agent),
 			GuideOnly:      agent.ConfigMode == "guide",
 			LockedVersion:  nil,
 			Protocol:       protocol,

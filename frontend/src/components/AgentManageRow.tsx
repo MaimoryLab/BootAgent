@@ -161,7 +161,26 @@ export function AgentManageRow({
   const canLaunch = status.installed;
   const offer = updateOffer(catalog, status);
 
+  const startLaunch = async (directory: string) => {
+    setDirectoryDialog(false);
+    setLaunching(true);
+    setFailure("");
+    try {
+      await api.launchAgent(agentId, directory);
+    } catch (error) {
+      setFailure(describeFailure(error, t("无法启动 Agent"), t).message);
+    } finally {
+      setLaunching(false);
+    }
+  };
+  // A web-app Agent serves a local page and chooses its own workspace, so asking
+  // where to start it would collect an answer nothing then uses. It launches
+  // straight away instead.
   const launch = () => {
+    if (catalog?.webApp) {
+      void startLaunch("");
+      return;
+    }
     const stored = localStorage.getItem(`bootagent:launch-directory:${agentId}`);
     setLaunchDirectory(stored || defaultDirectory || "");
     setRememberDirectory(Boolean(stored));
@@ -178,16 +197,7 @@ export function AgentManageRow({
     if (!launchDirectory.trim()) return;
     if (rememberDirectory) localStorage.setItem(`bootagent:launch-directory:${agentId}`, launchDirectory.trim());
     else localStorage.removeItem(`bootagent:launch-directory:${agentId}`);
-    setDirectoryDialog(false);
-    setLaunching(true);
-    setFailure("");
-    try {
-      await api.launchAgent(agentId, launchDirectory.trim());
-    } catch (error) {
-      setFailure(describeFailure(error, t("无法启动 Agent"), t).message);
-    } finally {
-      setLaunching(false);
-    }
+    await startLaunch(launchDirectory.trim());
   };
   const update = async () => {
     if (!startTask({

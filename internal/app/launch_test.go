@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"slices"
 	"strings"
 	"testing"
@@ -42,6 +43,43 @@ func launchCore(t *testing.T, osID string, runner process.Runner) *UseCases {
 		Runner:      runner,
 		Lookup:      runner.LookPath,
 		Environment: map[string]string{"PATH": "/usr/bin"},
+	})
+}
+
+// webUIProbe stands in for the port and the browser. readyAfter is how many dials
+// happen before the address answers, so a test can model a server that is already
+// up (0) or one that binds shortly after its window opens.
+type webUIProbe struct {
+	readyAfter int
+	dials      int
+	dialed     []string
+	opened     []string
+	openErr    error
+}
+
+func (p *webUIProbe) dial(address string) bool {
+	p.dials++
+	p.dialed = append(p.dialed, address)
+	return p.dials > p.readyAfter
+}
+
+func (p *webUIProbe) open(url string) error {
+	p.opened = append(p.opened, url)
+	return p.openErr
+}
+
+// launchWebCore is launchCore with the port and browser stubbed. Agents without a
+// web_url never reach either hook, which is why the other tests need no probe.
+func launchWebCore(t *testing.T, osID string, runner process.Runner, probe *webUIProbe) *UseCases {
+	t.Helper()
+	return NewUseCases(StatusOptions{
+		Home:        t.TempDir(),
+		Platform:    platform.For(osID, "amd64"),
+		Runner:      runner,
+		Lookup:      runner.LookPath,
+		Environment: map[string]string{"PATH": "/usr/bin"},
+		OpenURL:     probe.open,
+		DialWebUI:   probe.dial,
 	})
 }
 
@@ -99,7 +137,9 @@ func TestLaunchAgentUsesCmdOnWindows(t *testing.T) {
 // in a real terminal, a bare command would open a window only to print an error.
 func TestLaunchAgentGivesDSHABootableProfile(t *testing.T) {
 	runner := &launchRunner{paths: map[string]string{"x-terminal-emulator": "/usr/bin/x-terminal-emulator"}}
-	core := launchCore(t, "linux", runner)
+	// Not yet serving, then up on the next poll: the window it just opened is what
+	// binds the port.
+	core := launchWebCore(t, "linux", runner, &webUIProbe{readyAfter: 1})
 	result, err := core.LaunchAgent(context.Background(), "dsh")
 	if err != nil {
 		t.Fatal(err)
@@ -113,6 +153,112 @@ func TestLaunchAgentGivesDSHABootableProfile(t *testing.T) {
 		return strings.Contains(argument, "dsh web")
 	}) {
 		t.Fatalf("terminal argv = %#v", runner.started)
+	}
+}
+
+// dsh's interface is a local web app, so the terminal is only how the server gets
+// started: the launch is not finished until the page is open in the browser.
+func TestLaunchAgentOpensTheWebUIAfterStartingItsServer(t *testing.T) {
+	runner := &launchRunner{paths: map[string]string{"x-terminal-emulator": "/usr/bin/x-terminal-emulator"}}
+	probe := &webUIProbe{readyAfter: 1}
+	core := launchWebCore(t, "linux", runner, probe)
+	result, err := core.LaunchAgent(context.Background(), "dsh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(runner.started) != 1 {
+		t.Fatalf("expected one terminal window, started = %#v", runner.started)
+	}
+	if want := []string{"http://127.0.0.1:3080"}; !slices.Equal(probe.opened, want) {
+		t.Fatalf("opened = %#v, want %#v", probe.opened, want)
+	}
+	if result.WebURL != "http://127.0.0.1:3080" {
+		t.Fatalf("result.WebURL = %q", result.WebURL)
+	}
+	// The port, not the URL, is what gets dialled.
+	if len(probe.dialed) == 0 || probe.dialed[0] != "127.0.0.1:3080" {
+		t.Fatalf("dialed = %#v", probe.dialed)
+	}
+}
+
+// A second window would only fail to bind the port and show that error, so a
+// server that is already up is joined rather than duplicated.
+func TestLaunchAgentSkipsTheTerminalWhenTheWebUIIsAlreadyServing(t *testing.T) {
+	runner := &launchRunner{paths: map[string]string{"x-terminal-emulator": "/usr/bin/x-terminal-emulator"}}
+	probe := &webUIProbe{readyAfter: 0}
+	core := launchWebCore(t, "linux", runner, probe)
+	result, err := core.LaunchAgent(context.Background(), "dsh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(runner.started) != 0 {
+		t.Fatalf("expected no terminal window, started = %#v", runner.started)
+	}
+	if want := []string{"http://127.0.0.1:3080"}; !slices.Equal(probe.opened, want) {
+		t.Fatalf("opened = %#v, want %#v", probe.opened, want)
+	}
+	// No window ran, so naming one would be a claim about something that did not
+	// happen.
+	if result.Terminal != "" {
+		t.Fatalf("result.Terminal = %q, want empty", result.Terminal)
+	}
+}
+
+// The ordinary terminal Agents have no web_url, and must not gain a browser hop
+// or a port probe because one Agent does.
+func TestLaunchAgentLeavesTerminalAgentsUntouched(t *testing.T) {
+	runner := &launchRunner{}
+	probe := &webUIProbe{}
+	core := launchWebCore(t, "darwin", runner, probe)
+	result, err := core.LaunchAgent(context.Background(), "codex")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(probe.opened) != 0 || len(probe.dialed) != 0 {
+		t.Fatalf("codex touched the web path: opened = %#v, dialed = %#v", probe.opened, probe.dialed)
+	}
+	if result.WebURL != "" {
+		t.Fatalf("result.WebURL = %q, want empty", result.WebURL)
+	}
+	if result.Terminal == "" {
+		t.Fatal("expected a terminal for an ordinary Agent")
+	}
+}
+
+// A browser that will not open is worth reporting: the page is what the user
+// asked for, and the terminal window alone does not deliver it.
+func TestLaunchAgentReportsABrowserThatCannotOpen(t *testing.T) {
+	runner := &launchRunner{paths: map[string]string{"x-terminal-emulator": "/usr/bin/x-terminal-emulator"}}
+	probe := &webUIProbe{readyAfter: 0, openErr: errors.New("no browser")}
+	core := launchWebCore(t, "linux", runner, probe)
+	if _, err := core.LaunchAgent(context.Background(), "dsh"); err == nil {
+		t.Fatal("expected a failing browser to surface")
+	}
+}
+
+// The wait must not outlive the caller: a cancelled launch stops polling instead
+// of holding the request open for the full timeout.
+func TestLaunchAgentStopsWaitingForTheWebUIWhenCancelled(t *testing.T) {
+	runner := &launchRunner{paths: map[string]string{"x-terminal-emulator": "/usr/bin/x-terminal-emulator"}}
+	// Never answers, so only cancellation can end the wait.
+	probe := &webUIProbe{readyAfter: 1 << 30}
+	core := launchWebCore(t, "linux", runner, probe)
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		time.Sleep(50 * time.Millisecond)
+		cancel()
+	}()
+	start := time.Now()
+	if _, err := core.LaunchAgent(ctx, "dsh"); err != nil {
+		t.Fatal(err)
+	}
+	if elapsed := time.Since(start); elapsed >= webUIWaitTimeout {
+		t.Fatalf("wait ignored cancellation, took %s", elapsed)
+	}
+	// The browser still opens: the user asked for the page, and a late server is
+	// better answered by a reload than by BootAgent calling the launch a failure.
+	if len(probe.opened) != 1 {
+		t.Fatalf("opened = %#v", probe.opened)
 	}
 }
 

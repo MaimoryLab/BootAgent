@@ -404,6 +404,7 @@ describe("wizardNeedsModel", () => {
     group: "auto" as const,
     configMode: "auto" as const,
     selectsModel,
+    webApp: false,
     guideOnly: false,
     lockedVersion: null,
     protocol: "openai" as const,
