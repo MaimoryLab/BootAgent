@@ -14,7 +14,7 @@ const navItems: Array<{ to: string; label: TranslationKey; icon: typeof Gauge }>
   { to: "/profiles", label: "配置模版", icon: FolderCog },
   { to: "/mcp", label: "MCP 服务器", icon: Network },
   { to: "/skills", label: "Skills", icon: Sparkles },
-  { to: "/conversion", label: "本地格式转换", icon: Radio },
+  { to: "/conversion", label: "API 协议适配", icon: Radio },
 ];
 
 export function NavigationSidebar() {

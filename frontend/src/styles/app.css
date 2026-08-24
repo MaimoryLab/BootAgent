@@ -1884,6 +1884,43 @@
 .conversion-action.is-stopped { border-color: var(--green); color: var(--green); }
 .conversion-action.is-stopped:hover { background: var(--green-soft); }
 
+/* Why-it-exists and agent-context sections */
+.conversion-explainer { margin-bottom: 20px; }
+.conversion-explainer h3,
+.conversion-agents h3 { margin: 0 0 8px; font-size: 12px; font-weight: 600; color: var(--text-secondary); letter-spacing: 0.04em; text-transform: uppercase; }
+.conversion-explainer p { margin: 0 0 8px; font-size: 13px; line-height: 1.6; color: var(--text-secondary); }
+.conversion-explainer p:last-child { margin-bottom: 0; }
+
+/* Agent list */
+.conversion-agents { margin-bottom: 20px; }
+.conversion-agent-list { list-style: none; margin: 8px 0 0; padding: 0; border: 1px solid var(--border); border-radius: var(--radius-control); overflow: hidden; }
+.conversion-agent-list li { display: flex; align-items: center; gap: 10px; padding: 9px 14px; border-bottom: 1px solid var(--border-faint); font-size: 13px; }
+.conversion-agent-list li:last-child { border-bottom: 0; }
+.conversion-agent-name { font-weight: 500; color: var(--text-primary); }
+.conversion-agent-protocol { color: var(--text-tertiary); font-size: 12px; margin-left: 2px; }
+/* push status badge to the right */
+.conversion-agent-list li > :last-child { margin-left: auto; }
+
+/* Target profile field */
+.conversion-editor .provider-editor-grid { margin-bottom: 20px; }
+
+/* Advanced-settings toggle */
+.conversion-advanced { margin-top: 4px; }
+.conversion-advanced-toggle { display: flex; align-items: center; gap: 6px; padding: 6px 10px; border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--surface-subtle); color: var(--text-secondary); font-size: 13px; cursor: pointer; }
+.conversion-advanced-toggle:hover { background: var(--surface-pressed); color: var(--text-primary); }
+.conversion-advanced-toggle .conversion-hint { margin-left: 6px; font-size: 11px; color: var(--text-tertiary); font-weight: 400; }
+.conversion-advanced .provider-editor-grid { margin-top: 16px; }
+
+/* Section sub-heading above the three model fields */
+.conversion-subheading { margin: 20px 0 4px; font-size: 12px; font-weight: 600; color: var(--text-secondary); letter-spacing: 0.04em; text-transform: uppercase; }
+
+/* Generic hint / caption text used across the page */
+.conversion-hint { display: block; margin-top: 5px; font-size: 12px; line-height: 1.5; color: var(--text-tertiary); }
+/* One-liner intro sentence at the top of the page */
+.conversion-intro { margin: 0 0 20px; font-size: 13px; line-height: 1.6; color: var(--text-secondary); }
+/* Inline note after a field label, e.g. "(declared to Claude Code)" */
+.conversion-field-note { margin-left: 6px; font-size: 11px; font-weight: 400; color: var(--text-tertiary); }
+
 /* Separated from the fields above by a rule rather than only by gap: this block
    performs an action and reports a result, so it is not another field to fill in. */
 .provider-verify {
