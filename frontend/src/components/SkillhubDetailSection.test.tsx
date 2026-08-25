@@ -1,6 +1,10 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+// Block the real Wails runtime: importing it registers a module-level timer in
+// drag.js that fires after jsdom teardown ("window is not defined" in CI).
+vi.mock("@wailsio/runtime", () => ({ Events: { On: vi.fn(), Off: vi.fn() } }));
+
 import { SkillhubDetailSection } from "./SkillhubDetailSection";
 import { I18nProvider, LOCALE_STORAGE_KEY } from "../i18n";
 

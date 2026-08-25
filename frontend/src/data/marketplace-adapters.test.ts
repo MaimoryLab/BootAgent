@@ -1,4 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+// Block the real Wails runtime: importing it registers a module-level timer in
+// drag.js that fires after jsdom teardown ("window is not defined" in CI).
+vi.mock("@wailsio/runtime", () => ({ Events: { On: vi.fn(), Off: vi.fn() } }));
 
 import { mapSkillhubEntry } from "./skillhub-adapter";
 import { mcpserversItems } from "./mcpservers-adapter";
