@@ -13,7 +13,7 @@ Agent 对话框即可完成安装，无需引导式流程。
 ## 分类体系
 
 | 类目 ID | 显示名 | 说明 |
-|---|---|---|
+| --- | --- | --- |
 | `agent-enhance` | 单 Agent 增强 | Skills Pack、配置模板 |
 | `cross-agent` | 跨 Agent 协作 | 全局记忆、会话迁移工具 |
 | `mcp-server` | MCP 服务器 | Sequential Thinking 等 |
@@ -36,6 +36,7 @@ Agent 对话框即可完成安装，无需引导式流程。
 类型定义见 `frontend/src/types/marketplace.ts`。
 
 核心字段：
+
 - `id / category / type / name / description / tags`
 - `installableKind`：`skill | mcp | prompt-template | workflow-script`
 - `installPrompt`：要复制的提示词正文（`type === "installable"` 时必填）
@@ -45,11 +46,13 @@ Agent 对话框即可完成安装，无需引导式流程。
 
 ## 内容来源与获取策略
 
-### 阶段一（当前）
+### 阶段一的内容来源（静态快照）
+
 前端内置静态目录 `frontend/src/data/marketplace-catalog.ts`，手工整理若干
 示例条目覆盖五个分类，验证 UI 和复制安装流程。
 
-### 阶段三（计划）
+### 阶段三的内容来源（远程索引，计划）
+
 - 维护一份中心化索引 JSON，部署在我们控制的静态托管上（参考来源：
   skillhub.cloud.tencent.com、mcpservers.org）。
 - 拉取走 Go 后端新增的 `MarketplaceService`，前端不在 renderer 中直接
@@ -69,6 +72,7 @@ Agent 对话框即可完成安装，无需引导式流程。
 ## 文件清单
 
 **新增：**
+
 - `frontend/src/types/marketplace.ts` — 数据模型类型定义
 - `frontend/src/data/marketplace-catalog.ts` — 阶段一静态目录
 - `frontend/src/utils/clipboard.ts` — 剪贴板工具函数
@@ -77,6 +81,7 @@ Agent 对话框即可完成安装，无需引导式流程。
 - `frontend/src/pages/MarketplacePage.test.tsx` — 页面单元测试
 
 **修改：**
+
 - `frontend/src/App.tsx` — 新增 `/marketplace` 路由
 - `frontend/src/components/NavigationSidebar.tsx` — 新增导航项
 - `frontend/src/i18n.tsx` — 新增中英文 key
@@ -85,16 +90,19 @@ Agent 对话框即可完成安装，无需引导式流程。
 ## 阶段计划
 
 ### 阶段一（当前）
+
 - `MarketplacePage` + 静态本地目录 + 复制提示词流程 + 生态推荐 Tab
 - 不涉及后端改动，纯前端验证 UI 和交互
 - 通过 `pnpm run typecheck`、`pnpm run test`、`pnpm run build`
 
 ### 阶段二（待排期）
+
 - `AgentActionsMenu` 下拉组件，改造 `AgentManageRow`
 - 新增卸载 Agent、清理配置文件的 Go binding
 - 风险高于阶段一（涉及破坏性操作），需独立评估和测试
 
 ### 阶段三（待评估）
+
 - 接入远程索引拉取 + 本地缓存 + 离线兜底
 - 需单独评估与项目 local-first 基线的张力
 
