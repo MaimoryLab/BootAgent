@@ -1,8 +1,21 @@
+import { render, screen } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@wailsio/runtime", () => ({ Events: { On: vi.fn(), Off: vi.fn() } }));
+vi.mock("../backend/api", () => ({
+  api: {
+    listSkills: vi.fn(() => Promise.resolve([])),
+    scanSkills: vi.fn(() => Promise.resolve({ skills: [], candidates: [], eligible_agents: [] })),
+    setSkillDraftState: vi.fn(() => Promise.resolve()),
+  },
+}));
+vi.mock("../state/WizardContext", () => ({
+  useWizard: () => ({ state: { status: { catalog: [] } } }),
+}));
 
-import { applySkillTarget, filterSkillRows, skillSelectedAgents } from "./SkillsPage";
+import { I18nProvider } from "../i18n";
+import { applySkillTarget, filterSkillRows, skillSelectedAgents, SkillsPage } from "./SkillsPage";
 import type { SkillChange, SkillSummary } from "../types/api";
 
 const row = (partial: Partial<SkillSummary>): SkillSummary => ({
@@ -80,5 +93,20 @@ describe("applySkillTarget", () => {
     draft = applySkillTarget(draft, target, "claude-code", true);
     draft = applySkillTarget(draft, target, "opencode", true);
     expect(draft["skill"].targets?.sort()).toEqual(["claude-code", "codex", "opencode"]);
+  });
+});
+
+describe("Skills marketplace discovery", () => {
+  it("links both the page actions and empty state to the Skill marketplace category", () => {
+    render(
+      <I18nProvider>
+        <MemoryRouter>
+          <SkillsPage />
+        </MemoryRouter>
+      </I18nProvider>,
+    );
+
+    expect(screen.getByRole("link", { name: "Discover in Marketplace" }).getAttribute("href")).toBe("/marketplace?category=agent-enhance");
+    expect(screen.getByRole("link", { name: "Or discover one in Marketplace" }).getAttribute("href")).toBe("/marketplace?category=agent-enhance");
   });
 });

@@ -12,6 +12,8 @@ const english = {
   "重新扫描 Skills": "Rescan Skills",
   "导入文件夹": "Import folder",
   "导入 ZIP": "Import ZIP",
+  "去市场发现": "Discover in Marketplace",
+  "或者去工具市场发现": "Or discover one in Marketplace",
   "没有发现 Skills": "No Skills discovered",
   "应用 Skills": "Apply Skills",
   "应用 Skills（{count}）": "Apply Skills ({count})",
@@ -705,6 +707,7 @@ const english = {
   "是": "Yes",
   "否": "No",
   "访问官网": "Visit website",
+  "安装完成后，可在 Skills 页管理它。": "After installation, manage it on the Skills page.",
   // readme
   "README": "README",
   "正在加载 README": "Loading README…",

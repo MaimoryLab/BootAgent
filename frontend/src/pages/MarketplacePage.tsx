@@ -19,7 +19,7 @@ import {
   Zap,
 } from "lucide-react";
 import { type ComponentType, useEffect, useRef, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { useMarketplaceCatalog } from "../data/useMarketplaceCatalog";
 import { marketplaceTagPairs } from "../data/tag-labels";
@@ -280,6 +280,13 @@ const CATEGORIES: CategoryMeta[] = [
   { id: "ecosystem", labelKey: "生态推荐" },
 ];
 
+function marketplaceCategoryFromSearch(searchParams: URLSearchParams): MarketplaceCategory | "all" {
+  const requested = searchParams.get("category");
+  return CATEGORIES.some(({ id }) => id === requested)
+    ? requested as MarketplaceCategory | "all"
+    : "all";
+}
+
 // ── kind badge ────────────────────────────────────────────────────────────────
 
 const KIND_TONE: Record<string, "success" | "info" | "neutral"> = {
@@ -449,7 +456,8 @@ export function filterMarketplaceItems(
 
 export function MarketplacePage() {
   const { t } = useI18n();
-  const [activeCategory, setActiveCategory] = useState<MarketplaceCategory | "all">("all");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeCategory = marketplaceCategoryFromSearch(searchParams);
   const [query, setQuery] = useState("");
   const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS);
   // Bottom toast shown after the corner copy button; auto-dismisses.
@@ -488,6 +496,13 @@ export function MarketplacePage() {
 
   // Tabs with zero items (news/ecosystem after the mock purge) are noise.
   const visibleCategories = CATEGORIES.filter(({ id }) => id === "all" || (counts[id] ?? 0) > 0);
+  const selectCategory = (category: MarketplaceCategory | "all") => {
+    const next = new URLSearchParams(searchParams);
+    if (category === "all") next.delete("category");
+    else next.set("category", category);
+    setSearchParams(next, { replace: true });
+    setQuery("");
+  };
 
   return (
     <PageScaffold
@@ -503,7 +518,7 @@ export function MarketplacePage() {
             type="button"
             aria-selected={activeCategory === id}
             className={`marketplace-tab${activeCategory === id ? " is-active" : ""}`}
-            onClick={() => { setActiveCategory(id); setQuery(""); }}
+            onClick={() => selectCategory(id)}
           >
             {t(labelKey)}
             {counts[id] ? (

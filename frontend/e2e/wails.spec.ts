@@ -182,3 +182,44 @@ test("a discovered model can be selected in the Profile editor", async ({ page }
   await page.getByRole("button", { name: /保存配置模版/ }).click();
   await expect(page.getByTestId(/^profile-/).first()).toContainText("bootagent-e2e-model");
 });
+
+test("Skills and MCP management lead to their marketplace categories", async ({ page }) => {
+  const browserProblems: string[] = [];
+  page.on("console", (message) => {
+    const text = message.text();
+    // Wails server mode always announces that this isolated browser is a UI
+    // preview. Keep every application warning/error actionable while excluding
+    // that framework-owned environment notice.
+    if ((message.type() === "error" || message.type() === "warning") && !text.includes("Browser Environment Detected")) {
+      browserProblems.push(text);
+    }
+  });
+  page.on("pageerror", (error) => browserProblems.push(error.message));
+
+  await page.goto("/#/skills");
+  await expect(page.getByRole("link", { name: "去市场发现" })).toHaveAttribute("href", "#/marketplace?category=agent-enhance");
+  await expect(page.getByRole("link", { name: "或者去工具市场发现" })).toHaveAttribute("href", "#/marketplace?category=agent-enhance");
+  await page.getByRole("link", { name: "去市场发现" }).click();
+  await expect(page).toHaveURL(/#\/marketplace\?category=agent-enhance$/);
+  await expect(page.getByRole("tab", { name: /单 Agent 增强/ })).toHaveAttribute("aria-selected", "true");
+
+  await page.locator(".marketplace-card").first().click();
+  await page.getByRole("link", { name: "安装完成后，可在 Skills 页管理它。" }).click();
+  await expect(page).toHaveURL(/#\/skills$/);
+
+  await page.goto("/#/mcp");
+  await expect(page.getByRole("link", { name: "去市场发现" })).toHaveAttribute("href", "#/marketplace?category=mcp-server");
+  await expect(page.getByRole("link", { name: "或者去工具市场发现" })).toHaveAttribute("href", "#/marketplace?category=mcp-server");
+  await page.getByRole("link", { name: "去市场发现" }).click();
+  await expect(page).toHaveURL(/#\/marketplace\?category=mcp-server$/);
+  await expect(page.getByRole("tab", { name: /MCP 服务器/ })).toHaveAttribute("aria-selected", "true");
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/#/skills");
+  const overflow = await page.evaluate(() => ({
+    clientWidth: document.documentElement.clientWidth,
+    scrollWidth: document.documentElement.scrollWidth,
+  }));
+  expect(overflow.scrollWidth).toBe(overflow.clientWidth);
+  expect(browserProblems).toEqual([]);
+});
