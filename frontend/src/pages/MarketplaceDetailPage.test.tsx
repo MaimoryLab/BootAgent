@@ -55,6 +55,7 @@ function renderPage() {
       <MemoryRouter initialEntries={["/marketplace/skillhub-example-skill"]}>
         <Routes>
           <Route path="/marketplace/:itemId" element={<MarketplaceDetailPage />} />
+          <Route path="/skills" element={<div>Skills management</div>} />
         </Routes>
       </MemoryRouter>
     </I18nProvider>,
@@ -84,5 +85,12 @@ describe("MarketplaceDetailPage", () => {
 
     fireEvent.click(screen.getByRole("link", { name: /SkillHub/ }));
     expect(openMarketplaceExternal).toHaveBeenCalledWith("https://skillhub.cn/skills/example-skill");
+  });
+
+  it("links an installed Skill back to local Skills management", () => {
+    renderPage();
+
+    fireEvent.click(screen.getByRole("link", { name: "After installation, manage it on the Skills page." }));
+    expect(screen.getByText("Skills management")).toBeTruthy();
   });
 });

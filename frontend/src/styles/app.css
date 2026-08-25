@@ -2304,7 +2304,7 @@
 .mcp-table tr:hover .row-action, .mcp-table .row-action:focus-visible, .mcp-table .row-action.is-restore { opacity: 1; }
 .mcp-row-deleted { opacity: 0.55; text-decoration: line-through; }
 .mcp-row-deleted .mcp-row-actions, .mcp-row-deleted input { text-decoration: none; }
-.mcp-footer-actions { display: flex; gap: 8px; }
+.management-footer-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 
 /* Toolbar above the management tables: search grows, per-agent tallies trail. */
 .management-toolbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 14px 0; }
@@ -2342,6 +2342,9 @@
 
 /* Empty list placeholder with a glyph well, shared by Skills and MCP. */
 .list-empty-glyph { width: 52px; height: 52px; display: grid; place-items: center; border-radius: 50%; background: var(--surface-pressed); color: var(--text-tertiary); }
+.list-empty-action { margin-top: 2px; }
+.list-empty-link { color: var(--accent); font-size: 13px; text-decoration: none; }
+.list-empty-link:hover { text-decoration: underline; }
 
 .skills-name-cell { min-width: 150px; }
 .skills-detail-cell { min-width: 280px; max-width: 520px; white-space: normal; line-height: 1.45; }
@@ -3315,6 +3318,18 @@
   color: var(--accent);
   line-height: 1.5;
 }
+
+.detail-management-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 12px;
+  color: var(--accent);
+  font-size: 12px;
+  text-decoration: none;
+}
+
+.detail-management-link:hover { text-decoration: underline; }
 
 /* Right meta sidebar */
 .detail-meta-sidebar {

@@ -1,6 +1,6 @@
-import { ArrowLeft, BookOpen, Brain, Check, Code2, Copy, Database, Download, ExternalLink, FileText, GitBranch, Globe, Layers, Puzzle, Search, Star, Terminal, Workflow, Zap } from "lucide-react";
+import { ArrowLeft, ArrowRight, BookOpen, Brain, Check, Code2, Copy, Database, Download, ExternalLink, FileText, GitBranch, Globe, Layers, Puzzle, Search, Star, Terminal, Workflow, Zap } from "lucide-react";
 import { type ComponentType, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { useMarketplaceCatalog } from "../data/useMarketplaceCatalog";
 import { marketplaceTagPairs } from "../data/tag-labels";
@@ -301,6 +301,13 @@ export function MarketplaceDetailPage() {
                 {t("访问官网")}
               </MarketplaceExternalLink>
             </section>
+          ) : null}
+
+          {item.type === "installable" && item.installableKind === "skill" ? (
+            <Link className="detail-management-link" to="/skills">
+              {t("安装完成后，可在 Skills 页管理它。")}
+              <ArrowRight size={13} aria-hidden="true" />
+            </Link>
           ) : null}
 
           {item.source === "skillhub" || item.readmeUrl ? (
