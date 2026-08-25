@@ -37,4 +37,28 @@ describe("ReadmeSection", () => {
     fireEvent.click(screen.getByRole("link", { name: "Usage" }));
     expect(openMarketplaceExternal).not.toHaveBeenCalled();
   });
+
+  it("hides SkillHub SKILL.md front matter and renders only its document body", async () => {
+    marketplaceSkillFile.mockResolvedValueOnce(`---
+name: self-improvement
+description: "Captures learnings, errors, and corrections to enable continuous improvement."
+metadata:
+---
+
+# Self-Improvement Skill
+
+Document body.`);
+
+    render(
+      <I18nProvider>
+        <ReadmeSection skillhubSlug="self-improving-agent" />
+      </I18nProvider>,
+    );
+
+    expect(await screen.findByRole("heading", { name: "Self-Improvement Skill" })).toBeTruthy();
+    expect(screen.queryByText("name: self-improvement")).toBeNull();
+    expect(screen.queryByText(/Captures learnings, errors/)).toBeNull();
+    expect(screen.queryByText("metadata:")).toBeNull();
+    expect(screen.getByText("Document body.")).toBeTruthy();
+  });
 });

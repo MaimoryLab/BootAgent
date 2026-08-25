@@ -22,6 +22,26 @@ type ReadmeSectionProps =
   | { readmeUrl: string; skillhubSlug?: never }
   | { readmeUrl?: never; skillhubSlug: string };
 
+function stripMarkdownFrontMatter(markdown: string): string {
+  const content = markdown.startsWith("\uFEFF") ? markdown.slice(1) : markdown;
+  const firstLineEnd = content.indexOf("\n");
+  if (firstLineEnd < 0 || content.slice(0, firstLineEnd).replace(/\r$/, "").trimEnd() !== "---") {
+    return content;
+  }
+
+  let lineStart = firstLineEnd + 1;
+  while (lineStart <= content.length) {
+    const lineEnd = content.indexOf("\n", lineStart);
+    const end = lineEnd < 0 ? content.length : lineEnd;
+    const line = content.slice(lineStart, end).replace(/\r$/, "").trimEnd();
+    if (line === "---") return lineEnd < 0 ? "" : content.slice(lineEnd + 1);
+    if (lineEnd < 0) break;
+    lineStart = lineEnd + 1;
+  }
+
+  return content;
+}
+
 export function ReadmeSection({ readmeUrl, skillhubSlug }: ReadmeSectionProps) {
   const { t } = useI18n();
   const [state, setState] = useState<FetchState>("idle");
@@ -56,7 +76,8 @@ export function ReadmeSection({ readmeUrl, skillhubSlug }: ReadmeSectionProps) {
       .then((md) => {
         if (cancelled) return;
 
-        const rawHtml = marked.parse(md, { async: false }) as string;
+        const markdown = skillhubSlug ? stripMarkdownFrontMatter(md) : md;
+        const rawHtml = marked.parse(markdown, { async: false }) as string;
         const clean = DOMPurify.sanitize(rawHtml, {
           USE_PROFILES: { html: true },
           FORBID_TAGS: ["script", "style", "iframe", "form", "input", "button"],
