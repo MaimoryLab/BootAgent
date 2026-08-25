@@ -1,0 +1,90 @@
+import { render, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { SkillhubDetailSection } from "./SkillhubDetailSection";
+import { I18nProvider, LOCALE_STORAGE_KEY } from "../i18n";
+
+const DETAIL_PAYLOAD = {
+  securityReports: {
+    keen: {
+      status: "benign",
+      statusText: "安全，无风险",
+      reportUrl: "https://tix.qq.com/search/skill?keyword=abc",
+    },
+    sanbu: {
+      status: "suspicious",
+      statusText: "存在风险提示",
+      reportUrl: "https://static.cloudsec.tencent.com/report.html",
+    },
+  },
+  latestVersion: { version: "3.0.24", changelog: "Synced by skillhub pipeline", createdAt: 1782524296584 },
+  owner: { displayName: "pskoett", handle: "pskoett" },
+  skill: {
+    stats: { downloads: 1132494, installs: 86140, stars: 4433, comments: 12, versions: 9 },
+    sourceUrl: "https://clawhub.ai/pskoett/self-improving-agent",
+  },
+};
+
+function mockFetchOnce(impl: () => Promise<Response>) {
+  vi.stubGlobal("fetch", vi.fn(impl));
+}
+
+beforeEach(() => {
+  // jsdom's navigator.language is English; pin the source locale so the
+  // Chinese source-string assertions below are environment-independent.
+  localStorage.setItem(LOCALE_STORAGE_KEY, "zh-CN");
+});
+
+afterEach(() => {
+  localStorage.removeItem(LOCALE_STORAGE_KEY);
+  vi.unstubAllGlobals();
+});
+
+describe("SkillhubDetailSection", () => {
+  it("renders security verdicts, version info and author from the detail API", async () => {
+    mockFetchOnce(() =>
+      Promise.resolve(new Response(JSON.stringify(DETAIL_PAYLOAD), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      })),
+    );
+
+    render(
+      <I18nProvider>
+        <SkillhubDetailSection slug="self-improving-agent" />
+      </I18nProvider>,
+    );
+
+    // Security block: benign -> success badge, anything else -> warning.
+    expect(await screen.findByText("安全，无风险")).toBeTruthy();
+    expect(screen.getByText("安全，无风险").className).toContain("status-success");
+    expect(screen.getByText("存在风险提示").className).toContain("status-warning");
+    expect(screen.getAllByText("查看报告")).toHaveLength(2);
+
+    // Version block: version, installs (compact), comments, changelog.
+    expect(screen.getByText("3.0.24")).toBeTruthy();
+    expect(screen.getByText("86.1k")).toBeTruthy();
+    expect(screen.getByText("12")).toBeTruthy();
+    expect(screen.getByText(/Synced by skillhub pipeline/)).toBeTruthy();
+
+    // Author block with the upstream link.
+    expect(screen.getByText("pskoett")).toBeTruthy();
+    const upstream = screen.getByText("上游来源").closest("a");
+    expect(upstream?.getAttribute("href")).toBe("https://clawhub.ai/pskoett/self-improving-agent");
+  });
+
+  it("renders nothing when the fetch fails (silent degradation)", async () => {
+    mockFetchOnce(() => Promise.reject(new TypeError("blocked by CORS")));
+
+    const { container } = render(
+      <I18nProvider>
+        <SkillhubDetailSection slug="self-improving-agent" />
+      </I18nProvider>,
+    );
+
+    await waitFor(() => {
+      expect(container.querySelector(".readme-loading")).toBeNull();
+    });
+    expect(container.innerHTML).toBe("");
+  });
+});

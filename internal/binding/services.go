@@ -32,6 +32,7 @@ type Services struct {
 	MCP          *MCPService
 	Skill        *SkillService
 	Conversion   *ConversionService
+	Marketplace  *MarketplaceService
 }
 
 type ServicesOptions struct {
@@ -57,6 +58,7 @@ func NewServicesWithOptions(core *app.UseCases, opener BrowserOpener, options Se
 		MCP:          NewMCPService(core),
 		Skill:        NewSkillService(core),
 		Conversion:   NewConversionService(core),
+		Marketplace:  NewMarketplaceService(core),
 	}
 }
 

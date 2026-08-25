@@ -2738,3 +2738,889 @@
   .desktop-app-actions { justify-content: flex-start; flex-wrap: wrap; }
   .desktop-app-note { grid-column: 1 / -1; }
 }
+
+/* ── Marketplace ────────────────────────────────────────────────────────── */
+
+/* Category tab bar */
+.marketplace-tabs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-wrap: wrap;
+  padding: 0 0 12px;
+  border-bottom: 1px solid var(--border-faint);
+  margin-bottom: 14px;
+}
+
+.marketplace-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 120ms, color 120ms, border-color 120ms;
+}
+
+.marketplace-tab:hover { background: var(--surface-pressed); color: var(--text-primary); }
+
+.marketplace-tab.is-active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.marketplace-tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--surface-pressed);
+  color: var(--text-tertiary);
+  font-size: 11px;
+  font-weight: 400;
+}
+
+.marketplace-tab.is-active .marketplace-tab-count {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* Toolbar */
+.marketplace-toolbar { margin-bottom: 16px; }
+
+.marketplace-filter-active-hint {
+  font-size: 12px;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+/* Data-source indicator on the tab bar: live feed vs bundled snapshot */
+.marketplace-live-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.marketplace-live-indicator.is-live { color: var(--text-secondary); }
+
+.marketplace-live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--green);
+  flex-shrink: 0;
+}
+
+/* Single-column layout — filter moved to top dropdown bar */
+.marketplace-layout {
+  display: block;
+}
+
+/* ── Dropdown filter bar ── */
+/* Sits inside .marketplace-toolbar to the right of the search box; the
+   toolbar's own gap and margins handle spacing, so none of its own. */
+.mf-dropdown-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.mf-dropdown {
+  position: relative;
+}
+
+.mf-dropdown-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  font: inherit;
+  font-size: 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-subtle);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: border-color 120ms, background 120ms;
+  white-space: nowrap;
+}
+
+.mf-dropdown-trigger:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-pressed);
+  color: var(--text-primary);
+}
+
+.mf-dropdown-trigger.is-active {
+  border-color: var(--accent);
+  background: color-mix(in oklch, var(--accent) 10%, transparent);
+  color: var(--accent);
+}
+
+.mf-dropdown-trigger:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.mf-chevron {
+  color: var(--text-tertiary);
+  transition: transform 160ms;
+  flex-shrink: 0;
+}
+
+.mf-chevron.is-open { transform: rotate(180deg); }
+
+.mf-dropdown-panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 50;
+  min-width: 160px;
+  padding: 6px 0;
+  /* --window-bg, not --surface: --surface is not a defined token, so the
+     background computed to transparent and the panel showed cards through. */
+  background: var(--window-bg);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.14);
+}
+
+/* Right-anchored variant, set through the Dropdown component's align="right"
+   prop. The filter bar hugs the right edge of the overflow:auto .page-body,
+   and the panel (min-width 160px) is wider than its trigger; growing it
+   rightward from the last trigger's left edge pushed it past the page edge,
+   which widened the scrollable area and made the whole page overflow
+   horizontally. An explicit class is used instead of :last-child because the
+   clear-filters button can appear after the last dropdown in the bar. */
+.mf-dropdown-panel.is-right {
+  left: auto;
+  right: 0;
+}
+
+.mf-dropdown-option {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 12px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.mf-dropdown-option:hover {
+  background: var(--surface-pressed);
+  color: var(--text-primary);
+}
+
+.mf-dropdown-option input {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  flex-shrink: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.mf-clear-btn {
+  font-size: 12px;
+  color: var(--accent);
+  background: none;
+  border: none;
+  padding: 5px 8px;
+  cursor: pointer;
+  font: inherit;
+}
+
+.mf-clear-btn:hover { text-decoration: underline; }
+
+/* ── Card grid ── */
+.marketplace-content { min-width: 0; }
+
+.marketplace-active-filters {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.marketplace-result-count {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  flex: 1;
+}
+
+.marketplace-clear-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--accent);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+}
+
+.marketplace-clear-all:hover { text-decoration: underline; }
+
+/* Compact card grid — equal-height rows */
+.marketplace-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  grid-auto-rows: 1fr;
+  gap: 10px;
+}
+
+/* ── Compact card ──
+   Row layout: icon | body | arrow
+   grid-template-rows: 1fr (body stretches) keeps all cards equal-height */
+.marketplace-card {
+  display: grid;
+  grid-template-columns: 44px 1fr 18px;
+  gap: 10px;
+  align-items: start;
+  padding: 14px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface-subtle);
+  cursor: pointer;
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 140ms, box-shadow 140ms, background 120ms;
+  min-height: 90px;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+.marketplace-card:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-pressed);
+  box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+}
+
+.marketplace-card:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* Left column: icon well + kind badge stacked vertically, centre-aligned */
+.marketplace-card-icon-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding-top: 1px;
+}
+
+/* Icon well inside the wrap */
+.marketplace-card-icon {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  background: color-mix(in oklch, var(--item-icon-color, var(--accent)) 14%, transparent);
+  color: var(--item-icon-color, var(--accent));
+}
+
+/* Badge under the icon — keep it centred and at a fixed baseline */
+.marketplace-card-icon-wrap .status-badge {
+  white-space: nowrap;
+  font-size: 10px;
+  padding: 1px 5px;
+}
+
+/* Card body — grid rows: name | teaser (fixed 2-line) | tags (anchored to bottom) */
+.marketplace-card-body {
+  min-width: 0;
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+  gap: 5px;
+}
+
+.marketplace-card-title-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.marketplace-card-name {
+  font-size: 13px;
+  font-weight: 600;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.marketplace-card-teaser {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Tags row in compact card — single line, no wrapping */
+.marketplace-tags {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: nowrap;
+  overflow: hidden;
+  gap: 3px;
+  align-self: end;
+}
+
+.marketplace-tag {
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: var(--surface-pressed);
+  color: var(--text-tertiary);
+  font-size: 11px;
+}
+
+/* Arrow on the right */
+.marketplace-card-arrow {
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+  margin-top: 2px;
+  transition: color 140ms;
+}
+
+.marketplace-card:hover .marketplace-card-arrow { color: var(--accent); }
+
+/* Icon-only copy button pinned to the card's bottom-right corner.
+   Dark brown fill (accent-pressed) with white glyph; small and quiet until
+   hovered. The card is position:relative so the corner is the card's own. */
+.marketplace-card { position: relative; }
+
+.marketplace-card-copy {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: var(--accent-pressed);
+  color: var(--on-accent);
+  cursor: pointer;
+  opacity: 0.85;
+  transition: opacity 120ms, transform 120ms;
+}
+
+.marketplace-card-copy:hover { opacity: 1; transform: scale(1.08); }
+.marketplace-card-copy:active { transform: scale(0.96); }
+
+/* Bottom notice bar shown after a corner copy; fixed above the page footer. */
+.marketplace-copy-bar {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--footer-height) + 14px);
+  transform: translateX(-50%);
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  max-width: min(680px, calc(100vw - 48px));
+  padding: 8px 16px;
+  border-radius: 8px;
+  background: var(--accent-pressed);
+  color: var(--on-accent);
+  font-size: 12px;
+  line-height: 1.5;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.22);
+}
+
+/* ── Detail page ── */
+.detail-page { max-width: var(--card-measure); }
+
+.detail-hero {
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+  padding: 20px 0 24px;
+  border-bottom: 1px solid var(--border-faint);
+  margin-bottom: 28px;
+}
+
+.detail-icon-well {
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  background: color-mix(in oklch, var(--item-icon-color, var(--accent)) 14%, transparent);
+  color: var(--item-icon-color, var(--accent));
+  border: 1px solid color-mix(in oklch, var(--item-icon-color, var(--accent)) 22%, transparent);
+}
+
+.detail-hero-meta {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.detail-hero-title {
+  font-size: 22px;
+  font-weight: 700;
+  margin: 0;
+  line-height: 1.25;
+}
+
+.detail-hero-desc {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+/* Stats strip under the hero description — stars / downloads / source. */
+.detail-hero-stats {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 2px;
+}
+
+.detail-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.detail-stat-source {
+  padding: 1px 8px;
+  border-radius: 9px;
+  background: var(--surface-pressed);
+}
+
+/* Two-column body: main + right sidebar */
+.detail-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 220px;
+  gap: 32px;
+  align-items: start;
+}
+
+.detail-main { min-width: 0; }
+
+.detail-section-title {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0 0 10px;
+  color: var(--text-primary);
+}
+
+.detail-install-section {
+  background: var(--surface-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  padding: 20px;
+}
+
+.detail-install-desc {
+  margin: 0 0 16px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.55;
+}
+
+/* Prompt preview box */
+.detail-prompt-box {
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-panel);
+  overflow: hidden;
+  background: var(--window-bg);
+}
+
+.detail-prompt-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: var(--surface-pressed);
+  border-bottom: 1px solid var(--border-faint);
+}
+
+.detail-prompt-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.detail-copy-btn {
+  transition: background 140ms, color 140ms, border-color 140ms;
+}
+
+.detail-copy-btn.is-copied {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.detail-prompt-body {
+  margin: 0;
+  padding: 14px 16px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  line-height: 1.65;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 340px;
+  overflow-y: auto;
+}
+
+.detail-copy-feedback {
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: var(--accent);
+  line-height: 1.5;
+}
+
+/* Right meta sidebar */
+.detail-meta-sidebar {
+  position: sticky;
+  top: 0;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface-subtle);
+}
+
+.detail-meta-list { margin: 0; padding: 0; display: grid; gap: 14px; }
+
+.detail-meta-row { display: grid; gap: 4px; }
+
+.detail-meta-row dt {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.detail-meta-row dd {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.detail-meta-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--accent);
+  text-decoration: none;
+  font-size: 13px;
+}
+
+.detail-meta-link:hover { text-decoration: underline; }
+
+.detail-meta-apikey { font-size: 12px; color: var(--text-secondary); }
+.detail-meta-apikey.is-required { color: var(--orange); }
+
+.detail-tags { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px; }
+
+.detail-meta-tags-row dd { margin-top: 2px; }
+
+.detail-visit-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: 100%;
+  margin-top: 16px;
+  text-decoration: none;
+}
+
+.detail-not-found {
+  font-size: 14px;
+  color: var(--text-secondary);
+  padding: 32px 0;
+  text-align: center;
+}
+
+/* ── Skillhub detail section (security review / version / author) ── */
+/* Same card face as .detail-install-section */
+.detail-skillhub-section {
+  margin-top: 20px;
+  background: var(--surface-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  padding: 20px;
+  display: grid;
+  gap: 18px;
+}
+
+.detail-skillhub-block { display: grid; gap: 8px; }
+
+.detail-skillhub-block-title {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.detail-skillhub-security-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.detail-skillhub-security-lab {
+  min-width: 88px;
+  color: var(--text-secondary);
+}
+
+.detail-skillhub-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.detail-skillhub-stats strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.detail-skillhub-changelog {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.detail-skillhub-author {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+/* ── README section ── */
+.detail-readme-section {
+  margin-top: 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+}
+
+.detail-readme-section .detail-section-title {
+  padding: 12px 20px;
+  margin: 0;
+  border-bottom: 1px solid var(--border-faint);
+  background: var(--surface-pressed);
+  font-size: 13px;
+}
+
+.readme-loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 28px 20px;
+  font-size: 13px;
+  color: var(--text-tertiary);
+}
+
+.readme-error {
+  padding: 20px;
+  margin: 0;
+  font-size: 13px;
+  color: var(--red);
+}
+
+/* Rendered Markdown body — reset then re-style so GitHub README HTML
+   looks coherent inside our design system. */
+.readme-body {
+  padding: 20px 24px;
+  font-size: 13.5px;
+  line-height: 1.7;
+  color: var(--text-primary);
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+.readme-body h1,
+.readme-body h2,
+.readme-body h3,
+.readme-body h4,
+.readme-body h5 {
+  margin: 1.5em 0 0.5em;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--text-primary);
+}
+
+.readme-body h1 { font-size: 20px; border-bottom: 1px solid var(--border-faint); padding-bottom: 8px; }
+.readme-body h2 { font-size: 17px; border-bottom: 1px solid var(--border-faint); padding-bottom: 6px; }
+.readme-body h3 { font-size: 15px; }
+.readme-body h4,
+.readme-body h5 { font-size: 13.5px; }
+
+.readme-body p { margin: 0.75em 0; }
+
+.readme-body a { color: var(--accent); text-decoration: underline; word-break: break-word; }
+.readme-body a:hover { opacity: 0.8; }
+
+.readme-body strong { font-weight: 600; }
+.readme-body em { font-style: italic; }
+
+.readme-body code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--surface-pressed);
+  color: var(--text-primary);
+  word-break: break-all;
+}
+
+.readme-body pre {
+  margin: 1em 0;
+  padding: 14px 16px;
+  border-radius: var(--radius-panel);
+  background: var(--surface-pressed);
+  overflow-x: auto;
+  border: 1px solid var(--border-faint);
+}
+
+.readme-body pre code {
+  background: transparent;
+  padding: 0;
+  font-size: 12px;
+  line-height: 1.65;
+  word-break: normal;
+}
+
+.readme-body ul,
+.readme-body ol {
+  margin: 0.75em 0;
+  padding-left: 1.75em;
+}
+
+.readme-body li { margin: 0.3em 0; }
+.readme-body li > ul,
+.readme-body li > ol { margin: 0.2em 0; }
+
+.readme-body blockquote {
+  margin: 1em 0;
+  padding: 10px 14px;
+  border-left: 3px solid var(--border-strong);
+  background: var(--surface-subtle);
+  color: var(--text-secondary);
+  border-radius: 0 var(--radius-control) var(--radius-control) 0;
+}
+
+.readme-body blockquote p { margin: 0; }
+
+.readme-body table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1em 0;
+  font-size: 13px;
+}
+
+.readme-body th {
+  text-align: left;
+  padding: 7px 12px;
+  border-bottom: 2px solid var(--border-strong);
+  font-weight: 600;
+  background: var(--surface-pressed);
+}
+
+.readme-body td {
+  padding: 7px 12px;
+  border-bottom: 1px solid var(--border-faint);
+  vertical-align: top;
+}
+
+.readme-body tr:last-child td { border-bottom: none; }
+
+.readme-body img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-control);
+  display: block;
+  margin: 0.5em 0;
+}
+
+.readme-body hr {
+  border: none;
+  border-top: 1px solid var(--border-faint);
+  margin: 1.5em 0;
+}
+
+/* Stale notice */
+.marketplace-stale-notice {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 14px 0 0;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+/* Responsive */
+@media (max-width: 820px) {
+  .marketplace-layout { display: block; }
+  .marketplace-filter-sidebar { position: static; }
+  .detail-body { grid-template-columns: 1fr; }
+  .detail-meta-sidebar { position: static; }
+}
+
+@media (max-width: 640px) {
+  .marketplace-grid { grid-template-columns: 1fr; grid-auto-rows: auto; }
+  .marketplace-tabs { gap: 4px; }
+  .marketplace-tab { font-size: 12px; padding: 4px 9px; }
+  .detail-hero { flex-direction: column; gap: 12px; }
+}

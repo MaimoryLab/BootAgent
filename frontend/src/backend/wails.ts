@@ -3,6 +3,7 @@ import { Events, type CancellablePromiseLike } from "@wailsio/runtime";
 import * as AgentService from "../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/agentservice.js";
 import * as ConversionService from "../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/conversionservice.js";
 import * as DesktopAgentService from "../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/desktopagentservice.js";
+import * as MarketplaceService from "../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/marketplaceservice.js";
 import * as MCPService from "../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/mcpservice.js";
 import * as ProfileService from "../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/profileservice.js";
 import * as ProviderService from "../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/providerservice.js";
@@ -218,6 +219,13 @@ export const wailsApi = {
     call(() => RuntimeService.SaveSettings(settings)) as Promise<Settings>,
   getConversion: (): Promise<ConversionConfig> => call(() => ConversionService.Get()) as Promise<ConversionConfig>,
   saveConversion: (config: ConversionConfig): Promise<ConversionConfig> => call(() => ConversionService.Save(config)) as Promise<ConversionConfig>,
+  // Marketplace proxy: raw JSON strings from the public skillhub API. The Go
+  // side does the GET because api.skillhub.cn only echoes CORS headers for
+  // skillhub's own origins; parsing stays with the frontend normalisers.
+  marketplaceShowcase: (): Promise<string> =>
+    call(() => MarketplaceService.FetchShowcase()).then((response) => response.body),
+  marketplaceSkillDetail: (slug: string): Promise<string> =>
+    call(() => MarketplaceService.FetchSkillDetail({ slug })).then((response) => response.body),
   readTransferFile: (): Promise<string> => call(() => TransferService.Read()) as Promise<string>,
   writeTransferFile: (data: string): Promise<void> => call(() => TransferService.Write(data)).then(() => undefined),
   listMCP: (): Promise<MCPServerSummary[]> => call(() => MCPService.List()).then((items) => items ?? []),
