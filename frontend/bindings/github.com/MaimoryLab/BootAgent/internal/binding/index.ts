@@ -5,6 +5,7 @@ import * as AgentService from "./agentservice.js";
 import * as ConversionService from "./conversionservice.js";
 import * as DesktopAgentService from "./desktopagentservice.js";
 import * as MCPService from "./mcpservice.js";
+import * as MarketplaceService from "./marketplaceservice.js";
 import * as ProfileService from "./profileservice.js";
 import * as ProviderService from "./providerservice.js";
 import * as RuntimeService from "./runtimeservice.js";
@@ -17,6 +18,7 @@ export {
     ConversionService,
     DesktopAgentService,
     MCPService,
+    MarketplaceService,
     ProfileService,
     ProviderService,
     RuntimeService,
@@ -39,8 +41,10 @@ export type {
     LaunchResponse,
     MCPExportRequest,
     MCPImportRequest,
+    MarketplaceProxyResponse,
     ModelsRequest,
     ModelsResponse,
+    OpenExternalRequest,
     OpenRegistrationRequest,
     OpenRegistrationResponse,
     ProbeRequest,
@@ -49,5 +53,6 @@ export type {
     ProviderMutationResponse,
     SaveProfileRequest,
     SaveProviderRequest,
+    SkillDetailRequest,
     UpdateRequest
 } from "./models.js";

@@ -518,7 +518,6 @@ const english = {
   "版本未知": "Version unknown",
   "{agents} 需要": "Required by {agents}",
   "锁定版本": "Locked version",
-  "来源": "Source",
   "由 BootAgent 安装": "Installed by BootAgent",
   "本机已有": "Already on this machine",
   "安装": "Install",
@@ -637,6 +636,96 @@ const english = {
   "AI 编辑器，按官方方式安装": "AI editor installed through the official channel",
   "多渠道 AI 网关，常驻运行": "Persistent multi-channel AI gateway",
   "自我成长型 Agent 框架": "Self-improving agent framework",
+  // ── Marketplace ──────────────────────────────────────────────────────────
+  "工具市场": "Marketplace",
+  "搜索工具市场": "Search Marketplace",
+  "发现并安装 Agent 扩展、MCP 服务器与配置模板": "Discover and install Agent extensions, MCP servers, and config templates",
+  "工具分类": "Tool categories",
+  "工具列表": "Tool list",
+  "全部": "All",
+  "单 Agent 增强": "Single-Agent",
+  "跨 Agent 协作": "Cross-Agent",
+  "资讯与学习": "News & Learning",
+  "生态推荐": "Ecosystem",
+  "外部工具": "External tool",
+  "内容": "Content",
+  "Skill": "Skill",
+  "MCP": "MCP",
+  "提示词模板": "Prompt template",
+  "工作流": "Workflow",
+  "标签": "Tags",
+  "复制安装提示词": "Copy install prompt",
+  "已复制": "Copied",
+  "已复制，{hint}": "Copied — {hint}",
+  "访问": "Visit",
+  "没有匹配的工具": "No tools match",
+  "这个分类暂无内容": "Nothing here yet",
+  "离线模式，显示的是上次缓存的数据，可能不是最新": "Offline — showing cached data, may not be up to date",
+  // filters
+  "筛选": "Filter",
+  "清除筛选": "Clear filters",
+  "清除全部筛选": "Clear all filters",
+  "工具类型": "Tool type",
+  "API Key 筛选": "API Key",
+  "来源": "Source",
+  "场景": "Scene",
+  "需要 API Key": "Requires API Key",
+  "无需 API Key": "No API Key needed",
+  "代码编写": "Coding",
+  "界面设计": "Design",
+  "推理规划": "Reasoning",
+  "记忆管理": "Memory",
+  "外部集成": "Integration",
+  "效率工具": "Productivity",
+  "学习资讯": "Learning",
+  "{count} 个结果": "{count} results",
+  "{count} 个筛选": "{count} filters active",
+  // filter option labels (brand names stay as-is; 社区/官方 translate)
+  "SkillHub": "SkillHub",
+  "MCP Servers": "MCP Servers",
+  "Anthropic": "Anthropic",
+  "社区": "Community",
+  "官方": "Official",
+  "API Key": "API Key",
+  // live catalog indicator
+  "实时数据": "Live data",
+  "离线快照": "Offline snapshot",
+  // detail page
+  "工具未找到": "Tool not found",
+  "返回工具市场": "Back to Marketplace",
+  "找不到该工具，它可能已被移除。": "This tool could not be found. It may have been removed.",
+  "安装方式": "Installation",
+  "访问方式": "Access",
+  "安装提示词": "Install prompt",
+  "复制": "Copy",
+  "已复制到剪贴板，粘贴到 Agent 对话框中执行即可。": "Copied to clipboard — paste it into the Agent's chat to install.",
+  "复制下方提示词，粘贴到对应的 Agent 对话框中执行。": "Copy the prompt below and paste it into the target Agent's chat.",
+  "点击下方按钮访问该工具的官方页面。": "Click the button below to visit the tool's official page.",
+  "类型": "Type",
+  "是": "Yes",
+  "否": "No",
+  "访问官网": "Visit website",
+  // readme
+  "README": "README",
+  "正在加载 README": "Loading README…",
+  "README 加载失败，请检查网络连接。": "Failed to load README. Check your network connection.",
+  // skillhub detail section
+  "正在加载详情": "Loading details…",
+  "安全审核": "Security review",
+  "科恩实验室": "Keen Security Lab",
+  "三堡实验室": "Sanbu Lab",
+  "查看报告": "View report",
+  "版本信息": "Version info",
+  "最新版本": "Latest version",
+  "更新日志": "Changelog",
+  "安装量": "Installs",
+  "评论数": "Comments",
+  "作者": "Author",
+  "上游来源": "Upstream source",
+  "已复制「{name}」的安装提示词，{hint}": "Copied install prompt for \"{name}\" — {hint}",
+  "粘贴到任意命令行 Agent 对话框执行即可": "paste it into any CLI agent to run",
+  "收藏数": "Stars",
+  "下载量": "Downloads",
 } as const;
 
 export type Locale = "zh-CN" | "en";
@@ -654,6 +743,16 @@ function interpolate(template: string, values: TranslationValues = {}): string {
 
 export function translate(locale: Locale, key: TranslationKey, values?: TranslationValues): string {
   return interpolate(locale === "en" ? english[key] : key, values);
+}
+
+/**
+ * Translates strings that may or may not be dictionary keys. Adapter-supplied
+ * data (e.g. mcpservers' "官方"/"MCP" tags) arrives typed as plain string, so
+ * translate()'s TranslationKey signature cannot accept it; here a registered
+ * key translates and anything else passes through unchanged.
+ */
+export function translateIfKnown(locale: Locale, key: string): string {
+  return key in english ? translate(locale, key as TranslationKey) : key;
 }
 
 export const sourceTranslate: Translate = (key, values) => translate("zh-CN", key, values);

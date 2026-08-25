@@ -394,6 +394,19 @@
       "ecosystem": "npm",
       "license": "MIT",
       "license_files": [
+        "licenses/npm/types_trusted-types@2.0.7/LICENSE"
+      ],
+      "modification": "",
+      "name": "@types/trusted-types",
+      "platforms": [
+        "frontend"
+      ],
+      "version": "2.0.7"
+    },
+    {
+      "ecosystem": "npm",
+      "license": "MIT",
+      "license_files": [
         "licenses/npm/wailsio_runtime@3.0.0-beta.8/LICENSE"
       ],
       "modification": "",
@@ -418,6 +431,20 @@
     },
     {
       "ecosystem": "npm",
+      "license": "(MPL-2.0 OR Apache-2.0)",
+      "license_files": [
+        "licenses/npm/dompurify@3.4.14/LICENSE",
+        "licenses/npm/dompurify@3.4.14/LICENSE-MPL"
+      ],
+      "modification": "",
+      "name": "dompurify",
+      "platforms": [
+        "frontend"
+      ],
+      "version": "3.4.14"
+    },
+    {
+      "ecosystem": "npm",
       "license": "ISC",
       "license_files": [
         "licenses/npm/lucide-react@1.31.0/LICENSE"
@@ -428,6 +455,19 @@
         "frontend"
       ],
       "version": "1.31.0"
+    },
+    {
+      "ecosystem": "npm",
+      "license": "MIT",
+      "license_files": [
+        "licenses/npm/marked@18.0.10/LICENSE"
+      ],
+      "modification": "",
+      "name": "marked",
+      "platforms": [
+        "frontend"
+      ],
+      "version": "18.0.10"
     },
     {
       "ecosystem": "npm",

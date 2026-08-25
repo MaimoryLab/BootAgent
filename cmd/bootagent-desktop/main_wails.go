@@ -349,6 +349,7 @@ func main() {
 			application.NewServiceWithOptions(services.MCP, application.ServiceOptions{MarshalError: oneerrors.Marshal}),
 			application.NewServiceWithOptions(services.Skill, application.ServiceOptions{MarshalError: oneerrors.Marshal}),
 			application.NewServiceWithOptions(services.Conversion, application.ServiceOptions{MarshalError: oneerrors.Marshal}),
+			application.NewServiceWithOptions(services.Marketplace, application.ServiceOptions{MarshalError: oneerrors.Marshal}),
 		},
 		MarshalError: oneerrors.Marshal,
 		Assets: application.AssetOptions{

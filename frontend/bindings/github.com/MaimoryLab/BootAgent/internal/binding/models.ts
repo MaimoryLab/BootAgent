@@ -102,6 +102,13 @@ export interface MCPImportRequest {
     "password"?: string;
 }
 
+/**
+ * MarketplaceProxyResponse carries one upstream JSON payload verbatim.
+ */
+export interface MarketplaceProxyResponse {
+    "body": string;
+}
+
 export interface ModelsRequest {
     "provider": string;
     "api_base_url": string;
@@ -126,6 +133,14 @@ export interface ModelsResponse {
     "model"?: string;
     "auto_selected_model"?: boolean;
     "models": string[] | null;
+}
+
+/**
+ * OpenExternalRequest carries a user-clicked marketplace link. Only public
+ * HTTPS destinations are accepted before handing the URL to the OS browser.
+ */
+export interface OpenExternalRequest {
+    "url": string;
 }
 
 export interface OpenRegistrationRequest {
@@ -217,6 +232,13 @@ export interface SaveProviderRequest {
      * editor keeps clearing the key when the user empties the field.
      */
     "keep_existing_key": boolean;
+}
+
+/**
+ * SkillDetailRequest names the skillhub skill to look up by its public slug.
+ */
+export interface SkillDetailRequest {
+    "slug": string;
 }
 
 export interface UpdateRequest {
