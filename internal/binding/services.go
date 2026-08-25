@@ -58,7 +58,7 @@ func NewServicesWithOptions(core *app.UseCases, opener BrowserOpener, options Se
 		MCP:          NewMCPService(core),
 		Skill:        NewSkillService(core),
 		Conversion:   NewConversionService(core),
-		Marketplace:  NewMarketplaceService(core),
+		Marketplace:  NewMarketplaceService(core, opener),
 	}
 }
 

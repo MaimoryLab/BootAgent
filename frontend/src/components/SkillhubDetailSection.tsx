@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 
 import { api } from "../backend/api";
 import { useI18n } from "../i18n";
+import { MarketplaceExternalLink } from "./MarketplaceExternalLink";
 import { StatusBadge } from "./StatusBadge";
 
 /**
@@ -67,15 +68,16 @@ function SecurityReportRow({ labKey, report }: { labKey: "科恩实验室" | "�
   const text = report.statusText || report.status;
   if (!text) return null;
   return (
-    <div className="detail-skillhub-security-row">
-      <span className="detail-skillhub-security-lab">{t(labKey)}</span>
-      <StatusBadge tone={report.status === "benign" ? "success" : "warning"}>{text}</StatusBadge>
-      {report.reportUrl ? (
-        <a href={report.reportUrl} target="_blank" rel="noreferrer" className="detail-meta-link">
-          {t("查看报告")}
-          <ExternalLink size={11} aria-hidden="true" />
-        </a>
-      ) : null}
+    <div className="detail-meta-row detail-skillhub-security-row">
+      <dt>{t(labKey)}</dt>
+      <dd>
+        <StatusBadge tone={report.status === "benign" ? "success" : "warning"}>{text}</StatusBadge>
+        {report.reportUrl ? (
+          <MarketplaceExternalLink href={report.reportUrl} className="detail-meta-icon-link" aria-label={`${t(labKey)} - ${t("查看报告")}`}>
+            <ExternalLink size={12} aria-hidden="true" />
+          </MarketplaceExternalLink>
+        ) : null}
+      </dd>
     </div>
   );
 }
@@ -141,10 +143,9 @@ export function SkillhubDetailSection({ slug }: { slug: string }) {
   const hasSecurity = Boolean(keen?.statusText || keen?.status || sanbu?.statusText || sanbu?.status);
 
   const version = detail.latestVersion?.version;
-  const changelog = detail.latestVersion?.changelog;
   const installs = detail.skill?.stats?.installs ?? 0;
   const comments = detail.skill?.stats?.comments ?? 0;
-  const hasVersion = Boolean(version || changelog || installs > 0 || comments > 0);
+  const hasVersion = Boolean(version || installs > 0 || comments > 0);
 
   const authorName = detail.owner?.displayName || detail.owner?.handle;
   const sourceUrl = detail.skill?.sourceUrl;
@@ -152,57 +153,44 @@ export function SkillhubDetailSection({ slug }: { slug: string }) {
   if (!hasSecurity && !hasVersion && !authorName) return null;
 
   return (
-    <section className="detail-skillhub-section">
-      {hasSecurity ? (
-        <div className="detail-skillhub-block">
-          <h3 className="detail-skillhub-block-title">{t("安全审核")}</h3>
-          {keen ? <SecurityReportRow labKey="科恩实验室" report={keen} /> : null}
-          {sanbu ? <SecurityReportRow labKey="三堡实验室" report={sanbu} /> : null}
+    <dl className="detail-skillhub-summary">
+      {version ? (
+        <div className="detail-meta-row">
+          <dt>{t("最新版本")}</dt>
+          <dd>{version}</dd>
         </div>
       ) : null}
-
-      {hasVersion ? (
-        <div className="detail-skillhub-block">
-          <h3 className="detail-skillhub-block-title">{t("版本信息")}</h3>
-          <div className="detail-skillhub-stats">
-            {version ? (
-              <span>
-                {t("最新版本")} <strong>{version}</strong>
-              </span>
-            ) : null}
-            {installs > 0 ? (
-              <span>
-                {t("安装量")} <strong>{formatCount(installs)}</strong>
-              </span>
-            ) : null}
-            {comments > 0 ? (
-              <span>
-                {t("评论数")} <strong>{formatCount(comments)}</strong>
-              </span>
-            ) : null}
-          </div>
-          {changelog ? (
-            <p className="detail-skillhub-changelog">
-              {t("更新日志")}：{changelog}
-            </p>
-          ) : null}
+      {installs > 0 ? (
+        <div className="detail-meta-row">
+          <dt>{t("安装量")}</dt>
+          <dd>{formatCount(installs)}</dd>
         </div>
       ) : null}
-
+      {comments > 0 ? (
+        <div className="detail-meta-row">
+          <dt>{t("评论数")}</dt>
+          <dd>{formatCount(comments)}</dd>
+        </div>
+      ) : null}
       {authorName ? (
-        <div className="detail-skillhub-block">
-          <h3 className="detail-skillhub-block-title">{t("作者")}</h3>
-          <div className="detail-skillhub-author">
+        <div className="detail-meta-row">
+          <dt>{t("作者")}</dt>
+          <dd>
             <span>{authorName}</span>
             {sourceUrl ? (
-              <a href={sourceUrl} target="_blank" rel="noreferrer" className="detail-meta-link">
-                {t("上游来源")}
-                <ExternalLink size={11} aria-hidden="true" />
-              </a>
+              <MarketplaceExternalLink href={sourceUrl} className="detail-meta-icon-link" aria-label={t("上游来源")}>
+                <ExternalLink size={12} aria-hidden="true" />
+              </MarketplaceExternalLink>
             ) : null}
-          </div>
+          </dd>
         </div>
       ) : null}
-    </section>
+      {hasSecurity ? (
+        <>
+          {keen ? <SecurityReportRow labKey="科恩实验室" report={keen} /> : null}
+          {sanbu ? <SecurityReportRow labKey="三堡实验室" report={sanbu} /> : null}
+        </>
+      ) : null}
+    </dl>
   );
 }

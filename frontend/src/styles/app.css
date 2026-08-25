@@ -3355,6 +3355,21 @@
 
 .detail-meta-link:hover { text-decoration: underline; }
 
+.detail-meta-link,
+.detail-meta-icon-link {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+}
+
+.detail-meta-icon-link {
+  display: inline-flex;
+  align-items: center;
+  color: var(--accent);
+}
+
 .detail-meta-apikey { font-size: 12px; color: var(--text-secondary); }
 .detail-meta-apikey.is-required { color: var(--orange); }
 
@@ -3379,72 +3394,20 @@
   text-align: center;
 }
 
-/* ── Skillhub detail section (security review / version / author) ── */
-/* Same card face as .detail-install-section */
-.detail-skillhub-section {
-  margin-top: 20px;
-  background: var(--surface-subtle);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-card);
-  padding: 20px;
+/* Compact SkillHub metadata lives in the sidebar, not as a second review card. */
+.detail-skillhub-summary {
   display: grid;
-  gap: 18px;
-}
-
-.detail-skillhub-block { display: grid; gap: 8px; }
-
-.detail-skillhub-block-title {
-  margin: 0;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-tertiary);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.detail-skillhub-security-row {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  font-size: 13px;
-  color: var(--text-primary);
-}
-
-.detail-skillhub-security-lab {
-  min-width: 88px;
-  color: var(--text-secondary);
-}
-
-.detail-skillhub-stats {
-  display: flex;
-  flex-wrap: wrap;
   gap: 14px;
-  font-size: 12px;
-  color: var(--text-secondary);
+  margin: 14px 0 0;
+  padding: 14px 0 0;
+  border-top: 1px solid var(--border-faint);
 }
 
-.detail-skillhub-stats strong {
-  color: var(--text-primary);
-  font-weight: 600;
-}
-
-.detail-skillhub-changelog {
-  margin: 0;
-  font-size: 12px;
-  color: var(--text-secondary);
-  line-height: 1.55;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
-.detail-skillhub-author {
+.detail-skillhub-summary dd {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 10px;
-  font-size: 13px;
-  color: var(--text-primary);
+  gap: 6px;
 }
 
 /* ── README section ── */

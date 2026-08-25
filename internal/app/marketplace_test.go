@@ -96,6 +96,24 @@ func TestFetchMarketplaceShowcaseReturnsUpstreamBody(t *testing.T) {
 	}
 }
 
+func TestFetchMarketplaceSkillFileReturnsLatestSkillMarkdown(t *testing.T) {
+	var requested *http.Request
+	core := marketplaceCore(t, func(request *http.Request) (*http.Response, error) {
+		requested = request
+		return marketplaceResponse(http.StatusOK, "# Skill README"), nil
+	})
+	body, err := core.FetchMarketplaceSkillFile(context.Background(), "self-improving-agent")
+	if err != nil || body != "# Skill README" {
+		t.Fatalf("skill file body=%q err=%v", body, err)
+	}
+	if requested == nil || requested.URL.String() != "https://api.skillhub.cn/api/v1/skills/self-improving-agent/file?path=SKILL.md" {
+		t.Fatalf("unexpected upstream request: %#v", requested)
+	}
+	if accept := requested.Header.Get("Accept"); accept != "text/markdown, text/plain;q=0.9" {
+		t.Fatalf("Accept = %q", accept)
+	}
+}
+
 // A non-200 answer must fail the call rather than hand an upstream error page
 // to the frontend as if it were catalog JSON.
 func TestFetchMarketplaceShowcaseRejectsNon200(t *testing.T) {

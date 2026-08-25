@@ -63,17 +63,19 @@ describe("SkillhubDetailSection", () => {
     expect(await screen.findByText("安全，无风险")).toBeTruthy();
     expect(screen.getByText("安全，无风险").className).toContain("status-success");
     expect(screen.getByText("存在风险提示").className).toContain("status-warning");
-    expect(screen.getAllByText("查看报告")).toHaveLength(2);
+    expect(screen.getByLabelText("科恩实验室 - 查看报告")).toBeTruthy();
+    expect(screen.getByLabelText("三堡实验室 - 查看报告")).toBeTruthy();
 
-    // Version block: version, installs (compact), comments, changelog.
+    // Compact sidebar metadata: version, installs and comments.
     expect(screen.getByText("3.0.24")).toBeTruthy();
     expect(screen.getByText("86.1k")).toBeTruthy();
     expect(screen.getByText("12")).toBeTruthy();
-    expect(screen.getByText(/Synced by skillhub pipeline/)).toBeTruthy();
+    expect(screen.queryByText("安全审核")).toBeNull();
+    expect(screen.queryByText(/Synced by skillhub pipeline/)).toBeNull();
 
     // Author block with the upstream link.
     expect(screen.getByText("pskoett")).toBeTruthy();
-    const upstream = screen.getByText("上游来源").closest("a");
+    const upstream = screen.getByLabelText("上游来源").closest("a");
     expect(upstream?.getAttribute("href")).toBe("https://clawhub.ai/pskoett/self-improving-agent");
   });
 

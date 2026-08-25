@@ -135,6 +135,14 @@ export interface ModelsResponse {
     "models": string[] | null;
 }
 
+/**
+ * OpenExternalRequest carries a user-clicked marketplace link. Only public
+ * HTTPS destinations are accepted before handing the URL to the OS browser.
+ */
+export interface OpenExternalRequest {
+    "url": string;
+}
+
 export interface OpenRegistrationRequest {
     "provider": string;
     "agents": string[] | null;

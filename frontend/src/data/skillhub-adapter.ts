@@ -83,7 +83,7 @@ export function mapSkillhubEntry(entry: SkillhubEntry): MarketplaceItem {
     source: "skillhub",
     requiresApiKey: entry.requiresApiKey,
     sourceLabel: "SkillHub",
-    sourceUrl: "https://skillhub.cloud.tencent.com/skills?sortBy=score",
+    sourceUrl: `https://skillhub.cn/skills/${encodeURIComponent(entry.id)}`,
     // Plain-language prompt, no slash command: works in any CLI agent.
     // The skillhub CLI is the actual install channel; the agent runs it.
     installPrompt: `请帮我安装 SkillHub 上的 Skill「${entry.name}」（${entry.namespace}）。

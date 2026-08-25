@@ -5,6 +5,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useMarketplaceCatalog } from "../data/useMarketplaceCatalog";
 import { marketplaceTagPairs } from "../data/tag-labels";
 import { PageScaffold } from "../components/PageScaffold";
+import { MarketplaceExternalLink } from "../components/MarketplaceExternalLink";
 import { ReadmeSection } from "../components/ReadmeSection";
 import { SkillhubDetailSection } from "../components/SkillhubDetailSection";
 import { StatusBadge } from "../components/StatusBadge";
@@ -170,10 +171,10 @@ function MetaSidebar({ item }: { item: MarketplaceItem }) {
             <dt>{t("来源")}</dt>
             <dd>
               {item.sourceUrl ? (
-                <a href={item.sourceUrl} target="_blank" rel="noreferrer" className="detail-meta-link">
+                <MarketplaceExternalLink href={item.sourceUrl} className="detail-meta-link">
                   {sourceLabel ? t(sourceLabel) : item.source}
                   <ExternalLink size={11} aria-hidden="true" />
-                </a>
+                </MarketplaceExternalLink>
               ) : (
                 sourceLabel ? t(sourceLabel) : item.source
               )}
@@ -192,20 +193,6 @@ function MetaSidebar({ item }: { item: MarketplaceItem }) {
           </dd>
         </div>
 
-        {(item.stars ?? 0) > 0 ? (
-          <div className="detail-meta-row">
-            <dt>{t("收藏数")}</dt>
-            <dd>{formatCount(item.stars!)}</dd>
-          </div>
-        ) : null}
-
-        {(item.downloads ?? 0) > 0 ? (
-          <div className="detail-meta-row">
-            <dt>{t("下载量")}</dt>
-            <dd>{formatCount(item.downloads!)}</dd>
-          </div>
-        ) : null}
-
         {tagPairs.length ? (
           <div className="detail-meta-row detail-meta-tags-row">
             <dt>{t("标签")}</dt>
@@ -220,16 +207,18 @@ function MetaSidebar({ item }: { item: MarketplaceItem }) {
         ) : null}
       </dl>
 
+      {item.source === "skillhub" ? (
+        <SkillhubDetailSection slug={item.id.replace(/^skillhub-/, "")} />
+      ) : null}
+
       {item.externalUrl ? (
-        <a
+        <MarketplaceExternalLink
           className="button button-primary detail-visit-btn"
           href={item.externalUrl}
-          target="_blank"
-          rel="noreferrer"
         >
           <ExternalLink size={15} />
           {t("访问官网")}
-        </a>
+        </MarketplaceExternalLink>
       ) : null}
     </aside>
   );
@@ -304,26 +293,24 @@ export function MarketplaceDetailPage() {
             <section className="detail-install-section">
               <h2 className="detail-section-title">{t("访问方式")}</h2>
               <p className="detail-install-desc">{t("点击下方按钮访问该工具的官方页面。")}</p>
-              <a
+              <MarketplaceExternalLink
                 className="button button-primary"
                 href={item.externalUrl}
-                target="_blank"
-                rel="noreferrer"
               >
                 <ExternalLink size={15} />
                 {t("访问官网")}
-              </a>
+              </MarketplaceExternalLink>
             </section>
           ) : null}
 
-          {item.source === "skillhub" ? (
-            <SkillhubDetailSection slug={item.id.replace(/^skillhub-/, "")} />
-          ) : null}
-
-          {item.readmeUrl ? (
+          {item.source === "skillhub" || item.readmeUrl ? (
             <section className="detail-readme-section">
               <h2 className="detail-section-title">{t("README")}</h2>
-              <ReadmeSection readmeUrl={item.readmeUrl} />
+              {item.source === "skillhub" ? (
+                <ReadmeSection skillhubSlug={item.id.replace(/^skillhub-/, "")} />
+              ) : item.readmeUrl ? (
+                <ReadmeSection readmeUrl={item.readmeUrl} />
+              ) : null}
             </section>
           ) : null}
         </div>

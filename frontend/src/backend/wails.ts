@@ -226,6 +226,10 @@ export const wailsApi = {
     call(() => MarketplaceService.FetchShowcase()).then((response) => response.body),
   marketplaceSkillDetail: (slug: string): Promise<string> =>
     call(() => MarketplaceService.FetchSkillDetail({ slug })).then((response) => response.body),
+  marketplaceSkillFile: (slug: string): Promise<string> =>
+    call(() => MarketplaceService.FetchSkillFile({ slug })).then((response) => response.body),
+  openMarketplaceExternal: (url: string): Promise<void> =>
+    call(() => MarketplaceService.OpenExternal({ url })).then(() => undefined),
   readTransferFile: (): Promise<string> => call(() => TransferService.Read()) as Promise<string>,
   writeTransferFile: (data: string): Promise<void> => call(() => TransferService.Write(data)).then(() => undefined),
   listMCP: (): Promise<MCPServerSummary[]> => call(() => MCPService.List()).then((items) => items ?? []),

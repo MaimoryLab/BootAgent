@@ -44,6 +44,7 @@ export type {
     MarketplaceProxyResponse,
     ModelsRequest,
     ModelsResponse,
+    OpenExternalRequest,
     OpenRegistrationRequest,
     OpenRegistrationResponse,
     ProbeRequest,

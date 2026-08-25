@@ -1,7 +1,8 @@
 import DOMPurify from "dompurify";
 import { marked } from "marked";
-import { useEffect, useState } from "react";
+import { type MouseEvent, useEffect, useState } from "react";
 
+import { api } from "../backend/api";
 import { useI18n } from "../i18n";
 
 type FetchState = "idle" | "loading" | "success" | "error";
@@ -17,7 +18,11 @@ type FetchState = "idle" | "loading" | "success" | "error";
  * Relative image hrefs from GitHub READMEs are rewritten to absolute URLs
  * so they resolve when rendered outside their repo context.
  */
-export function ReadmeSection({ readmeUrl }: { readmeUrl: string }) {
+type ReadmeSectionProps =
+  | { readmeUrl: string; skillhubSlug?: never }
+  | { readmeUrl?: never; skillhubSlug: string };
+
+export function ReadmeSection({ readmeUrl, skillhubSlug }: ReadmeSectionProps) {
   const { t } = useI18n();
   const [state, setState] = useState<FetchState>("idle");
   const [html, setHtml] = useState("");
@@ -27,31 +32,52 @@ export function ReadmeSection({ readmeUrl }: { readmeUrl: string }) {
     setState("loading");
     setHtml("");
 
-    fetch(readmeUrl)
-      .then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.text();
-      })
+    const loadSkillhubFile = async (slug: string) => {
+      try {
+        return await api.marketplaceSkillFile(slug);
+      } catch {
+        const endpoint = `https://api.skillhub.cn/api/v1/skills/${encodeURIComponent(slug)}/file?path=SKILL.md`;
+        const response = await fetch(endpoint);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return response.text();
+      }
+    };
+
+    const load = skillhubSlug
+      ? loadSkillhubFile(skillhubSlug)
+      : readmeUrl
+        ? fetch(readmeUrl).then((res) => {
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          return res.text();
+          })
+        : Promise.reject(new Error("README source is missing"));
+
+    load
       .then((md) => {
         if (cancelled) return;
 
-        // Rewrite relative image src to absolute so GitHub images render.
-        // raw.githubusercontent.com URLs have the form:
-        // https://raw.githubusercontent.com/{owner}/{repo}/refs/heads/{branch}/path/README.md
-        // We strip the filename to get the base directory.
-        const base = readmeUrl.replace(/\/[^/]+$/, "/");
-        const withAbsImages = md.replace(
-          /!\[([^\]]*)\]\((?!https?:\/\/)([^)]+)\)/g,
-          (_, alt: string, src: string) => `![${alt}](${base}${src})`,
-        );
-
-        const rawHtml = marked.parse(withAbsImages, { async: false }) as string;
+        const rawHtml = marked.parse(md, { async: false }) as string;
         const clean = DOMPurify.sanitize(rawHtml, {
           USE_PROFILES: { html: true },
           FORBID_TAGS: ["script", "style", "iframe", "form", "input", "button"],
           FORBID_ATTR: ["onerror", "onload", "onclick", "onmouseover"],
         });
-        setHtml(clean);
+        const document = new DOMParser().parseFromString(clean, "text/html");
+        const resolve = (value: string) => {
+          if (/^(?:https?:|#)/i.test(value)) return value;
+          if (skillhubSlug) {
+            const file = value.replace(/^\.\//, "");
+            return `https://api.skillhub.cn/api/v1/skills/${encodeURIComponent(skillhubSlug)}/file?path=${encodeURIComponent(file)}`;
+          }
+          return new URL(value, readmeUrl).href;
+        };
+        document.querySelectorAll<HTMLAnchorElement>("a[href]").forEach((anchor) => {
+          anchor.href = resolve(anchor.getAttribute("href") ?? "");
+        });
+        document.querySelectorAll<HTMLImageElement>("img[src]").forEach((image) => {
+          image.src = resolve(image.getAttribute("src") ?? "");
+        });
+        setHtml(document.body.innerHTML);
         setState("success");
       })
       .catch(() => {
@@ -59,7 +85,14 @@ export function ReadmeSection({ readmeUrl }: { readmeUrl: string }) {
       });
 
     return () => { cancelled = true; };
-  }, [readmeUrl]);
+  }, [readmeUrl, skillhubSlug]);
+
+  const openLink = (event: MouseEvent<HTMLDivElement>) => {
+    const target = event.target instanceof Element ? event.target.closest<HTMLAnchorElement>("a[href]") : null;
+    if (!target || target.getAttribute("href")?.startsWith("#")) return;
+    event.preventDefault();
+    void api.openMarketplaceExternal(target.href).catch(() => undefined);
+  };
 
   if (state === "idle" || state === "loading") {
     return (
@@ -81,6 +114,7 @@ export function ReadmeSection({ readmeUrl }: { readmeUrl: string }) {
   return (
     <div
       className="readme-body"
+      onClick={openLink}
       // Content is sanitised by DOMPurify before insertion.
       // eslint-disable-next-line react/no-danger
       dangerouslySetInnerHTML={{ __html: html }}

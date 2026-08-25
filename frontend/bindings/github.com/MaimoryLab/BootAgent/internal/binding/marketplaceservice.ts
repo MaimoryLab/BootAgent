@@ -26,3 +26,11 @@ export function FetchShowcase(): $CancellablePromise<$models.MarketplaceProxyRes
 export function FetchSkillDetail(request: $models.SkillDetailRequest): $CancellablePromise<$models.MarketplaceProxyResponse> {
     return $Call.ByID(613638165, request);
 }
+
+export function FetchSkillFile(request: $models.SkillDetailRequest): $CancellablePromise<$models.MarketplaceProxyResponse> {
+    return $Call.ByID(1653837074, request);
+}
+
+export function OpenExternal(request: $models.OpenExternalRequest): $CancellablePromise<void> {
+    return $Call.ByID(3117329458, request);
+}

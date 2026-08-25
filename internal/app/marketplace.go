@@ -42,7 +42,7 @@ var marketplaceSlugPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{0,127}$`)
 // cannot call it directly: api.skillhub.cn only echoes CORS for skillhub's
 // own origins.
 func (u *UseCases) FetchMarketplaceShowcase(ctx context.Context) (string, error) {
-	return u.fetchMarketplaceJSON(ctx, marketplaceShowcaseURL)
+	return u.fetchMarketplace(ctx, marketplaceShowcaseURL, "application/json")
 }
 
 // FetchMarketplaceSkillDetail proxies one skill's public detail record. The
@@ -52,10 +52,21 @@ func (u *UseCases) FetchMarketplaceSkillDetail(ctx context.Context, slug string)
 	if !marketplaceSlugPattern.MatchString(slug) {
 		return "", oneerrors.New(oneerrors.InvalidRequest, "Invalid marketplace skill slug")
 	}
-	return u.fetchMarketplaceJSON(ctx, marketplaceSkillURLBase+url.PathEscape(slug))
+	return u.fetchMarketplace(ctx, marketplaceSkillURLBase+url.PathEscape(slug), "application/json")
 }
 
-func (u *UseCases) fetchMarketplaceJSON(ctx context.Context, target string) (string, error) {
+// FetchMarketplaceSkillFile returns the latest SKILL.md published for a skill.
+// SkillHub's detail payload intentionally contains metadata only; the file API
+// is the source of the README-equivalent content shown in the marketplace.
+func (u *UseCases) FetchMarketplaceSkillFile(ctx context.Context, slug string) (string, error) {
+	if !marketplaceSlugPattern.MatchString(slug) {
+		return "", oneerrors.New(oneerrors.InvalidRequest, "Invalid marketplace skill slug")
+	}
+	target := marketplaceSkillURLBase + url.PathEscape(slug) + "/file?path=SKILL.md"
+	return u.fetchMarketplace(ctx, target, "text/markdown, text/plain;q=0.9")
+}
+
+func (u *UseCases) fetchMarketplace(ctx context.Context, target, accept string) (string, error) {
 	if u == nil {
 		return "", oneerrors.New(oneerrors.InternalError, "Marketplace proxy is not configured", oneerrors.WithStatus(501))
 	}
@@ -72,7 +83,7 @@ func (u *UseCases) fetchMarketplaceJSON(ctx context.Context, target string) (str
 	if err != nil {
 		return "", oneerrors.New(oneerrors.InternalError, "Could not build the marketplace request", oneerrors.WithCause(err))
 	}
-	request.Header.Set("Accept", "application/json")
+	request.Header.Set("Accept", accept)
 	response, err := client.Do(request)
 	if err != nil {
 		return "", oneerrors.New(oneerrors.InternalError, "Could not reach the marketplace API", oneerrors.WithRetryable(true), oneerrors.WithCause(err))
