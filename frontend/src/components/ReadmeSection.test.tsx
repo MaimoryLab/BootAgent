@@ -17,9 +17,22 @@ vi.mock("../backend/api", async (importOriginal) => {
 });
 
 import { I18nProvider } from "../i18n";
-import { ReadmeSection } from "./ReadmeSection";
+import { ReadmeSection, stripSkillhubMetadataPreamble } from "./ReadmeSection";
 
 describe("ReadmeSection", () => {
+  it("removes SkillHub metadata preambles from the rendered README", () => {
+    expect(stripSkillhubMetadataPreamble([
+      "README",
+      "name: self-improvement",
+      'description: "Captures learnings"',
+      "metadata:",
+      "",
+      "Self-Improvement Skill",
+      "",
+      "实际内容",
+    ].join("\n"))).toBe("Self-Improvement Skill\n\n实际内容");
+  });
+
   it("loads SkillHub SKILL.md and opens its links in the desktop browser", async () => {
     render(
       <I18nProvider>

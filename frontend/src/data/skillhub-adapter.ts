@@ -21,6 +21,11 @@ function mapScenes(subs: string[]): MarketplaceScene[] {
     if (sub.startsWith("knowledge-")) scenes.add("memory");
     if (sub.startsWith("office-") || sub.startsWith("content-")) scenes.add("productivity");
     if (sub.startsWith("data-")) scenes.add("reasoning");
+    if (sub.startsWith("design-")) scenes.add("design");
+    if (sub.startsWith("biz-")) scenes.add("productivity");
+    if (sub.startsWith("it-")) scenes.add("integration");
+    if (sub.startsWith("itops-")) scenes.add("integration");
+    if (sub.startsWith("life-")) scenes.add("productivity");
   }
   return [...scenes];
 }
@@ -50,7 +55,9 @@ export interface SkillhubEntry {
 /** Maps one normalised skillhub entry to the MarketplaceItem shape. */
 export function mapSkillhubEntry(entry: SkillhubEntry): MarketplaceItem {
   const scenes = mapScenes(entry.subCategories);
-  const topSubCategories = entry.subCategories.slice(0, 3);
+  // Keep the full bounded taxonomy for detail pages; cards intentionally cap
+  // the visible row to three tags for scanability.
+  const tagKeys = entry.subCategories.slice(0, 8);
   return {
     id: `skillhub-${entry.id}`,
     category: "skill",
@@ -65,8 +72,8 @@ export function mapSkillhubEntry(entry: SkillhubEntry): MarketplaceItem {
     // tags keeps the pre-tagKeys Chinese labels for callers that only read
     // strings (search, older render paths); tagKeys carries the raw keys so
     // render sites can localise per the active locale.
-    tags: topSubCategories.map((key) => localizeTag(key, "zh-CN")),
-    tagKeys: topSubCategories,
+    tags: tagKeys.map((key) => localizeTag(key, "zh-CN")),
+    tagKeys,
     scene: scenes[0],
     scenes,
     source: "skillhub",

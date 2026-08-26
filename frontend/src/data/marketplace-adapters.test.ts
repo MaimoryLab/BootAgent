@@ -10,6 +10,8 @@ import { extensionItems } from "./extension-catalog";
 import { githubItems } from "./github-adapter";
 import { marketplaceIconCandidates, marketplaceIconUrl } from "./marketplace-icons";
 import { normalizeShowcaseSkill, type ShowcaseSkill } from "./useMarketplaceCatalog";
+import { validateMarketplaceCatalog } from "./marketplace-validation";
+import { STATIC_CATALOG } from "./marketplace-catalog";
 
 // ── live showcase payload normalisation (需求4) ───────────────────────────────
 
@@ -127,6 +129,17 @@ describe("GitHub adapter", () => {
       expect(item.installPrompt).toContain("README");
       expect(item.githubStars).toBeGreaterThan(0);
     }
+  });
+
+  it("keeps category and item type aligned", () => {
+    expect(githubItems.filter((item) => item.category === "plugin").every((item) => item.type === "plugin")).toBe(true);
+    expect(githubItems.filter((item) => item.category === "ai-product").every((item) => item.type === "agent-product")).toBe(true);
+  });
+});
+
+describe("marketplace catalog metadata", () => {
+  it("has complete metadata for every discoverable item", () => {
+    expect(validateMarketplaceCatalog(STATIC_CATALOG.items)).toEqual([]);
   });
 });
 

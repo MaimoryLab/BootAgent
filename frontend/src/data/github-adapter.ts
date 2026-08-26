@@ -70,7 +70,7 @@ export const githubItems: MarketplaceItem[] = repositories.map((spec) => {
   return {
     id: `github-${spec.repo.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
     category: spec.category,
-    type: "external-link",
+    type: spec.category === "plugin" ? "plugin" : "agent-product",
     name: spec.name,
     description: spec.description,
     descriptionEn: spec.descriptionEn,
