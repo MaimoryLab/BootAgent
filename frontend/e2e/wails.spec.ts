@@ -201,7 +201,7 @@ test("Skills and MCP management lead to their marketplace categories", async ({ 
   await expect(page.getByRole("link", { name: "或者去工具市场发现" })).toHaveAttribute("href", "#/marketplace?category=agent-enhance");
   await page.getByRole("link", { name: "去市场发现" }).click();
   await expect(page).toHaveURL(/#\/marketplace\?category=agent-enhance$/);
-  await expect(page.getByRole("tab", { name: /单 Agent 增强/ })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("tab", { name: /Skills/ })).toHaveAttribute("aria-selected", "true");
 
   await page.locator(".marketplace-card").first().click();
   await page.getByRole("link", { name: "安装完成后，可在 Skills 页管理它。" }).click();
