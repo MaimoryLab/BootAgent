@@ -266,30 +266,23 @@ function FilterDropdownBar({
 
 interface CategoryMeta {
   id: MarketplaceCategory | "all";
-  labelKey:
-    | "全部"
-    | "单 Agent 增强"
-    | "跨 Agent 协作"
-    | "MCP 服务器"
-    | "资讯与学习"
-    | "生态推荐"
-    | "插件"
-    | "独立 AI 产品";
+  labelKey: "全部" | "Skills" | "MCP 服务器" | "插件" | "独立 AI 产品" | "工作流与模板" | "内容与指南";
 }
 
 const CATEGORIES: CategoryMeta[] = [
   { id: "all", labelKey: "全部" },
-  { id: "agent-enhance", labelKey: "单 Agent 增强" },
-  { id: "cross-agent", labelKey: "跨 Agent 协作" },
+  { id: "skill", labelKey: "Skills" },
   { id: "mcp-server", labelKey: "MCP 服务器" },
-  { id: "news", labelKey: "资讯与学习" },
-  { id: "ecosystem", labelKey: "生态推荐" },
   { id: "plugin", labelKey: "插件" },
   { id: "ai-product", labelKey: "独立 AI 产品" },
+  { id: "workflow", labelKey: "工作流与模板" },
+  { id: "content", labelKey: "内容与指南" },
 ];
 
 function marketplaceCategoryFromSearch(searchParams: URLSearchParams): MarketplaceCategory | "all" {
   const requested = searchParams.get("category");
+  // Keep old management-page links valid while the visible taxonomy is type-based.
+  if (requested === "agent-enhance") return "skill";
   return CATEGORIES.some(({ id }) => id === requested)
     ? requested as MarketplaceCategory | "all"
     : "all";
@@ -446,11 +439,12 @@ export function filterMarketplaceItems(
         item.type === "installable" ? (item.installableKind ?? "skill") : item.type;
       if (!filters.kinds.has(itemKind)) return false;
     }
-    if (filters.sources.size > 0 && item.source) {
-      if (!filters.sources.has(item.source)) return false;
+    if (filters.sources.size > 0) {
+      if (!item.source || !filters.sources.has(item.source)) return false;
     }
-    if (filters.scenes.size > 0 && item.scene) {
-      if (!filters.scenes.has(item.scene)) return false;
+    if (filters.scenes.size > 0) {
+      const itemScenes = item.scenes ?? (item.scene ? [item.scene] : []);
+      if (!itemScenes.some((scene) => filters.scenes.has(scene))) return false;
     }
     if (filters.requiresApiKey !== null) {
       if ((item.requiresApiKey ?? false) !== filters.requiresApiKey) return false;
@@ -508,7 +502,7 @@ export function MarketplacePage() {
     [items],
   );
 
-  // Tabs with zero items (news/ecosystem after the mock purge) are noise.
+  // Empty type tabs are hidden until a trusted adapter supplies an item.
   const visibleCategories = CATEGORIES.filter(({ id }) => id === "all" || (counts[id] ?? 0) > 0);
   const selectCategory = (category: MarketplaceCategory | "all") => {
     const next = new URLSearchParams(searchParams);

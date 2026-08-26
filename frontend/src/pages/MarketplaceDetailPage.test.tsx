@@ -20,7 +20,7 @@ vi.mock("../data/useMarketplaceCatalog", () => ({
   useMarketplaceCatalog: () => ({
     items: [{
       id: "skillhub-example-skill",
-      category: "agent-enhance",
+      category: "skill",
       type: "installable",
       installableKind: "skill",
       name: "Example Skill",

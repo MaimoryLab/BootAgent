@@ -11,13 +11,12 @@
  */
 
 export type MarketplaceCategory =
-  | "agent-enhance" // 单 Agent 增强: Skills Pack, config templates
-  | "cross-agent" // 跨 Agent 协作: global memory, session migration
-  | "mcp-server" // MCP 服务器
-  | "news" // 资讯与学习: newsletters, best practices
-  | "ecosystem" // 生态推荐: standalone external tools, link-only
-  | "plugin" // Agent 插件与扩展
-  | "ai-product"; // 独立 AI 产品
+  | "skill"
+  | "mcp-server"
+  | "plugin"
+  | "ai-product"
+  | "workflow"
+  | "content";
 
 export type MarketplaceItemType =
   | "installable" // copied prompt drives the install
@@ -98,6 +97,7 @@ export interface MarketplaceItem {
    */
   tagKeys?: string[];
   scene?: MarketplaceScene;
+  scenes?: MarketplaceScene[];
   source?: MarketplaceSource;
   /** Whether the tool requires an API key to use */
   requiresApiKey?: boolean;
