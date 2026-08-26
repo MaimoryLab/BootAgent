@@ -6,7 +6,7 @@ import type {
 
 // ── filter state (exported so page and detail can share the type) ─────────────
 
-type KindFilterKey = InstallableKind | "content" | "external-link";
+type KindFilterKey = InstallableKind | "content" | "external-link" | "plugin" | "agent-product";
 
 export interface FilterState {
   kinds: Set<KindFilterKey>;

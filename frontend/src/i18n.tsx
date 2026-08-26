@@ -649,6 +649,8 @@ const english = {
   "跨 Agent 协作": "Cross-Agent",
   "资讯与学习": "News & Learning",
   "生态推荐": "Ecosystem",
+  "插件": "Plugins",
+  "独立 AI 产品": "Standalone AI products",
   "外部工具": "External tool",
   "内容": "Content",
   "Skill": "Skill",

@@ -15,12 +15,16 @@ export type MarketplaceCategory =
   | "cross-agent" // 跨 Agent 协作: global memory, session migration
   | "mcp-server" // MCP 服务器
   | "news" // 资讯与学习: newsletters, best practices
-  | "ecosystem"; // 生态推荐: standalone external tools, link-only
+  | "ecosystem" // 生态推荐: standalone external tools, link-only
+  | "plugin" // Agent 插件与扩展
+  | "ai-product"; // 独立 AI 产品
 
 export type MarketplaceItemType =
   | "installable" // copied prompt drives the install
   | "content" // article / subscription link, display only
-  | "external-link"; // standalone software, open URL only
+  | "external-link" // standalone software, open URL only
+  | "plugin" // plugin documentation or marketplace, open URL only
+  | "agent-product"; // standalone AI product, open URL only
 
 export type InstallableKind =
   | "skill"
@@ -100,6 +104,8 @@ export interface MarketplaceItem {
   sourceLabel?: string;
   /** Reference URL for the source — not the install target */
   sourceUrl?: string;
+  repositoryUrl?: string;
+  documentationUrl?: string;
 
   // ── installable items ────────────────────────────────────────────────────
   installableKind?: InstallableKind;
