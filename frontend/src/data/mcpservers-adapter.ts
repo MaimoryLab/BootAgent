@@ -70,6 +70,9 @@ export const mcpserversItems: MarketplaceItem[] = (mcpRaw as MCPServerEntry[]).m
   requiresApiKey: entry.config != null && JSON.stringify(entry.config).toLowerCase().includes("token"),
   sourceLabel: "MCP Servers",
   sourceUrl: entry.pageUrl,
+  // The registry page is the canonical introduction when the server does not
+  // publish a public GitHub README (e.g. Ahrefs, Docker Toolkit, Stack Overflow).
+  documentationUrl: entry.pageUrl,
   installPrompt: buildInstallPrompt(entry),
   targetHint: "粘贴到任意命令行 Agent 对话框执行，它会自动完成 MCP 配置",
   externalUrl: entry.github ?? undefined,

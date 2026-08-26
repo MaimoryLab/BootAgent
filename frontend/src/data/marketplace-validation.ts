@@ -6,7 +6,8 @@ export type MarketplaceValidationIssue =
   | "missing-scene"
   | "missing-source"
   | "category-type-mismatch"
-  | "missing-detail-link";
+  | "missing-detail-link"
+  | "missing-introduction-document";
 
 /** Validates the metadata required for reliable discovery and filtering. */
 export function validateMarketplaceItem(item: MarketplaceItem): MarketplaceValidationIssue[] {
@@ -24,6 +25,11 @@ export function validateMarketplaceItem(item: MarketplaceItem): MarketplaceValid
 
   const hasDetailLink = Boolean(item.installPrompt || item.readmeUrl || item.documentationUrl || item.externalUrl || item.sourceUrl);
   if (!hasDetailLink) issues.push("missing-detail-link");
+  // SkillHub README is fetched through its slug binding; all other entries
+  // must expose a stable documentation or README URL in the catalog.
+  if (!item.documentationUrl && !item.readmeUrl && item.source !== "skillhub") {
+    issues.push("missing-introduction-document");
+  }
   return issues;
 }
 
