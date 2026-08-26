@@ -42,6 +42,36 @@ function stripMarkdownFrontMatter(markdown: string): string {
   return content;
 }
 
+/** SkillHub occasionally returns a lightweight metadata preamble instead of
+ * YAML front matter. It is catalog metadata, not user-facing README content. */
+export function stripSkillhubMetadataPreamble(markdown: string): string {
+  const content = markdown.replace(/^\uFEFF/, "");
+  const lines = content.split(/\r?\n/);
+  let index = 0;
+  while (index < lines.length && lines[index].trim() === "") index += 1;
+  if (lines[index]?.trim().toLowerCase() === "readme") index += 1;
+
+  let removedMetadata = false;
+  while (index < lines.length) {
+    const line = lines[index].trim();
+    if (/^(?:name|description|metadata):\s*/i.test(line)) {
+      removedMetadata = true;
+      index += 1;
+      continue;
+    }
+    if (removedMetadata && line === "") {
+      index += 1;
+      break;
+    }
+    if (removedMetadata && line.startsWith("metadata ")) {
+      index += 1;
+      continue;
+    }
+    break;
+  }
+  return removedMetadata ? lines.slice(index).join("\n") : content;
+}
+
 export function ReadmeSection({ readmeUrl, skillhubSlug }: ReadmeSectionProps) {
   const { t } = useI18n();
   const [state, setState] = useState<FetchState>("idle");
@@ -76,7 +106,9 @@ export function ReadmeSection({ readmeUrl, skillhubSlug }: ReadmeSectionProps) {
       .then((md) => {
         if (cancelled) return;
 
-        const markdown = skillhubSlug ? stripMarkdownFrontMatter(md) : md;
+        const markdown = skillhubSlug
+          ? stripSkillhubMetadataPreamble(stripMarkdownFrontMatter(md))
+          : md;
         const rawHtml = marked.parse(markdown, { async: false }) as string;
         const clean = DOMPurify.sanitize(rawHtml, {
           USE_PROFILES: { html: true },
