@@ -7,6 +7,7 @@ vi.mock("@wailsio/runtime", () => ({ Events: { On: vi.fn(), Off: vi.fn() } }));
 import { mapSkillhubEntry } from "./skillhub-adapter";
 import { mcpserversItems } from "./mcpservers-adapter";
 import { extensionItems } from "./extension-catalog";
+import { githubItems } from "./github-adapter";
 import { normalizeShowcaseSkill, type ShowcaseSkill } from "./useMarketplaceCatalog";
 
 // ── live showcase payload normalisation (需求4) ───────────────────────────────
@@ -108,5 +109,21 @@ describe("extension catalog", () => {
     expect(extensionItems.filter((item) => item.category === "ai-product")).toHaveLength(3);
     expect(extensionItems.every((item) => item.externalUrl && item.sourceUrl)).toBe(true);
     expect(extensionItems.every((item) => item.type !== "installable")).toBe(true);
+  });
+});
+
+describe("GitHub adapter", () => {
+  it("maps recommended repositories into detailed discovery entries", () => {
+    expect(githubItems.length).toBeGreaterThanOrEqual(20);
+    expect(githubItems.some((item) => item.id === "github-diegosouzapw-omniroute")).toBe(true);
+    expect(githubItems.some((item) => item.category === "plugin")).toBe(true);
+    expect(githubItems.some((item) => item.category === "ai-product")).toBe(true);
+    for (const item of githubItems) {
+      expect(item.source).toBe("github");
+      expect(item.repositoryUrl).toMatch(/^https:\/\/github\.com\//);
+      expect(item.readmeUrl).toMatch(/^https:\/\/raw\.githubusercontent\.com\//);
+      expect(item.installPrompt).toContain("README");
+      expect(item.githubStars).toBeGreaterThan(0);
+    }
   });
 });

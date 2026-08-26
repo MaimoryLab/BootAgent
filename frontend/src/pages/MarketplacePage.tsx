@@ -85,6 +85,7 @@ const SOURCE_OPTIONS: { key: MarketplaceSource; label: TranslationKey }[] = [
   { key: "anthropic", label: "Anthropic" },
   { key: "community", label: "社区" },
   { key: "official", label: "官方" },
+  { key: "github", label: "GitHub" },
 ];
 
 const SCENE_OPTIONS: { key: MarketplaceScene; label: TranslationKey }[] = [

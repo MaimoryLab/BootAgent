@@ -48,7 +48,8 @@ export type MarketplaceSource =
   | "mcpservers"
   | "anthropic"
   | "community"
-  | "official";
+  | "official"
+  | "github";
 
 /**
  * Icon token for each card. Rendered as a coloured glyph well at the top of
@@ -130,6 +131,10 @@ export interface MarketplaceItem {
   stars?: number;
   downloads?: number;
   score?: number;
+  githubStars?: number;
+  githubForks?: number;
+  githubLicense?: string;
+  githubUpdatedAt?: string;
 }
 
 export interface MarketplaceCatalog {

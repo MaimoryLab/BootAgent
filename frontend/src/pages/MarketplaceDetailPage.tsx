@@ -137,6 +137,7 @@ const SCENE_LABEL: Record<string, TranslationKey> = {
 const SOURCE_LABEL: Record<string, TranslationKey> = {
   skillhub: "SkillHub", mcpservers: "MCP Servers", anthropic: "Anthropic",
   community: "社区", official: "官方",
+  github: "GitHub",
 };
 
 function MetaSidebar({ item }: { item: MarketplaceItem }) {
@@ -180,6 +181,40 @@ function MetaSidebar({ item }: { item: MarketplaceItem }) {
               ) : (
                 sourceLabel ? t(sourceLabel) : item.source
               )}
+            </dd>
+          </div>
+        ) : null}
+
+        {item.repositoryUrl ? (
+          <div className="detail-meta-row">
+            <dt>{t("GitHub 仓库")}</dt>
+            <dd>
+              <MarketplaceExternalLink href={item.repositoryUrl} className="detail-meta-link">
+                {t("查看仓库")} <ExternalLink size={11} aria-hidden="true" />
+              </MarketplaceExternalLink>
+            </dd>
+          </div>
+        ) : null}
+
+        {item.documentationUrl ? (
+          <div className="detail-meta-row">
+            <dt>{t("文档")}</dt>
+            <dd>
+              <MarketplaceExternalLink href={item.documentationUrl} className="detail-meta-link">
+                {t("查看文档")} <ExternalLink size={11} aria-hidden="true" />
+              </MarketplaceExternalLink>
+            </dd>
+          </div>
+        ) : null}
+
+        {item.githubLicense || item.githubUpdatedAt ? (
+          <div className="detail-meta-row">
+            <dt>{t("项目数据")}</dt>
+            <dd className="detail-meta-stack">
+              {item.githubStars !== undefined ? <span>{t("{count} Stars", { count: formatCount(item.githubStars) })}</span> : null}
+              {item.githubForks !== undefined ? <span>{t("{count} Forks", { count: formatCount(item.githubForks) })}</span> : null}
+              {item.githubLicense ? <span>{item.githubLicense}</span> : null}
+              {item.githubUpdatedAt ? <span>{item.githubUpdatedAt.slice(0, 10)}</span> : null}
             </dd>
           </div>
         ) : null}
@@ -289,7 +324,7 @@ export function MarketplaceDetailPage() {
       {/* Two-column body */}
       <div className="detail-body">
         <div className="detail-main">
-          {item.type === "installable" ? (
+          {item.installPrompt ? (
             <InstallSection item={item} />
           ) : item.externalUrl ? (
             <section className="detail-install-section">
