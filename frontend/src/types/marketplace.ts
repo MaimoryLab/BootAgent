@@ -11,16 +11,19 @@
  */
 
 export type MarketplaceCategory =
-  | "agent-enhance" // 单 Agent 增强: Skills Pack, config templates
-  | "cross-agent" // 跨 Agent 协作: global memory, session migration
-  | "mcp-server" // MCP 服务器
-  | "news" // 资讯与学习: newsletters, best practices
-  | "ecosystem"; // 生态推荐: standalone external tools, link-only
+  | "skill"
+  | "mcp-server"
+  | "plugin"
+  | "ai-product"
+  | "workflow"
+  | "content";
 
 export type MarketplaceItemType =
   | "installable" // copied prompt drives the install
   | "content" // article / subscription link, display only
-  | "external-link"; // standalone software, open URL only
+  | "external-link" // standalone software, open URL only
+  | "plugin" // plugin documentation or marketplace, open URL only
+  | "agent-product"; // standalone AI product, open URL only
 
 export type InstallableKind =
   | "skill"
@@ -42,9 +45,16 @@ export type MarketplaceScene =
 export type MarketplaceSource =
   | "skillhub"
   | "mcpservers"
+  | "mcp-registry"
+  | "npm"
+  | "pypi"
+  | "docker"
+  | "vscode"
+  | "huggingface"
   | "anthropic"
   | "community"
-  | "official";
+  | "official"
+  | "github";
 
 /**
  * Icon token for each card. Rendered as a coloured glyph well at the top of
@@ -92,7 +102,18 @@ export interface MarketplaceItem {
    * Chinese or English labels depending on the active locale.
    */
   tagKeys?: string[];
+  /** Normalized capability facets used by search and future filters. */
+  capabilities?: string[];
+  /** Ecosystem integrations supported by the item (e.g. Claude Code, Docker). */
+  integrations?: string[];
+  /** Distribution/deployment modes (e.g. CLI, Docker, SaaS). */
+  deploymentModes?: string[];
+  /** Provenance and maintenance metadata for ranking and review. */
+  trustLevel?: "official" | "verified" | "community";
+  license?: string;
+  updatedAt?: string;
   scene?: MarketplaceScene;
+  scenes?: MarketplaceScene[];
   source?: MarketplaceSource;
   /** Whether the tool requires an API key to use */
   requiresApiKey?: boolean;
@@ -100,6 +121,8 @@ export interface MarketplaceItem {
   sourceLabel?: string;
   /** Reference URL for the source — not the install target */
   sourceUrl?: string;
+  repositoryUrl?: string;
+  documentationUrl?: string;
 
   // ── installable items ────────────────────────────────────────────────────
   installableKind?: InstallableKind;
@@ -124,6 +147,10 @@ export interface MarketplaceItem {
   stars?: number;
   downloads?: number;
   score?: number;
+  githubStars?: number;
+  githubForks?: number;
+  githubLicense?: string;
+  githubUpdatedAt?: string;
 }
 
 export interface MarketplaceCatalog {

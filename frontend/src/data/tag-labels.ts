@@ -110,8 +110,27 @@ const SUB_LABEL_EN: Record<string, string> = {
  * segments of the key (e.g. "agent-tool-use" -> "tool-use"), truncated so one
  * long key cannot blow up the single-line tag row.
  */
-function fallbackLabel(key: string): string {
+function fallbackLabel(key: string, locale: Locale): string {
   const short = key.includes("-") ? key.split("-").slice(1).join("-") : key;
+  if (locale !== "en") {
+    const terms: Record<string, string> = {
+      design: "设计", image: "图像", audio: "音频", visual: "视觉", asset: "素材",
+      edit: "编辑", gen: "生成", dev: "开发", bug: "问题", fix: "修复", code: "代码",
+      office: "办公", automation: "自动化", meeting: "会议", notes: "笔记", ppt: "演示文稿",
+      knowledge: "知识", base: "基础", qa: "问答", organize: "整理", life: "生活",
+      consumption: "消费", entertainment: "娱乐", family: "家庭", local: "本地", itops: "运维",
+      config: "配置", article: "文章", rewrite: "改写", summary: "摘要", retrieval: "检索",
+    };
+    const parts = key.split("-");
+    const hasKnownTerm = parts.some((part) => terms[part]);
+    if (!hasKnownTerm) {
+      const chars = Array.from(short);
+      return chars.length > 8 ? `${chars.slice(0, 7).join("")}…` : short;
+    }
+    const translated = parts.map((part) => terms[part] ?? part).join("");
+    const chars = Array.from(translated);
+    return chars.length > 8 ? `${chars.slice(0, 7).join("")}…` : translated;
+  }
   const chars = Array.from(short);
   return chars.length > 8 ? `${chars.slice(0, 7).join("")}…` : short;
 }
@@ -119,7 +138,7 @@ function fallbackLabel(key: string): string {
 /** Display label for one raw subCategory key in the given locale. */
 export function localizeTag(key: string, locale: Locale): string {
   const mapped = locale === "en" ? SUB_LABEL_EN[key] : SUB_LABEL[key];
-  return mapped ?? fallbackLabel(key);
+  return mapped ?? fallbackLabel(key, locale);
 }
 
 /**

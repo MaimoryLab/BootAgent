@@ -39,6 +39,7 @@ import type {
 import { hasActiveFilters, EMPTY_FILTERS } from "../components/MarketplaceFilterSidebar";
 import type { FilterState } from "../components/MarketplaceFilterSidebar";
 import { copyToClipboard } from "../utils/clipboard";
+import { marketplaceIconCandidates } from "../data/marketplace-icons";
 
 // ── icon registry ─────────────────────────────────────────────────────────────
 
@@ -63,7 +64,7 @@ export function ItemIcon({ name, color, size = 22 }: { name: MarketplaceIconName
 
 // ── filter dropdown bar ───────────────────────────────────────────────────────
 
-type KindFilterKey = InstallableKind | "content" | "external-link";
+type KindFilterKey = InstallableKind | "content" | "external-link" | "plugin" | "agent-product";
 
 // Option labels are i18n dictionary keys; Dropdown translates them on render.
 const KIND_OPTIONS: { key: KindFilterKey; label: TranslationKey }[] = [
@@ -73,6 +74,8 @@ const KIND_OPTIONS: { key: KindFilterKey; label: TranslationKey }[] = [
   { key: "workflow-script", label: "工作流" },
   { key: "content", label: "内容" },
   { key: "external-link", label: "外部工具" },
+  { key: "plugin", label: "插件" },
+  { key: "agent-product", label: "独立 AI 产品" },
 ];
 
 // SkillHub / MCP Servers / Anthropic are brand names and stay untranslated;
@@ -80,9 +83,16 @@ const KIND_OPTIONS: { key: KindFilterKey; label: TranslationKey }[] = [
 const SOURCE_OPTIONS: { key: MarketplaceSource; label: TranslationKey }[] = [
   { key: "skillhub", label: "SkillHub" },
   { key: "mcpservers", label: "MCP Servers" },
+  { key: "mcp-registry", label: "MCP 官方 Registry" },
+  { key: "npm", label: "npm" },
+  { key: "pypi", label: "PyPI" },
+  { key: "docker", label: "Docker Hub" },
+  { key: "vscode", label: "VS Code Marketplace" },
+  { key: "huggingface", label: "Hugging Face" },
   { key: "anthropic", label: "Anthropic" },
   { key: "community", label: "社区" },
   { key: "official", label: "官方" },
+  { key: "github", label: "GitHub" },
 ];
 
 const SCENE_OPTIONS: { key: MarketplaceScene; label: TranslationKey }[] = [
@@ -262,26 +272,23 @@ function FilterDropdownBar({
 
 interface CategoryMeta {
   id: MarketplaceCategory | "all";
-  labelKey:
-    | "全部"
-    | "单 Agent 增强"
-    | "跨 Agent 协作"
-    | "MCP 服务器"
-    | "资讯与学习"
-    | "生态推荐";
+  labelKey: "全部" | "Skills" | "MCP 服务器" | "插件" | "独立 AI 产品" | "工作流与模板" | "内容与指南";
 }
 
 const CATEGORIES: CategoryMeta[] = [
   { id: "all", labelKey: "全部" },
-  { id: "agent-enhance", labelKey: "单 Agent 增强" },
-  { id: "cross-agent", labelKey: "跨 Agent 协作" },
+  { id: "skill", labelKey: "Skills" },
   { id: "mcp-server", labelKey: "MCP 服务器" },
-  { id: "news", labelKey: "资讯与学习" },
-  { id: "ecosystem", labelKey: "生态推荐" },
+  { id: "plugin", labelKey: "插件" },
+  { id: "ai-product", labelKey: "独立 AI 产品" },
+  { id: "workflow", labelKey: "工作流与模板" },
+  { id: "content", labelKey: "内容与指南" },
 ];
 
 function marketplaceCategoryFromSearch(searchParams: URLSearchParams): MarketplaceCategory | "all" {
   const requested = searchParams.get("category");
+  // Keep old management-page links valid while the visible taxonomy is type-based.
+  if (requested === "agent-enhance") return "skill";
   return CATEGORIES.some(({ id }) => id === requested)
     ? requested as MarketplaceCategory | "all"
     : "all";
@@ -296,15 +303,19 @@ const KIND_TONE: Record<string, "success" | "info" | "neutral"> = {
   "workflow-script": "neutral",
   content: "info",
   "external-link": "neutral",
+  plugin: "info",
+  "agent-product": "neutral",
 };
 
-const KIND_LABEL_KEY: Record<string, "Skill" | "MCP" | "提示词模板" | "工作流" | "内容" | "外部工具"> = {
+const KIND_LABEL_KEY: Record<string, "Skill" | "MCP" | "提示词模板" | "工作流" | "内容" | "外部工具" | "插件" | "独立 AI 产品"> = {
   skill: "Skill",
   mcp: "MCP",
   "prompt-template": "提示词模板",
   "workflow-script": "工作流",
   content: "内容",
   "external-link": "外部工具",
+  plugin: "插件",
+  "agent-product": "独立 AI 产品",
 };
 
 export function KindBadge({ item }: { item: MarketplaceItem }) {
@@ -320,8 +331,10 @@ export function KindBadge({ item }: { item: MarketplaceItem }) {
 
 /** Remote icon with a lucide fallback when the image fails to load. */
 function CardIcon({ item }: { item: MarketplaceItem }) {
-  const [failed, setFailed] = useState(false);
-  if (item.iconUrl && !failed) {
+  const candidates = useMemo(() => marketplaceIconCandidates(item), [item]);
+  const [candidateIndex, setCandidateIndex] = useState(0);
+  const remoteIcon = candidates[candidateIndex];
+  if (remoteIcon) {
     return (
       <span
         className="marketplace-card-icon"
@@ -329,12 +342,12 @@ function CardIcon({ item }: { item: MarketplaceItem }) {
         aria-hidden="true"
       >
         <img
-          src={item.iconUrl}
+          src={remoteIcon}
           width={24}
           height={24}
           alt=""
           style={{ borderRadius: 6 }}
-          onError={() => setFailed(true)}
+          onError={() => setCandidateIndex((index) => index + 1)}
         />
       </span>
     );
@@ -428,15 +441,16 @@ export function filterMarketplaceItems(
     if (category !== "all" && item.category !== category) return false;
 
     if (filters.kinds.size > 0) {
-      const itemKind: InstallableKind | "content" | "external-link" =
+      const itemKind: KindFilterKey =
         item.type === "installable" ? (item.installableKind ?? "skill") : item.type;
       if (!filters.kinds.has(itemKind)) return false;
     }
-    if (filters.sources.size > 0 && item.source) {
-      if (!filters.sources.has(item.source)) return false;
+    if (filters.sources.size > 0) {
+      if (!item.source || !filters.sources.has(item.source)) return false;
     }
-    if (filters.scenes.size > 0 && item.scene) {
-      if (!filters.scenes.has(item.scene)) return false;
+    if (filters.scenes.size > 0) {
+      const itemScenes = item.scenes ?? (item.scene ? [item.scene] : []);
+      if (!itemScenes.some((scene) => filters.scenes.has(scene))) return false;
     }
     if (filters.requiresApiKey !== null) {
       if ((item.requiresApiKey ?? false) !== filters.requiresApiKey) return false;
@@ -494,7 +508,7 @@ export function MarketplacePage() {
     [items],
   );
 
-  // Tabs with zero items (news/ecosystem after the mock purge) are noise.
+  // Empty type tabs are hidden until a trusted adapter supplies an item.
   const visibleCategories = CATEGORIES.filter(({ id }) => id === "all" || (counts[id] ?? 0) > 0);
   const selectCategory = (category: MarketplaceCategory | "all") => {
     const next = new URLSearchParams(searchParams);

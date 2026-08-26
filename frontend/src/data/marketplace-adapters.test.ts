@@ -6,7 +6,13 @@ vi.mock("@wailsio/runtime", () => ({ Events: { On: vi.fn(), Off: vi.fn() } }));
 
 import { mapSkillhubEntry } from "./skillhub-adapter";
 import { mcpserversItems } from "./mcpservers-adapter";
+import { extensionItems } from "./extension-catalog";
+import { githubItems } from "./github-adapter";
+import { marketplaceIconCandidates, marketplaceIconUrl } from "./marketplace-icons";
 import { normalizeShowcaseSkill, type ShowcaseSkill } from "./useMarketplaceCatalog";
+import { validateMarketplaceCatalog } from "./marketplace-validation";
+import { STATIC_CATALOG } from "./marketplace-catalog";
+import { ecosystemItems } from "./ecosystem-catalog";
 
 // ── live showcase payload normalisation (需求4) ───────────────────────────────
 
@@ -16,7 +22,7 @@ const LIVE_SKILL: ShowcaseSkill = {
   description: "A skill where the agent logs its own findings",
   description_zh: "记录自身发现以实现自我改进的技能",
   iconUrl: "https://example.com/icon.png",
-  category: "ai-agent",
+  category: "skill",
   // Live API sends objects; the bundled snapshot uses plain strings.
   subCategories: [
     { key: "agent-context", name: "上下文管理" },
@@ -77,6 +83,7 @@ describe("mapSkillhubEntry", () => {
     expect(item.description).toBe("记录自身发现以实现自我改进的技能");
     expect(item.descriptionEn).toBe("A skill where the agent logs its own findings");
     expect(item.source).toBe("skillhub");
+    expect(item.category).toBe("skill");
   });
 
   it("keeps raw subCategory keys in tagKeys and Chinese labels in tags", () => {
@@ -98,5 +105,76 @@ describe("mcpservers iconUrl", () => {
     const withoutGithub = mcpserversItems.find((i) => i.id === "mcp-ahrefs-mcp-server");
     expect(withoutGithub).toBeDefined();
     expect(withoutGithub?.iconUrl).toBeUndefined();
+  });
+});
+
+describe("extension catalog", () => {
+  it("contains official plugin and standalone AI product entries", () => {
+    expect(extensionItems.filter((item) => item.category === "plugin")).toHaveLength(2);
+    expect(extensionItems.filter((item) => item.category === "ai-product")).toHaveLength(3);
+    expect(extensionItems.every((item) => item.externalUrl && item.sourceUrl)).toBe(true);
+    expect(extensionItems.every((item) => item.type !== "installable")).toBe(true);
+  });
+});
+
+describe("GitHub adapter", () => {
+  it("maps recommended repositories into detailed discovery entries", () => {
+    expect(githubItems.length).toBeGreaterThanOrEqual(20);
+    expect(githubItems.some((item) => item.id === "github-diegosouzapw-omniroute")).toBe(true);
+    expect(githubItems.some((item) => item.category === "plugin")).toBe(true);
+    expect(githubItems.some((item) => item.category === "ai-product")).toBe(true);
+    for (const item of githubItems) {
+      expect(item.source).toBe("github");
+      expect(item.repositoryUrl).toMatch(/^https:\/\/github\.com\//);
+      expect(item.readmeUrl).toMatch(/^https:\/\/raw\.githubusercontent\.com\//);
+      expect(item.installPrompt).toContain("README");
+      expect(item.githubStars).toBeGreaterThan(0);
+    }
+  });
+
+  it("keeps category and item type aligned", () => {
+    expect(githubItems.filter((item) => item.category === "plugin").every((item) => item.type === "plugin")).toBe(true);
+    expect(githubItems.filter((item) => item.category === "ai-product").every((item) => item.type === "agent-product")).toBe(true);
+  });
+});
+
+describe("marketplace catalog metadata", () => {
+  it("has complete metadata for every discoverable item", () => {
+    expect(validateMarketplaceCatalog(STATIC_CATALOG.items)).toEqual([]);
+  });
+
+  it("includes first-party registries and package ecosystems as traceable sources", () => {
+    expect(ecosystemItems.map((item) => item.source)).toEqual(expect.arrayContaining([
+      "anthropic", "npm", "docker", "vscode", "pypi", "mcp-registry",
+    ]));
+    expect(ecosystemItems.every((item) => item.capabilities?.length && item.deploymentModes?.length)).toBe(true);
+  });
+});
+
+describe("marketplace icon resolution", () => {
+  it("uses explicit icons first, then GitHub identity, then a domain favicon", () => {
+    expect(marketplaceIconCandidates({
+      iconUrl: "https://cloudcache.tencent-cloud.com/icon.png",
+      repositoryUrl: "https://github.com/acme/tool",
+      externalUrl: "https://tool.example.com",
+      sourceUrl: "https://source.example.com",
+      documentationUrl: undefined,
+    })[0]).toBe("https://cloudcache.tencent-cloud.com/icon.png");
+    expect(marketplaceIconUrl({
+      repositoryUrl: "https://github.com/acme/tool",
+      externalUrl: undefined,
+      sourceUrl: undefined,
+      documentationUrl: undefined,
+    })).toBe("https://github.com/acme.png?size=64");
+  });
+
+  it("rejects non-HTTPS and untrusted explicit icon URLs", () => {
+    expect(marketplaceIconCandidates({
+      iconUrl: "http://evil.example/icon.png",
+      repositoryUrl: undefined,
+      externalUrl: "javascript:alert(1)",
+      sourceUrl: undefined,
+      documentationUrl: undefined,
+    })).toEqual([]);
   });
 });

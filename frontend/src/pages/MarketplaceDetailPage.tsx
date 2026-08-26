@@ -12,6 +12,7 @@ import { StatusBadge } from "../components/StatusBadge";
 import { useI18n, type TranslationKey } from "../i18n";
 import type { MarketplaceIconName, MarketplaceItem } from "../types/marketplace";
 import { copyToClipboard } from "../utils/clipboard";
+import { marketplaceIconCandidates } from "../data/marketplace-icons";
 
 /** 12,345 -> "12.3k"; keeps the stats strip compact like skillhub's. */
 function formatCount(n: number): string {
@@ -28,10 +29,12 @@ const ICON_MAP: Record<MarketplaceIconName, ComponentType<{ size?: number; strok
   Code2, ExternalLink,
 };
 
-function ItemIcon({ name, color, size = 28, iconUrl }: { name: MarketplaceIconName; color: string; size?: number; iconUrl?: string }) {
-  // Remote icons can 404; fall back to the lucide glyph when loading fails.
-  const [failed, setFailed] = useState(false);
-  if (iconUrl && !failed) {
+function ItemIcon({ item, size = 28 }: { item: MarketplaceItem; size?: number }) {
+  const { name, color, iconUrl } = { name: item.icon, color: item.iconColor, iconUrl: item.iconUrl };
+  const candidates = marketplaceIconCandidates(item);
+  const [candidateIndex, setCandidateIndex] = useState(0);
+  const remoteIcon = candidates[candidateIndex];
+  if (remoteIcon) {
     return (
       <span
         className="detail-icon-well"
@@ -39,12 +42,12 @@ function ItemIcon({ name, color, size = 28, iconUrl }: { name: MarketplaceIconNa
         aria-hidden="true"
       >
         <img
-          src={iconUrl}
+          src={remoteIcon}
           width={size}
           height={size}
           alt=""
           style={{ borderRadius: 8 }}
-          onError={() => setFailed(true)}
+          onError={() => setCandidateIndex((index) => index + 1)}
         />
       </span>
     );
@@ -67,12 +70,14 @@ const KIND_TONE: Record<string, "success" | "info" | "neutral"> = {
   skill: "success", mcp: "info",
   "prompt-template": "neutral", "workflow-script": "neutral",
   content: "info", "external-link": "neutral",
+  plugin: "info", "agent-product": "neutral",
 };
 // Values are i18n dictionary keys, translated with t() at render time.
 const KIND_LABEL: Record<string, TranslationKey> = {
   skill: "Skill", mcp: "MCP",
   "prompt-template": "提示词模板", "workflow-script": "工作流",
   content: "内容", "external-link": "外部工具",
+  plugin: "插件", "agent-product": "独立 AI 产品",
 };
 
 // ── copy-prompt section ───────────────────────────────────────────────────────
@@ -134,7 +139,10 @@ const SCENE_LABEL: Record<string, TranslationKey> = {
 // with identical English values; 社区/官方 actually translate.
 const SOURCE_LABEL: Record<string, TranslationKey> = {
   skillhub: "SkillHub", mcpservers: "MCP Servers", anthropic: "Anthropic",
+  "mcp-registry": "MCP 官方 Registry", npm: "npm", pypi: "PyPI",
+  docker: "Docker Hub", vscode: "VS Code Marketplace", huggingface: "Hugging Face",
   community: "社区", official: "官方",
+  github: "GitHub",
 };
 
 function MetaSidebar({ item }: { item: MarketplaceItem }) {
@@ -179,6 +187,61 @@ function MetaSidebar({ item }: { item: MarketplaceItem }) {
                 sourceLabel ? t(sourceLabel) : item.source
               )}
             </dd>
+          </div>
+        ) : null}
+
+        {item.repositoryUrl ? (
+          <div className="detail-meta-row">
+            <dt>{t("GitHub 仓库")}</dt>
+            <dd>
+              <MarketplaceExternalLink href={item.repositoryUrl} className="detail-meta-link">
+                {t("查看仓库")} <ExternalLink size={11} aria-hidden="true" />
+              </MarketplaceExternalLink>
+            </dd>
+          </div>
+        ) : null}
+
+        {item.documentationUrl ? (
+          <div className="detail-meta-row">
+            <dt>{t("文档")}</dt>
+            <dd>
+              <MarketplaceExternalLink href={item.documentationUrl} className="detail-meta-link">
+                {t("查看文档")} <ExternalLink size={11} aria-hidden="true" />
+              </MarketplaceExternalLink>
+            </dd>
+          </div>
+        ) : null}
+
+        {item.githubLicense || item.githubUpdatedAt ? (
+          <div className="detail-meta-row">
+            <dt>{t("项目数据")}</dt>
+            <dd className="detail-meta-stack">
+              {item.githubStars !== undefined ? <span>{t("{count} Stars", { count: formatCount(item.githubStars) })}</span> : null}
+              {item.githubForks !== undefined ? <span>{t("{count} Forks", { count: formatCount(item.githubForks) })}</span> : null}
+              {item.githubLicense ? <span>{item.githubLicense}</span> : null}
+              {item.githubUpdatedAt ? <span>{item.githubUpdatedAt.slice(0, 10)}</span> : null}
+            </dd>
+          </div>
+        ) : null}
+
+        {item.capabilities?.length ? (
+          <div className="detail-meta-row">
+            <dt>{t("能力")}</dt>
+            <dd className="detail-meta-stack">{item.capabilities.map((value) => <span key={value}>{value}</span>)}</dd>
+          </div>
+        ) : null}
+
+        {item.integrations?.length ? (
+          <div className="detail-meta-row">
+            <dt>{t("集成")}</dt>
+            <dd className="detail-meta-stack">{item.integrations.map((value) => <span key={value}>{value}</span>)}</dd>
+          </div>
+        ) : null}
+
+        {item.deploymentModes?.length ? (
+          <div className="detail-meta-row">
+            <dt>{t("部署方式")}</dt>
+            <dd className="detail-meta-stack">{item.deploymentModes.map((value) => <span key={value}>{value}</span>)}</dd>
           </div>
         ) : null}
 
@@ -255,7 +318,7 @@ export function MarketplaceDetailPage() {
     >
       {/* Hero header */}
       <div className="detail-hero">
-        <ItemIcon name={item.icon} color={item.iconColor} size={32} iconUrl={item.iconUrl} />
+        <ItemIcon item={item} size={32} />
         <div className="detail-hero-meta">
           <h1 className="detail-hero-title">{item.name}</h1>
           <p className="detail-hero-desc">
@@ -287,7 +350,7 @@ export function MarketplaceDetailPage() {
       {/* Two-column body */}
       <div className="detail-body">
         <div className="detail-main">
-          {item.type === "installable" ? (
+          {item.installPrompt ? (
             <InstallSection item={item} />
           ) : item.externalUrl ? (
             <section className="detail-install-section">
