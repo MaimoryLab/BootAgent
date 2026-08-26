@@ -690,6 +690,7 @@ const english = {
   "Anthropic": "Anthropic",
   "社区": "Community",
   "官方": "Official",
+  "GitHub": "GitHub",
   "API Key": "API Key",
   // live catalog indicator
   "实时数据": "Live data",
@@ -709,6 +710,13 @@ const english = {
   "是": "Yes",
   "否": "No",
   "访问官网": "Visit website",
+  "GitHub 仓库": "GitHub repository",
+  "查看仓库": "View repository",
+  "文档": "Documentation",
+  "查看文档": "View documentation",
+  "项目数据": "Project data",
+  "{count} Stars": "{count} Stars",
+  "{count} Forks": "{count} Forks",
   "安装完成后，可在 Skills 页管理它。": "After installation, manage it on the Skills page.",
   // readme
   "README": "README",
