@@ -39,6 +39,7 @@ import type {
 import { hasActiveFilters, EMPTY_FILTERS } from "../components/MarketplaceFilterSidebar";
 import type { FilterState } from "../components/MarketplaceFilterSidebar";
 import { copyToClipboard } from "../utils/clipboard";
+import { marketplaceIconCandidates } from "../data/marketplace-icons";
 
 // ── icon registry ─────────────────────────────────────────────────────────────
 
@@ -331,8 +332,10 @@ export function KindBadge({ item }: { item: MarketplaceItem }) {
 
 /** Remote icon with a lucide fallback when the image fails to load. */
 function CardIcon({ item }: { item: MarketplaceItem }) {
-  const [failed, setFailed] = useState(false);
-  if (item.iconUrl && !failed) {
+  const candidates = useMemo(() => marketplaceIconCandidates(item), [item]);
+  const [candidateIndex, setCandidateIndex] = useState(0);
+  const remoteIcon = candidates[candidateIndex];
+  if (remoteIcon) {
     return (
       <span
         className="marketplace-card-icon"
@@ -340,12 +343,12 @@ function CardIcon({ item }: { item: MarketplaceItem }) {
         aria-hidden="true"
       >
         <img
-          src={item.iconUrl}
+          src={remoteIcon}
           width={24}
           height={24}
           alt=""
           style={{ borderRadius: 6 }}
-          onError={() => setFailed(true)}
+          onError={() => setCandidateIndex((index) => index + 1)}
         />
       </span>
     );

@@ -8,6 +8,7 @@ import { mapSkillhubEntry } from "./skillhub-adapter";
 import { mcpserversItems } from "./mcpservers-adapter";
 import { extensionItems } from "./extension-catalog";
 import { githubItems } from "./github-adapter";
+import { marketplaceIconCandidates, marketplaceIconUrl } from "./marketplace-icons";
 import { normalizeShowcaseSkill, type ShowcaseSkill } from "./useMarketplaceCatalog";
 
 // ── live showcase payload normalisation (需求4) ───────────────────────────────
@@ -125,5 +126,33 @@ describe("GitHub adapter", () => {
       expect(item.installPrompt).toContain("README");
       expect(item.githubStars).toBeGreaterThan(0);
     }
+  });
+});
+
+describe("marketplace icon resolution", () => {
+  it("uses explicit icons first, then GitHub identity, then a domain favicon", () => {
+    expect(marketplaceIconCandidates({
+      iconUrl: "https://cloudcache.tencent-cloud.com/icon.png",
+      repositoryUrl: "https://github.com/acme/tool",
+      externalUrl: "https://tool.example.com",
+      sourceUrl: "https://source.example.com",
+      documentationUrl: undefined,
+    })[0]).toBe("https://cloudcache.tencent-cloud.com/icon.png");
+    expect(marketplaceIconUrl({
+      repositoryUrl: "https://github.com/acme/tool",
+      externalUrl: undefined,
+      sourceUrl: undefined,
+      documentationUrl: undefined,
+    })).toBe("https://github.com/acme.png?size=64");
+  });
+
+  it("rejects non-HTTPS and untrusted explicit icon URLs", () => {
+    expect(marketplaceIconCandidates({
+      iconUrl: "http://evil.example/icon.png",
+      repositoryUrl: undefined,
+      externalUrl: "javascript:alert(1)",
+      sourceUrl: undefined,
+      documentationUrl: undefined,
+    })).toEqual([]);
   });
 });
