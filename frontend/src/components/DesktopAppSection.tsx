@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 
 import { api, describeFailure } from "../backend/api";
 import { useI18n } from "../i18n";
+import { converterProfileName } from "../state/conversion";
 import { useConversationMigration } from "../hooks/useConversationMigration";
 import { taskCanceller, taskKey, useTaskCenter, useTaskRoute } from "../state/TaskCenterContext";
 import type { DesktopAgentStatus, ProfileSummary } from "../types/api";
@@ -37,6 +38,7 @@ const LAUNCH_NOTICE_MS = 4000;
 
 export function DesktopAppSection({ app: desktopApp, onChanged, onSetup, onConfigure, profile, providerName, model, showUninstalled = true, showHeading = true }: DesktopAppSectionProps) {
   const { t } = useI18n();
+  const profileName = profile ? converterProfileName(profile.id, profile.label || profile.id, t) : desktopApp.profileId || "";
   const { startTask, finishTask, setTaskCanceller, taskFor } = useTaskCenter();
   const route = useTaskRoute();
   const migration = useConversationMigration();
@@ -158,8 +160,8 @@ export function DesktopAppSection({ app: desktopApp, onChanged, onSetup, onConfi
               this card twice the height of the rows beneath it for the same
               four values. */}
           <div className="desktop-app-meta">
-            <span className={`agent-manage-pill${profile?.label || desktopApp.profileId ? "" : " is-muted"}`} title={t("配置模版")}>
-              {profile?.label || desktopApp.profileId || t("无配置模版")}
+            <span className={`agent-manage-pill${profileName ? "" : " is-muted"}`} title={t("配置模版")}>
+              {profileName || t("无配置模版")}
             </span>
             <span className={`agent-manage-pill${providerName || profile?.provider ? "" : " is-muted"}`} title={t("模型服务")}>
               {providerName || profile?.provider ? <i aria-hidden="true" /> : null}
