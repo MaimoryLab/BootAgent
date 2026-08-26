@@ -100,7 +100,11 @@ export function ConversionPage() {
     >
       {failure ? <p className="settings-field-error" role="status">{failure}</p> : null}
       {config ? <div className="provider-editor conversion-editor">
-        <p className="conversion-intro">{t("适配器介绍")}</p>
+        <section className="conversion-explainer">
+          <h3>{t("为什么需要它")}</h3>
+          <p>{t("不同 Agent 要求的 API 协议不一样：Codex 只发 OpenAI Responses 请求，Claude Code 只发 Anthropic Messages 请求，OpenCode 和 Aider 发 Chat Completions 请求。而一个模型服务通常只支持其中一部分。")}</p>
+          <p>{t("开启后，BootAgent 会在本机监听一个地址，把这三种协议的请求都翻译成 Chat Completions 再转发给下面选中的模型服务。这样协议不匹配的 Agent 也能连上它。")}</p>
+        </section>
 
         <section className="conversion-agents">
           <h3>{t("哪些 Agent 会用到它")}</h3>

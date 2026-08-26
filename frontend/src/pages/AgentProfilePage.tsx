@@ -10,7 +10,7 @@ import { SelectField } from "../components/SelectField";
 import { useI18n } from "../i18n";
 import { desktopApps, desktopProfileUsable, desktopProfiles, desktopProtocol, profileAgentIdForDesktop } from "../state/desktopSetup";
 import { byProfileCreatedAt, byProviderCreatedAt, preferProviderWithKey } from "../state/ranking";
-import { isConverterID } from "../state/conversion";
+import { converterProfileName, isConverterID } from "../state/conversion";
 import { useWizard } from "../state/WizardContext";
 import type { ProfileSummary, ProtocolId, ProviderId } from "../types/api";
 
@@ -91,6 +91,7 @@ export function AgentProfilePage() {
   }
 
   const selected = profiles.find((profile) => profile.id === selectedId);
+  const displayProfileName = (profile: ProfileSummary) => converterProfileName(profile.id, profile.label || profile.id, t);
   const duplicateID = Boolean(draft && !draft.originalId && status.profiles.some((profile) => profile.id === draft.id.trim().toLowerCase()));
   const canSave = Boolean(draft?.id.trim() && draft?.provider && draft?.model.trim() && !duplicateID);
   const canApply = Boolean(selected && desktopProfileUsable(status, selected, app));
@@ -228,7 +229,7 @@ export function AgentProfilePage() {
       primaryLabel={busy ? t("应用中") : t("应用")}
       onPrimary={() => void apply()}
       primaryDisabled={!canApply || busy}
-      footerNote={selected?.label || t("选择一个配置模版")}
+      footerNote={selected ? displayProfileName(selected) : t("选择一个配置模版")}
       // Stays secondary: this footer already has a primary ("应用"), and two
       // blue buttons side by side would compete for the same attention.
       secondaryAction={(
@@ -325,11 +326,12 @@ export function AgentProfilePage() {
           {profiles.map((profile) => {
             const usable = desktopProfileUsable(status, profile, app);
             const active = selectedId === profile.id;
+            const displayName = displayProfileName(profile);
             return (
             <article className={`profile-card profile-choice${active ? " is-selected" : ""}${!usable ? " is-disabled" : ""}`} key={profile.id} data-testid={`agent-profile-${profile.id}`} onClick={() => { if (usable) setSelectedId(profile.id); }}>
                 <label className="profile-choice-main">
-                  <input type="radio" name="agent-profile" checked={active} disabled={!usable} onChange={() => setSelectedId(profile.id)} aria-label={t("选择 {name}", { name: profile.label })} />
-                  <span className="profile-title"><strong>{profile.label}</strong><small>{profile.id}</small></span>
+                  <input type="radio" name="agent-profile" checked={active} disabled={!usable} onChange={() => setSelectedId(profile.id)} aria-label={t("选择 {name}", { name: displayName })} />
+                  <span className="profile-title"><strong>{displayName}</strong><small>{profile.id}</small></span>
                   {active ? <Check size={16} aria-hidden="true" /> : null}
                 </label>
                 {/* The selected Profile's model is editable right here, so the

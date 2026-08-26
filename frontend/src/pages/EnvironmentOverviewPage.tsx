@@ -6,6 +6,7 @@ import { DesktopAppSection } from "../components/DesktopAppSection";
 import { PageScaffold } from "../components/PageScaffold";
 import { RuntimeSection } from "../components/RuntimeSection";
 import { useI18n } from "../i18n";
+import { converterProfileName } from "../state/conversion";
 import { desktopApps, profileAgentIdForDesktop } from "../state/desktopSetup";
 import { useWizard } from "../state/WizardContext";
 import type { AgentStatus } from "../types/api";
@@ -135,7 +136,7 @@ export function EnvironmentOverviewPage() {
                 catalog={item}
                 status={agent}
                 providers={status.providers}
-                profileName={profile?.label || profile?.id || ""}
+                profileName={profile ? converterProfileName(profile.id, profile.label || profile.id, t) : ""}
                 profile={profile}
                 defaultDirectory={status.paths.launch_directory}
                 onChanged={refreshStatus}
