@@ -13,6 +13,7 @@ import { normalizeShowcaseSkill, type ShowcaseSkill } from "./useMarketplaceCata
 import { validateMarketplaceCatalog } from "./marketplace-validation";
 import { STATIC_CATALOG } from "./marketplace-catalog";
 import { ecosystemItems } from "./ecosystem-catalog";
+import type { MarketplaceItem } from "../types/marketplace";
 
 // ── live showcase payload normalisation (需求4) ───────────────────────────────
 
@@ -141,6 +142,17 @@ describe("GitHub adapter", () => {
 describe("marketplace catalog metadata", () => {
   it("has complete metadata for every discoverable item", () => {
     expect(validateMarketplaceCatalog(STATIC_CATALOG.items)).toEqual([]);
+  });
+
+  it("rejects a source-only item without an introduction document", () => {
+    const sourceOnly = {
+      id: "source-only", category: "plugin", type: "plugin", name: "Source only",
+      description: "A test entry", icon: "Puzzle", iconColor: "oklch(55% 0.15 160)",
+      tags: ["测试"], scene: "integration", source: "community", sourceUrl: "https://example.com",
+    } satisfies MarketplaceItem;
+    expect(validateMarketplaceCatalog([sourceOnly])).toEqual([
+      expect.objectContaining({ issue: "missing-introduction-document" }),
+    ]);
   });
 
   it("includes first-party registries and package ecosystems as traceable sources", () => {
