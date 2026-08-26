@@ -1,7 +1,8 @@
 import type { MarketplaceItem } from "../types/marketplace";
+import { marketplaceIconUrl } from "./marketplace-icons";
 
 /** Curated, discovery-only entries backed by first-party product pages. */
-export const extensionItems: MarketplaceItem[] = [
+export const extensionItems: MarketplaceItem[] = ([
   {
     id: "plugin-claude-code",
     category: "plugin",
@@ -89,4 +90,7 @@ export const extensionItems: MarketplaceItem[] = [
     externalUrl: "https://docs.continue.dev/",
     readmeUrl: "https://raw.githubusercontent.com/continuedev/continue/main/README.md",
   },
-];
+] satisfies MarketplaceItem[]).map((item) => ({
+  ...item,
+  iconUrl: marketplaceIconUrl(item),
+}));

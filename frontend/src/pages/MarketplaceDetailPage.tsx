@@ -12,6 +12,7 @@ import { StatusBadge } from "../components/StatusBadge";
 import { useI18n, type TranslationKey } from "../i18n";
 import type { MarketplaceIconName, MarketplaceItem } from "../types/marketplace";
 import { copyToClipboard } from "../utils/clipboard";
+import { marketplaceIconCandidates } from "../data/marketplace-icons";
 
 /** 12,345 -> "12.3k"; keeps the stats strip compact like skillhub's. */
 function formatCount(n: number): string {
@@ -28,10 +29,12 @@ const ICON_MAP: Record<MarketplaceIconName, ComponentType<{ size?: number; strok
   Code2, ExternalLink,
 };
 
-function ItemIcon({ name, color, size = 28, iconUrl }: { name: MarketplaceIconName; color: string; size?: number; iconUrl?: string }) {
-  // Remote icons can 404; fall back to the lucide glyph when loading fails.
-  const [failed, setFailed] = useState(false);
-  if (iconUrl && !failed) {
+function ItemIcon({ item, size = 28 }: { item: MarketplaceItem; size?: number }) {
+  const { name, color, iconUrl } = { name: item.icon, color: item.iconColor, iconUrl: item.iconUrl };
+  const candidates = marketplaceIconCandidates(item);
+  const [candidateIndex, setCandidateIndex] = useState(0);
+  const remoteIcon = candidates[candidateIndex];
+  if (remoteIcon) {
     return (
       <span
         className="detail-icon-well"
@@ -39,12 +42,12 @@ function ItemIcon({ name, color, size = 28, iconUrl }: { name: MarketplaceIconNa
         aria-hidden="true"
       >
         <img
-          src={iconUrl}
+          src={remoteIcon}
           width={size}
           height={size}
           alt=""
           style={{ borderRadius: 8 }}
-          onError={() => setFailed(true)}
+          onError={() => setCandidateIndex((index) => index + 1)}
         />
       </span>
     );
@@ -292,7 +295,7 @@ export function MarketplaceDetailPage() {
     >
       {/* Hero header */}
       <div className="detail-hero">
-        <ItemIcon name={item.icon} color={item.iconColor} size={32} iconUrl={item.iconUrl} />
+        <ItemIcon item={item} size={32} />
         <div className="detail-hero-meta">
           <h1 className="detail-hero-title">{item.name}</h1>
           <p className="detail-hero-desc">

@@ -1,4 +1,5 @@
 import type { MarketplaceCategory, MarketplaceIconName, MarketplaceItem, MarketplaceScene } from "../types/marketplace";
+import { marketplaceIconUrl } from "./marketplace-icons";
 
 interface GitHubRepositorySpec {
   repo: string;
@@ -74,6 +75,7 @@ export const githubItems: MarketplaceItem[] = repositories.map((spec) => {
     description: spec.description,
     descriptionEn: spec.descriptionEn,
     icon: spec.icon,
+    iconUrl: marketplaceIconUrl({ repositoryUrl }),
     iconColor: spec.category === "plugin" ? "oklch(62% 0.15 35)" : "oklch(58% 0.15 250)",
     tags: spec.tags,
     scene: spec.scene,
