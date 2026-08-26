@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 
 import { PageScaffold } from "../components/PageScaffold";
 import { useI18n } from "../i18n";
+import { converterProfileName } from "../state/conversion";
 import { useWizard } from "../state/WizardContext";
 import { desktopProtocol, profileAgentIdForDesktop, selectedDesktopApp } from "../state/desktopSetup";
 import { byProfileCreatedAt } from "../state/ranking";
@@ -27,6 +28,7 @@ export function ProfileSelectionPage() {
     [protocol, state.status?.profiles],
   );
   const selected = profiles.find((profile) => profile.id === selectedId);
+  const displayProfileName = (profile: (typeof profiles)[number]) => converterProfileName(profile.id, profile.label || profile.id, t);
 
   useEffect(() => {
     if (!selectedId && profiles.length) setSelectedId(profiles[0].id);
@@ -67,11 +69,12 @@ export function ProfileSelectionPage() {
       <div className="profile-list">
         {profiles.map((profile) => {
           const active = selectedId === profile.id;
+          const displayName = displayProfileName(profile);
           return (
             <article className={`profile-card profile-choice${active ? " is-selected" : ""}`} key={profile.id} onClick={() => setSelectedId(profile.id)}>
               <label className="profile-choice-main">
-                <input type="radio" name="setup-profile" checked={active} onChange={() => setSelectedId(profile.id)} aria-label={t("选择 {name}", { name: profile.label })} />
-                <span className="profile-title"><strong>{profile.label}</strong><small>{profile.id}</small></span>
+                <input type="radio" name="setup-profile" checked={active} onChange={() => setSelectedId(profile.id)} aria-label={t("选择 {name}", { name: displayName })} />
+                <span className="profile-title"><strong>{displayName}</strong><small>{profile.id}</small></span>
                 {active ? <Check size={16} aria-hidden="true" /> : null}
               </label>
               <p>{status.providers[profile.provider]?.name || profile.provider} · {profile.model}</p>

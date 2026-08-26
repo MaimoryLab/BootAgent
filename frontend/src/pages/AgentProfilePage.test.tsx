@@ -175,4 +175,15 @@ describe("AgentProfilePage", () => {
     fireEvent.click(screen.getByRole("button", { name: /编辑/ }));
     expect(await screen.findByLabelText("思考深度")).toBeTruthy();
   });
+
+  it("shows generated adapter Profiles with a Chinese user-facing name", () => {
+    renderPage([profile({
+      id: "bootagent-converter-responses",
+      label: "BootAgent Converter responses",
+    })]);
+
+    expect(screen.getAllByText("协议适配（Codex）")).toHaveLength(2);
+    expect(screen.queryByText("BootAgent Converter responses")).toBeNull();
+    expect(screen.getByRole("radio", { name: "选择 协议适配（Codex）" })).toBeTruthy();
+  });
 });
