@@ -63,7 +63,7 @@ export function ItemIcon({ name, color, size = 22 }: { name: MarketplaceIconName
 
 // ── filter dropdown bar ───────────────────────────────────────────────────────
 
-type KindFilterKey = InstallableKind | "content" | "external-link";
+type KindFilterKey = InstallableKind | "content" | "external-link" | "plugin" | "agent-product";
 
 // Option labels are i18n dictionary keys; Dropdown translates them on render.
 const KIND_OPTIONS: { key: KindFilterKey; label: TranslationKey }[] = [
@@ -73,6 +73,8 @@ const KIND_OPTIONS: { key: KindFilterKey; label: TranslationKey }[] = [
   { key: "workflow-script", label: "工作流" },
   { key: "content", label: "内容" },
   { key: "external-link", label: "外部工具" },
+  { key: "plugin", label: "插件" },
+  { key: "agent-product", label: "独立 AI 产品" },
 ];
 
 // SkillHub / MCP Servers / Anthropic are brand names and stay untranslated;
@@ -268,7 +270,9 @@ interface CategoryMeta {
     | "跨 Agent 协作"
     | "MCP 服务器"
     | "资讯与学习"
-    | "生态推荐";
+    | "生态推荐"
+    | "插件"
+    | "独立 AI 产品";
 }
 
 const CATEGORIES: CategoryMeta[] = [
@@ -278,6 +282,8 @@ const CATEGORIES: CategoryMeta[] = [
   { id: "mcp-server", labelKey: "MCP 服务器" },
   { id: "news", labelKey: "资讯与学习" },
   { id: "ecosystem", labelKey: "生态推荐" },
+  { id: "plugin", labelKey: "插件" },
+  { id: "ai-product", labelKey: "独立 AI 产品" },
 ];
 
 function marketplaceCategoryFromSearch(searchParams: URLSearchParams): MarketplaceCategory | "all" {
@@ -296,15 +302,19 @@ const KIND_TONE: Record<string, "success" | "info" | "neutral"> = {
   "workflow-script": "neutral",
   content: "info",
   "external-link": "neutral",
+  plugin: "info",
+  "agent-product": "neutral",
 };
 
-const KIND_LABEL_KEY: Record<string, "Skill" | "MCP" | "提示词模板" | "工作流" | "内容" | "外部工具"> = {
+const KIND_LABEL_KEY: Record<string, "Skill" | "MCP" | "提示词模板" | "工作流" | "内容" | "外部工具" | "插件" | "独立 AI 产品"> = {
   skill: "Skill",
   mcp: "MCP",
   "prompt-template": "提示词模板",
   "workflow-script": "工作流",
   content: "内容",
   "external-link": "外部工具",
+  plugin: "插件",
+  "agent-product": "独立 AI 产品",
 };
 
 export function KindBadge({ item }: { item: MarketplaceItem }) {
@@ -428,7 +438,7 @@ export function filterMarketplaceItems(
     if (category !== "all" && item.category !== category) return false;
 
     if (filters.kinds.size > 0) {
-      const itemKind: InstallableKind | "content" | "external-link" =
+      const itemKind: KindFilterKey =
         item.type === "installable" ? (item.installableKind ?? "skill") : item.type;
       if (!filters.kinds.has(itemKind)) return false;
     }

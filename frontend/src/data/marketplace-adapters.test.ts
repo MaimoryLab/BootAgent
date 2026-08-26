@@ -6,6 +6,7 @@ vi.mock("@wailsio/runtime", () => ({ Events: { On: vi.fn(), Off: vi.fn() } }));
 
 import { mapSkillhubEntry } from "./skillhub-adapter";
 import { mcpserversItems } from "./mcpservers-adapter";
+import { extensionItems } from "./extension-catalog";
 import { normalizeShowcaseSkill, type ShowcaseSkill } from "./useMarketplaceCatalog";
 
 // ── live showcase payload normalisation (需求4) ───────────────────────────────
@@ -98,5 +99,14 @@ describe("mcpservers iconUrl", () => {
     const withoutGithub = mcpserversItems.find((i) => i.id === "mcp-ahrefs-mcp-server");
     expect(withoutGithub).toBeDefined();
     expect(withoutGithub?.iconUrl).toBeUndefined();
+  });
+});
+
+describe("extension catalog", () => {
+  it("contains official plugin and standalone AI product entries", () => {
+    expect(extensionItems.filter((item) => item.category === "plugin")).toHaveLength(2);
+    expect(extensionItems.filter((item) => item.category === "ai-product")).toHaveLength(3);
+    expect(extensionItems.every((item) => item.externalUrl && item.sourceUrl)).toBe(true);
+    expect(extensionItems.every((item) => item.type !== "installable")).toBe(true);
   });
 });

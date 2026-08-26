@@ -67,12 +67,14 @@ const KIND_TONE: Record<string, "success" | "info" | "neutral"> = {
   skill: "success", mcp: "info",
   "prompt-template": "neutral", "workflow-script": "neutral",
   content: "info", "external-link": "neutral",
+  plugin: "info", "agent-product": "neutral",
 };
 // Values are i18n dictionary keys, translated with t() at render time.
 const KIND_LABEL: Record<string, TranslationKey> = {
   skill: "Skill", mcp: "MCP",
   "prompt-template": "提示词模板", "workflow-script": "工作流",
   content: "内容", "external-link": "外部工具",
+  plugin: "插件", "agent-product": "独立 AI 产品",
 };
 
 // ── copy-prompt section ───────────────────────────────────────────────────────
