@@ -139,6 +139,8 @@ const SCENE_LABEL: Record<string, TranslationKey> = {
 // with identical English values; 社区/官方 actually translate.
 const SOURCE_LABEL: Record<string, TranslationKey> = {
   skillhub: "SkillHub", mcpservers: "MCP Servers", anthropic: "Anthropic",
+  "mcp-registry": "MCP 官方 Registry", npm: "npm", pypi: "PyPI",
+  docker: "Docker Hub", vscode: "VS Code Marketplace", huggingface: "Hugging Face",
   community: "社区", official: "官方",
   github: "GitHub",
 };
@@ -219,6 +221,27 @@ function MetaSidebar({ item }: { item: MarketplaceItem }) {
               {item.githubLicense ? <span>{item.githubLicense}</span> : null}
               {item.githubUpdatedAt ? <span>{item.githubUpdatedAt.slice(0, 10)}</span> : null}
             </dd>
+          </div>
+        ) : null}
+
+        {item.capabilities?.length ? (
+          <div className="detail-meta-row">
+            <dt>{t("能力")}</dt>
+            <dd className="detail-meta-stack">{item.capabilities.map((value) => <span key={value}>{value}</span>)}</dd>
+          </div>
+        ) : null}
+
+        {item.integrations?.length ? (
+          <div className="detail-meta-row">
+            <dt>{t("集成")}</dt>
+            <dd className="detail-meta-stack">{item.integrations.map((value) => <span key={value}>{value}</span>)}</dd>
+          </div>
+        ) : null}
+
+        {item.deploymentModes?.length ? (
+          <div className="detail-meta-row">
+            <dt>{t("部署方式")}</dt>
+            <dd className="detail-meta-stack">{item.deploymentModes.map((value) => <span key={value}>{value}</span>)}</dd>
           </div>
         ) : null}
 

@@ -16,9 +16,10 @@ import { skillhubItems } from "./skillhub-adapter";
 import { mcpserversItems } from "./mcpservers-adapter";
 import { extensionItems } from "./extension-catalog";
 import { githubItems } from "./github-adapter";
+import { ecosystemItems } from "./ecosystem-catalog";
 
 export const STATIC_CATALOG: MarketplaceCatalog = {
-  version: "2.0.0",
+  version: "2.1.0",
   builtAt: "2026-08-25T00:00:00Z",
-  items: [...skillhubItems, ...mcpserversItems, ...extensionItems, ...githubItems],
+  items: [...skillhubItems, ...mcpserversItems, ...extensionItems, ...githubItems, ...ecosystemItems],
 };

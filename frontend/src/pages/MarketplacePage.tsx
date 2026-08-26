@@ -83,6 +83,12 @@ const KIND_OPTIONS: { key: KindFilterKey; label: TranslationKey }[] = [
 const SOURCE_OPTIONS: { key: MarketplaceSource; label: TranslationKey }[] = [
   { key: "skillhub", label: "SkillHub" },
   { key: "mcpservers", label: "MCP Servers" },
+  { key: "mcp-registry", label: "MCP 官方 Registry" },
+  { key: "npm", label: "npm" },
+  { key: "pypi", label: "PyPI" },
+  { key: "docker", label: "Docker Hub" },
+  { key: "vscode", label: "VS Code Marketplace" },
+  { key: "huggingface", label: "Hugging Face" },
   { key: "anthropic", label: "Anthropic" },
   { key: "community", label: "社区" },
   { key: "official", label: "官方" },

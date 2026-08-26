@@ -45,6 +45,12 @@ export type MarketplaceScene =
 export type MarketplaceSource =
   | "skillhub"
   | "mcpservers"
+  | "mcp-registry"
+  | "npm"
+  | "pypi"
+  | "docker"
+  | "vscode"
+  | "huggingface"
   | "anthropic"
   | "community"
   | "official"
@@ -96,6 +102,16 @@ export interface MarketplaceItem {
    * Chinese or English labels depending on the active locale.
    */
   tagKeys?: string[];
+  /** Normalized capability facets used by search and future filters. */
+  capabilities?: string[];
+  /** Ecosystem integrations supported by the item (e.g. Claude Code, Docker). */
+  integrations?: string[];
+  /** Distribution/deployment modes (e.g. CLI, Docker, SaaS). */
+  deploymentModes?: string[];
+  /** Provenance and maintenance metadata for ranking and review. */
+  trustLevel?: "official" | "verified" | "community";
+  license?: string;
+  updatedAt?: string;
   scene?: MarketplaceScene;
   scenes?: MarketplaceScene[];
   source?: MarketplaceSource;

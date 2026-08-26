@@ -12,6 +12,7 @@ import { marketplaceIconCandidates, marketplaceIconUrl } from "./marketplace-ico
 import { normalizeShowcaseSkill, type ShowcaseSkill } from "./useMarketplaceCatalog";
 import { validateMarketplaceCatalog } from "./marketplace-validation";
 import { STATIC_CATALOG } from "./marketplace-catalog";
+import { ecosystemItems } from "./ecosystem-catalog";
 
 // ── live showcase payload normalisation (需求4) ───────────────────────────────
 
@@ -140,6 +141,13 @@ describe("GitHub adapter", () => {
 describe("marketplace catalog metadata", () => {
   it("has complete metadata for every discoverable item", () => {
     expect(validateMarketplaceCatalog(STATIC_CATALOG.items)).toEqual([]);
+  });
+
+  it("includes first-party registries and package ecosystems as traceable sources", () => {
+    expect(ecosystemItems.map((item) => item.source)).toEqual(expect.arrayContaining([
+      "anthropic", "npm", "docker", "vscode", "pypi", "mcp-registry",
+    ]));
+    expect(ecosystemItems.every((item) => item.capabilities?.length && item.deploymentModes?.length)).toBe(true);
   });
 });
 
