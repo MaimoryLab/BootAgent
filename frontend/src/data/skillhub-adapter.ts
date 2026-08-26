@@ -2,39 +2,27 @@
  * Adapts skillhub-hot.json entries to MarketplaceItem shape.
  */
 
-import type { MarketplaceCategory, MarketplaceItem, MarketplaceScene } from "../types/marketplace";
+import type { MarketplaceItem, MarketplaceScene } from "../types/marketplace";
 import { localizeTag } from "./tag-labels";
 import skillhubRaw from "./skillhub-hot.json";
 
 // ── category mapping ──────────────────────────────────────────────────────────
 
-function mapCategory(raw: string): MarketplaceCategory {
-  if (raw.toLowerCase().includes("mcp")) return "mcp-server";
-  if (["ai-agent", "dev-programming", "office-efficiency"].includes(raw)) return "agent-enhance";
-  if (["knowledge-management", "data-analysis"].includes(raw)) return "cross-agent";
-  return "agent-enhance";
-}
-
 // ── icon color by category ────────────────────────────────────────────────────
 
-function iconColor(category: MarketplaceCategory): string {
-  switch (category) {
-    case "agent-enhance": return "oklch(62% 0.18 250)";
-    case "cross-agent":   return "oklch(58% 0.16 320)";
-    case "mcp-server":    return "oklch(55% 0.15 160)";
-    default:              return "oklch(60% 0.12 220)";
-  }
-}
+function iconColor(): string { return "oklch(62% 0.18 250)"; }
 
 // ── scene from first subCategory ─────────────────────────────────────────────
 
-function mapScene(subs: string[]): MarketplaceScene | undefined {
-  const first = subs[0] ?? "";
-  if (first.startsWith("agent-") || first.startsWith("dev-")) return "coding";
-  if (first.startsWith("knowledge-")) return "memory";
-  if (first.startsWith("office-") || first.startsWith("content-")) return "productivity";
-  if (first.startsWith("data-")) return "reasoning";
-  return undefined;
+function mapScenes(subs: string[]): MarketplaceScene[] {
+  const scenes = new Set<MarketplaceScene>();
+  for (const sub of subs) {
+    if (sub.startsWith("agent-") || sub.startsWith("dev-")) scenes.add("coding");
+    if (sub.startsWith("knowledge-")) scenes.add("memory");
+    if (sub.startsWith("office-") || sub.startsWith("content-")) scenes.add("productivity");
+    if (sub.startsWith("data-")) scenes.add("reasoning");
+  }
+  return [...scenes];
 }
 
 // ── adapter ───────────────────────────────────────────────────────────────────
@@ -61,25 +49,26 @@ export interface SkillhubEntry {
 
 /** Maps one normalised skillhub entry to the MarketplaceItem shape. */
 export function mapSkillhubEntry(entry: SkillhubEntry): MarketplaceItem {
-  const cat = mapCategory(entry.category);
+  const scenes = mapScenes(entry.subCategories);
   const topSubCategories = entry.subCategories.slice(0, 3);
   return {
     id: `skillhub-${entry.id}`,
-    category: cat,
+    category: "skill",
     type: "installable",
     installableKind: "skill",
     name: entry.name,
     description: entry.description,
     descriptionEn: entry.descriptionEn,
     icon: "Zap",
-    iconColor: iconColor(cat),
+    iconColor: iconColor(),
     iconUrl: entry.iconUrl || undefined,
     // tags keeps the pre-tagKeys Chinese labels for callers that only read
     // strings (search, older render paths); tagKeys carries the raw keys so
     // render sites can localise per the active locale.
     tags: topSubCategories.map((key) => localizeTag(key, "zh-CN")),
     tagKeys: topSubCategories,
-    scene: mapScene(entry.subCategories),
+    scene: scenes[0],
+    scenes,
     source: "skillhub",
     requiresApiKey: entry.requiresApiKey,
     sourceLabel: "SkillHub",

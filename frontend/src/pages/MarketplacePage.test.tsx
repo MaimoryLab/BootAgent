@@ -10,7 +10,7 @@ const { catalogItems } = vi.hoisted(() => ({
   catalogItems: [
     {
       id: "skill-a",
-      category: "agent-enhance",
+      category: "skill",
       type: "installable",
       installableKind: "skill",
       icon: "Zap",
@@ -18,6 +18,8 @@ const { catalogItems } = vi.hoisted(() => ({
       name: "Ultracode Skill",
       description: "Multi-agent orchestration for Claude Code",
       tags: ["Claude Code", "并行"],
+      scene: "coding",
+      source: "skillhub",
       installPrompt: "/install ultracode",
     },
     {
@@ -30,11 +32,13 @@ const { catalogItems } = vi.hoisted(() => ({
       name: "Sequential Thinking",
       description: "Structured reasoning for complex tasks",
       tags: ["MCP", "推理"],
+      scene: "integration",
+      source: "mcpservers",
       installPrompt: "install mcp",
     },
     {
       id: "link-c",
-      category: "ecosystem",
+      category: "ai-product",
       type: "external-link",
       icon: "Terminal",
       iconColor: "oklch(42% 0.06 250)",
@@ -62,7 +66,7 @@ describe("filterMarketplaceItems", () => {
   });
 
   it("filters by category", () => {
-    const result = filterMarketplaceItems(ITEMS, "agent-enhance", "");
+    const result = filterMarketplaceItems(ITEMS, "skill", "");
     expect(result).toHaveLength(1);
     expect(result[0].id).toBe("skill-a");
   });
@@ -86,7 +90,7 @@ describe("filterMarketplaceItems", () => {
   });
 
   it("combines category and query filters", () => {
-    expect(filterMarketplaceItems(ITEMS, "agent-enhance", "MCP")).toHaveLength(0);
+    expect(filterMarketplaceItems(ITEMS, "skill", "MCP")).toHaveLength(0);
   });
 
   it("returns empty array when nothing matches", () => {
@@ -104,6 +108,13 @@ describe("filterMarketplaceItems", () => {
     const result = filterMarketplaceItems(ITEMS, "all", "", filters);
     expect(result).toHaveLength(1);
     expect(result[0].id).toBe("mcp-b");
+  });
+
+  it("excludes entries missing the selected source or scene", () => {
+    const sourceFilters = { ...EMPTY_FILTERS, sources: new Set(["mcpservers" as const]) };
+    expect(filterMarketplaceItems(ITEMS, "all", "", sourceFilters).map((item) => item.id)).toEqual(["mcp-b"]);
+    const sceneFilters = { ...EMPTY_FILTERS, scenes: new Set(["coding" as const]) };
+    expect(filterMarketplaceItems(ITEMS, "all", "", sceneFilters).map((item) => item.id)).toEqual(["skill-a"]);
   });
 });
 

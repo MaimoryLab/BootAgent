@@ -19,7 +19,7 @@ const LIVE_SKILL: ShowcaseSkill = {
   description: "A skill where the agent logs its own findings",
   description_zh: "记录自身发现以实现自我改进的技能",
   iconUrl: "https://example.com/icon.png",
-  category: "ai-agent",
+  category: "skill",
   // Live API sends objects; the bundled snapshot uses plain strings.
   subCategories: [
     { key: "agent-context", name: "上下文管理" },
@@ -80,6 +80,7 @@ describe("mapSkillhubEntry", () => {
     expect(item.description).toBe("记录自身发现以实现自我改进的技能");
     expect(item.descriptionEn).toBe("A skill where the agent logs its own findings");
     expect(item.source).toBe("skillhub");
+    expect(item.category).toBe("skill");
   });
 
   it("keeps raw subCategory keys in tagKeys and Chinese labels in tags", () => {
