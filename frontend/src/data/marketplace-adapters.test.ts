@@ -117,6 +117,7 @@ describe("extension catalog", () => {
     expect(extensionItems.filter((item) => item.category === "ai-product")).toHaveLength(3);
     expect(extensionItems.every((item) => item.externalUrl && item.sourceUrl)).toBe(true);
     expect(extensionItems.every((item) => item.type !== "installable")).toBe(true);
+    expect(extensionItems.find((item) => item.id === "ai-product-continue")?.categories).toEqual(["ai-product", "plugin"]);
   });
 });
 
@@ -139,6 +140,11 @@ describe("GitHub adapter", () => {
     expect(githubItems.filter((item) => item.category === "plugin").every((item) => item.type === "plugin")).toBe(true);
     expect(githubItems.filter((item) => item.category === "ai-product").every((item) => item.type === "agent-product")).toBe(true);
   });
+
+  it("preserves cross-type identities instead of forcing every repository into one type", () => {
+    expect(githubItems.find((item) => item.id === "github-zhaoxuya520-reverse-skill")?.categories).toEqual(["plugin", "skill"]);
+    expect(githubItems.find((item) => item.id === "github-langgenius-dify")?.categories).toEqual(["ai-product", "workflow"]);
+  });
 });
 
 describe("marketplace catalog metadata", () => {
@@ -154,6 +160,16 @@ describe("marketplace catalog metadata", () => {
     } satisfies MarketplaceItem;
     expect(validateMarketplaceCatalog([sourceOnly])).toEqual([
       expect.objectContaining({ issue: "missing-introduction-document" }),
+    ]);
+  });
+
+  it("rejects ambiguous multi-type metadata", () => {
+    const invalid = {
+      ...extensionItems[0],
+      categories: ["skill", "skill"],
+    } satisfies MarketplaceItem;
+    expect(validateMarketplaceCatalog([invalid])).toEqual([
+      expect.objectContaining({ issue: "invalid-tool-types" }),
     ]);
   });
 

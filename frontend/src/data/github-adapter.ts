@@ -47,6 +47,15 @@ const repositories: GitHubRepositorySpec[] = ([
   ["activepieces/activepieces", "Activepieces", "带有数百个集成的 AI Workflow、Agent 和 MCP 自动化平台。", "An AI workflow and automation platform with agents, MCP, and hundreds of integrations.", "ai-product", "integration", ["AI 自动化", "Workflow"], "Workflow", 24039, undefined, "MIT", "main", "https://www.activepieces.com"],
 ] as unknown as RepositoryRow[]).map(([repo, name, description, descriptionEn, category, scene, tags, icon, stars, forks, license, branch, homepage]) => ({ repo, name, description, descriptionEn, category, scene, tags, icon, stars, forks, license, branch, homepage }));
 
+const repositoryCategories: Partial<Record<string, MarketplaceCategory[]>> = {
+  "zhaoxuya520/reverse-skill": ["plugin", "skill"],
+  "ayghri/i-have-adhd": ["plugin", "skill"],
+  "virgiliojr94/book-to-skill": ["plugin", "skill"],
+  "mattpocock/skills": ["plugin", "skill"],
+  "langgenius/dify": ["ai-product", "workflow"],
+  "activepieces/activepieces": ["ai-product", "workflow"],
+};
+
 function githubRawReadme(repo: string, branch: string): string {
   return `https://raw.githubusercontent.com/${repo}/${branch}/README.md`;
 }
@@ -70,6 +79,7 @@ export const githubItems: MarketplaceItem[] = repositories.map((spec) => {
   return {
     id: `github-${spec.repo.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
     category: spec.category,
+    categories: repositoryCategories[spec.repo],
     type: spec.category === "plugin" ? "plugin" : "agent-product",
     name: spec.name,
     description: spec.description,

@@ -31,10 +31,10 @@ import { PageScaffold } from "../components/PageScaffold";
 import { StatusBadge } from "../components/StatusBadge";
 import { useI18n, type TranslationKey } from "../i18n";
 import type {
-  InstallableKind,
   MarketplaceCategory,
   MarketplaceIconName,
   MarketplaceItem,
+  MarketplaceKind,
   MarketplaceScene,
   MarketplaceSource,
 } from "../types/marketplace";
@@ -42,6 +42,7 @@ import { hasActiveFilters, EMPTY_FILTERS } from "../components/MarketplaceFilter
 import type { FilterState } from "../components/MarketplaceFilterSidebar";
 import { copyToClipboard } from "../utils/clipboard";
 import { marketplaceIconCandidates } from "../data/marketplace-icons";
+import { marketplaceCategories, marketplaceKinds } from "../data/marketplace-taxonomy";
 
 // ── icon registry ─────────────────────────────────────────────────────────────
 
@@ -66,16 +67,12 @@ export function ItemIcon({ name, color, size = 22 }: { name: MarketplaceIconName
 
 // ── filter dropdown bar ───────────────────────────────────────────────────────
 
-type KindFilterKey = InstallableKind | "content" | "external-link" | "plugin" | "agent-product";
-
 // Option labels are i18n dictionary keys; Dropdown translates them on render.
-const KIND_OPTIONS: { key: KindFilterKey; label: TranslationKey }[] = [
+const KIND_OPTIONS: { key: MarketplaceKind; label: TranslationKey }[] = [
   { key: "skill", label: "Skill" },
   { key: "mcp", label: "MCP" },
   { key: "prompt-template", label: "提示词模板" },
   { key: "workflow-script", label: "工作流" },
-  { key: "content", label: "内容" },
-  { key: "external-link", label: "外部工具" },
   { key: "plugin", label: "插件" },
   { key: "agent-product", label: "独立 AI 产品" },
 ];
@@ -206,13 +203,11 @@ function FilterDropdownBar({
 }) {
   const { t } = useI18n();
 
-  const availableKinds = useMemo(() => new Set(items.map((item): KindFilterKey =>
-    item.type === "installable" ? (item.installableKind ?? "skill") : item.type,
-  )), [items]);
+  const availableKinds = useMemo(() => new Set(items.flatMap(marketplaceKinds)), [items]);
   const availableSources = useMemo(() => new Set(items.flatMap((item) => item.source ? [item.source] : [])), [items]);
   const availableScenes = useMemo(() => new Set(items.flatMap((item) => item.scenes ?? (item.scene ? [item.scene] : []))), [items]);
 
-  const toggleKind = (k: KindFilterKey) => {
+  const toggleKind = (k: MarketplaceKind) => {
     const next = new Set(filters.kinds);
     next.has(k) ? next.delete(k) : next.add(k);
     onChange({ ...filters, kinds: next });
@@ -232,7 +227,7 @@ function FilterDropdownBar({
     <div className="mf-dropdown-bar" aria-label={t("筛选")}>
       <Dropdown
         label="工具类型"
-        options={KIND_OPTIONS.filter((option) => availableKinds.has(option.key)) as { key: KindFilterKey; label: TranslationKey }[]}
+        options={KIND_OPTIONS.filter((option) => availableKinds.has(option.key))}
         selected={filters.kinds}
         onToggle={toggleKind}
       />
@@ -329,7 +324,7 @@ const KIND_LABEL_KEY: Record<string, "Skill" | "MCP" | "提示词模板" | "工�
 
 export function KindBadge({ item }: { item: MarketplaceItem }) {
   const { t } = useI18n();
-  const key = item.type === "installable" ? (item.installableKind ?? "skill") : item.type;
+  const key = marketplaceKinds(item)[0];
   const tone = KIND_TONE[key] ?? "neutral";
   const labelKey = KIND_LABEL_KEY[key];
   if (!labelKey) return null;
@@ -447,12 +442,10 @@ export function filterMarketplaceItems(
 ): MarketplaceItem[] {
   const needle = query.trim().toLowerCase();
   return items.filter((item) => {
-    if (category !== "all" && item.category !== category) return false;
+    if (category !== "all" && !marketplaceCategories(item).includes(category)) return false;
 
     if (filters.kinds.size > 0) {
-      const itemKind: KindFilterKey =
-        item.type === "installable" ? (item.installableKind ?? "skill") : item.type;
-      if (!filters.kinds.has(itemKind)) return false;
+      if (!marketplaceKinds(item).some((kind) => filters.kinds.has(kind))) return false;
     }
     if (filters.sources.size > 0) {
       if (!item.source || !filters.sources.has(item.source)) return false;
@@ -512,7 +505,7 @@ export function MarketplacePage() {
         acc[cat.id] =
           cat.id === "all"
             ? items.length
-            : items.filter((item) => item.category === cat.id).length;
+            : items.filter((item) => marketplaceCategories(item).includes(cat.id as MarketplaceCategory)).length;
         return acc;
       }, {}),
     [items],
@@ -535,7 +528,7 @@ export function MarketplacePage() {
       bodyClassName="marketplace-page"
       footerNote={t("{count} 个工具 · {status}", { count: items.length, status: live ? t("实时数据") : t("离线快照") })}
       secondaryAction={(
-        <button className="button button-secondary" type="button" onClick={() => setRecommendationOpen(true)}>
+        <button className="button button-primary" type="button" onClick={() => setRecommendationOpen(true)}>
           <Sparkles size={15} />{t("帮我找工具")}
         </button>
       )}

@@ -64,7 +64,7 @@ const entries: MarketplaceItem[] = [
   },
   {
     id: "plugin-cline",
-    category: "plugin", type: "plugin", name: "Cline",
+    category: "plugin", categories: ["plugin", "ai-product"], type: "plugin", name: "Cline",
     description: "VS Code 中的自主编码 Agent 扩展，支持浏览器、终端、MCP 和人工确认。",
     descriptionEn: "An autonomous coding agent extension for VS Code with browser, terminal, MCP, and approvals.",
     icon: "Code2", iconColor: "oklch(58% 0.15 300)",
@@ -79,7 +79,7 @@ const entries: MarketplaceItem[] = [
   },
   {
     id: "ai-product-langchain",
-    category: "ai-product", type: "agent-product", name: "LangChain",
+    category: "ai-product", categories: ["ai-product", "workflow"], type: "agent-product", name: "LangChain",
     description: "用于构建 LLM 应用和 Agent 工作流的开源框架，覆盖 Python 与 TypeScript。",
     descriptionEn: "An open framework for building LLM applications and agent workflows in Python and TypeScript.",
     icon: "Workflow", iconColor: "oklch(60% 0.16 165)",

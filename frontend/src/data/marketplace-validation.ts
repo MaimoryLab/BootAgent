@@ -5,6 +5,7 @@ export type MarketplaceValidationIssue =
   | "missing-tags"
   | "missing-scene"
   | "missing-source"
+  | "invalid-tool-types"
   | "category-type-mismatch"
   | "missing-detail-link"
   | "missing-introduction-document";
@@ -16,6 +17,10 @@ export function validateMarketplaceItem(item: MarketplaceItem): MarketplaceValid
   if (!item.tags?.length && !item.tagKeys?.length) issues.push("missing-tags");
   if (!item.scene && !item.scenes?.length) issues.push("missing-scene");
   if (!item.source) issues.push("missing-source");
+  if (item.categories && (
+    !item.categories.includes(item.category) ||
+    new Set(item.categories).size !== item.categories.length
+  )) issues.push("invalid-tool-types");
 
   const expectedType = item.category === "skill" || item.category === "mcp-server"
     ? "installable"

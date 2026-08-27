@@ -3394,6 +3394,8 @@
   color: var(--text-primary);
 }
 
+.detail-meta-row dd.detail-type-badges { display: flex; flex-wrap: wrap; gap: 5px; }
+
 .detail-meta-link {
   display: inline-flex;
   align-items: center;

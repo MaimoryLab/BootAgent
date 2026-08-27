@@ -21,6 +21,7 @@ vi.mock("../data/useMarketplaceCatalog", () => ({
     items: [{
       id: "skillhub-example-skill",
       category: "skill",
+      categories: ["skill", "plugin"],
       type: "installable",
       installableKind: "skill",
       name: "Example Skill",
@@ -78,6 +79,8 @@ describe("MarketplaceDetailPage", () => {
     expect(within(sidebar as HTMLElement).getByTestId("skillhub-meta")).toBeTruthy();
     expect(document.querySelector(".detail-main")?.querySelector("[data-testid='skillhub-meta']")).toBeNull();
     expect(screen.getByTestId("skillhub-readme")).toBeTruthy();
+    expect(within(sidebar as HTMLElement).getByText("Skill")).toBeTruthy();
+    expect(within(sidebar as HTMLElement).getByText("Plugins")).toBeTruthy();
   });
 
   it("opens source links through the desktop browser binding", () => {

@@ -12,6 +12,7 @@ const { catalogItems } = vi.hoisted(() => ({
     {
       id: "skill-a",
       category: "skill",
+      categories: ["skill", "plugin"],
       type: "installable",
       installableKind: "skill",
       icon: "Zap",
@@ -75,6 +76,11 @@ describe("filterMarketplaceItems", () => {
     expect(result[0].id).toBe("skill-a");
   });
 
+  it("includes a multi-type tool in every declared top-level type", () => {
+    expect(filterMarketplaceItems(ITEMS, "skill", "").map((item) => item.id)).toEqual(["skill-a"]);
+    expect(filterMarketplaceItems(ITEMS, "plugin", "").map((item) => item.id)).toEqual(["skill-a"]);
+  });
+
   it("filters by name (case-insensitive)", () => {
     const result = filterMarketplaceItems(ITEMS, "all", "ultracode");
     expect(result).toHaveLength(1);
@@ -114,6 +120,14 @@ describe("filterMarketplaceItems", () => {
     expect(result[0].id).toBe("mcp-b");
   });
 
+  it("matches any selected type declared by a multi-type tool", () => {
+    const pluginFilters = { ...EMPTY_FILTERS, kinds: new Set(["plugin" as const]) };
+    expect(filterMarketplaceItems(ITEMS, "all", "", pluginFilters).map((item) => item.id)).toEqual(["skill-a"]);
+
+    const eitherFilters = { ...EMPTY_FILTERS, kinds: new Set(["plugin" as const, "mcp" as const]) };
+    expect(filterMarketplaceItems(ITEMS, "all", "", eitherFilters).map((item) => item.id)).toEqual(["skill-a", "mcp-b"]);
+  });
+
   it("excludes entries missing the selected source or scene", () => {
     const sourceFilters = { ...EMPTY_FILTERS, sources: new Set(["mcpservers" as const]) };
     expect(filterMarketplaceItems(ITEMS, "all", "", sourceFilters).map((item) => item.id)).toEqual(["mcp-b"]);
@@ -150,6 +164,12 @@ describe("MarketplacePage category URL", () => {
     await user.click(screen.getByRole("button", { name: "Source" }));
     expect(screen.queryByText("Hugging Face")).toBeNull();
     expect(screen.queryByRole("tab", { name: /Content and guides/ })).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Tool type" }));
+    const typeOptions = screen.getByRole("listbox");
+    expect(within(typeOptions).getByText("Plugins")).toBeTruthy();
+    expect(within(typeOptions).queryByText("External tools")).toBeNull();
+    expect(within(typeOptions).queryByText("Content")).toBeNull();
   });
 
   it("uses an installed local Agent to recommend only catalog tools", async () => {
@@ -169,7 +189,9 @@ describe("MarketplacePage category URL", () => {
     );
 
     expect(screen.getByText(/3 tools.*Offline snapshot/)).toBeTruthy();
-    await user.click(screen.getByRole("button", { name: "Find tools for me" }));
+    const recommendButton = screen.getByRole("button", { name: "Find tools for me" });
+    expect(recommendButton.classList.contains("button-primary")).toBe(true);
+    await user.click(recommendButton);
     const dialog = await screen.findByRole("dialog", { name: "Tool recommendations" });
 
     await user.type(screen.getByLabelText("What do you want to accomplish?"), "coordinate coding agents");

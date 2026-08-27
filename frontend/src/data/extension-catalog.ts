@@ -74,6 +74,7 @@ export const extensionItems: MarketplaceItem[] = ([
   {
     id: "ai-product-continue",
     category: "ai-product",
+    categories: ["ai-product", "plugin"],
     type: "agent-product",
     name: "Continue",
     description: "开源的可定制 AI 代码助手，支持 IDE 扩展、自托管模型和 Agent 工作流。",

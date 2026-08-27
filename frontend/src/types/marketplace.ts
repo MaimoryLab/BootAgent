@@ -31,6 +31,9 @@ export type InstallableKind =
   | "prompt-template"
   | "workflow-script";
 
+/** User-facing tool types. Delivery behavior such as external-link is not a type. */
+export type MarketplaceKind = InstallableKind | "plugin" | "agent-product";
+
 /** Scene / use-case grouping shown in the filter sidebar */
 export type MarketplaceScene =
   | "coding"       // 代码编写
@@ -80,7 +83,10 @@ export type MarketplaceIconName =
 
 export interface MarketplaceItem {
   id: string;
+  /** Primary tool type, retained for ordering and backwards compatibility. */
   category: MarketplaceCategory;
+  /** All applicable tool types when an item has more than one identity. */
+  categories?: MarketplaceCategory[];
   type: MarketplaceItemType;
   name: string;
   description: string;
