@@ -1,15 +1,13 @@
 import type {
-  InstallableKind,
+  MarketplaceKind,
   MarketplaceScene,
   MarketplaceSource,
 } from "../types/marketplace";
 
 // ── filter state (exported so page and detail can share the type) ─────────────
 
-type KindFilterKey = InstallableKind | "content" | "external-link" | "plugin" | "agent-product";
-
 export interface FilterState {
-  kinds: Set<KindFilterKey>;
+  kinds: Set<MarketplaceKind>;
   sources: Set<MarketplaceSource>;
   scenes: Set<MarketplaceScene>;
   requiresApiKey: boolean | null;

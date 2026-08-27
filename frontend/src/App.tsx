@@ -18,6 +18,7 @@ import { ReviewPage } from "./pages/ReviewPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { MarketplacePage } from "./pages/MarketplacePage";
 import { MarketplaceDetailPage } from "./pages/MarketplaceDetailPage";
+import { MarketplaceRecommendationDetailPage } from "./pages/MarketplaceRecommendationDetailPage";
 import { SkillsPage } from "./pages/SkillsPage";
 import { TransferPage } from "./pages/TransferPage";
 import { I18nProvider, useI18n } from "./i18n";
@@ -105,6 +106,7 @@ function WorkspaceRoutes() {
         <Route path="/skills" element={<SkillsPage />} />
         <Route path="/conversion" element={<ConversionPage />} />
         <Route path="/marketplace" element={<MarketplacePage />} />
+        <Route path="/marketplace/recommendations/:historyId" element={<MarketplaceRecommendationDetailPage />} />
         <Route path="/marketplace/:itemId" element={<MarketplaceDetailPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/settings/transfer" element={<TransferPage />} />

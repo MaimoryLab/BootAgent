@@ -17,7 +17,19 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import * as app$0 from "../app/models.js";
+
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import * as $models from "./models.js";
+
+export function ClearRecommendationHistory(): $CancellablePromise<void> {
+    return $Call.ByID(2565220155);
+}
+
+export function DeleteRecommendationHistory(id: string): $CancellablePromise<void> {
+    return $Call.ByID(853357243, id);
+}
 
 export function FetchShowcase(): $CancellablePromise<$models.MarketplaceProxyResponse> {
     return $Call.ByID(2412491246);
@@ -31,6 +43,30 @@ export function FetchSkillFile(request: $models.SkillDetailRequest): $Cancellabl
     return $Call.ByID(1653837074, request);
 }
 
+export function ListRecommendationHistory(): $CancellablePromise<app$0.MarketplaceRecommendationHistory[] | null> {
+    return $Call.ByID(638531038);
+}
+
 export function OpenExternal(request: $models.OpenExternalRequest): $CancellablePromise<void> {
     return $Call.ByID(3117329458, request);
+}
+
+/**
+ * Recommend passes a bounded, public catalog projection to the selected local
+ * Agent. The app layer validates both the projection and the returned item IDs.
+ */
+export function Recommend(request: app$0.MarketplaceRecommendRequest): $CancellablePromise<app$0.MarketplaceRecommendResult> {
+    return $Call.ByID(1513373553, request);
+}
+
+/**
+ * RecommendationAgents lists only installed CLI Agents whose non-interactive
+ * mode can be constrained to recommendation output without write tools.
+ */
+export function RecommendationAgents(): $CancellablePromise<app$0.MarketplaceRecommendationAgent[] | null> {
+    return $Call.ByID(386926228);
+}
+
+export function SaveRecommendationHistory(record: app$0.MarketplaceRecommendationHistory): $CancellablePromise<app$0.MarketplaceRecommendationHistory> {
+    return $Call.ByID(3455853153, record);
 }

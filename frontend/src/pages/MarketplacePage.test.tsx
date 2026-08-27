@@ -1,6 +1,7 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 // Block the real Wails runtime: importing it registers a module-level timer in
 // drag.js that fires after jsdom teardown ("window is not defined" in CI).
@@ -11,6 +12,7 @@ const { catalogItems } = vi.hoisted(() => ({
     {
       id: "skill-a",
       category: "skill",
+      categories: ["skill", "plugin"],
       type: "installable",
       installableKind: "skill",
       icon: "Zap",
@@ -54,11 +56,14 @@ vi.mock("../data/useMarketplaceCatalog", () => ({
 }));
 
 import { I18nProvider } from "../i18n";
+import { api } from "../backend/api";
 import { filterMarketplaceItems, MarketplacePage } from "./MarketplacePage";
 import { EMPTY_FILTERS } from "../components/MarketplaceFilterSidebar";
 import type { MarketplaceItem } from "../types/marketplace";
 
 const ITEMS = catalogItems as MarketplaceItem[];
+
+afterEach(() => vi.restoreAllMocks());
 
 describe("filterMarketplaceItems", () => {
   it("returns all items when category is 'all' and query is empty", () => {
@@ -69,6 +74,11 @@ describe("filterMarketplaceItems", () => {
     const result = filterMarketplaceItems(ITEMS, "skill", "");
     expect(result).toHaveLength(1);
     expect(result[0].id).toBe("skill-a");
+  });
+
+  it("includes a multi-type tool in every declared top-level type", () => {
+    expect(filterMarketplaceItems(ITEMS, "skill", "").map((item) => item.id)).toEqual(["skill-a"]);
+    expect(filterMarketplaceItems(ITEMS, "plugin", "").map((item) => item.id)).toEqual(["skill-a"]);
   });
 
   it("filters by name (case-insensitive)", () => {
@@ -110,6 +120,23 @@ describe("filterMarketplaceItems", () => {
     expect(result[0].id).toBe("mcp-b");
   });
 
+  it("requires a multi-type tool to match every selected tool type", () => {
+    const pluginFilters = { ...EMPTY_FILTERS, kinds: new Set(["plugin" as const]) };
+    expect(filterMarketplaceItems(ITEMS, "all", "", pluginFilters).map((item) => item.id)).toEqual(["skill-a"]);
+
+    const hybridFilters = { ...EMPTY_FILTERS, kinds: new Set(["plugin" as const, "skill" as const]) };
+    expect(filterMarketplaceItems(ITEMS, "all", "", hybridFilters).map((item) => item.id)).toEqual(["skill-a"]);
+
+    const incompatibleFilters = { ...EMPTY_FILTERS, kinds: new Set(["plugin" as const, "mcp" as const]) };
+    expect(filterMarketplaceItems(ITEMS, "all", "", incompatibleFilters)).toEqual([]);
+  });
+
+  it("renders each tool ID at most once even when a source repeats it", () => {
+    const filters = { ...EMPTY_FILTERS, kinds: new Set(["skill" as const]) };
+    const duplicated = [ITEMS[0], { ...ITEMS[0] }, ITEMS[1]];
+    expect(filterMarketplaceItems(duplicated, "all", "", filters).map((item) => item.id)).toEqual(["skill-a"]);
+  });
+
   it("excludes entries missing the selected source or scene", () => {
     const sourceFilters = { ...EMPTY_FILTERS, sources: new Set(["mcpservers" as const]) };
     expect(filterMarketplaceItems(ITEMS, "all", "", sourceFilters).map((item) => item.id)).toEqual(["mcp-b"]);
@@ -131,5 +158,79 @@ describe("MarketplacePage category URL", () => {
     expect(screen.getByRole("tab", { name: /MCP servers/ }).getAttribute("aria-selected")).toBe("true");
     expect(screen.getByText("Sequential Thinking")).toBeTruthy();
     expect(screen.queryByText("Ultracode Skill")).toBeNull();
+  });
+
+  it("does not expose filter values or top-level resource categories without tool supply", async () => {
+    const user = userEvent.setup();
+    render(
+      <I18nProvider>
+        <MemoryRouter initialEntries={["/marketplace"]}>
+          <MarketplacePage />
+        </MemoryRouter>
+      </I18nProvider>,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Source" }));
+    expect(screen.queryByText("Hugging Face")).toBeNull();
+    expect(screen.queryByRole("tab", { name: /Content and guides/ })).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Tool type" }));
+    const typeOptions = screen.getByRole("listbox");
+    expect(within(typeOptions).getByText("Plugins")).toBeTruthy();
+    expect(within(typeOptions).queryByText("External tools")).toBeNull();
+    expect(within(typeOptions).queryByText("Content")).toBeNull();
+  });
+
+  it("places clear filters before the dropdowns without changing their order", async () => {
+    const user = userEvent.setup();
+    render(
+      <I18nProvider>
+        <MemoryRouter initialEntries={["/marketplace"]}>
+          <MarketplacePage />
+        </MemoryRouter>
+      </I18nProvider>,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Tool type" }));
+    await user.click(screen.getByLabelText("Skill"));
+
+    const filterBar = screen.getByLabelText("Filter");
+    const buttons = within(filterBar).getAllByRole("button");
+    expect(buttons[0].textContent).toBe("Clear all filters");
+    expect(buttons[1].textContent).toContain("Tool type");
+  });
+
+  it("uses an installed local Agent to recommend only catalog tools", async () => {
+    vi.spyOn(api, "marketplaceRecommendationAgents").mockResolvedValue([{ id: "codex", name: "Codex" }]);
+    vi.spyOn(api, "recommendMarketplace").mockResolvedValue({
+      agent_id: "codex",
+      recommendations: [{ item_id: "skill-a", reason: "Matches multi-agent orchestration work" }],
+    });
+    const user = userEvent.setup();
+
+    render(
+      <I18nProvider>
+        <MemoryRouter initialEntries={["/marketplace"]}>
+          <MarketplacePage />
+        </MemoryRouter>
+      </I18nProvider>,
+    );
+
+    expect(screen.getByText(/3 tools.*Offline snapshot/)).toBeTruthy();
+    const recommendButton = screen.getByRole("button", { name: "Find tools for me" });
+    expect(recommendButton.classList.contains("button-primary")).toBe(true);
+    await user.click(recommendButton);
+    const dialog = await screen.findByRole("dialog", { name: "Tool recommendations" });
+
+    await user.type(screen.getByLabelText("What do you want to accomplish?"), "coordinate coding agents");
+    await user.click(screen.getByRole("button", { name: "Recommend tools" }));
+
+    expect(await within(dialog).findByText("Ultracode Skill")).toBeTruthy();
+    expect(within(dialog).getByText("Matches multi-agent orchestration work")).toBeTruthy();
+    expect(api.recommendMarketplace).toHaveBeenCalledWith(expect.objectContaining({
+      agent_id: "codex",
+      need: "coordinate coding agents",
+      items: expect.arrayContaining([expect.objectContaining({ id: "skill-a" })]),
+    }));
   });
 });

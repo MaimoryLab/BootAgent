@@ -13,6 +13,7 @@ import { useI18n, type TranslationKey } from "../i18n";
 import type { MarketplaceIconName, MarketplaceItem } from "../types/marketplace";
 import { copyToClipboard } from "../utils/clipboard";
 import { marketplaceIconCandidates } from "../data/marketplace-icons";
+import { marketplaceKinds } from "../data/marketplace-taxonomy";
 
 /** 12,345 -> "12.3k"; keeps the stats strip compact like skillhub's. */
 function formatCount(n: number): string {
@@ -147,8 +148,7 @@ const SOURCE_LABEL: Record<string, TranslationKey> = {
 
 function MetaSidebar({ item }: { item: MarketplaceItem }) {
   const { t, locale } = useI18n();
-  const kindKey = item.type === "installable" ? (item.installableKind ?? "skill") : item.type;
-  const kindLabel = KIND_LABEL[kindKey];
+  const kindKeys = marketplaceKinds(item);
   const sceneLabel = item.scene ? SCENE_LABEL[item.scene] : undefined;
   const sourceLabel = item.source ? SOURCE_LABEL[item.source] : undefined;
   // Tag labels resolve per locale: raw tagKeys localise, plain tags translate
@@ -158,14 +158,21 @@ function MetaSidebar({ item }: { item: MarketplaceItem }) {
   return (
     <aside className="detail-meta-sidebar">
       <dl className="detail-meta-list">
-        <div className="detail-meta-row">
-          <dt>{t("类型")}</dt>
-          <dd>
-            <StatusBadge tone={KIND_TONE[kindKey] ?? "neutral"}>
-              {kindLabel ? t(kindLabel) : kindKey}
-            </StatusBadge>
-          </dd>
-        </div>
+        {kindKeys.length ? (
+          <div className="detail-meta-row">
+            <dt>{t("类型")}</dt>
+            <dd className="detail-type-badges">
+              {kindKeys.map((kindKey) => {
+                const kindLabel = KIND_LABEL[kindKey];
+                return (
+                  <StatusBadge key={kindKey} tone={KIND_TONE[kindKey] ?? "neutral"}>
+                    {kindLabel ? t(kindLabel) : kindKey}
+                  </StatusBadge>
+                );
+              })}
+            </dd>
+          </div>
+        ) : null}
 
         {item.scene ? (
           <div className="detail-meta-row">

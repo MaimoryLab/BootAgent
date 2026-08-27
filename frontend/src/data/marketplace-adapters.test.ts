@@ -13,6 +13,8 @@ import { normalizeShowcaseSkill, type ShowcaseSkill } from "./useMarketplaceCata
 import { validateMarketplaceCatalog } from "./marketplace-validation";
 import { STATIC_CATALOG } from "./marketplace-catalog";
 import { ecosystemItems } from "./ecosystem-catalog";
+import { dedupeMarketplaceItems, marketplaceSourceAdapters } from "./marketplace-source-adapters";
+import { templateItems } from "./template-catalog";
 import type { MarketplaceItem } from "../types/marketplace";
 
 // ── live showcase payload normalisation (需求4) ───────────────────────────────
@@ -115,6 +117,7 @@ describe("extension catalog", () => {
     expect(extensionItems.filter((item) => item.category === "ai-product")).toHaveLength(3);
     expect(extensionItems.every((item) => item.externalUrl && item.sourceUrl)).toBe(true);
     expect(extensionItems.every((item) => item.type !== "installable")).toBe(true);
+    expect(extensionItems.find((item) => item.id === "ai-product-continue")?.categories).toEqual(["ai-product", "plugin"]);
   });
 });
 
@@ -137,6 +140,11 @@ describe("GitHub adapter", () => {
     expect(githubItems.filter((item) => item.category === "plugin").every((item) => item.type === "plugin")).toBe(true);
     expect(githubItems.filter((item) => item.category === "ai-product").every((item) => item.type === "agent-product")).toBe(true);
   });
+
+  it("preserves cross-type identities instead of forcing every repository into one type", () => {
+    expect(githubItems.find((item) => item.id === "github-zhaoxuya520-reverse-skill")?.categories).toEqual(["plugin", "skill"]);
+    expect(githubItems.find((item) => item.id === "github-langgenius-dify")?.categories).toEqual(["ai-product", "workflow"]);
+  });
 });
 
 describe("marketplace catalog metadata", () => {
@@ -155,11 +163,44 @@ describe("marketplace catalog metadata", () => {
     ]);
   });
 
+  it("rejects ambiguous multi-type metadata", () => {
+    const invalid = {
+      ...extensionItems[0],
+      categories: ["skill", "skill"],
+    } satisfies MarketplaceItem;
+    expect(validateMarketplaceCatalog([invalid])).toEqual([
+      expect.objectContaining({ issue: "invalid-tool-types" }),
+    ]);
+  });
+
   it("includes first-party registries and package ecosystems as traceable sources", () => {
     expect(ecosystemItems.map((item) => item.source)).toEqual(expect.arrayContaining([
       "anthropic", "npm", "docker", "vscode", "pypi", "mcp-registry",
     ]));
     expect(ecosystemItems.every((item) => item.capabilities?.length && item.deploymentModes?.length)).toBe(true);
+  });
+});
+
+describe("marketplace source adapters", () => {
+  it("keeps the first occurrence when sources repeat a tool ID", () => {
+    const first = extensionItems[0];
+    expect(dedupeMarketplaceItems([first, { ...first, name: "Repeated" }])).toEqual([first]);
+  });
+
+  it("registers each source once and builds the bundled catalog through adapters", () => {
+    const ids = marketplaceSourceAdapters.map((adapter) => adapter.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(marketplaceSourceAdapters.some((adapter) => adapter.loadLive)).toBe(true);
+    expect(marketplaceSourceAdapters.every((adapter) => adapter.snapshot.length > 0)).toBe(true);
+    expect(new Set(STATIC_CATALOG.items.map((item) => item.id)).size).toBe(STATIC_CATALOG.items.length);
+  });
+
+  it("ships enough documented prompt and workflow entries to expose the category", () => {
+    expect(templateItems).toHaveLength(7);
+    expect(templateItems.every((item) => item.category === "workflow")).toBe(true);
+    expect(templateItems.some((item) => item.installableKind === "prompt-template")).toBe(true);
+    expect(templateItems.some((item) => item.installableKind === "workflow-script")).toBe(true);
+    expect(templateItems.every((item) => item.documentationUrl && item.installPrompt)).toBe(true);
   });
 });
 

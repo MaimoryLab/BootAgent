@@ -214,6 +214,53 @@ export interface MCPServerSummary {
     "has_secrets": boolean;
 }
 
+export interface MarketplaceKnowledgeItem {
+    "id": string;
+    "name": string;
+    "description": string;
+    "category": string;
+    "tags"?: string[] | null;
+}
+
+export interface MarketplaceRecommendRequest {
+    "agent_id": string;
+    "need": string;
+    "locale": string;
+    "items": MarketplaceKnowledgeItem[] | null;
+}
+
+export interface MarketplaceRecommendResult {
+    "agent_id": string;
+    "recommendations": MarketplaceRecommendation[] | null;
+}
+
+export interface MarketplaceRecommendation {
+    "item_id": string;
+    "reason": string;
+}
+
+export interface MarketplaceRecommendationAgent {
+    "id": string;
+    "name": string;
+}
+
+export interface MarketplaceRecommendationHistory {
+    "id": string;
+    "created_at": string;
+    "agent_id": string;
+    "need": string;
+    "catalog_version": string;
+    "results": MarketplaceRecommendationSnapshot[] | null;
+}
+
+export interface MarketplaceRecommendationSnapshot {
+    "item_id": string;
+    "name": string;
+    "reason": string;
+    "category": string;
+    "source"?: string;
+}
+
 /**
  * ProfileSummary is intentionally a public projection with no credential field.
  */

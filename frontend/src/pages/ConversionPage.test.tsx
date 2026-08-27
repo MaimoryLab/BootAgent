@@ -1,4 +1,5 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { api } from "../backend/api";
@@ -27,11 +28,32 @@ afterEach(() => {
 });
 
 describe("ConversionPage", () => {
-  it("explains the adapter purpose to Chinese users", async () => {
-    render(<ConversionPage />);
+  it("keeps the operational controls ahead of optional protocol guidance", async () => {
+    render(
+      <MemoryRouter>
+        <ConversionPage />
+      </MemoryRouter>,
+    );
 
-    expect(await screen.findByText(/不同 Agent 要求的 API 协议不一样/)).toBeTruthy();
-    expect(screen.getByText(/BootAgent 会在本机监听一个地址/)).toBeTruthy();
-    expect(screen.queryByText("适配器介绍")).toBeNull();
+    const status = await screen.findByText("适配服务已停止");
+    const target = screen.getByText("请求最终发往");
+    const guidance = screen.getByText("了解协议适配");
+
+    expect(status.compareDocumentPosition(target) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(target.compareDocumentPosition(guidance) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryByText(/不同 Agent 要求的 API 协议不一样/)).toBeNull();
+
+    fireEvent.click(guidance);
+    expect(screen.getByText(/不同 Agent 使用的 API 协议并不相同/)).toBeTruthy();
+  });
+
+  it("offers an actionable route when no compatible profile exists", async () => {
+    render(
+      <MemoryRouter>
+        <ConversionPage />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole("link", { name: "创建配置模板" })).toHaveAttribute("href", "/profiles");
   });
 });

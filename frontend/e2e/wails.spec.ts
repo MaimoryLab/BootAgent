@@ -223,3 +223,34 @@ test("Skills and MCP management lead to their marketplace categories", async ({ 
   expect(overflow.scrollWidth).toBe(overflow.clientWidth);
   expect(browserProblems).toEqual([]);
 });
+
+test("Marketplace multi-type filters narrow unique results without shifting controls", async ({ page }) => {
+  await page.setViewportSize({ width: 1180, height: 760 });
+  await page.goto("/#/marketplace");
+
+  const typeButton = page.getByRole("button", { name: /工具类型|Tool type/ });
+  const before = await typeButton.boundingBox();
+  expect(before).not.toBeNull();
+  const initialCount = await page.locator(".marketplace-card").count();
+
+  await typeButton.click();
+  await page.getByLabel("Skill", { exact: true }).check();
+  const afterFirstType = await page.locator(".marketplace-card").count();
+  expect(afterFirstType).toBeLessThanOrEqual(initialCount);
+
+  const after = await typeButton.boundingBox();
+  const clear = page.getByRole("button", { name: /清除全部筛选|Clear all filters/ });
+  const clearBox = await clear.boundingBox();
+  expect(after?.x).toBeCloseTo(before!.x, 0);
+  expect(clearBox!.x + clearBox!.width).toBeLessThanOrEqual(after!.x);
+
+  await page.getByLabel(/插件|Plugins/, { exact: true }).check();
+  const afterSecondType = await page.locator(".marketplace-card").count();
+  expect(afterSecondType).toBeLessThanOrEqual(afterFirstType);
+
+  const itemIDs = await page.locator(".marketplace-card").evaluateAll((cards) =>
+    cards.map((card) => card.getAttribute("data-item-id")),
+  );
+  expect(itemIDs.every(Boolean)).toBe(true);
+  expect(new Set(itemIDs).size).toBe(itemIDs.length);
+});
