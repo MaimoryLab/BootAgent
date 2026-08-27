@@ -198,11 +198,19 @@ function Dropdown<K extends string>({
 function FilterDropdownBar({
   filters,
   onChange,
+  items,
 }: {
   filters: FilterState;
   onChange: (next: FilterState) => void;
+  items: MarketplaceItem[];
 }) {
   const { t } = useI18n();
+
+  const availableKinds = useMemo(() => new Set(items.map((item): KindFilterKey =>
+    item.type === "installable" ? (item.installableKind ?? "skill") : item.type,
+  )), [items]);
+  const availableSources = useMemo(() => new Set(items.flatMap((item) => item.source ? [item.source] : [])), [items]);
+  const availableScenes = useMemo(() => new Set(items.flatMap((item) => item.scenes ?? (item.scene ? [item.scene] : []))), [items]);
 
   const toggleKind = (k: KindFilterKey) => {
     const next = new Set(filters.kinds);
@@ -224,19 +232,19 @@ function FilterDropdownBar({
     <div className="mf-dropdown-bar" aria-label={t("筛选")}>
       <Dropdown
         label="工具类型"
-        options={KIND_OPTIONS as { key: KindFilterKey; label: TranslationKey }[]}
+        options={KIND_OPTIONS.filter((option) => availableKinds.has(option.key)) as { key: KindFilterKey; label: TranslationKey }[]}
         selected={filters.kinds}
         onToggle={toggleKind}
       />
       <Dropdown
         label="来源"
-        options={SOURCE_OPTIONS as { key: MarketplaceSource; label: TranslationKey }[]}
+        options={SOURCE_OPTIONS.filter((option) => availableSources.has(option.key)) as { key: MarketplaceSource; label: TranslationKey }[]}
         selected={filters.sources}
         onToggle={toggleSource}
       />
       <Dropdown
         label="场景"
-        options={SCENE_OPTIONS as { key: MarketplaceScene; label: TranslationKey }[]}
+        options={SCENE_OPTIONS.filter((option) => availableScenes.has(option.key)) as { key: MarketplaceScene; label: TranslationKey }[]}
         selected={filters.scenes}
         onToggle={toggleScene}
       />
@@ -274,7 +282,7 @@ function FilterDropdownBar({
 
 interface CategoryMeta {
   id: MarketplaceCategory | "all";
-  labelKey: "全部" | "Skills" | "MCP 服务器" | "插件" | "独立 AI 产品" | "工作流与模板" | "内容与指南";
+  labelKey: "全部" | "Skills" | "MCP 服务器" | "插件" | "独立 AI 产品" | "工作流与模板";
 }
 
 const CATEGORIES: CategoryMeta[] = [
@@ -284,7 +292,6 @@ const CATEGORIES: CategoryMeta[] = [
   { id: "plugin", labelKey: "插件" },
   { id: "ai-product", labelKey: "独立 AI 产品" },
   { id: "workflow", labelKey: "工作流与模板" },
-  { id: "content", labelKey: "内容与指南" },
 ];
 
 function marketplaceCategoryFromSearch(searchParams: URLSearchParams): MarketplaceCategory | "all" {
@@ -562,7 +569,7 @@ export function MarketplacePage() {
           onValueChange={setQuery}
           placeholder={t("搜索工具市场")}
         />
-        <FilterDropdownBar filters={filters} onChange={setFilters} />
+        <FilterDropdownBar filters={filters} onChange={setFilters} items={items} />
       </div>
 
       <div className="marketplace-layout">

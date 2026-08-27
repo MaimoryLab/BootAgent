@@ -137,6 +137,21 @@ describe("MarketplacePage category URL", () => {
     expect(screen.queryByText("Ultracode Skill")).toBeNull();
   });
 
+  it("does not expose filter values or top-level resource categories without tool supply", async () => {
+    const user = userEvent.setup();
+    render(
+      <I18nProvider>
+        <MemoryRouter initialEntries={["/marketplace"]}>
+          <MarketplacePage />
+        </MemoryRouter>
+      </I18nProvider>,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Source" }));
+    expect(screen.queryByText("Hugging Face")).toBeNull();
+    expect(screen.queryByRole("tab", { name: /Content and guides/ })).toBeNull();
+  });
+
   it("uses an installed local Agent to recommend only catalog tools", async () => {
     vi.spyOn(api, "marketplaceRecommendationAgents").mockResolvedValue([{ id: "codex", name: "Codex" }]);
     vi.spyOn(api, "recommendMarketplace").mockResolvedValue({

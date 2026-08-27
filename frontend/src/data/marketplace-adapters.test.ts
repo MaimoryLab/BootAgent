@@ -13,6 +13,8 @@ import { normalizeShowcaseSkill, type ShowcaseSkill } from "./useMarketplaceCata
 import { validateMarketplaceCatalog } from "./marketplace-validation";
 import { STATIC_CATALOG } from "./marketplace-catalog";
 import { ecosystemItems } from "./ecosystem-catalog";
+import { marketplaceSourceAdapters } from "./marketplace-source-adapters";
+import { templateItems } from "./template-catalog";
 import type { MarketplaceItem } from "../types/marketplace";
 
 // ── live showcase payload normalisation (需求4) ───────────────────────────────
@@ -160,6 +162,23 @@ describe("marketplace catalog metadata", () => {
       "anthropic", "npm", "docker", "vscode", "pypi", "mcp-registry",
     ]));
     expect(ecosystemItems.every((item) => item.capabilities?.length && item.deploymentModes?.length)).toBe(true);
+  });
+});
+
+describe("marketplace source adapters", () => {
+  it("registers each source once and builds the bundled catalog through adapters", () => {
+    const ids = marketplaceSourceAdapters.map((adapter) => adapter.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(marketplaceSourceAdapters.some((adapter) => adapter.loadLive)).toBe(true);
+    expect(marketplaceSourceAdapters.every((adapter) => adapter.snapshot.length > 0)).toBe(true);
+  });
+
+  it("ships enough documented prompt and workflow entries to expose the category", () => {
+    expect(templateItems).toHaveLength(7);
+    expect(templateItems.every((item) => item.category === "workflow")).toBe(true);
+    expect(templateItems.some((item) => item.installableKind === "prompt-template")).toBe(true);
+    expect(templateItems.some((item) => item.installableKind === "workflow-script")).toBe(true);
+    expect(templateItems.every((item) => item.documentationUrl && item.installPrompt)).toBe(true);
   });
 });
 
