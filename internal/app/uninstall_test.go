@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"slices"
 	"testing"
+	"time"
 
 	oneerrors "github.com/MaimoryLab/BootAgent/internal/errors"
 	"github.com/MaimoryLab/BootAgent/internal/platform"
@@ -27,9 +28,10 @@ func TestUninstallAgentRemovesOnlyTheManagedNPMPackage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []string{"/fake/npm", "uninstall", "-g", "@openai/codex"}
-	if len(runner.calls) != 1 || !slices.Equal(runner.calls[0], want) {
-		t.Fatalf("uninstall call = %v, want %v", runner.calls, want)
+	wantCheck := []string{"/fake/npm", "list", "-g", "--depth=0", "--json", "@openai/codex"}
+	wantUninstall := []string{"/fake/npm", "uninstall", "-g", "--ignore-scripts", "@openai/codex"}
+	if len(runner.calls) != 2 || !slices.Equal(runner.calls[0], wantCheck) || !slices.Equal(runner.calls[1], wantUninstall) {
+		t.Fatalf("uninstall calls = %v, want %v then %v", runner.calls, wantCheck, wantUninstall)
 	}
 	if result.Agent != "codex" || result.Package != "@openai/codex" {
 		t.Fatalf("uninstall result = %#v", result)
@@ -66,14 +68,62 @@ func TestUninstallAgentRejectsUnsupportedOrMissingAgents(t *testing.T) {
 	}
 }
 
+func TestUninstallAgentRejectsPackageOwnedByAnotherNPM(t *testing.T) {
+	runner := &installAppRunner{
+		paths:     map[string]string{"npm": "/homebrew/bin/npm", "codex": "/mise/shims/codex"},
+		exitCodes: map[string]int{"list -g --depth=0 --json @openai/codex": 1},
+	}
+	core := NewUseCases(StatusOptions{Home: t.TempDir(), Platform: platform.For("linux", "amd64"), Runner: runner})
+
+	_, err := core.UninstallAgent(context.Background(), "codex")
+	if err == nil || oneerrors.As(err).Code != oneerrors.PrerequisiteMissing {
+		t.Fatalf("mismatched npm owner error = %v, want %s", err, oneerrors.PrerequisiteMissing)
+	}
+	if len(runner.calls) != 1 || runner.calls[0][1] != "list" {
+		t.Fatalf("ownership mismatch ran a mutating command: %v", runner.calls)
+	}
+}
+
 func TestUninstallAgentReportsNonZeroExit(t *testing.T) {
 	runner := &installAppRunner{
-		paths:    map[string]string{"npm": "/fake/npm", "codex": "/fake/codex"},
-		exitCode: 1,
+		paths:     map[string]string{"npm": "/fake/npm", "codex": "/fake/codex"},
+		exitCodes: map[string]int{"uninstall -g --ignore-scripts @openai/codex": 1},
 	}
 	core := NewUseCases(StatusOptions{Home: t.TempDir(), Platform: platform.For("linux", "amd64"), Runner: runner})
 
 	if _, err := core.UninstallAgent(context.Background(), "codex"); err == nil || oneerrors.As(err).Code != oneerrors.AgentInstallFailed {
 		t.Fatalf("non-zero uninstall exit should fail, got %v", err)
+	}
+}
+
+func TestUninstallAgentDoesNotResumeAfterCancellationWhileWaitingForAgentLock(t *testing.T) {
+	runner := &installAppRunner{paths: map[string]string{"npm": "/fake/npm", "codex": "/fake/codex"}}
+	core := NewUseCases(StatusOptions{Home: t.TempDir(), Platform: platform.For("linux", "amd64"), Runner: runner})
+	unlock := core.lockTask("agent-task:codex")
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() {
+		_, err := core.UninstallAgent(ctx, "codex")
+		done <- err
+	}()
+
+	select {
+	case err := <-done:
+		unlock()
+		t.Fatalf("uninstall returned before the Agent lock was released: %v", err)
+	case <-time.After(20 * time.Millisecond):
+	}
+	cancel()
+	unlock()
+	select {
+	case err := <-done:
+		if err == nil {
+			t.Fatal("cancelled uninstall resumed after acquiring the Agent lock")
+		}
+	case <-time.After(time.Second):
+		t.Fatal("cancelled uninstall did not return after the Agent lock was released")
+	}
+	if len(runner.calls) != 0 {
+		t.Fatalf("cancelled queued uninstall ran commands: %v", runner.calls)
 	}
 }

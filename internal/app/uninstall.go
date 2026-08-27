@@ -41,6 +41,9 @@ func (u *UseCases) UninstallAgent(ctx context.Context, agentID string, listeners
 
 	unlockTask := u.lockTask("agent-task:" + agentID)
 	defer unlockTask()
+	if err := contextError(ctx, "Agent uninstall request was cancelled"); err != nil {
+		return AgentUninstallResult{}, err
+	}
 	var output process.OutputListener
 	if len(listeners) > 0 && listeners[0] != nil {
 		base := listeners[0]
@@ -57,8 +60,21 @@ func (u *UseCases) UninstallAgent(ctx context.Context, agentID string, listeners
 		}
 	}
 
-	args := []string{npm, "uninstall", "-g", agent.Package.Name}
-	result, err := runtime.Run(ctx, args, install.NPMEnvironment(runtime, npm, ""), install.DefaultCommandTimeout)
+	environment := install.NPMEnvironment(runtime, npm, "")
+	checkArgs := []string{npm, "list", "-g", "--depth=0", "--json", agent.Package.Name}
+	check, err := runtime.Run(ctx, checkArgs, environment, install.DefaultCommandTimeout)
+	if err != nil {
+		return AgentUninstallResult{}, oneerrors.New(oneerrors.InternalError, "Unable to verify the npm installation for "+agent.Name, oneerrors.WithStatus(500), oneerrors.WithRetryable(true), oneerrors.WithCause(err))
+	}
+	if check.ExitCode != 0 {
+		return AgentUninstallResult{}, oneerrors.New(oneerrors.PrerequisiteMissing, agent.Name+" is installed by a different Node/npm environment; activate its original npm before uninstalling")
+	}
+
+	// npm 6 and earlier run package-controlled uninstall lifecycle scripts. They
+	// are unnecessary for removing a CLI package and could mutate user-owned
+	// configuration that this operation promises to preserve.
+	args := []string{npm, "uninstall", "-g", "--ignore-scripts", agent.Package.Name}
+	result, err := runtime.Run(ctx, args, environment, install.DefaultCommandTimeout)
 	if err != nil {
 		return AgentUninstallResult{}, oneerrors.New(oneerrors.InternalError, "Unable to uninstall "+agent.Name, oneerrors.WithStatus(500), oneerrors.WithRetryable(true), oneerrors.WithCause(err))
 	}

@@ -242,6 +242,7 @@ export function AgentManageRow({
       target: agentId,
       title: t("卸载 {name}", { name: catalog?.name || agentId }),
       route,
+      cancellable: false,
     })) return;
     setLocalUninstalling(true);
     setFailure("");
