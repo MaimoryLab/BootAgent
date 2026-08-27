@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -88,9 +89,25 @@ func TestRecommendMarketplaceValidatesModelOutputAgainstKnowledgeIDs(t *testing.
 	if len(runner.argv) < 2 || runner.argv[0] != "codex" || strings.Contains(strings.Join(runner.argv, " "), "skill-safe") {
 		t.Fatalf("private knowledge leaked into argv: %#v", runner.argv)
 	}
+	workingDirectory := argumentValue(runner.argv, "-C")
+	if workingDirectory == "" {
+		t.Fatalf("Codex recommendation did not use an isolated working directory: %#v", runner.argv)
+	}
+	if _, err := os.Stat(workingDirectory); !os.IsNotExist(err) {
+		t.Fatalf("temporary recommendation directory was not removed: %q (%v)", workingDirectory, err)
+	}
 	if !strings.Contains(runner.input, `"skill-safe"`) {
 		t.Fatalf("stdin did not contain the bounded knowledge payload: %q", runner.input)
 	}
+}
+
+func argumentValue(argv []string, name string) string {
+	for index := 0; index+1 < len(argv); index++ {
+		if argv[index] == name {
+			return argv[index+1]
+		}
+	}
+	return ""
 }
 
 func TestRecommendMarketplaceRejectsOversizedOrUnknownRequests(t *testing.T) {

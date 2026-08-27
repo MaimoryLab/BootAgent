@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -118,7 +119,16 @@ func (u *UseCases) RecommendMarketplace(ctx context.Context, request Marketplace
 	if err != nil {
 		return MarketplaceRecommendResult{}, oneerrors.New(oneerrors.InternalError, "Could not prepare marketplace knowledge", oneerrors.WithCause(err))
 	}
-	result, runErr := process.RunPrivateInput(ctx, runtime.Runner, adapter.Argv, runtime.Env, marketplaceRecommendationTimeout, prompt)
+	argv := append([]string(nil), adapter.Argv...)
+	if adapter.ID == "codex" {
+		workingDirectory, err := os.MkdirTemp("", "bootagent-marketplace-recommend-")
+		if err != nil {
+			return MarketplaceRecommendResult{}, oneerrors.New(oneerrors.InternalError, "Could not isolate the recommendation Agent", oneerrors.WithCause(err))
+		}
+		defer func() { _ = os.RemoveAll(workingDirectory) }()
+		argv = append(argv[:len(argv)-1], "-C", workingDirectory, argv[len(argv)-1])
+	}
+	result, runErr := process.RunPrivateInput(ctx, runtime.Runner, argv, runtime.Env, marketplaceRecommendationTimeout, prompt)
 	if runErr != nil || result.ExitCode != 0 {
 		return MarketplaceRecommendResult{}, oneerrors.New(oneerrors.InternalError, "The recommendation Agent could not complete the request", oneerrors.WithRetryable(true), oneerrors.WithCause(runErr))
 	}
