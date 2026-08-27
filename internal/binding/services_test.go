@@ -164,7 +164,7 @@ func TestOpenHelpOpensThePublishedSite(t *testing.T) {
 		t.Fatalf("OpenHelp opened %q, want %q", opened, HelpURL)
 	}
 	parsed, err := url.Parse(HelpURL)
-	if err != nil || parsed.Scheme != "https" || parsed.Host != "bootagentpro.ai" || parsed.User != nil {
+	if err != nil || parsed.Scheme != "https" || parsed.Host != "bootagent.ai" || parsed.User != nil {
 		t.Fatalf("help URL is not a plain https URL on the published host: %q", HelpURL)
 	}
 }

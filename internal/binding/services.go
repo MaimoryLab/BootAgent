@@ -223,7 +223,7 @@ func (s *RuntimeService) SaveSettings(ctx context.Context, request app.SettingsP
 // so the URL the app opens is not something a compromised or tampered renderer
 // can choose -- the same reason OpenRegistration re-resolves a Provider's URL
 // instead of accepting one over the bridge.
-const HelpURL = "https://bootagentpro.ai/help/"
+const HelpURL = "https://bootagent.ai/help/"
 const GitHubURL = "https://github.com/MaimoryLab/BootAgent"
 
 type StatusService struct {
