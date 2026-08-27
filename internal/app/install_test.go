@@ -52,11 +52,12 @@ func TestInstallResultWirePreservesFieldPresence(t *testing.T) {
 }
 
 type installAppRunner struct {
-	paths    map[string]string
-	calls    [][]string
-	envs     []map[string]string
-	started  [][]string
-	exitCode int
+	paths     map[string]string
+	calls     [][]string
+	envs      []map[string]string
+	started   [][]string
+	exitCode  int
+	exitCodes map[string]int
 }
 
 func (r *installAppRunner) Start(argv []string, _ map[string]string) error {
@@ -77,7 +78,11 @@ func (r *installAppRunner) Run(_ context.Context, argv []string, env map[string]
 	if len(argv) > 1 && argv[1] == "--version" {
 		return process.Result{Args: argv, ExitCode: 0, Stdout: "tool 1.0.0"}, nil
 	}
-	return process.Result{Args: argv, ExitCode: r.exitCode}, nil
+	exitCode := r.exitCode
+	if code, ok := r.exitCodes[strings.Join(argv[1:], " ")]; ok {
+		exitCode = code
+	}
+	return process.Result{Args: argv, ExitCode: exitCode}, nil
 }
 
 type installAppDoer func(*http.Request) (*http.Response, error)

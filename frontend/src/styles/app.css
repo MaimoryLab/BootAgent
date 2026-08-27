@@ -1489,29 +1489,74 @@
   border-color: var(--agent-accent-hover);
 }
 
-/* Anchor for the update dot. overflow stays visible because the dot sits
-   outside the border box, so it cannot reflow the label beside it. */
-.agent-update-button {
+.agent-action-menu {
   position: relative;
-  overflow: visible;
+  flex: 0 0 auto;
 }
 
-/* A newer version is published. Deliberately wordless: the button's title
-   carries the version for anyone who wants it, and five rows each spelling out
-   "update available" is noise. The ring matches the surface behind the button so
-   the dot reads as a badge rather than a smudge over the border it overlaps.
-   The ring is --surface-subtle because that is the row's own background, and it
-   tracks the theme with it. */
-.agent-update-dot {
+.agent-action-menu-trigger {
+  position: relative;
+  width: 30px;
+  height: 30px;
+  min-width: 30px;
+  min-height: 30px;
+  padding: 0;
+  color: var(--text-secondary);
+}
+
+.agent-action-menu-dot {
   position: absolute;
-  top: -3px;
-  right: -3px;
-  width: 8px;
-  height: 8px;
+  top: 2px;
+  right: 2px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   background: var(--accent);
   box-shadow: 0 0 0 2px var(--surface-subtle);
   pointer-events: none;
+}
+
+.agent-action-menu-panel {
+  position: absolute;
+  z-index: 30;
+  right: 0;
+  top: calc(100% + 6px);
+  width: max-content;
+  min-width: 180px;
+  max-width: min(260px, calc(100vw - 32px));
+  padding: 5px;
+  border: 1px solid var(--border-strong);
+  border-radius: 7px;
+  background: var(--window-bg);
+  box-shadow: var(--shadow-window);
+}
+
+.agent-action-menu-item {
+  width: 100%;
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 9px;
+  border: 0;
+  border-radius: 5px;
+  color: var(--text-primary);
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.agent-action-menu-item:hover:not(:disabled),
+.agent-action-menu-item:focus-visible { background: var(--surface-subtle); }
+.agent-action-menu-item:disabled { color: var(--text-tertiary); cursor: not-allowed; opacity: 0.6; }
+.agent-action-menu-item.is-danger { color: var(--red); }
+.agent-action-menu-item.has-separator {
+  margin-top: 5px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-faint);
+  border-radius: 0 0 5px 5px;
 }
 
 .agent-manage-details {

@@ -41,6 +41,16 @@ export interface AgentStatus {
     "detected": DetectedConfig | null;
 }
 
+/**
+ * AgentUninstallResult reports the package removed without implying that user
+ * configuration, Profiles, Providers, or conversation data were deleted.
+ */
+export interface AgentUninstallResult {
+    "agent": string;
+    "package": string;
+    "command": string;
+}
+
 export interface AgentUpdateResult {
     "agent": string;
     "package": string;

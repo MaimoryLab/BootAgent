@@ -66,14 +66,29 @@ describe("DesktopAppSection", () => {
     expect(screen.getByText("Example Desktop 安装完成")).toBeTruthy();
   });
 
-  it("offers conversation migration for installed ChatGPT Desktop", () => {
+  it("offers conversation migration in the action menu for installed ChatGPT Desktop", () => {
     render(
       <TaskCenterProvider>
         <DesktopAppSection app={app({ installed: true })} onChanged={vi.fn()} />
       </TaskCenterProvider>,
     );
 
-    expect(screen.getByRole("button", { name: "迁移对话" })).toBeTruthy();
+    expect(screen.queryByRole("menuitem", { name: "迁移对话" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Example Desktop 更多操作" }));
+    expect(screen.getByRole("menuitem", { name: "迁移对话" })).toBeTruthy();
+  });
+
+  it("gives every installed desktop Agent a card-level refresh action", async () => {
+    const onChanged = vi.fn();
+    render(
+      <TaskCenterProvider>
+        <DesktopAppSection app={app({ id: "workbuddy", name: "WorkBuddy", installed: true })} onChanged={onChanged} />
+      </TaskCenterProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "WorkBuddy 更多操作" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "刷新状态" }));
+    await waitFor(() => expect(onChanged).toHaveBeenCalledOnce());
   });
 
   it("delegates an uninstalled app to setup when requested", () => {

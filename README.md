@@ -17,6 +17,7 @@ BootAgent is a local desktop workspace for AI coding Agents. It turns a fresh ma
 ## What it does
 
 - Detects, installs, updates, and launches supported CLI and desktop Agents. The terminal used to launch CLI Agents can be chosen in Settings; the platform's built-in terminal remains the default.
+- Keeps configuration and launch actions directly available in Environment overview while each installed Agent card groups its supported low-frequency actions under a More menu. npm-managed CLI Agents can be updated or uninstalled there; uninstall removes only the program and preserves Profiles, Providers, configuration files, and conversations.
 - Migrates existing Codex and ChatGPT Desktop conversations into BootAgent's `bootagent` provider bucket from their Agent rows. This operation intentionally creates no history backup.
 - Connects Agents to built-in or custom Providers, with model selection and protocol-aware connection checks.
 - Saves reusable Profiles. An Agent's own configuration screen is where you pick the Profile it uses, and where its model can be changed directly.

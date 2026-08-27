@@ -1,5 +1,5 @@
 import { Dialogs } from "@wailsio/runtime";
-import { FolderOpen, History, Play, RefreshCw, SlidersHorizontal } from "lucide-react";
+import { FolderOpen, History, Play, RefreshCw, SlidersHorizontal, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 
@@ -8,6 +8,7 @@ import { useConversationMigration } from "../hooks/useConversationMigration";
 import { sourceTranslate, type Translate, useI18n } from "../i18n";
 import { taskCanceller, taskKey, updateTaskRoute, useTaskCenter, useTaskRoute } from "../state/TaskCenterContext";
 import type { AgentCatalogItem, AgentStatus, ProfileSummary, StatusResponse } from "../types/api";
+import { AgentActionMenu, type AgentActionMenuItem } from "./AgentActionMenu";
 import { AgentIcon, agentTagline } from "./icons/agents";
 import { ModalDialog } from "./ModalDialog";
 
@@ -135,14 +136,18 @@ export function AgentManageRow({
   const route = useTaskRoute();
   const [launching, setLaunching] = useState(false);
   const [localUpdating, setLocalUpdating] = useState(false);
+  const [localUninstalling, setLocalUninstalling] = useState(false);
   const [failure, setFailure] = useState("");
   const [launchDirectory, setLaunchDirectory] = useState("");
   const [rememberDirectory, setRememberDirectory] = useState(false);
   const [directoryDialog, setDirectoryDialog] = useState(false);
   const updateTaskID = taskKey("update", agentId);
+  const uninstallTaskID = taskKey("uninstall", agentId);
   const updateTask = taskFor(updateTaskID);
+  const uninstallTask = taskFor(uninstallTaskID);
   const migration = useConversationMigration();
   const updating = updateTask?.state === "running" || localUpdating;
+  const uninstalling = uninstallTask?.state === "running" || localUninstalling;
   const version = versionNote(status, t);
   const target = targetSummary(status, providers, t);
   const providerId = profile?.provider || status.provider || "";
@@ -153,13 +158,16 @@ export function AgentManageRow({
   // No "not configured" state here: the Profile and Provider tokens already name
   // whichever piece is absent, so a third word for the same condition only adds
   // a term the user has to map back onto them.
-  const updateFailure = updateTask?.state === "failure" ? updateTask.message || t("失败") : "";
-  const statusLabel = failure || updateFailure ? t("失败") : !status.installed ? t("未安装") : "";
+  const taskFailure = updateTask?.state === "failure"
+    ? updateTask.message || t("失败")
+    : uninstallTask?.state === "failure" ? uninstallTask.message || t("失败") : "";
+  const statusLabel = failure || taskFailure ? t("失败") : !status.installed ? t("未安装") : "";
 
   // installed is true only when the Agent's command resolved on the managed
   // PATH, so it is already the precise "there is something to launch" signal.
   const canLaunch = status.installed;
   const offer = updateOffer(catalog, status);
+  const busy = launching || updating || uninstalling || migration.running || isTaskRunning(taskKey("install", agentId));
 
   const startLaunch = async (directory: string) => {
     setDirectoryDialog(false);
@@ -221,6 +229,67 @@ export function AgentManageRow({
       setLocalUpdating(false);
     }
   };
+  const uninstall = async () => {
+    const confirmLabel = t("卸载 Agent");
+    const choice = await Dialogs.Question({
+      Title: confirmLabel,
+      Message: t("确定卸载「{name}」吗？只会移除 Agent 程序，配置模版、模型服务、配置文件和对话数据都会保留。", { name: catalog?.name || agentId }),
+      Buttons: [{ Label: confirmLabel }, { Label: t("取消"), IsCancel: true }],
+    }).catch(() => "");
+    if (choice !== confirmLabel || !startTask({
+      id: uninstallTaskID,
+      kind: "uninstall",
+      target: agentId,
+      title: t("卸载 {name}", { name: catalog?.name || agentId }),
+      route,
+      cancellable: false,
+    })) return;
+    setLocalUninstalling(true);
+    setFailure("");
+    try {
+      const request = api.uninstallAgent(agentId);
+      setTaskCanceller(uninstallTaskID, taskCanceller(request));
+      await request;
+      finishTask(uninstallTaskID, { kind: "success", message: t("已卸载 {name}，配置和对话数据已保留", { name: catalog?.name || agentId }) });
+      await onChanged?.();
+    } catch (error) {
+      finishTask(uninstallTaskID, { kind: "failure", message: describeFailure(error, t("无法卸载 Agent"), t).message });
+    } finally {
+      setLocalUninstalling(false);
+    }
+  };
+  const menuItems: AgentActionMenuItem[] = status.installed ? [
+    ...(agentId === "codex" ? [{
+      id: "migration",
+      label: migration.running ? t("迁移中") : t("迁移对话"),
+      icon: History,
+      onSelect: migration.run,
+      disabled: busy,
+    }] : []),
+    ...(offer.npm ? [{
+      id: "update",
+      label: updating ? t("更新中") : offer.behind ? t("更新至 {version}", { version: offer.behind }) : t("更新"),
+      icon: RefreshCw,
+      onSelect: update,
+      disabled: busy,
+    }] : []),
+    {
+      id: "refresh",
+      label: t("刷新状态"),
+      icon: RefreshCw,
+      onSelect: async () => { await onChanged?.(); },
+      disabled: busy,
+    },
+    ...(offer.npm ? [{
+      id: "uninstall",
+      label: uninstalling ? t("卸载中") : t("卸载 Agent"),
+      icon: Trash2,
+      onSelect: uninstall,
+      disabled: busy,
+      tone: "danger" as const,
+      separatorBefore: true,
+    }] : []),
+  ] : [];
   return (
     <div className="agent-manage-row" data-testid={`agent-${agentId}`}>
       <div className="agent-manage-summary">
@@ -230,7 +299,7 @@ export function AgentManageRow({
           </span>
           <span className="agent-manage-identity-copy">
             <strong>{catalog?.name || agentId}</strong>
-            {failure || updateFailure ? <small className="agent-manage-note is-error">{failure || updateFailure}</small> : null}
+            {failure || taskFailure ? <small className="agent-manage-note is-error">{failure || taskFailure}</small> : null}
           </span>
         </div>
         {/* Right-aligned, in a fixed order, with the Profile and Provider slots
@@ -255,7 +324,7 @@ export function AgentManageRow({
               {version.text}
             </span>
           ) : null}
-          {statusLabel ? <span className={`agent-manage-state${failure || updateFailure ? " is-error" : ""}`}>{statusLabel}</span> : null}
+          {statusLabel ? <span className={`agent-manage-state${failure || taskFailure ? " is-error" : ""}`}>{statusLabel}</span> : null}
         </div>
       </div>
       {directoryDialog ? (
@@ -276,27 +345,11 @@ export function AgentManageRow({
         {/* Always in the row, not only when the Agent cannot launch. Configuring
             an installed Agent was previously reachable only by opening <details>,
             which made the common case the hidden one. */}
-        {agentId === "codex" ? (
-          <button className="button button-secondary" type="button" onClick={() => void migration.run()} disabled={migration.running || launching || updating}>
-            {migration.running ? <RefreshCw size={15} className="spin" aria-hidden="true" /> : <History size={15} aria-hidden="true" />}
-            {migration.running ? t("迁移中") : t("迁移对话")}
-          </button>
-        ) : null}
-        {offer.npm ? (
-          <button
-            className="button button-secondary agent-update-button"
-            type="button"
-            onClick={() => void update()}
-            disabled={updating || launching || isTaskRunning(taskKey("install", agentId))}
-            title={offer.behind ? t("有新版本 {version}，点击更新", { version: offer.behind }) : t("执行 npm update")}
-          >
-            <RefreshCw size={15} className={updating ? "spin" : ""} aria-hidden="true" />
-            {updating ? t("更新中") : t("更新")}
-            {/* The dot is decoration; the title above is what carries the new
-                version to a screen reader, so this is not announced twice. */}
-            {offer.behind && !updating ? <span className="agent-update-dot" aria-hidden="true" /> : null}
-          </button>
-        ) : null}
+        <AgentActionMenu
+          label={t("{name} 更多操作", { name: catalog?.name || agentId })}
+          items={menuItems}
+          hasUpdate={Boolean(offer.behind && !updating)}
+        />
         <Link
           className="button button-secondary"
           to={`/agents/${agentId}`}
@@ -311,7 +364,7 @@ export function AgentManageRow({
             className="button button-primary"
             type="button"
             onClick={() => void launch()}
-            disabled={launching}
+            disabled={busy}
             title={t("在新终端窗口中启动，并载入 BootAgent 写入的配置")}
           >
             {launching ? <RefreshCw size={14} className="spin" aria-hidden="true" /> : <Play size={15} aria-hidden="true" />}

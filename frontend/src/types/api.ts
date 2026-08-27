@@ -53,6 +53,7 @@ export type TerminalOption = AppModels.TerminalOption;
 export type ConversionConfig = AppModels.ConversionConfig;
 export type ActivateAgentResponse = BindingModels.ActivateResponse;
 export type LaunchAgentResponse = BindingModels.LaunchResponse;
+export type AgentUninstallResult = AppModels.AgentUninstallResult;
 export type AgentUpdateResult = AppModels.AgentUpdateResult;
 export type ConversationMigrationResult = AppModels.ConversationMigrationResult;
 export type MarketplaceRecommendationAgent = AppModels.MarketplaceRecommendationAgent;
