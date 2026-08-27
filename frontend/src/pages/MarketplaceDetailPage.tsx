@@ -1,6 +1,6 @@
 import { ArrowLeft, ArrowRight, BookOpen, Brain, Check, Code2, Copy, Database, Download, ExternalLink, FileText, GitBranch, Globe, Layers, Puzzle, Search, Star, Terminal, Workflow, Zap } from "lucide-react";
 import { type ComponentType, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 
 import { useMarketplaceCatalog } from "../data/useMarketplaceCatalog";
 import { marketplaceTagPairs } from "../data/tag-labels";
@@ -299,16 +299,18 @@ function MetaSidebar({ item }: { item: MarketplaceItem }) {
 export function MarketplaceDetailPage() {
   const { itemId = "" } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { t, locale } = useI18n();
 
   const { items } = useMarketplaceCatalog();
   const item = items.find((i) => i.id === decodeURIComponent(itemId));
+  const returnTo = typeof location.state?.returnTo === "string" ? location.state.returnTo : "/marketplace";
 
   if (!item) {
     return (
       <PageScaffold
         title={t("工具未找到")}
-        onBack={() => navigate("/marketplace")}
+        onBack={() => navigate(returnTo)}
         backLabel={t("返回工具市场")}
       >
         <p className="detail-not-found">{t("找不到该工具，它可能已被移除。")}</p>
@@ -320,7 +322,7 @@ export function MarketplaceDetailPage() {
     <PageScaffold
       title=""
       bodyClassName="detail-page"
-      onBack={() => navigate("/marketplace")}
+      onBack={() => navigate(returnTo)}
       backLabel={t("返回工具市场")}
     >
       {/* Hero header */}

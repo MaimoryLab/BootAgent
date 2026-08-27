@@ -21,7 +21,7 @@ import {
   Zap,
 } from "lucide-react";
 import { type ComponentType, useEffect, useRef, useMemo, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import { useMarketplaceCatalog } from "../data/useMarketplaceCatalog";
 import { STATIC_CATALOG } from "../data/marketplace-catalog";
@@ -307,6 +307,40 @@ function marketplaceCategoryFromSearch(searchParams: URLSearchParams): Marketpla
     : "all";
 }
 
+const FILTER_PARAM_VALUES = {
+  kinds: new Set(KIND_OPTIONS.map(({ key }) => key)),
+  sources: new Set(SOURCE_OPTIONS.map(({ key }) => key)),
+  scenes: new Set(SCENE_OPTIONS.map(({ key }) => key)),
+};
+
+function parseSetParam<K extends string>(searchParams: URLSearchParams, name: string, allowed: Set<K>): Set<K> {
+  return new Set((searchParams.get(name) ?? "").split(",").filter((value): value is K => allowed.has(value as K)));
+}
+
+export function parseMarketplaceFilters(searchParams: URLSearchParams): FilterState {
+  const apiKey = searchParams.get("apiKey");
+  return {
+    kinds: parseSetParam(searchParams, "kind", FILTER_PARAM_VALUES.kinds),
+    sources: parseSetParam(searchParams, "source", FILTER_PARAM_VALUES.sources),
+    scenes: parseSetParam(searchParams, "scene", FILTER_PARAM_VALUES.scenes),
+    requiresApiKey: apiKey === "yes" ? true : apiKey === "no" ? false : null,
+  };
+}
+
+export function serializeMarketplaceFilters(searchParams: URLSearchParams, filters: FilterState): URLSearchParams {
+  const next = new URLSearchParams(searchParams);
+  const setOrDelete = (name: string, values: Set<string>) => {
+    if (values.size) next.set(name, [...values].sort().join(","));
+    else next.delete(name);
+  };
+  setOrDelete("kind", filters.kinds);
+  setOrDelete("source", filters.sources);
+  setOrDelete("scene", filters.scenes);
+  if (filters.requiresApiKey === null) next.delete("apiKey");
+  else next.set("apiKey", filters.requiresApiKey ? "yes" : "no");
+  return next;
+}
+
 // ── kind badge ────────────────────────────────────────────────────────────────
 
 const KIND_TONE: Record<string, "success" | "info" | "neutral"> = {
@@ -371,6 +405,8 @@ function CardIcon({ item }: { item: MarketplaceItem }) {
 function MarketplaceItemCard({ item, onCopied }: { item: MarketplaceItem; onCopied: (item: MarketplaceItem) => void }) {
   const { t, locale } = useI18n();
   const navigate = useNavigate();
+  const location = useLocation();
+  const returnTo = `${location.pathname}${location.search}`;
 
   const teaser = useMemo(() => {
     const description =
@@ -396,11 +432,11 @@ function MarketplaceItemCard({ item, onCopied }: { item: MarketplaceItem; onCopi
       data-item-id={item.id}
       role="button"
       tabIndex={0}
-      onClick={() => navigate(`/marketplace/${encodeURIComponent(item.id)}`)}
+      onClick={() => navigate(`/marketplace/${encodeURIComponent(item.id)}`, { state: { returnTo } })}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
-          navigate(`/marketplace/${encodeURIComponent(item.id)}`);
+          navigate(`/marketplace/${encodeURIComponent(item.id)}`, { state: { returnTo } });
         }
       }}
       aria-label={item.name}
@@ -488,12 +524,11 @@ export function MarketplacePage() {
   const { t } = useI18n();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeCategory = marketplaceCategoryFromSearch(searchParams);
-  const [query, setQuery] = useState("");
-  const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS);
+  const query = searchParams.get("q") ?? "";
+  const filters = parseMarketplaceFilters(searchParams);
   // Bottom toast shown after the corner copy button; auto-dismisses.
   const [copyNotice, setCopyNotice] = useState("");
   const [recommendationOpen, setRecommendationOpen] = useState(false);
-  const [historyOpen, setHistoryOpen] = useState(false);
   const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { items, live } = useMarketplaceCatalog();
@@ -532,8 +567,32 @@ export function MarketplacePage() {
     const next = new URLSearchParams(searchParams);
     if (category === "all") next.delete("category");
     else next.set("category", category);
+    next.delete("q");
     setSearchParams(next, { replace: true });
-    setQuery("");
+  };
+
+  const updateQuery = (value: string) => {
+    const next = new URLSearchParams(searchParams);
+    if (value.trim()) next.set("q", value);
+    else next.delete("q");
+    setSearchParams(next, { replace: true });
+  };
+
+  const updateFilters = (nextFilters: FilterState) => {
+    const next = serializeMarketplaceFilters(searchParams, nextFilters);
+    setSearchParams(next, { replace: true });
+  };
+
+  const historyOpen = searchParams.get("recommendationHistory") === "1";
+  const openHistory = () => {
+    const next = new URLSearchParams(searchParams);
+    next.set("recommendationHistory", "1");
+    setSearchParams(next);
+  };
+  const closeHistory = () => {
+    const next = new URLSearchParams(searchParams);
+    next.delete("recommendationHistory");
+    setSearchParams(next, { replace: true });
   };
 
   return (
@@ -543,7 +602,7 @@ export function MarketplacePage() {
       bodyClassName="marketplace-page"
       footerNote={t("{count} 个工具 · {status}", { count: items.length, status: live ? t("实时数据") : t("离线快照") })}
       secondaryAction={(
-        <span className="marketplace-actions"><button className="button button-secondary" type="button" onClick={() => setHistoryOpen(true)}><Clock3 size={15} />{t("推荐历史")}</button><button className="button button-primary" type="button" onClick={() => setRecommendationOpen(true)}><Sparkles size={15} />{t("帮我找工具")}</button></span>
+        <span className="marketplace-actions"><button className="button button-secondary" type="button" onClick={openHistory}><Clock3 size={15} />{t("推荐历史")}</button><button className="button button-primary" type="button" onClick={() => setRecommendationOpen(true)}><Sparkles size={15} />{t("帮我找工具")}</button></span>
       )}
     >
       <div className="marketplace-tabs" role="tablist" aria-label={t("工具分类")}>
@@ -572,10 +631,10 @@ export function MarketplacePage() {
       <div className="management-toolbar marketplace-toolbar">
         <ManagementSearch
           value={query}
-          onValueChange={setQuery}
+          onValueChange={updateQuery}
           placeholder={t("搜索工具市场")}
         />
-        <FilterDropdownBar filters={filters} onChange={setFilters} items={items} />
+        <FilterDropdownBar filters={filters} onChange={updateFilters} items={items} />
       </div>
 
       <div className="marketplace-layout">
@@ -622,7 +681,7 @@ export function MarketplacePage() {
         </div>
       ) : null}
       {recommendationOpen ? <MarketplaceRecommendationDialog items={items} catalogVersion={STATIC_CATALOG.version} onDismiss={() => setRecommendationOpen(false)} /> : null}
-      {historyOpen ? <MarketplaceRecommendationHistoryDialog onDismiss={() => setHistoryOpen(false)} /> : null}
+      {historyOpen ? <MarketplaceRecommendationHistoryDialog onDismiss={closeHistory} /> : null}
     </PageScaffold>
   );
 }

@@ -47,7 +47,7 @@ export function InstallTaskPage() {
       {running ? (
         <button className="button button-secondary task-close-action" type="button" onClick={() => cancelTask(task.id)}>{t("取消任务")}</button>
       ) : (
-        <button className="button button-secondary task-close-action" type="button" onClick={() => { dismissTask(task.id); navigate("/overview"); }}>{t("关闭任务")}</button>
+        <button className="button button-secondary task-close-action" type="button" onClick={() => { dismissTask(task.id); navigate("/overview", { replace: true }); }}>{t("关闭任务")}</button>
       )}
     </PageScaffold>
   );
