@@ -413,6 +413,16 @@ func (s *AgentService) MigrateConversations(ctx context.Context) (app.Conversati
 	return s.core.MigrateCodexConversations(ctx)
 }
 
+func (s *AgentService) Uninstall(ctx context.Context, request UpdateRequest) (app.AgentUninstallResult, error) {
+	if err := contextError(ctx); err != nil {
+		return app.AgentUninstallResult{}, err
+	}
+	if s == nil || s.core == nil {
+		return app.AgentUninstallResult{}, notReady("Agent uninstall is not configured")
+	}
+	return s.core.UninstallAgent(ctx, request.AgentID, s.onOutput)
+}
+
 func (s *AgentService) Update(ctx context.Context, request UpdateRequest) (app.AgentUpdateResult, error) {
 	if err := contextError(ctx); err != nil {
 		return app.AgentUpdateResult{}, err

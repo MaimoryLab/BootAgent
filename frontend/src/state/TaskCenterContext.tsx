@@ -19,7 +19,7 @@ export interface TaskProgress {
   total: number;
 }
 
-export type TaskKind = "install" | "update" | "download" | "migration";
+export type TaskKind = "install" | "update" | "uninstall" | "download" | "migration";
 type TaskState = "running" | "success" | "failure" | "cancelled";
 
 export interface TaskOutcome {
@@ -77,7 +77,7 @@ export function taskKey(kind: TaskKind, target: string): string {
 }
 
 function taskLockKey(kind: TaskKind, target: string): string {
-  return kind === "install" || kind === "update" ? `agent:${target}` : taskKey(kind, target);
+  return kind === "install" || kind === "update" || kind === "uninstall" ? `agent:${target}` : taskKey(kind, target);
 }
 
 /** HashRouter is used by the desktop shell; this also works in browser tests. */
