@@ -156,11 +156,14 @@ func validateMarketplaceKnowledge(items []MarketplaceKnowledgeItem) ([]Marketpla
 	allowed := make(map[string]struct{}, len(items))
 	for _, item := range items {
 		item.ID = strings.TrimSpace(item.ID)
-		item.Name = strings.TrimSpace(item.Name)
-		item.Description = strings.TrimSpace(item.Description)
-		item.Category = strings.TrimSpace(item.Category)
-		if !marketplaceSlugPattern.MatchString(item.ID) || item.Name == "" || item.Description == "" || item.Category == "" ||
-			len([]rune(item.Name)) > marketplaceRecommendationFieldMax || len([]rune(item.Description)) > marketplaceRecommendationFieldMax || len([]rune(item.Category)) > 64 {
+		item.Name = truncateRunes(strings.TrimSpace(item.Name), marketplaceRecommendationFieldMax)
+		item.Description = truncateRunes(strings.TrimSpace(item.Description), marketplaceRecommendationFieldMax)
+		item.Category = truncateRunes(strings.TrimSpace(item.Category), 64)
+		// The recommendation prompt is a bounded projection of the catalog. Long
+		// descriptions are safely shortened here; the detail page remains the
+		// source of the complete documentation. One oversized entry must not make
+		// the whole marketplace unavailable to the local recommender.
+		if !marketplaceSlugPattern.MatchString(item.ID) || item.Name == "" || item.Description == "" || item.Category == "" {
 			return nil, nil, oneerrors.New(oneerrors.InvalidRequest, "Marketplace knowledge contains an invalid tool")
 		}
 		if _, duplicate := allowed[item.ID]; duplicate {

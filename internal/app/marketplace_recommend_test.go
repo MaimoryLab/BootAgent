@@ -123,3 +123,26 @@ func TestRecommendMarketplaceRejectsOversizedOrUnknownRequests(t *testing.T) {
 		}
 	}
 }
+
+func TestRecommendMarketplaceTruncatesLongCatalogDescriptions(t *testing.T) {
+	runner := &marketplaceRecommendationRunner{
+		available: map[string]bool{"codex": true},
+		result:    process.Result{ExitCode: 0, Stdout: `{"recommendations":[{"item_id":"long-doc","reason":"matches"}]}`},
+	}
+	result, err := recommendationCore(t, runner).RecommendMarketplace(context.Background(), MarketplaceRecommendRequest{
+		AgentID: "codex",
+		Need:    "find a tool",
+		Items: []MarketplaceKnowledgeItem{{
+			ID: "long-doc", Name: "Long document", Description: strings.Repeat("说明", marketplaceRecommendationFieldMax+100), Category: "skill",
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Recommendations) != 1 || result.Recommendations[0].ItemID != "long-doc" {
+		t.Fatalf("recommendations = %#v", result.Recommendations)
+	}
+	if strings.Contains(runner.input, strings.Repeat("说明", marketplaceRecommendationFieldMax+1)) {
+		t.Fatal("long catalog description was not bounded")
+	}
+}
