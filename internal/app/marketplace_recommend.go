@@ -9,6 +9,7 @@ import (
 
 	"github.com/MaimoryLab/BootAgent/internal/catalog"
 	oneerrors "github.com/MaimoryLab/BootAgent/internal/errors"
+	"github.com/MaimoryLab/BootAgent/internal/process"
 )
 
 const (
@@ -52,27 +53,17 @@ type MarketplaceRecommendResult struct {
 type marketplaceRecommendationAdapter struct {
 	ID      string
 	Command string
-	Argv    func(prompt string) []string
+	Argv    []string
 }
 
 var marketplaceRecommendationAdapters = []marketplaceRecommendationAdapter{
 	{
 		ID: "codex", Command: "codex",
-		Argv: func(prompt string) []string {
-			return []string{"codex", "exec", "--sandbox", "read-only", "--ephemeral", "--ignore-rules", "--skip-git-repo-check", "--color", "never", prompt}
-		},
+		Argv: []string{"codex", "exec", "--sandbox", "read-only", "--ephemeral", "--ignore-rules", "--skip-git-repo-check", "--color", "never", "-"},
 	},
 	{
 		ID: "claude-code", Command: "claude",
-		Argv: func(prompt string) []string {
-			return []string{"claude", "-p", "--safe-mode", "--tools", "", "--no-session-persistence", "--output-format", "json", prompt}
-		},
-	},
-	{
-		ID: "pi", Command: "pi",
-		Argv: func(prompt string) []string {
-			return []string{"pi", "--print", "--no-tools", "--no-session", "--no-context-files", "--no-extensions", "--no-skills", "--no-prompt-templates", prompt}
-		},
+		Argv: []string{"claude", "-p", "--safe-mode", "--tools", "", "--no-session-persistence", "--output-format", "json"},
 	},
 }
 
@@ -127,7 +118,7 @@ func (u *UseCases) RecommendMarketplace(ctx context.Context, request Marketplace
 	if err != nil {
 		return MarketplaceRecommendResult{}, oneerrors.New(oneerrors.InternalError, "Could not prepare marketplace knowledge", oneerrors.WithCause(err))
 	}
-	result, runErr := runtime.Run(ctx, adapter.Argv(prompt), nil, marketplaceRecommendationTimeout)
+	result, runErr := process.RunPrivateInput(ctx, runtime.Runner, adapter.Argv, runtime.Env, marketplaceRecommendationTimeout, prompt)
 	if runErr != nil || result.ExitCode != 0 {
 		return MarketplaceRecommendResult{}, oneerrors.New(oneerrors.InternalError, "The recommendation Agent could not complete the request", oneerrors.WithRetryable(true), oneerrors.WithCause(runErr))
 	}

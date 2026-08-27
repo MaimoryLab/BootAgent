@@ -15,6 +15,7 @@ type marketplaceRecommendationRunner struct {
 	available map[string]bool
 	result    process.Result
 	argv      []string
+	input     string
 }
 
 func (r *marketplaceRecommendationRunner) LookPath(command string) (string, bool) {
@@ -23,6 +24,15 @@ func (r *marketplaceRecommendationRunner) LookPath(command string) (string, bool
 
 func (r *marketplaceRecommendationRunner) Run(_ context.Context, argv []string, _ map[string]string, timeout time.Duration) (process.Result, error) {
 	r.argv = append([]string(nil), argv...)
+	if timeout <= 0 || timeout > 2*time.Minute {
+		return process.Result{}, context.DeadlineExceeded
+	}
+	return r.result, nil
+}
+
+func (r *marketplaceRecommendationRunner) RunPrivateInput(_ context.Context, argv []string, _ map[string]string, timeout time.Duration, input string) (process.Result, error) {
+	r.argv = append([]string(nil), argv...)
+	r.input = input
 	if timeout <= 0 || timeout > 2*time.Minute {
 		return process.Result{}, context.DeadlineExceeded
 	}
@@ -41,13 +51,13 @@ func recommendationCore(t *testing.T, runner *marketplaceRecommendationRunner) *
 
 func TestMarketplaceRecommendationAgentsOnlyListsSupportedInstalledCLIs(t *testing.T) {
 	runner := &marketplaceRecommendationRunner{available: map[string]bool{
-		"codex": true, "claude": false, "pi": true, "opencode": true,
+		"codex": true, "claude": true, "pi": true, "opencode": true,
 	}}
 	agents, err := recommendationCore(t, runner).MarketplaceRecommendationAgents(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(agents) != 2 || agents[0].ID != "codex" || agents[1].ID != "pi" {
+	if len(agents) != 2 || agents[0].ID != "codex" || agents[1].ID != "claude-code" {
 		t.Fatalf("agents = %#v", agents)
 	}
 }
@@ -75,8 +85,11 @@ func TestRecommendMarketplaceValidatesModelOutputAgainstKnowledgeIDs(t *testing.
 	if len(result.Recommendations) != 1 || result.Recommendations[0].ItemID != "skill-safe" {
 		t.Fatalf("recommendations = %#v", result.Recommendations)
 	}
-	if len(runner.argv) < 2 || runner.argv[0] != "codex" || !strings.Contains(runner.argv[len(runner.argv)-1], `"skill-safe"`) {
-		t.Fatalf("argv did not contain the bounded knowledge payload: %#v", runner.argv)
+	if len(runner.argv) < 2 || runner.argv[0] != "codex" || strings.Contains(strings.Join(runner.argv, " "), "skill-safe") {
+		t.Fatalf("private knowledge leaked into argv: %#v", runner.argv)
+	}
+	if !strings.Contains(runner.input, `"skill-safe"`) {
+		t.Fatalf("stdin did not contain the bounded knowledge payload: %q", runner.input)
 	}
 }
 

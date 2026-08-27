@@ -61,6 +61,18 @@ func (l LoggingRunner) RunWithOutput(ctx context.Context, argv []string, overrid
 	return result, err
 }
 
+// RunPrivateInput deliberately records metadata only. The stdin prompt and
+// model response may contain a user's request and must not enter command logs.
+func (l LoggingRunner) RunPrivateInput(ctx context.Context, argv []string, overrides map[string]string, timeout time.Duration, input string) (Result, error) {
+	started := time.Now()
+	result, err := RunPrivateInput(ctx, l.Inner, argv, overrides, timeout, input)
+	metadata := result
+	metadata.Stdout = ""
+	metadata.Stderr = ""
+	l.record("private-run", argv, overrides, time.Since(started), metadata, err)
+	return result, err
+}
+
 // WithEnvironment keeps the decorator transparent to PATH injection: the
 // managed runtime directories must reach the wrapped runner's own lookup, or a
 // managed npm would be reported missing even though installs can run it.
