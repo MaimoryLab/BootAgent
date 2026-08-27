@@ -3013,7 +3013,20 @@
 .marketplace-history-list strong { display: block; font-weight: 600; }
 .marketplace-history-list small { display: block; margin-top: 4px; color: var(--muted); }
 .marketplace-history-actions { display: inline-flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.marketplace-history-card { cursor: pointer; }
+.marketplace-history-card:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.marketplace-history-result-count { color: var(--muted); font-size: 12px; white-space: nowrap; }
+.marketplace-recommend-detail-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 16px; color: var(--muted); font-size: 13px; }
+.marketplace-recommend-detail-list { list-style: none; display: grid; gap: 10px; margin: 0; padding: 0; }
+.marketplace-recommend-detail-card { display: flex; align-items: flex-start; gap: 12px; padding: 16px; border: 1px solid var(--border); border-radius: 6px; }
+.marketplace-recommend-detail-icon { display: grid; place-items: center; width: 40px; height: 40px; flex: 0 0 40px; color: var(--accent); background: var(--accent-soft); border-radius: 6px; }
+.marketplace-recommend-detail-body { min-width: 0; flex: 1; }
+.marketplace-recommend-detail-title { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.marketplace-recommend-detail-body p { margin: 6px 0; }
+.marketplace-recommend-detail-body small { color: var(--muted); }
+.marketplace-history-unavailable { color: var(--muted); font-size: 12px; white-space: nowrap; }
 @media (max-width: 640px) { .marketplace-actions { width: 100%; } .marketplace-actions .button { flex: 1; } .marketplace-history-list > li { align-items: flex-start; } }
+@media (max-width: 640px) { .marketplace-recommend-detail-card { flex-wrap: wrap; } .marketplace-recommend-detail-card > .button { margin-left: 52px; } .marketplace-recommend-detail-header { align-items: flex-start; flex-direction: column; } }
 
 /* ── Card grid ── */
 .marketplace-content { min-width: 0; }

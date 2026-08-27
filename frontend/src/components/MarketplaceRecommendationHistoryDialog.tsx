@@ -1,6 +1,6 @@
-import { Clock3, ExternalLink, Trash2, X } from "lucide-react";
+import { Clock3, Trash2, X } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 import { api, describeFailure } from "../backend/api";
 import { useI18n } from "../i18n";
@@ -9,6 +9,7 @@ import { ModalDialog } from "./ModalDialog";
 
 export function MarketplaceRecommendationHistoryDialog({ onDismiss }: { onDismiss: () => void }) {
   const { t } = useI18n();
+  const navigate = useNavigate();
   const [records, setRecords] = useState<MarketplaceRecommendationHistory[]>([]);
   const [failure, setFailure] = useState("");
 
@@ -32,11 +33,11 @@ export function MarketplaceRecommendationHistoryDialog({ onDismiss }: { onDismis
       {records.length === 0 && !failure ? <p className="marketplace-recommend-status">{t("暂无推荐历史")}</p> : null}
       <ul className="marketplace-history-list">
         {records.map((record) => (
-          <li key={record.id}>
+          <li key={record.id} className="marketplace-history-card" role="button" tabIndex={0} onClick={() => { navigate(`/marketplace/recommendations/${encodeURIComponent(record.id)}`); onDismiss(); }} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); navigate(`/marketplace/recommendations/${encodeURIComponent(record.id)}`); onDismiss(); } }}>
             <div><strong>{record.need}</strong><small>{new Date(record.created_at).toLocaleString()} · {(record.results ?? []).length} {t("个结果")}</small></div>
             <div className="marketplace-history-actions">
-              {(record.results ?? []).slice(0, 3).map((result) => <Link key={result.item_id} to={`/marketplace/${encodeURIComponent(result.item_id)}`} onClick={onDismiss} title={result.name}><ExternalLink size={14} aria-hidden="true" /></Link>)}
-              <button className="icon-button" type="button" onClick={() => void remove(record.id)} title={t("删除")} aria-label={`${t("删除")} ${record.need}`}><Trash2 size={14} /></button>
+              <span className="marketplace-history-result-count">{(record.results ?? []).length} {t("个结果")}</span>
+              <button className="icon-button" type="button" onClick={(event) => { event.stopPropagation(); void remove(record.id); }} title={t("删除")} aria-label={`${t("删除")} ${record.need}`}><Trash2 size={14} /></button>
             </div>
           </li>
         ))}
