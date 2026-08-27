@@ -3,6 +3,7 @@
 
 export type {
     AgentStatus,
+    AgentUninstallResult,
     AgentUpdateResult,
     Capabilities,
     ConversationMigrationResult,
