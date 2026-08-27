@@ -1,6 +1,6 @@
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 
 import { api } from "../backend/api";
 import { I18nProvider } from "../i18n";
@@ -25,5 +25,20 @@ describe("MarketplaceRecommendationDetailPage", () => {
     expect(await screen.findByText("Remote Four")).toBeTruthy();
     expect(screen.getByText("支持移动端访问")).toBeTruthy();
     expect(screen.queryAllByRole("link", { name: /查看工具/ })).toHaveLength(0);
+  });
+
+  it("returns to the history route supplied by the originating dialog", async () => {
+    render(
+      <I18nProvider>
+        <MemoryRouter initialEntries={[{ pathname: "/marketplace/recommendations/rec-1", state: { returnTo: "/marketplace?recommendationHistory=1" } }]}>
+          <Routes>
+            <Route path="/marketplace/recommendations/:historyId" element={<MarketplaceRecommendationDetailPage />} />
+            <Route path="/marketplace" element={<h1>推荐历史</h1>} />
+          </Routes>
+        </MemoryRouter>
+      </I18nProvider>,
+    );
+    fireEvent.click(await screen.findByRole("button", { name: /recommendation history/i }));
+    expect(screen.getByRole("heading", { name: "推荐历史" })).toBeTruthy();
   });
 });

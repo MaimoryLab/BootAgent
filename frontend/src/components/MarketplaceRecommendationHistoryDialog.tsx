@@ -1,6 +1,6 @@
 import { Clock3, Trash2, X } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import { api, describeFailure } from "../backend/api";
 import { useI18n } from "../i18n";
@@ -10,6 +10,7 @@ import { ModalDialog } from "./ModalDialog";
 export function MarketplaceRecommendationHistoryDialog({ onDismiss }: { onDismiss: () => void }) {
   const { t } = useI18n();
   const navigate = useNavigate();
+  const location = useLocation();
   const [records, setRecords] = useState<MarketplaceRecommendationHistory[]>([]);
   const [failure, setFailure] = useState("");
 
@@ -33,7 +34,7 @@ export function MarketplaceRecommendationHistoryDialog({ onDismiss }: { onDismis
       {records.length === 0 && !failure ? <p className="marketplace-recommend-status">{t("暂无推荐历史")}</p> : null}
       <ul className="marketplace-history-list">
         {records.map((record) => (
-          <li key={record.id} className="marketplace-history-card" role="button" tabIndex={0} onClick={() => { navigate(`/marketplace/recommendations/${encodeURIComponent(record.id)}`); onDismiss(); }} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); navigate(`/marketplace/recommendations/${encodeURIComponent(record.id)}`); onDismiss(); } }}>
+          <li key={record.id} className="marketplace-history-card" role="button" tabIndex={0} onClick={() => navigate(`/marketplace/recommendations/${encodeURIComponent(record.id)}`, { state: { returnTo: `${location.pathname}${location.search}` } })} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); navigate(`/marketplace/recommendations/${encodeURIComponent(record.id)}`, { state: { returnTo: `${location.pathname}${location.search}` } }); } }}>
             <div><strong>{record.need}</strong><small>{new Date(record.created_at).toLocaleString()} · {(record.results ?? []).length} {t("个结果")}</small></div>
             <div className="marketplace-history-actions">
               <span className="marketplace-history-result-count">{(record.results ?? []).length} {t("个结果")}</span>

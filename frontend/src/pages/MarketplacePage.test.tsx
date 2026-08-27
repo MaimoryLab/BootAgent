@@ -57,7 +57,7 @@ vi.mock("../data/useMarketplaceCatalog", () => ({
 
 import { I18nProvider } from "../i18n";
 import { api } from "../backend/api";
-import { filterMarketplaceItems, MarketplacePage } from "./MarketplacePage";
+import { filterMarketplaceItems, MarketplacePage, parseMarketplaceFilters, serializeMarketplaceFilters } from "./MarketplacePage";
 import { EMPTY_FILTERS } from "../components/MarketplaceFilterSidebar";
 import type { MarketplaceItem } from "../types/marketplace";
 
@@ -146,6 +146,22 @@ describe("filterMarketplaceItems", () => {
 });
 
 describe("MarketplacePage category URL", () => {
+  it("round-trips marketplace filters through the URL", () => {
+    const params = serializeMarketplaceFilters(new URLSearchParams("category=plugin"), {
+      kinds: new Set(["plugin", "agent-product"]),
+      sources: new Set(["github"]),
+      scenes: new Set(["integration", "productivity"]),
+      requiresApiKey: false,
+    });
+    expect(params.get("category")).toBe("plugin");
+    expect(parseMarketplaceFilters(params)).toEqual({
+      kinds: new Set(["agent-product", "plugin"]),
+      sources: new Set(["github"]),
+      scenes: new Set(["integration", "productivity"]),
+      requiresApiKey: false,
+    });
+  });
+
   it("selects and displays the category provided by the route query", () => {
     render(
       <I18nProvider>
