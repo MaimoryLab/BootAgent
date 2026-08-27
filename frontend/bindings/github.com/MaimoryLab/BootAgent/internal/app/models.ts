@@ -234,6 +234,23 @@ export interface MarketplaceRecommendationAgent {
     "name": string;
 }
 
+export interface MarketplaceRecommendationHistory {
+    "id": string;
+    "created_at": string;
+    "agent_id": string;
+    "need": string;
+    "catalog_version": string;
+    "results": MarketplaceRecommendationSnapshot[] | null;
+}
+
+export interface MarketplaceRecommendationSnapshot {
+    "item_id": string;
+    "name": string;
+    "reason": string;
+    "category": string;
+    "source"?: string;
+}
+
 /**
  * ProfileSummary is intentionally a public projection with no credential field.
  */

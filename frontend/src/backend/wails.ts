@@ -235,6 +235,14 @@ export const wailsApi = {
     call(() => MarketplaceService.RecommendationAgents()).then((agents) => agents ?? []),
   recommendMarketplace: (request: MarketplaceRecommendRequest): Promise<MarketplaceRecommendResult> =>
     call(() => MarketplaceService.Recommend(request)) as Promise<MarketplaceRecommendResult>,
+  listRecommendationHistory: (): Promise<import("../types/api").MarketplaceRecommendationHistory[]> =>
+    call(() => MarketplaceService.ListRecommendationHistory()).then((records) => records ?? []),
+  saveRecommendationHistory: (record: import("../types/api").MarketplaceRecommendationHistory): Promise<import("../types/api").MarketplaceRecommendationHistory> =>
+    call(() => MarketplaceService.SaveRecommendationHistory(record)) as Promise<import("../types/api").MarketplaceRecommendationHistory>,
+  deleteRecommendationHistory: (id: string): Promise<void> =>
+    call(() => MarketplaceService.DeleteRecommendationHistory(id)).then(() => undefined),
+  clearRecommendationHistory: (): Promise<void> =>
+    call(() => MarketplaceService.ClearRecommendationHistory()).then(() => undefined),
   openMarketplaceExternal: (url: string): Promise<void> =>
     call(() => MarketplaceService.OpenExternal({ url })).then(() => undefined),
   readTransferFile: (): Promise<string> => call(() => TransferService.Read()) as Promise<string>,

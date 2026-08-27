@@ -2,6 +2,7 @@ import {
   BookOpen,
   Brain,
   Check,
+  Clock3,
   ChevronDown,
   Code2,
   Copy,
@@ -23,10 +24,12 @@ import { type ComponentType, useEffect, useRef, useMemo, useState } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { useMarketplaceCatalog } from "../data/useMarketplaceCatalog";
+import { STATIC_CATALOG } from "../data/marketplace-catalog";
 import { marketplaceTagPairs } from "../data/tag-labels";
 import { EmptyState } from "../components/EmptyState";
 import { ManagementSearch } from "../components/ManagementSearch";
 import { MarketplaceRecommendationDialog } from "../components/MarketplaceRecommendationDialog";
+import { MarketplaceRecommendationHistoryDialog } from "../components/MarketplaceRecommendationHistoryDialog";
 import { PageScaffold } from "../components/PageScaffold";
 import { StatusBadge } from "../components/StatusBadge";
 import { useI18n, type TranslationKey } from "../i18n";
@@ -490,6 +493,7 @@ export function MarketplacePage() {
   // Bottom toast shown after the corner copy button; auto-dismisses.
   const [copyNotice, setCopyNotice] = useState("");
   const [recommendationOpen, setRecommendationOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { items, live } = useMarketplaceCatalog();
@@ -539,9 +543,7 @@ export function MarketplacePage() {
       bodyClassName="marketplace-page"
       footerNote={t("{count} 个工具 · {status}", { count: items.length, status: live ? t("实时数据") : t("离线快照") })}
       secondaryAction={(
-        <button className="button button-primary" type="button" onClick={() => setRecommendationOpen(true)}>
-          <Sparkles size={15} />{t("帮我找工具")}
-        </button>
+        <span className="marketplace-actions"><button className="button button-secondary" type="button" onClick={() => setHistoryOpen(true)}><Clock3 size={15} />{t("推荐历史")}</button><button className="button button-primary" type="button" onClick={() => setRecommendationOpen(true)}><Sparkles size={15} />{t("帮我找工具")}</button></span>
       )}
     >
       <div className="marketplace-tabs" role="tablist" aria-label={t("工具分类")}>
@@ -619,7 +621,8 @@ export function MarketplacePage() {
           {copyNotice}
         </div>
       ) : null}
-      {recommendationOpen ? <MarketplaceRecommendationDialog items={items} onDismiss={() => setRecommendationOpen(false)} /> : null}
+      {recommendationOpen ? <MarketplaceRecommendationDialog items={items} catalogVersion={STATIC_CATALOG.version} onDismiss={() => setRecommendationOpen(false)} /> : null}
+      {historyOpen ? <MarketplaceRecommendationHistoryDialog onDismiss={() => setHistoryOpen(false)} /> : null}
     </PageScaffold>
   );
 }

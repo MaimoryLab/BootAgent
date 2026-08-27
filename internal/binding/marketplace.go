@@ -107,6 +107,30 @@ func (s *MarketplaceService) Recommend(ctx context.Context, request app.Marketpl
 	return s.core.RecommendMarketplace(ctx, request)
 }
 
+func (s *MarketplaceService) ListRecommendationHistory(ctx context.Context) ([]app.MarketplaceRecommendationHistory, error) {
+	if err := contextError(ctx); err != nil { return nil, err }
+	if s == nil || s.core == nil { return nil, notReady("Marketplace history is not configured") }
+	return s.core.ListMarketplaceRecommendationHistory(ctx)
+}
+
+func (s *MarketplaceService) SaveRecommendationHistory(ctx context.Context, record app.MarketplaceRecommendationHistory) (app.MarketplaceRecommendationHistory, error) {
+	if err := contextError(ctx); err != nil { return app.MarketplaceRecommendationHistory{}, err }
+	if s == nil || s.core == nil { return app.MarketplaceRecommendationHistory{}, notReady("Marketplace history is not configured") }
+	return s.core.SaveMarketplaceRecommendationHistory(ctx, record)
+}
+
+func (s *MarketplaceService) DeleteRecommendationHistory(ctx context.Context, id string) error {
+	if err := contextError(ctx); err != nil { return err }
+	if s == nil || s.core == nil { return notReady("Marketplace history is not configured") }
+	return s.core.DeleteMarketplaceRecommendationHistory(ctx, id)
+}
+
+func (s *MarketplaceService) ClearRecommendationHistory(ctx context.Context) error {
+	if err := contextError(ctx); err != nil { return err }
+	if s == nil || s.core == nil { return notReady("Marketplace history is not configured") }
+	return s.core.ClearMarketplaceRecommendationHistory(ctx)
+}
+
 func (s *MarketplaceService) OpenExternal(ctx context.Context, request OpenExternalRequest) error {
 	if err := contextError(ctx); err != nil {
 		return err

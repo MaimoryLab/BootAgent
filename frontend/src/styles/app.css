@@ -3006,6 +3006,15 @@
 
 .mf-clear-btn:hover { text-decoration: underline; }
 
+.marketplace-actions { display: inline-flex; gap: 8px; align-items: center; }
+.marketplace-history-dialog { max-width: 720px; }
+.marketplace-history-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.marketplace-history-list > li { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px; border: 1px solid var(--border); border-radius: 6px; }
+.marketplace-history-list strong { display: block; font-weight: 600; }
+.marketplace-history-list small { display: block; margin-top: 4px; color: var(--muted); }
+.marketplace-history-actions { display: inline-flex; align-items: center; gap: 8px; flex-shrink: 0; }
+@media (max-width: 640px) { .marketplace-actions { width: 100%; } .marketplace-actions .button { flex: 1; } .marketplace-history-list > li { align-items: flex-start; } }
+
 /* ── Card grid ── */
 .marketplace-content { min-width: 0; }
 

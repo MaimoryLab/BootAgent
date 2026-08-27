@@ -9,8 +9,9 @@ import type { MarketplaceItem } from "../types/marketplace";
 import { ModalDialog } from "./ModalDialog";
 import { SelectField } from "./SelectField";
 
-export function MarketplaceRecommendationDialog({ items, onDismiss }: {
+export function MarketplaceRecommendationDialog({ items, catalogVersion, onDismiss }: {
   items: MarketplaceItem[];
+  catalogVersion: string;
   onDismiss: () => void;
 }) {
   const { t, locale } = useI18n();
@@ -60,10 +61,31 @@ export function MarketplaceRecommendationDialog({ items, onDismiss }: {
           tags: item.tags ?? [],
         })),
       });
-      setRecommendations((result.recommendations ?? []).flatMap((recommendation) => {
+      const resolved = (result.recommendations ?? []).flatMap((recommendation) => {
         const item = byID.get(recommendation.item_id);
         return item ? [{ item, reason: recommendation.reason }] : [];
-      }));
+      });
+      setRecommendations(resolved);
+      if (resolved.length > 0) {
+        try {
+          await api.saveRecommendationHistory({
+            id: "",
+            created_at: "",
+            agent_id: agentID,
+            need: trimmedNeed,
+            catalog_version: catalogVersion,
+            results: resolved.map(({ item, reason }) => ({
+              item_id: item.id,
+              name: item.name,
+              reason,
+              category: item.category,
+              source: item.source ?? "",
+            })),
+          });
+        } catch (error) {
+          setFailure(describeFailure(error, t("推荐结果已生成，但保存历史失败"), t).message);
+        }
+      }
     } catch (error) {
       setFailure(describeFailure(error, t("无法生成工具推荐"), t).message);
     } finally {

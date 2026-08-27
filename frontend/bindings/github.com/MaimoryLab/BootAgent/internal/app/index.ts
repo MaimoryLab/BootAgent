@@ -24,6 +24,8 @@ export type {
     MarketplaceRecommendResult,
     MarketplaceRecommendation,
     MarketplaceRecommendationAgent,
+    MarketplaceRecommendationHistory,
+    MarketplaceRecommendationSnapshot,
     ProfileSummary,
     RuntimeStatus,
     SaveProfileResult,

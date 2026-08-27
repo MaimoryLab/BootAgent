@@ -29,6 +29,7 @@ BootAgent is a local desktop workspace for AI coding Agents. It turns a fresh ma
 - Discovers Skills, MCP servers, plugins, standalone AI products, prompt collections, and workflow templates in the Marketplace. Each source has a bundled fallback, while sources with a supported public feed can refresh independently.
 - Marketplace entries can belong to multiple tool types. Multiple type selections require every selected type, then combine with source, use-case, and API-key filters.
 - Can ask an installed Codex or Claude Code CLI to shortlist Marketplace tools from a stated need. Only the need and public catalog metadata enter the prompt; the recommendation run receives no install or file-write tools, and returned IDs are checked against the catalog before display.
+- Saves successful Marketplace recommendations locally with the request, Agent, catalog version, and result snapshots. History can be reopened, deleted, or cleared; it is never uploaded as telemetry.
 - Creates backups, writes atomically, and keeps credentials in private local storage. The latest three historical versions are kept per Profile, Provider, MCP, Agent configuration target, and Skill; backups live under `~/.bootagent/backup` and the per-target count can be changed in Settings.
 - Checks for BootAgent updates and installs release artifacts through the built-in updater. When the domestic mirror setting is enabled, update checks and downloads use the Gitee mirror; otherwise they use GitHub.
 

@@ -146,3 +146,30 @@ func TestRecommendMarketplaceTruncatesLongCatalogDescriptions(t *testing.T) {
 		t.Fatal("long catalog description was not bounded")
 	}
 }
+
+func TestMarketplaceRecommendationHistoryPersistsAndManagesRecords(t *testing.T) {
+	home := t.TempDir()
+	core := NewUseCases(StatusOptions{Home: home, Platform: platform.For("linux", "amd64"), Runner: &marketplaceRecommendationRunner{}})
+	first, err := core.SaveMarketplaceRecommendationHistory(context.Background(), MarketplaceRecommendationHistory{
+		AgentID: "codex", Need: "远程管理 Agent", CatalogVersion: "2.3.0",
+		Results: []MarketplaceRecommendationSnapshot{{ItemID: "github-remote", Name: "Remote Agent", Reason: "支持远程管理", Category: "ai-product", Source: "github"}},
+	})
+	if err != nil || !strings.HasPrefix(first.ID, "rec_") || first.CreatedAt == "" {
+		t.Fatalf("saved history = %#v, err = %v", first, err)
+	}
+	reloaded := NewUseCases(StatusOptions{Home: home, Platform: platform.For("linux", "amd64"), Runner: &marketplaceRecommendationRunner{}})
+	records, err := reloaded.ListMarketplaceRecommendationHistory(context.Background())
+	if err != nil || len(records) != 1 || records[0].ID != first.ID {
+		t.Fatalf("loaded history = %#v, err = %v", records, err)
+	}
+	if err := reloaded.DeleteMarketplaceRecommendationHistory(context.Background(), first.ID); err != nil {
+		t.Fatal(err)
+	}
+	records, err = reloaded.ListMarketplaceRecommendationHistory(context.Background())
+	if err != nil || len(records) != 0 {
+		t.Fatalf("after delete = %#v, err = %v", records, err)
+	}
+	if err := reloaded.ClearMarketplaceRecommendationHistory(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+}
