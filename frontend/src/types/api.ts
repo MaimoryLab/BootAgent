@@ -55,6 +55,10 @@ export type ActivateAgentResponse = BindingModels.ActivateResponse;
 export type LaunchAgentResponse = BindingModels.LaunchResponse;
 export type AgentUpdateResult = AppModels.AgentUpdateResult;
 export type ConversationMigrationResult = AppModels.ConversationMigrationResult;
+export type MarketplaceRecommendationAgent = AppModels.MarketplaceRecommendationAgent;
+export type MarketplaceKnowledgeItem = AppModels.MarketplaceKnowledgeItem;
+export type MarketplaceRecommendRequest = AppModels.MarketplaceRecommendRequest;
+export type MarketplaceRecommendResult = AppModels.MarketplaceRecommendResult;
 export type OpenRegistrationResponse = BindingModels.OpenRegistrationResponse;
 export type ProviderEntry = ProviderModels.Entry;
 // keep_existing_key is optional here: only the settings import needs it, and the

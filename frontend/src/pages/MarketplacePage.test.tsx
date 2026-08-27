@@ -1,6 +1,7 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 // Block the real Wails runtime: importing it registers a module-level timer in
 // drag.js that fires after jsdom teardown ("window is not defined" in CI).
@@ -54,11 +55,14 @@ vi.mock("../data/useMarketplaceCatalog", () => ({
 }));
 
 import { I18nProvider } from "../i18n";
+import { api } from "../backend/api";
 import { filterMarketplaceItems, MarketplacePage } from "./MarketplacePage";
 import { EMPTY_FILTERS } from "../components/MarketplaceFilterSidebar";
 import type { MarketplaceItem } from "../types/marketplace";
 
 const ITEMS = catalogItems as MarketplaceItem[];
+
+afterEach(() => vi.restoreAllMocks());
 
 describe("filterMarketplaceItems", () => {
   it("returns all items when category is 'all' and query is empty", () => {
@@ -131,5 +135,37 @@ describe("MarketplacePage category URL", () => {
     expect(screen.getByRole("tab", { name: /MCP servers/ }).getAttribute("aria-selected")).toBe("true");
     expect(screen.getByText("Sequential Thinking")).toBeTruthy();
     expect(screen.queryByText("Ultracode Skill")).toBeNull();
+  });
+
+  it("uses an installed local Agent to recommend only catalog tools", async () => {
+    vi.spyOn(api, "marketplaceRecommendationAgents").mockResolvedValue([{ id: "codex", name: "Codex" }]);
+    vi.spyOn(api, "recommendMarketplace").mockResolvedValue({
+      agent_id: "codex",
+      recommendations: [{ item_id: "skill-a", reason: "Matches multi-agent orchestration work" }],
+    });
+    const user = userEvent.setup();
+
+    render(
+      <I18nProvider>
+        <MemoryRouter initialEntries={["/marketplace"]}>
+          <MarketplacePage />
+        </MemoryRouter>
+      </I18nProvider>,
+    );
+
+    expect(screen.getByText(/3 tools.*Offline snapshot/)).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Find tools for me" }));
+    const dialog = await screen.findByRole("dialog", { name: "Tool recommendations" });
+
+    await user.type(screen.getByLabelText("What do you want to accomplish?"), "coordinate coding agents");
+    await user.click(screen.getByRole("button", { name: "Recommend tools" }));
+
+    expect(await within(dialog).findByText("Ultracode Skill")).toBeTruthy();
+    expect(within(dialog).getByText("Matches multi-agent orchestration work")).toBeTruthy();
+    expect(api.recommendMarketplace).toHaveBeenCalledWith(expect.objectContaining({
+      agent_id: "codex",
+      need: "coordinate coding agents",
+      items: expect.arrayContaining([expect.objectContaining({ id: "skill-a" })]),
+    }));
   });
 });

@@ -17,6 +17,10 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import * as app$0 from "../app/models.js";
+
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import * as $models from "./models.js";
 
 export function FetchShowcase(): $CancellablePromise<$models.MarketplaceProxyResponse> {
@@ -33,4 +37,20 @@ export function FetchSkillFile(request: $models.SkillDetailRequest): $Cancellabl
 
 export function OpenExternal(request: $models.OpenExternalRequest): $CancellablePromise<void> {
     return $Call.ByID(3117329458, request);
+}
+
+/**
+ * Recommend passes a bounded, public catalog projection to the selected local
+ * Agent. The app layer validates both the projection and the returned item IDs.
+ */
+export function Recommend(request: app$0.MarketplaceRecommendRequest): $CancellablePromise<app$0.MarketplaceRecommendResult> {
+    return $Call.ByID(1513373553, request);
+}
+
+/**
+ * RecommendationAgents lists only installed CLI Agents whose non-interactive
+ * mode can be constrained to recommendation output without write tools.
+ */
+export function RecommendationAgents(): $CancellablePromise<app$0.MarketplaceRecommendationAgent[] | null> {
+    return $Call.ByID(386926228);
 }

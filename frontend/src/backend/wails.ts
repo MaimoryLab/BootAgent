@@ -25,6 +25,9 @@ import type {
   InstallResponse,
   InstallRuntimeResult,
   LaunchAgentResponse,
+  MarketplaceRecommendationAgent,
+  MarketplaceRecommendRequest,
+  MarketplaceRecommendResult,
   MCPApplyRequest,
   MCPApplyResult,
   MCPScanResult,
@@ -228,6 +231,10 @@ export const wailsApi = {
     call(() => MarketplaceService.FetchSkillDetail({ slug })).then((response) => response.body),
   marketplaceSkillFile: (slug: string): Promise<string> =>
     call(() => MarketplaceService.FetchSkillFile({ slug })).then((response) => response.body),
+  marketplaceRecommendationAgents: (): Promise<MarketplaceRecommendationAgent[]> =>
+    call(() => MarketplaceService.RecommendationAgents()).then((agents) => agents ?? []),
+  recommendMarketplace: (request: MarketplaceRecommendRequest): Promise<MarketplaceRecommendResult> =>
+    call(() => MarketplaceService.Recommend(request)) as Promise<MarketplaceRecommendResult>,
   openMarketplaceExternal: (url: string): Promise<void> =>
     call(() => MarketplaceService.OpenExternal({ url })).then(() => undefined),
   readTransferFile: (): Promise<string> => call(() => TransferService.Read()) as Promise<string>,
