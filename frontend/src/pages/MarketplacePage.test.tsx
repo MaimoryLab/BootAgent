@@ -120,12 +120,21 @@ describe("filterMarketplaceItems", () => {
     expect(result[0].id).toBe("mcp-b");
   });
 
-  it("matches any selected type declared by a multi-type tool", () => {
+  it("requires a multi-type tool to match every selected tool type", () => {
     const pluginFilters = { ...EMPTY_FILTERS, kinds: new Set(["plugin" as const]) };
     expect(filterMarketplaceItems(ITEMS, "all", "", pluginFilters).map((item) => item.id)).toEqual(["skill-a"]);
 
-    const eitherFilters = { ...EMPTY_FILTERS, kinds: new Set(["plugin" as const, "mcp" as const]) };
-    expect(filterMarketplaceItems(ITEMS, "all", "", eitherFilters).map((item) => item.id)).toEqual(["skill-a", "mcp-b"]);
+    const hybridFilters = { ...EMPTY_FILTERS, kinds: new Set(["plugin" as const, "skill" as const]) };
+    expect(filterMarketplaceItems(ITEMS, "all", "", hybridFilters).map((item) => item.id)).toEqual(["skill-a"]);
+
+    const incompatibleFilters = { ...EMPTY_FILTERS, kinds: new Set(["plugin" as const, "mcp" as const]) };
+    expect(filterMarketplaceItems(ITEMS, "all", "", incompatibleFilters)).toEqual([]);
+  });
+
+  it("renders each tool ID at most once even when a source repeats it", () => {
+    const filters = { ...EMPTY_FILTERS, kinds: new Set(["skill" as const]) };
+    const duplicated = [ITEMS[0], { ...ITEMS[0] }, ITEMS[1]];
+    expect(filterMarketplaceItems(duplicated, "all", "", filters).map((item) => item.id)).toEqual(["skill-a"]);
   });
 
   it("excludes entries missing the selected source or scene", () => {
@@ -170,6 +179,25 @@ describe("MarketplacePage category URL", () => {
     expect(within(typeOptions).getByText("Plugins")).toBeTruthy();
     expect(within(typeOptions).queryByText("External tools")).toBeNull();
     expect(within(typeOptions).queryByText("Content")).toBeNull();
+  });
+
+  it("places clear filters before the dropdowns without changing their order", async () => {
+    const user = userEvent.setup();
+    render(
+      <I18nProvider>
+        <MemoryRouter initialEntries={["/marketplace"]}>
+          <MarketplacePage />
+        </MemoryRouter>
+      </I18nProvider>,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Tool type" }));
+    await user.click(screen.getByLabelText("Skill"));
+
+    const filterBar = screen.getByLabelText("Filter");
+    const buttons = within(filterBar).getAllByRole("button");
+    expect(buttons[0].textContent).toBe("Clear all filters");
+    expect(buttons[1].textContent).toContain("Tool type");
   });
 
   it("uses an installed local Agent to recommend only catalog tools", async () => {

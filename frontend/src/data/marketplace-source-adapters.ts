@@ -91,7 +91,18 @@ export const marketplaceSourceAdapters: MarketplaceSourceAdapter[] = [
   { id: "templates", snapshot: templateItems },
 ];
 
-export const bundledMarketplaceItems = marketplaceSourceAdapters.flatMap((adapter) => adapter.snapshot);
+export function dedupeMarketplaceItems(items: MarketplaceItem[]): MarketplaceItem[] {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    if (seen.has(item.id)) return false;
+    seen.add(item.id);
+    return true;
+  });
+}
+
+export const bundledMarketplaceItems = dedupeMarketplaceItems(
+  marketplaceSourceAdapters.flatMap((adapter) => adapter.snapshot),
+);
 
 export async function loadMarketplaceSources(): Promise<{ items: MarketplaceItem[]; live: boolean }> {
   const groups = await Promise.all(marketplaceSourceAdapters.map(async (adapter) => {
@@ -102,5 +113,8 @@ export async function loadMarketplaceSources(): Promise<{ items: MarketplaceItem
       return { items: adapter.snapshot, live: false };
     }
   }));
-  return { items: groups.flatMap((group) => group.items), live: groups.some((group) => group.live) };
+  return {
+    items: dedupeMarketplaceItems(groups.flatMap((group) => group.items)),
+    live: groups.some((group) => group.live),
+  };
 }

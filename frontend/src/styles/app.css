@@ -2911,6 +2911,22 @@
   color: var(--accent);
 }
 
+.mf-filter-count {
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 10px;
+  line-height: 1;
+  visibility: hidden;
+}
+
+.mf-filter-count.is-visible { visibility: visible; }
+
 .mf-dropdown-trigger:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
@@ -2945,7 +2961,7 @@
    rightward from the last trigger's left edge pushed it past the page edge,
    which widened the scrollable area and made the whole page overflow
    horizontally. An explicit class is used instead of :last-child because the
-   clear-filters button can appear after the last dropdown in the bar. */
+   clear-filters button can appear before the dropdowns in the bar. */
 .mf-dropdown-panel.is-right {
   left: auto;
   right: 0;
@@ -2978,13 +2994,14 @@
 }
 
 .mf-clear-btn {
-  font-size: 12px;
+  flex-shrink: 0;
   color: var(--accent);
   background: none;
   border: none;
   padding: 5px 8px;
   cursor: pointer;
   font: inherit;
+  font-size: 12px;
 }
 
 .mf-clear-btn:hover { text-decoration: underline; }

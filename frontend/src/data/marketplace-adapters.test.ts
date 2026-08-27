@@ -13,7 +13,7 @@ import { normalizeShowcaseSkill, type ShowcaseSkill } from "./useMarketplaceCata
 import { validateMarketplaceCatalog } from "./marketplace-validation";
 import { STATIC_CATALOG } from "./marketplace-catalog";
 import { ecosystemItems } from "./ecosystem-catalog";
-import { marketplaceSourceAdapters } from "./marketplace-source-adapters";
+import { dedupeMarketplaceItems, marketplaceSourceAdapters } from "./marketplace-source-adapters";
 import { templateItems } from "./template-catalog";
 import type { MarketplaceItem } from "../types/marketplace";
 
@@ -182,11 +182,17 @@ describe("marketplace catalog metadata", () => {
 });
 
 describe("marketplace source adapters", () => {
+  it("keeps the first occurrence when sources repeat a tool ID", () => {
+    const first = extensionItems[0];
+    expect(dedupeMarketplaceItems([first, { ...first, name: "Repeated" }])).toEqual([first]);
+  });
+
   it("registers each source once and builds the bundled catalog through adapters", () => {
     const ids = marketplaceSourceAdapters.map((adapter) => adapter.id);
     expect(new Set(ids).size).toBe(ids.length);
     expect(marketplaceSourceAdapters.some((adapter) => adapter.loadLive)).toBe(true);
     expect(marketplaceSourceAdapters.every((adapter) => adapter.snapshot.length > 0)).toBe(true);
+    expect(new Set(STATIC_CATALOG.items.map((item) => item.id)).size).toBe(STATIC_CATALOG.items.length);
   });
 
   it("ships enough documented prompt and workflow entries to expose the category", () => {

@@ -155,7 +155,13 @@ function Dropdown<K extends string>({
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
       >
-        {activeCount > 0 ? `${t(label)}(${activeCount})` : t(label)}
+        <span>{t(label)}</span>
+        <span
+          className={`mf-filter-count${activeCount > 0 ? " is-visible" : ""}`}
+          aria-hidden="true"
+        >
+          {activeCount > 0 ? activeCount : 0}
+        </span>
         <ChevronDown size={13} className={`mf-chevron${open ? " is-open" : ""}`} aria-hidden="true" />
       </button>
       {open && (
@@ -225,6 +231,15 @@ function FilterDropdownBar({
 
   return (
     <div className="mf-dropdown-bar" aria-label={t("筛选")}>
+      {hasActiveFilters(filters) ? (
+        <button
+          type="button"
+          className="mf-clear-btn"
+          onClick={() => onChange(EMPTY_FILTERS)}
+        >
+          {t("清除全部筛选")}
+        </button>
+      ) : null}
       <Dropdown
         label="工具类型"
         options={KIND_OPTIONS.filter((option) => availableKinds.has(option.key))}
@@ -260,15 +275,6 @@ function FilterDropdownBar({
           requiresApiKey: v === null ? null : v === "yes",
         })}
       />
-      {hasActiveFilters(filters) && (
-        <button
-          type="button"
-          className="mf-clear-btn"
-          onClick={() => onChange(EMPTY_FILTERS)}
-        >
-          {t("清除全部筛选")}
-        </button>
-      )}
     </div>
   );
 }
@@ -384,6 +390,7 @@ function MarketplaceItemCard({ item, onCopied }: { item: MarketplaceItem; onCopi
     <article
       className="marketplace-card"
       data-type={item.type}
+      data-item-id={item.id}
       role="button"
       tabIndex={0}
       onClick={() => navigate(`/marketplace/${encodeURIComponent(item.id)}`)}
@@ -441,11 +448,15 @@ export function filterMarketplaceItems(
   filters: FilterState = EMPTY_FILTERS,
 ): MarketplaceItem[] {
   const needle = query.trim().toLowerCase();
+  const seenIDs = new Set<string>();
   return items.filter((item) => {
+    if (seenIDs.has(item.id)) return false;
+    seenIDs.add(item.id);
     if (category !== "all" && !marketplaceCategories(item).includes(category)) return false;
 
     if (filters.kinds.size > 0) {
-      if (!marketplaceKinds(item).some((kind) => filters.kinds.has(kind))) return false;
+      const itemKinds = new Set(marketplaceKinds(item));
+      if (![...filters.kinds].every((kind) => itemKinds.has(kind))) return false;
     }
     if (filters.sources.size > 0) {
       if (!item.source || !filters.sources.has(item.source)) return false;
