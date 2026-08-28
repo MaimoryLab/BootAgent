@@ -33,6 +33,14 @@ export interface TaskOutcome {
   message: string;
 }
 
+export interface TaskEvent {
+  at: number;
+  kind: "phase" | "source" | "log" | "result";
+  phase?: TaskPhase;
+  source?: string;
+  message: string;
+}
+
 export type TaskCanceller = () => void | PromiseLike<void>;
 
 export interface TaskAction {
@@ -76,6 +84,7 @@ export interface TaskRecord extends TaskInput {
   message?: string;
   log?: string;
   startedAt: number;
+  events: TaskEvent[];
 }
 
 function defaultTask(target: string): TaskInput {
@@ -165,6 +174,11 @@ function outputText(output: InstallOutput): string {
   return output.text;
 }
 
+function appendEvent(events: TaskEvent[], event: TaskEvent): TaskEvent[] {
+  const next = [...events, event];
+  return next.length > 200 ? next.slice(next.length - 200) : next;
+}
+
 /**
  * The provider is mounted above the route content. A page can therefore unmount while
  * its Go request is still running without losing the card or its progress.
@@ -210,7 +224,7 @@ export function TaskCenterProvider({ children }: PropsWithChildren) {
         if (!targetTasks.length) return;
         updateTasks((current) => current.map((task) => (
           matchesTask(task)
-            ? { ...task, ...(output.kind === "source" ? { phase: "source", source: output.source } : {}), ...(output.kind === "phase" && output.phase === "verified" ? { phase: "verifying" } : {}), ...(output.kind === "command" && task.phase === "preparing" ? { phase: "installing" } : {}), ...(outputText(output) ? { log: `${task.log || ""}${outputText(output)}` } : {}) }
+            ? { ...task, ...(output.kind === "source" ? { phase: "source", source: output.source, events: appendEvent(task.events, { at: Date.now(), kind: "source", phase: "source", source: output.source, message: "source selected" }) } : {}), ...(output.kind === "phase" && output.phase === "verified" ? { phase: "verifying", events: appendEvent(task.events, { at: Date.now(), kind: "phase", phase: "verifying", message: "checksum verified" }) } : {}), ...(output.kind === "command" && task.phase === "preparing" ? { phase: "installing" } : {}), ...(outputText(output) ? { log: `${task.log || ""}${outputText(output)}`, events: appendEvent(task.events, { at: Date.now(), kind: "log", message: outputText(output).trim() }) } : {}) }
             : task
         )));
       }),
@@ -235,7 +249,8 @@ export function TaskCenterProvider({ children }: PropsWithChildren) {
     progressSamplesRef.current.delete(progressTarget);
     updateTasks((current) => {
       const next = current.filter((task) => task.id !== id);
-      next.push({ ...input, id, progressTarget, state: "running", phase: "preparing", startedAt: Date.now() });
+      const startedAt = Date.now();
+      next.push({ ...input, id, progressTarget, state: "running", phase: "preparing", startedAt, events: [{ at: startedAt, kind: "phase", phase: "preparing", message: "task started" }] });
       return next;
     });
     return true;
@@ -287,7 +302,7 @@ export function TaskCenterProvider({ children }: PropsWithChildren) {
       return next;
     });
     updateTasks((current) => current.map((task) => matches(task)
-      ? { ...task, state: outcome.kind, phase: outcome.kind === "success" ? "completed" : outcome.kind === "failure" ? "failed" : "cancelled", message: outcome.message, progress: undefined }
+      ? { ...task, state: outcome.kind, phase: outcome.kind === "success" ? "completed" : outcome.kind === "failure" ? "failed" : "cancelled", message: outcome.message, progress: undefined, events: appendEvent(task.events, { at: Date.now(), kind: "result", phase: outcome.kind === "success" ? "completed" : outcome.kind === "failure" ? "failed" : "cancelled", message: outcome.message }) }
       : task));
   }, [updateTasks]);
 
@@ -315,7 +330,7 @@ export function TaskCenterProvider({ children }: PropsWithChildren) {
     });
     const ids = new Set(matched.map((task) => task.id));
     updateTasks((current) => current.map((task) => ids.has(task.id)
-      ? { ...task, state: "cancelled", phase: "cancelled", message, progress: undefined }
+      ? { ...task, state: "cancelled", phase: "cancelled", message, progress: undefined, events: appendEvent(task.events, { at: Date.now(), kind: "result", phase: "cancelled", message: message || "cancelled" }) }
       : task));
     for (const cancel of cancellers) {
       try {

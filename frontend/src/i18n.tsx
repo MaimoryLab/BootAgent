@@ -263,6 +263,7 @@ const english = {
   "连接下载源": "Connecting to source",
   "下载中": "Downloading",
   "校验中": "Verifying",
+  "任务时间线": "Task timeline",
   "配置中": "Configuring",
   "失败": "Failed",
   "已取消": "Cancelled",

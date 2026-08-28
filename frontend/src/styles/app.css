@@ -2759,6 +2759,33 @@
   animation: download-sweep 1.1s ease-in-out infinite;
 }
 
+.task-timeline {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+  padding: 12px;
+  border: 1px solid var(--border-faint);
+  border-radius: 6px;
+  background: var(--surface-subtle);
+}
+
+.task-timeline-event {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr);
+  gap: 10px;
+  align-items: baseline;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.task-timeline-event time {
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+.task-timeline-event span { overflow-wrap: anywhere; }
+
 @keyframes download-sweep {
   0% { transform: translateX(-100%); }
   100% { transform: translateX(286%); }

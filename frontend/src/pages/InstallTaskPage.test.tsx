@@ -45,6 +45,10 @@ describe("InstallTaskPage update route", () => {
         message: "更新完成",
         log: "$ npm update -g openclaw\nupdated\n",
         startedAt: 1,
+        events: [
+          { at: 1, kind: "phase", phase: "preparing", message: "task started" },
+          { at: 2, kind: "result", phase: "completed", message: "更新完成" },
+        ],
       }],
       cancelTask: vi.fn(),
       dismissTask: vi.fn(),
@@ -59,5 +63,6 @@ describe("InstallTaskPage update route", () => {
     expect(screen.getByText("更新完成 · 更新 OpenClaw")).toBeTruthy();
     expect(screen.queryByText(/已下载/)).toBeNull();
     expect(screen.getByText(/npm update -g openclaw/)).toBeTruthy();
+    expect(screen.getByRole("region", { name: "任务时间线" })).toBeTruthy();
   });
 });

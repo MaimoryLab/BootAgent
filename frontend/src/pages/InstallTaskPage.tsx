@@ -6,6 +6,15 @@ import { PageScaffold } from "../components/PageScaffold";
 import { useI18n } from "../i18n";
 import { installTaskRoute, useTaskCenter } from "../state/TaskCenterContext";
 
+function sourceLabel(source?: string): string {
+  if (!source) return "";
+  try {
+    return new URL(source).host || source;
+  } catch {
+    return source;
+  }
+}
+
 export function InstallTaskPage() {
   const { t } = useI18n();
   const navigate = useNavigate();
@@ -43,6 +52,16 @@ export function InstallTaskPage() {
       footerNote={running ? t("请保持此窗口打开") : undefined}
     >
       {task.progressTarget ? <DownloadProgress target={task.progressTarget} pending={running} showSize={task.kind === "download"} /> : null}
+      {(task.events ?? []).length ? (
+        <section className="task-timeline" aria-label={t("任务时间线")}>
+          {(task.events ?? []).map((event, index) => (
+            <div className="task-timeline-event" key={`${event.at}-${index}`}>
+              <time dateTime={new Date(event.at).toISOString()}>{new Date(event.at).toLocaleTimeString()}</time>
+              <span>{event.kind === "source" ? `${t("来源")}: ${sourceLabel(event.source)}` : event.message}</span>
+            </div>
+          ))}
+        </section>
+      ) : null}
       <LogDisclosure log={task.log || ""} open showEmpty={task.kind !== "download"} />
       {running ? (
         <button className="button button-secondary task-close-action" type="button" onClick={() => cancelTask(task.id)}>{t("取消任务")}</button>
