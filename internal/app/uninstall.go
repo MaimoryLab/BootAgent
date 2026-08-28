@@ -88,7 +88,7 @@ func (u *UseCases) UninstallAgent(ctx context.Context, agentID string, listeners
 	args := []string{npm, "uninstall", "-g", "--ignore-scripts", agent.Package.Name}
 	result, err := runtime.Run(ctx, args, environment, install.DefaultCommandTimeout)
 	if err != nil {
-		if isPermissionFailure(err.Error()) {
+		if errors.Is(err, os.ErrPermission) || isPermissionFailure(err.Error()) {
 			return AgentUninstallResult{}, oneerrors.New(oneerrors.AgentNPMPermission, "Permission denied while uninstalling "+agent.Name, oneerrors.WithStatus(403), oneerrors.WithRetryable(false), oneerrors.WithCause(err))
 		}
 		return AgentUninstallResult{}, oneerrors.New(oneerrors.AgentNPMFailed, "npm failed while uninstalling "+agent.Name, oneerrors.WithStatus(500), oneerrors.WithRetryable(true), oneerrors.WithCause(err))
