@@ -136,7 +136,7 @@ export function ActivationPage() {
       const target = id.slice("install:".length);
       const result = results.find((item) => item.agent === target);
       finishTask(id, !result || result.status === "failed"
-        ? { kind: "failure", message: result?.message || fallback }
+        ? { kind: "failure", message: result?.message || fallback, errorCode: result?.error_code, exitCode: result?.code, retryable: result?.retryable }
         : { kind: "success", message: result?.message || t("安装完成") });
     }
     for (const id of started.runtimes) finishTask(id, ok ? { kind: "success", message: t("安装完成") } : { kind: "failure", message: fallback });

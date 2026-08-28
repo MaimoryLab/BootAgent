@@ -47,6 +47,9 @@ type TaskState = "running" | "success" | "failure" | "cancelled";
 export interface TaskOutcome {
   kind: Exclude<TaskState, "running">;
   message: string;
+  errorCode?: string;
+  exitCode?: number;
+  retryable?: boolean;
 }
 
 export interface TaskEvent {
@@ -98,6 +101,9 @@ export interface TaskRecord extends TaskInput {
   phase: TaskPhase;
   progress?: TaskProgress;
   message?: string;
+  errorCode?: string;
+  exitCode?: number;
+  retryable?: boolean;
   log?: string;
   startedAt: number;
   events: TaskEvent[];
@@ -328,7 +334,7 @@ export function TaskCenterProvider({ children }: PropsWithChildren) {
       return next;
     });
     updateTasks((current) => current.map((task) => matches(task)
-      ? { ...task, state: outcome.kind, phase: outcome.kind === "success" ? "completed" : outcome.kind === "failure" ? "failed" : "cancelled", message: outcome.message, progress: undefined, events: appendEvent(task.events, { at: Date.now(), kind: "result", phase: outcome.kind === "success" ? "completed" : outcome.kind === "failure" ? "failed" : "cancelled", message: outcome.message }) }
+      ? { ...task, state: outcome.kind, phase: outcome.kind === "success" ? "completed" : outcome.kind === "failure" ? "failed" : "cancelled", message: outcome.message, errorCode: outcome.errorCode, exitCode: outcome.exitCode, retryable: outcome.retryable, progress: undefined, events: appendEvent(task.events, { at: Date.now(), kind: "result", phase: outcome.kind === "success" ? "completed" : outcome.kind === "failure" ? "failed" : "cancelled", message: outcome.message }) }
       : task));
   }, [updateTasks]);
 

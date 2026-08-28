@@ -36,7 +36,7 @@ function TaskCard({ task, onOpen, onCancel, onDismiss }: { task: TaskRecord; onO
         <span className="task-card-copy">
           <strong>{task.title}</strong>
           <small>
-            {task.state === "running" ? <><span>{status}</span><span> · {phase}</span></> : <span>{status}{task.message ? ` · ${task.message}` : ""}</span>}
+            {task.state === "running" ? <><span>{status}</span><span> · {phase}</span></> : <span>{status}{task.message ? ` · ${task.message}` : ""}{task.errorCode ? ` · ${task.errorCode}` : ""}</span>}
             {task.version ? <span> · {task.version}</span> : null}
             {task.source ? <span> · {task.source}</span> : null}
           </small>

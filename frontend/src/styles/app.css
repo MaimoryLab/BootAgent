@@ -2791,6 +2791,7 @@
 .task-batch-row { display: flex; justify-content: space-between; gap: 12px; color: var(--text-secondary); font-size: 12px; }
 .task-batch-row span:first-child { min-width: 0; overflow-wrap: anywhere; }
 .task-action-detail { margin-top: 14px; }
+.task-error-meta { margin: 10px 0 0; color: var(--text-tertiary); font-size: 12px; font-variant-numeric: tabular-nums; }
 
 @keyframes download-sweep {
   0% { transform: translateX(-100%); }

@@ -90,9 +90,12 @@ export function AppUpdater() {
           },
         });
       } catch (error) {
-        latest.current.finishTask(OTA_TASK_ID, isCancellationError(error)
-          ? { kind: "cancelled", message: t("已取消") }
-          : { kind: "failure", message: failureLine(error, t("更新失败"), t) });
+        if (isCancellationError(error)) {
+          latest.current.finishTask(OTA_TASK_ID, { kind: "cancelled", message: t("已取消") });
+        } else {
+          const failure = describeFailure(error, t("更新失败"), t);
+          latest.current.finishTask(OTA_TASK_ID, { kind: "failure", message: failureLine(error, t("更新失败"), t), errorCode: failure.code, retryable: failure.retryable });
+        }
       }
     })();
 

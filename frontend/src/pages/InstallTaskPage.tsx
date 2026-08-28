@@ -51,8 +51,14 @@ export function InstallTaskPage() {
       primaryLabel={t("进入总览")}
       onPrimary={() => navigate("/overview")}
       footerNote={running ? t("请保持此窗口打开") : undefined}
-    >
+      >
       {task.progressTarget ? <DownloadProgress target={task.progressTarget} pending={running} showSize={task.kind === "download"} /> : null}
+      {!running && (task.errorCode || task.exitCode !== undefined) ? (
+        <p className="task-error-meta">
+          {task.errorCode ? `${t("错误码")}: ${task.errorCode}` : ""}
+          {task.exitCode !== undefined ? `${task.errorCode ? " · " : ""}${t("退出码")}: ${task.exitCode}` : ""}
+        </p>
+      ) : null}
       {batchTasks.length > 1 ? (
         <section className="task-batch" aria-label={t("同批任务")}>
           <h2>{t("同批任务")}</h2>

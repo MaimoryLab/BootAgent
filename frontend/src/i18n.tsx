@@ -265,6 +265,8 @@ const english = {
   "校验中": "Verifying",
   "任务时间线": "Task timeline",
   "同批任务": "Tasks in this batch",
+  "错误码": "Error code",
+  "退出码": "Exit code",
   "配置中": "Configuring",
   "失败": "Failed",
   "已取消": "Cancelled",
