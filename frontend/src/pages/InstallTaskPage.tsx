@@ -38,6 +38,7 @@ export function InstallTaskPage() {
       />
     );
   }
+  const batchTasks = task.group ? tasks.filter((item) => item.group === task.group) : [];
   const running = task.state === "running";
   const title = running
     ? kind === "update" ? t("更新中") : t("正在安装")
@@ -52,6 +53,17 @@ export function InstallTaskPage() {
       footerNote={running ? t("请保持此窗口打开") : undefined}
     >
       {task.progressTarget ? <DownloadProgress target={task.progressTarget} pending={running} showSize={task.kind === "download"} /> : null}
+      {batchTasks.length > 1 ? (
+        <section className="task-batch" aria-label={t("同批任务")}>
+          <h2>{t("同批任务")}</h2>
+          {batchTasks.map((item) => (
+            <div className="task-batch-row" key={item.id}>
+              <span>{item.title}</span>
+              <span>{item.state === "running" ? t("进行中") : item.state === "success" ? t("已完成") : item.state === "failure" ? t("失败") : t("已取消")}</span>
+            </div>
+          ))}
+        </section>
+      ) : null}
       {(task.events ?? []).length ? (
         <section className="task-timeline" aria-label={t("任务时间线")}>
           {(task.events ?? []).map((event, index) => (
@@ -63,6 +75,11 @@ export function InstallTaskPage() {
         </section>
       ) : null}
       <LogDisclosure log={task.log || ""} open showEmpty={task.kind !== "download"} />
+      {task.state !== "running" && task.action ? (
+        <button className="button button-secondary task-action-detail" type="button" onClick={() => { void task.action?.run(); }}>
+          {task.action.label}
+        </button>
+      ) : null}
       {running ? (
         <button className="button button-secondary task-close-action" type="button" onClick={() => cancelTask(task.id)}>{t("取消任务")}</button>
       ) : (

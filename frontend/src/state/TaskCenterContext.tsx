@@ -13,6 +13,22 @@ import { useInRouterContext, useLocation } from "react-router-dom";
 import { api } from "../backend/api";
 import type { InstallOutput } from "../types/api";
 
+const TASK_STORAGE_KEY = "bootagent.task-center.v1";
+
+function persistedTasks(): TaskRecord[] {
+  if (typeof window === "undefined" || import.meta.env.MODE === "test") return [];
+  try {
+    const value: unknown = JSON.parse(window.localStorage.getItem(TASK_STORAGE_KEY) || "[]");
+    if (!Array.isArray(value)) return [];
+    return value.filter((task): task is TaskRecord => Boolean(task && typeof task === "object" && typeof task.id === "string" && typeof task.target === "string" && typeof task.kind === "string" && typeof task.startedAt === "number"))
+      .map((task) => task.state === "running"
+        ? { ...task, state: "failure", phase: "failed", message: task.message || "应用重启后任务状态未知，请检查安装结果", events: appendEvent(task.events || [], { at: Date.now(), kind: "result", phase: "failed", message: "应用重启后任务状态未知" }) }
+        : { ...task, events: task.events || [] });
+  } catch {
+    return [];
+  }
+}
+
 /** One download in flight. total is 0 when the server sent no Content-Length. */
 export interface TaskProgress {
   received: number;
@@ -184,7 +200,7 @@ function appendEvent(events: TaskEvent[], event: TaskEvent): TaskEvent[] {
  * its Go request is still running without losing the card or its progress.
  */
 export function TaskCenterProvider({ children }: PropsWithChildren) {
-  const [tasks, setTasks] = useState<TaskRecord[]>([]);
+  const [tasks, setTasks] = useState<TaskRecord[]>(persistedTasks);
   const [progress, setProgress] = useState<Record<string, TaskProgress>>({});
   const progressSamplesRef = useRef(new Map<string, { received: number; at: number }>());
   const tasksRef = useRef<TaskRecord[]>([]);
@@ -195,6 +211,16 @@ export function TaskCenterProvider({ children }: PropsWithChildren) {
     tasksRef.current = next;
     setTasks(next);
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || import.meta.env.MODE === "test") return;
+    try {
+      const safe = tasks.map(({ action: _action, ...task }) => task);
+      window.localStorage.setItem(TASK_STORAGE_KEY, JSON.stringify(safe.slice(-50)));
+    } catch {
+      // A full or unavailable browser store must not break an install task.
+    }
+  }, [tasks]);
 
   useEffect(
     () =>

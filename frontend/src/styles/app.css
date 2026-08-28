@@ -2786,6 +2786,12 @@
 
 .task-timeline-event span { overflow-wrap: anywhere; }
 
+.task-batch { display: grid; gap: 7px; margin-top: 16px; padding: 12px; border: 1px solid var(--border-faint); border-radius: 6px; background: var(--surface-subtle); }
+.task-batch h2 { margin: 0 0 2px; font-size: 13px; }
+.task-batch-row { display: flex; justify-content: space-between; gap: 12px; color: var(--text-secondary); font-size: 12px; }
+.task-batch-row span:first-child { min-width: 0; overflow-wrap: anywhere; }
+.task-action-detail { margin-top: 14px; }
+
 @keyframes download-sweep {
   0% { transform: translateX(-100%); }
   100% { transform: translateX(286%); }
