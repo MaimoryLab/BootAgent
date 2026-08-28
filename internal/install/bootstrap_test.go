@@ -313,7 +313,7 @@ func TestEnsureRuntimeReportsDownloadProgress(t *testing.T) {
 		case "progress":
 			progress = append(progress, output)
 		case "source":
-			seenSource = output.Source == "https://example.test/node.tar.gz"
+			seenSource = output.Source == "example.test"
 		case "phase":
 			seenVerified = output.Phase == "verified"
 		default:
