@@ -112,7 +112,8 @@ func (u *UseCases) RecommendMarketplace(ctx context.Context, request Marketplace
 		return MarketplaceRecommendResult{}, err
 	}
 	runtime := u.installRuntime(nil)
-	if _, present := runtime.Runner.LookPath(adapter.Command); !present {
+	executable, present := runtime.Runner.LookPath(adapter.Command)
+	if !present || executable == "" {
 		return MarketplaceRecommendResult{}, oneerrors.New(oneerrors.PrerequisiteMissing, "The selected recommendation Agent is not installed")
 	}
 	prompt, err := marketplaceRecommendationPrompt(request.Need, request.Locale, items)
@@ -120,6 +121,11 @@ func (u *UseCases) RecommendMarketplace(ctx context.Context, request Marketplace
 		return MarketplaceRecommendResult{}, oneerrors.New(oneerrors.InternalError, "Could not prepare marketplace knowledge", oneerrors.WithCause(err))
 	}
 	argv := append([]string(nil), adapter.Argv...)
+	// Resolve once and execute the same path that made the Agent appear in the
+	// picker. Desktop apps can inherit a different PATH between command
+	// discovery and child execution (notably launchd/macOS shell startup), so
+	// passing only the bare command name can produce a misleading "not found".
+	argv[0] = executable
 	if adapter.ID == "codex" {
 		workingDirectory, err := os.MkdirTemp("", "bootagent-marketplace-recommend-")
 		if err != nil {
