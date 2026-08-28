@@ -9,12 +9,23 @@ function megabytes(bytes: number): string {
   return (bytes / (1024 * 1024)).toFixed(1);
 }
 
+function rate(bytesPerSecond?: number): string {
+  return bytesPerSecond && bytesPerSecond > 0 ? `${megabytes(bytesPerSecond)} MB/s` : "";
+}
+
+function eta(seconds?: number): string {
+  if (!seconds || seconds < 0) return "";
+  if (seconds < 60) return `${seconds}s`;
+  return `${Math.ceil(seconds / 60)}m`;
+}
+
 function TaskCard({ task, onOpen, onCancel, onDismiss }: { task: TaskRecord; onOpen: () => void; onCancel: () => void; onDismiss: () => void }) {
   const { t } = useI18n();
   const progress = task.progress;
   const knownTotal = Boolean(progress && progress.total > 0);
   const percent = knownTotal && progress ? Math.min(100, Math.round((progress.received / progress.total) * 100)) : 0;
   const status = task.state === "running" ? t("进行中") : task.state === "success" ? t("已完成") : task.state === "failure" ? t("失败") : t("已取消");
+  const phase = task.phase === "preparing" ? t("准备中") : task.phase === "source" ? t("连接下载源") : task.phase === "downloading" ? t("下载中") : task.phase === "installing" ? t("安装中") : task.phase === "configuring" ? t("配置中") : task.phase === "completed" ? t("已完成") : task.phase === "failed" ? t("失败") : t("已取消");
   const Main = task.openable === false ? "div" : "button";
   return (
     <article className={`task-card is-${task.state}${task.action ? " has-action" : ""}`}>
@@ -24,7 +35,13 @@ function TaskCard({ task, onOpen, onCancel, onDismiss }: { task: TaskRecord; onO
         </span>
         <span className="task-card-copy">
           <strong>{task.title}</strong>
-          <small>{status}{task.message ? ` · ${task.message}` : ""}</small>
+          <small>
+            <span>{status}</span>
+            {task.state === "running" ? <span> · {phase}</span> : null}
+            {task.version ? <span> · {task.version}</span> : null}
+            {task.source ? <span> · {task.source}</span> : null}
+            {task.message ? <span> · {task.message}</span> : null}
+          </small>
           {task.state === "running" && progress ? (
             <span className="task-card-progress">
               <span className={`task-card-progress-track${knownTotal ? "" : " is-indeterminate"}`}>
@@ -34,6 +51,8 @@ function TaskCard({ task, onOpen, onCancel, onDismiss }: { task: TaskRecord; onO
                 {knownTotal
                   ? t("已下载 {done} MB / {total} MB（{percent}%）", { done: megabytes(progress.received), total: megabytes(progress.total), percent })
                   : t("已下载 {done} MB", { done: megabytes(progress.received) })}
+                {rate(progress.speed) ? ` · ${rate(progress.speed)}` : ""}
+                {progress.etaSeconds !== undefined ? ` · ${t("剩余约 {eta}", { eta: eta(progress.etaSeconds) })}` : ""}
               </small>
             </span>
           ) : null}

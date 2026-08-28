@@ -114,6 +114,8 @@ export function ActivationPage() {
         title: t("安装 {name} {version}", { name: byID.get(runtimeID)?.name || runtimeID, version: byID.get(runtimeID)?.lockedVersion || "" }),
         route,
         progressTarget: runtimeID,
+        version: byID.get(runtimeID)?.lockedVersion || undefined,
+        source: byID.get(runtimeID)?.source || undefined,
         group,
       })) ownedRuntimes.push(id);
     }
@@ -258,7 +260,8 @@ export function ActivationPage() {
 
   const installMissingRuntime = async (runtimeId: string, name: string) => {
     const id = taskKey("download", runtimeId);
-    if (!startTask({ id, kind: "download", target: runtimeId, title: t("安装 {name}", { name }), route, progressTarget: runtimeId })) return;
+    const runtime = state.status?.runtimes.find((item) => item.id === runtimeId);
+    if (!startTask({ id, kind: "download", target: runtimeId, title: t("安装 {name}", { name }), route, progressTarget: runtimeId, version: runtime?.lockedVersion || undefined, source: runtime?.source || undefined })) return;
     try {
       const request = api.installRuntime(runtimeId);
       setTaskCanceller(id, taskCanceller(request));
