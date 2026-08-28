@@ -50,7 +50,7 @@ func TestUninstallAgentRejectsUnsupportedOrMissingAgents(t *testing.T) {
 	}{
 		{name: "unknown", agentID: "missing", paths: map[string]string{"npm": "/fake/npm"}, code: oneerrors.InvalidRequest},
 		{name: "not npm managed", agentID: "aider", paths: map[string]string{"npm": "/fake/npm", "aider": "/fake/aider"}, code: oneerrors.InvalidRequest},
-		{name: "not installed", agentID: "codex", paths: map[string]string{"npm": "/fake/npm"}, code: oneerrors.PrerequisiteMissing},
+		{name: "not installed", agentID: "codex", paths: map[string]string{"npm": "/fake/npm"}, code: oneerrors.AgentPackageMissing},
 		{name: "npm missing", agentID: "codex", paths: map[string]string{"codex": "/fake/codex"}, code: oneerrors.PrerequisiteMissing},
 	}
 	for _, test := range tests {
@@ -72,11 +72,12 @@ func TestUninstallAgentRejectsPackageOwnedByAnotherNPM(t *testing.T) {
 	runner := &installAppRunner{
 		paths:     map[string]string{"npm": "/homebrew/bin/npm", "codex": "/mise/shims/codex"},
 		exitCodes: map[string]int{"list -g --depth=0 --json @openai/codex": 1},
+		stderrs:   map[string]string{"list -g --depth=0 --json @openai/codex": "missing: @openai/codex"},
 	}
 	core := NewUseCases(StatusOptions{Home: t.TempDir(), Platform: platform.For("linux", "amd64"), Runner: runner})
 
 	_, err := core.UninstallAgent(context.Background(), "codex")
-	if err == nil || oneerrors.As(err).Code != oneerrors.PrerequisiteMissing {
+	if err == nil || oneerrors.As(err).Code != oneerrors.AgentNPMMismatch {
 		t.Fatalf("mismatched npm owner error = %v, want %s", err, oneerrors.PrerequisiteMissing)
 	}
 	if len(runner.calls) != 1 || runner.calls[0][1] != "list" {
@@ -91,8 +92,21 @@ func TestUninstallAgentReportsNonZeroExit(t *testing.T) {
 	}
 	core := NewUseCases(StatusOptions{Home: t.TempDir(), Platform: platform.For("linux", "amd64"), Runner: runner})
 
-	if _, err := core.UninstallAgent(context.Background(), "codex"); err == nil || oneerrors.As(err).Code != oneerrors.AgentInstallFailed {
+	if _, err := core.UninstallAgent(context.Background(), "codex"); err == nil || oneerrors.As(err).Code != oneerrors.AgentNPMFailed {
 		t.Fatalf("non-zero uninstall exit should fail, got %v", err)
+	}
+}
+
+func TestUninstallAgentDistinguishesNPMPermissionFailure(t *testing.T) {
+	runner := &installAppRunner{
+		paths:     map[string]string{"npm": "/fake/npm", "codex": "/fake/codex"},
+		exitCodes: map[string]int{"list -g --depth=0 --json @openai/codex": 1},
+		stderrs:   map[string]string{"list -g --depth=0 --json @openai/codex": "EACCES: permission denied"},
+	}
+	core := NewUseCases(StatusOptions{Home: t.TempDir(), Platform: platform.For("linux", "amd64"), Runner: runner})
+
+	if _, err := core.UninstallAgent(context.Background(), "codex"); err == nil || oneerrors.As(err).Code != oneerrors.AgentNPMPermission {
+		t.Fatalf("permission failure should be classified, got %v", err)
 	}
 }
 

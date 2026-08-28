@@ -58,6 +58,7 @@ type installAppRunner struct {
 	started   [][]string
 	exitCode  int
 	exitCodes map[string]int
+	stderrs   map[string]string
 }
 
 func (r *installAppRunner) Start(argv []string, _ map[string]string) error {
@@ -82,7 +83,11 @@ func (r *installAppRunner) Run(_ context.Context, argv []string, env map[string]
 	if code, ok := r.exitCodes[strings.Join(argv[1:], " ")]; ok {
 		exitCode = code
 	}
-	return process.Result{Args: argv, ExitCode: exitCode}, nil
+	stderr := ""
+	if message, ok := r.stderrs[strings.Join(argv[1:], " ")]; ok {
+		stderr = message
+	}
+	return process.Result{Args: argv, ExitCode: exitCode, Stderr: stderr}, nil
 }
 
 type installAppDoer func(*http.Request) (*http.Response, error)
