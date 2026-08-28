@@ -263,6 +263,7 @@ const english = {
   "连接下载源": "Connecting to source",
   "下载中": "Downloading",
   "校验中": "Verifying",
+  "等待重启": "Waiting for restart",
   "任务时间线": "Task timeline",
   "同批任务": "Tasks in this batch",
   "错误码": "Error code",

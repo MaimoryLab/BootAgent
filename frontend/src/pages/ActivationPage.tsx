@@ -17,13 +17,14 @@ export function ActivationPage() {
   const navigate = useNavigate();
   const { t } = useI18n();
   const { state, dispatch, refreshStatus } = useWizard();
-  const { tasks, startTask, finishTask, setTaskCanceller, taskFor } = useTaskCenter();
+  const { tasks, startTask, finishTask, setTaskCanceller, setTaskAction, taskFor } = useTaskCenter();
   const route = useTaskRoute();
   const started = useRef(false);
   const [retrying, setRetrying] = useState<string | null>(null);
   // Shown when a run could not start at all. Local state rather than the wizard:
   // it describes this visit to the page, not the outcome of an install.
   const [blockedMessage, setBlockedMessage] = useState("");
+  const retryAgentRef = useRef<(agentId: string) => void>(() => {});
   const isDesktop = state.setupKind === "desktop";
   const desktop = isDesktop && state.status ? selectedDesktopApp(state.status, state.selectedAgentIds) : undefined;
   const selectedNames = useMemo(
@@ -138,9 +139,12 @@ export function ActivationPage() {
       finishTask(id, !result || result.status === "failed"
         ? { kind: "failure", message: result?.message || fallback, errorCode: result?.error_code, exitCode: result?.code, retryable: result?.retryable }
         : { kind: "success", message: result?.message || t("安装完成") });
+      if (result?.status === "failed" && result.retryable) {
+        setTaskAction(id, { label: t("重试"), run: () => retryAgentRef.current(target) });
+      }
     }
     for (const id of started.runtimes) finishTask(id, ok ? { kind: "success", message: t("安装完成") } : { kind: "failure", message: fallback });
-  }, [finishTask, t]);
+  }, [finishTask, setTaskAction, t]);
 
   const installDesktop = useCallback(async (register: (cancel?: TaskCanceller) => void): Promise<{ results: AgentInstallResult[]; log: string; next: string }> => {
     if (!desktop) throw new Error(t("找不到桌面 Agent"));
@@ -327,6 +331,8 @@ export function ActivationPage() {
       setRetrying(null);
     }
   };
+
+  retryAgentRef.current = (agentId: string) => { void retry(agentId); };
 
   // The task card is also a recovery path after another setup run replaced the
   // wizard draft. Render the durable task directly instead of bouncing through

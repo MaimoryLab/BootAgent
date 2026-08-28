@@ -39,7 +39,7 @@ export interface TaskProgress {
   etaSeconds?: number;
 }
 
-export type TaskPhase = "preparing" | "source" | "downloading" | "verifying" | "installing" | "configuring" | "completed" | "failed" | "cancelled";
+export type TaskPhase = "preparing" | "source" | "downloading" | "verifying" | "installing" | "configuring" | "waiting_restart" | "completed" | "failed" | "cancelled";
 
 export type TaskKind = "install" | "update" | "uninstall" | "download" | "migration";
 type TaskState = "running" | "success" | "failure" | "cancelled";
@@ -154,6 +154,7 @@ export interface TaskCenterValue {
   setTaskCanceller: (id: string, cancel?: TaskCanceller) => void;
   setTaskAction: (id: string, action?: TaskAction) => void;
   setTaskMessage: (id: string, message: string) => void;
+  setTaskPhase: (id: string, phase: TaskPhase) => void;
   cancelTask: (id: string, message?: string) => void;
   dismissTask: (id: string) => void;
   taskFor: (id: string) => TaskRecord | undefined;
@@ -171,6 +172,7 @@ const TaskCenterContext = createContext<TaskCenterValue>({
   setTaskCanceller: () => {},
   setTaskAction: () => {},
   setTaskMessage: () => {},
+  setTaskPhase: () => {},
   cancelTask: () => {},
   dismissTask: () => {},
   taskFor: () => undefined,
@@ -318,6 +320,10 @@ export function TaskCenterProvider({ children }: PropsWithChildren) {
     )));
   }, [updateTasks]);
 
+  const setTaskPhase = useCallback((id: string, phase: TaskPhase) => {
+    updateTasks((current) => current.map((task) => task.id === id || task.target === id ? { ...task, phase, events: appendEvent(task.events, { at: Date.now(), kind: "phase", phase, message: phase }) } : task));
+  }, [updateTasks]);
+
   const finishTask = useCallback((id: string, outcome: TaskOutcome) => {
     const hasExactID = tasksRef.current.some((task) => task.id === id);
     const matches = (task: TaskRecord) => (hasExactID ? task.id === id : task.target === id) && task.state === "running";
@@ -395,8 +401,8 @@ export function TaskCenterProvider({ children }: PropsWithChildren) {
   }, [tasks]);
 
   const value = useMemo<TaskCenterValue>(
-    () => ({ tasks, progress, running, startTask, finishTask, setTaskCanceller, setTaskAction, setTaskMessage, cancelTask, dismissTask, taskFor, isTaskRunning }),
-    [cancelTask, dismissTask, finishTask, isTaskRunning, progress, running, setTaskAction, setTaskCanceller, setTaskMessage, startTask, taskFor, tasks],
+    () => ({ tasks, progress, running, startTask, finishTask, setTaskCanceller, setTaskAction, setTaskMessage, setTaskPhase, cancelTask, dismissTask, taskFor, isTaskRunning }),
+    [cancelTask, dismissTask, finishTask, isTaskRunning, progress, running, setTaskAction, setTaskCanceller, setTaskMessage, setTaskPhase, startTask, taskFor, tasks],
   );
   return <TaskCenterContext.Provider value={value}>{children}</TaskCenterContext.Provider>;
 }

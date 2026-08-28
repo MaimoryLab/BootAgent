@@ -75,6 +75,7 @@ export function AppUpdater() {
         latest.current.setTaskCanceller(OTA_TASK_ID, taskCanceller(request));
         await request;
         latest.current.finishTask(OTA_TASK_ID, { kind: "success", message: t("更新已下载") });
+        latest.current.setTaskPhase(OTA_TASK_ID, "waiting_restart");
         latest.current.setTaskAction(OTA_TASK_ID, {
           label: t("重启并更新"),
           run: async () => {

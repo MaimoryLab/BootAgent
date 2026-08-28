@@ -25,7 +25,7 @@ function TaskCard({ task, onOpen, onCancel, onDismiss }: { task: TaskRecord; onO
   const knownTotal = Boolean(progress && progress.total > 0);
   const percent = knownTotal && progress ? Math.min(100, Math.round((progress.received / progress.total) * 100)) : 0;
   const status = task.state === "running" ? t("进行中") : task.state === "success" ? t("已完成") : task.state === "failure" ? t("失败") : t("已取消");
-  const phase = task.phase === "preparing" ? t("准备中") : task.phase === "source" ? t("连接下载源") : task.phase === "downloading" ? t("下载中") : task.phase === "verifying" ? t("校验中") : task.phase === "installing" ? t("安装中") : task.phase === "configuring" ? t("配置中") : task.phase === "completed" ? t("已完成") : task.phase === "failed" ? t("失败") : t("已取消");
+  const phase = task.phase === "preparing" ? t("准备中") : task.phase === "source" ? t("连接下载源") : task.phase === "downloading" ? t("下载中") : task.phase === "verifying" ? t("校验中") : task.phase === "installing" ? t("安装中") : task.phase === "configuring" ? t("配置中") : task.phase === "waiting_restart" ? t("等待重启") : task.phase === "completed" ? t("已完成") : task.phase === "failed" ? t("失败") : t("已取消");
   const Main = task.openable === false ? "div" : "button";
   return (
     <article className={`task-card is-${task.state}${task.action ? " has-action" : ""}`}>
