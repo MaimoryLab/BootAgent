@@ -249,7 +249,9 @@ test("Marketplace multi-type filters narrow unique results without shifting cont
   expect(after?.x).toBeCloseTo(before!.x, 0);
   expect(clearBox!.x + clearBox!.width).toBeLessThanOrEqual(after!.x);
 
-  await page.getByLabel(/插件|Plugins/, { exact: true }).check();
+  const pluginFilter = page.getByLabel(/插件|Plugins/, { exact: true });
+  if (!(await pluginFilter.isChecked())) await pluginFilter.check();
+  await expect(pluginFilter).toBeChecked();
   const afterSecondType = await page.locator(".marketplace-card").count();
   expect(afterSecondType).toBeLessThanOrEqual(afterFirstType);
 
