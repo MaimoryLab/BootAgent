@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 
@@ -32,7 +33,7 @@ describe("InstallTaskPage without a matching task", () => {
 });
 
 describe("InstallTaskPage update route", () => {
-  it("renders a completed update task and its log", () => {
+  it("renders a completed update task and its log", async () => {
     mockUseTaskCenter.mockReturnValue({
       tasks: [{
         id: "update:openclaw",
@@ -62,6 +63,8 @@ describe("InstallTaskPage update route", () => {
     );
     expect(screen.getByText("更新完成 · 更新 OpenClaw")).toBeTruthy();
     expect(screen.queryByText(/已下载/)).toBeNull();
+    expect(screen.queryByText(/npm update -g openclaw/)).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: /查看安装日志/ }));
     expect(screen.getByText(/npm update -g openclaw/)).toBeTruthy();
     expect(screen.getByRole("region", { name: "任务时间线" })).toBeTruthy();
   });

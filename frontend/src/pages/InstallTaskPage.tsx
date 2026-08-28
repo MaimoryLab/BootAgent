@@ -80,7 +80,7 @@ export function InstallTaskPage() {
           ))}
         </section>
       ) : null}
-      <LogDisclosure log={task.log || ""} open showEmpty={task.kind !== "download"} />
+      {task.log ? <LogDisclosure log={task.log} /> : null}
       {task.state !== "running" && task.action ? (
         <button className="button button-secondary task-action-detail" type="button" onClick={() => { void task.action?.run(); }}>
           {task.action.label}
