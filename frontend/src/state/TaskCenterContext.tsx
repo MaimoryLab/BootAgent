@@ -23,7 +23,7 @@ export interface TaskProgress {
   etaSeconds?: number;
 }
 
-export type TaskPhase = "preparing" | "source" | "downloading" | "installing" | "configuring" | "completed" | "failed" | "cancelled";
+export type TaskPhase = "preparing" | "source" | "downloading" | "verifying" | "installing" | "configuring" | "completed" | "failed" | "cancelled";
 
 export type TaskKind = "install" | "update" | "uninstall" | "download" | "migration";
 type TaskState = "running" | "success" | "failure" | "cancelled";
@@ -160,6 +160,7 @@ export function updateTaskRoute(target: string): string {
 
 function outputText(output: InstallOutput): string {
   if (output.kind === "progress") return "";
+  if (output.kind === "phase" || output.kind === "source") return "";
   if (output.kind === "command") return `$ ${output.args.join(" ")}\n`;
   return output.text;
 }
@@ -184,9 +185,10 @@ export function TaskCenterProvider({ children }: PropsWithChildren) {
   useEffect(
     () =>
       api.onInstallOutput((output: InstallOutput) => {
+        const outputTarget = output.kind === "progress" || output.kind === "source" ? output.target : undefined;
         const matchesTask = (task: TaskRecord) => task.kind !== "migration" && task.state === "running" && (output.agent
           ? task.target === output.agent
-          : output.kind === "progress" && (task.progressTarget === output.target || task.target === output.target));
+          : outputTarget !== undefined && (task.progressTarget === outputTarget || task.target === outputTarget));
         const targetTasks = tasksRef.current.filter(matchesTask);
         if (output.kind === "progress") {
           const now = Date.now();
@@ -208,7 +210,7 @@ export function TaskCenterProvider({ children }: PropsWithChildren) {
         if (!targetTasks.length) return;
         updateTasks((current) => current.map((task) => (
           matchesTask(task)
-            ? { ...task, phase: task.phase === "preparing" ? "installing" : task.phase, ...(outputText(output) ? { log: `${task.log || ""}${outputText(output)}` } : {}) }
+            ? { ...task, ...(output.kind === "source" ? { phase: "source", source: output.source } : {}), ...(output.kind === "phase" && output.phase === "verified" ? { phase: "verifying" } : {}), ...(output.kind === "command" && task.phase === "preparing" ? { phase: "installing" } : {}), ...(outputText(output) ? { log: `${task.log || ""}${outputText(output)}` } : {}) }
             : task
         )));
       }),

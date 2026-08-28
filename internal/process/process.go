@@ -41,8 +41,9 @@ type Result struct {
 }
 
 // Output is one entry in the live install feed. Kind selects which fields carry
-// meaning: "command" uses Args, "output" uses Stream and Text, and "progress"
-// uses Target, Received and Total.
+// meaning: "command" uses Args, "output" uses Stream and Text, "progress"
+// uses Target, Received and Total, "phase" uses Phase, and "source" uses
+// Source.
 type Output struct {
 	Kind string `json:"kind"`
 	// Agent identifies the install request that produced command/output events.
@@ -51,6 +52,8 @@ type Output struct {
 	Args   []string `json:"args,omitempty"`
 	Stream string   `json:"stream,omitempty"`
 	Text   string   `json:"text,omitempty"`
+	Phase  string   `json:"phase,omitempty"`
+	Source string   `json:"source,omitempty"`
 	// Target names what is being downloaded, so a listener can attribute a
 	// progress event to the row that asked for it.
 	Target   string `json:"target,omitempty"`

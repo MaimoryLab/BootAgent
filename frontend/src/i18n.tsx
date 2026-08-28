@@ -262,6 +262,7 @@ const english = {
   "准备中": "Preparing",
   "连接下载源": "Connecting to source",
   "下载中": "Downloading",
+  "校验中": "Verifying",
   "配置中": "Configuring",
   "失败": "Failed",
   "已取消": "Cancelled",
