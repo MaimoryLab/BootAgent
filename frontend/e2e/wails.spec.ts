@@ -234,7 +234,12 @@ test("Marketplace multi-type filters narrow unique results without shifting cont
   const initialCount = await page.locator(".marketplace-card").count();
 
   await typeButton.click();
-  await page.getByLabel("Skill", { exact: true }).check();
+  const skillFilter = page.getByLabel("Skill", { exact: true });
+  // The filter state is URL-backed and can be restored by the server between
+  // navigations. `check()` requires a transition and flakes when the restored
+  // value is already true; assert the desired state instead.
+  if (!(await skillFilter.isChecked())) await skillFilter.check();
+  await expect(skillFilter).toBeChecked();
   const afterFirstType = await page.locator(".marketplace-card").count();
   expect(afterFirstType).toBeLessThanOrEqual(initialCount);
 
