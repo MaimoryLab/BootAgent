@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator } from "@playwright/test";
 
 // Every test addresses a route directly. "/" is a decision, not a page: on a
 // home without ~/.bootagent it opens onboarding, so landing there would make
@@ -235,11 +235,7 @@ test("Marketplace multi-type filters narrow unique results without shifting cont
 
   await typeButton.click();
   const skillFilter = page.getByLabel("Skill", { exact: true });
-  // The filter state is URL-backed and can be restored by the server between
-  // navigations. `check()` requires a transition and flakes when the restored
-  // value is already true; assert the desired state instead.
-  if (!(await skillFilter.isChecked())) await skillFilter.check();
-  await expect(skillFilter).toBeChecked();
+  await checkMarketplaceFilter(skillFilter);
   const afterFirstType = await page.locator(".marketplace-card").count();
   expect(afterFirstType).toBeLessThanOrEqual(initialCount);
 
@@ -250,8 +246,7 @@ test("Marketplace multi-type filters narrow unique results without shifting cont
   expect(clearBox!.x + clearBox!.width).toBeLessThanOrEqual(after!.x);
 
   const pluginFilter = page.getByLabel(/插件|Plugins/, { exact: true });
-  if (!(await pluginFilter.isChecked())) await pluginFilter.check();
-  await expect(pluginFilter).toBeChecked();
+  await checkMarketplaceFilter(pluginFilter);
   const afterSecondType = await page.locator(".marketplace-card").count();
   expect(afterSecondType).toBeLessThanOrEqual(afterFirstType);
 
@@ -261,3 +256,18 @@ test("Marketplace multi-type filters narrow unique results without shifting cont
   expect(itemIDs.every(Boolean)).toBe(true);
   expect(new Set(itemIDs).size).toBe(itemIDs.length);
 });
+
+async function checkMarketplaceFilter(filter: Locator) {
+  // URL-backed controlled inputs can be replaced while the catalog snapshot is
+  // refreshed. Retry only when the desired state was not committed, and fail
+  // with Playwright's normal assertion if it remains unavailable.
+  for (let attempt = 0; attempt < 3 && !(await filter.isChecked()); attempt += 1) {
+    try {
+      await filter.check({ timeout: 2_000 });
+    } catch (error) {
+      if (attempt === 2) throw error;
+    }
+    if (!(await filter.isChecked())) await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  await expect(filter).toBeChecked();
+}
