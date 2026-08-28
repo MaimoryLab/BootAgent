@@ -40,6 +40,8 @@ const installTask: TaskInput = {
   target: "codex",
   title: "安装 Codex",
   route: "/setup/activation",
+  version: "1.2.3",
+  source: "npmjs.org",
 };
 
 function TaskHarness() {
@@ -101,12 +103,27 @@ describe("TaskCenter", () => {
     await user.click(screen.getByRole("button", { name: "启动安装" }));
     expect(await screen.findByText("安装 Codex")).toBeTruthy();
     expect(screen.getByText("进行中")).toBeTruthy();
+    expect(screen.getByText(/1\.2\.3/)).toBeTruthy();
+    expect(screen.getByText(/npmjs\.org/)).toBeTruthy();
 
     send({ kind: "command", args: ["npm", "install", "-g", "@openai/codex"] });
     send({ kind: "output", stream: "stdout", text: "added 1 package\n" });
     expect(screen.queryByText(/npm install/)).toBeNull();
     expect(screen.queryByText(/added 1 package/)).toBeNull();
     expect(screen.queryByText(/暂无任务日志|清空|完整日志/)).toBeNull();
+  });
+
+  it("moves a task into the download phase and reports a rate after two samples", async () => {
+    const user = userEvent.setup();
+    const now = vi.spyOn(Date, "now").mockReturnValueOnce(1_000).mockReturnValueOnce(2_000);
+    renderTaskCenter();
+    await user.click(screen.getByRole("button", { name: "启动安装" }));
+    send({ kind: "progress", target: "codex", received: 1 * 1024 * 1024, total: 5 * 1024 * 1024 });
+    send({ kind: "progress", target: "codex", received: 2 * 1024 * 1024, total: 5 * 1024 * 1024 });
+    expect(screen.getByText(/下载中/)).toBeTruthy();
+    expect(screen.getByText(/MB\/s/)).toBeTruthy();
+    expect(screen.getByText(/剩余约/)).toBeTruthy();
+    now.mockRestore();
   });
 
   it("renders migration as a status-only task", async () => {

@@ -45,5 +45,7 @@ export type {
     SkillSummary,
     SkillUninstallResult,
     StatusResponse,
+    TaskHistoryEvent,
+    TaskHistoryRecord,
     TerminalOption
 } from "./models.js";

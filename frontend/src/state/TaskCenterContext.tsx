@@ -11,19 +11,52 @@ import {
 import { useInRouterContext, useLocation } from "react-router-dom";
 
 import { api } from "../backend/api";
-import type { InstallOutput } from "../types/api";
+import type { InstallOutput, TaskHistoryRecord } from "../types/api";
+
+const TASK_STORAGE_KEY = "bootagent.task-center.v1";
+
+function persistedTasks(): TaskRecord[] {
+  if (typeof window === "undefined" || import.meta.env.MODE === "test") return [];
+  try {
+    const value: unknown = JSON.parse(window.localStorage.getItem(TASK_STORAGE_KEY) || "[]");
+    if (!Array.isArray(value)) return [];
+    return value.filter((task): task is TaskRecord => Boolean(task && typeof task === "object" && typeof task.id === "string" && typeof task.target === "string" && typeof task.kind === "string" && typeof task.startedAt === "number"))
+      .map((task) => task.state === "running"
+        ? { ...task, state: "failure", phase: "failed", message: task.message || "应用重启后任务状态未知，请检查安装结果", events: appendEvent(task.events || [], { at: Date.now(), kind: "result", phase: "failed", message: "应用重启后任务状态未知" }) }
+        : { ...task, events: task.events || [] });
+  } catch {
+    return [];
+  }
+}
 
 /** One download in flight. total is 0 when the server sent no Content-Length. */
 export interface TaskProgress {
   received: number;
   total: number;
+  /** Bytes per second calculated from live progress samples. */
+  speed?: number;
+  /** Estimated seconds remaining when total and speed are known. */
+  etaSeconds?: number;
 }
+
+export type TaskPhase = "preparing" | "source" | "downloading" | "verifying" | "installing" | "configuring" | "waiting_restart" | "completed" | "failed" | "cancelled";
 
 export type TaskKind = "install" | "update" | "uninstall" | "download" | "migration";
 type TaskState = "running" | "success" | "failure" | "cancelled";
 
 export interface TaskOutcome {
   kind: Exclude<TaskState, "running">;
+  message: string;
+  errorCode?: string;
+  exitCode?: number;
+  retryable?: boolean;
+}
+
+export interface TaskEvent {
+  at: number;
+  kind: "phase" | "source" | "log" | "result";
+  phase?: TaskPhase;
+  source?: string;
   message: string;
 }
 
@@ -55,16 +88,25 @@ export interface TaskInput {
   /** Cards backed by one request are cancelled together. */
   group?: string;
   action?: TaskAction;
+  /** Optional locked or requested version shown by the task center. */
+  version?: string;
+  /** Safe source label or host; never a secret-bearing URL. */
+  source?: string;
 }
 
 export interface TaskRecord extends TaskInput {
   id: string;
   progressTarget: string;
   state: TaskState;
+  phase: TaskPhase;
   progress?: TaskProgress;
   message?: string;
+  errorCode?: string;
+  exitCode?: number;
+  retryable?: boolean;
   log?: string;
   startedAt: number;
+  events: TaskEvent[];
 }
 
 function defaultTask(target: string): TaskInput {
@@ -112,6 +154,7 @@ export interface TaskCenterValue {
   setTaskCanceller: (id: string, cancel?: TaskCanceller) => void;
   setTaskAction: (id: string, action?: TaskAction) => void;
   setTaskMessage: (id: string, message: string) => void;
+  setTaskPhase: (id: string, phase: TaskPhase) => void;
   cancelTask: (id: string, message?: string) => void;
   dismissTask: (id: string) => void;
   taskFor: (id: string) => TaskRecord | undefined;
@@ -129,6 +172,7 @@ const TaskCenterContext = createContext<TaskCenterValue>({
   setTaskCanceller: () => {},
   setTaskAction: () => {},
   setTaskMessage: () => {},
+  setTaskPhase: () => {},
   cancelTask: () => {},
   dismissTask: () => {},
   taskFor: () => undefined,
@@ -149,8 +193,45 @@ export function updateTaskRoute(target: string): string {
 
 function outputText(output: InstallOutput): string {
   if (output.kind === "progress") return "";
+  if (output.kind === "phase" || output.kind === "source") return "";
   if (output.kind === "command") return `$ ${output.args.join(" ")}\n`;
   return output.text;
+}
+
+function appendEvent(events: TaskEvent[], event: TaskEvent): TaskEvent[] {
+  const next = [...events, event];
+  return next.length > 200 ? next.slice(next.length - 200) : next;
+}
+
+function phaseFromOutput(value: string): TaskPhase {
+  if (value === "verified") return "verifying";
+  const phases: TaskPhase[] = ["preparing", "source", "downloading", "verifying", "installing", "configuring", "waiting_restart", "completed", "failed", "cancelled"];
+  return phases.includes(value as TaskPhase) ? value as TaskPhase : "preparing";
+}
+
+function toHistory(task: TaskRecord): TaskHistoryRecord {
+  return {
+    id: task.id, kind: task.kind, target: task.target, title: task.title, route: task.route,
+    progressTarget: task.progressTarget, state: task.state, phase: task.phase, version: task.version || "",
+    source: task.source || "", message: task.message || "", errorCode: task.errorCode || "",
+    exitCode: task.exitCode ?? null, retryable: task.retryable === true, startedAt: task.startedAt,
+    log: task.log || "", events: task.events.map((event) => ({ at: event.at, kind: event.kind, phase: event.phase || "", source: event.source || "", message: event.message })),
+  };
+}
+
+function fromHistory(record: TaskHistoryRecord): TaskRecord {
+  const state = record.state === "success" || record.state === "failure" || record.state === "cancelled" ? record.state : "failure";
+  const kinds: TaskKind[] = ["install", "update", "uninstall", "download", "migration"];
+  const phases: TaskPhase[] = ["preparing", "source", "downloading", "verifying", "installing", "configuring", "waiting_restart", "completed", "failed", "cancelled"];
+  const kind = kinds.includes(record.kind as TaskKind) ? record.kind as TaskKind : "download";
+  const phase = phases.includes(record.phase as TaskPhase) ? record.phase as TaskPhase : state === "success" ? "completed" : state === "cancelled" ? "cancelled" : "failed";
+  return {
+    id: record.id, kind, target: record.target, title: record.title, route: record.route,
+    progressTarget: record.progressTarget || record.target, state, phase: state === "failure" && record.state === "running" ? "failed" : phase,
+    version: record.version || undefined, source: record.source || undefined, message: record.state === "running" ? (record.message || "应用重启后任务状态未知，请检查安装结果") : record.message || undefined,
+    errorCode: record.errorCode || undefined, exitCode: record.exitCode ?? undefined, retryable: record.retryable === true,
+    startedAt: record.startedAt, log: record.log || undefined, events: (record.events || []).filter((event) => event && typeof event.message === "string").map((event) => ({ at: event.at, kind: (["phase", "source", "log", "result"] as TaskEvent["kind"][]).includes(event.kind as TaskEvent["kind"]) ? event.kind as TaskEvent["kind"] : "log", phase: phases.includes(event.phase as TaskPhase) ? event.phase as TaskPhase : undefined, source: event.source || undefined, message: event.message })),
+  };
 }
 
 /**
@@ -158,8 +239,10 @@ function outputText(output: InstallOutput): string {
  * its Go request is still running without losing the card or its progress.
  */
 export function TaskCenterProvider({ children }: PropsWithChildren) {
-  const [tasks, setTasks] = useState<TaskRecord[]>([]);
+  const [tasks, setTasks] = useState<TaskRecord[]>(persistedTasks);
   const [progress, setProgress] = useState<Record<string, TaskProgress>>({});
+  const progressSamplesRef = useRef(new Map<string, { received: number; at: number }>());
+  const historyHydratedRef = useRef(false);
   const tasksRef = useRef<TaskRecord[]>([]);
   const cancellersRef = useRef(new Map<string, TaskCanceller>());
   const pendingCancelsRef = useRef(new Set<string>());
@@ -169,23 +252,65 @@ export function TaskCenterProvider({ children }: PropsWithChildren) {
     setTasks(next);
   }, []);
 
+  useEffect(() => {
+    if (typeof window === "undefined" || import.meta.env.MODE === "test") return;
+    const load = api.loadTaskHistory;
+    if (typeof load !== "function") { historyHydratedRef.current = true; return; }
+    void load().then((records) => {
+      if (records.length) {
+        const restored = records.map(fromHistory);
+        tasksRef.current = restored;
+        setTasks(restored);
+      }
+      historyHydratedRef.current = true;
+      if (!records.length && tasksRef.current.length) {
+        void api.saveTaskHistory(tasksRef.current.map(toHistory)).catch(() => {});
+      }
+    }).catch(() => { historyHydratedRef.current = true; });
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || import.meta.env.MODE === "test" || !historyHydratedRef.current) return;
+    const records = tasks.map(toHistory);
+    const save = api.saveTaskHistory;
+    if (typeof save === "function") void save(records).catch(() => {});
+    try {
+      const safe = tasks.map(({ action: _action, ...task }) => task);
+      window.localStorage.setItem(TASK_STORAGE_KEY, JSON.stringify(safe.slice(-50)));
+    } catch {
+      // A full or unavailable browser store must not break an install task.
+    }
+  }, [tasks]);
+
   useEffect(
     () =>
       api.onInstallOutput((output: InstallOutput) => {
+        const outputTarget = output.kind === "progress" || output.kind === "source" ? output.target : undefined;
         const matchesTask = (task: TaskRecord) => task.kind !== "migration" && task.state === "running" && (output.agent
           ? task.target === output.agent
-          : output.kind === "progress" && (task.progressTarget === output.target || task.target === output.target));
+          : outputTarget !== undefined && (task.progressTarget === outputTarget || task.target === outputTarget));
         const targetTasks = tasksRef.current.filter(matchesTask);
         if (output.kind === "progress") {
+          const now = Date.now();
+          const previous = progressSamplesRef.current.get(output.target);
+          const elapsed = previous ? Math.max(0.001, (now - previous.at) / 1000) : 0;
+          const speed = previous && output.received >= previous.received ? (output.received - previous.received) / elapsed : 0;
+          const remaining = output.total > output.received && speed > 0 ? Math.ceil((output.total - output.received) / speed) : undefined;
+          progressSamplesRef.current.set(output.target, { received: output.received, at: now });
+          const nextProgress: TaskProgress = { received: output.received, total: output.total, ...(speed > 0 ? { speed } : {}), ...(remaining !== undefined ? { etaSeconds: remaining } : {}) };
           setProgress((current) => ({
             ...current,
-            [output.target]: { received: output.received, total: output.total },
+            [output.target]: nextProgress,
           }));
+          updateTasks((current) => current.map((task) => (
+            matchesTask(task) ? { ...task, phase: "downloading", progress: nextProgress } : task
+          )));
+          return;
         }
         if (!targetTasks.length) return;
         updateTasks((current) => current.map((task) => (
           matchesTask(task)
-            ? { ...task, ...(output.kind === "progress" ? { progress: { received: output.received, total: output.total } } : {}), ...(outputText(output) ? { log: `${task.log || ""}${outputText(output)}` } : {}) }
+            ? { ...task, ...(output.kind === "source" ? { phase: "source", source: output.source, events: appendEvent(task.events, { at: Date.now(), kind: "source", phase: "source", source: output.source, message: "source selected" }) } : {}), ...(output.kind === "phase" ? { phase: phaseFromOutput(output.phase), events: appendEvent(task.events, { at: Date.now(), kind: "phase", phase: phaseFromOutput(output.phase), message: output.phase === "verified" ? "checksum verified" : output.phase }) } : {}), ...(output.kind === "command" && task.phase === "preparing" ? { phase: "installing" } : {}), ...(outputText(output) ? { log: `${task.log || ""}${outputText(output)}`, events: appendEvent(task.events, { at: Date.now(), kind: "log", message: outputText(output).trim() }) } : {}) }
             : task
         )));
       }),
@@ -207,9 +332,11 @@ export function TaskCenterProvider({ children }: PropsWithChildren) {
       delete next[target];
       return next;
     });
+    progressSamplesRef.current.delete(progressTarget);
     updateTasks((current) => {
       const next = current.filter((task) => task.id !== id);
-      next.push({ ...input, id, progressTarget, state: "running", startedAt: Date.now() });
+      const startedAt = Date.now();
+      next.push({ ...input, id, progressTarget, state: "running", phase: "preparing", startedAt, events: [{ at: startedAt, kind: "phase", phase: "preparing", message: "task started" }] });
       return next;
     });
     return true;
@@ -245,6 +372,10 @@ export function TaskCenterProvider({ children }: PropsWithChildren) {
     )));
   }, [updateTasks]);
 
+  const setTaskPhase = useCallback((id: string, phase: TaskPhase) => {
+    updateTasks((current) => current.map((task) => task.id === id || task.target === id ? { ...task, phase, events: appendEvent(task.events, { at: Date.now(), kind: "phase", phase, message: phase }) } : task));
+  }, [updateTasks]);
+
   const finishTask = useCallback((id: string, outcome: TaskOutcome) => {
     const hasExactID = tasksRef.current.some((task) => task.id === id);
     const matches = (task: TaskRecord) => (hasExactID ? task.id === id : task.target === id) && task.state === "running";
@@ -261,7 +392,7 @@ export function TaskCenterProvider({ children }: PropsWithChildren) {
       return next;
     });
     updateTasks((current) => current.map((task) => matches(task)
-      ? { ...task, state: outcome.kind, message: outcome.message, progress: undefined }
+      ? { ...task, state: outcome.kind, phase: outcome.kind === "success" ? "completed" : outcome.kind === "failure" ? "failed" : "cancelled", message: outcome.message, errorCode: outcome.errorCode, exitCode: outcome.exitCode, retryable: outcome.retryable, progress: undefined, events: appendEvent(task.events, { at: Date.now(), kind: "result", phase: outcome.kind === "success" ? "completed" : outcome.kind === "failure" ? "failed" : "cancelled", message: outcome.message }) }
       : task));
   }, [updateTasks]);
 
@@ -289,7 +420,7 @@ export function TaskCenterProvider({ children }: PropsWithChildren) {
     });
     const ids = new Set(matched.map((task) => task.id));
     updateTasks((current) => current.map((task) => ids.has(task.id)
-      ? { ...task, state: "cancelled", message, progress: undefined }
+      ? { ...task, state: "cancelled", phase: "cancelled", message, progress: undefined, events: appendEvent(task.events, { at: Date.now(), kind: "result", phase: "cancelled", message: message || "cancelled" }) }
       : task));
     for (const cancel of cancellers) {
       try {
@@ -322,8 +453,8 @@ export function TaskCenterProvider({ children }: PropsWithChildren) {
   }, [tasks]);
 
   const value = useMemo<TaskCenterValue>(
-    () => ({ tasks, progress, running, startTask, finishTask, setTaskCanceller, setTaskAction, setTaskMessage, cancelTask, dismissTask, taskFor, isTaskRunning }),
-    [cancelTask, dismissTask, finishTask, isTaskRunning, progress, running, setTaskAction, setTaskCanceller, setTaskMessage, startTask, taskFor, tasks],
+    () => ({ tasks, progress, running, startTask, finishTask, setTaskCanceller, setTaskAction, setTaskMessage, setTaskPhase, cancelTask, dismissTask, taskFor, isTaskRunning }),
+    [cancelTask, dismissTask, finishTask, isTaskRunning, progress, running, setTaskAction, setTaskCanceller, setTaskMessage, setTaskPhase, startTask, taskFor, tasks],
   );
   return <TaskCenterContext.Provider value={value}>{children}</TaskCenterContext.Provider>;
 }

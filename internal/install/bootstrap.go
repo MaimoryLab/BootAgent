@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"slices"
@@ -372,6 +373,9 @@ func downloadSources(artifact catalog.RuntimeArtifact, preferMirror bool) []stri
 }
 
 func fetchTo(ctx context.Context, client Doer, source, expected, directory string, listener process.OutputListener, target string, stallTimeout time.Duration) (string, error) {
+	if listener != nil {
+		listener(process.Output{Kind: "source", Target: target, Source: sourceHost(source)})
+	}
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, source, nil)
 	if err != nil {
 		return "", err
@@ -409,7 +413,18 @@ func fetchTo(ctx context.Context, client Doer, source, expected, directory strin
 		os.Remove(path)
 		return "", fmt.Errorf("checksum mismatch: lock expects %s, download reports %s", expected, actual)
 	}
+	if listener != nil {
+		listener(process.Output{Kind: "phase", Target: target, Phase: "verified"})
+	}
 	return path, nil
+}
+
+func sourceHost(raw string) string {
+	parsed, err := url.Parse(raw)
+	if err != nil || parsed.Host == "" {
+		return "unknown source"
+	}
+	return parsed.Host
 }
 
 func extract(archive, destination string, artifact catalog.RuntimeArtifact) error {

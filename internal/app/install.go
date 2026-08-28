@@ -302,11 +302,13 @@ type installRun struct {
 
 func (r *installRun) step(ctx context.Context, agentID string) {
 	agent := r.manifest.Agents[agentID]
+	r.emitPhase(agentID, "installing")
 	if !contains(agent.Platforms, r.core.status.Platform.OS) {
 		r.fail(agentID, oneerrors.New(oneerrors.PrerequisiteMissing, fmt.Sprintf("%s is not supported on %s", agent.Name, r.core.status.Platform.OS)))
 		return
 	}
 	if agent.ConfigMode == "guide" {
+		r.emitPhase(agentID, "configuring")
 		guide := agent.Guide
 		r.results = append(r.results, AgentInstallResult{Agent: agentID, Status: "guide-only", Message: guide, Retryable: false})
 		r.logs = append(r.logs, "## "+agentID+"\nGuide only. "+guide)
@@ -381,11 +383,13 @@ func (r *installRun) configure(ctx context.Context, agentID string, agent catalo
 			status = "installed"
 		}
 		r.results = append(r.results, installResultFor(agentID, status, "", installed, true))
+		r.emitPhase(agentID, "completed")
 		r.logs = append(r.logs, "## "+agentID+"\nAgent check complete.")
 		return nil
 	}
 	configPathValue := ""
 	if r.options.Configure {
+		r.emitPhase(agentID, "configuring")
 		protocolID := provider.ProtocolForAdapter(agent.ConfigAdapter)
 		if verdict, found := r.probes[protocolID]; found && !verdict.OK {
 			code := pointerString(verdict.ErrorCode)
@@ -435,11 +439,18 @@ func (r *installRun) configure(ctx context.Context, agentID string, agent catalo
 		message = "Configured"
 	}
 	r.results = append(r.results, installResultFor(agentID, status, configPathValue, installed, false))
+	r.emitPhase(agentID, "completed")
 	r.logs = append(r.logs, "## "+agentID+"\n"+message+".")
 	if next := nextStep(r.core.status.Platform.OS, agentID, agent, r.options.Model); next != "" {
 		r.nextSteps = append(r.nextSteps, next)
 	}
 	return nil
+}
+
+func (r *installRun) emitPhase(agentID, phase string) {
+	if r.output != nil {
+		r.output(process.Output{Kind: "phase", Agent: agentID, Phase: phase})
+	}
 }
 
 func (r *installRun) launchOfficialInstaller(ctx context.Context, agent catalog.Agent) error {

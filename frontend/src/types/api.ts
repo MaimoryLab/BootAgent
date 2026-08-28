@@ -56,6 +56,7 @@ export type LaunchAgentResponse = BindingModels.LaunchResponse;
 export type AgentUninstallResult = AppModels.AgentUninstallResult;
 export type AgentUpdateResult = AppModels.AgentUpdateResult;
 export type ConversationMigrationResult = AppModels.ConversationMigrationResult;
+export type TaskHistoryRecord = AppModels.TaskHistoryRecord;
 export type MarketplaceRecommendationAgent = AppModels.MarketplaceRecommendationAgent;
 export type MarketplaceKnowledgeItem = AppModels.MarketplaceKnowledgeItem;
 export type MarketplaceRecommendRequest = AppModels.MarketplaceRecommendRequest;
@@ -140,6 +141,8 @@ export type InstallResponse = Omit<BindingModels.InstallResponse, "results" | "p
 export type InstallOutput =
 	| { kind: "command"; agent?: string; args: string[] }
 	| { kind: "output"; agent?: string; stream: "stdout" | "stderr"; text: string }
+	| { kind: "phase"; agent?: string; phase: string }
+	| { kind: "source"; agent?: string; target: string; source: string }
   /** total is 0 when the server sent no Content-Length. */
 	| { kind: "progress"; agent?: string; target: string; received: number; total: number };
 

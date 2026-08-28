@@ -33,6 +33,7 @@ type Services struct {
 	Skill        *SkillService
 	Conversion   *ConversionService
 	Marketplace  *MarketplaceService
+	Task         *TaskService
 }
 
 type ServicesOptions struct {
@@ -59,7 +60,24 @@ func NewServicesWithOptions(core *app.UseCases, opener BrowserOpener, options Se
 		Skill:        NewSkillService(core),
 		Conversion:   NewConversionService(core),
 		Marketplace:  NewMarketplaceService(core, opener),
+		Task:         &TaskService{core: core},
 	}
+}
+
+type TaskService struct{ core *app.UseCases }
+
+func (s *TaskService) LoadHistory(ctx context.Context) ([]app.TaskHistoryRecord, error) {
+	if s == nil || s.core == nil {
+		return nil, notReady("Task service is not configured")
+	}
+	return s.core.LoadTaskHistory(ctx)
+}
+
+func (s *TaskService) SaveHistory(ctx context.Context, records []app.TaskHistoryRecord) error {
+	if s == nil || s.core == nil {
+		return notReady("Task service is not configured")
+	}
+	return s.core.SaveTaskHistory(ctx, records)
 }
 
 type ConversionService struct{ core *app.UseCases }

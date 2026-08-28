@@ -10,6 +10,7 @@ import * as ProviderService from "../../bindings/github.com/MaimoryLab/BootAgent
 import * as RuntimeService from "../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/runtimeservice.js";
 import * as SkillService from "../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/skillservice.js";
 import * as StatusService from "../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/statusservice.js";
+import * as TaskService from "../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/taskservice.js";
 import * as TransferService from "../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/transferservice.js";
 import * as UpdateService from "../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/updateservice.js";
 import { currentLocale, translate } from "../i18n";
@@ -53,7 +54,8 @@ import type {
   SkillScanResult,
   SkillSummary,
   SkillUninstallResult,
-  StatusResponse
+  StatusResponse,
+  TaskHistoryRecord
 } from "../types/api";
 import { BootAgentApiError, isCancellationError } from "./errors";
 
@@ -65,7 +67,7 @@ export function onInstallOutput(listener: (output: InstallOutput) => void): () =
     const data = event.data;
     if (!data || typeof data !== "object") return;
     const kind = (data as { kind?: unknown }).kind;
-    if (kind === "command" || kind === "output" || kind === "progress") listener(data as InstallOutput);
+    if (kind === "command" || kind === "output" || kind === "progress" || kind === "phase" || kind === "source") listener(data as InstallOutput);
   });
 }
 
@@ -132,6 +134,8 @@ export const wailsApi = {
   openGitHub: (): Promise<void> => call(() => ProviderService.OpenGitHub()).then(() => undefined),
   downloadUpdate: (): CancellableRequest<void> => call(() => UpdateService.DownloadAndInstall()) as CancellableRequest<void>,
   restartUpdate: (): Promise<void> => call(() => UpdateService.Restart()).then(() => undefined),
+  loadTaskHistory: (): Promise<TaskHistoryRecord[]> => call(() => TaskService.LoadHistory()).then((records) => records ?? []) as Promise<TaskHistoryRecord[]>,
+  saveTaskHistory: (records: TaskHistoryRecord[]): Promise<void> => call(() => TaskService.SaveHistory(records)).then(() => undefined),
   desktopAgentStatus: (agentId: string): Promise<DesktopAgentStatus> =>
     call(() => DesktopAgentService.GetStatus({ agent_id: agentId })) as Promise<DesktopAgentStatus>,
   installDesktopAgent: (agentId: string): CancellableRequest<DesktopAgentActionResult> =>

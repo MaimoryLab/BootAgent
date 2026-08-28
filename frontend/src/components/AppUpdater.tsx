@@ -75,6 +75,7 @@ export function AppUpdater() {
         latest.current.setTaskCanceller(OTA_TASK_ID, taskCanceller(request));
         await request;
         latest.current.finishTask(OTA_TASK_ID, { kind: "success", message: t("更新已下载") });
+        latest.current.setTaskPhase(OTA_TASK_ID, "waiting_restart");
         latest.current.setTaskAction(OTA_TASK_ID, {
           label: t("重启并更新"),
           run: async () => {
@@ -90,9 +91,12 @@ export function AppUpdater() {
           },
         });
       } catch (error) {
-        latest.current.finishTask(OTA_TASK_ID, isCancellationError(error)
-          ? { kind: "cancelled", message: t("已取消") }
-          : { kind: "failure", message: failureLine(error, t("更新失败"), t) });
+        if (isCancellationError(error)) {
+          latest.current.finishTask(OTA_TASK_ID, { kind: "cancelled", message: t("已取消") });
+        } else {
+          const failure = describeFailure(error, t("更新失败"), t);
+          latest.current.finishTask(OTA_TASK_ID, { kind: "failure", message: failureLine(error, t("更新失败"), t), errorCode: failure.code, retryable: failure.retryable });
+        }
       }
     })();
 

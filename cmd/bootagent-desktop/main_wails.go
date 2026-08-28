@@ -350,6 +350,7 @@ func main() {
 			application.NewServiceWithOptions(services.Skill, application.ServiceOptions{MarshalError: oneerrors.Marshal}),
 			application.NewServiceWithOptions(services.Conversion, application.ServiceOptions{MarshalError: oneerrors.Marshal}),
 			application.NewServiceWithOptions(services.Marketplace, application.ServiceOptions{MarshalError: oneerrors.Marshal}),
+			application.NewServiceWithOptions(services.Task, application.ServiceOptions{MarshalError: oneerrors.Marshal}),
 		},
 		MarshalError: oneerrors.Marshal,
 		Assets: application.AssetOptions{
