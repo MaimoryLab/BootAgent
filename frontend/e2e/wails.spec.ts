@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator } from "@playwright/test";
 
 // Every test addresses a route directly. "/" is a decision, not a page: on a
 // home without ~/.bootagent it opens onboarding, so landing there would make
@@ -234,7 +234,8 @@ test("Marketplace multi-type filters narrow unique results without shifting cont
   const initialCount = await page.locator(".marketplace-card").count();
 
   await typeButton.click();
-  await page.getByLabel("Skill", { exact: true }).check();
+  const skillFilter = page.getByLabel("Skill", { exact: true });
+  await checkMarketplaceFilter(skillFilter);
   const afterFirstType = await page.locator(".marketplace-card").count();
   expect(afterFirstType).toBeLessThanOrEqual(initialCount);
 
@@ -244,7 +245,8 @@ test("Marketplace multi-type filters narrow unique results without shifting cont
   expect(after?.x).toBeCloseTo(before!.x, 0);
   expect(clearBox!.x + clearBox!.width).toBeLessThanOrEqual(after!.x);
 
-  await page.getByLabel(/插件|Plugins/, { exact: true }).check();
+  const pluginFilter = page.getByLabel(/插件|Plugins/, { exact: true });
+  await checkMarketplaceFilter(pluginFilter);
   const afterSecondType = await page.locator(".marketplace-card").count();
   expect(afterSecondType).toBeLessThanOrEqual(afterFirstType);
 
@@ -254,3 +256,18 @@ test("Marketplace multi-type filters narrow unique results without shifting cont
   expect(itemIDs.every(Boolean)).toBe(true);
   expect(new Set(itemIDs).size).toBe(itemIDs.length);
 });
+
+async function checkMarketplaceFilter(filter: Locator) {
+  // URL-backed controlled inputs can be replaced while the catalog snapshot is
+  // refreshed. Retry only when the desired state was not committed, and fail
+  // with Playwright's normal assertion if it remains unavailable.
+  for (let attempt = 0; attempt < 3 && !(await filter.isChecked()); attempt += 1) {
+    try {
+      await filter.check({ timeout: 2_000 });
+    } catch (error) {
+      if (attempt === 2) throw error;
+    }
+    if (!(await filter.isChecked())) await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  await expect(filter).toBeChecked();
+}

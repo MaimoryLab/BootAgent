@@ -101,6 +101,42 @@ func TestRecommendMarketplaceValidatesModelOutputAgainstKnowledgeIDs(t *testing.
 	}
 }
 
+func TestRecommendMarketplaceExecutesResolvedAgentPath(t *testing.T) {
+	runner := &marketplaceRecommendationRunner{
+		available: map[string]bool{"codex": true},
+		result:    process.Result{ExitCode: 0, Stdout: `{"recommendations":[{"item_id":"skill-safe","reason":"matches"}]}`},
+	}
+	// The fake normally returns the command name; make the lookup return an
+	// absolute path to model a desktop PATH that is only available at discovery.
+	runnerPath := "/private/runtime/bin/codex"
+	runner.available = map[string]bool{"codex": true}
+	// A path-aware runner is used below so the assertion covers argv[0].
+	pathRunner := &marketplaceRecommendationRunnerWithPath{marketplaceRecommendationRunner: *runner, path: runnerPath}
+	core := recommendationCoreWithRunner(t, pathRunner)
+	if _, err := core.RecommendMarketplace(context.Background(), MarketplaceRecommendRequest{
+		AgentID: "codex", Need: "find a tool", Items: []MarketplaceKnowledgeItem{{ID: "skill-safe", Name: "Safe", Description: "Useful", Category: "skill"}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if pathRunner.argv[0] != runnerPath {
+		t.Fatalf("argv[0] = %q, want resolved executable %q", pathRunner.argv[0], runnerPath)
+	}
+}
+
+type marketplaceRecommendationRunnerWithPath struct {
+	marketplaceRecommendationRunner
+	path string
+}
+
+func (r *marketplaceRecommendationRunnerWithPath) LookPath(command string) (string, bool) {
+	return r.path, r.available[command]
+}
+
+func recommendationCoreWithRunner(t *testing.T, runner process.Runner) *UseCases {
+	t.Helper()
+	return NewUseCases(StatusOptions{Home: t.TempDir(), Platform: platform.For("linux", "amd64"), Runner: runner, Environment: map[string]string{"PATH": "/usr/bin"}})
+}
+
 func argumentValue(argv []string, name string) string {
 	for index := 0; index+1 < len(argv); index++ {
 		if argv[index] == name {
