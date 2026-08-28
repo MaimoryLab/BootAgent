@@ -40,6 +40,9 @@ func (u *UseCases) UpdateAgent(ctx context.Context, agentID string, listeners ..
 		base := listeners[0]
 		output = func(event process.Output) { event.Agent = agentID; base(event) }
 	}
+	if output != nil {
+		output(process.Output{Kind: "phase", Agent: agentID, Phase: "preparing"})
+	}
 	runtime := u.installRuntime(output)
 	npm, present := runtime.Runner.LookPath("npm")
 	if !present || npm == "" {
@@ -56,6 +59,9 @@ func (u *UseCases) UpdateAgent(ctx context.Context, agentID string, listeners ..
 		}
 	}
 	args := []string{npm, "update", "-g", agent.Package.Name}
+	if output != nil {
+		output(process.Output{Kind: "phase", Agent: agentID, Phase: "installing"})
+	}
 	registry := u.packageRegistry(ctx, "")
 	if registry != "" {
 		registry, err = install.ResolveRegistry(registry)
@@ -70,6 +76,9 @@ func (u *UseCases) UpdateAgent(ctx context.Context, agentID string, listeners ..
 	}
 	if result.ExitCode != 0 {
 		return AgentUpdateResult{}, oneerrors.New(oneerrors.AgentInstallFailed, fmt.Sprintf("Unable to update %s: command exited with code %d", agent.Name, result.ExitCode), oneerrors.WithRetryable(true))
+	}
+	if output != nil {
+		output(process.Output{Kind: "phase", Agent: agentID, Phase: "completed"})
 	}
 	return AgentUpdateResult{Agent: agentID, Package: agent.Package.Name, Command: strings.Join(args, " ")}, nil
 }

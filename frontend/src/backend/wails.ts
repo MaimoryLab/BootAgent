@@ -67,7 +67,7 @@ export function onInstallOutput(listener: (output: InstallOutput) => void): () =
     const data = event.data;
     if (!data || typeof data !== "object") return;
     const kind = (data as { kind?: unknown }).kind;
-    if (kind === "command" || kind === "output" || kind === "progress") listener(data as InstallOutput);
+    if (kind === "command" || kind === "output" || kind === "progress" || kind === "phase" || kind === "source") listener(data as InstallOutput);
   });
 }
 

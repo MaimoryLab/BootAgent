@@ -203,6 +203,12 @@ function appendEvent(events: TaskEvent[], event: TaskEvent): TaskEvent[] {
   return next.length > 200 ? next.slice(next.length - 200) : next;
 }
 
+function phaseFromOutput(value: string): TaskPhase {
+  if (value === "verified") return "verifying";
+  const phases: TaskPhase[] = ["preparing", "source", "downloading", "verifying", "installing", "configuring", "waiting_restart", "completed", "failed", "cancelled"];
+  return phases.includes(value as TaskPhase) ? value as TaskPhase : "preparing";
+}
+
 function toHistory(task: TaskRecord): TaskHistoryRecord {
   return {
     id: task.id, kind: task.kind, target: task.target, title: task.title, route: task.route,
@@ -215,12 +221,16 @@ function toHistory(task: TaskRecord): TaskHistoryRecord {
 
 function fromHistory(record: TaskHistoryRecord): TaskRecord {
   const state = record.state === "success" || record.state === "failure" || record.state === "cancelled" ? record.state : "failure";
+  const kinds: TaskKind[] = ["install", "update", "uninstall", "download", "migration"];
+  const phases: TaskPhase[] = ["preparing", "source", "downloading", "verifying", "installing", "configuring", "waiting_restart", "completed", "failed", "cancelled"];
+  const kind = kinds.includes(record.kind as TaskKind) ? record.kind as TaskKind : "download";
+  const phase = phases.includes(record.phase as TaskPhase) ? record.phase as TaskPhase : state === "success" ? "completed" : state === "cancelled" ? "cancelled" : "failed";
   return {
-    id: record.id, kind: record.kind as TaskKind, target: record.target, title: record.title, route: record.route,
-    progressTarget: record.progressTarget || record.target, state, phase: state === "failure" && record.state === "running" ? "failed" : record.phase as TaskPhase,
+    id: record.id, kind, target: record.target, title: record.title, route: record.route,
+    progressTarget: record.progressTarget || record.target, state, phase: state === "failure" && record.state === "running" ? "failed" : phase,
     version: record.version || undefined, source: record.source || undefined, message: record.state === "running" ? (record.message || "应用重启后任务状态未知，请检查安装结果") : record.message || undefined,
     errorCode: record.errorCode || undefined, exitCode: record.exitCode ?? undefined, retryable: record.retryable === true,
-    startedAt: record.startedAt, log: record.log || undefined, events: (record.events || []).map((event) => ({ at: event.at, kind: event.kind as TaskEvent["kind"], phase: event.phase as TaskPhase || undefined, source: event.source || undefined, message: event.message })),
+    startedAt: record.startedAt, log: record.log || undefined, events: (record.events || []).filter((event) => event && typeof event.message === "string").map((event) => ({ at: event.at, kind: (["phase", "source", "log", "result"] as TaskEvent["kind"][]).includes(event.kind as TaskEvent["kind"]) ? event.kind as TaskEvent["kind"] : "log", phase: phases.includes(event.phase as TaskPhase) ? event.phase as TaskPhase : undefined, source: event.source || undefined, message: event.message })),
   };
 }
 
@@ -253,6 +263,9 @@ export function TaskCenterProvider({ children }: PropsWithChildren) {
         setTasks(restored);
       }
       historyHydratedRef.current = true;
+      if (!records.length && tasksRef.current.length) {
+        void api.saveTaskHistory(tasksRef.current.map(toHistory)).catch(() => {});
+      }
     }).catch(() => { historyHydratedRef.current = true; });
   }, []);
 
@@ -297,7 +310,7 @@ export function TaskCenterProvider({ children }: PropsWithChildren) {
         if (!targetTasks.length) return;
         updateTasks((current) => current.map((task) => (
           matchesTask(task)
-            ? { ...task, ...(output.kind === "source" ? { phase: "source", source: output.source, events: appendEvent(task.events, { at: Date.now(), kind: "source", phase: "source", source: output.source, message: "source selected" }) } : {}), ...(output.kind === "phase" && output.phase === "verified" ? { phase: "verifying", events: appendEvent(task.events, { at: Date.now(), kind: "phase", phase: "verifying", message: "checksum verified" }) } : {}), ...(output.kind === "command" && task.phase === "preparing" ? { phase: "installing" } : {}), ...(outputText(output) ? { log: `${task.log || ""}${outputText(output)}`, events: appendEvent(task.events, { at: Date.now(), kind: "log", message: outputText(output).trim() }) } : {}) }
+            ? { ...task, ...(output.kind === "source" ? { phase: "source", source: output.source, events: appendEvent(task.events, { at: Date.now(), kind: "source", phase: "source", source: output.source, message: "source selected" }) } : {}), ...(output.kind === "phase" ? { phase: phaseFromOutput(output.phase), events: appendEvent(task.events, { at: Date.now(), kind: "phase", phase: phaseFromOutput(output.phase), message: output.phase === "verified" ? "checksum verified" : output.phase }) } : {}), ...(output.kind === "command" && task.phase === "preparing" ? { phase: "installing" } : {}), ...(outputText(output) ? { log: `${task.log || ""}${outputText(output)}`, events: appendEvent(task.events, { at: Date.now(), kind: "log", message: outputText(output).trim() }) } : {}) }
             : task
         )));
       }),
