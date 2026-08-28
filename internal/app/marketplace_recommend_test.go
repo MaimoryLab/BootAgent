@@ -106,14 +106,13 @@ func TestRecommendMarketplaceExecutesResolvedAgentPath(t *testing.T) {
 		available: map[string]bool{"codex": true},
 		result:    process.Result{ExitCode: 0, Stdout: `{"recommendations":[{"item_id":"skill-safe","reason":"matches"}]}`},
 	}
-	core := recommendationCore(t, runner)
 	// The fake normally returns the command name; make the lookup return an
 	// absolute path to model a desktop PATH that is only available at discovery.
 	runnerPath := "/private/runtime/bin/codex"
 	runner.available = map[string]bool{"codex": true}
 	// A path-aware runner is used below so the assertion covers argv[0].
 	pathRunner := &marketplaceRecommendationRunnerWithPath{marketplaceRecommendationRunner: *runner, path: runnerPath}
-	core = recommendationCoreWithRunner(t, pathRunner)
+	core := recommendationCoreWithRunner(t, pathRunner)
 	if _, err := core.RecommendMarketplace(context.Background(), MarketplaceRecommendRequest{
 		AgentID: "codex", Need: "find a tool", Items: []MarketplaceKnowledgeItem{{ID: "skill-safe", Name: "Safe", Description: "Useful", Category: "skill"}},
 	}); err != nil {
