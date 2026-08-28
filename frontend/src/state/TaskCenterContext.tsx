@@ -11,7 +11,7 @@ import {
 import { useInRouterContext, useLocation } from "react-router-dom";
 
 import { api } from "../backend/api";
-import type { InstallOutput } from "../types/api";
+import type { InstallOutput, TaskHistoryRecord } from "../types/api";
 
 const TASK_STORAGE_KEY = "bootagent.task-center.v1";
 
@@ -203,6 +203,27 @@ function appendEvent(events: TaskEvent[], event: TaskEvent): TaskEvent[] {
   return next.length > 200 ? next.slice(next.length - 200) : next;
 }
 
+function toHistory(task: TaskRecord): TaskHistoryRecord {
+  return {
+    id: task.id, kind: task.kind, target: task.target, title: task.title, route: task.route,
+    progressTarget: task.progressTarget, state: task.state, phase: task.phase, version: task.version || "",
+    source: task.source || "", message: task.message || "", errorCode: task.errorCode || "",
+    exitCode: task.exitCode ?? null, retryable: task.retryable === true, startedAt: task.startedAt,
+    log: task.log || "", events: task.events.map((event) => ({ at: event.at, kind: event.kind, phase: event.phase || "", source: event.source || "", message: event.message })),
+  };
+}
+
+function fromHistory(record: TaskHistoryRecord): TaskRecord {
+  const state = record.state === "success" || record.state === "failure" || record.state === "cancelled" ? record.state : "failure";
+  return {
+    id: record.id, kind: record.kind as TaskKind, target: record.target, title: record.title, route: record.route,
+    progressTarget: record.progressTarget || record.target, state, phase: state === "failure" && record.state === "running" ? "failed" : record.phase as TaskPhase,
+    version: record.version || undefined, source: record.source || undefined, message: record.state === "running" ? (record.message || "应用重启后任务状态未知，请检查安装结果") : record.message || undefined,
+    errorCode: record.errorCode || undefined, exitCode: record.exitCode ?? undefined, retryable: record.retryable === true,
+    startedAt: record.startedAt, log: record.log || undefined, events: (record.events || []).map((event) => ({ at: event.at, kind: event.kind as TaskEvent["kind"], phase: event.phase as TaskPhase || undefined, source: event.source || undefined, message: event.message })),
+  };
+}
+
 /**
  * The provider is mounted above the route content. A page can therefore unmount while
  * its Go request is still running without losing the card or its progress.
@@ -211,6 +232,7 @@ export function TaskCenterProvider({ children }: PropsWithChildren) {
   const [tasks, setTasks] = useState<TaskRecord[]>(persistedTasks);
   const [progress, setProgress] = useState<Record<string, TaskProgress>>({});
   const progressSamplesRef = useRef(new Map<string, { received: number; at: number }>());
+  const historyHydratedRef = useRef(false);
   const tasksRef = useRef<TaskRecord[]>([]);
   const cancellersRef = useRef(new Map<string, TaskCanceller>());
   const pendingCancelsRef = useRef(new Set<string>());
@@ -222,6 +244,23 @@ export function TaskCenterProvider({ children }: PropsWithChildren) {
 
   useEffect(() => {
     if (typeof window === "undefined" || import.meta.env.MODE === "test") return;
+    const load = api.loadTaskHistory;
+    if (typeof load !== "function") { historyHydratedRef.current = true; return; }
+    void load().then((records) => {
+      if (records.length) {
+        const restored = records.map(fromHistory);
+        tasksRef.current = restored;
+        setTasks(restored);
+      }
+      historyHydratedRef.current = true;
+    }).catch(() => { historyHydratedRef.current = true; });
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || import.meta.env.MODE === "test" || !historyHydratedRef.current) return;
+    const records = tasks.map(toHistory);
+    const save = api.saveTaskHistory;
+    if (typeof save === "function") void save(records).catch(() => {});
     try {
       const safe = tasks.map(({ action: _action, ...task }) => task);
       window.localStorage.setItem(TASK_STORAGE_KEY, JSON.stringify(safe.slice(-50)));

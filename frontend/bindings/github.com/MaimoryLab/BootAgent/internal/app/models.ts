@@ -469,6 +469,34 @@ export interface StatusResponse {
     "desktopAgents": DesktopAgentStatus[] | null;
 }
 
+export interface TaskHistoryEvent {
+    "at": number;
+    "kind": string;
+    "phase"?: string;
+    "source"?: string;
+    "message": string;
+}
+
+export interface TaskHistoryRecord {
+    "id": string;
+    "kind": string;
+    "target": string;
+    "title": string;
+    "route": string;
+    "progressTarget": string;
+    "state": string;
+    "phase": string;
+    "version"?: string;
+    "source"?: string;
+    "message"?: string;
+    "errorCode"?: string;
+    "exitCode"?: number | null;
+    "retryable"?: boolean;
+    "startedAt": number;
+    "log"?: string;
+    "events"?: TaskHistoryEvent[] | null;
+}
+
 /**
  * TerminalOption describes one terminal the user may pick for launching CLI
  * Agents. Installed is resolved on this machine, so the picker can offer only
