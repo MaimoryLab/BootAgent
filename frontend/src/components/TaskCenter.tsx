@@ -36,11 +36,9 @@ function TaskCard({ task, onOpen, onCancel, onDismiss }: { task: TaskRecord; onO
         <span className="task-card-copy">
           <strong>{task.title}</strong>
           <small>
-            <span>{status}</span>
-            {task.state === "running" ? <span> · {phase}</span> : null}
+            {task.state === "running" ? <><span>{status}</span><span> · {phase}</span></> : <span>{status}{task.message ? ` · ${task.message}` : ""}</span>}
             {task.version ? <span> · {task.version}</span> : null}
             {task.source ? <span> · {task.source}</span> : null}
-            {task.message ? <span> · {task.message}</span> : null}
           </small>
           {task.state === "running" && progress ? (
             <span className="task-card-progress">
