@@ -132,21 +132,19 @@ func TestUpdateCheckDoesNotFallBackAfterCancellation(t *testing.T) {
 	}
 }
 
-// The official source is never abandoned for the mirror. Runtime archives may try
-// both hosts in either order because runtimes.lock.json pins each SHA256; an OTA
-// release has no such out-of-band pin, so the digest arrives from whichever host
-// served the artifact. Falling back to the mirror would put a user who never
-// chose it inside the mirror's trust boundary.
-func TestUpdateCheckNeverFallsBackToTheMirror(t *testing.T) {
+// An official API outage (including GitHub rate limiting) should not prevent an
+// update when the configured mirror can answer. The selected source is recorded
+// on the release, so a later download still uses the source that answered.
+func TestUpdateCheckFallsBackToMirrorWhenOfficialFails(t *testing.T) {
 	officialErr := errors.New("official is unreachable")
 	official, mirror := &updateProviderFake{checkErr: officialErr}, &updateProviderFake{}
 	provider := updateProvider{official: official, mirror: mirror, preferMirror: func(context.Context) bool { return false }}
 
-	if _, err := provider.Check(context.Background(), updater.CheckRequest{}); !errors.Is(err, officialErr) {
-		t.Fatalf("Check() error = %v, want %v", err, officialErr)
+	if _, err := provider.Check(context.Background(), updater.CheckRequest{}); err != nil {
+		t.Fatalf("Check() after an official failure = %v, want the mirror result", err)
 	}
-	if mirror.checks != 0 {
-		t.Errorf("mirror checks = %d, want 0: falling back to the mirror would widen the trust boundary", mirror.checks)
+	if mirror.checks != 1 {
+		t.Errorf("mirror checks = %d, want 1", mirror.checks)
 	}
 }
 

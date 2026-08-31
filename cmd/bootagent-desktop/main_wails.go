@@ -38,8 +38,9 @@ type updateProvider struct {
 
 func (p updateProvider) Name() string { return "bootagent-release" }
 
-// Check asks the preferred source, and falls back to the official one when the
-// mirror could not answer.
+// Check asks the preferred source, and falls back to the other source when the
+// selected source could not answer. This keeps a transient API outage or rate
+// limit from making update checks fail when the other source is available.
 //
 // The mirror needs the fallback because it fails in ways the official source does
 // not. Fetching SHA256SUMS from Gitee answered 403 on roughly a third of
@@ -48,28 +49,19 @@ func (p updateProvider) Name() string { return "bootagent-release" }
 // the user as a failure: the automatic check treats any error as "no update"
 // (AppUpdater), so before this a mirror user simply stopped being offered
 // updates, silently and with nothing to retry.
-//
-// The fallback only runs mirror -> official, never the reverse. Runtime archives
-// can try both hosts in either order because runtimes.lock.json pins each
-// artifact's SHA256, so a bad mirror can only fail rather than substitute
-// anything (see install.downloadSources). An OTA release carries no such
-// out-of-band pin -- the digest comes from the same host as the artifact -- so
-// sending a user who did not choose the mirror to the mirror would widen the
-// trust boundary instead of just improving availability. Falling back toward the
-// authoritative source only ever narrows it.
 func (p updateProvider) Check(ctx context.Context, request updater.CheckRequest) (*updater.Release, error) {
-	mirror := p.preferMirror(ctx)
-	release, err := p.check(ctx, request, mirror)
-	if err == nil || !mirror {
-		return release, err
+	preferredMirror := p.preferMirror(ctx)
+	release, err := p.check(ctx, request, preferredMirror)
+	if err == nil {
+		return release, nil
 	}
 	// A cancelled check is the caller's decision, not a source that failed;
 	// retrying elsewhere would reopen exactly the request that was abandoned.
 	if ctx.Err() != nil {
 		return release, err
 	}
-	slog.Warn("BootAgent mirror update check failed; trying the official source", "error", err)
-	fallbackRelease, fallbackErr := p.check(ctx, request, false)
+	slog.Warn("BootAgent update check failed; trying the alternate source", "mirror", preferredMirror, "error", err)
+	fallbackRelease, fallbackErr := p.check(ctx, request, !preferredMirror)
 	if fallbackErr != nil {
 		// Both errors are kept: the mirror's is what the user's configured route
 		// did, and joining preserves the sentinels updateError matches on.
