@@ -107,6 +107,14 @@ export function failureCopyFor(code: string | null | undefined, status: number |
       // The hint is the honest half: a retry resumes from where this stopped, so
       // it is worth trying again even on the link that just failed.
       return { message: t("更新下载中断"), hint: t("重试即可，已下载的部分会被续传") };
+    case "AGENT_PACKAGE_MISSING":
+      return { message: t("Agent 尚未安装"), hint: t("先安装这个 Agent，再执行卸载") };
+    case "AGENT_NPM_ENVIRONMENT_MISMATCH":
+      return { message: t("Agent 由其他 Node/npm 环境安装"), hint: t("切换到原始 Node/npm 环境后再卸载") };
+    case "AGENT_NPM_PERMISSION_DENIED":
+      return { message: t("npm 权限不足"), hint: t("检查全局 npm 目录权限，或修复 Node/npm 的用户权限") };
+    case "AGENT_NPM_EXECUTION_FAILED":
+      return { message: t("npm 执行失败"), hint: t("检查 npm 环境后重试") };
     default:
       return null;
   }

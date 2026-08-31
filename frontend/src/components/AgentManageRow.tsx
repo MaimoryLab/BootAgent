@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 
 import { api, describeFailure } from "../backend/api";
+import { BootAgentApiError } from "../backend/errors";
 import { useConversationMigration } from "../hooks/useConversationMigration";
 import { sourceTranslate, type Translate, useI18n } from "../i18n";
 import { taskCanceller, taskKey, updateTaskRoute, useTaskCenter, useTaskRoute } from "../state/TaskCenterContext";
@@ -167,6 +168,7 @@ export function AgentManageRow({
   // PATH, so it is already the precise "there is something to launch" signal.
   const canLaunch = status.installed;
   const offer = updateOffer(catalog, status);
+  const manageable = Boolean(catalog?.packageManager && ["npm", "uv", "official-script"].includes(catalog.packageManager) && status.installed);
   const busy = launching || updating || uninstalling || migration.running || isTaskRunning(taskKey("install", agentId));
 
   const startLaunch = async (directory: string) => {
@@ -245,11 +247,25 @@ export function AgentManageRow({
       cancellable: false,
     })) return;
     setLocalUninstalling(true);
-    setFailure("");
-    try {
-      const request = api.uninstallAgent(agentId);
-      setTaskCanceller(uninstallTaskID, taskCanceller(request));
-      await request;
+	setFailure("");
+	try {
+		const runUninstall = async (allowCrossEnvironment: boolean) => {
+			const request = allowCrossEnvironment ? api.uninstallAgent(agentId, true) : api.uninstallAgent(agentId);
+			setTaskCanceller(uninstallTaskID, taskCanceller(request));
+			await request;
+		};
+		try {
+			await runUninstall(false);
+		} catch (error) {
+			if (!(error instanceof BootAgentApiError) || error.code !== "AGENT_NPM_ENVIRONMENT_MISMATCH") throw error;
+			const crossChoice = await Dialogs.Question({
+				Title: t("确认跨环境卸载"),
+				Message: t("当前 Agent 由另一套 Node/npm 环境管理。是否允许使用已记录的原始 npm 环境卸载？不会使用 sudo，也不会删除配置和对话数据。"),
+				Buttons: [{ Label: t("允许并继续") }, { Label: t("取消"), IsCancel: true }],
+			}).catch(() => "");
+			if (crossChoice !== t("允许并继续")) throw error;
+			await runUninstall(true);
+		}
       finishTask(uninstallTaskID, { kind: "success", message: t("已卸载 {name}，配置和对话数据已保留", { name: catalog?.name || agentId }) });
       await onChanged?.();
     } catch (error) {
@@ -280,7 +296,7 @@ export function AgentManageRow({
       onSelect: async () => { await onChanged?.(); },
       disabled: busy,
     },
-    ...(offer.npm ? [{
+    ...(manageable ? [{
       id: "uninstall",
       label: uninstalling ? t("卸载中") : t("卸载 Agent"),
       icon: Trash2,
@@ -393,7 +409,7 @@ export function AgentManageRow({
           {target.note ? (
             <div className="agent-manage-detail-note"><small>{t("备注")}</small><span>{target.note}</span></div>
           ) : null}
-          {catalog?.packageManager === "npm" && catalog.packageName ? (
+          {catalog?.packageManager && catalog.packageName ? (
             <div><small>npm</small><span className="agent-manage-detail-code">{catalog.packageName}</span></div>
           ) : null}
         </div>

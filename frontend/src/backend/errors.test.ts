@@ -10,6 +10,17 @@ const apiError = (message: string, code: string, status = 400) =>
   new BootAgentApiError(message, code, false, status);
 
 describe("describeFailure", () => {
+  it("localizes npm uninstall diagnostics by stable error code", () => {
+    const cases = [
+      ["AGENT_PACKAGE_MISSING", "Agent 尚未安装"],
+      ["AGENT_NPM_ENVIRONMENT_MISMATCH", "Agent 由其他 Node/npm 环境安装"],
+      ["AGENT_NPM_PERMISSION_DENIED", "npm 权限不足"],
+      ["AGENT_NPM_EXECUTION_FAILED", "npm 执行失败"],
+    ] as const;
+    for (const [code, message] of cases) {
+      expect(describeFailure(apiError("backend", code), "fallback", t).message).toBe(message);
+    }
+  });
   // The defect this exists for: describeError returns error.message verbatim, and
   // because normalizeWailsError wraps every backend failure in BootAgentApiError,
   // the Chinese t() fallbacks callers passed almost never fired. Users read

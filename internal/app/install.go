@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"slices"
 	"sort"
 	"strings"
@@ -348,6 +349,7 @@ func (r *installRun) configure(ctx context.Context, agentID string, agent catalo
 			return err
 		}
 		runtime = bootstrapped
+		npmPath, _ := runtime.Runner.LookPath("npm")
 		result, err := install.InstallAgent(ctx, runtime, agent, install.Options{
 			Version:  r.options.AgentVersion,
 			Timeout:  r.options.Timeout,
@@ -357,6 +359,15 @@ func (r *installRun) configure(ctx context.Context, agentID string, agent catalo
 			return err
 		}
 		installed = result
+		if result.Installed && npmPath != "" {
+			prefix := npmPrefixForPath(npmPath)
+			if strings.HasPrefix(filepath.Clean(npmPath), filepath.Clean(install.RuntimeRoot(r.core.status.Home))+string(filepath.Separator)) {
+				prefix = install.GlobalPrefix(r.core.status.Home)
+			}
+			if err := r.core.saveAgentInstallRecord(ctx, agentInstallRecord{Agent: agentID, Package: agent.Package.Name, Manager: "npm", NPMPath: npmPath, Prefix: prefix, Executable: agent.Command, InstalledAt: time.Now().UTC()}); err != nil {
+				return err
+			}
+		}
 		if result.Installed {
 			// npm creates the managed global prefix during this install, so the
 			// directory holding the Agent CLI only exists now. Persisting after a
