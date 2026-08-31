@@ -116,6 +116,12 @@ function call<T>(operation: () => PromiseLike<T>): CancellableRequest<T> {
   }
 }
 
+const encodeBytes = (data: Uint8Array): string => {
+  let binary = "";
+  for (let offset = 0; offset < data.length; offset += 0x8000) binary += String.fromCharCode(...data.subarray(offset, offset + 0x8000));
+  return btoa(binary);
+};
+
 export const wailsApi = {
   onInstallOutput,
   status: (): Promise<StatusResponse> => call(() => StatusService.GetStatus()) as Promise<StatusResponse>,
@@ -220,6 +226,8 @@ export const wailsApi = {
   saveConversion: (config: ConversionConfig): Promise<ConversionConfig> => call(() => ConversionService.Save(config)) as Promise<ConversionConfig>,
   readTransferFile: (): Promise<string> => call(() => TransferService.Read()) as Promise<string>,
   writeTransferFile: (data: string): Promise<void> => call(() => TransferService.Write(data)).then(() => undefined),
+  writeTransferBytes: (data: Uint8Array): Promise<void> => call(() => TransferService.WriteBytes(encodeBytes(data))).then(() => undefined),
+  exportTransferV2: (providerIDs: string[], profileIDs: string[], mcpIDs: string[], skillIDs: string[]): Promise<Uint8Array> => call(() => TransferService.ExportV2(providerIDs, profileIDs, mcpIDs, skillIDs)).then((data) => Uint8Array.from(atob(data ?? ""), (char) => char.charCodeAt(0))),
   listMCP: (): Promise<MCPServerSummary[]> => call(() => MCPService.List()).then((items) => items ?? []),
   scanMCP: (): Promise<MCPScanResult> => call(() => MCPService.Scan()) as Promise<MCPScanResult>,
   getMCP: (id: string, sourceAgent = ""): Promise<MCPServerDetail> => call(() => MCPService.Get(id, sourceAgent)) as Promise<MCPServerDetail>,
@@ -231,6 +239,7 @@ export const wailsApi = {
   saveImportedMCP: (registry: import("../../bindings/github.com/MaimoryLab/BootAgent/internal/mcp/models.js").Registry): Promise<void> => call(() => MCPService.SaveImported(registry)).then(() => undefined),
   setMCPDraftState: (dirty: boolean, locale: string): Promise<void> => call(() => MCPService.SetDraftState(dirty, locale)).then(() => undefined),
   listSkills: (): Promise<SkillSummary[]> => call(() => SkillService.List()).then((items) => items ?? []),
+  exportSkill: (id: string, hash: string): Promise<Uint8Array> => call(() => SkillService.Export(id, hash)).then((data) => Uint8Array.from(atob(data ?? ""), (char) => char.charCodeAt(0))),
   scanSkills: (): Promise<SkillScanResult> => call(() => SkillService.Scan()) as Promise<SkillScanResult>,
   previewSkillImport: (source: string): Promise<SkillImportPreview> => call(() => SkillService.PreviewImport({ source })) as Promise<SkillImportPreview>,
   applySkills: (request: SkillApplyRequest): Promise<SkillApplyResult> => call(() => SkillService.Apply(request)) as Promise<SkillApplyResult>,

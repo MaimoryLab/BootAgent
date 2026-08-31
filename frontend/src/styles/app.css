@@ -221,6 +221,7 @@
 .transfer-section h2 { margin: 0; font-size: 15px; }
 .transfer-section header p { margin: 3px 0 0; color: var(--text-secondary); font-size: 12px; }
 .transfer-list { border-top: 1px solid var(--border); }
+.transfer-list-scroll { max-height: 280px; overflow: auto; }
 .transfer-row { min-height: 54px; display: flex; align-items: center; gap: 11px; border-bottom: 1px solid var(--border); cursor: pointer; }
 .transfer-row:has(input:disabled) { cursor: default; }
 .transfer-row input { flex: 0 0 auto; }

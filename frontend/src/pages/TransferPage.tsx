@@ -1,4 +1,4 @@
-import { CheckCheck, Eye, EyeOff, KeyRound, Upload } from "lucide-react";
+import { CheckCheck, Eye, EyeOff, KeyRound, Sparkles, Upload } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -47,6 +47,8 @@ export function TransferPage() {
   const [selectedProfiles, setSelectedProfiles] = useState(new Set<string>());
   const [mcpServers, setMcpServers] = useState<{ id: string; type: string }[]>([]);
   const [selectedMcp, setSelectedMcp] = useState(new Set<string>());
+  const [skills, setSkills] = useState<import("../types/api").SkillSummary[]>([]);
+  const [selectedSkills, setSelectedSkills] = useState(new Set<string>());
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState("");
   const [success, setSuccess] = useState("");
@@ -79,19 +81,21 @@ export function TransferPage() {
   const providers = status ? byProviderCreatedAt(status.providers) : [];
   const requiredProviders = useMemo(() => new Set(profiles.filter((profile) => selectedProfiles.has(profile.id)).map((profile) => profile.provider)), [profiles, selectedProfiles]);
   const exportProviders = new Set([...selectedProviders, ...requiredProviders]);
-  const canExport = selectedProfiles.size > 0 || exportProviders.size > 0 || selectedMcp.size > 0;
-  const allSelected = (providers.length > 0 || profiles.length > 0 || mcpServers.length > 0)
-    && selectedProviders.size === providers.length && selectedProfiles.size === profiles.length && selectedMcp.size === mcpServers.length;
+  const canExport = selectedProfiles.size > 0 || exportProviders.size > 0 || selectedMcp.size > 0 || selectedSkills.size > 0;
+  const allSelected = (providers.length > 0 || profiles.length > 0 || mcpServers.length > 0 || skills.length > 0)
+    && selectedProviders.size === providers.length && selectedProfiles.size === profiles.length && selectedMcp.size === mcpServers.length && selectedSkills.size === skills.length;
   const toggleAll = () => {
     if (allSelected) {
       setSelectedProviders(new Set());
       setSelectedProfiles(new Set());
       setSelectedMcp(new Set());
+      setSelectedSkills(new Set());
       return;
     }
     setSelectedProviders(new Set(providers.map(([id]) => id)));
     setSelectedProfiles(new Set(profiles.map((profile) => profile.id)));
     setSelectedMcp(new Set(mcpServers.map((server) => server.id)));
+    setSelectedSkills(new Set(skills.map((skill) => skill.id)));
   };
 
   const askPassword = (mode: "export" | "import") => new Promise<string | null>((resolve) => {
@@ -138,14 +142,20 @@ export function TransferPage() {
     try {
       // Every abort below reports itself. Returning silently left the page back
       // at rest with no way to tell whether a file had been written.
-      const keys = await askEncryption();
+      // v2 bundles are deliberately secret-free; the backend never embeds API
+      // keys in a package that also contains Skill content.
+      const keys = selectedSkills.size ? "omit" as const : await askEncryption();
       if (keys === null) return setSuccess(t("已取消导出"));
       const password = keys === "encrypted" ? await askPassword("export") : "";
       if (keys === "encrypted" && !password) return setSuccess(t("已取消导出"));
       const entries = await Promise.all([...exportProviders].map((id) => api.getProvider(id)));
       const mcp = selectedMcp.size ? JSON.parse(await api.exportMCP(keys === "encrypted" ? "encrypted" : keys === "plain" ? "plaintext" : "omit", password || "", keys === "plain", [...selectedMcp])) : undefined;
       const selected = profiles.filter((profile) => selectedProfiles.has(profile.id));
-      await api.writeTransferFile(stringifyTransfer(await makeTransfer(selected, entries, keys, password || "", mcp)));
+      if (selectedSkills.size) {
+        await api.writeTransferBytes(await api.exportTransferV2([...exportProviders], selected.map((profile) => profile.id), [...selectedMcp], [...selectedSkills]));
+      } else {
+        await api.writeTransferFile(stringifyTransfer(await makeTransfer(selected, entries, keys, password || "", mcp)));
+      }
       // Only the plain-text case needs a warning; the default carries no key at
       // all, and saying so is reassurance rather than a caveat.
       setSuccess(keys === "plain"
@@ -214,7 +224,10 @@ export function TransferPage() {
     }
   };
 
-  useEffect(() => { void api.listMCP().then((items) => setMcpServers((items ?? []).map(({ id, type }) => ({ id, type })))).catch(() => setMcpServers([])); }, []);
+  useEffect(() => {
+    void api.listMCP().then((items) => setMcpServers((items ?? []).map(({ id, type }) => ({ id, type })))).catch(() => setMcpServers([]));
+    void api.listSkills().then((items) => setSkills(items ?? [])).catch(() => setSkills([]));
+  }, []);
 
   if (!status) return <PageScaffold title={t("导入导出")}><div className="loading-block"><span className="spinner" />{t("正在读取环境状态")}</div></PageScaffold>;
 
@@ -335,6 +348,12 @@ export function TransferPage() {
         <section className="transfer-section">
           <header><div><h2>{t("MCP 服务器")}</h2><p>{t("已选择 {count} 项", { count: selectedMcp.size })}</p></div></header>
           <div className="transfer-list">{mcpServers.map((server) => <label className="transfer-row" key={server.id}><input type="checkbox" checked={selectedMcp.has(server.id)} onChange={() => setSelectedMcp(toggle(selectedMcp, server.id))} /><span><strong>{server.id}</strong><small>{server.type}</small></span></label>)}</div>
+        </section>
+        <section className="transfer-section">
+          <header><div><h2><Sparkles size={18} /> {t("Skills")}</h2><p>{t("已选择 {count} 项", { count: selectedSkills.size })}</p></div></header>
+          <div className="transfer-list transfer-list-scroll">
+            {skills.length ? skills.map((skill) => <label className="transfer-row" key={skill.id}><input type="checkbox" checked={selectedSkills.has(skill.id)} onChange={() => setSelectedSkills(toggle(selectedSkills, skill.id))} /><span><strong>{skill.name || skill.id}</strong><small title={skill.description}>{skill.id} · {skill.variants} {t("个版本")}</small></span></label>) : <p className="transfer-empty">{t("暂无可导出的 Skills")}</p>}
+          </div>
         </section>
       </div>
     </PageScaffold>

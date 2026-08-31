@@ -53,7 +53,7 @@ func NewServicesWithOptions(core *app.UseCases, opener BrowserOpener, options Se
 		Profile:      NewProfileService(core),
 		Runtime:      &RuntimeService{core: core, onOutput: options.InstallOutput, autostart: options.Autostart},
 		DesktopAgent: NewDesktopAgentService(core, options.InstallOutput),
-		Transfer:     &TransferService{},
+		Transfer:     &TransferService{core: core},
 		MCP:          NewMCPService(core),
 		Skill:        NewSkillService(core),
 		Conversion:   NewConversionService(core),

@@ -54,8 +54,8 @@ func TestServiceMethodAllowlist(t *testing.T) {
 		{&ProfileService{}, []string{"DeleteProfile", "ListProfiles", "SaveProfile"}},
 		{&RuntimeService{}, []string{"GetSettings", "InstallRuntime", "ListRuntimes", "SaveSettings"}},
 		{&DesktopAgentService{}, []string{"Configure", "GetStatus", "Install", "Open"}},
-		{&TransferService{}, []string{"Read", "Write"}},
-		{&SkillService{}, []string{"Apply", "List", "ListBackups", "PreviewImport", "RestoreBackup", "Scan", "SetDraftState", "Uninstall"}},
+		{&TransferService{}, []string{"ExportV2", "Read", "Write", "WriteBytes"}},
+		{&SkillService{}, []string{"Apply", "Export", "List", "ListBackups", "PreviewImport", "RestoreBackup", "Scan", "SetDraftState", "Uninstall"}},
 		{&ConversionService{}, []string{"Get", "Save"}},
 		{&UpdateService{}, []string{"Check", "DownloadAndInstall", "Restart", "Version"}},
 	}

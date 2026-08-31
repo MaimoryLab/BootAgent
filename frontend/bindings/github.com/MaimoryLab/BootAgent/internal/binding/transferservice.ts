@@ -5,10 +5,18 @@
 // @ts-ignore: Unused imports
 import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wailsio/runtime";
 
+export function ExportV2(providerIDs: string[] | null, profileIDs: string[] | null, mcpIDs: string[] | null, skillIDs: string[] | null): $CancellablePromise<string | null> {
+    return $Call.ByID(1870855265, providerIDs, profileIDs, mcpIDs, skillIDs);
+}
+
 export function Read(): $CancellablePromise<string> {
     return $Call.ByID(824692923);
 }
 
 export function Write(data: string): $CancellablePromise<void> {
     return $Call.ByID(1519580634, data);
+}
+
+export function WriteBytes(encoded: string): $CancellablePromise<void> {
+    return $Call.ByID(756993529, encoded);
 }

@@ -90,6 +90,13 @@ type SkillBackupSummary struct {
 	Variants  int    `json:"variants"`
 }
 
+func (u *UseCases) ExportSkill(ctx context.Context, id, hash string) ([]byte, error) {
+	if err := contextError(ctx, "Skill export was cancelled"); err != nil {
+		return nil, err
+	}
+	return u.skillStore().Export(ctx, id, hash)
+}
+
 type skillPreview struct {
 	expires    time.Time
 	source     string
