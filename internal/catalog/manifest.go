@@ -199,6 +199,14 @@ func validatePackage(agentID string, pkg Package) error {
 	if pkg.Manager == "official-script" && (pkg.InstallCommand == "" || pkg.WindowsInstallCommand == "") {
 		return invalidManifest(agentID, "official-script package is missing an install command")
 	}
+	for _, alternative := range pkg.Alternatives {
+		if len(alternative.Alternatives) > 0 {
+			return invalidManifest(agentID, "package alternatives cannot be nested")
+		}
+		if err := validatePackage(agentID, alternative); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -223,6 +231,7 @@ func cloneManifest(source Manifest) Manifest {
 		copyAgent.WindowsPrerequisites = append([]string(nil), agent.WindowsPrerequisites...)
 		if agent.Package != nil {
 			copyPackage := *agent.Package
+			copyPackage.Alternatives = append([]Package(nil), agent.Package.Alternatives...)
 			copyAgent.Package = &copyPackage
 		}
 		result.Agents[id] = copyAgent

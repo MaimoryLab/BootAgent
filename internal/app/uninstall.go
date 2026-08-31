@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -50,6 +51,12 @@ func (u *UseCases) UninstallAgentWithOptions(ctx context.Context, agentID string
 		return AgentUninstallResult{}, oneerrors.New(oneerrors.InvalidRequest, "Agent has no managed installation source: "+agentID)
 	}
 	manager := agent.Package.Manager
+	if manager == "official-script" {
+		if alternative, found := u.detectAlternativePackage(ctx, agent); found {
+			agent.Package = &alternative
+			manager = alternative.Manager
+		}
+	}
 	if manager == "uv" {
 		return u.uninstallUVAgent(ctx, agentID, agent, listeners...)
 	}
@@ -139,6 +146,36 @@ func (u *UseCases) UninstallAgentWithOptions(ctx context.Context, agentID string
 	return AgentUninstallResult{Agent: agentID, Package: agent.Package.Name, Command: strings.Join(args, " ")}, nil
 }
 
+func (u *UseCases) detectAlternativePackage(ctx context.Context, agent catalog.Agent) (catalog.Package, bool) {
+	runtime := u.installRuntime(nil)
+	for _, alternative := range agent.Package.Alternatives {
+		if alternative.Manager != "npm" || alternative.Name == "" {
+			continue
+		}
+		npm, present := runtime.Runner.LookPath("npm")
+		if !present || npm == "" {
+			continue
+		}
+		result, err := runtime.Run(ctx, []string{npm, "list", "-g", "--depth=0", "--json", alternative.Name}, nil, install.DefaultCommandTimeout)
+		if err == nil && result.ExitCode == 0 && npmPackageListed(result.Stdout, alternative.Name) {
+			return alternative, true
+		}
+	}
+	return catalog.Package{}, false
+}
+
+func npmPackageListed(output, packageName string) bool {
+	var tree struct {
+		Dependencies map[string]json.RawMessage `json:"dependencies"`
+	}
+	if json.Unmarshal([]byte(output), &tree) == nil {
+		if _, ok := tree.Dependencies[packageName]; ok {
+			return true
+		}
+	}
+	return false
+}
+
 func (u *UseCases) uninstallUVAgent(ctx context.Context, agentID string, agent catalog.Agent, listeners ...process.OutputListener) (AgentUninstallResult, error) {
 	unlockTask := u.lockTask("agent-task:" + agentID)
 	defer unlockTask()
@@ -196,6 +233,9 @@ func (u *UseCases) uninstallOfficialScriptAgent(ctx context.Context, agentID str
 	if !pathWithin(root, executable) {
 		return AgentUninstallResult{}, oneerrors.New(oneerrors.InvalidRequest, agent.Name+" was found outside its known official install directory; refusing to remove it")
 	}
+	if !officialInstallMarkerPresent(agentID, root) {
+		return AgentUninstallResult{}, oneerrors.New(oneerrors.InvalidRequest, agent.Name+" installation ownership could not be verified; refusing to remove it")
+	}
 	if agentID == "kimi-code" {
 		for _, path := range []string{executable, filepath.Join(root, "updates")} {
 			if err := os.RemoveAll(path); err != nil {
@@ -206,6 +246,22 @@ func (u *UseCases) uninstallOfficialScriptAgent(ctx context.Context, agentID str
 		return AgentUninstallResult{}, oneerrors.New(oneerrors.AgentInstallFailed, "Unable to remove official files for "+agent.Name, oneerrors.WithStatus(500), oneerrors.WithRetryable(true), oneerrors.WithCause(err))
 	}
 	return AgentUninstallResult{Agent: agentID, Package: agent.Package.Name, Command: "remove official installer files"}, nil
+}
+
+func officialInstallMarkerPresent(agentID, root string) bool {
+	marker := filepath.Join(root, ".bootagent-install-marker")
+	if _, err := os.Stat(marker); err == nil {
+		return true
+	}
+	if agentID == "kimi-code" {
+		_, err := os.Stat(filepath.Join(root, "updates", "install.json"))
+		return err == nil
+	}
+	if agentID == "hermes" {
+		_, err := os.Stat(filepath.Join(root, ".git"))
+		return err == nil
+	}
+	return false
 }
 
 func pathWithin(root, candidate string) bool {
