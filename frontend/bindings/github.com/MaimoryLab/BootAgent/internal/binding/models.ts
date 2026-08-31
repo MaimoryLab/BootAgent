@@ -245,4 +245,5 @@ export interface UpdateRequest {
     "agent_id": string;
     "allow_cross_environment"?: boolean;
     "installation_id"?: string;
+    "installation_ids"?: string[] | null;
 }

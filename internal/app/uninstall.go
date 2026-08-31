@@ -27,6 +27,7 @@ type AgentUninstallResult struct {
 type AgentUninstallOptions struct {
 	AllowCrossEnvironment bool
 	InstallationID        string
+	InstallationIDs       []string
 }
 
 // UninstallAgent removes one npm-managed Agent executable. User-owned state is
@@ -51,6 +52,29 @@ func (u *UseCases) UninstallAgentWithOptions(ctx context.Context, agentID string
 	agent, ok := manifest.Agents[agentID]
 	if !ok || agent.Package == nil {
 		return AgentUninstallResult{}, oneerrors.New(oneerrors.InvalidRequest, "Agent has no managed installation source: "+agentID)
+	}
+	if len(options.InstallationIDs) > 0 {
+		var commands []string
+		for _, installationID := range options.InstallationIDs {
+			result, uninstallErr := u.UninstallAgentWithOptions(ctx, agentID, AgentUninstallOptions{AllowCrossEnvironment: options.AllowCrossEnvironment, InstallationID: installationID}, listeners...)
+			if uninstallErr != nil {
+				return AgentUninstallResult{}, uninstallErr
+			}
+			if result.Command != "" {
+				commands = append(commands, result.Command)
+			}
+		}
+		return AgentUninstallResult{Agent: agentID, Package: agent.Package.Name, Command: strings.Join(commands, " && ")}, nil
+	}
+	if options.InstallationID == "" {
+		for _, installation := range u.discoverAgentInstallations(ctx, agentID, agent) {
+			if installation.CanUninstall {
+				options.InstallationIDs = append(options.InstallationIDs, installation.ID)
+			}
+		}
+		if len(options.InstallationIDs) > 0 {
+			return u.UninstallAgentWithOptions(ctx, agentID, options, listeners...)
+		}
 	}
 	manager := agent.Package.Manager
 	if manager == "official-script" {

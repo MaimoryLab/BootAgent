@@ -143,6 +143,8 @@ export function AgentManageRow({
   const [rememberDirectory, setRememberDirectory] = useState(false);
   const [installationID, setInstallationID] = useState("");
   const installations = status.installations ?? [];
+  const [uninstallPickerOpen, setUninstallPickerOpen] = useState(false);
+  const [selectedInstallationIDs, setSelectedInstallationIDs] = useState<string[]>([]);
   const [directoryDialog, setDirectoryDialog] = useState(false);
   const updateTaskID = taskKey("update", agentId);
   const uninstallTaskID = taskKey("uninstall", agentId);
@@ -233,7 +235,12 @@ export function AgentManageRow({
       setLocalUpdating(false);
     }
   };
-  const uninstall = async () => {
+  const uninstall = async (selectedIDs?: string[]) => {
+    if (installations.length > 1 && !selectedIDs) {
+      setSelectedInstallationIDs(installations.filter((item) => item.canUninstall).map((item) => item.id));
+      setUninstallPickerOpen(true);
+      return;
+    }
     const confirmLabel = t("卸载 Agent");
     const choice = await Dialogs.Question({
       Title: confirmLabel,
@@ -252,7 +259,8 @@ export function AgentManageRow({
 	setFailure("");
 	try {
 		const runUninstall = async (allowCrossEnvironment: boolean) => {
-				const request = allowCrossEnvironment || installationID ? api.uninstallAgent(agentId, allowCrossEnvironment, installationID) : api.uninstallAgent(agentId);
+				const ids = selectedIDs ?? (installations.length === 1 ? [installations[0].id] : []);
+				const request = ids.length ? api.uninstallAgent(agentId, allowCrossEnvironment, "", ids) : (allowCrossEnvironment || installationID ? api.uninstallAgent(agentId, allowCrossEnvironment, installationID) : api.uninstallAgent(agentId));
 			setTaskCanceller(uninstallTaskID, taskCanceller(request));
 			await request;
 		};
@@ -359,15 +367,16 @@ export function AgentManageRow({
           </form>
         </ModalDialog>
       ) : null}
+      {uninstallPickerOpen ? (
+        <ModalDialog className="transfer-password-dialog" label={t("选择卸载实例")} onDismiss={() => setUninstallPickerOpen(false)}>
+          <h2>{t("选择卸载实例")}</h2>
+          <p>{t("默认选中全部可卸载实例")}</p>
+          {installations.map((installation) => <label className="launch-remember-row" key={installation.id}><input type="checkbox" checked={selectedInstallationIDs.includes(installation.id)} disabled={!installation.canUninstall} onChange={(event) => setSelectedInstallationIDs((current) => event.target.checked ? [...current, installation.id] : current.filter((id) => id !== installation.id))} /><span>{installation.manager} · {installation.executable}{installation.canUninstall ? "" : ` (${installation.reason || t("不可卸载")})`}</span></label>)}
+          <footer><button className="button button-secondary" type="button" onClick={() => setUninstallPickerOpen(false)}>{t("取消")}</button><button className="button button-primary" type="button" disabled={!selectedInstallationIDs.length} onClick={() => { setUninstallPickerOpen(false); void uninstall(selectedInstallationIDs); }}>{t("继续卸载")}</button></footer>
+        </ModalDialog>
+      ) : null}
       <div className="agent-manage-actions">
-        {installations.length > 1 ? (
-          <label className="agent-installation-select">
-            <span>{t("安装来源")}</span>
-            <select value={installationID || installations[0].id} onChange={(event) => setInstallationID(event.target.value)}>
-              {installations.map((installation) => <option key={installation.id} value={installation.id}>{installation.manager} · {installation.executable}</option>)}
-            </select>
-          </label>
-        ) : null}
+        {installations.length ? <div className="agent-installation-details">{installations.map((installation) => <div key={installation.id}><span>{installation.manager}</span><code>{installation.executable}</code><small>{installation.canUninstall ? t("可卸载") : installation.reason || t("不可卸载")}</small></div>)}</div> : null}
         {/* Always in the row, not only when the Agent cannot launch. Configuring
             an installed Agent was previously reachable only by opening <details>,
             which made the common case the hidden one. */}
