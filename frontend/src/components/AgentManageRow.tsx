@@ -368,10 +368,10 @@ export function AgentManageRow({
         </ModalDialog>
       ) : null}
       {uninstallPickerOpen ? (
-        <ModalDialog className="transfer-password-dialog" label={t("选择卸载实例")} onDismiss={() => setUninstallPickerOpen(false)}>
+        <ModalDialog className="agent-uninstall-dialog" label={t("选择卸载实例")} onDismiss={() => setUninstallPickerOpen(false)}>
           <h2>{t("选择卸载实例")}</h2>
           <p>{t("默认选中全部可卸载实例")}</p>
-          {installations.map((installation) => <label className="launch-remember-row" key={installation.id}><input type="checkbox" checked={selectedInstallationIDs.includes(installation.id)} disabled={!installation.canUninstall} onChange={(event) => setSelectedInstallationIDs((current) => event.target.checked ? [...current, installation.id] : current.filter((id) => id !== installation.id))} /><span>{installation.manager} · {installation.executable}{installation.canUninstall ? "" : ` (${installation.reason || t("不可卸载")})`}</span></label>)}
+          <div className="agent-uninstall-list">{installations.map((installation) => <label className="agent-uninstall-item" key={installation.id}><input type="checkbox" checked={selectedInstallationIDs.includes(installation.id)} disabled={!installation.canUninstall} onChange={(event) => setSelectedInstallationIDs((current) => event.target.checked ? [...current, installation.id] : current.filter((id) => id !== installation.id))} /><span className="agent-uninstall-item-copy"><strong>{installation.manager}</strong><code title={installation.executable}>{installation.executable}</code><small>{installation.canUninstall ? t("可卸载") : installation.reason || t("不可卸载")}</small></span></label>)}</div>
           <footer><button className="button button-secondary" type="button" onClick={() => setUninstallPickerOpen(false)}>{t("取消")}</button><button className="button button-primary" type="button" disabled={!selectedInstallationIDs.length} onClick={() => { setUninstallPickerOpen(false); void uninstall(selectedInstallationIDs); }}>{t("继续卸载")}</button></footer>
         </ModalDialog>
       ) : null}
