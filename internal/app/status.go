@@ -273,14 +273,15 @@ type AgentStatus struct {
 	// nil when it is not knowable -- offline, rate limited, or not an npm
 	// package. It drives the update dot only, so nil means "say nothing" rather
 	// than "up to date".
-	LatestVersion *string         `json:"latestVersion"`
-	CanInstall    bool            `json:"canInstall"`
-	Provider      *string         `json:"provider"`
-	ProfileID     *string         `json:"profileId"`
-	Model         *string         `json:"model"`
-	BaseURL       *string         `json:"baseUrl"`
-	UpdatedAt     *string         `json:"updatedAt"`
-	Detected      *DetectedConfig `json:"detected"`
+	LatestVersion *string             `json:"latestVersion"`
+	CanInstall    bool                `json:"canInstall"`
+	Provider      *string             `json:"provider"`
+	ProfileID     *string             `json:"profileId"`
+	Model         *string             `json:"model"`
+	BaseURL       *string             `json:"baseUrl"`
+	UpdatedAt     *string             `json:"updatedAt"`
+	Detected      *DetectedConfig     `json:"detected"`
+	Installations []AgentInstallation `json:"installations,omitempty"`
 }
 
 type DetectedConfig struct {
@@ -403,6 +404,12 @@ func (u *UseCases) GetStatus(ctx context.Context) (StatusResponse, error) {
 			BaseURL:       boundBaseURL,
 			UpdatedAt:     boundUpdatedAt,
 			Detected:      detected,
+			Installations: func() []AgentInstallation {
+				if !installed {
+					return nil
+				}
+				return u.discoverAgentInstallations(ctx, id, agent)
+			}(),
 		}
 	}
 	providers, err := u.providers.Public()

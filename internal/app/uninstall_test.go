@@ -149,6 +149,12 @@ func TestUninstallAgentRemovesKnownKimiFilesAndPreservesConfig(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(root, "config.toml"), []byte("keep"), 0o600); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.MkdirAll(filepath.Join(root, "updates"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "updates", "install.json"), []byte(`{"version":"0.39.1"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	runner := &installAppRunner{paths: map[string]string{"kimi": filepath.Join(root, "bin", "kimi")}}
 	core := NewUseCases(StatusOptions{Home: home, Platform: platform.For("linux", "amd64"), Runner: runner})
 	if _, err := core.UninstallAgent(context.Background(), "kimi-code"); err != nil {
@@ -162,6 +168,26 @@ func TestUninstallAgentRemovesKnownKimiFilesAndPreservesConfig(t *testing.T) {
 	}
 }
 
+func TestUninstallAgentDetectsKimiInstalledByNPMAlternative(t *testing.T) {
+	runner := &installAppRunner{
+		paths:   map[string]string{"npm": "/usr/local/bin/npm", "kimi": "/usr/local/bin/kimi"},
+		stdouts: map[string]string{"list -g --depth=0 --json @moonshot-ai/kimi-code": `{"dependencies":{"@moonshot-ai/kimi-code":{"version":"0.39.1"}}}`},
+	}
+	core := NewUseCases(StatusOptions{Home: t.TempDir(), Platform: platform.For("linux", "amd64"), Runner: runner})
+	if _, err := core.UninstallAgent(context.Background(), "kimi-code"); err != nil {
+		t.Fatal(err)
+	}
+	if len(runner.calls) != 3 || runner.calls[0][1] != "list" || runner.calls[1][1] != "list" || runner.calls[2][1] != "uninstall" {
+		t.Fatalf("alternative npm calls = %v", runner.calls)
+	}
+}
+
+func TestNpmPackageListedRequiresStructuredDependency(t *testing.T) {
+	if !npmPackageListed(`{"dependencies":{"pkg":{}}}`, "pkg") || npmPackageListed(`{"dependencies":{"other":{}}}`, "pkg") || npmPackageListed("not json", "pkg") {
+		t.Fatal("npm package detection accepted an invalid dependency tree")
+	}
+}
+
 func TestUninstallAgentRemovesWindowsKimiExecutable(t *testing.T) {
 	home := t.TempDir()
 	root := filepath.Join(home, ".kimi-code")
@@ -172,6 +198,12 @@ func TestUninstallAgentRemovesWindowsKimiExecutable(t *testing.T) {
 	if err := os.WriteFile(executable, []byte("binary"), 0o700); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.MkdirAll(filepath.Join(root, "updates"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "updates", "install.json"), []byte(`{"version":"0.39.1"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	runner := &installAppRunner{paths: map[string]string{"kimi": executable}}
 	core := NewUseCases(StatusOptions{Home: home, Platform: platform.For("windows", "amd64"), Runner: runner})
 	if _, err := core.UninstallAgent(context.Background(), "kimi-code"); err != nil {
@@ -179,6 +211,26 @@ func TestUninstallAgentRemovesWindowsKimiExecutable(t *testing.T) {
 	}
 	if _, err := os.Stat(executable); !os.IsNotExist(err) {
 		t.Fatalf("Windows Kimi executable still exists, err=%v", err)
+	}
+}
+
+func TestUninstallAgentRefusesUnmarkedKimiBinary(t *testing.T) {
+	home := t.TempDir()
+	executable := filepath.Join(home, ".kimi-code", "bin", "kimi")
+	if err := os.MkdirAll(filepath.Dir(executable), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(executable, []byte("manual"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	runner := &installAppRunner{paths: map[string]string{"kimi": executable}}
+	core := NewUseCases(StatusOptions{Home: home, Platform: platform.For("linux", "amd64"), Runner: runner})
+	_, err := core.UninstallAgent(context.Background(), "kimi-code")
+	if err == nil || oneerrors.As(err).Code != oneerrors.InvalidRequest {
+		t.Fatalf("unmarked Kimi binary was not rejected: %v", err)
+	}
+	if _, statErr := os.Stat(executable); statErr != nil {
+		t.Fatalf("unmarked Kimi binary was removed: %v", statErr)
 	}
 }
 

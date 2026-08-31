@@ -17,6 +17,22 @@ import * as platform$0 from "../platform/models.js";
 // @ts-ignore: Unused imports
 import * as provider$0 from "../provider/models.js";
 
+/**
+ * AgentInstallation is one independently managed installation of an Agent.
+ * Paths are diagnostic metadata; the backend re-discovers and validates them
+ * before any destructive operation.
+ */
+export interface AgentInstallation {
+    "id": string;
+    "manager": string;
+    "package": string;
+    "prefix"?: string;
+    "executable": string;
+    "version"?: string;
+    "canUninstall": boolean;
+    "reason"?: string;
+}
+
 export interface AgentStatus {
     "installed": boolean;
     "configured": boolean;
@@ -39,6 +55,18 @@ export interface AgentStatus {
     "baseUrl": string | null;
     "updatedAt": string | null;
     "detected": DetectedConfig | null;
+    "installations"?: AgentInstallation[] | null;
+}
+
+/**
+ * AgentUninstallPreview describes the concrete installation selected for
+ * removal. User configuration and credential paths are intentionally excluded.
+ */
+export interface AgentUninstallPreview {
+    "agent": string;
+    "installation": AgentInstallation;
+    "files": string[] | null;
+    "preservedData": string[] | null;
 }
 
 /**

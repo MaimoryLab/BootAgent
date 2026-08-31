@@ -41,6 +41,8 @@ export type AgentCatalogItem = Omit<CatalogModels.CatalogItem, "group" | "config
   platforms: PlatformId[];
 };
 
+export type AgentInstallation = AppModels.AgentInstallation;
+export type AgentUninstallPreview = AppModels.AgentUninstallPreview;
 export type AgentStatus = AppModels.AgentStatus;
 export type RuntimeStatus = AppModels.RuntimeStatus;
 export type DesktopAgentStatus = Omit<AppModels.DesktopAgentStatus, "protocol"> & { protocol: ProtocolId | "" };

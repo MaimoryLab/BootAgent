@@ -251,6 +251,14 @@
 /* The dialog holds a variable-length overwrite list, so it has to be able to
    scroll rather than run off the window. */
 .transfer-password-dialog { max-height: calc(100vh - 64px); overflow: auto; }
+.agent-uninstall-dialog { width: min(460px, calc(100vw - 32px)); max-height: calc(100vh - 64px); padding: 20px; border: 1px solid var(--border-strong); border-radius: var(--radius-control); background: var(--window-bg); color: var(--text-primary); box-shadow: 0 18px 50px rgba(0, 0, 0, 0.24); overflow: auto; }
+.agent-uninstall-dialog::backdrop { background: rgba(0, 0, 0, 0.28); }
+.agent-uninstall-list { display: grid; gap: 8px; margin: 2px 0 16px; }
+.agent-uninstall-item { min-width: 0; display: flex; align-items: flex-start; gap: 10px; padding: 8px; border: 1px solid var(--border-faint); border-radius: var(--radius-control); background: var(--surface-subtle); }
+.agent-uninstall-item-copy { min-width: 0; display: grid; gap: 3px; }
+.agent-uninstall-item-copy strong { font-size: 13px; }
+.agent-uninstall-item-copy code { min-width: 0; overflow: hidden; color: var(--text-secondary); text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+.agent-uninstall-item-copy small { color: var(--text-tertiary); font-size: 10px; }
 .launch-directory-input-row { display: flex; align-items: center; gap: 6px; }
 .launch-directory-input-row input { min-width: 0; flex: 1; }
 .launch-directory-input-row .icon-button { flex: 0 0 34px; width: 34px; height: 34px; border: 1px solid var(--border-strong); background: var(--surface-subtle); }
@@ -1618,6 +1626,42 @@
 
 .agent-manage-detail-note span {
   color: var(--text-secondary);
+}
+
+.agent-installation-details {
+  padding-top: 8px;
+  border-top: 1px solid var(--border-faint);
+}
+
+.agent-installation-list {
+  display: grid;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.agent-installation-item {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr) max-content;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.agent-installation-item span {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.agent-installation-item code {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-secondary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-installation-item small {
+  white-space: nowrap;
 }
 
 .agent-manage-list {
