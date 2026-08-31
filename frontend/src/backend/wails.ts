@@ -216,8 +216,8 @@ export const wailsApi = {
     call(() => AgentService.Launch({ agent_id: agentId, working_directory: workingDirectory })) as Promise<LaunchAgentResponse>,
   migrateConversations: (): Promise<import("../types/api").ConversationMigrationResult> =>
     call(() => AgentService.MigrateConversations()) as Promise<import("../types/api").ConversationMigrationResult>,
-  uninstallAgent: (agentId: string): CancellableRequest<AgentUninstallResult> =>
-    call(() => AgentService.Uninstall({ agent_id: agentId })) as CancellableRequest<AgentUninstallResult>,
+  uninstallAgent: (agentId: string, allowCrossEnvironment = false): CancellableRequest<AgentUninstallResult> =>
+    call(() => AgentService.Uninstall(allowCrossEnvironment ? { agent_id: agentId, allow_cross_environment: true } : { agent_id: agentId })) as CancellableRequest<AgentUninstallResult>,
   updateAgent: (agentId: string): CancellableRequest<AgentUpdateResult> =>
     call(() => AgentService.Update({ agent_id: agentId })) as CancellableRequest<AgentUpdateResult>,
   listRuntimes: (): Promise<RuntimeStatus[]> =>

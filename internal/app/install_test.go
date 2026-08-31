@@ -59,6 +59,7 @@ type installAppRunner struct {
 	exitCode  int
 	exitCodes map[string]int
 	stderrs   map[string]string
+	exitArgs  map[string]int
 }
 
 func (r *installAppRunner) Start(argv []string, _ map[string]string) error {
@@ -81,6 +82,9 @@ func (r *installAppRunner) Run(_ context.Context, argv []string, env map[string]
 	}
 	exitCode := r.exitCode
 	if code, ok := r.exitCodes[strings.Join(argv[1:], " ")]; ok {
+		exitCode = code
+	}
+	if code, ok := r.exitArgs[strings.Join(argv, " ")]; ok {
 		exitCode = code
 	}
 	stderr := ""

@@ -85,6 +85,31 @@ func TestUninstallAgentRejectsPackageOwnedByAnotherNPM(t *testing.T) {
 	}
 }
 
+func TestUninstallAgentCanUseRecordedNPMAfterExplicitCrossEnvironmentApproval(t *testing.T) {
+	home := t.TempDir()
+	runner := &installAppRunner{
+		paths: map[string]string{"npm": "/current/npm", "codex": "/current/bin/codex"},
+		exitCodes: map[string]int{
+			"list -g --depth=0 --json @openai/codex": 1,
+		},
+		exitArgs: map[string]int{
+			"/original/npm list -g --depth=0 --json @openai/codex":      0,
+			"/original/npm uninstall -g --ignore-scripts @openai/codex": 0,
+		},
+		stderrs: map[string]string{"list -g --depth=0 --json @openai/codex": "missing: @openai/codex"},
+	}
+	core := NewUseCases(StatusOptions{Home: home, Platform: platform.For("linux", "amd64"), Runner: runner})
+	if err := core.saveAgentInstallRecord(context.Background(), agentInstallRecord{Agent: "codex", Package: "@openai/codex", Manager: "npm", NPMPath: "/original/npm", Prefix: "/original/prefix"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := core.UninstallAgentWithOptions(context.Background(), "codex", AgentUninstallOptions{AllowCrossEnvironment: true}); err != nil {
+		t.Fatal(err)
+	}
+	if len(runner.calls) != 3 || runner.calls[1][0] != "/original/npm" || runner.calls[2][0] != "/original/npm" {
+		t.Fatalf("cross-environment calls = %v", runner.calls)
+	}
+}
+
 func TestUninstallAgentReportsNonZeroExit(t *testing.T) {
 	runner := &installAppRunner{
 		paths:     map[string]string{"npm": "/fake/npm", "codex": "/fake/codex"},

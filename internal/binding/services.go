@@ -438,7 +438,7 @@ func (s *AgentService) Uninstall(ctx context.Context, request UpdateRequest) (ap
 	if s == nil || s.core == nil {
 		return app.AgentUninstallResult{}, notReady("Agent uninstall is not configured")
 	}
-	return s.core.UninstallAgent(ctx, request.AgentID, s.onOutput)
+	return s.core.UninstallAgentWithOptions(ctx, request.AgentID, app.AgentUninstallOptions{AllowCrossEnvironment: request.AllowCrossEnvironment}, s.onOutput)
 }
 
 func (s *AgentService) Update(ctx context.Context, request UpdateRequest) (app.AgentUpdateResult, error) {
@@ -743,7 +743,8 @@ type LaunchRequest struct {
 }
 
 type UpdateRequest struct {
-	AgentID string `json:"agent_id"`
+	AgentID               string `json:"agent_id"`
+	AllowCrossEnvironment bool   `json:"allow_cross_environment,omitempty"`
 }
 
 type LaunchResponse struct {

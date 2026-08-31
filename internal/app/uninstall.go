@@ -21,10 +21,18 @@ type AgentUninstallResult struct {
 	Command string `json:"command"`
 }
 
+type AgentUninstallOptions struct {
+	AllowCrossEnvironment bool
+}
+
 // UninstallAgent removes one npm-managed Agent executable. User-owned state is
 // deliberately outside this operation: only the catalog package is passed to
 // npm in the managed runtime environment.
 func (u *UseCases) UninstallAgent(ctx context.Context, agentID string, listeners ...process.OutputListener) (AgentUninstallResult, error) {
+	return u.UninstallAgentWithOptions(ctx, agentID, AgentUninstallOptions{}, listeners...)
+}
+
+func (u *UseCases) UninstallAgentWithOptions(ctx context.Context, agentID string, options AgentUninstallOptions, listeners ...process.OutputListener) (AgentUninstallResult, error) {
 	if u == nil {
 		return AgentUninstallResult{}, oneerrors.New(oneerrors.InternalError, "Agent service is not configured", oneerrors.WithStatus(501))
 	}
@@ -56,9 +64,12 @@ func (u *UseCases) UninstallAgent(ctx context.Context, agentID string, listeners
 	if !present || npm == "" {
 		return AgentUninstallResult{}, oneerrors.New(oneerrors.PrerequisiteMissing, "npm is required to uninstall "+agent.Name)
 	}
+	installRecord, hasRecord := u.loadAgentInstallRecord(agentID)
 	if agent.Command != "" {
 		if executable, installed := runtime.Runner.LookPath(agent.Command); !installed || executable == "" {
-			return AgentUninstallResult{}, oneerrors.New(oneerrors.AgentPackageMissing, agent.Name+" is not installed")
+			if !hasRecord {
+				return AgentUninstallResult{}, oneerrors.New(oneerrors.AgentPackageMissing, agent.Name+" is not installed")
+			}
 		}
 	}
 
@@ -76,10 +87,25 @@ func (u *UseCases) UninstallAgent(ctx context.Context, agentID string, listeners
 		if isPermissionFailure(diagnostic) {
 			return AgentUninstallResult{}, oneerrors.New(oneerrors.AgentNPMPermission, "Permission denied while checking the npm installation for "+agent.Name, oneerrors.WithStatus(403), oneerrors.WithRetryable(false))
 		}
-		if npmListLooksMissing(diagnostic) && agent.Command != "" {
+		if npmListLooksMissing(diagnostic) && agent.Command != "" && hasRecord && cleanInstallPath(installRecord.NPMPath) != cleanInstallPath(npm) {
+			if !options.AllowCrossEnvironment {
+				return AgentUninstallResult{}, oneerrors.New(oneerrors.AgentNPMMismatch, agent.Name+" is managed by another Node/npm environment; confirm cross-environment uninstall to continue", oneerrors.WithRetryable(false))
+			}
+			npm = installRecord.NPMPath
+			environment = install.NPMEnvironment(runtime, npm, "")
+			if installRecord.Prefix != "" {
+				environment["npm_config_prefix"] = installRecord.Prefix
+			}
+			checkArgs[0] = npm
+			check, err = runtime.Run(ctx, checkArgs, environment, install.DefaultCommandTimeout)
+			if err != nil || check.ExitCode != 0 {
+				return AgentUninstallResult{}, oneerrors.New(oneerrors.AgentNPMFailed, "The recorded npm environment could not verify "+agent.Name, oneerrors.WithStatus(500), oneerrors.WithRetryable(true))
+			}
+		} else if npmListLooksMissing(diagnostic) && agent.Command != "" {
 			return AgentUninstallResult{}, oneerrors.New(oneerrors.AgentNPMMismatch, agent.Name+" is installed by a different Node/npm environment; activate its original npm before uninstalling", oneerrors.WithRetryable(false))
+		} else {
+			return AgentUninstallResult{}, oneerrors.New(oneerrors.AgentNPMFailed, "npm failed while checking the installation for "+agent.Name, oneerrors.WithStatus(500), oneerrors.WithRetryable(true))
 		}
-		return AgentUninstallResult{}, oneerrors.New(oneerrors.AgentNPMFailed, "npm failed while checking the installation for "+agent.Name, oneerrors.WithStatus(500), oneerrors.WithRetryable(true))
 	}
 
 	// npm 6 and earlier run package-controlled uninstall lifecycle scripts. They
