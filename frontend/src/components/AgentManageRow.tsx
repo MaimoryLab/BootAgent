@@ -376,7 +376,6 @@ export function AgentManageRow({
         </ModalDialog>
       ) : null}
       <div className="agent-manage-actions">
-        {installations.length ? <div className="agent-installation-details">{installations.map((installation) => <div key={installation.id}><span>{installation.manager}</span><code>{installation.executable}</code><small>{installation.canUninstall ? t("可卸载") : installation.reason || t("不可卸载")}</small></div>)}</div> : null}
         {/* Always in the row, not only when the Agent cannot launch. Configuring
             an installed Agent was previously reachable only by opening <details>,
             which made the common case the hidden one. */}
@@ -430,6 +429,20 @@ export function AgentManageRow({
           ) : null}
           {catalog?.packageManager && catalog.packageName ? (
             <div><small>npm</small><span className="agent-manage-detail-code">{catalog.packageName}</span></div>
+          ) : null}
+          {installations.length ? (
+            <div className="agent-installation-details">
+              <small>{t("检测到的安装实例")}</small>
+              <div className="agent-installation-list">
+                {installations.map((installation) => (
+                  <div className="agent-installation-item" key={installation.id}>
+                    <span>{installation.manager}</span>
+                    <code title={installation.executable}>{installation.executable}</code>
+                    <small>{installation.canUninstall ? t("可卸载") : installation.reason || t("不可卸载")}</small>
+                  </div>
+                ))}
+              </div>
+            </div>
           ) : null}
         </div>
       </details>

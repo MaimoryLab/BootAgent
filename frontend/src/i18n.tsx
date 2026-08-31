@@ -32,6 +32,7 @@ const english = {
   "继续卸载": "Continue uninstall",
   "可卸载": "Removable",
   "不可卸载": "Not removable",
+  "检测到的安装实例": "Detected installations",
   "选择目标 Agent": "Select target Agents",
   "导入预览为空": "Import preview is empty",
   "导入预览": "Import preview",

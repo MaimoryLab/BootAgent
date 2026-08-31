@@ -1620,6 +1620,42 @@
   color: var(--text-secondary);
 }
 
+.agent-installation-details {
+  padding-top: 8px;
+  border-top: 1px solid var(--border-faint);
+}
+
+.agent-installation-list {
+  display: grid;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.agent-installation-item {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr) max-content;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.agent-installation-item span {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.agent-installation-item code {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-secondary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-installation-item small {
+  white-space: nowrap;
+}
+
 .agent-manage-list {
   width: 100%;
   display: grid;
