@@ -49,7 +49,7 @@ func TestUninstallAgentRejectsUnsupportedOrMissingAgents(t *testing.T) {
 		code    string
 	}{
 		{name: "unknown", agentID: "missing", paths: map[string]string{"npm": "/fake/npm"}, code: oneerrors.InvalidRequest},
-		{name: "not npm managed", agentID: "aider", paths: map[string]string{"npm": "/fake/npm", "aider": "/fake/aider"}, code: oneerrors.InvalidRequest},
+		{name: "uv prerequisite missing", agentID: "aider", paths: map[string]string{"npm": "/fake/npm", "aider": "/fake/aider"}, code: oneerrors.PrerequisiteMissing},
 		{name: "not installed", agentID: "codex", paths: map[string]string{"npm": "/fake/npm"}, code: oneerrors.AgentPackageMissing},
 		{name: "npm missing", agentID: "codex", paths: map[string]string{"codex": "/fake/codex"}, code: oneerrors.PrerequisiteMissing},
 	}
@@ -119,6 +119,46 @@ func TestUninstallAgentReportsNonZeroExit(t *testing.T) {
 
 	if _, err := core.UninstallAgent(context.Background(), "codex"); err == nil || oneerrors.As(err).Code != oneerrors.AgentNPMFailed {
 		t.Fatalf("non-zero uninstall exit should fail, got %v", err)
+	}
+}
+
+func TestUninstallAgentRemovesUVToolInstalledOutsideBootAgent(t *testing.T) {
+	runner := &installAppRunner{
+		paths:   map[string]string{"uv": "/usr/local/bin/uv", "aider": "/Users/test/.local/bin/aider"},
+		stdouts: map[string]string{"tool list": "aider-chat v0.86.1\n"},
+	}
+	core := NewUseCases(StatusOptions{Home: t.TempDir(), Platform: platform.For("linux", "amd64"), Runner: runner})
+	if _, err := core.UninstallAgent(context.Background(), "aider"); err != nil {
+		t.Fatal(err)
+	}
+	want := [][]string{{"/usr/local/bin/uv", "tool", "list"}, {"/usr/local/bin/uv", "tool", "uninstall", "aider-chat"}}
+	if len(runner.calls) != len(want) || !slices.Equal(runner.calls[0], want[0]) || !slices.Equal(runner.calls[1], want[1]) {
+		t.Fatalf("uv uninstall calls = %v, want %v", runner.calls, want)
+	}
+}
+
+func TestUninstallAgentRemovesKnownKimiFilesAndPreservesConfig(t *testing.T) {
+	home := t.TempDir()
+	root := filepath.Join(home, ".kimi-code")
+	if err := os.MkdirAll(filepath.Join(root, "bin"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "bin", "kimi"), []byte("binary"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "config.toml"), []byte("keep"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	runner := &installAppRunner{paths: map[string]string{"kimi": filepath.Join(root, "bin", "kimi")}}
+	core := NewUseCases(StatusOptions{Home: home, Platform: platform.For("linux", "amd64"), Runner: runner})
+	if _, err := core.UninstallAgent(context.Background(), "kimi-code"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(root, "bin", "kimi")); !os.IsNotExist(err) {
+		t.Fatalf("Kimi binary still exists, err=%v", err)
+	}
+	if data, err := os.ReadFile(filepath.Join(root, "config.toml")); err != nil || string(data) != "keep" {
+		t.Fatalf("Kimi config was removed or changed: %q (%v)", data, err)
 	}
 }
 

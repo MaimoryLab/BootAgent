@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/MaimoryLab/BootAgent/internal/catalog"
@@ -45,8 +46,18 @@ func (u *UseCases) UninstallAgentWithOptions(ctx context.Context, agentID string
 		return AgentUninstallResult{}, err
 	}
 	agent, ok := manifest.Agents[agentID]
-	if !ok || agent.Package == nil || agent.Package.Manager != "npm" {
-		return AgentUninstallResult{}, oneerrors.New(oneerrors.InvalidRequest, "Agent is not npm-managed: "+agentID)
+	if !ok || agent.Package == nil {
+		return AgentUninstallResult{}, oneerrors.New(oneerrors.InvalidRequest, "Agent has no managed installation source: "+agentID)
+	}
+	manager := agent.Package.Manager
+	if manager == "uv" {
+		return u.uninstallUVAgent(ctx, agentID, agent, listeners...)
+	}
+	if manager == "official-script" {
+		return u.uninstallOfficialScriptAgent(ctx, agentID, agent)
+	}
+	if manager != "npm" {
+		return AgentUninstallResult{}, oneerrors.New(oneerrors.InvalidRequest, "Unsupported Agent installation source: "+manager)
 	}
 
 	unlockTask := u.lockTask("agent-task:" + agentID)
@@ -126,6 +137,80 @@ func (u *UseCases) UninstallAgentWithOptions(ctx context.Context, agentID string
 		return AgentUninstallResult{}, oneerrors.New(oneerrors.AgentNPMFailed, fmt.Sprintf("npm failed while uninstalling %s: command exited with code %d", agent.Name, result.ExitCode), oneerrors.WithStatus(500), oneerrors.WithRetryable(true))
 	}
 	return AgentUninstallResult{Agent: agentID, Package: agent.Package.Name, Command: strings.Join(args, " ")}, nil
+}
+
+func (u *UseCases) uninstallUVAgent(ctx context.Context, agentID string, agent catalog.Agent, listeners ...process.OutputListener) (AgentUninstallResult, error) {
+	unlockTask := u.lockTask("agent-task:" + agentID)
+	defer unlockTask()
+	var output process.OutputListener
+	if len(listeners) > 0 && listeners[0] != nil {
+		base := listeners[0]
+		output = func(event process.Output) { event.Agent = agentID; base(event) }
+	}
+	runtime := u.installRuntime(output)
+	uv, present := runtime.Runner.LookPath("uv")
+	if !present || uv == "" {
+		return AgentUninstallResult{}, oneerrors.New(oneerrors.PrerequisiteMissing, "uv is required to uninstall "+agent.Name)
+	}
+	list, err := runtime.Run(ctx, []string{uv, "tool", "list"}, nil, install.DefaultCommandTimeout)
+	if err != nil {
+		return AgentUninstallResult{}, oneerrors.New(oneerrors.AgentInstallFailed, "uv failed while checking the installation for "+agent.Name, oneerrors.WithStatus(500), oneerrors.WithRetryable(true), oneerrors.WithCause(err))
+	}
+	if list.ExitCode != 0 || !strings.Contains(list.Stdout+"\n"+list.Stderr, agent.Package.Name) {
+		return AgentUninstallResult{}, oneerrors.New(oneerrors.AgentPackageMissing, agent.Name+" is not installed by uv")
+	}
+	args := []string{uv, "tool", "uninstall", agent.Package.Name}
+	result, err := runtime.Run(ctx, args, nil, install.DefaultCommandTimeout)
+	if err != nil {
+		return AgentUninstallResult{}, oneerrors.New(oneerrors.AgentInstallFailed, "uv failed while uninstalling "+agent.Name, oneerrors.WithStatus(500), oneerrors.WithRetryable(true), oneerrors.WithCause(err))
+	}
+	if result.ExitCode != 0 {
+		return AgentUninstallResult{}, oneerrors.New(oneerrors.AgentInstallFailed, fmt.Sprintf("uv failed while uninstalling %s: command exited with code %d", agent.Name, result.ExitCode), oneerrors.WithStatus(500), oneerrors.WithRetryable(true))
+	}
+	return AgentUninstallResult{Agent: agentID, Package: agent.Package.Name, Command: strings.Join(args, " ")}, nil
+}
+
+// uninstallOfficialScriptAgent removes only files owned by the known user-level
+// installer layout. It never removes the Agent's config, credentials, sessions,
+// or arbitrary PATH entries. Unknown/custom installer locations remain manual.
+func (u *UseCases) uninstallOfficialScriptAgent(ctx context.Context, agentID string, agent catalog.Agent) (AgentUninstallResult, error) {
+	if err := contextError(ctx, "Agent uninstall request was cancelled"); err != nil {
+		return AgentUninstallResult{}, err
+	}
+	executable, present := u.installRuntime(nil).Runner.LookPath(agent.Command)
+	if !present || executable == "" {
+		return AgentUninstallResult{}, oneerrors.New(oneerrors.AgentPackageMissing, agent.Name+" is not installed")
+	}
+	home := u.status.Home
+	var root string
+	switch agentID {
+	case "kimi-code":
+		root = filepath.Join(home, ".kimi-code")
+	case "hermes":
+		root = filepath.Join(home, ".hermes", "hermes-agent")
+	default:
+		return AgentUninstallResult{}, oneerrors.New(oneerrors.InvalidRequest, agent.Name+" does not declare a safe official uninstall layout")
+	}
+	root, _ = filepath.Abs(root)
+	executable, _ = filepath.Abs(executable)
+	if !pathWithin(root, executable) {
+		return AgentUninstallResult{}, oneerrors.New(oneerrors.InvalidRequest, agent.Name+" was found outside its known official install directory; refusing to remove it")
+	}
+	if agentID == "kimi-code" {
+		for _, path := range []string{filepath.Join(root, "bin", "kimi"), filepath.Join(root, "updates")} {
+			if err := os.RemoveAll(path); err != nil {
+				return AgentUninstallResult{}, oneerrors.New(oneerrors.AgentInstallFailed, "Unable to remove official files for "+agent.Name, oneerrors.WithStatus(500), oneerrors.WithRetryable(true), oneerrors.WithCause(err))
+			}
+		}
+	} else if err := os.RemoveAll(root); err != nil {
+		return AgentUninstallResult{}, oneerrors.New(oneerrors.AgentInstallFailed, "Unable to remove official files for "+agent.Name, oneerrors.WithStatus(500), oneerrors.WithRetryable(true), oneerrors.WithCause(err))
+	}
+	return AgentUninstallResult{Agent: agentID, Package: agent.Package.Name, Command: "remove official installer files"}, nil
+}
+
+func pathWithin(root, candidate string) bool {
+	rel, err := filepath.Rel(root, candidate)
+	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }
 
 func isPermissionFailure(value string) bool {

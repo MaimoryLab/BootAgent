@@ -396,6 +396,7 @@ const english = {
   "官方文档": "Official docs",
   "显示官方安装与配置步骤": "Show official installation and setup steps",
   "支持检测、安装与初始化配置": "Supports detection, installation, and initial setup",
+  "支持检测、安装、配置与来源一致的卸载": "Supports detection, installation, configuration, and source-matched uninstall",
   "支持检测、安装与配置，但运行时无法被 BootAgent 管理": "Supports detection, installation, and configuration, but runtime is not managed by BootAgent",
   "选择 {name}": "Select {name}",
   "配置无法解析": "Configuration could not be parsed",

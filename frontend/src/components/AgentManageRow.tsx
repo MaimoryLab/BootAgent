@@ -168,6 +168,7 @@ export function AgentManageRow({
   // PATH, so it is already the precise "there is something to launch" signal.
   const canLaunch = status.installed;
   const offer = updateOffer(catalog, status);
+  const manageable = Boolean(catalog?.packageManager && ["npm", "uv", "official-script"].includes(catalog.packageManager) && status.installed);
   const busy = launching || updating || uninstalling || migration.running || isTaskRunning(taskKey("install", agentId));
 
   const startLaunch = async (directory: string) => {
@@ -281,7 +282,7 @@ export function AgentManageRow({
       onSelect: migration.run,
       disabled: busy,
     }] : []),
-    ...(offer.npm ? [{
+    ...(manageable ? [{
       id: "update",
       label: updating ? t("更新中") : offer.behind ? t("更新至 {version}", { version: offer.behind }) : t("更新"),
       icon: RefreshCw,
@@ -295,7 +296,7 @@ export function AgentManageRow({
       onSelect: async () => { await onChanged?.(); },
       disabled: busy,
     },
-    ...(offer.npm ? [{
+    ...(manageable ? [{
       id: "uninstall",
       label: uninstalling ? t("卸载中") : t("卸载 Agent"),
       icon: Trash2,
@@ -408,7 +409,7 @@ export function AgentManageRow({
           {target.note ? (
             <div className="agent-manage-detail-note"><small>{t("备注")}</small><span>{target.note}</span></div>
           ) : null}
-          {catalog?.packageManager === "npm" && catalog.packageName ? (
+          {catalog?.packageManager && catalog.packageName ? (
             <div><small>npm</small><span className="agent-manage-detail-code">{catalog.packageName}</span></div>
           ) : null}
         </div>
