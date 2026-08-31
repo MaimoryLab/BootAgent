@@ -282,7 +282,7 @@ export function AgentManageRow({
       onSelect: migration.run,
       disabled: busy,
     }] : []),
-    ...(manageable ? [{
+    ...(offer.npm ? [{
       id: "update",
       label: updating ? t("更新中") : offer.behind ? t("更新至 {version}", { version: offer.behind }) : t("更新"),
       icon: RefreshCw,
