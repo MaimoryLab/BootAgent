@@ -162,6 +162,26 @@ func TestUninstallAgentRemovesKnownKimiFilesAndPreservesConfig(t *testing.T) {
 	}
 }
 
+func TestUninstallAgentRemovesWindowsKimiExecutable(t *testing.T) {
+	home := t.TempDir()
+	root := filepath.Join(home, ".kimi-code")
+	executable := filepath.Join(root, "bin", "kimi.exe")
+	if err := os.MkdirAll(filepath.Dir(executable), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(executable, []byte("binary"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	runner := &installAppRunner{paths: map[string]string{"kimi": executable}}
+	core := NewUseCases(StatusOptions{Home: home, Platform: platform.For("windows", "amd64"), Runner: runner})
+	if _, err := core.UninstallAgent(context.Background(), "kimi-code"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(executable); !os.IsNotExist(err) {
+		t.Fatalf("Windows Kimi executable still exists, err=%v", err)
+	}
+}
+
 func TestUninstallAgentDistinguishesNPMPermissionFailure(t *testing.T) {
 	runner := &installAppRunner{
 		paths:     map[string]string{"npm": "/fake/npm", "codex": "/fake/codex"},

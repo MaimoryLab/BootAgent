@@ -197,7 +197,7 @@ func (u *UseCases) uninstallOfficialScriptAgent(ctx context.Context, agentID str
 		return AgentUninstallResult{}, oneerrors.New(oneerrors.InvalidRequest, agent.Name+" was found outside its known official install directory; refusing to remove it")
 	}
 	if agentID == "kimi-code" {
-		for _, path := range []string{filepath.Join(root, "bin", "kimi"), filepath.Join(root, "updates")} {
+		for _, path := range []string{executable, filepath.Join(root, "updates")} {
 			if err := os.RemoveAll(path); err != nil {
 				return AgentUninstallResult{}, oneerrors.New(oneerrors.AgentInstallFailed, "Unable to remove official files for "+agent.Name, oneerrors.WithStatus(500), oneerrors.WithRetryable(true), oneerrors.WithCause(err))
 			}
