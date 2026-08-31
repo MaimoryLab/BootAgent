@@ -60,9 +60,11 @@ func (u *UseCases) UninstallAgentWithOptions(ctx context.Context, agentID string
 				manager = alternative.Manager
 			}
 		}
-		if alternative, found := u.detectAlternativePackage(ctx, agent); found {
-			agent.Package = &alternative
-			manager = alternative.Manager
+		if options.InstallationID == "" {
+			if alternative, found := u.detectAlternativePackage(ctx, agent); found {
+				agent.Package = &alternative
+				manager = alternative.Manager
+			}
 		}
 	}
 	if manager == "uv" {
