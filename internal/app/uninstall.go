@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -25,6 +26,7 @@ type AgentUninstallResult struct {
 
 type AgentUninstallOptions struct {
 	AllowCrossEnvironment bool
+	InstallationID        string
 }
 
 // UninstallAgent removes one npm-managed Agent executable. User-owned state is
@@ -52,6 +54,12 @@ func (u *UseCases) UninstallAgentWithOptions(ctx context.Context, agentID string
 	}
 	manager := agent.Package.Manager
 	if manager == "official-script" {
+		if strings.HasPrefix(options.InstallationID, "npm:") {
+			if alternative, found := findAlternativePackage(agent, options.InstallationID); found {
+				agent.Package = &alternative
+				manager = alternative.Manager
+			}
+		}
 		if alternative, found := u.detectAlternativePackage(ctx, agent); found {
 			agent.Package = &alternative
 			manager = alternative.Manager
@@ -91,7 +99,14 @@ func (u *UseCases) UninstallAgentWithOptions(ctx context.Context, agentID string
 		}
 	}
 
+	selectedPrefix := ""
+	if strings.HasPrefix(options.InstallationID, "npm:") {
+		selectedPrefix = strings.TrimSpace(strings.TrimPrefix(options.InstallationID, "npm:"))
+	}
 	environment := install.NPMEnvironment(runtime, npm, "")
+	if selectedPrefix != "" {
+		environment["npm_config_prefix"] = selectedPrefix
+	}
 	checkArgs := []string{npm, "list", "-g", "--depth=0", "--json", agent.Package.Name}
 	check, err := runtime.Run(ctx, checkArgs, environment, install.DefaultCommandTimeout)
 	if err != nil {
@@ -144,6 +159,15 @@ func (u *UseCases) UninstallAgentWithOptions(ctx context.Context, agentID string
 		return AgentUninstallResult{}, oneerrors.New(oneerrors.AgentNPMFailed, fmt.Sprintf("npm failed while uninstalling %s: command exited with code %d", agent.Name, result.ExitCode), oneerrors.WithStatus(500), oneerrors.WithRetryable(true))
 	}
 	return AgentUninstallResult{Agent: agentID, Package: agent.Package.Name, Command: strings.Join(args, " ")}, nil
+}
+
+func findAlternativePackage(agent catalog.Agent, installationID string) (catalog.Package, bool) {
+	for _, alternative := range agent.Package.Alternatives {
+		if alternative.Manager == "npm" && installationID == "npm:"+strings.TrimSpace(installationID[len("npm:"):]) {
+			return alternative, true
+		}
+	}
+	return catalog.Package{}, false
 }
 
 func (u *UseCases) detectAlternativePackage(ctx context.Context, agent catalog.Agent) (catalog.Package, bool) {
@@ -254,8 +278,26 @@ func officialInstallMarkerPresent(agentID, root string) bool {
 		return true
 	}
 	if agentID == "kimi-code" {
-		_, err := os.Stat(filepath.Join(root, "updates", "install.json"))
-		return err == nil
+		markerPath := filepath.Join(root, "updates", "install.json")
+		data, err := os.ReadFile(markerPath)
+		if err != nil {
+			return false
+		}
+		var marker struct {
+			SHA256 string `json:"sha256"`
+		}
+		if json.Unmarshal(data, &marker) != nil {
+			return false
+		}
+		if marker.SHA256 == "" {
+			return true
+		}
+		binaryPath := filepath.Join(root, "kimi")
+		contents, readErr := os.ReadFile(binaryPath)
+		if readErr != nil {
+			return false
+		}
+		return fmt.Sprintf("%x", sha256.Sum256(contents)) == strings.ToLower(marker.SHA256)
 	}
 	if agentID == "hermes" {
 		_, err := os.Stat(filepath.Join(root, ".git"))

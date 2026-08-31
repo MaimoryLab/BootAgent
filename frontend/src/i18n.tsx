@@ -26,6 +26,7 @@ const english = {
   "为全部条目选择 {name}": "Select {name} for all items",
   "为全部条目取消 {name}": "Deselect {name} for all items",
   "卸载": "Uninstall",
+  "安装来源": "Installation source",
   "选择目标 Agent": "Select target Agents",
   "导入预览为空": "Import preview is empty",
   "导入预览": "Import preview",

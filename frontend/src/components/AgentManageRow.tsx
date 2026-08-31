@@ -141,6 +141,8 @@ export function AgentManageRow({
   const [failure, setFailure] = useState("");
   const [launchDirectory, setLaunchDirectory] = useState("");
   const [rememberDirectory, setRememberDirectory] = useState(false);
+  const [installationID, setInstallationID] = useState("");
+  const installations = status.installations ?? [];
   const [directoryDialog, setDirectoryDialog] = useState(false);
   const updateTaskID = taskKey("update", agentId);
   const uninstallTaskID = taskKey("uninstall", agentId);
@@ -250,7 +252,7 @@ export function AgentManageRow({
 	setFailure("");
 	try {
 		const runUninstall = async (allowCrossEnvironment: boolean) => {
-			const request = allowCrossEnvironment ? api.uninstallAgent(agentId, true) : api.uninstallAgent(agentId);
+				const request = allowCrossEnvironment || installationID ? api.uninstallAgent(agentId, allowCrossEnvironment, installationID) : api.uninstallAgent(agentId);
 			setTaskCanceller(uninstallTaskID, taskCanceller(request));
 			await request;
 		};
@@ -358,6 +360,14 @@ export function AgentManageRow({
         </ModalDialog>
       ) : null}
       <div className="agent-manage-actions">
+        {installations.length > 1 ? (
+          <label className="agent-installation-select">
+            <span>{t("安装来源")}</span>
+            <select value={installationID || installations[0].id} onChange={(event) => setInstallationID(event.target.value)}>
+              {installations.map((installation) => <option key={installation.id} value={installation.id}>{installation.manager} · {installation.executable}</option>)}
+            </select>
+          </label>
+        ) : null}
         {/* Always in the row, not only when the Agent cannot launch. Configuring
             an installed Agent was previously reachable only by opening <details>,
             which made the common case the hidden one. */}

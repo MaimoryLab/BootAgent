@@ -33,6 +33,10 @@ export function MigrateConversations(): $CancellablePromise<app$0.ConversationMi
     return $Call.ByID(389042760);
 }
 
+export function PreviewUninstall(request: $models.UpdateRequest): $CancellablePromise<app$0.AgentUninstallPreview> {
+    return $Call.ByID(224864709, request);
+}
+
 export function Uninstall(request: $models.UpdateRequest): $CancellablePromise<app$0.AgentUninstallResult> {
     return $Call.ByID(67868259, request);
 }
