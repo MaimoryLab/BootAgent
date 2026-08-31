@@ -2,6 +2,7 @@ package process
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
 	"os/exec"
@@ -11,6 +12,23 @@ import (
 	"testing"
 	"time"
 )
+
+func TestOutputIncludesDownloadSourceAndPhase(t *testing.T) {
+	payload, err := json.Marshal(Output{Kind: "source", Source: "https://example.test/runtime.zip"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := string(payload); got != `{"kind":"source","source":"https://example.test/runtime.zip"}` {
+		t.Fatalf("source output JSON = %s", got)
+	}
+	payload, err = json.Marshal(Output{Kind: "phase", Phase: "verified"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := string(payload); got != `{"kind":"phase","phase":"verified"}` {
+		t.Fatalf("phase output JSON = %s", got)
+	}
+}
 
 func TestProcessHelper(_ *testing.T) {
 	if os.Getenv("TEST_PROCESS_HELPER") != "1" {

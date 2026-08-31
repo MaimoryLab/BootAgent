@@ -306,12 +306,28 @@ func TestEnsureRuntimeReportsDownloadProgress(t *testing.T) {
 	if len(outputs) == 0 {
 		t.Fatal("download reported no progress")
 	}
+	var sawSource, sawVerified bool
 	for _, output := range outputs {
-		if output.Kind != "progress" {
-			t.Fatalf("runtime download emitted %q output; only progress belongs in the UI", output.Kind)
+		switch output.Kind {
+		case "progress":
+		case "source":
+			sawSource = output.Source == "https://example.test/node.tar.gz"
+		case "phase":
+			sawVerified = output.Phase == "verified"
+		default:
+			t.Fatalf("runtime download emitted unexpected %q output", output.Kind)
 		}
 	}
-	last := outputs[len(outputs)-1]
+	if !sawSource || !sawVerified {
+		t.Fatalf("download source/verification events = %v/%v, want both", sawSource, sawVerified)
+	}
+	var last process.Output
+	for index := len(outputs) - 1; index >= 0; index-- {
+		if outputs[index].Kind == "progress" {
+			last = outputs[index]
+			break
+		}
+	}
 	if last.Received != int64(len(archive)) || last.Total != int64(len(archive)) {
 		t.Fatalf("final progress = %d/%d, want %d/%d", last.Received, last.Total, len(archive), len(archive))
 	}
