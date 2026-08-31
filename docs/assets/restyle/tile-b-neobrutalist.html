@@ -1,0 +1,394 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tile B — 新粗野主义（备选）</title>
+<!-- 比稿预览用 CDN 字体；产品实现为本地打包 -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&family=Archivo+Black&family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+SC:wght@400;500;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #edeee8;
+    --card: #ffffff;
+    --ink: #151515;
+    --ink-2: #4d4d47;
+    --terracotta: #d96e49;   /* 品牌色在此方向被提为一等色块 */
+    --yellow: #f5c542;
+    --green: #5fbf77;
+    --red: #ea6a55;
+    --blue: #7db8e8;
+    --shadow: 4px 4px 0 var(--ink);
+    --shadow-sm: 2px 2px 0 var(--ink);
+    --bw: 2px;               /* border weight */
+    --r: 10px;
+    --sans: "Archivo", "Noto Sans SC", -apple-system, "PingFang SC", sans-serif;
+    --display: "Archivo Black", "Noto Sans SC", sans-serif;
+    --mono: "IBM Plex Mono", "SF Mono", Menlo, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    font-family: var(--sans); font-size: 15px; line-height: 1.6;
+    color: var(--ink); background: var(--bg); padding: 40px 24px 64px;
+  }
+  .frame { max-width: 1280px; margin: 0 auto; display: grid; gap: 28px; }
+
+  .tile-head { display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; }
+  .tile-head h1 { font-family: var(--display); font-size: 22px; font-weight: 400; }
+  .tile-head .sub { color: var(--ink-2); font-size: 13px; }
+  .spec-label {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--ink-2); margin-bottom: 10px;
+  }
+  .swatches { display: flex; gap: 10px; flex-wrap: wrap; }
+  .swatch {
+    width: 148px; border: var(--bw) solid var(--ink); border-radius: var(--r);
+    background: var(--card); overflow: hidden; box-shadow: var(--shadow-sm);
+  }
+  .swatch .chip { height: 44px; border-bottom: var(--bw) solid var(--ink); }
+  .swatch .meta { padding: 6px 9px; font-family: var(--mono); font-size: 10.5px; line-height: 1.5; color: var(--ink-2); }
+  .swatch .meta b { display: block; color: var(--ink); font-weight: 500; }
+  .type-row {
+    display: flex; gap: 28px; align-items: baseline; flex-wrap: wrap;
+    border: var(--bw) solid var(--ink); border-radius: var(--r);
+    background: var(--card); padding: 16px 20px; box-shadow: var(--shadow);
+  }
+  .type-row .t-display { font-family: var(--display); font-size: 26px; }
+  .type-row .t-body { font-size: 15px; color: var(--ink-2); }
+  .type-row .t-mono { font-family: var(--mono); font-size: 13px; background: var(--yellow); padding: 1px 6px; border: 1.5px solid var(--ink); border-radius: 4px; }
+
+  /* ============ 窗口 mock ============ */
+  .window {
+    background: var(--card); border: var(--bw) solid var(--ink); border-radius: 14px;
+    box-shadow: 8px 8px 0 var(--ink);
+    display: grid; grid-template-columns: 216px 1fr; overflow: hidden; min-height: 720px;
+  }
+  .sidebar {
+    background: var(--bg); border-right: var(--bw) solid var(--ink);
+    padding: 18px 14px; display: flex; flex-direction: column; gap: 4px;
+  }
+  .brand-line { display: flex; align-items: center; gap: 8px; padding: 4px 8px 16px; }
+  .brand-mark {
+    width: 26px; height: 26px; border: var(--bw) solid var(--ink); border-radius: 7px;
+    background: var(--terracotta); display: grid; place-items: center;
+    font-family: var(--mono); font-size: 10px; font-weight: 500; box-shadow: var(--shadow-sm);
+  }
+  .brand-line b { font-family: var(--display); font-size: 14px; font-weight: 400; }
+  .nav a {
+    display: block; padding: 7px 10px; border-radius: 7px;
+    color: var(--ink); text-decoration: none; font-size: 14px; font-weight: 500;
+    border: var(--bw) solid transparent;
+  }
+  .nav a.active {
+    background: var(--terracotta); border-color: var(--ink); box-shadow: var(--shadow-sm);
+  }
+  .nav a:hover:not(.active) { border-color: var(--ink); }
+  .sidebar .foot { margin-top: auto; padding: 8px; font-family: var(--mono); font-size: 11px; color: var(--ink-2); }
+
+  .main { padding: 24px 28px 32px; background: var(--card); }
+  .page-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; margin-bottom: 22px; }
+  .page-head h2 { font-family: var(--display); font-size: 30px; font-weight: 400; line-height: 1.2; }
+  .page-head .desc { color: var(--ink-2); font-size: 14px; margin-top: 6px; }
+  .head-actions { display: flex; gap: 10px; margin-top: 14px; }
+  .sticker {
+    font-family: var(--display); font-size: 13px; background: var(--yellow);
+    border: var(--bw) solid var(--ink); border-radius: 8px; padding: 8px 14px;
+    box-shadow: var(--shadow-sm); transform: rotate(2deg); flex-shrink: 0;
+  }
+
+  .zone { margin-top: 26px; }
+  .zone-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .zone-head h3 {
+    font-family: var(--display); font-size: 15px; font-weight: 400;
+    background: var(--ink); color: var(--card); padding: 3px 12px; border-radius: 6px;
+  }
+  .zone-head .count { font-family: var(--mono); font-size: 12px; color: var(--ink-2); }
+
+  .rows { display: grid; gap: 12px; max-width: 1040px; }
+  .row {
+    background: var(--card); border: var(--bw) solid var(--ink); border-radius: var(--r);
+    box-shadow: var(--shadow);
+    display: grid; grid-template-columns: 38px minmax(150px, auto) 1fr auto auto;
+    gap: 12px; align-items: center; padding: 13px 16px; min-height: 62px;
+  }
+  .row.is-off { box-shadow: none; background: var(--bg); }
+  .mark {
+    width: 38px; height: 38px; border: var(--bw) solid var(--ink); border-radius: 9px;
+    display: grid; place-items: center; font-family: var(--mono); font-size: 13px; font-weight: 500;
+    background: var(--blue); box-shadow: var(--shadow-sm);
+  }
+  .mark.m2 { background: var(--terracotta); }
+  .mark.m3 { background: var(--yellow); }
+  .mark.m4 { background: var(--green); }
+  .mark.off { background: var(--bg); box-shadow: none; }
+  .row .name b { font-size: 15.5px; font-weight: 600; display: block; line-height: 1.35; }
+  .row .name .ver { font-family: var(--mono); font-size: 11px; color: var(--ink-2); }
+  .row .binding { font-family: var(--mono); font-size: 12.5px; color: var(--ink-2);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .row .binding b { color: var(--ink); font-weight: 500; }
+
+  .badge {
+    display: inline-flex; align-items: center; font-family: var(--mono); font-size: 11px; font-weight: 500;
+    padding: 4px 10px; border: var(--bw) solid var(--ink); border-radius: 7px;
+    box-shadow: var(--shadow-sm); white-space: nowrap; color: var(--ink);
+  }
+  .badge.ok { background: var(--green); }
+  .badge.warn { background: var(--yellow); }
+  .badge.idle { background: var(--bg); box-shadow: none; }
+  .badge.err { background: var(--red); }
+
+  .row-actions { display: flex; gap: 8px; }
+  .btn {
+    font-family: var(--sans); font-size: 13px; font-weight: 600;
+    border: var(--bw) solid var(--ink); border-radius: 8px; padding: 6px 14px;
+    background: var(--card); color: var(--ink); cursor: pointer; box-shadow: var(--shadow-sm);
+    line-height: 1.5;
+  }
+  .btn.primary { background: var(--ink); color: #fff; }
+  .btn.accent { background: var(--terracotta); }
+  .btn.danger { background: var(--red); }
+  .btn.small { font-size: 12.5px; padding: 4px 11px; }
+  .btn.pressed { box-shadow: none; transform: translate(2px, 2px); }
+  .btn.demo-focus { outline: 3px solid var(--terracotta); outline-offset: 2px; }
+  .btn.ghost { box-shadow: none; }
+
+  .runtime-bar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .runtime-chip {
+    font-family: var(--mono); font-size: 12.5px; border: var(--bw) solid var(--ink);
+    border-radius: 8px; padding: 5px 12px; background: var(--card); box-shadow: var(--shadow-sm);
+  }
+  .runtime-chip .dot { color: var(--green); -webkit-text-stroke: 1px var(--ink); }
+
+  .components {
+    border: var(--bw) solid var(--ink); border-radius: var(--r); background: var(--card);
+    padding: 18px 20px; display: flex; gap: 28px; align-items: center; flex-wrap: wrap;
+    box-shadow: var(--shadow);
+  }
+  .components .group { display: flex; gap: 10px; align-items: center; }
+  .field {
+    font-family: var(--mono); font-size: 13px; border: var(--bw) solid var(--ink);
+    border-radius: 8px; padding: 7px 11px; background: var(--card); min-width: 200px;
+    box-shadow: inset 2px 2px 0 rgba(21,21,21,0.10); color: var(--ink-2);
+  }
+
+  /* ============ 暗色条带 ============ */
+  .dark-band { border: var(--bw) solid var(--ink); border-radius: 14px; overflow: hidden; }
+  .dark-band .inner {
+    --bg: #191919; --card: #232323; --ink-x: #f0ede6;
+    background: var(--bg); color: var(--ink-x); padding: 20px 24px 24px;
+  }
+  .dark-band .band-label {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+    color: #a9a69e; margin-bottom: 12px;
+  }
+  .dark-band .row {
+    background: var(--card); border-color: var(--ink-x); box-shadow: 4px 4px 0 rgba(240,237,230,0.22);
+  }
+  .dark-band .row .name b { color: var(--ink-x); }
+  .dark-band .row .name .ver, .dark-band .row .binding { color: #a9a69e; }
+  .dark-band .row .binding b { color: var(--ink-x); }
+  .dark-band .mark { border-color: var(--ink-x); color: #151515; box-shadow: 2px 2px 0 rgba(240,237,230,0.22); }
+  .dark-band .badge { border-color: var(--ink-x); color: #151515; box-shadow: 2px 2px 0 rgba(240,237,230,0.22); }
+  .dark-band .badge.idle { background: #2e2e2e; color: #a9a69e; box-shadow: none; }
+  .dark-band .btn { border-color: var(--ink-x); background: var(--card); color: var(--ink-x); box-shadow: 2px 2px 0 rgba(240,237,230,0.22); }
+  .dark-band .btn.primary { background: var(--ink-x); color: #151515; }
+  .dark-band .btn.accent { background: #e58a67; color: #111111; }
+  .dark-band .note-line { font-size: 12.5px; color: #a9a69e; margin-top: 14px; }
+
+  .footnote { font-size: 12.5px; color: var(--ink-2); }
+</style>
+</head>
+<body>
+<div class="frame">
+
+  <div class="tile-head">
+    <h1>Tile B · 新粗野主义（备选）</h1>
+    <span class="sub">粗描边 · 硬阴影 · 色块 — Archivo Black / Archivo / IBM Plex Mono · 陶土色提为一等色块</span>
+  </div>
+
+  <div>
+    <div class="spec-label">Palette · 黑字规则（陶土块上永远用墨字：5.46:1；白字 3.35:1 不达标）</div>
+    <div class="swatches">
+      <div class="swatch"><div class="chip" style="background:#edeee8"></div><div class="meta"><b>#edeee8 底</b>bg</div></div>
+      <div class="swatch"><div class="chip" style="background:#151515"></div><div class="meta"><b>#151515 墨</b>15.65:1 on bg</div></div>
+      <div class="swatch"><div class="chip" style="background:#d96e49"></div><div class="meta"><b>#d96e49 陶土</b>墨字 5.46:1</div></div>
+      <div class="swatch"><div class="chip" style="background:#f5c542"></div><div class="meta"><b>#f5c542 黄</b>墨字 11.26:1</div></div>
+      <div class="swatch"><div class="chip" style="background:#5fbf77"></div><div class="meta"><b>#5fbf77 绿</b>墨字 8.00:1</div></div>
+      <div class="swatch"><div class="chip" style="background:#ea6a55"></div><div class="meta"><b>#ea6a55 红</b>墨字 5.82:1</div></div>
+    </div>
+  </div>
+
+  <div>
+    <div class="spec-label">Type · Archivo Black 标题声部 + Archivo 正文</div>
+    <div class="type-row">
+      <span class="t-display">环境总览 OVERVIEW</span>
+      <span class="t-body">正文 15px：本机已安装 Agent 及其当前配置。Archivo 400 与 Noto Sans SC 混排。</span>
+      <span class="t-mono">claude-fable-5[1m]</span>
+    </div>
+  </div>
+
+  <!-- ==================== 总览 mock ==================== -->
+  <div class="window" role="img" aria-label="总览页视觉比稿（新粗野）">
+    <aside class="sidebar">
+      <div class="brand-line"><span class="brand-mark">BA</span><b>BootAgent</b></div>
+      <nav class="nav">
+        <a class="active" href="#">环境总览</a>
+        <a href="#">模型服务</a>
+        <a href="#">配置模版</a>
+        <a href="#">MCP 服务器</a>
+        <a href="#">Skills</a>
+        <a href="#">本地格式转换</a>
+        <a href="#">设置</a>
+      </nav>
+      <div class="foot">v0.2.0-dev</div>
+    </aside>
+
+    <div class="main">
+      <div class="page-head">
+        <div>
+          <h2>环境总览</h2>
+          <div class="desc">本机已安装 Agent 及其当前配置</div>
+          <div class="head-actions">
+            <button class="btn small">刷新状态</button>
+            <button class="btn primary small">安装 Agent</button>
+          </div>
+        </div>
+        <span class="sticker">9 个 Agent · 6 已就绪</span>
+      </div>
+
+      <section class="zone">
+        <div class="zone-head"><h3>命令行 Agent</h3><span class="count">9 项 · 显示 4</span></div>
+        <div class="rows">
+
+          <div class="row">
+            <span class="mark">CX</span>
+            <span class="name"><b>Codex</b><span class="ver">v0.45.2</span></span>
+            <span class="binding"><b>PPIO</b> · gpt-5.2-codex · high</span>
+            <span class="badge ok">已安装 · 已配置</span>
+            <span class="row-actions">
+              <button class="btn small">启动</button>
+              <button class="btn small ghost">详情</button>
+            </span>
+          </div>
+
+          <div class="row">
+            <span class="mark m2">CC</span>
+            <span class="name"><b>Claude Code</b><span class="ver">v2.1.220</span></span>
+            <span class="binding"><b>JieKou.AI</b> · claude-fable-5[1m]</span>
+            <span class="badge ok">已安装 · 已配置</span>
+            <span class="row-actions">
+              <button class="btn accent small">启动</button>
+              <button class="btn small ghost">配置</button>
+            </span>
+          </div>
+
+          <div class="row">
+            <span class="mark m3">KM</span>
+            <span class="name"><b>Kimi Code</b><span class="ver">v1.8.0</span></span>
+            <span class="binding">检测到的配置，非 BootAgent 写入</span>
+            <span class="badge warn">已安装 · 未配置</span>
+            <span class="row-actions">
+              <button class="btn small">配置</button>
+              <button class="btn small ghost">详情</button>
+            </span>
+          </div>
+
+          <div class="row is-off">
+            <span class="mark off">KL</span>
+            <span class="name"><b>Kilo CLI</b><span class="ver">未安装</span></span>
+            <span class="binding">未配置</span>
+            <span class="badge idle">待安装</span>
+            <span class="row-actions"><button class="btn small">安装</button></span>
+          </div>
+
+        </div>
+      </section>
+
+      <section class="zone">
+        <div class="zone-head"><h3>桌面 Agent</h3><span class="count">3 项 · 显示 2</span></div>
+        <div class="rows">
+          <div class="row">
+            <span class="mark m4">GP</span>
+            <span class="name"><b>ChatGPT Desktop</b><span class="ver">1.2026.210</span></span>
+            <span class="binding">与 Codex 共享配置 · config.toml</span>
+            <span class="badge ok">已安装 · 已配置</span>
+            <span class="row-actions"><button class="btn small">打开</button></span>
+          </div>
+          <div class="row is-off">
+            <span class="mark off">ZC</span>
+            <span class="name"><b>ZCode</b><span class="ver">未安装</span></span>
+            <span class="binding">未配置</span>
+            <span class="badge idle">待安装</span>
+            <span class="row-actions"><button class="btn small">获取</button></span>
+          </div>
+        </div>
+      </section>
+
+      <section class="zone">
+        <div class="zone-head"><h3>运行时</h3></div>
+        <div class="runtime-bar">
+          <span class="runtime-chip"><span class="dot">●</span> node 22.16.0</span>
+          <span class="runtime-chip"><span class="dot">●</span> uv 0.9.2</span>
+          <span class="runtime-chip">python 3.12 · 按需</span>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <!-- ==================== 组件规格 ==================== -->
+  <div>
+    <div class="spec-label">Components · 主要按钮为墨块（陶土留给品牌/选中，红块只做危险确认）</div>
+    <div class="components">
+      <span class="group">
+        <button class="btn primary">安装 Agent</button>
+        <button class="btn">刷新状态</button>
+        <button class="btn accent">启动</button>
+        <button class="btn danger">删除模版</button>
+        <button class="btn pressed">按压态</button>
+        <button class="btn demo-focus">焦点态</button>
+      </span>
+      <span class="group">
+        <span class="badge ok">已安装</span>
+        <span class="badge warn">待安装</span>
+        <span class="badge idle">未配置</span>
+        <span class="badge err">失败</span>
+      </span>
+      <span class="field">sk-…（API Key）</span>
+    </div>
+  </div>
+
+  <!-- ==================== 暗色条带 ==================== -->
+  <div class="dark-band">
+    <div class="inner">
+      <div class="band-label">Dark · 硬黑阴影在近黑底上不可见，只能换成亮描边 + 亮阴影模拟 —— 风格骨架在暗色下需要另一套语言</div>
+      <div class="rows">
+        <div class="row">
+          <span class="mark m2" style="background:#e58a67;">CC</span>
+          <span class="name"><b>Claude Code</b><span class="ver">v2.1.220</span></span>
+          <span class="binding"><b>JieKou.AI</b> · claude-fable-5[1m]</span>
+          <span class="badge ok">已安装 · 已配置</span>
+          <span class="row-actions">
+            <button class="btn accent small">启动</button>
+            <button class="btn small">配置</button>
+          </span>
+        </div>
+      </div>
+      <div style="display:flex; gap:10px; margin-top:14px;">
+        <button class="btn primary">安装 Agent</button>
+        <button class="btn">刷新状态</button>
+        <span class="badge err" style="align-self:center;">失败</span>
+        <span class="badge warn" style="align-self:center;">待安装</span>
+      </div>
+      <div class="note-line">评审注：亮阴影方案让「浮起」变成「发光」，与亮色态的物理隐喻不一致 —— 这是 ADR-010 未采纳本方向的理由之二。</div>
+    </div>
+  </div>
+
+  <p class="footnote">
+    与 Tile A 使用完全相同的界面文案与 Agent 清单，比较的是风格本身。
+    字体经 CDN 加载仅供预览；若采纳该方向，产品同样本地打包。
+  </p>
+
+</div>
+</body>
+</html>

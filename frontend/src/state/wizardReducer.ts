@@ -164,8 +164,8 @@ function formatCommand(args: string[]): string {
 function appendActivationOutput(log: string, output: InstallOutput): string {
   // Download progress is a bar, not a log line: the Task Center and the install
   // prompts render it, and appending byte counts here would bury the commands.
-  if (output.kind === "progress") return log;
-  const text = output.kind === "command" ? `$ ${formatCommand(output.args)}\n` : output.text;
+	if (output.kind === "progress" || output.kind === "source" || output.kind === "phase") return log;
+	const text = output.kind === "command" ? `$ ${formatCommand(output.args)}\n` : output.text;
   if (!text) return log;
   return `${log}${output.kind === "command" && log && !log.endsWith("\n") ? "\n" : ""}${text}`;
 }

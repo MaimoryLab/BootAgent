@@ -148,9 +148,9 @@ export function updateTaskRoute(target: string): string {
 }
 
 function outputText(output: InstallOutput): string {
-  if (output.kind === "progress") return "";
-  if (output.kind === "command") return `$ ${output.args.join(" ")}\n`;
-  return output.text;
+	if (output.kind === "progress" || output.kind === "source" || output.kind === "phase") return "";
+	if (output.kind === "command") return `$ ${output.args.join(" ")}\n`;
+	return output.text;
 }
 
 /**

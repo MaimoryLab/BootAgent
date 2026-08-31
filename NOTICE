@@ -20,6 +20,18 @@ The tracked source of that generated material is third_party/. Run
 matches go.mod, go.sum, frontend/package.json and frontend/pnpm-lock.yaml.
 
 ================================================================================
+Third-party source metadata reused for offline promotion prompt building
+================================================================================
+
+  awesome-gpt-image-2 style-library.json  MIT  Copyright (c) 2026 freestylefly
+  Source: https://github.com/freestylefly/awesome-gpt-image-2
+  Fixed commit: 685469889fb72fd5adefae45e1645d527edcb5e7
+  Local copy: third_party/awesome-gpt-image-2/style-library.json
+  Scope: template/category/style/scene metadata and guidance only; no case images,
+  third-party prompt corpus, website, payment code, or remote generation API is
+  redistributed. See third_party/awesome-gpt-image-2/UPSTREAM.md and LICENSE.
+
+================================================================================
 Third-party software downloaded at runtime, not redistributed
 ================================================================================
 
