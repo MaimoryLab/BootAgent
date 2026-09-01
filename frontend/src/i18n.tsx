@@ -40,6 +40,8 @@ const english = {
   "选择要导入 BootAgent 的 Skill，导入后可在 Skills 页面选择目标 Agent": "Choose Skills to import into BootAgent; select target Agents later on the Skills page",
   "导入到 BootAgent": "Import into BootAgent",
   "正在导入": "Importing",
+  "安装指南": "Installation guide",
+  "查看安装指南": "View installation guide",
   "确认将 {count} 个 Skill 导入 BootAgent 库？": "Import {count} Skills into the BootAgent library?",
   "已导入 BootAgent，可在 Skills 页面选择目标 Agent": "Imported into BootAgent; select target Agents on the Skills page",
   "确认导入并应用": "Confirm import and apply",

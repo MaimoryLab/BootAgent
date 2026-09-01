@@ -129,6 +129,8 @@ export interface MarketplaceItem {
   sourceUrl?: string;
   repositoryUrl?: string;
   documentationUrl?: string;
+  /** Dedicated installation runbook, when installation differs from README. */
+  installationUrl?: string;
 
   // ── installable items ────────────────────────────────────────────────────
   installableKind?: InstallableKind;
