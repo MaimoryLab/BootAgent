@@ -16,6 +16,7 @@ interface CatalogState {
 const EMPTY_CATALOG: CatalogState = { items: [], live: false, version: "" };
 let resolved: CatalogState | null = null;
 let pending: Promise<CatalogState> | null = null;
+let livePending: Promise<MarketplaceItem[]> | null = null;
 
 function mergeSkillhub(snapshot: MarketplaceItem[], live: MarketplaceItem[]): MarketplaceItem[] {
   const items = [...live, ...snapshot.filter((item) => item.source !== "skillhub")];
@@ -25,25 +26,33 @@ function mergeSkillhub(snapshot: MarketplaceItem[], live: MarketplaceItem[]): Ma
 
 function ensureCatalog(): Promise<CatalogState> {
   if (!pending) {
-    pending = api.marketplaceCatalog().then(async (catalog) => {
-      try {
-        return { items: mergeSkillhub(catalog.items, await loadSkillhub()), live: true, version: catalog.version };
-      } catch {
-        return { items: catalog.items, live: false, version: catalog.version };
-      }
-    }).catch(() => EMPTY_CATALOG).then((state) => (resolved = state));
+    pending = api.marketplaceCatalog().then((catalog) => {
+      const state = { items: catalog.items, live: false, version: catalog.version };
+      resolved = state;
+      return state;
+    }).catch(() => EMPTY_CATALOG);
   }
   return pending;
+}
+
+function ensureLiveSkillhub(): Promise<MarketplaceItem[]> {
+  if (!livePending) livePending = loadSkillhub();
+  return livePending;
 }
 
 export function useMarketplaceCatalog(): CatalogState {
   const [state, setState] = useState<CatalogState>(() => resolved ?? EMPTY_CATALOG);
 
   useEffect(() => {
-    if (resolved) return;
     let cancelled = false;
-    void ensureCatalog().then((next) => {
-      if (!cancelled) setState(next);
+    void ensureCatalog().then((snapshot) => {
+      if (cancelled) return;
+      setState(snapshot);
+      void ensureLiveSkillhub().then((live) => {
+        const next = { items: mergeSkillhub(snapshot.items, live), live: true, version: snapshot.version };
+        resolved = next;
+        if (!cancelled) setState(next);
+      }).catch(() => undefined);
     });
     return () => { cancelled = true; };
   }, []);
