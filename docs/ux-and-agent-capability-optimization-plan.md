@@ -80,7 +80,7 @@ cc-switch 的日活体验建立在「1 步切换」上：主界面点卡片即�
   错误，不跳页、绑定不变。
 - 无兼容 Profile 时下拉给「去创建」入口，指向 `/profiles`。
 
-### 验收标准
+### 验收标准（M5 Claude Desktop）
 
 1. Overview 上对任一已安装 CLI Agent 切换 Profile：点击展开 + 点击选择，共 2 次交互
    完成（无确认弹窗；不再需要进入 Agent 详情页）。桌面 Agent 同样可用。
@@ -99,7 +99,7 @@ cc-switch 的日活体验建立在「1 步切换」上：主界面点卡片即�
 
 ## 5. M2 配置健康：漂移检测、备份可视化、激活前预览
 
-### 对标点
+### 对标点（M2 配置健康）
 
 cc-switch 只对 Claude Desktop 做漂移检测（expected vs actual base_url、非法模型名），
 但它的黄条 +「重新切换当前供应商可修复」动作提示是很好的交互范式。BootAgent 的
@@ -117,7 +117,7 @@ owned-key 模型让我们能把这件事做到**全部 13 个适配器、精确�
 - 备份基建已存在：`securefs.AtomicWrite` 自动备份，`~/.bootagent/backup` 每目标保留
   3 份，Settings 可调——但 UI 完全没有入口。
 
-### 改动点
+### 改动点（M2 配置健康）
 
 - `internal/config`：把各适配器隐含在 merge 实现里的 owned-key 集合提取为公共的
   `OwnedState(binding) → map[key]expected` + `ReadOwnedState(live) → map[key]actual`，
@@ -136,7 +136,7 @@ owned-key 模型让我们能把这件事做到**全部 13 个适配器、精确�
 - DTO 变化按 AGENTS.md 红线三处同步：重新生成 `frontend/bindings`、更新
   `frontend/src/backend/wails.ts` 与 `frontend/src/types/api.ts`。
 
-### 验收标准
+### 验收标准（M2 配置健康）
 
 1. 手工把 `~/.codex/config.toml` 的受管 `model` 改成其他值 → 窗口重新聚焦后
    overview 该行出现漂移徽标；详情页显示「model：期望 X，实际 Y」，精确到键。
@@ -157,7 +157,7 @@ owned-key 模型让我们能把这件事做到**全部 13 个适配器、精确�
 
 ## 6. M3 Capability 矩阵声明化
 
-### 对标点
+### 对标点（M3 Capability 矩阵）
 
 cc-switch 新增一个 Agent 要动 41 个文件里的 `AppType` match（Hermes 实际摸了 15 个
 文件 56 处）。BootAgent 的 CLI Agent 已数据驱动（`manifests/agents.lock.json` +
@@ -166,7 +166,7 @@ cc-switch 新增一个 Agent 要动 41 个文件里的 `AppType` match（Hermes 
 （`internal/app/agent.go:237-248`）、ZCode 协议写死 openai
 （`internal/config/write.go:311-316`）。后果是 UI 无法预知约束，只能激活时报错。
 
-### 改动点
+### 改动点（M3 Capability 矩阵）
 
 - `internal/catalog/types.go` 的 `Agent` 增加 `Capabilities` 子结构（示意）：
 
@@ -191,7 +191,7 @@ cc-switch 新增一个 Agent 要动 41 个文件里的 `AppType` match（Hermes 
 - 前端：应用 Profile 弹窗与 Agent 详情页，对每个目标 Agent 显示该 Profile 的
   reasoning 将「直传 / 映射为 X / 被忽略（原因）」；档位选择器按能力联动。
 
-### 验收标准
+### 验收标准（M3 Capability 矩阵）
 
 1. `agents.lock.json` 全部 13 个 CLI Agent 都有显式 capabilities；缺失或词表非法时
    `catalog.LoadEmbedded` 报错，配单测。
@@ -210,7 +210,7 @@ cc-switch 新增一个 Agent 要动 41 个文件里的 `AppType` match（Hermes 
 
 ## 7. M4 现有配置反向导入
 
-### 对标点
+### 对标点（M4 反向导入）
 
 cc-switch 有三套回流机制（首启动把 live 导入为 default 供应商、additive 类每次启动
 反向同步、切换前回填）。BootAgent 因 owned-key 模型不需要回填，但「把用户已有的
@@ -218,7 +218,7 @@ cc-switch 有三套回流机制（首启动把 live 导入为 default 供应商�
 BootAgent 自有条目（`ReadPIConfig:106-108` 的注释就是这个立场），对手工配置无能为力。
 这挡住了存量用户的迁移。
 
-### 改动点
+### 改动点（M4 反向导入）
 
 - `internal/config/discovery.go`：新增 foreign 读取路径（与现有 owned 读取并列，
   不改变后者语义），按适配器解析「用户手工配置的 baseURL / model / key 所在」。
@@ -227,7 +227,7 @@ BootAgent 自有条目（`ReadPIConfig:106-108` 的注释就是这个立场）�
   该 Agent 的绑定。**导入不写任何 Agent live 文件。**
 - 前端：Setup 向导与 overview 空态出现「检测到已有配置，导入为 Profile」卡片。
 
-### 验收标准
+### 验收标准（M4 反向导入）
 
 1. 机器上已有手配的 `~/.claude/settings.json`（第三方 baseURL + key + model）：首启
    向导出现导入卡片，一键后生成 Provider（baseURL 正确）+ Profile（model / 协议
@@ -254,7 +254,7 @@ Claude Desktop。本里程碑只做**直连模式**：Anthropic 协议 Provider 
 模型名。模型映射玩法（在 Claude Desktop 里用非 Claude 模型）依赖本地代理，属 §2
 非目标。
 
-### 改动点
+### 改动点（M5 Claude Desktop）
 
 - `internal/desktopapp/registry.go` 新增 Definition：`inspect`（检测安装 + 读 profile
   与 `deploymentMode` 现状）、`ManualInstall: true`（给官网链接）、`open`。
@@ -311,8 +311,8 @@ python3 scripts/check-docs.py
 
 另加三条纪律：
 
-1. DTO 变化必须三处同步（重新生成 `frontend/bindings` + `frontend/src/backend/wails.ts`
-   + `frontend/src/types/api.ts`），CodeGraph 查 `AgentService` 复核漏改位置。
+1. DTO 变化必须三处同步（重新生成 `frontend/bindings`、`frontend/src/backend/wails.ts`
+   和 `frontend/src/types/api.ts`），CodeGraph 查 `AgentService` 复核漏改位置。
 2. 行为改动与 bug 修复配聚焦测试；密钥不进 DTO、日志、错误信息。
 3. 涉及 live 文件写入的改动，golden fixtures 先行：先写「期望落盘内容」再写实现。
 
