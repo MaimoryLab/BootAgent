@@ -39,8 +39,8 @@ function favicon(urlValue?: string): string | undefined {
  */
 export function marketplaceIconCandidates(item: Pick<MarketplaceItem, "iconUrl" | "socialPreviewUrl" | "repositoryUrl" | "externalUrl" | "sourceUrl" | "documentationUrl">): string[] {
   const candidates = [
-    item.iconUrl,
     item.socialPreviewUrl,
+    item.iconUrl,
     githubAvatar(item.repositoryUrl),
     favicon(item.externalUrl),
     favicon(item.documentationUrl),
