@@ -1,0 +1,535 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tile A — Swiss + Blueprint（主推）</title>
+<!-- 比稿预览用 CDN 字体；产品实现为本地打包，不发外部请求（见 docs/ui-restyle-brief.md §3） -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  /* ============ tokens（与简报 §2 一致，比稿不自行发明值） ============ */
+  :root {
+    --page-bg: #f2f4f4;
+    --sheet: #fdfdfc;
+    --ink: #152532;
+    --ink-2: #4a5b66;
+    --ink-3: #5f7280;
+    --accent: #20618e;
+    --accent-hover: #1b537a;
+    --accent-soft: #e8eef3;
+    --focus-ring: #1b537a;
+    --green: #2f6b46;
+    --green-soft: #e9f0e9;
+    --orange: #8a5a12;
+    --orange-soft: #f6efe0;
+    --red: #b0301c;
+    --red-soft: #f8e9e6;
+    --wire: #9dbcd0;
+    --border: rgba(21, 37, 50, 0.20);
+    --border-strong: rgba(21, 37, 50, 0.32);
+    --border-faint: rgba(21, 37, 50, 0.08);
+    --radius-control: 4px;
+    --radius-panel: 6px;
+    --radius-window: 10px;
+    --sans: "IBM Plex Sans", "Noto Sans SC", -apple-system, "PingFang SC", "Helvetica Neue", sans-serif;
+    --mono: "IBM Plex Mono", "SF Mono", Menlo, "Noto Sans SC", monospace;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html { -webkit-font-smoothing: antialiased; }
+  body {
+    font-family: var(--sans);
+    font-size: 15px; line-height: 1.6; color: var(--ink);
+    background: var(--page-bg);
+    padding: 40px 24px 64px;
+  }
+  .frame { max-width: 1280px; margin: 0 auto; display: grid; gap: 28px; }
+
+  /* ============ 比稿页自身的说明排版 ============ */
+  .tile-head { display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; }
+  .tile-head h1 { font-size: 21px; font-weight: 600; letter-spacing: -0.01em; }
+  .tile-head .sub { color: var(--ink-2); font-size: 13px; }
+  .spec-label {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--ink-3); margin-bottom: 10px;
+  }
+  .swatches { display: flex; gap: 8px; flex-wrap: wrap; }
+  .swatch {
+    width: 148px; border: 1px solid var(--border); border-radius: var(--radius-panel);
+    background: var(--sheet); overflow: hidden;
+  }
+  .swatch .chip { height: 44px; }
+  .swatch .meta { padding: 6px 9px; font-family: var(--mono); font-size: 10.5px; line-height: 1.5; color: var(--ink-2); }
+  .swatch .meta b { display: block; color: var(--ink); font-weight: 500; }
+  .type-row { display: flex; gap: 28px; align-items: baseline; flex-wrap: wrap;
+    border: 1px solid var(--border); border-radius: var(--radius-panel); background: var(--sheet); padding: 16px 20px; }
+  .type-row .t-display { font-size: 26px; font-weight: 600; letter-spacing: -0.015em; }
+  .type-row .t-body { font-size: 15px; color: var(--ink-2); }
+  .type-row .t-mono { font-family: var(--mono); font-size: 13px; color: var(--accent); }
+
+  /* ============ 应用窗口 mock ============ */
+  .window {
+    background: var(--sheet);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-window);
+    box-shadow: 0 22px 55px rgba(21, 37, 50, 0.14), 0 2px 8px rgba(21, 37, 50, 0.07);
+    display: grid; grid-template-columns: 216px 1fr;
+    overflow: hidden; min-height: 720px;
+  }
+  /* 网格纸只铺在主区（图下有纸，图面 sheet 无网格） */
+  .main {
+    background:
+      repeating-linear-gradient(0deg, rgba(157,188,208,0.28) 0 1px, transparent 1px 32px),
+      repeating-linear-gradient(90deg, rgba(157,188,208,0.28) 0 1px, transparent 1px 32px),
+      repeating-linear-gradient(0deg, rgba(157,188,208,0.13) 0 1px, transparent 1px 8px),
+      repeating-linear-gradient(90deg, rgba(157,188,208,0.13) 0 1px, transparent 1px 8px),
+      var(--page-bg);
+    padding: 24px 28px 32px;
+  }
+
+  .sidebar {
+    background: var(--sheet); border-right: 1px solid var(--border);
+    padding: 18px 14px; display: flex; flex-direction: column; gap: 2px;
+  }
+  .brand-line { display: flex; align-items: center; gap: 8px; padding: 4px 10px 16px; }
+  .brand-mark {
+    width: 22px; height: 22px; border: 1.5px solid var(--ink); border-radius: 5px;
+    display: grid; place-items: center; font-family: var(--mono); font-size: 10px; font-weight: 500;
+  }
+  .brand-line b { font-size: 14px; font-weight: 600; letter-spacing: 0.01em; }
+  .nav a {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 10px; border-radius: var(--radius-control);
+    color: var(--ink-2); text-decoration: none; font-size: 14px; border-left: 2px solid transparent;
+  }
+  .nav a.active {
+    color: var(--accent); background: var(--accent-soft);
+    border-left: 2px solid var(--accent); font-weight: 500;
+  }
+  .nav a:hover:not(.active) { background: var(--border-faint); }
+  .sidebar .foot { margin-top: auto; padding: 10px; font-family: var(--mono); font-size: 11px; color: var(--ink-3); }
+
+  /* 页头 + 图签 */
+  .page-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; margin-bottom: 20px; }
+  .page-head h2 { font-size: 26px; font-weight: 600; letter-spacing: -0.015em; line-height: 1.25; }
+  .page-head .desc { color: var(--ink-2); font-size: 14px; margin-top: 4px; }
+  .head-actions { display: flex; gap: 8px; margin-top: 12px; }
+  .titleblock {
+    display: grid; grid-template-columns: auto auto;
+    border: 1px solid var(--border-strong); background: var(--sheet);
+    font-family: var(--mono); font-size: 10px; line-height: 1.5;
+    color: var(--ink-2); border-radius: 2px; flex-shrink: 0;
+  }
+  .titleblock > div { padding: 6px 12px; }
+  .titleblock > div + div { border-left: 1px solid var(--border); }
+  .titleblock b { display: block; color: var(--ink); font-weight: 500; letter-spacing: 0.06em; }
+
+  /* 分区（图区字母） */
+  .zone { margin-top: 26px; }
+  .zone-head {
+    display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px;
+  }
+  .zone-letter {
+    font-family: var(--mono); font-size: 12px; font-weight: 500; color: var(--accent);
+    border: 1px solid var(--accent); width: 20px; height: 20px; border-radius: 2px;
+    display: grid; place-items: center; align-self: center;
+  }
+  .zone-head h3 { font-size: 15px; font-weight: 600; }
+  .zone-head .count { font-family: var(--mono); font-size: 12px; color: var(--ink-3); }
+  .zone-head .rule { flex: 1; border-top: 1px solid var(--border); align-self: center; }
+
+  /* Agent 行 */
+  .rows { display: grid; gap: 8px; max-width: 1040px; }
+  .row {
+    background: var(--sheet); border: 1px solid var(--border);
+    border-radius: var(--radius-panel);
+    display: grid; grid-template-columns: 34px 34px minmax(150px, auto) 1fr auto auto;
+    gap: 12px; align-items: center; padding: 12px 14px; min-height: 58px;
+  }
+  .row.is-off { opacity: 0.82; }
+  .ref { font-family: var(--mono); font-size: 10.5px; color: var(--ink-3); text-align: center; }
+  .mark {
+    width: 34px; height: 34px; border: 1px solid var(--border-strong); border-radius: var(--radius-control);
+    display: grid; place-items: center; font-family: var(--mono); font-size: 12px; font-weight: 500;
+    background: var(--sheet);
+  }
+  .row .name b { font-size: 15px; font-weight: 600; display: block; line-height: 1.35; }
+  .row .name .ver { font-family: var(--mono); font-size: 11px; color: var(--ink-3); }
+
+  /* 引出线：端子圆 + 导线 + mono 注记 */
+  .lead { display: flex; align-items: center; gap: 0; min-width: 0; }
+  .lead .terminal {
+    width: 7px; height: 7px; border: 1.5px solid var(--accent); border-radius: 50%;
+    flex-shrink: 0; background: var(--sheet);
+  }
+  .lead .wire-line { height: 1px; background: var(--accent); width: 34px; flex-shrink: 0; }
+  .lead .note {
+    font-family: var(--mono); font-size: 12px; color: var(--accent);
+    border: 1px solid var(--border); border-left: 2px solid var(--accent);
+    background: var(--sheet); padding: 3px 10px; border-radius: 2px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .lead.is-idle .terminal { border-color: var(--ink-3); }
+  .lead.is-idle .wire-line { background: none; border-top: 1px dashed var(--wire); }
+  .lead.is-idle .note { color: var(--ink-3); border-left-color: var(--ink-3); }
+  .lead.is-warn .terminal { border-color: var(--orange); }
+  .lead.is-warn .wire-line { background: var(--orange); }
+  .lead.is-warn .note { color: var(--orange); border-left-color: var(--orange); }
+
+  /* 状态徽标：方角 mono，点 + 字 */
+  .badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: var(--mono); font-size: 11px; padding: 3px 9px;
+    border: 1px solid var(--border); border-radius: 2px; white-space: nowrap;
+  }
+  .badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; }
+  .badge.ok    { color: var(--green);  background: var(--green-soft); }
+  .badge.ok::before    { background: var(--green); }
+  .badge.warn  { color: var(--orange); background: var(--orange-soft); }
+  .badge.warn::before  { background: var(--orange); }
+  .badge.idle  { color: var(--ink-3);  background: var(--border-faint); }
+  .badge.idle::before  { background: var(--ink-3); }
+  .badge.err   { color: var(--red);    background: var(--red-soft); }
+  .badge.err::before   { background: var(--red); }
+
+  .row-actions { display: flex; gap: 6px; }
+
+  /* 展开行的注记块 */
+  .row.expanded { grid-template-rows: auto auto; }
+  .row .detail {
+    grid-column: 3 / -1; display: flex; gap: 24px; flex-wrap: wrap;
+    border-top: 1px dashed var(--border); padding-top: 10px; margin-top: 2px;
+  }
+  .detail .kv { font-size: 12.5px; color: var(--ink-2); }
+  .detail .kv b { font-weight: 500; color: var(--ink-3); font-size: 11px; display: block; }
+  .detail .kv code { font-family: var(--mono); font-size: 12px; color: var(--ink); }
+  .detail .kv .ok-text { color: var(--green); }
+
+  /* 尺寸标注（运行时行） */
+  .dim { display: inline-flex; align-items: center; font-family: var(--mono); font-size: 12px; color: var(--ink-2); }
+  .dim::before, .dim::after { content: ""; width: 1px; height: 12px; background: var(--border-strong); }
+  .dim .dim-line { width: 22px; height: 1px; background: var(--border-strong); }
+  .dim .dim-text { padding: 0 10px; }
+  .dim .ok-dot { color: var(--green); }
+
+  /* 按钮 */
+  .btn {
+    font-family: var(--sans); font-size: 13px; font-weight: 500;
+    border-radius: var(--radius-control); padding: 6px 14px;
+    border: 1px solid transparent; cursor: pointer; line-height: 1.5;
+  }
+  .btn.primary { background: var(--accent); color: #fff; }
+  .btn.primary:hover { background: var(--accent-hover); }
+  .btn.secondary { background: transparent; color: var(--ink); border-color: var(--border-strong); }
+  .btn.secondary:hover { background: var(--border-faint); }
+  .btn.danger { background: transparent; color: var(--red); border-color: var(--red); }
+  .btn.small { font-size: 12.5px; padding: 4px 11px; }
+  .btn.demo-focus { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+
+  /* ============ 组件规格行 ============ */
+  .components {
+    border: 1px solid var(--border); border-radius: var(--radius-panel); background: var(--sheet);
+    padding: 16px 20px; display: flex; gap: 28px; align-items: center; flex-wrap: wrap;
+  }
+  .components .group { display: flex; gap: 8px; align-items: center; }
+  .field {
+    font-family: var(--mono); font-size: 13px; color: var(--ink);
+    border: 1px solid var(--border-strong); border-radius: var(--radius-control);
+    padding: 6px 10px; background: var(--sheet); min-width: 200px;
+  }
+  .field .ph { color: var(--ink-3); }
+
+  /* ============ 暗色条带（cyanotype） ============ */
+  .dark-band {
+    border-radius: var(--radius-window); overflow: hidden; border: 1px solid var(--border-strong);
+  }
+  .dark-band .inner {
+    --page-bg: #0f161b; --sheet: #161f26; --ink: #e9eef2; --ink-2: #aebbc4; --ink-3: #8296a4;
+    --accent: #6cb0dc; --accent-fill: #2e6f9e; --accent-hover: #3a7fae; --accent-soft: rgba(108,176,220,0.12);
+    --green: #7ec59a; --green-soft: rgba(126,197,154,0.12);
+    --orange: #d9a75e; --orange-soft: rgba(217,167,94,0.12);
+    --red: #e88a76; --red-soft: rgba(232,138,118,0.12);
+    --wire: rgba(108,176,220,0.16);
+    --border: rgba(233,238,242,0.16); --border-strong: rgba(233,238,242,0.26); --border-faint: rgba(233,238,242,0.07);
+    background:
+      repeating-linear-gradient(0deg, rgba(108,176,220,0.10) 0 1px, transparent 1px 32px),
+      repeating-linear-gradient(90deg, rgba(108,176,220,0.10) 0 1px, transparent 1px 32px),
+      repeating-linear-gradient(0deg, rgba(108,176,220,0.05) 0 1px, transparent 1px 8px),
+      repeating-linear-gradient(90deg, rgba(108,176,220,0.05) 0 1px, transparent 1px 8px),
+      var(--page-bg);
+    color: var(--ink); padding: 20px 24px 24px;
+  }
+  .dark-band .inner .btn.primary { background: var(--accent-fill); }
+  .dark-band .inner .btn.primary:hover { background: var(--accent-hover); }
+  .dark-band .inner .btn.secondary { color: var(--ink); }
+  .dark-band .inner .mark { background: var(--sheet); }
+  .dark-band .inner .lead .terminal { background: var(--sheet); }
+  .dark-band .band-label {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--ink-3); margin-bottom: 12px;
+  }
+  .footnote { font-size: 12.5px; color: var(--ink-3); }
+  .footnote code { font-family: var(--mono); font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="frame">
+
+  <div class="tile-head">
+    <h1>Tile A · Swiss + Blueprint（主推）</h1>
+    <span class="sub">制图纸上的瑞士排版，蓝图作签名 — IBM Plex Sans / Plex Mono / Noto Sans SC · 取值同简报 §2</span>
+  </div>
+
+  <div>
+    <div class="spec-label">Palette · 实算对比度</div>
+    <div class="swatches">
+      <div class="swatch"><div class="chip" style="background:#f2f4f4;border-bottom:1px solid var(--border)"></div><div class="meta"><b>#f2f4f4 图纸底</b>page-bg</div></div>
+      <div class="swatch"><div class="chip" style="background:#152532"></div><div class="meta"><b>#152532 制图墨</b>14.17:1 on page</div></div>
+      <div class="swatch"><div class="chip" style="background:#20618e"></div><div class="meta"><b>#20618e 制图蓝</b>6.53:1 · 白字 6.64:1</div></div>
+      <div class="swatch"><div class="chip" style="background:#2f6b46"></div><div class="meta"><b>#2f6b46 成功</b>6.23:1 on sheet</div></div>
+      <div class="swatch"><div class="chip" style="background:#8a5a12"></div><div class="meta"><b>#8a5a12 警告</b>5.81:1 on sheet</div></div>
+      <div class="swatch"><div class="chip" style="background:#b0301c"></div><div class="meta"><b>#b0301c 危险</b>6.28:1 · 与蓝半个色环</div></div>
+      <div class="swatch"><div class="chip" style="background:#9dbcd0"></div><div class="meta"><b>#9dbcd0 导线</b>纯装饰，不承载语义</div></div>
+    </div>
+  </div>
+
+  <div>
+    <div class="spec-label">Type · 一族 grotesque，字重承担层级</div>
+    <div class="type-row">
+      <span class="t-display">环境总览 Environment</span>
+      <span class="t-body">正文 15px：本机已安装 Agent 及其当前配置。IBM Plex Sans 400 与 Noto Sans SC 混排。</span>
+      <span class="t-mono">mono 注记 · claude-fable-5[1m] · ~/.claude/settings.json</span>
+    </div>
+  </div>
+
+  <!-- ==================== 总览 mock ==================== -->
+  <div class="window" role="img" aria-label="总览页视觉比稿">
+    <aside class="sidebar">
+      <div class="brand-line"><span class="brand-mark">BA</span><b>BootAgent</b></div>
+      <nav class="nav">
+        <a class="active" href="#">环境总览</a>
+        <a href="#">模型服务</a>
+        <a href="#">配置模版</a>
+        <a href="#">MCP 服务器</a>
+        <a href="#">Skills</a>
+        <a href="#">本地格式转换</a>
+        <a href="#">设置</a>
+      </nav>
+      <div class="foot">v0.2.0-dev</div>
+    </aside>
+
+    <div class="main">
+      <div class="page-head">
+        <div>
+          <h2>环境总览</h2>
+          <div class="desc">本机已安装 Agent 及其当前配置</div>
+          <div class="head-actions">
+            <button class="btn secondary small">刷新状态</button>
+            <button class="btn primary small">安装 Agent</button>
+          </div>
+        </div>
+        <div class="titleblock" aria-label="图签">
+          <div><b>SHEET 01</b>ENVIRONMENT OVERVIEW</div>
+          <div><b>REV 08de571</b>2026-08-17</div>
+        </div>
+      </div>
+
+      <!-- 图区 A：命令行 Agent -->
+      <section class="zone">
+        <div class="zone-head">
+          <span class="zone-letter">A</span><h3>命令行 Agent</h3><span class="count">9 项 · 显示 4</span>
+          <span class="rule"></span>
+        </div>
+        <div class="rows">
+
+          <div class="row">
+            <span class="ref">A1</span>
+            <span class="mark">CX</span>
+            <span class="name"><b>Codex</b><span class="ver">v0.45.2</span></span>
+            <span class="lead">
+              <span class="terminal"></span><span class="wire-line"></span>
+              <span class="note">PPIO · gpt-5.2-codex · high</span>
+            </span>
+            <span class="badge ok">已安装 · 已配置</span>
+            <span class="row-actions">
+              <button class="btn secondary small">启动</button>
+              <button class="btn secondary small">详情</button>
+            </span>
+          </div>
+
+          <div class="row expanded">
+            <span class="ref">A2</span>
+            <span class="mark">CC</span>
+            <span class="name"><b>Claude Code</b><span class="ver">v2.1.220</span></span>
+            <span class="lead">
+              <span class="terminal"></span><span class="wire-line"></span>
+              <span class="note">JieKou.AI · claude-fable-5[1m]</span>
+            </span>
+            <span class="badge ok">已安装 · 已配置</span>
+            <span class="row-actions">
+              <button class="btn primary small">启动</button>
+              <button class="btn secondary small">配置</button>
+            </span>
+            <div class="detail">
+              <span class="kv"><b>配置</b><code>~/.claude/settings.json</code></span>
+              <span class="kv"><b>检测状态</b><span class="ok-text">与绑定一致</span></span>
+              <span class="kv"><b>配置模版</b>默认 · Anthropic Messages</span>
+              <span class="kv"><b>启动目录</b><code>~/Documents/BootAgent</code></span>
+            </div>
+          </div>
+
+          <div class="row">
+            <span class="ref">A7</span>
+            <span class="mark">KM</span>
+            <span class="name"><b>Kimi Code</b><span class="ver">v1.8.0</span></span>
+            <span class="lead is-warn">
+              <span class="terminal"></span><span class="wire-line"></span>
+              <span class="note">检测到的配置，非 BootAgent 写入</span>
+            </span>
+            <span class="badge warn">已安装 · 未配置</span>
+            <span class="row-actions">
+              <button class="btn secondary small">配置</button>
+              <button class="btn secondary small">详情</button>
+            </span>
+          </div>
+
+          <div class="row is-off">
+            <span class="ref">A3</span>
+            <span class="mark">KL</span>
+            <span class="name"><b>Kilo CLI</b><span class="ver">未安装</span></span>
+            <span class="lead is-idle">
+              <span class="terminal"></span><span class="wire-line"></span>
+              <span class="note">未配置</span>
+            </span>
+            <span class="badge idle">待安装</span>
+            <span class="row-actions">
+              <button class="btn secondary small">安装</button>
+            </span>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- 图区 B：桌面 Agent -->
+      <section class="zone">
+        <div class="zone-head">
+          <span class="zone-letter">B</span><h3>桌面 Agent</h3><span class="count">3 项 · 显示 2</span>
+          <span class="rule"></span>
+        </div>
+        <div class="rows">
+          <div class="row">
+            <span class="ref">B1</span>
+            <span class="mark">GP</span>
+            <span class="name"><b>ChatGPT Desktop</b><span class="ver">1.2026.210</span></span>
+            <span class="lead">
+              <span class="terminal"></span><span class="wire-line"></span>
+              <span class="note">与 Codex 共享配置 · config.toml</span>
+            </span>
+            <span class="badge ok">已安装 · 已配置</span>
+            <span class="row-actions"><button class="btn secondary small">打开</button></span>
+          </div>
+          <div class="row is-off">
+            <span class="ref">B3</span>
+            <span class="mark">ZC</span>
+            <span class="name"><b>ZCode</b><span class="ver">未安装</span></span>
+            <span class="lead is-idle">
+              <span class="terminal"></span><span class="wire-line"></span>
+              <span class="note">未配置</span>
+            </span>
+            <span class="badge idle">待安装</span>
+            <span class="row-actions"><button class="btn secondary small">获取</button></span>
+          </div>
+        </div>
+      </section>
+
+      <!-- 图区 C：运行时（尺寸标注） -->
+      <section class="zone">
+        <div class="zone-head">
+          <span class="zone-letter">C</span><h3>运行时</h3>
+          <span class="rule"></span>
+        </div>
+        <div class="rows">
+          <div class="row" style="grid-template-columns: 34px 1fr auto;">
+            <span class="ref">C1</span>
+            <span style="display:flex; gap:28px; align-items:center; flex-wrap:wrap;">
+              <span class="dim"><span class="dim-line"></span><span class="dim-text"><span class="ok-dot">●</span> node 22.16.0</span><span class="dim-line"></span></span>
+              <span class="dim"><span class="dim-line"></span><span class="dim-text"><span class="ok-dot">●</span> uv 0.9.2</span><span class="dim-line"></span></span>
+              <span class="dim"><span class="dim-line"></span><span class="dim-text">python 3.12 · 按需</span><span class="dim-line"></span></span>
+            </span>
+            <span class="badge ok">可用</span>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <!-- ==================== 组件规格 ==================== -->
+  <div>
+    <div class="spec-label">Components · 按钮 / 徽标 / 输入 / 焦点</div>
+    <div class="components">
+      <span class="group">
+        <button class="btn primary">安装 Agent</button>
+        <button class="btn secondary">刷新状态</button>
+        <button class="btn danger">删除模版</button>
+        <button class="btn secondary demo-focus">焦点态</button>
+      </span>
+      <span class="group">
+        <span class="badge ok">已安装</span>
+        <span class="badge warn">待安装</span>
+        <span class="badge idle">未配置</span>
+        <span class="badge err">失败</span>
+      </span>
+      <span class="field"><span class="ph">sk-…（API Key）</span></span>
+    </div>
+  </div>
+
+  <!-- ==================== 暗色条带 ==================== -->
+  <div class="dark-band">
+    <div class="inner">
+      <div class="band-label">Dark · Cyanotype（蓝晒反转，同一套 token 名）</div>
+      <div class="rows">
+        <div class="row">
+          <span class="ref">A2</span>
+          <span class="mark">CC</span>
+          <span class="name"><b>Claude Code</b><span class="ver">v2.1.220</span></span>
+          <span class="lead">
+            <span class="terminal"></span><span class="wire-line"></span>
+            <span class="note">JieKou.AI · claude-fable-5[1m]</span>
+          </span>
+          <span class="badge ok">已安装 · 已配置</span>
+          <span class="row-actions">
+            <button class="btn primary small">启动</button>
+            <button class="btn secondary small">配置</button>
+          </span>
+        </div>
+        <div class="row is-off">
+          <span class="ref">A3</span>
+          <span class="mark">KL</span>
+          <span class="name"><b>Kilo CLI</b><span class="ver">未安装</span></span>
+          <span class="lead is-idle">
+            <span class="terminal"></span><span class="wire-line"></span>
+            <span class="note">未配置</span>
+          </span>
+          <span class="badge idle">待安装</span>
+          <span class="row-actions"><button class="btn secondary small">安装</button></span>
+        </div>
+      </div>
+      <div style="display:flex; gap:8px; margin-top:14px;">
+        <button class="btn primary">安装 Agent</button>
+        <button class="btn secondary">刷新状态</button>
+        <span class="badge err" style="align-self:center;">失败</span>
+        <span class="badge warn" style="align-self:center;">待安装</span>
+      </div>
+    </div>
+  </div>
+
+  <p class="footnote">
+    签名元素只出现在三处：总览（图签 / 图区字母与位号 / 引出线 / 网格纸）、向导 review 的
+    尺寸标注 diff、空态制图框。零软阴影预算：卡片靠 1px 墨线分层，阴影仅保留给窗口层。
+    比稿经 CDN 加载字体仅供预览；产品实现本地打包 <code>IBM Plex Sans / Plex Mono / Noto Sans SC</code>。
+  </p>
+
+</div>
+</body>
+</html>

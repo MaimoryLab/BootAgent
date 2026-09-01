@@ -83,6 +83,7 @@ jobs:
           fix: true
           globs: |
             docs/**/*.md
+            !docs/需求收集会议文档.md
             *.md
 
   frontend:

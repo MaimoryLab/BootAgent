@@ -19,6 +19,16 @@ func NewSkillService(core *app.UseCases) *SkillService {
 	return &SkillService{core: core}
 }
 
+func (s *SkillService) Export(ctx context.Context, id, hash string) ([]byte, error) {
+	if err := contextError(ctx); err != nil {
+		return nil, err
+	}
+	if s == nil || s.core == nil {
+		return nil, notReady("Skill service is not configured")
+	}
+	return s.core.ExportSkill(ctx, id, hash)
+}
+
 func (s *SkillService) List(ctx context.Context) ([]app.SkillSummary, error) {
 	if err := contextError(ctx); err != nil {
 		return nil, err
