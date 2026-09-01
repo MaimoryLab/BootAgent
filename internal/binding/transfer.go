@@ -78,8 +78,17 @@ func (s *TransferService) PreviewV2(ctx context.Context, data []byte) (transfer.
 	if err := contextError(ctx); err != nil {
 		return transfer.Preview{}, err
 	}
-	preview, _, err := transfer.PreviewPackage(data)
-	return preview, err
+	return s.core.PreviewTransferV2(ctx, data)
+}
+
+func (s *TransferService) ApplyV2(ctx context.Context, data []byte) error {
+	if err := contextError(ctx); err != nil {
+		return err
+	}
+	if s == nil || s.core == nil {
+		return notReady("Transfer service is not configured")
+	}
+	return s.core.ImportTransferV2(ctx, data)
 }
 
 func (s *TransferService) Write(ctx context.Context, data string) error {

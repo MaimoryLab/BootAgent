@@ -11,9 +11,88 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 )
 
 const maxExportBytes = 128 << 20
+
+// ExtractArchive validates and extracts a single Skill archive into dest.
+// The destination is caller-owned and is never an Agent directory.
+func ExtractArchive(ctx context.Context, data []byte, dest string) (ExportManifest, error) {
+	if len(data) == 0 || len(data) > maxExportBytes {
+		return ExportManifest{}, errors.New("Skill archive exceeds size limit")
+	}
+	r, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+	if err != nil {
+		return ExportManifest{}, errors.New("Skill archive is invalid")
+	}
+	var manifest ExportManifest
+	seen := map[string]bool{}
+	total := int64(0)
+	files := 0
+	for _, entry := range r.File {
+		name := filepath.ToSlash(entry.Name)
+		clean := filepath.Clean(filepath.FromSlash(name))
+		if name == "" || clean != filepath.FromSlash(name) || filepath.IsAbs(clean) || strings.HasPrefix(clean, ".."+string(filepath.Separator)) || strings.ContainsRune(name, '\x00') {
+			return ExportManifest{}, errors.New("Skill archive contains unsafe path")
+		}
+		if seen[name] {
+			return ExportManifest{}, errors.New("Skill archive contains duplicate paths")
+		}
+		seen[name] = true
+		if name == "manifest.json" {
+			reader, e := entry.Open()
+			if e != nil {
+				return ExportManifest{}, e
+			}
+			raw, e := io.ReadAll(io.LimitReader(reader, maxMetadataBytes+1))
+			_ = reader.Close()
+			if e != nil || len(raw) > maxMetadataBytes || json.Unmarshal(raw, &manifest) != nil {
+				return ExportManifest{}, errors.New("Skill archive manifest is invalid")
+			}
+			continue
+		}
+		if entry.FileInfo().IsDir() {
+			continue
+		}
+		if entry.FileInfo().Mode()&os.ModeSymlink != 0 || !entry.FileInfo().Mode().IsRegular() {
+			return ExportManifest{}, errors.New("Skill archive contains unsupported file type")
+		}
+		if entry.UncompressedSize64 > uint64(maxExportBytes-total) {
+			return ExportManifest{}, errors.New("Skill archive exceeds size limit")
+		}
+		reader, e := entry.Open()
+		if e != nil {
+			return ExportManifest{}, e
+		}
+		content, e := io.ReadAll(io.LimitReader(reader, maxExportBytes-total+1))
+		_ = reader.Close()
+		if e != nil || int64(len(content)) > maxExportBytes-total {
+			return ExportManifest{}, errors.New("Skill archive exceeds size limit")
+		}
+		target := filepath.Join(dest, filepath.FromSlash(name))
+		if err := os.MkdirAll(filepath.Dir(target), 0o700); err != nil {
+			return ExportManifest{}, err
+		}
+		if err := os.WriteFile(target, content, 0o600); err != nil {
+			return ExportManifest{}, err
+		}
+		total += int64(len(content))
+		files++
+		if err := contextError(ctx); err != nil {
+			return ExportManifest{}, err
+		}
+	}
+	if manifest.Format != "bootagent-skill" || manifest.Version != 1 || manifest.ID == "" {
+		return ExportManifest{}, errors.New("Skill archive manifest is invalid")
+	}
+	if err := ValidateID(manifest.ID); err != nil {
+		return ExportManifest{}, err
+	}
+	manifest.Variant.Files = files
+	manifest.Variant.Bytes = total
+	return manifest, nil
+}
 
 type ExportManifest struct {
 	Format      string        `json:"format"`

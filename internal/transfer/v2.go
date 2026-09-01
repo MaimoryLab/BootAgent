@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"path"
+	"slices"
 	"sort"
 	"strings"
 )
@@ -36,6 +37,9 @@ type Preview struct {
 	Profiles  int      `json:"profiles"`
 	MCP       int      `json:"mcp"`
 	Skills    []string `json:"skills"`
+	// SkillConflicts lists duplicate Skill IDs in the package. Existing local
+	// library conflicts are resolved by the confirmation/apply layer.
+	SkillConflicts []string `json:"skill_conflicts,omitempty"`
 }
 
 // PreviewPackage validates all declared resources, including nested Skill ZIPs,
@@ -47,6 +51,40 @@ func PreviewPackage(data []byte) (Preview, Package, error) {
 		return Preview{}, Package{}, err
 	}
 	preview := Preview{}
+	if raw := pkg.Files["config.json"]; len(raw) > 0 {
+		var config map[string]json.RawMessage
+		if err := json.Unmarshal(raw, &config); err != nil {
+			return Preview{}, Package{}, errors.New("invalid config section")
+		}
+		if providers := config["providers"]; len(providers) > 0 {
+			var p struct {
+				Providers []json.RawMessage `json:"providers"`
+			}
+			if json.Unmarshal(providers, &p) != nil {
+				return Preview{}, Package{}, errors.New("invalid providers section")
+			}
+			preview.Providers = len(p.Providers)
+		}
+		if profiles := config["profiles"]; len(profiles) > 0 {
+			var p []json.RawMessage
+			if json.Unmarshal(profiles, &p) != nil {
+				return Preview{}, Package{}, errors.New("invalid profiles section")
+			}
+			preview.Profiles = len(p)
+		}
+		if mcp := config["mcp"]; len(mcp) > 0 {
+			var p map[string]json.RawMessage
+			if json.Unmarshal(mcp, &p) != nil {
+				return Preview{}, Package{}, errors.New("invalid MCP section")
+			}
+			if list, ok := p["servers"]; ok {
+				var s []json.RawMessage
+				if json.Unmarshal(list, &s) == nil {
+					preview.MCP = len(s)
+				}
+			}
+		}
+	}
 	if raw := pkg.Files["providers.json"]; len(raw) > 0 {
 		var payload struct {
 			Providers []json.RawMessage `json:"providers"`
@@ -76,15 +114,53 @@ func PreviewPackage(data []byte) (Preview, Package, error) {
 		}
 	}
 	for name, raw := range pkg.Files {
+		if name == "skills.zip" {
+			nested, e := zip.NewReader(bytes.NewReader(raw), int64(len(raw)))
+			if e != nil {
+				return Preview{}, Package{}, errors.New("invalid skills archive")
+			}
+			for _, entry := range nested.File {
+				if entry.FileInfo().IsDir() || !strings.HasSuffix(entry.Name, ".skill.zip") {
+					continue
+				}
+				if err := validPath(entry.Name); err != nil {
+					return Preview{}, Package{}, err
+				}
+				reader, e := entry.Open()
+				if e != nil {
+					return Preview{}, Package{}, e
+				}
+				content, e := io.ReadAll(reader)
+				_ = reader.Close()
+				if e != nil {
+					return Preview{}, Package{}, e
+				}
+				if _, e = zip.NewReader(bytes.NewReader(content), int64(len(content))); e != nil {
+					return Preview{}, Package{}, fmt.Errorf("invalid nested Skill archive %q", entry.Name)
+				}
+				id := strings.TrimSuffix(path.Base(entry.Name), ".skill.zip")
+				if slices.Contains(preview.Skills, id) && !slices.Contains(preview.SkillConflicts, id) {
+					preview.SkillConflicts = append(preview.SkillConflicts, id)
+				}
+				preview.Skills = append(preview.Skills, id)
+				pkg.Files["skills/"+id+".skill.zip"] = content
+			}
+			continue
+		}
 		if !strings.HasPrefix(name, "skills/") || !strings.HasSuffix(name, ".skill.zip") {
 			continue
 		}
 		if _, err := zip.NewReader(bytes.NewReader(raw), int64(len(raw))); err != nil {
 			return Preview{}, Package{}, fmt.Errorf("invalid nested Skill archive %q", name)
 		}
-		preview.Skills = append(preview.Skills, strings.TrimSuffix(strings.TrimPrefix(name, "skills/"), ".skill.zip"))
+		id := strings.TrimSuffix(strings.TrimPrefix(name, "skills/"), ".skill.zip")
+		if slices.Contains(preview.Skills, id) && !slices.Contains(preview.SkillConflicts, id) {
+			preview.SkillConflicts = append(preview.SkillConflicts, id)
+		}
+		preview.Skills = append(preview.Skills, id)
 	}
 	sort.Strings(preview.Skills)
+	sort.Strings(preview.SkillConflicts)
 	return preview, pkg, nil
 }
 

@@ -190,7 +190,21 @@ export function TransferPage() {
     setFailure("");
     setSuccess("");
     try {
-      const raw = await api.readTransferFile();
+      let candidateBytes: Uint8Array | null = null;
+      if (typeof api.readTransferBytes === "function") {
+        try { candidateBytes = await api.readTransferBytes(); } catch { candidateBytes = null; }
+      }
+      const binary = candidateBytes instanceof Uint8Array ? candidateBytes : new TextEncoder().encode(await api.readTransferFile());
+      if (binary.length >= 2 && binary[0] === 0x50 && binary[1] === 0x4b) {
+        const preview = await api.previewTransferV2(binary);
+        const skills = preview.skills ?? [];
+        if (!window.confirm(t("确认将 {count} 个 Skill 导入 BootAgent 库？", { count: String(skills.length) }))) return setSuccess(t("已取消导入"));
+        await api.applyTransferV2(binary);
+        await refreshStatus();
+        setSuccess(t("导入完成"));
+        return;
+      }
+      const raw = new TextDecoder().decode(binary);
       // Overwriting existing records is the point of an import, but it takes the
       // saved API keys with it, so it is confirmed the way deleting one is.
       const incoming = transferSummary(raw);
@@ -241,7 +255,7 @@ export function TransferPage() {
 
   useEffect(() => {
     void api.listMCP().then((items) => setMcpServers((items ?? []).map(({ id, type }) => ({ id, type })))).catch(() => setMcpServers([]));
-    void api.listSkills().then((items) => setSkills(items ?? [])).catch(() => setSkills([]));
+    void api.listSkills().then((items) => setSkills(Array.isArray(items) ? items : [])).catch(() => setSkills([]));
   }, []);
 
   if (!status) return <PageScaffold title={t("导入导出")}><div className="loading-block"><span className="spinner" />{t("正在读取环境状态")}</div></PageScaffold>;

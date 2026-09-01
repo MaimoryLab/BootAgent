@@ -9,6 +9,10 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 // @ts-ignore: Unused imports
 import * as transfer$0 from "../transfer/models.js";
 
+export function ApplyV2(data: string | null): $CancellablePromise<void> {
+    return $Call.ByID(1345229917, data);
+}
+
 export function ExportV2(providerIDs: string[] | null, profileIDs: string[] | null, mcpIDs: string[] | null, skillIDs: string[] | null): $CancellablePromise<string | null> {
     return $Call.ByID(1870855265, providerIDs, profileIDs, mcpIDs, skillIDs);
 }

@@ -6,4 +6,10 @@ export interface Preview {
     "profiles": number;
     "mcp": number;
     "skills": string[] | null;
+
+    /**
+     * SkillConflicts lists duplicate Skill IDs in the package. Existing local
+     * library conflicts are resolved by the confirmation/apply layer.
+     */
+    "skill_conflicts"?: string[] | null;
 }
