@@ -175,6 +175,8 @@ const english = {
   "检查更新失败": "Could not check for updates",
   "立即更新": "Update now",
   "选择要迁移的模型服务和配置模版": "Choose the providers and profiles to transfer",
+  "搜索导入导出内容": "Search providers, profiles, MCP servers, and Skills",
+  "没有匹配的导出内容": "No exportable items match your search",
   "导入": "Import",
   "导出": "Export",
   "导入完成": "Import complete",

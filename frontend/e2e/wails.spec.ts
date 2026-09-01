@@ -64,6 +64,17 @@ test("every sidebar control at the bottom is actually clickable", async ({ page 
   }
 });
 
+test("transfer lists stay bounded and can be searched", async ({ page }) => {
+  await page.goto("/#/settings/transfer");
+  await expect(page.getByRole("heading", { name: "导入导出" })).toBeVisible();
+  const list = page.locator(".transfer-list").first();
+  await expect(list).toBeVisible();
+  expect(await list.evaluate((element) => getComputedStyle(element).overflowY)).toBe("auto");
+  const search = page.getByRole("textbox", { name: "搜索导入导出内容" });
+  await search.fill("__no_such_transfer_item__");
+  await expect(page.getByText("没有匹配的导出内容")).toBeVisible();
+});
+
 test("a machine with no BootAgent state opens onboarding from the landing route", async ({ page }) => {
   await page.goto("/#/");
   await expect(page.getByRole("heading", { name: "选择 Agent", level: 1 })).toBeVisible();
