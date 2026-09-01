@@ -218,6 +218,8 @@ const english = {
   "全选": "Select all",
   "取消全选": "Clear selection",
   "配置模版依赖": "Required by profile",
+  "个版本": "versions",
+  "暂无可导出的 Skills": "No Skills available for export",
   "语言": "Language",
   "外观": "Appearance",
   "跟随系统": "System",

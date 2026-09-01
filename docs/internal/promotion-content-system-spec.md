@@ -1,8 +1,8 @@
 # BootAgent 版本推广内容系统定版需求
 
-**状态：** Draft for implementation（定版约束已冻结）  
-**适用范围：** 每次 BootAgent 发布新版本时，自动生成小红书与 X 两套推广内容  
-**维护位置：** `docs/internal/`  
+**状态：** Draft for implementation（定版约束已冻结）
+**适用范围：** 每次 BootAgent 发布新版本时，自动生成小红书与 X 两套推广内容
+**维护位置：** `docs/internal/`
 **最后更新：** 2026-08-25
 
 ## 1. 目标与边界
