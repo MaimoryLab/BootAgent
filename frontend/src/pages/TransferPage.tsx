@@ -142,9 +142,7 @@ export function TransferPage() {
     try {
       // Every abort below reports itself. Returning silently left the page back
       // at rest with no way to tell whether a file had been written.
-      // v2 bundles are deliberately secret-free; the backend never embeds API
-      // keys in a package that also contains Skill content.
-      const keys = selectedSkills.size ? "omit" as const : await askEncryption();
+      const keys = await askEncryption();
       if (keys === null) return setSuccess(t("已取消导出"));
       const password = keys === "encrypted" ? await askPassword("export") : "";
       if (keys === "encrypted" && !password) return setSuccess(t("已取消导出"));
@@ -152,7 +150,11 @@ export function TransferPage() {
       const mcp = selectedMcp.size ? JSON.parse(await api.exportMCP(keys === "encrypted" ? "encrypted" : keys === "plain" ? "plaintext" : "omit", password || "", keys === "plain", [...selectedMcp])) : undefined;
       const selected = profiles.filter((profile) => selectedProfiles.has(profile.id));
       if (selectedSkills.size) {
-        await api.writeTransferBytes(await api.exportTransferV2([...exportProviders], selected.map((profile) => profile.id), [...selectedMcp], [...selectedSkills]));
+        if (selectedSkills.size > 1 || selectedProfiles.size || exportProviders.size || selectedMcp.size) throw new Error("单 Skill 导出不能与其他类型同时选择");
+        const skill = skills.find((item) => selectedSkills.has(item.id));
+        const hash = skill?.variant_hashes?.[0];
+        if (!skill || !hash) throw new Error("选中的 Skill 没有可导出的版本");
+        await api.writeTransferBytes(await api.exportSkill(skill.id, hash));
       } else {
         await api.writeTransferFile(stringifyTransfer(await makeTransfer(selected, entries, keys, password || "", mcp)));
       }
