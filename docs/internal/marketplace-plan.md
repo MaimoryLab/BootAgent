@@ -48,8 +48,8 @@ Agent 对话框即可完成安装，无需引导式流程。
 
 ### 阶段一的内容来源（静态快照）
 
-前端内置静态目录 `frontend/src/data/marketplace-catalog.ts`，手工整理若干
-示例条目覆盖五个分类，验证 UI 和复制安装流程。
+静态目录由 `manifests/marketplace.lock.json` 管理，随 Go 二进制通过 `go:embed`
+提供给前端；前端只保留 SkillHub 在线数据的归一化适配器。
 
 ### 阶段三的内容来源（远程索引，计划）
 
@@ -74,7 +74,7 @@ Agent 对话框即可完成安装，无需引导式流程。
 **新增：**
 
 - `frontend/src/types/marketplace.ts` — 数据模型类型定义
-- `frontend/src/data/marketplace-catalog.ts` — 阶段一静态目录
+- `manifests/marketplace.lock.json` — 嵌入式静态目录
 - `frontend/src/utils/clipboard.ts` — 剪贴板工具函数
 - `frontend/src/components/CopyPromptButton.tsx` — 复制按钮组件
 - `frontend/src/pages/MarketplacePage.tsx` — 市场主页
@@ -89,10 +89,10 @@ Agent 对话框即可完成安装，无需引导式流程。
 
 ## 阶段计划
 
-### 阶段一（当前）
+### 阶段一（已实施）
 
-- `MarketplacePage` + 静态本地目录 + 复制提示词流程 + 生态推荐 Tab
-- 不涉及后端改动，纯前端验证 UI 和交互
+- `MarketplacePage` + 嵌入式静态目录 + 复制提示词流程 + 生态推荐 Tab
+- `MarketplaceService.Catalog` 通过 Wails 向前端提供目录
 - 通过 `pnpm run typecheck`、`pnpm run test`、`pnpm run build`
 
 ### 阶段二（待排期）
@@ -116,7 +116,7 @@ Agent 对话框即可完成安装，无需引导式流程。
 
 ## 在线数据源（2026-08-25 落地）
 
-运行时在线拉取已实现，取代「更新数据必须发版」的纯快照模式：
+运行时在线拉取已实现，静态目录由 Go manifest 提供：
 
 - **skillhub 部分走 showcase API 直连**：`useMarketplaceCatalog` hook
   （`frontend/src/data/useMarketplaceCatalog.ts`）在首次挂载时 fetch
@@ -134,11 +134,11 @@ Agent 对话框即可完成安装，无需引导式流程。
   WebView 中 fetch 会被拦截。因此当前环境下在线拉取通常失败并自动落到
   快照兜底（标识显示「离线快照」），机制无损但不生效。要真正打通需走
   Go 后端中转（即原阶段三的 `MarketplaceService` 方案），列为后续项。
-- **快照兜底**：fetch 失败（断网、超时、payload 异常）保持构建时快照
-  `skillhub-hot.json`，标识显示「离线快照」。模块级 promise 缓存保证
+- **快照兜底**：fetch 失败（断网、超时、payload 异常）保持嵌入式 manifest
+  快照，标识显示「离线快照」。模块级 promise 缓存保证
   列表页与详情页共用同一次请求，每次应用会话至多 fetch 一次。
-- **mcpservers 仍为快照**：mcpservers.org 无 JSON API，
-  `mcpservers-catalog.json` 继续随版本分发。
+- **其他来源仍为快照**：统一写入 `manifests/marketplace.lock.json`，不再在
+  `frontend/src/data/` 中维护条目代码或快照文件。
 - **详情页增强**：skillhub 条目详情页额外直连
   `https://api.skillhub.cn/api/v1/skills/{slug}` 渲染安全审核
   （科恩/三堡）、版本信息与作者区块，失败静默降级不阻塞页面
