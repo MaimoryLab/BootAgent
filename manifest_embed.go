@@ -35,3 +35,8 @@ func EmbeddedProviderLock() ([]byte, error) {
 func EmbeddedRuntimeLock() ([]byte, error) {
 	return LockManifest.ReadFile("manifests/runtimes.lock.json")
 }
+
+// EmbeddedMarketplaceLock returns a fresh copy of marketplace.lock.json.
+func EmbeddedMarketplaceLock() ([]byte, error) {
+	return LockManifest.ReadFile("manifests/marketplace.lock.json")
+}
