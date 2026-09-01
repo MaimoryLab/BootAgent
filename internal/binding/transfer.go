@@ -9,6 +9,7 @@ import (
 	"github.com/MaimoryLab/BootAgent/internal/app"
 	oneerrors "github.com/MaimoryLab/BootAgent/internal/errors"
 	"github.com/MaimoryLab/BootAgent/internal/securefs"
+	"github.com/MaimoryLab/BootAgent/internal/transfer"
 )
 
 type TransferService struct {
@@ -54,6 +55,31 @@ func (s *TransferService) Read(ctx context.Context) (string, error) {
 		return "", oneerrors.New(oneerrors.InvalidRequest, "Cannot read import file", oneerrors.WithCause(err))
 	}
 	return string(data), nil
+}
+
+// ReadBytes reads a JSON or v2 ZIP transfer package without converting binary
+// data through UTF-8. The frontend receives it as a base64 string via Wails.
+func (s *TransferService) ReadBytes(ctx context.Context) ([]byte, error) {
+	if err := contextError(ctx); err != nil {
+		return nil, err
+	}
+	path, err := s.selectImport()
+	if err != nil || path == "" {
+		return nil, oneerrors.New(oneerrors.InvalidRequest, "file selection cancelled")
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, oneerrors.New(oneerrors.InvalidRequest, "Cannot read import file", oneerrors.WithCause(err))
+	}
+	return data, nil
+}
+
+func (s *TransferService) PreviewV2(ctx context.Context, data []byte) (transfer.Preview, error) {
+	if err := contextError(ctx); err != nil {
+		return transfer.Preview{}, err
+	}
+	preview, _, err := transfer.PreviewPackage(data)
+	return preview, err
 }
 
 func (s *TransferService) Write(ctx context.Context, data string) error {

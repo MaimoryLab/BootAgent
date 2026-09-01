@@ -13,7 +13,7 @@ func selectImportFile() (string, error) {
 	if app == nil {
 		return "", fmt.Errorf("desktop file dialog is unavailable")
 	}
-	return app.Dialog.OpenFile().SetTitle("Select import file").AddFilter("JSON", "*.json").PromptForSingleSelection()
+	return app.Dialog.OpenFile().SetTitle("Select import file").AddFilter("Transfer files", "*.json;*.zip").PromptForSingleSelection()
 }
 
 func selectExportFile() (string, error) {

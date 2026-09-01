@@ -31,6 +31,63 @@ type Package struct {
 	Files    map[string][]byte
 }
 
+type Preview struct {
+	Providers int      `json:"providers"`
+	Profiles  int      `json:"profiles"`
+	MCP       int      `json:"mcp"`
+	Skills    []string `json:"skills"`
+}
+
+// PreviewPackage validates all declared resources, including nested Skill ZIPs,
+// without touching the user's configuration. It is intentionally stricter than
+// Parse so an import confirmation never describes a package that cannot apply.
+func PreviewPackage(data []byte) (Preview, Package, error) {
+	pkg, err := Parse(data)
+	if err != nil {
+		return Preview{}, Package{}, err
+	}
+	preview := Preview{}
+	if raw := pkg.Files["providers.json"]; len(raw) > 0 {
+		var payload struct {
+			Providers []json.RawMessage `json:"providers"`
+		}
+		if err := json.Unmarshal(raw, &payload); err != nil {
+			return Preview{}, Package{}, errors.New("invalid providers section")
+		}
+		preview.Providers = len(payload.Providers)
+	}
+	if raw := pkg.Files["profiles.json"]; len(raw) > 0 {
+		var payload []json.RawMessage
+		if err := json.Unmarshal(raw, &payload); err != nil {
+			return Preview{}, Package{}, errors.New("invalid profiles section")
+		}
+		preview.Profiles = len(payload)
+	}
+	if raw := pkg.Files["mcp.json"]; len(raw) > 0 {
+		var payload map[string]json.RawMessage
+		if err := json.Unmarshal(raw, &payload); err != nil {
+			return Preview{}, Package{}, errors.New("invalid MCP section")
+		}
+		if servers, ok := payload["servers"]; ok {
+			var list []json.RawMessage
+			if json.Unmarshal(servers, &list) == nil {
+				preview.MCP = len(list)
+			}
+		}
+	}
+	for name, raw := range pkg.Files {
+		if !strings.HasPrefix(name, "skills/") || !strings.HasSuffix(name, ".skill.zip") {
+			continue
+		}
+		if _, err := zip.NewReader(bytes.NewReader(raw), int64(len(raw))); err != nil {
+			return Preview{}, Package{}, fmt.Errorf("invalid nested Skill archive %q", name)
+		}
+		preview.Skills = append(preview.Skills, strings.TrimSuffix(strings.TrimPrefix(name, "skills/"), ".skill.zip"))
+	}
+	sort.Strings(preview.Skills)
+	return preview, pkg, nil
+}
+
 func Build(files map[string][]byte) ([]byte, error) {
 	sections := make([]string, 0, len(files))
 	for name := range files {

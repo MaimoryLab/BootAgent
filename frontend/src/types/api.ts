@@ -4,6 +4,7 @@ import type * as CatalogModels from "../../bindings/github.com/MaimoryLab/BootAg
 import type * as MCPModels from "../../bindings/github.com/MaimoryLab/BootAgent/internal/mcp/models.js";
 import type * as PlatformModels from "../../bindings/github.com/MaimoryLab/BootAgent/internal/platform/models.js";
 import type * as ProviderModels from "../../bindings/github.com/MaimoryLab/BootAgent/internal/provider/models.js";
+import type * as TransferModels from "../../bindings/github.com/MaimoryLab/BootAgent/internal/transfer/models.js";
 
 type PlatformId = "macos" | "windows" | "linux";
 type AgentGroupId = "auto" | "gateway" | "platform" | "ide";
@@ -25,6 +26,7 @@ export type SkillApplyResult = AppModels.SkillApplyResult;
 export type SkillChange = AppModels.SkillChange;
 export type SkillBackupSummary = AppModels.SkillBackupSummary;
 export type SkillUninstallResult = AppModels.SkillUninstallResult;
+export type TransferV2Preview = TransferModels.Preview;
 
 export const PROTOCOL_LABELS: Record<ProtocolId, string> = {
   openai: "OpenAI Chat Completions",
