@@ -25,3 +25,36 @@ func TestV2RejectsUnsafePaths(t *testing.T) {
 		}
 	}
 }
+
+func TestPreviewPackageValidatesSectionsAndNestedSkills(t *testing.T) {
+	nested, err := Build(map[string][]byte{"SKILL.md": []byte("# Demo")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := Build(map[string][]byte{
+		"providers.json":        []byte(`{"providers":[{}]}`),
+		"profiles.json":         []byte(`[{}]`),
+		"mcp.json":              []byte(`{"servers":[{}]}`),
+		"skills/demo.skill.zip": nested,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	preview, _, err := PreviewPackage(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if preview.Providers != 1 || preview.Profiles != 1 || preview.MCP != 1 || len(preview.Skills) != 1 || preview.Skills[0] != "demo" {
+		t.Fatalf("preview = %#v", preview)
+	}
+}
+
+func TestPreviewPackageRejectsInvalidNestedSkill(t *testing.T) {
+	data, err := Build(map[string][]byte{"skills/demo.skill.zip": []byte("not a zip")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := PreviewPackage(data); err == nil {
+		t.Fatal("invalid nested archive accepted")
+	}
+}

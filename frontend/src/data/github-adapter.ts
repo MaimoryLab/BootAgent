@@ -45,6 +45,7 @@ const repositories: GitHubRepositorySpec[] = ([
   ["open-webui/open-webui", "Open WebUI", "支持 Ollama 和 OpenAI API 的自托管 AI 界面。", "A self-hosted AI interface supporting Ollama and OpenAI-compatible APIs.", "ai-product", "productivity", ["自托管", "AI 界面"], "Globe", 149939, undefined, "MIT", "main", "https://openwebui.com"],
   ["aaif-goose/goose", "Goose", "可安装、执行、编辑和测试的可扩展开源 AI Agent。", "An extensible open-source AI agent that can install, execute, edit, and test.", "ai-product", "coding", ["开源 Agent", "自动化"], "Terminal", 53480, undefined, "Apache-2.0", "main", "https://block.github.io/goose"],
   ["activepieces/activepieces", "Activepieces", "带有数百个集成的 AI Workflow、Agent 和 MCP 自动化平台。", "An AI workflow and automation platform with agents, MCP, and hundreds of integrations.", "ai-product", "integration", ["AI 自动化", "Workflow"], "Workflow", 24039, undefined, "MIT", "main", "https://www.activepieces.com"],
+  ["MaimoryLab/codeoff", "Codeoff Mobile", "通过手机远程连接和管理电脑上的 Codex Agent，会话控制与审批操作均通过配对设备完成。", "A mobile companion for remotely connecting to and managing a Codex Agent running on your desktop.", "ai-product", "integration", ["移动端", "远程 Agent", "Codex"], "Globe", 3, 1, "Apache-2.0", "main"],
 ] as unknown as RepositoryRow[]).map(([repo, name, description, descriptionEn, category, scene, tags, icon, stars, forks, license, branch, homepage]) => ({ repo, name, description, descriptionEn, category, scene, tags, icon, stars, forks, license, branch, homepage }));
 
 const repositoryCategories: Partial<Record<string, MarketplaceCategory[]>> = {
@@ -56,12 +57,26 @@ const repositoryCategories: Partial<Record<string, MarketplaceCategory[]>> = {
   "activepieces/activepieces": ["ai-product", "workflow"],
 };
 
+const installationGuides: Record<string, string> = {
+  "MaimoryLab/codeoff": "https://raw.githubusercontent.com/MaimoryLab/codeoff/main/INSTALLATION.md",
+};
+
 function githubRawReadme(repo: string, branch: string): string {
   return `https://raw.githubusercontent.com/${repo}/${branch}/README.md`;
 }
 
 function installPrompt(spec: GitHubRepositorySpec): string {
-  return `请帮我安装或部署 GitHub 项目「${spec.name}」。
+	if (spec.repo === "MaimoryLab/codeoff") return `请按 Codeoff 官方安装指南和 README 部署 Codeoff Mobile：
+
+1. 在电脑端安装并启动 Codeoff Server：https://github.com/MaimoryLab/codeoff-server
+2. 确认 Node.js 与 Codex CLI 可用，并启动 Codex app-server。
+3. 同一局域网使用时监听 0.0.0.0:11037；跨网络使用 HTTPS Cloudflare Tunnel。
+4. 在服务端点击 Bind new device，使用 Codeoff Mobile 扫描二维码完成配对。
+5. Android 仅从 GitHub Releases 安装 app-release.apk；iOS 通过官方 TestFlight 安装。
+
+完整安装、配对和故障排查以官方 INSTALLATION.md 为准。`;
+
+	return `请帮我安装或部署 GitHub 项目「${spec.name}」。
 
 仓库：${spec.repo}
 
@@ -85,7 +100,10 @@ export const githubItems: MarketplaceItem[] = repositories.map((spec) => {
     description: spec.description,
     descriptionEn: spec.descriptionEn,
     icon: spec.icon,
-    iconUrl: marketplaceIconUrl({ repositoryUrl }),
+    iconUrl: spec.repo === "MaimoryLab/codeoff"
+      ? "https://raw.githubusercontent.com/MaimoryLab/codeoff/main/assets/codeoff_logo.png"
+      : marketplaceIconUrl({ repositoryUrl }),
+    socialPreviewUrl: spec.repo === "MaimoryLab/codeoff" ? "https://repository-images.githubusercontent.com/1341663262/3fb882ce-5103-4ef1-a561-5df0745200e7" : undefined,
     iconColor: spec.category === "plugin" ? "oklch(62% 0.15 35)" : "oklch(58% 0.15 250)",
     tags: spec.tags,
     scene: spec.scene,
@@ -94,6 +112,7 @@ export const githubItems: MarketplaceItem[] = repositories.map((spec) => {
     sourceUrl: repositoryUrl,
     repositoryUrl,
     documentationUrl: spec.docs ?? `${repositoryUrl}#readme`,
+    installationUrl: installationGuides[spec.repo],
     externalUrl: spec.homepage ?? repositoryUrl,
     readmeUrl: githubRawReadme(spec.repo, branch),
     installPrompt: installPrompt(spec),

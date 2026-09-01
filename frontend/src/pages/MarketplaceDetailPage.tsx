@@ -219,6 +219,17 @@ function MetaSidebar({ item }: { item: MarketplaceItem }) {
           </div>
         ) : null}
 
+        {item.installationUrl ? (
+          <div className="detail-meta-row">
+            <dt>{t("安装指南")}</dt>
+            <dd>
+              <MarketplaceExternalLink href={item.installationUrl} className="detail-meta-link">
+                {t("查看安装指南")} <ExternalLink size={11} aria-hidden="true" />
+              </MarketplaceExternalLink>
+            </dd>
+          </div>
+        ) : null}
+
         {item.githubLicense || item.githubUpdatedAt ? (
           <div className="detail-meta-row">
             <dt>{t("项目数据")}</dt>
@@ -390,6 +401,12 @@ export function MarketplaceDetailPage() {
               ) : item.readmeUrl ? (
                 <ReadmeSection readmeUrl={item.readmeUrl} />
               ) : null}
+            </section>
+          ) : null}
+          {item.installationUrl ? (
+            <section className="detail-readme-section">
+              <h2 className="detail-section-title">{t("安装指南")}</h2>
+              <ReadmeSection readmeUrl={item.installationUrl} />
             </section>
           ) : null}
         </div>

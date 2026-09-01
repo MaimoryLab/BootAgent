@@ -12,6 +12,28 @@ import (
 	"github.com/MaimoryLab/BootAgent/internal/securefs"
 )
 
+func TestExtractArchiveValidatesManifestAndSafePaths(t *testing.T) {
+	source := t.TempDir()
+	if err := os.WriteFile(filepath.Join(source, "SKILL.md"), []byte("demo"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	archive, err := zipTree(context.Background(), source, ExportManifest{Format: "bootagent-skill", Version: 1, ID: "demo"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	dest := filepath.Join(t.TempDir(), "skill")
+	manifest, err := ExtractArchive(context.Background(), archive, dest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if manifest.ID != "demo" {
+		t.Fatalf("manifest = %#v", manifest)
+	}
+	if _, err := os.Stat(dest); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestExportSkillProducesPortableArchive(t *testing.T) {
 	home := t.TempDir()
 	store := NewStore(home, securefs.New(securefs.Options{OS: "linux"}))

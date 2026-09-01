@@ -45,6 +45,14 @@ describe("TransferPage", () => {
     expect(screen.getByRole("button", { name: "取消全选" })).toBeTruthy();
   });
 
+  it("filters transfer rows by provider, profile, and stable id", () => {
+    render(<MemoryRouter><TransferPage /></MemoryRouter>);
+    fireEvent.change(screen.getByRole("textbox", { name: "搜索导入导出内容" }), { target: { value: "团队" } });
+    expect(screen.getByRole("checkbox", { name: /团队/ })).toBeInTheDocument();
+    fireEvent.change(screen.getByRole("textbox", { name: "搜索导入导出内容" }), { target: { value: "不存在的条目" } });
+    expect(screen.queryByRole("checkbox", { name: /团队/ })).toBeNull();
+  });
+
   it("continues encrypted export through the in-app password form", async () => {
     vi.spyOn(api, "getProvider").mockResolvedValue({ id: "ppio", name: "PPIO", home: "", base_url: "https://api.example.test", anthropic_base_url: "", api_key: "secret", built_in: true });
     const write = vi.spyOn(api, "writeTransferFile").mockResolvedValue();
@@ -52,7 +60,7 @@ describe("TransferPage", () => {
     fireEvent.click(screen.getByRole("checkbox", { name: /团队/ }));
     fireEvent.click(screen.getByRole("button", { name: "导出" }));
     fireEvent.click(screen.getByRole("button", { name: "加密包含" }));
-    const password = await screen.findByDisplayValue("");
+    const password = await within(screen.getByRole("dialog")).findByDisplayValue("");
     fireEvent.change(password, { target: { value: "passphrase" } });
     fireEvent.click(screen.getByRole("button", { name: "确认" }));
     await waitFor(() => expect(write).toHaveBeenCalledOnce());

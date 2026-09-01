@@ -1,4 +1,4 @@
-import { CheckCheck, Eye, EyeOff, KeyRound, Sparkles, Upload } from "lucide-react";
+import { CheckCheck, Eye, EyeOff, KeyRound, Search, Sparkles, Upload, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -49,6 +49,7 @@ export function TransferPage() {
   const [selectedMcp, setSelectedMcp] = useState(new Set<string>());
   const [skills, setSkills] = useState<import("../types/api").SkillSummary[]>([]);
   const [selectedSkills, setSelectedSkills] = useState(new Set<string>());
+  const [query, setQuery] = useState("");
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState("");
   const [success, setSuccess] = useState("");
@@ -79,23 +80,35 @@ export function TransferPage() {
 
   const profiles = status?.profiles ?? [];
   const providers = status ? byProviderCreatedAt(status.providers) : [];
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+  const filteredProviders = providers.filter(([id, provider]) => !normalizedQuery || `${id} ${provider.name}`.toLocaleLowerCase().includes(normalizedQuery));
+  const filteredProfiles = profiles.filter((profile) => !normalizedQuery || `${profile.id} ${profile.label} ${status?.providers[profile.provider]?.name ?? profile.provider}`.toLocaleLowerCase().includes(normalizedQuery));
+  const filteredMcpServers = mcpServers.filter((server) => !normalizedQuery || `${server.id} ${server.type}`.toLocaleLowerCase().includes(normalizedQuery));
+  const filteredSkills = skills.filter((skill) => !normalizedQuery || `${skill.id} ${skill.name} ${skill.description}`.toLocaleLowerCase().includes(normalizedQuery));
   const requiredProviders = useMemo(() => new Set(profiles.filter((profile) => selectedProfiles.has(profile.id)).map((profile) => profile.provider)), [profiles, selectedProfiles]);
   const exportProviders = new Set([...selectedProviders, ...requiredProviders]);
   const canExport = selectedProfiles.size > 0 || exportProviders.size > 0 || selectedMcp.size > 0 || selectedSkills.size > 0;
-  const allSelected = (providers.length > 0 || profiles.length > 0 || mcpServers.length > 0 || skills.length > 0)
-    && selectedProviders.size === providers.length && selectedProfiles.size === profiles.length && selectedMcp.size === mcpServers.length && selectedSkills.size === skills.length;
+  const visibleProviderIDs = filteredProviders.map(([id]) => id);
+  const visibleProfileIDs = filteredProfiles.map((profile) => profile.id);
+  const visibleMcpIDs = filteredMcpServers.map((server) => server.id);
+  const visibleSkillIDs = filteredSkills.map((skill) => skill.id);
+  const allSelected = (visibleProviderIDs.length > 0 || visibleProfileIDs.length > 0 || visibleMcpIDs.length > 0 || visibleSkillIDs.length > 0)
+    && visibleProviderIDs.every((id) => selectedProviders.has(id) || requiredProviders.has(id))
+    && visibleProfileIDs.every((id) => selectedProfiles.has(id))
+    && visibleMcpIDs.every((id) => selectedMcp.has(id))
+    && visibleSkillIDs.every((id) => selectedSkills.has(id));
   const toggleAll = () => {
     if (allSelected) {
-      setSelectedProviders(new Set());
-      setSelectedProfiles(new Set());
-      setSelectedMcp(new Set());
-      setSelectedSkills(new Set());
+      setSelectedProviders((current) => new Set([...current].filter((id) => !visibleProviderIDs.includes(id))));
+      setSelectedProfiles((current) => new Set([...current].filter((id) => !visibleProfileIDs.includes(id))));
+      setSelectedMcp((current) => new Set([...current].filter((id) => !visibleMcpIDs.includes(id))));
+      setSelectedSkills((current) => new Set([...current].filter((id) => !visibleSkillIDs.includes(id))));
       return;
     }
-    setSelectedProviders(new Set(providers.map(([id]) => id)));
-    setSelectedProfiles(new Set(profiles.map((profile) => profile.id)));
-    setSelectedMcp(new Set(mcpServers.map((server) => server.id)));
-    setSelectedSkills(new Set(skills.map((skill) => skill.id)));
+    setSelectedProviders((current) => new Set([...current, ...visibleProviderIDs]));
+    setSelectedProfiles((current) => new Set([...current, ...visibleProfileIDs]));
+    setSelectedMcp((current) => new Set([...current, ...visibleMcpIDs]));
+    setSelectedSkills((current) => new Set([...current, ...visibleSkillIDs]));
   };
 
   const askPassword = (mode: "export" | "import") => new Promise<string | null>((resolve) => {
@@ -177,7 +190,21 @@ export function TransferPage() {
     setFailure("");
     setSuccess("");
     try {
-      const raw = await api.readTransferFile();
+      let candidateBytes: Uint8Array | null = null;
+      if (typeof api.readTransferBytes === "function") {
+        try { candidateBytes = await api.readTransferBytes(); } catch { candidateBytes = null; }
+      }
+      const binary = candidateBytes instanceof Uint8Array ? candidateBytes : new TextEncoder().encode(await api.readTransferFile());
+      if (binary.length >= 2 && binary[0] === 0x50 && binary[1] === 0x4b) {
+        const preview = await api.previewTransferV2(binary);
+        const skills = preview.skills ?? [];
+        if (!window.confirm(t("确认将 {count} 个 Skill 导入 BootAgent 库？", { count: String(skills.length) }))) return setSuccess(t("已取消导入"));
+        await api.applyTransferV2(binary);
+        await refreshStatus();
+        setSuccess(t("导入完成"));
+        return;
+      }
+      const raw = new TextDecoder().decode(binary);
       // Overwriting existing records is the point of an import, but it takes the
       // saved API keys with it, so it is confirmed the way deleting one is.
       const incoming = transferSummary(raw);
@@ -228,7 +255,7 @@ export function TransferPage() {
 
   useEffect(() => {
     void api.listMCP().then((items) => setMcpServers((items ?? []).map(({ id, type }) => ({ id, type })))).catch(() => setMcpServers([]));
-    void api.listSkills().then((items) => setSkills(items ?? [])).catch(() => setSkills([]));
+    void api.listSkills().then((items) => setSkills(Array.isArray(items) ? items : [])).catch(() => setSkills([]));
   }, []);
 
   if (!status) return <PageScaffold title={t("导入导出")}><div className="loading-block"><span className="spinner" />{t("正在读取环境状态")}</div></PageScaffold>;
@@ -326,8 +353,16 @@ export function TransferPage() {
           </form>
         </ModalDialog>
       ) : null}
+      <div className="transfer-toolbar">
+        <label className="transfer-search">
+          <Search size={16} aria-hidden="true" />
+          <input aria-label={t("搜索导入导出内容")} value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t("搜索导入导出内容")} />
+          {query ? <button type="button" className="icon-button" onClick={() => setQuery("")} aria-label={t("清空搜索")}><X size={15} /></button> : null}
+        </label>
+        <span className="transfer-search-count">{t("已选择 {count} 项", { count: exportProviders.size + selectedProfiles.size + selectedMcp.size + selectedSkills.size })}</span>
+      </div>
       <div className="transfer-actions">
-        <button className="button button-secondary" type="button" onClick={toggleAll} disabled={busy || (!providers.length && !profiles.length && !mcpServers.length)}>
+        <button className="button button-secondary" type="button" onClick={toggleAll} disabled={busy || (!providers.length && !profiles.length && !mcpServers.length && !skills.length)}>
           <CheckCheck size={15} />{t(allSelected ? "取消全选" : "全选")}
         </button>
       </div>
@@ -335,7 +370,7 @@ export function TransferPage() {
         <section className="transfer-section">
           <header><div><h2>{t("模型服务")}</h2><p>{t("已选择 {count} 项", { count: exportProviders.size })}</p></div></header>
           <div className="transfer-list">
-            {providers.map(([id, provider]) => {
+            {filteredProviders.map(([id, provider]) => {
               const required = requiredProviders.has(id);
               return <label className="transfer-row" key={id}><input type="checkbox" checked={selectedProviders.has(id) || required} disabled={required} onChange={() => setSelectedProviders(toggle(selectedProviders, id))} /><span><strong>{provider.name}</strong><small>{id}</small></span>{required ? <em>{t("配置模版依赖")}</em> : null}</label>;
             })}
@@ -344,17 +379,17 @@ export function TransferPage() {
         <section className="transfer-section">
           <header><div><h2>{t("配置模版")}</h2><p>{t("已选择 {count} 项", { count: selectedProfiles.size })}</p></div></header>
           <div className="transfer-list">
-            {profiles.map((profile) => <label className="transfer-row" key={profile.id}><input type="checkbox" checked={selectedProfiles.has(profile.id)} onChange={() => setSelectedProfiles(toggle(selectedProfiles, profile.id))} /><span><strong>{profile.label || profile.id}</strong><small>{profile.id} · {status.providers[profile.provider]?.name || profile.provider}</small></span></label>)}
+            {filteredProfiles.map((profile) => <label className="transfer-row" key={profile.id}><input type="checkbox" checked={selectedProfiles.has(profile.id)} onChange={() => setSelectedProfiles(toggle(selectedProfiles, profile.id))} /><span><strong>{profile.label || profile.id}</strong><small>{profile.id} · {status.providers[profile.provider]?.name || profile.provider}</small></span></label>)}
           </div>
         </section>
         <section className="transfer-section">
           <header><div><h2>{t("MCP 服务器")}</h2><p>{t("已选择 {count} 项", { count: selectedMcp.size })}</p></div></header>
-          <div className="transfer-list">{mcpServers.map((server) => <label className="transfer-row" key={server.id}><input type="checkbox" checked={selectedMcp.has(server.id)} onChange={() => setSelectedMcp(toggle(selectedMcp, server.id))} /><span><strong>{server.id}</strong><small>{server.type}</small></span></label>)}</div>
+          <div className="transfer-list">{filteredMcpServers.map((server) => <label className="transfer-row" key={server.id}><input type="checkbox" checked={selectedMcp.has(server.id)} onChange={() => setSelectedMcp(toggle(selectedMcp, server.id))} /><span><strong>{server.id}</strong><small>{server.type}</small></span></label>)}</div>
         </section>
         <section className="transfer-section">
           <header><div><h2><Sparkles size={18} /> {t("Skills")}</h2><p>{t("已选择 {count} 项", { count: selectedSkills.size })}</p></div></header>
           <div className="transfer-list transfer-list-scroll">
-            {skills.length ? skills.map((skill) => <label className="transfer-row" key={skill.id}><input type="checkbox" checked={selectedSkills.has(skill.id)} onChange={() => setSelectedSkills(toggle(selectedSkills, skill.id))} /><span><strong>{skill.name || skill.id}</strong><small title={skill.description}>{skill.id} · {skill.variants} {t("个版本")}</small></span></label>) : <p className="transfer-empty">{t("暂无可导出的 Skills")}</p>}
+            {filteredSkills.length ? filteredSkills.map((skill) => <label className="transfer-row" key={skill.id}><input type="checkbox" checked={selectedSkills.has(skill.id)} onChange={() => setSelectedSkills(toggle(selectedSkills, skill.id))} /><span><strong>{skill.name || skill.id}</strong><small title={skill.description}>{skill.id} · {skill.variants} {t("个版本")}</small></span></label>) : <p className="transfer-empty">{normalizedQuery ? t("没有匹配的导出内容") : t("暂无可导出的 Skills")}</p>}
           </div>
         </section>
       </div>
