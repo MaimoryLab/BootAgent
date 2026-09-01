@@ -18,10 +18,22 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
 import * as app$0 from "../app/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as catalog$0 from "../catalog/models.js";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
 import * as $models from "./models.js";
+
+/**
+ * Catalog returns the embedded marketplace snapshot. It is parsed and
+ * validated by the catalog package, keeping the renderer free of a second
+ * static copy of the market data.
+ */
+export function Catalog(): $CancellablePromise<catalog$0.MarketplaceManifest> {
+    return $Call.ByID(2296529148);
+}
 
 export function ClearRecommendationHistory(): $CancellablePromise<void> {
     return $Call.ByID(2565220155);

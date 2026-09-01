@@ -363,6 +363,22 @@ func TestEmbeddedProviderOrdersAreUniqueAndPositive(t *testing.T) {
 	}
 }
 
+func TestEmbeddedMarketplaceMatchesCurrentCatalogContract(t *testing.T) {
+	manifest, err := LoadEmbeddedMarketplace()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if manifest.SchemaVersion != MarketplaceSchemaVersion || manifest.Version == "" || manifest.BuiltAt == "" {
+		t.Fatalf("unexpected marketplace manifest metadata: %#v", manifest)
+	}
+	if len(manifest.Items) < 100 {
+		t.Fatalf("marketplace manifest unexpectedly small: %d", len(manifest.Items))
+	}
+	if manifest.Items[0].ID != "github-maimorylab-codeoff" {
+		t.Fatalf("marketplace order changed: %s", manifest.Items[0].ID)
+	}
+}
+
 // The key page is optional, so this must parse. Without it, making the field
 // required by accident would only show up as a released build that refuses to
 // start on a Provider that has no key page.

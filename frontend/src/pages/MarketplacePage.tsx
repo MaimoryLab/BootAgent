@@ -24,7 +24,6 @@ import { type ComponentType, useEffect, useRef, useMemo, useState } from "react"
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import { useMarketplaceCatalog } from "../data/useMarketplaceCatalog";
-import { STATIC_CATALOG } from "../data/marketplace-catalog";
 import { marketplaceTagPairs } from "../data/tag-labels";
 import { EmptyState } from "../components/EmptyState";
 import { ManagementSearch } from "../components/ManagementSearch";
@@ -531,7 +530,7 @@ export function MarketplacePage() {
   const [recommendationOpen, setRecommendationOpen] = useState(false);
   const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const { items, live } = useMarketplaceCatalog();
+  const { items, live, version } = useMarketplaceCatalog();
 
   const handleCopied = (item: MarketplaceItem) => {
     setCopyNotice(t("已复制「{name}」的安装提示词，{hint}", {
@@ -680,7 +679,7 @@ export function MarketplacePage() {
           {copyNotice}
         </div>
       ) : null}
-      {recommendationOpen ? <MarketplaceRecommendationDialog items={items} catalogVersion={STATIC_CATALOG.version} onDismiss={() => setRecommendationOpen(false)} /> : null}
+      {recommendationOpen ? <MarketplaceRecommendationDialog items={items} catalogVersion={version} onDismiss={() => setRecommendationOpen(false)} /> : null}
       {historyOpen ? <MarketplaceRecommendationHistoryDialog onDismiss={closeHistory} /> : null}
     </PageScaffold>
   );

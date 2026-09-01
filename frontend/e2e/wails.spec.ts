@@ -242,6 +242,9 @@ test("Marketplace multi-type filters narrow unique results without shifting cont
   const typeButton = page.getByRole("button", { name: /工具类型|Tool type/ });
   const before = await typeButton.boundingBox();
   expect(before).not.toBeNull();
+  // MarketplaceCatalog is supplied by the Wails backend after the route mounts;
+  // wait for the initial snapshot before comparing filtered counts.
+  await expect(page.locator(".marketplace-card").first()).toBeVisible();
   const initialCount = await page.locator(".marketplace-card").count();
 
   await typeButton.click();
