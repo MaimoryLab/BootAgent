@@ -80,7 +80,7 @@ cc-switch 的日活体验建立在「1 步切换」上：主界面点卡片即�
   错误，不跳页、绑定不变。
 - 无兼容 Profile 时下拉给「去创建」入口，指向 `/profiles`。
 
-### 验收标准（M5 Claude Desktop）
+### 验收标准
 
 1. Overview 上对任一已安装 CLI Agent 切换 Profile：点击展开 + 点击选择，共 2 次交互
    完成（无确认弹窗；不再需要进入 Agent 详情页）。桌面 Agent 同样可用。
@@ -271,7 +271,7 @@ Claude Desktop。本里程碑只做**直连模式**：Anthropic 协议 Provider 
 - Provider 侧：仅 Anthropic 协议 Provider 可选（M3 的 protocols 能力有了落点），
   探测走 `anthropic_base_url`。
 
-### 验收标准
+### 验收标准（M5 Claude Desktop）
 
 1. macOS 装有 Claude Desktop 时，桌面 Agent 列表出现该项；应用 Anthropic 协议
    Profile 后：两个 `claude_desktop_config.json` 的 `deploymentMode` 为 `3p` 且**其余
