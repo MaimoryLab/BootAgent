@@ -7,20 +7,33 @@ import { BootAgentApiError } from "../backend/errors";
 import type { AgentCatalogItem, AgentStatus } from "../types/api";
 import { AgentManageRow, compareVersions, isBehind, targetSummary, updateOffer } from "./AgentManageRow";
 
-const launchAgent = vi.fn();
+const bridge = vi.hoisted(() => ({
+  launchAgent: vi.fn(),
+  updateAgent: vi.fn(),
+  uninstallAgent: vi.fn(),
+  question: vi.fn(),
+}));
+
+vi.mock("@wailsio/runtime", () => ({ Dialogs: { OpenFile: vi.fn(), Question: bridge.question } }));
 
 vi.mock("../backend/api", async () => {
   const errors = await import("../backend/errors");
   return {
-    api: { launchAgent: (agentId: string, directory: string) => launchAgent(agentId, directory) },
+    api: bridge,
     describeError: errors.describeError,
     describeFailure: errors.describeFailure,
   };
 });
 
 beforeEach(() => {
-  launchAgent.mockReset();
-  launchAgent.mockResolvedValue({ ok: true, agent: "codex", command: "codex" });
+  bridge.launchAgent.mockReset();
+  bridge.updateAgent.mockReset();
+  bridge.uninstallAgent.mockReset();
+  bridge.question.mockReset();
+  bridge.launchAgent.mockResolvedValue({ ok: true, agent: "codex", command: "codex" });
+  bridge.updateAgent.mockResolvedValue({ agent: "codex" });
+  bridge.uninstallAgent.mockResolvedValue({ agent: "codex", package: "@openai/codex", command: "codex" });
+  bridge.question.mockResolvedValue("卸载 Agent");
 });
 
 const catalogAgent: AgentCatalogItem = {
@@ -61,7 +74,7 @@ function agentStatus(over: Partial<AgentStatus> = {}): AgentStatus {
   };
 }
 
-function renderRow(over: Partial<AgentStatus> = {}, profileName = "团队 PPIO", catalogOver: Partial<AgentCatalogItem> = {}) {
+function renderRow(over: Partial<AgentStatus> = {}, profileName = "团队 PPIO", catalogOver: Partial<AgentCatalogItem> = {}, onChanged = vi.fn()) {
   render(
     <MemoryRouter>
       <AgentManageRow
@@ -73,6 +86,7 @@ function renderRow(over: Partial<AgentStatus> = {}, profileName = "团队 PPIO",
         }}
         profileName={profileName}
         defaultDirectory="/tmp"
+        onChanged={onChanged}
       />
     </MemoryRouter>,
   );
@@ -82,7 +96,8 @@ describe("AgentManageRow", () => {
   it("shows what the Agent is pointed at", () => {
     renderRow();
     expect(screen.getByText("Codex")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "迁移对话" })).toBeTruthy();
+    expect(screen.queryByRole("menuitem", { name: "迁移对话" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Codex 更多操作" })).toBeTruthy();
     expect(screen.getByText("PPIO", { selector: ".agent-manage-pill" })).toBeTruthy();
     expect(within(screen.getByTestId("agent-codex").querySelector(".agent-manage-summary") as HTMLElement).getByText("deepseek/deepseek-v3")).toBeTruthy();
     expect(within(screen.getByTestId("agent-codex").querySelector(".agent-manage-summary") as HTMLElement).getByText("团队 PPIO")).toBeTruthy();
@@ -124,8 +139,8 @@ describe("AgentManageRow", () => {
   it("uses familiar icons alongside action labels", () => {
     renderRow();
     expect(screen.getByRole("link", { name: /配置/ }).querySelector("svg")).toBeTruthy();
-    expect(screen.getByRole("button", { name: /更新/ }).querySelector("svg")).toBeTruthy();
     expect(screen.getByRole("button", { name: /启动/ }).querySelector("svg")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Codex 更多操作" }).querySelector("svg")).toBeTruthy();
   });
 
   it("names which piece is missing rather than one shared status word", () => {
@@ -206,7 +221,7 @@ describe("AgentManageRow", () => {
     renderRow();
     await userEvent.click(screen.getByRole("button", { name: /启动/ }));
     await userEvent.click(screen.getByRole("dialog").querySelector("button[type=submit]") as HTMLElement);
-    await waitFor(() => expect(launchAgent).toHaveBeenCalledWith("codex", expect.any(String)));
+    await waitFor(() => expect(bridge.launchAgent).toHaveBeenCalledWith("codex", expect.any(String)));
   });
 
   it("offers no launch for an Agent that is not installed", () => {
@@ -219,7 +234,7 @@ describe("AgentManageRow", () => {
   it("launches a web-app Agent without asking for a directory", async () => {
     renderRow({}, "团队 PPIO", { webApp: true });
     await userEvent.click(screen.getByRole("button", { name: /启动/ }));
-    await waitFor(() => expect(launchAgent).toHaveBeenCalledWith("codex", ""));
+    await waitFor(() => expect(bridge.launchAgent).toHaveBeenCalledWith("codex", ""));
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
@@ -229,11 +244,11 @@ describe("AgentManageRow", () => {
     renderRow();
     await userEvent.click(screen.getByRole("button", { name: /启动/ }));
     expect(screen.getByRole("dialog")).toBeTruthy();
-    expect(launchAgent).not.toHaveBeenCalled();
+    expect(bridge.launchAgent).not.toHaveBeenCalled();
   });
 
   it("reports a launch failure in the row instead of failing silently", async () => {
-    launchAgent.mockRejectedValue(new BootAgentApiError("没有可用的终端", "PREREQUISITE_MISSING", false, 500));
+    bridge.launchAgent.mockRejectedValue(new BootAgentApiError("没有可用的终端", "PREREQUISITE_MISSING", false, 500));
     renderRow();
     await userEvent.click(screen.getByRole("button", { name: /启动/ }));
     await userEvent.click(screen.getByRole("dialog").querySelector("button[type=submit]") as HTMLElement);
@@ -356,24 +371,23 @@ describe("updateOffer", () => {
 });
 
 describe("the update affordance in the row", () => {
-  it("puts a dot on the update button when a newer version exists", async () => {
+  it("puts a dot on the action menu and names the available version", async () => {
     renderRow({ version: "0.145.0", latestVersion: "0.150.0" });
-    const button = screen.getByRole("button", { name: /更新/ });
-    expect(button.querySelector(".agent-update-dot")).toBeTruthy();
-    // The version reaches assistive technology through the title, so the dot
-    // itself is decoration and must not be announced.
-    expect(button.getAttribute("title")).toContain("0.150.0");
+    const trigger = screen.getByRole("button", { name: "Codex 更多操作" });
+    expect(trigger.querySelector(".agent-action-menu-dot")).toBeTruthy();
+    await userEvent.click(trigger);
+    expect(screen.getByRole("menuitem", { name: "更新至 0.150.0" })).toBeTruthy();
   });
 
-  it("leaves the button bare when the Agent is current", () => {
+  it("leaves the action menu bare when the Agent is current", () => {
     renderRow({ version: "0.145.0", latestVersion: "0.145.0" });
-    const button = screen.getByRole("button", { name: /更新/ });
-    expect(button.querySelector(".agent-update-dot")).toBeNull();
+    const trigger = screen.getByRole("button", { name: "Codex 更多操作" });
+    expect(trigger.querySelector(".agent-action-menu-dot")).toBeNull();
   });
 
   it("hides the update button entirely when the Agent is not installed", () => {
     renderRow({ installed: false, version: null, latestVersion: "9.9.9" });
-    expect(screen.queryByRole("button", { name: /更新/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Codex 更多操作" })).toBeNull();
   });
 
   it("hides the update button for official-script Agents", () => {
@@ -381,7 +395,8 @@ describe("the update affordance in the row", () => {
       packageManager: "official-script",
       packageName: "hermes-agent",
     });
-    expect(screen.queryByRole("button", { name: /更新/ })).toBeNull();
+    expect(screen.getByRole("button", { name: "Codex 更多操作" })).toBeTruthy();
+    expect(screen.queryByRole("menuitem", { name: /更新/ })).toBeNull();
   });
 
   it("reads the npm package name from the catalog, not a list of its own", async () => {
@@ -390,5 +405,32 @@ describe("the update affordance in the row", () => {
     renderRow({}, "团队 PPIO", { packageName: "openclaw" });
     await userEvent.click(screen.getByText("详情"));
     expect(screen.getByText("openclaw")).toBeTruthy();
+  });
+
+  it("keeps migration, update and uninstall behind the low-frequency menu", async () => {
+    renderRow();
+    expect(screen.getByRole("link", { name: /配置/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /启动/ })).toBeTruthy();
+    expect(screen.queryByRole("menuitem", { name: "迁移对话" })).toBeNull();
+
+    await userEvent.click(screen.getByRole("button", { name: "Codex 更多操作" }));
+    expect(screen.getByRole("menuitem", { name: "迁移对话" })).toBeTruthy();
+    expect(screen.getByRole("menuitem", { name: "更新" })).toBeTruthy();
+    expect(screen.getByRole("menuitem", { name: "卸载 Agent" })).toBeTruthy();
+    expect(screen.getByRole("menuitem", { name: "刷新状态" })).toBeTruthy();
+  });
+
+  it("confirms that user data is preserved before uninstalling", async () => {
+    const onChanged = vi.fn();
+    renderRow({}, "团队 PPIO", {}, onChanged);
+    await userEvent.click(screen.getByRole("button", { name: "Codex 更多操作" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "卸载 Agent" }));
+
+    expect(bridge.question).toHaveBeenCalledWith(expect.objectContaining({
+      Title: "卸载 Agent",
+      Message: expect.stringMatching(/配置模版.*模型服务.*配置文件.*对话数据.*保留/),
+    }));
+    await waitFor(() => expect(bridge.uninstallAgent).toHaveBeenCalledWith("codex"));
+    await waitFor(() => expect(onChanged).toHaveBeenCalledOnce());
   });
 });

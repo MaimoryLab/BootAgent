@@ -32,6 +32,8 @@ type Services struct {
 	MCP          *MCPService
 	Skill        *SkillService
 	Conversion   *ConversionService
+	Marketplace  *MarketplaceService
+	Task         *TaskService
 }
 
 type ServicesOptions struct {
@@ -57,7 +59,25 @@ func NewServicesWithOptions(core *app.UseCases, opener BrowserOpener, options Se
 		MCP:          NewMCPService(core),
 		Skill:        NewSkillService(core),
 		Conversion:   NewConversionService(core),
+		Marketplace:  NewMarketplaceService(core, opener),
+		Task:         &TaskService{core: core},
 	}
+}
+
+type TaskService struct{ core *app.UseCases }
+
+func (s *TaskService) LoadHistory(ctx context.Context) ([]app.TaskHistoryRecord, error) {
+	if s == nil || s.core == nil {
+		return nil, notReady("Task service is not configured")
+	}
+	return s.core.LoadTaskHistory(ctx)
+}
+
+func (s *TaskService) SaveHistory(ctx context.Context, records []app.TaskHistoryRecord) error {
+	if s == nil || s.core == nil {
+		return notReady("Task service is not configured")
+	}
+	return s.core.SaveTaskHistory(ctx, records)
 }
 
 type ConversionService struct{ core *app.UseCases }
@@ -221,7 +241,7 @@ func (s *RuntimeService) SaveSettings(ctx context.Context, request app.SettingsP
 // so the URL the app opens is not something a compromised or tampered renderer
 // can choose -- the same reason OpenRegistration re-resolves a Provider's URL
 // instead of accepting one over the bridge.
-const HelpURL = "https://bootagentpro.ai/help/"
+const HelpURL = "https://bootagent.ai/help/"
 const GitHubURL = "https://github.com/MaimoryLab/BootAgent"
 
 type StatusService struct {
@@ -409,6 +429,26 @@ func (s *AgentService) MigrateConversations(ctx context.Context) (app.Conversati
 		return app.ConversationMigrationResult{}, notReady("Conversation migration is not configured")
 	}
 	return s.core.MigrateCodexConversations(ctx)
+}
+
+func (s *AgentService) Uninstall(ctx context.Context, request UpdateRequest) (app.AgentUninstallResult, error) {
+	if err := contextError(ctx); err != nil {
+		return app.AgentUninstallResult{}, err
+	}
+	if s == nil || s.core == nil {
+		return app.AgentUninstallResult{}, notReady("Agent uninstall is not configured")
+	}
+	return s.core.UninstallAgentWithOptions(ctx, request.AgentID, app.AgentUninstallOptions{AllowCrossEnvironment: request.AllowCrossEnvironment, InstallationID: request.InstallationID, InstallationIDs: request.InstallationIDs}, s.onOutput)
+}
+
+func (s *AgentService) PreviewUninstall(ctx context.Context, request UpdateRequest) (app.AgentUninstallPreview, error) {
+	if err := contextError(ctx); err != nil {
+		return app.AgentUninstallPreview{}, err
+	}
+	if s == nil || s.core == nil {
+		return app.AgentUninstallPreview{}, notReady("Agent uninstall preview is not configured")
+	}
+	return s.core.PreviewAgentUninstall(ctx, request.AgentID, request.InstallationID)
 }
 
 func (s *AgentService) Update(ctx context.Context, request UpdateRequest) (app.AgentUpdateResult, error) {
@@ -713,7 +753,10 @@ type LaunchRequest struct {
 }
 
 type UpdateRequest struct {
-	AgentID string `json:"agent_id"`
+	AgentID               string   `json:"agent_id"`
+	AllowCrossEnvironment bool     `json:"allow_cross_environment,omitempty"`
+	InstallationID        string   `json:"installation_id,omitempty"`
+	InstallationIDs       []string `json:"installation_ids,omitempty"`
 }
 
 type LaunchResponse struct {

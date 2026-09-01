@@ -50,13 +50,14 @@ func TestServiceMethodAllowlist(t *testing.T) {
 	}{
 		{&StatusService{}, []string{"GetStatus"}},
 		{&ProviderService{}, []string{"DeleteProvider", "GetProvider", "ListModels", "OpenGitHub", "OpenHelp", "OpenRegistration", "Probe", "SaveProvider"}},
-		{&AgentService{}, []string{"Activate", "Install", "Launch", "MigrateConversations", "Update"}},
+		{&AgentService{}, []string{"Activate", "Install", "Launch", "MigrateConversations", "PreviewUninstall", "Uninstall", "Update"}},
 		{&ProfileService{}, []string{"DeleteProfile", "ListProfiles", "SaveProfile"}},
 		{&RuntimeService{}, []string{"GetSettings", "InstallRuntime", "ListRuntimes", "SaveSettings"}},
 		{&DesktopAgentService{}, []string{"Configure", "GetStatus", "Install", "Open"}},
 		{&TransferService{}, []string{"ExportV2", "Read", "Write", "WriteBytes"}},
 		{&SkillService{}, []string{"Apply", "Export", "List", "ListBackups", "PreviewImport", "RestoreBackup", "Scan", "SetDraftState", "Uninstall"}},
 		{&ConversionService{}, []string{"Get", "Save"}},
+		{&MarketplaceService{}, []string{"ClearRecommendationHistory", "DeleteRecommendationHistory", "FetchShowcase", "FetchSkillDetail", "FetchSkillFile", "ListRecommendationHistory", "OpenExternal", "Recommend", "RecommendationAgents", "SaveRecommendationHistory"}},
 		{&UpdateService{}, []string{"Check", "DownloadAndInstall", "Restart", "Version"}},
 	}
 	for _, test := range tests {
@@ -163,7 +164,7 @@ func TestOpenHelpOpensThePublishedSite(t *testing.T) {
 		t.Fatalf("OpenHelp opened %q, want %q", opened, HelpURL)
 	}
 	parsed, err := url.Parse(HelpURL)
-	if err != nil || parsed.Scheme != "https" || parsed.Host != "bootagentpro.ai" || parsed.User != nil {
+	if err != nil || parsed.Scheme != "https" || parsed.Host != "bootagent.ai" || parsed.User != nil {
 		t.Fatalf("help URL is not a plain https URL on the published host: %q", HelpURL)
 	}
 }

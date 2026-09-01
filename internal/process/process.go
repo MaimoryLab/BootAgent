@@ -41,8 +41,9 @@ type Result struct {
 }
 
 // Output is one entry in the live install feed. Kind selects which fields carry
-// meaning: "command" uses Args, "output" uses Stream and Text, "source" uses
-// Source, "phase" uses Phase, and "progress" uses Target, Received and Total.
+// meaning: "command" uses Args, "output" uses Stream and Text, "progress"
+// uses Target, Received and Total, "phase" uses Phase, and "source" uses
+// Source.
 type Output struct {
 	Kind string `json:"kind"`
 	// Agent identifies the install request that produced command/output events.
@@ -51,10 +52,8 @@ type Output struct {
 	Args   []string `json:"args,omitempty"`
 	Stream string   `json:"stream,omitempty"`
 	Text   string   `json:"text,omitempty"`
-	// Source identifies the URL selected for a download attempt.
-	Source string `json:"source,omitempty"`
-	// Phase identifies a completed install phase, such as "verified".
-	Phase string `json:"phase,omitempty"`
+	Phase  string   `json:"phase,omitempty"`
+	Source string   `json:"source,omitempty"`
 	// Target names what is being downloaded, so a listener can attribute a
 	// progress event to the row that asked for it.
 	Target   string `json:"target,omitempty"`
@@ -285,11 +284,25 @@ type StreamingRunner interface {
 	RunWithOutput(context.Context, []string, map[string]string, time.Duration, OutputListener) (Result, error)
 }
 
+// PrivateInputRunner accepts request content over stdin. Implementations must
+// not persist input or output; callers use it for user-authored model prompts.
+type PrivateInputRunner interface {
+	RunPrivateInput(context.Context, []string, map[string]string, time.Duration, string) (Result, error)
+}
+
 // Runner is deliberately small so install tests can assert exact argv and
 // environment without starting a process.
 type Runner interface {
 	LookPath(string) (string, bool)
 	Run(context.Context, []string, map[string]string, time.Duration) (Result, error)
+}
+
+func RunPrivateInput(ctx context.Context, runner Runner, argv []string, overrides map[string]string, timeout time.Duration, input string) (Result, error) {
+	private, ok := runner.(PrivateInputRunner)
+	if !ok {
+		return Result{Args: append([]string(nil), argv...), ExitCode: -1}, fmt.Errorf("process runner does not support private input")
+	}
+	return private.RunPrivateInput(ctx, argv, overrides, timeout, input)
 }
 
 // Launcher starts a detached child and does not wait for it. Run() is the wrong
@@ -449,6 +462,10 @@ func (r OSRunner) Run(ctx context.Context, argv []string, overrides map[string]s
 	return r.RunWithOutput(ctx, argv, overrides, timeout, nil)
 }
 
+func (r OSRunner) RunPrivateInput(ctx context.Context, argv []string, overrides map[string]string, timeout time.Duration, input string) (Result, error) {
+	return r.runWithOutput(ctx, argv, overrides, timeout, input, nil)
+}
+
 // Start launches a detached child with this runner's environment and returns as
 // soon as it is running. The child keeps its own console: a terminal window is
 // the point, so HideWindow is deliberately not applied here.
@@ -460,6 +477,10 @@ func (r OSRunner) Start(argv []string, overrides map[string]string) error {
 }
 
 func (r OSRunner) RunWithOutput(ctx context.Context, argv []string, overrides map[string]string, timeout time.Duration, listener OutputListener) (Result, error) {
+	return r.runWithOutput(ctx, argv, overrides, timeout, "", listener)
+}
+
+func (r OSRunner) runWithOutput(ctx context.Context, argv []string, overrides map[string]string, timeout time.Duration, input string, listener OutputListener) (Result, error) {
 	result := Result{Args: append([]string(nil), argv...), ExitCode: -1}
 	if len(argv) == 0 || strings.TrimSpace(argv[0]) == "" {
 		return result, fmt.Errorf("process argv must not be empty")
@@ -475,6 +496,9 @@ func (r OSRunner) RunWithOutput(ctx context.Context, argv []string, overrides ma
 	runContext, stopForStall := context.WithCancel(runContext)
 	defer stopForStall()
 	command := exec.CommandContext(runContext, argv[0], argv[1:]...)
+	if input != "" {
+		command.Stdin = strings.NewReader(input)
+	}
 	HideWindow(command)
 	command.Env = mergeEnvironment(r.Env, overrides)
 	stdout := &boundedBuffer{limit: MaxOutputBytes}

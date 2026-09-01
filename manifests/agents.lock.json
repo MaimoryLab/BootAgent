@@ -213,11 +213,22 @@
       "config_adapter": "kimi-code",
       "config_path": ".kimi-code/config.toml",
       "package": {
-        "manager": "npm",
-        "name": "@moonshot-ai/kimi-code",
-        "source": "https://github.com/MoonshotAI/kimi-code",
+        "manager": "official-script",
+        "name": "kimi-code",
+        "source": "https://code.kimi.com/kimi-code/install.sh",
         "license": "MIT",
-        "license_url": "https://github.com/MoonshotAI/kimi-code/blob/main/LICENSE"
+        "license_url": "https://github.com/MoonshotAI/kimi-code/blob/main/LICENSE",
+        "install_command": "curl -fsSL https://code.kimi.com/kimi-code/install.sh | bash",
+        "windows_install_command": "irm https://code.kimi.com/kimi-code/install.ps1 | iex",
+        "alternatives": [
+          {
+            "manager": "npm",
+            "name": "@moonshot-ai/kimi-code",
+            "source": "https://www.npmjs.com/package/@moonshot-ai/kimi-code",
+            "license": "MIT",
+            "license_url": "https://github.com/MoonshotAI/kimi-code/blob/main/LICENSE"
+          }
+        ]
       },
       "version_args": [
         "--version"

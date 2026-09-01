@@ -17,6 +17,7 @@ BootAgent is a local desktop workspace for AI coding Agents. It turns a fresh ma
 ## What it does
 
 - Detects, installs, updates, and launches supported CLI and desktop Agents. The terminal used to launch CLI Agents can be chosen in Settings; the platform's built-in terminal remains the default.
+- Keeps configuration and launch actions directly available in Environment overview while each installed Agent card groups its supported low-frequency actions under a More menu. npm-managed CLI Agents can be updated or uninstalled there; uninstall removes only the program and preserves Profiles, Providers, configuration files, and conversations.
 - Migrates existing Codex and ChatGPT Desktop conversations into BootAgent's `bootagent` provider bucket from their Agent rows. This operation intentionally creates no history backup.
 - Connects Agents to built-in or custom Providers, with model selection and protocol-aware connection checks.
 - Saves reusable Profiles. An Agent's own configuration screen is where you pick the Profile it uses, and where its model can be changed directly.
@@ -26,6 +27,10 @@ BootAgent is a local desktop workspace for AI coding Agents. It turns a fresh ma
 - Provides local API format conversion and an optional launch-at-login setting; both are off by default, and enabling conversion offers to enable launch at login.
 - Imports and exports Providers, Profiles, and selected MCP servers. API keys and MCP secrets are excluded by default; password-encrypted or explicitly confirmed plaintext export is also available.
 - Discovers MCP servers from initialized Claude Code, Codex, OpenCode, Kilo CLI, and Hermes installations, and applies selected servers across them from the MCP Registry. Scanning runs in the background; edits are explicit and local.
+- Discovers Skills, MCP servers, plugins, standalone AI products, prompt collections, and workflow templates in the Marketplace. Each source has a bundled fallback, while sources with a supported public feed can refresh independently.
+- Marketplace entries can belong to multiple tool types. Multiple type selections require every selected type, then combine with source, use-case, and API-key filters.
+- Can ask an installed Codex or Claude Code CLI to shortlist Marketplace tools from a stated need. Only the need and public catalog metadata enter the prompt; the recommendation run receives no install or file-write tools, and returned IDs are checked against the catalog before display.
+- Saves successful Marketplace recommendations locally with the request, Agent, catalog version, and result snapshots. History can be reopened, deleted, or cleared; it is never uploaded as telemetry.
 - Creates backups, writes atomically, and keeps credentials in private local storage. The latest three historical versions are kept per Profile, Provider, MCP, Agent configuration target, and Skill; backups live under `~/.bootagent/backup` and the per-target count can be changed in Settings.
 - Checks for BootAgent updates and installs release artifacts through the built-in updater. When the domestic mirror setting is enabled, update checks and downloads use the Gitee mirror; otherwise they use GitHub.
 

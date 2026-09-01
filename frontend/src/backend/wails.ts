@@ -3,17 +3,20 @@ import { Events, type CancellablePromiseLike } from "@wailsio/runtime";
 import * as AgentService from "../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/agentservice.js";
 import * as ConversionService from "../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/conversionservice.js";
 import * as DesktopAgentService from "../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/desktopagentservice.js";
+import * as MarketplaceService from "../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/marketplaceservice.js";
 import * as MCPService from "../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/mcpservice.js";
 import * as ProfileService from "../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/profileservice.js";
 import * as ProviderService from "../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/providerservice.js";
 import * as RuntimeService from "../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/runtimeservice.js";
 import * as SkillService from "../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/skillservice.js";
 import * as StatusService from "../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/statusservice.js";
+import * as TaskService from "../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/taskservice.js";
 import * as TransferService from "../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/transferservice.js";
 import * as UpdateService from "../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/updateservice.js";
 import { currentLocale, translate } from "../i18n";
 import type {
   ActivateAgentResponse,
+  AgentUninstallResult,
   AgentUpdateResult,
   ConversionConfig,
   DesktopAgentActionResult,
@@ -24,6 +27,9 @@ import type {
   InstallResponse,
   InstallRuntimeResult,
   LaunchAgentResponse,
+  MarketplaceRecommendationAgent,
+  MarketplaceRecommendRequest,
+  MarketplaceRecommendResult,
   MCPApplyRequest,
   MCPApplyResult,
   MCPScanResult,
@@ -48,7 +54,8 @@ import type {
   SkillScanResult,
   SkillSummary,
   SkillUninstallResult,
-  StatusResponse
+  StatusResponse,
+  TaskHistoryRecord
 } from "../types/api";
 import { BootAgentApiError, isCancellationError } from "./errors";
 
@@ -60,7 +67,7 @@ export function onInstallOutput(listener: (output: InstallOutput) => void): () =
     const data = event.data;
     if (!data || typeof data !== "object") return;
     const kind = (data as { kind?: unknown }).kind;
-    if (kind === "command" || kind === "output" || kind === "progress") listener(data as InstallOutput);
+    if (kind === "command" || kind === "output" || kind === "progress" || kind === "phase" || kind === "source") listener(data as InstallOutput);
   });
 }
 
@@ -133,6 +140,8 @@ export const wailsApi = {
   openGitHub: (): Promise<void> => call(() => ProviderService.OpenGitHub()).then(() => undefined),
   downloadUpdate: (): CancellableRequest<void> => call(() => UpdateService.DownloadAndInstall()) as CancellableRequest<void>,
   restartUpdate: (): Promise<void> => call(() => UpdateService.Restart()).then(() => undefined),
+  loadTaskHistory: (): Promise<TaskHistoryRecord[]> => call(() => TaskService.LoadHistory()).then((records) => records ?? []) as Promise<TaskHistoryRecord[]>,
+  saveTaskHistory: (records: TaskHistoryRecord[]): Promise<void> => call(() => TaskService.SaveHistory(records)).then(() => undefined),
   desktopAgentStatus: (agentId: string): Promise<DesktopAgentStatus> =>
     call(() => DesktopAgentService.GetStatus({ agent_id: agentId })) as Promise<DesktopAgentStatus>,
   installDesktopAgent: (agentId: string): CancellableRequest<DesktopAgentActionResult> =>
@@ -213,6 +222,10 @@ export const wailsApi = {
     call(() => AgentService.Launch({ agent_id: agentId, working_directory: workingDirectory })) as Promise<LaunchAgentResponse>,
   migrateConversations: (): Promise<import("../types/api").ConversationMigrationResult> =>
     call(() => AgentService.MigrateConversations()) as Promise<import("../types/api").ConversationMigrationResult>,
+  uninstallAgent: (agentId: string, allowCrossEnvironment = false, installationId = "", installationIds: string[] = []): CancellableRequest<AgentUninstallResult> =>
+    call(() => AgentService.Uninstall({ agent_id: agentId, ...(allowCrossEnvironment ? { allow_cross_environment: true } : {}), ...(installationId ? { installation_id: installationId } : {}), ...(installationIds.length ? { installation_ids: installationIds } : {}) })) as CancellableRequest<AgentUninstallResult>,
+  previewUninstall: (agentId: string, installationId = "") =>
+    call(() => AgentService.PreviewUninstall({ agent_id: agentId, ...(installationId ? { installation_id: installationId } : {}) })),
   updateAgent: (agentId: string): CancellableRequest<AgentUpdateResult> =>
     call(() => AgentService.Update({ agent_id: agentId })) as CancellableRequest<AgentUpdateResult>,
   listRuntimes: (): Promise<RuntimeStatus[]> =>
@@ -224,6 +237,29 @@ export const wailsApi = {
     call(() => RuntimeService.SaveSettings(settings)) as Promise<Settings>,
   getConversion: (): Promise<ConversionConfig> => call(() => ConversionService.Get()) as Promise<ConversionConfig>,
   saveConversion: (config: ConversionConfig): Promise<ConversionConfig> => call(() => ConversionService.Save(config)) as Promise<ConversionConfig>,
+  // Marketplace proxy: raw JSON strings from the public skillhub API. The Go
+  // side does the GET because api.skillhub.cn only echoes CORS headers for
+  // skillhub's own origins; parsing stays with the frontend normalisers.
+  marketplaceShowcase: (): Promise<string> =>
+    call(() => MarketplaceService.FetchShowcase()).then((response) => response.body),
+  marketplaceSkillDetail: (slug: string): Promise<string> =>
+    call(() => MarketplaceService.FetchSkillDetail({ slug })).then((response) => response.body),
+  marketplaceSkillFile: (slug: string): Promise<string> =>
+    call(() => MarketplaceService.FetchSkillFile({ slug })).then((response) => response.body),
+  marketplaceRecommendationAgents: (): Promise<MarketplaceRecommendationAgent[]> =>
+    call(() => MarketplaceService.RecommendationAgents()).then((agents) => agents ?? []),
+  recommendMarketplace: (request: MarketplaceRecommendRequest): Promise<MarketplaceRecommendResult> =>
+    call(() => MarketplaceService.Recommend(request)) as Promise<MarketplaceRecommendResult>,
+  listRecommendationHistory: (): Promise<import("../types/api").MarketplaceRecommendationHistory[]> =>
+    call(() => MarketplaceService.ListRecommendationHistory()).then((records) => records ?? []),
+  saveRecommendationHistory: (record: import("../types/api").MarketplaceRecommendationHistory): Promise<import("../types/api").MarketplaceRecommendationHistory> =>
+    call(() => MarketplaceService.SaveRecommendationHistory(record)) as Promise<import("../types/api").MarketplaceRecommendationHistory>,
+  deleteRecommendationHistory: (id: string): Promise<void> =>
+    call(() => MarketplaceService.DeleteRecommendationHistory(id)).then(() => undefined),
+  clearRecommendationHistory: (): Promise<void> =>
+    call(() => MarketplaceService.ClearRecommendationHistory()).then(() => undefined),
+  openMarketplaceExternal: (url: string): Promise<void> =>
+    call(() => MarketplaceService.OpenExternal({ url })).then(() => undefined),
   readTransferFile: (): Promise<string> => call(() => TransferService.Read()) as Promise<string>,
   writeTransferFile: (data: string): Promise<void> => call(() => TransferService.Write(data)).then(() => undefined),
   writeTransferBytes: (data: Uint8Array): Promise<void> => call(() => TransferService.WriteBytes(encodeBytes(data))).then(() => undefined),

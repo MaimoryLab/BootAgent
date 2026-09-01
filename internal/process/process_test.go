@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -37,6 +38,11 @@ func TestProcessHelper(_ *testing.T) {
 	if os.Getenv("TEST_PROCESS_EXIT") == "1" {
 		os.Stderr.WriteString("helper stderr")
 		os.Exit(7)
+	}
+	if os.Getenv("TEST_PROCESS_STDIN") == "1" {
+		value, _ := io.ReadAll(os.Stdin)
+		os.Stdout.Write(value)
+		os.Exit(0)
 	}
 	if os.Getenv("TEST_PROCESS_WAIT") == "1" {
 		if os.Getenv("TEST_PROCESS_READY") == "1" {
@@ -133,6 +139,16 @@ func TestOSRunnerUsesArgvAndMergesEnvironment(t *testing.T) {
 	}
 	if len(result.Args) != 2 || result.Args[1] != "-test.run=TestProcessHelper" {
 		t.Fatalf("argv was changed: %#v", result.Args)
+	}
+}
+
+func TestOSRunnerAcceptsPrivateStdin(t *testing.T) {
+	runner := helperRunner(t)
+	result, err := RunPrivateInput(context.Background(), runner, []string{os.Args[0], "-test.run=TestProcessHelper"}, map[string]string{
+		"TEST_PROCESS_STDIN": "1",
+	}, helperTimeout, "private recommendation need")
+	if err != nil || result.Stdout != "private recommendation need" {
+		t.Fatalf("private input result = %#v, err=%v", result, err)
 	}
 }
 

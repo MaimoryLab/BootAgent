@@ -52,11 +52,15 @@ func TestInstallResultWirePreservesFieldPresence(t *testing.T) {
 }
 
 type installAppRunner struct {
-	paths    map[string]string
-	calls    [][]string
-	envs     []map[string]string
-	started  [][]string
-	exitCode int
+	paths     map[string]string
+	calls     [][]string
+	envs      []map[string]string
+	started   [][]string
+	exitCode  int
+	exitCodes map[string]int
+	stderrs   map[string]string
+	stdouts   map[string]string
+	exitArgs  map[string]int
 }
 
 func (r *installAppRunner) Start(argv []string, _ map[string]string) error {
@@ -77,7 +81,22 @@ func (r *installAppRunner) Run(_ context.Context, argv []string, env map[string]
 	if len(argv) > 1 && argv[1] == "--version" {
 		return process.Result{Args: argv, ExitCode: 0, Stdout: "tool 1.0.0"}, nil
 	}
-	return process.Result{Args: argv, ExitCode: r.exitCode}, nil
+	exitCode := r.exitCode
+	if code, ok := r.exitCodes[strings.Join(argv[1:], " ")]; ok {
+		exitCode = code
+	}
+	if code, ok := r.exitArgs[strings.Join(argv, " ")]; ok {
+		exitCode = code
+	}
+	stderr := ""
+	stdout := ""
+	if message, ok := r.stdouts[strings.Join(argv[1:], " ")]; ok {
+		stdout = message
+	}
+	if message, ok := r.stderrs[strings.Join(argv[1:], " ")]; ok {
+		stderr = message
+	}
+	return process.Result{Args: argv, ExitCode: exitCode, Stdout: stdout, Stderr: stderr}, nil
 }
 
 type installAppDoer func(*http.Request) (*http.Response, error)

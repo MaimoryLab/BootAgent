@@ -35,9 +35,12 @@ the embedded frontend. Full license and notice texts are included under
 | go | `modernc.org/mathutil` | `v1.7.1` | macos-arm64, macos-x64, windows-arm64, windows-x64 | BSD-3-Clause | `licenses/go/modernc.org_mathutil@v1.7.1/LICENSE` |
 | go | `modernc.org/memory` | `v1.11.0` | macos-arm64, macos-x64, windows-arm64, windows-x64 | BSD-3-Clause | `licenses/go/modernc.org_memory@v1.11.0/LICENSE`<br>`licenses/go/modernc.org_memory@v1.11.0/LICENSE-GO`<br>`licenses/go/modernc.org_memory@v1.11.0/LICENSE-LOGO`<br>`licenses/go/modernc.org_memory@v1.11.0/LICENSE-MMAP-GO` |
 | go | `modernc.org/sqlite` | `v1.56.0` | macos-arm64, macos-x64, windows-arm64, windows-x64 | BSD-3-Clause | `licenses/go/modernc.org_sqlite@v1.56.0/LICENSE` |
+| npm | `@types/trusted-types` | `2.0.7` | frontend | MIT | `licenses/npm/types_trusted-types@2.0.7/LICENSE` |
 | npm | `@wailsio/runtime` | `3.0.0-beta.8` | frontend | MIT | `licenses/npm/wailsio_runtime@3.0.0-beta.8/LICENSE` |
 | npm | `cookie` | `1.0.1` | frontend | MIT | `licenses/npm/cookie@1.0.1/LICENSE` |
+| npm | `dompurify` | `3.4.14` | frontend | (MPL-2.0 OR Apache-2.0) | `licenses/npm/dompurify@3.4.14/LICENSE`<br>`licenses/npm/dompurify@3.4.14/LICENSE-MPL` |
 | npm | `lucide-react` | `1.31.0` | frontend | ISC | `licenses/npm/lucide-react@1.31.0/LICENSE` |
+| npm | `marked` | `18.0.10` | frontend | MIT | `licenses/npm/marked@18.0.10/LICENSE` |
 | npm | `react` | `19.2.8` | frontend | MIT | `licenses/npm/react@19.2.8/LICENSE` |
 | npm | `react-dom` | `19.2.8` | frontend | MIT | `licenses/npm/react-dom@19.2.8/LICENSE` |
 | npm | `react-router` | `7.18.2` | frontend | MIT | `licenses/npm/react-router@7.18.2/LICENSE.md` |

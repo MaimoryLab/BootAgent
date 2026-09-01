@@ -16,9 +16,15 @@ type recordingInner struct {
 	started [][]string
 	result  Result
 	err     error
+	input   string
 }
 
 func (r *recordingInner) Run(context.Context, []string, map[string]string, time.Duration) (Result, error) {
+	return r.result, r.err
+}
+
+func (r *recordingInner) RunPrivateInput(_ context.Context, _ []string, _ map[string]string, _ time.Duration, input string) (Result, error) {
+	r.input = input
 	return r.result, r.err
 }
 
@@ -63,6 +69,30 @@ func TestLoggingRunnerRecordsOutcomeAndHidesSecrets(t *testing.T) {
 		if info.Mode().Perm() != 0o600 {
 			t.Fatalf("log mode = %v, want 0600", info.Mode().Perm())
 		}
+	}
+}
+
+func TestLoggingRunnerDoesNotPersistPrivateInputOrOutput(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, time.Now().Format("2006-01-02")+".log")
+	inner := &recordingInner{result: Result{ExitCode: 0, Stdout: "private recommendation response"}}
+	runner := LoggingRunner{Inner: inner, Dir: dir}
+	if _, err := RunPrivateInput(context.Background(), runner, []string{"codex", "exec", "-"}, nil, time.Minute, "private recommendation need"); err != nil {
+		t.Fatal(err)
+	}
+	entry, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(entry)
+	if inner.input != "private recommendation need" {
+		t.Fatalf("private input did not reach the runner: %q", inner.input)
+	}
+	if strings.Contains(text, "private recommendation") {
+		t.Fatalf("private input or output reached the log: %q", text)
+	}
+	if !strings.Contains(text, "private-run codex exec -") || !strings.Contains(text, "exit 0") {
+		t.Fatalf("private run metadata is missing: %q", text)
 	}
 }
 

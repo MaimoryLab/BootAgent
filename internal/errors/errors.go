@@ -11,6 +11,10 @@ const (
 	InvalidRequest      = "INVALID_REQUEST"
 	PrerequisiteMissing = "PREREQUISITE_MISSING"
 	AgentInstallFailed  = "AGENT_INSTALL_FAILED"
+	AgentPackageMissing = "AGENT_PACKAGE_MISSING"
+	AgentNPMMismatch    = "AGENT_NPM_ENVIRONMENT_MISMATCH"
+	AgentNPMPermission  = "AGENT_NPM_PERMISSION_DENIED"
+	AgentNPMFailed      = "AGENT_NPM_EXECUTION_FAILED"
 	ConfigWriteFailed   = "CONFIG_WRITE_FAILED"
 	APIKeyRejected      = "API_KEY_REJECTED"
 	ProviderUnreachable = "PROVIDER_UNREACHABLE"
@@ -44,6 +48,10 @@ var ExitCodes = map[string]int{
 	InvalidRequest:      2,
 	PrerequisiteMissing: 3,
 	AgentInstallFailed:  4,
+	AgentPackageMissing: 3,
+	AgentNPMMismatch:    3,
+	AgentNPMPermission:  3,
+	AgentNPMFailed:      10,
 	ConfigWriteFailed:   5,
 	APIKeyRejected:      6,
 	ProviderUnreachable: 6,

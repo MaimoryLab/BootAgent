@@ -9,6 +9,7 @@ import { taskCanceller, taskKey, useTaskCenter, useTaskRoute } from "../state/Ta
 import type { DesktopAgentStatus, ProfileSummary } from "../types/api";
 import { DownloadProgress } from "./DownloadProgress";
 import { EditionTag } from "./EditionTag";
+import { AgentActionMenu, type AgentActionMenuItem } from "./AgentActionMenu";
 import { AgentIcon } from "./icons/agents";
 
 interface DesktopAppSectionProps {
@@ -111,6 +112,22 @@ export function DesktopAppSection({ app: desktopApp, onChanged, onSetup, onConfi
       setPending("");
     }
   };
+  const menuItems: AgentActionMenuItem[] = desktopApp.installed ? [
+    ...(desktopApp.id === "chatgpt-desktop" ? [{
+      id: "migration",
+      label: migration.running ? t("迁移中") : t("迁移对话"),
+      icon: History,
+      onSelect: migration.run,
+      disabled: busy || migration.running,
+    }] : []),
+    {
+      id: "refresh",
+      label: t("刷新状态"),
+      icon: RefreshCw,
+      onSelect: onChanged,
+      disabled: busy || migration.running,
+    },
+  ] : [];
 
   return (
     <section className={`overview-section desktop-app-section${showHeading ? "" : " desktop-app-item"}`}>
@@ -182,12 +199,7 @@ export function DesktopAppSection({ app: desktopApp, onChanged, onSetup, onConfi
         <div className="desktop-app-actions">
           {desktopApp.installed ? (
             <>
-              {desktopApp.id === "chatgpt-desktop" ? (
-                <button className="button button-secondary" type="button" onClick={() => void migration.run()} disabled={busy || migration.running}>
-                  {migration.running ? <RefreshCw size={15} className="spin" aria-hidden="true" /> : <History size={15} aria-hidden="true" />}
-                  {migration.running ? t("迁移中") : t("迁移对话")}
-                </button>
-              ) : null}
+              <AgentActionMenu label={t("{name} 更多操作", { name: desktopApp.name })} items={menuItems} />
               {onConfigure ? (
                 <button className="button button-secondary" type="button" onClick={onConfigure} disabled={busy}>
                   <SlidersHorizontal size={15} />

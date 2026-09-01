@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator } from "@playwright/test";
 
 // Every test addresses a route directly. "/" is a decision, not a page: on a
 // home without ~/.bootagent it opens onboarding, so landing there would make
@@ -182,3 +182,92 @@ test("a discovered model can be selected in the Profile editor", async ({ page }
   await page.getByRole("button", { name: /保存配置模版/ }).click();
   await expect(page.getByTestId(/^profile-/).first()).toContainText("bootagent-e2e-model");
 });
+
+test("Skills and MCP management lead to their marketplace categories", async ({ page }) => {
+  const browserProblems: string[] = [];
+  page.on("console", (message) => {
+    const text = message.text();
+    // Wails server mode always announces that this isolated browser is a UI
+    // preview. Keep every application warning/error actionable while excluding
+    // that framework-owned environment notice.
+    if ((message.type() === "error" || message.type() === "warning") && !text.includes("Browser Environment Detected")) {
+      browserProblems.push(text);
+    }
+  });
+  page.on("pageerror", (error) => browserProblems.push(error.message));
+
+  await page.goto("/#/skills");
+  await expect(page.getByRole("link", { name: "去市场发现" })).toHaveAttribute("href", "#/marketplace?category=agent-enhance");
+  await expect(page.getByRole("link", { name: "或者去工具市场发现" })).toHaveAttribute("href", "#/marketplace?category=agent-enhance");
+  await page.getByRole("link", { name: "去市场发现" }).click();
+  await expect(page).toHaveURL(/#\/marketplace\?category=agent-enhance$/);
+  await expect(page.getByRole("tab", { name: /Skills/ })).toHaveAttribute("aria-selected", "true");
+
+  await page.locator(".marketplace-card").first().click();
+  await page.getByRole("link", { name: "安装完成后，可在 Skills 页管理它。" }).click();
+  await expect(page).toHaveURL(/#\/skills$/);
+
+  await page.goto("/#/mcp");
+  await expect(page.getByRole("link", { name: "去市场发现" })).toHaveAttribute("href", "#/marketplace?category=mcp-server");
+  await expect(page.getByRole("link", { name: "或者去工具市场发现" })).toHaveAttribute("href", "#/marketplace?category=mcp-server");
+  await page.getByRole("link", { name: "去市场发现" }).click();
+  await expect(page).toHaveURL(/#\/marketplace\?category=mcp-server$/);
+  await expect(page.getByRole("tab", { name: /MCP 服务器/ })).toHaveAttribute("aria-selected", "true");
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/#/skills");
+  const overflow = await page.evaluate(() => ({
+    clientWidth: document.documentElement.clientWidth,
+    scrollWidth: document.documentElement.scrollWidth,
+  }));
+  expect(overflow.scrollWidth).toBe(overflow.clientWidth);
+  expect(browserProblems).toEqual([]);
+});
+
+test("Marketplace multi-type filters narrow unique results without shifting controls", async ({ page }) => {
+  await page.setViewportSize({ width: 1180, height: 760 });
+  await page.goto("/#/marketplace");
+
+  const typeButton = page.getByRole("button", { name: /工具类型|Tool type/ });
+  const before = await typeButton.boundingBox();
+  expect(before).not.toBeNull();
+  const initialCount = await page.locator(".marketplace-card").count();
+
+  await typeButton.click();
+  const skillFilter = page.getByLabel("Skill", { exact: true });
+  await checkMarketplaceFilter(skillFilter);
+  const afterFirstType = await page.locator(".marketplace-card").count();
+  expect(afterFirstType).toBeLessThanOrEqual(initialCount);
+
+  const after = await typeButton.boundingBox();
+  const clear = page.getByRole("button", { name: /清除全部筛选|Clear all filters/ });
+  const clearBox = await clear.boundingBox();
+  expect(after?.x).toBeCloseTo(before!.x, 0);
+  expect(clearBox!.x + clearBox!.width).toBeLessThanOrEqual(after!.x);
+
+  const pluginFilter = page.getByLabel(/插件|Plugins/, { exact: true });
+  await checkMarketplaceFilter(pluginFilter);
+  const afterSecondType = await page.locator(".marketplace-card").count();
+  expect(afterSecondType).toBeLessThanOrEqual(afterFirstType);
+
+  const itemIDs = await page.locator(".marketplace-card").evaluateAll((cards) =>
+    cards.map((card) => card.getAttribute("data-item-id")),
+  );
+  expect(itemIDs.every(Boolean)).toBe(true);
+  expect(new Set(itemIDs).size).toBe(itemIDs.length);
+});
+
+async function checkMarketplaceFilter(filter: Locator) {
+  // URL-backed controlled inputs can be replaced while the catalog snapshot is
+  // refreshed. Retry only when the desired state was not committed, and fail
+  // with Playwright's normal assertion if it remains unavailable.
+  for (let attempt = 0; attempt < 3 && !(await filter.isChecked()); attempt += 1) {
+    try {
+      await filter.check({ timeout: 2_000 });
+    } catch (error) {
+      if (attempt === 2) throw error;
+    }
+    if (!(await filter.isChecked())) await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  await expect(filter).toBeChecked();
+}

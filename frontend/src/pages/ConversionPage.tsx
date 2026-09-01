@@ -1,5 +1,6 @@
-import { ChevronDown, ChevronUp, Power } from "lucide-react";
+import { ChevronDown, ChevronUp, CircleHelp, Power } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 
 import { api, describeFailure } from "../backend/api";
 import { PageScaffold } from "../components/PageScaffold";
@@ -89,9 +90,8 @@ export function ConversionPage() {
   return (
     <PageScaffold
       title={t("API 协议适配")}
-      description={t("让只支持某一种 API 协议的 Agent 也能用上这个模型服务")}
+      description={t("将 Responses 与 Messages 请求转换为目标服务支持的 Chat Completions")}
       bodyClassName="management-page conversion-page"
-      footerNote={config ? <span className={`conversion-footer-status${config.enabled ? " is-running" : " is-stopped"}`}>{config.enabled ? t("适配服务运行中") : t("适配服务已停止")}</span> : null}
       secondaryAction={config ? <button className={`button button-secondary conversion-action${config.enabled ? " is-running" : " is-stopped"}`} type="button" onClick={() => void toggle()} disabled={saving || !config.target_profile}><Power size={15} />{config.enabled ? t("停止服务") : t("启动服务")}</button> : null}
       primaryLabel={t("保存设置")}
       onPrimary={() => void save()}
@@ -100,16 +100,43 @@ export function ConversionPage() {
     >
       {failure ? <p className="settings-field-error" role="status">{failure}</p> : null}
       {config ? <div className="provider-editor conversion-editor">
-        <section className="conversion-explainer">
-          <h3>{t("为什么需要它")}</h3>
-          <p>{t("不同 Agent 要求的 API 协议不一样：Codex 只发 OpenAI Responses 请求，Claude Code 只发 Anthropic Messages 请求，OpenCode 和 Aider 发 Chat Completions 请求。而一个模型服务通常只支持其中一部分。")}</p>
-          <p>{t("开启后，BootAgent 会在本机监听一个地址，把这三种协议的请求都翻译成 Chat Completions 再转发给下面选中的模型服务。这样协议不匹配的 Agent 也能连上它。")}</p>
+        <section className={`conversion-status${config.enabled ? " is-running" : " is-stopped"}`} aria-label={t("服务状态")}>
+          <span className="conversion-status-dot" aria-hidden="true" />
+          <div>
+            <strong>{config.enabled ? t("适配服务运行中") : t("适配服务已停止")}</strong>
+            <span>{config.enabled ? config.listen : t("选择目标配置后即可启动")}</span>
+          </div>
         </section>
 
-        <section className="conversion-agents">
-          <h3>{t("哪些 Agent 会用到它")}</h3>
+        <div className="provider-editor-grid">
+          <div className="field-stack provider-editor-wide">
+            <label htmlFor="conversion-target">{t("请求最终发往")}</label>
+            <SelectField
+              id="conversion-target"
+              label={t("请求最终发往")}
+              value={config.target_profile}
+              onChange={(value) => setConfig({ ...config, target_profile: value })}
+              options={profiles.map((profile) => ({ value: profile.id, label: profile.label || profile.id }))}
+            />
+            {profiles.length === 0 ? (
+              <div className="conversion-empty-action">
+                <span>{t("还没有可用的 Chat Completions 配置模板")}</span>
+                <Link to="/profiles">{t("创建配置模板")}</Link>
+              </div>
+            ) : null}
+          </div>
+        </div>
+
+        <section className="conversion-agents" aria-labelledby="conversion-agents-title">
+          <div className="conversion-section-heading">
+            <h3 id="conversion-agents-title">{t("适用 Agent")}</h3>
+            <span>{t("{count} 个可使用", { count: adaptableAgents.length })}</span>
+          </div>
           {adaptableAgents.length === 0 ? (
-            <p className="conversion-hint">{t("没有可用的 Agent，先在环境总览里安装一个")}</p>
+            <div className="conversion-empty-action">
+              <span>{t("当前没有可使用协议适配的 Agent")}</span>
+              <Link to="/overview">{t("查看环境总览")}</Link>
+            </div>
           ) : (
             <ul className="conversion-agent-list">
               {adaptableAgents.map((agent) => (
@@ -124,22 +151,6 @@ export function ConversionPage() {
             </ul>
           )}
         </section>
-
-        <div className="provider-editor-grid">
-          <div className="field-stack provider-editor-wide">
-            <label htmlFor="conversion-target">{t("请求最终发往")}</label>
-            <SelectField
-              id="conversion-target"
-              label={t("请求最终发往")}
-              value={config.target_profile}
-              onChange={(value) => setConfig({ ...config, target_profile: value })}
-              options={profiles.map((profile) => ({ value: profile.id, label: profile.label || profile.id }))}
-            />
-            {profiles.length === 0 && (
-              <small className="conversion-hint">{t("还没有 Chat Completions 协议的配置模版，先去配置模版页建一个")}</small>
-            )}
-          </div>
-        </div>
 
         <section className="conversion-advanced">
           <button
@@ -212,6 +223,14 @@ export function ConversionPage() {
             </div>
           ) : null}
         </section>
+
+        <details className="conversion-guidance">
+          <summary><CircleHelp size={15} />{t("了解协议适配")}</summary>
+          <div>
+            <p>{t("不同 Agent 使用的 API 协议并不相同。Codex 使用 OpenAI Responses，Claude Code 使用 Anthropic Messages，其他 Agent 可能使用 Chat Completions。")}</p>
+            <p>{t("BootAgent 只在本机转换请求格式，再把请求发往上方选中的配置模板；模型与凭据仍由该配置模板管理。")}</p>
+          </div>
+        </details>
       </div> : null}
     </PageScaffold>
   );

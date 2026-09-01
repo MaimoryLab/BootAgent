@@ -17,6 +17,22 @@ import * as platform$0 from "../platform/models.js";
 // @ts-ignore: Unused imports
 import * as provider$0 from "../provider/models.js";
 
+/**
+ * AgentInstallation is one independently managed installation of an Agent.
+ * Paths are diagnostic metadata; the backend re-discovers and validates them
+ * before any destructive operation.
+ */
+export interface AgentInstallation {
+    "id": string;
+    "manager": string;
+    "package": string;
+    "prefix"?: string;
+    "executable": string;
+    "version"?: string;
+    "canUninstall": boolean;
+    "reason"?: string;
+}
+
 export interface AgentStatus {
     "installed": boolean;
     "configured": boolean;
@@ -39,6 +55,28 @@ export interface AgentStatus {
     "baseUrl": string | null;
     "updatedAt": string | null;
     "detected": DetectedConfig | null;
+    "installations"?: AgentInstallation[] | null;
+}
+
+/**
+ * AgentUninstallPreview describes the concrete installation selected for
+ * removal. User configuration and credential paths are intentionally excluded.
+ */
+export interface AgentUninstallPreview {
+    "agent": string;
+    "installation": AgentInstallation;
+    "files": string[] | null;
+    "preservedData": string[] | null;
+}
+
+/**
+ * AgentUninstallResult reports the package removed without implying that user
+ * configuration, Profiles, Providers, or conversation data were deleted.
+ */
+export interface AgentUninstallResult {
+    "agent": string;
+    "package": string;
+    "command": string;
 }
 
 export interface AgentUpdateResult {
@@ -202,6 +240,53 @@ export interface MCPServerSummary {
     "variants": number;
     "conflict": boolean;
     "has_secrets": boolean;
+}
+
+export interface MarketplaceKnowledgeItem {
+    "id": string;
+    "name": string;
+    "description": string;
+    "category": string;
+    "tags"?: string[] | null;
+}
+
+export interface MarketplaceRecommendRequest {
+    "agent_id": string;
+    "need": string;
+    "locale": string;
+    "items": MarketplaceKnowledgeItem[] | null;
+}
+
+export interface MarketplaceRecommendResult {
+    "agent_id": string;
+    "recommendations": MarketplaceRecommendation[] | null;
+}
+
+export interface MarketplaceRecommendation {
+    "item_id": string;
+    "reason": string;
+}
+
+export interface MarketplaceRecommendationAgent {
+    "id": string;
+    "name": string;
+}
+
+export interface MarketplaceRecommendationHistory {
+    "id": string;
+    "created_at": string;
+    "agent_id": string;
+    "need": string;
+    "catalog_version": string;
+    "results": MarketplaceRecommendationSnapshot[] | null;
+}
+
+export interface MarketplaceRecommendationSnapshot {
+    "item_id": string;
+    "name": string;
+    "reason": string;
+    "category": string;
+    "source"?: string;
 }
 
 /**
@@ -410,6 +495,34 @@ export interface StatusResponse {
     "environment": any;
     "environmentError": string | null;
     "desktopAgents": DesktopAgentStatus[] | null;
+}
+
+export interface TaskHistoryEvent {
+    "at": number;
+    "kind": string;
+    "phase"?: string;
+    "source"?: string;
+    "message": string;
+}
+
+export interface TaskHistoryRecord {
+    "id": string;
+    "kind": string;
+    "target": string;
+    "title": string;
+    "route": string;
+    "progressTarget": string;
+    "state": string;
+    "phase": string;
+    "version"?: string;
+    "source"?: string;
+    "message"?: string;
+    "errorCode"?: string;
+    "exitCode"?: number | null;
+    "retryable"?: boolean;
+    "startedAt": number;
+    "log"?: string;
+    "events"?: TaskHistoryEvent[] | null;
 }
 
 /**
