@@ -1,11 +1,6 @@
 import { api } from "../backend/api";
 import type { MarketplaceItem } from "../types/marketplace";
-import { ecosystemItems } from "./ecosystem-catalog";
-import { extensionItems } from "./extension-catalog";
-import { githubItems } from "./github-adapter";
-import { mcpserversItems } from "./mcpservers-adapter";
-import { mapSkillhubEntry, skillhubItems, type SkillhubEntry } from "./skillhub-adapter";
-import { templateItems } from "./template-catalog";
+import { mapSkillhubEntry, type SkillhubEntry } from "./skillhub-adapter";
 
 const SHOWCASE_URL = "https://api.skillhub.cn/api/v1/showcase/hot";
 const FETCH_TIMEOUT_MS = 8000;
@@ -26,12 +21,6 @@ export interface ShowcaseSkill {
   labels?: { requires_api_key?: string | boolean };
   namespace?: { canonicalName?: string };
   homepage?: string;
-}
-
-export interface MarketplaceSourceAdapter {
-  id: string;
-  snapshot: MarketplaceItem[];
-  loadLive?: () => Promise<MarketplaceItem[]>;
 }
 
 export function normalizeShowcaseSkill(raw: ShowcaseSkill): SkillhubEntry | null {
@@ -72,7 +61,7 @@ async function fetchShowcasePayload(): Promise<unknown> {
   }
 }
 
-async function loadSkillhub(): Promise<MarketplaceItem[]> {
+export async function loadSkillhub(): Promise<MarketplaceItem[]> {
   const payload = await fetchShowcasePayload();
   const skills = Array.isArray((payload as { skills?: unknown })?.skills)
     ? (payload as { skills: ShowcaseSkill[] }).skills
@@ -80,46 +69,4 @@ async function loadSkillhub(): Promise<MarketplaceItem[]> {
   const items = skills.map(normalizeShowcaseSkill).filter((item): item is SkillhubEntry => item !== null).map(mapSkillhubEntry);
   if (items.length === 0) throw new Error("empty showcase payload");
   return items;
-}
-
-export const marketplaceSourceAdapters: MarketplaceSourceAdapter[] = [
-  { id: "skillhub", snapshot: skillhubItems, loadLive: loadSkillhub },
-  { id: "mcpservers", snapshot: mcpserversItems },
-  { id: "extensions", snapshot: extensionItems },
-  { id: "github", snapshot: githubItems },
-  { id: "ecosystem", snapshot: ecosystemItems },
-  { id: "templates", snapshot: templateItems },
-];
-
-export function dedupeMarketplaceItems(items: MarketplaceItem[]): MarketplaceItem[] {
-  const seen = new Set<string>();
-  return items.filter((item) => {
-    if (seen.has(item.id)) return false;
-    seen.add(item.id);
-    return true;
-  });
-}
-
-export const bundledMarketplaceItems = dedupeMarketplaceItems(
-  marketplaceSourceAdapters.flatMap((adapter) => adapter.snapshot),
-);
-
-const featuredFirst = (items: MarketplaceItem[]) => {
-  const featured = items.find((item) => item.id === "github-maimorylab-codeoff");
-  return featured ? [featured, ...items.filter((item) => item !== featured)] : items;
-};
-
-export async function loadMarketplaceSources(): Promise<{ items: MarketplaceItem[]; live: boolean }> {
-  const groups = await Promise.all(marketplaceSourceAdapters.map(async (adapter) => {
-    if (!adapter.loadLive) return { items: adapter.snapshot, live: false };
-    try {
-      return { items: await adapter.loadLive(), live: true };
-    } catch {
-      return { items: adapter.snapshot, live: false };
-    }
-  }));
-  return {
-    items: featuredFirst(dedupeMarketplaceItems(groups.flatMap((group) => group.items))),
-    live: groups.some((group) => group.live),
-  };
 }

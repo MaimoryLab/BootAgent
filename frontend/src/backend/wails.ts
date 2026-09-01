@@ -57,6 +57,7 @@ import type {
   StatusResponse,
   TaskHistoryRecord
 } from "../types/api";
+import type { MarketplaceCatalog, MarketplaceItem } from "../types/marketplace";
 import { BootAgentApiError, isCancellationError } from "./errors";
 
 export const INSTALL_OUTPUT_EVENT = "bootagent:install-output";
@@ -242,6 +243,12 @@ export const wailsApi = {
   // skillhub's own origins; parsing stays with the frontend normalisers.
   marketplaceShowcase: (): Promise<string> =>
     call(() => MarketplaceService.FetchShowcase()).then((response) => response.body),
+  marketplaceCatalog: (): Promise<MarketplaceCatalog> =>
+    call(() => MarketplaceService.Catalog()).then((catalog) => ({
+      version: catalog.version,
+      builtAt: catalog.built_at,
+      items: (catalog.items ?? []) as MarketplaceItem[],
+    })),
   marketplaceSkillDetail: (slug: string): Promise<string> =>
     call(() => MarketplaceService.FetchSkillDetail({ slug })).then((response) => response.body),
   marketplaceSkillFile: (slug: string): Promise<string> =>

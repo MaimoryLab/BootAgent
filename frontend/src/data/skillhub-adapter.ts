@@ -1,10 +1,7 @@
-/**
- * Adapts skillhub-hot.json entries to MarketplaceItem shape.
- */
+/** Adapts live SkillHub entries to MarketplaceItem. */
 
 import type { MarketplaceItem, MarketplaceScene } from "../types/marketplace";
 import { localizeTag } from "./tag-labels";
-import skillhubRaw from "./skillhub-hot.json";
 
 // ── category mapping ──────────────────────────────────────────────────────────
 
@@ -33,8 +30,7 @@ function mapScenes(subs: string[]): MarketplaceScene[] {
 // ── adapter ───────────────────────────────────────────────────────────────────
 
 /**
- * Normalised skillhub entry shape shared by the static snapshot
- * (skillhub-hot.json) and the live showcase API (useMarketplaceCatalog).
+ * Normalised SkillHub entry shape returned by the live showcase API.
  */
 export interface SkillhubEntry {
   id: string;
@@ -97,6 +93,3 @@ export function mapSkillhubEntry(entry: SkillhubEntry): MarketplaceItem {
     score: entry.score,
   };
 }
-
-export const skillhubItems: MarketplaceItem[] =
-  (skillhubRaw as SkillhubEntry[]).map(mapSkillhubEntry);

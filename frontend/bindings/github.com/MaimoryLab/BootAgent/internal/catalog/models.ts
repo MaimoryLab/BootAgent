@@ -45,6 +45,56 @@ export interface Group {
     "name": string;
 }
 
+export interface MarketplaceItem {
+    "id": string;
+    "category": string;
+    "categories"?: string[] | null;
+    "type": string;
+    "name": string;
+    "description": string;
+    "descriptionEn"?: string;
+    "icon": string;
+    "iconColor": string;
+    "tags"?: string[] | null;
+    "tagKeys"?: string[] | null;
+    "capabilities"?: string[] | null;
+    "integrations"?: string[] | null;
+    "deploymentModes"?: string[] | null;
+    "trustLevel"?: string;
+    "license"?: string;
+    "updatedAt"?: string;
+    "scene"?: string;
+    "scenes"?: string[] | null;
+    "source"?: string;
+    "requiresApiKey"?: boolean;
+    "sourceLabel"?: string;
+    "sourceUrl"?: string;
+    "repositoryUrl"?: string;
+    "documentationUrl"?: string;
+    "installationUrl"?: string;
+    "installableKind"?: string;
+    "installPrompt"?: string;
+    "targetHint"?: string;
+    "externalUrl"?: string;
+    "readmeUrl"?: string;
+    "iconUrl"?: string;
+    "socialPreviewUrl"?: string;
+    "stars"?: number;
+    "downloads"?: number;
+    "score"?: number;
+    "githubStars"?: number;
+    "githubForks"?: number;
+    "githubLicense"?: string;
+    "githubUpdatedAt"?: string;
+}
+
+export interface MarketplaceManifest {
+    "schema_version": number;
+    "version": string;
+    "built_at": string;
+    "items": MarketplaceItem[] | null;
+}
+
 export interface Mirror {
     "id": string;
     "name": string;
