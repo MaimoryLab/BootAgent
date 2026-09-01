@@ -118,28 +118,22 @@ Agent 对话框即可完成安装，无需引导式流程。
 
 运行时在线拉取已实现，静态目录由 Go manifest 提供：
 
-- **skillhub 部分走 showcase API 直连**：`useMarketplaceCatalog` hook
-  （`frontend/src/data/useMarketplaceCatalog.ts`）在首次挂载时 fetch
-  `https://api.skillhub.cn/api/v1/showcase/hot`（8s 超时，AbortController），
+- **skillhub 部分走 showcase API 后端代理**：`useMarketplaceCatalog` hook
+  （`frontend/src/data/useMarketplaceCatalog.ts`）在首次挂载时通过
+  `MarketplaceService.FetchShowcase` 请求 `https://api.skillhub.cn/api/v1/showcase/hot`，
   成功后用与快照相同的映射逻辑（`skillhub-adapter.ts` 导出的
   `mapSkillhubEntry`）替换目录中 `source === "skillhub"` 的条目，并在
   列表页 Tab 栏显示「实时数据」绿点标识。在线数据的 `subCategories` 是
   `[{key,name}]` 对象数组、`labels.requires_api_key` 是字符串
   `"true"/"false"`，由 `normalizeShowcaseSkill` 归一化成快照条目形状。
-- **CORS 实测限制（2026-08-25）**：api.skillhub.cn 的
-  `access-control-allow-origin` 是 **Origin 白名单回显**（仅
-  skillhub.cloud.tencent.com / skillhub.cn 等被回显；localhost、
-  wails 自定义 scheme、null origin 均不回显）。curl 能看到
-  allow-methods/credentials 等头，容易误判为「CORS 全开」，但浏览器与
-  WebView 中 fetch 会被拦截。因此当前环境下在线拉取通常失败并自动落到
-  快照兜底（标识显示「离线快照」），机制无损但不生效。要真正打通需走
-  Go 后端中转（即原阶段三的 `MarketplaceService` 方案），列为后续项。
+- **CORS 边界**：renderer 不直接访问 SkillHub；Go `MarketplaceService` 负责
+  后端请求，避免 WebView 的 Origin 白名单限制。
 - **快照兜底**：fetch 失败（断网、超时、payload 异常）保持嵌入式 manifest
   快照，标识显示「离线快照」。模块级 promise 缓存保证
   列表页与详情页共用同一次请求，每次应用会话至多 fetch 一次。
 - **其他来源仍为快照**：统一写入 `manifests/marketplace.lock.json`，不再在
   `frontend/src/data/` 中维护条目代码或快照文件。
-- **详情页增强**：skillhub 条目详情页额外直连
+- **详情页增强**：skillhub 条目详情页额外通过后端代理读取
   `https://api.skillhub.cn/api/v1/skills/{slug}` 渲染安全审核
   （科恩/三堡）、版本信息与作者区块，失败静默降级不阻塞页面
   （受上述同样的 CORS 白名单限制）。
@@ -147,6 +141,4 @@ Agent 对话框即可完成安装，无需引导式流程。
   （提示词是给中文用户的 Agent 执行的）；英文 locale 下的双语提示词
   工作量较大，待后续排期。
 
-> 注：上述直连收窄了「不在 renderer 直接 fetch 外部域名」的原有约束——
-> README 在线渲染（raw.githubusercontent.com）已开先例，市场数据源
-> 同样按「只读公开数据、失败静默降级」的口径在 renderer 直连。
+> 注：市场目录和 SkillHub 数据均由后端持有外部 URL，renderer 只接收公开结果。

@@ -2,9 +2,6 @@ import { api } from "../backend/api";
 import type { MarketplaceItem } from "../types/marketplace";
 import { mapSkillhubEntry, type SkillhubEntry } from "./skillhub-adapter";
 
-const SHOWCASE_URL = "https://api.skillhub.cn/api/v1/showcase/hot";
-const FETCH_TIMEOUT_MS = 8000;
-
 interface ShowcaseSubCategory { key?: string; name?: string }
 
 export interface ShowcaseSkill {
@@ -46,19 +43,7 @@ export function normalizeShowcaseSkill(raw: ShowcaseSkill): SkillhubEntry | null
 }
 
 async function fetchShowcasePayload(): Promise<unknown> {
-  try {
-    return JSON.parse(await api.marketplaceShowcase()) as unknown;
-  } catch {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-    try {
-      const response = await fetch(SHOWCASE_URL, { signal: controller.signal });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      return await response.json();
-    } finally {
-      clearTimeout(timer);
-    }
-  }
+  return JSON.parse(await api.marketplaceShowcase()) as unknown;
 }
 
 export async function loadSkillhub(): Promise<MarketplaceItem[]> {
