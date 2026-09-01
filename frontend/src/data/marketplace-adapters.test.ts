@@ -124,7 +124,7 @@ describe("extension catalog", () => {
 describe("GitHub adapter", () => {
 	it("uses Codeoff Social Preview and features it first", () => {
 		const codeoff = githubItems.find((item) => item.id === "github-maimorylab-codeoff");
-		expect(codeoff?.socialPreviewUrl).toBe("https://opengraph.githubassets.com/1/MaimoryLab/codeoff");
+		expect(codeoff?.socialPreviewUrl).toBe("https://repository-images.githubusercontent.com/1341663262/3fb882ce-5103-4ef1-a561-5df0745200e7");
 		expect(STATIC_CATALOG.items[0]?.id).toBe("github-maimorylab-codeoff");
 	});
   it("maps recommended repositories into detailed discovery entries", () => {

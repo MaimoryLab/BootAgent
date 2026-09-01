@@ -101,7 +101,7 @@ export const githubItems: MarketplaceItem[] = repositories.map((spec) => {
     descriptionEn: spec.descriptionEn,
     icon: spec.icon,
     iconUrl: marketplaceIconUrl({ repositoryUrl }),
-    socialPreviewUrl: spec.repo === "MaimoryLab/codeoff" ? `https://opengraph.githubassets.com/1/${spec.repo}` : undefined,
+    socialPreviewUrl: spec.repo === "MaimoryLab/codeoff" ? "https://repository-images.githubusercontent.com/1341663262/3fb882ce-5103-4ef1-a561-5df0745200e7" : undefined,
     iconColor: spec.category === "plugin" ? "oklch(62% 0.15 35)" : "oklch(58% 0.15 250)",
     tags: spec.tags,
     scene: spec.scene,

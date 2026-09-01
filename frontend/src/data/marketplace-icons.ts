@@ -1,6 +1,6 @@
 import type { MarketplaceIconName, MarketplaceItem } from "../types/marketplace";
 
-const TRUSTED_ICON_HOSTS = new Set(["github.com", "www.github.com", "icons.duckduckgo.com", "opengraph.githubassets.com"]);
+const TRUSTED_ICON_HOSTS = new Set(["github.com", "www.github.com", "icons.duckduckgo.com", "opengraph.githubassets.com", "repository-images.githubusercontent.com"]);
 
 function isHttps(value: string): boolean {
   try {
