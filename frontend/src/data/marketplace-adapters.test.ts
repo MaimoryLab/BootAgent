@@ -122,6 +122,11 @@ describe("extension catalog", () => {
 });
 
 describe("GitHub adapter", () => {
+	it("uses Codeoff Social Preview and features it first", () => {
+		const codeoff = githubItems.find((item) => item.id === "github-maimorylab-codeoff");
+		expect(codeoff?.socialPreviewUrl).toBe("https://opengraph.githubassets.com/1/MaimoryLab/codeoff");
+		expect(STATIC_CATALOG.items[0]?.id).toBe("github-maimorylab-codeoff");
+	});
   it("maps recommended repositories into detailed discovery entries", () => {
     expect(githubItems.length).toBeGreaterThanOrEqual(20);
     expect(githubItems.some((item) => item.id === "github-diegosouzapw-omniroute")).toBe(true);

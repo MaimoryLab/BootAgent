@@ -1,6 +1,6 @@
 import type { MarketplaceIconName, MarketplaceItem } from "../types/marketplace";
 
-const TRUSTED_ICON_HOSTS = new Set(["github.com", "www.github.com", "icons.duckduckgo.com"]);
+const TRUSTED_ICON_HOSTS = new Set(["github.com", "www.github.com", "icons.duckduckgo.com", "opengraph.githubassets.com"]);
 
 function isHttps(value: string): boolean {
   try {
@@ -37,9 +37,10 @@ function favicon(urlValue?: string): string | undefined {
  * Returns remote icon candidates in descending reliability order. The caller
  * must still handle image errors and fall back to the local Lucide token.
  */
-export function marketplaceIconCandidates(item: Pick<MarketplaceItem, "iconUrl" | "repositoryUrl" | "externalUrl" | "sourceUrl" | "documentationUrl">): string[] {
+export function marketplaceIconCandidates(item: Pick<MarketplaceItem, "iconUrl" | "socialPreviewUrl" | "repositoryUrl" | "externalUrl" | "sourceUrl" | "documentationUrl">): string[] {
   const candidates = [
     item.iconUrl,
+    item.socialPreviewUrl,
     githubAvatar(item.repositoryUrl),
     favicon(item.externalUrl),
     favicon(item.documentationUrl),

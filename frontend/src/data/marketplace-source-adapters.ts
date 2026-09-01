@@ -104,6 +104,11 @@ export const bundledMarketplaceItems = dedupeMarketplaceItems(
   marketplaceSourceAdapters.flatMap((adapter) => adapter.snapshot),
 );
 
+const featuredFirst = (items: MarketplaceItem[]) => {
+  const featured = items.find((item) => item.id === "github-maimorylab-codeoff");
+  return featured ? [featured, ...items.filter((item) => item !== featured)] : items;
+};
+
 export async function loadMarketplaceSources(): Promise<{ items: MarketplaceItem[]; live: boolean }> {
   const groups = await Promise.all(marketplaceSourceAdapters.map(async (adapter) => {
     if (!adapter.loadLive) return { items: adapter.snapshot, live: false };
@@ -114,7 +119,7 @@ export async function loadMarketplaceSources(): Promise<{ items: MarketplaceItem
     }
   }));
   return {
-    items: dedupeMarketplaceItems(groups.flatMap((group) => group.items)),
+    items: featuredFirst(dedupeMarketplaceItems(groups.flatMap((group) => group.items))),
     live: groups.some((group) => group.live),
   };
 }

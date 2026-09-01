@@ -152,6 +152,8 @@ export interface MarketplaceItem {
   // ── skillhub-specific fields (only set for skillhub items) ──────────────────
   /** Remote image URL from skillhub; overrides the lucide icon when present */
   iconUrl?: string;
+  /** GitHub Social Preview image, preferred over an owner avatar when present. */
+  socialPreviewUrl?: string;
   stars?: number;
   downloads?: number;
   score?: number;

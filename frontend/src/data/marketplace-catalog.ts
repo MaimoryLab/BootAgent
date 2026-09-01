@@ -12,5 +12,7 @@ import { bundledMarketplaceItems } from "./marketplace-source-adapters";
 export const STATIC_CATALOG: MarketplaceCatalog = {
   version: "2.3.0",
   builtAt: "2026-08-27T00:00:00Z",
-  items: bundledMarketplaceItems,
+  items: bundledMarketplaceItems.find((item) => item.id === "github-maimorylab-codeoff")
+    ? [bundledMarketplaceItems.find((item) => item.id === "github-maimorylab-codeoff")!, ...bundledMarketplaceItems.filter((item) => item.id !== "github-maimorylab-codeoff")]
+    : bundledMarketplaceItems,
 };
