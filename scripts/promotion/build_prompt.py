@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[2]
-LIBRARY = ROOT / "third_party" / "awesome-gpt-image-2" / "style-library.json"
+LIBRARY = ROOT / "scripts" / "promotion" / "awesome-gpt-image-2" / "style-library.json"
 UPSTREAM_COMMIT = "685469889fb72fd5adefae45e1645d527edcb5e7"
 EXPECTED_LIBRARY_SHA256 = "80f5cae039d0d6f312f0e2de2c9b3fc8a806640b0d517c120d704a71c5e4aa72"
 

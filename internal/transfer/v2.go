@@ -1,3 +1,4 @@
+// Package transfer contains versioned import and export formats for local configuration.
 package transfer
 
 import (

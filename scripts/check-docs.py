@@ -45,13 +45,13 @@ def tracked_markdown() -> list[pathlib.Path]:
     import subprocess
 
     out = subprocess.run(
-        ["git", "ls-files", "*.md"],
+        ["git", "-c", "core.quotePath=false", "ls-files", "-z", "*.md"],
         cwd=ROOT,
         capture_output=True,
-        text=True,
+        text=False,
         check=True,
-    ).stdout
-    return [ROOT / line for line in out.splitlines() if line]
+    ).stdout.decode("utf-8")
+    return [ROOT / line for line in out.split("\x00") if line]
 
 
 def check_links(paths: list[pathlib.Path]) -> list[str]:

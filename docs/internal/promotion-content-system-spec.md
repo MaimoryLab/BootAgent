@@ -298,7 +298,7 @@ RELEASE_DETECTED
 
 ### 9.1 集成范围
 
-BootAgent 只离线复用 `freestylefly/awesome-gpt-image-2` 的 `data/style-library.json` 元数据：13 个分类、19 个风格、10 个场景和 22 个模板的标题、指导与常见问题。固定上游提交、文件哈希和 MIT 许可证记录在 `third_party/awesome-gpt-image-2/UPSTREAM.md`。
+BootAgent 只离线复用 `freestylefly/awesome-gpt-image-2` 的 `data/style-library.json` 元数据：13 个分类、19 个风格、10 个场景和 22 个模板的标题、指导与常见问题。固定上游提交、文件哈希和 MIT 许可证记录在 `scripts/promotion/awesome-gpt-image-2/UPSTREAM.md`。
 
 不引入上游案例图片、第三方提示词全文、Vite 展示站、Supabase、Stripe、支付宝或上游 `api/generate-image.js`。上游生图接口依赖登录、积分、次元 API，固定方形低质量 JPEG，与本系统的渠道比例和本地优先边界不一致，因此不直接复用。
 
@@ -318,7 +318,7 @@ Builder 负责选择海报模板、合并渠道比例、产品能力、用户结
 ### 9.3 复用、修改与新增文件
 
 - 可直接复用：`style-library.json` 中的模板元数据、`guidance` 和 `pitfalls`；`poster-layout-system` 作为当前推广海报默认模板。
-- 新增：`third_party/awesome-gpt-image-2/style-library.json`、`LICENSE`、`UPSTREAM.md`、`scripts/promotion/build_prompt.py`、`scripts/test_promotion_prompt_builder.py`。
+- 新增：`scripts/promotion/awesome-gpt-image-2/style-library.json`、`LICENSE`、`UPSTREAM.md`、`scripts/promotion/build_prompt.py`、`scripts/test_promotion_prompt_builder.py`。
 - 修改：`NOTICE` 与本规格文档。
 - 暂不修改：Go/Wails 服务、React 页面、Provider/API Key 存储、Skill 安装逻辑和远程生图链路。
 
