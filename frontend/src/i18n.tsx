@@ -691,6 +691,8 @@ const english = {
   "自我成长型 Agent 框架": "Self-improving agent framework",
   // ── Marketplace ──────────────────────────────────────────────────────────
   "工具市场": "Marketplace",
+  "正在加载工具市场": "Loading marketplace",
+  "正在同步可用工具，请稍候": "Syncing available tools, please wait",
   "搜索工具市场": "Search Marketplace",
   "发现并安装 Agent 扩展、MCP 服务器与配置模板": "Discover and install Agent extensions, MCP servers, and config templates",
   "工具分类": "Tool categories",

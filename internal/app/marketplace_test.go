@@ -140,3 +140,46 @@ func TestFetchMarketplaceShowcaseCapsResponseSize(t *testing.T) {
 		t.Fatal("payload over the cap was accepted")
 	}
 }
+
+func TestParseSkillHubItemsValidatesAndNormalizes(t *testing.T) {
+	items, err := parseSkillHubItems([]byte(`{"skills":[{"slug":"good-skill","name":"Good","description":"desc","description_zh":"描述","iconUrl":"https://example.com/i.png"},{"slug":"../bad","name":"Bad"},{"slug":"","name":"Missing"}]}`))
+	if err != nil || len(items) != 1 {
+		t.Fatalf("items=%d err=%v", len(items), err)
+	}
+	if items[0].ID != "skillhub-good-skill" || items[0].Description != "描述" || items[0].Source != "skillhub" {
+		t.Fatalf("unexpected item: %+v", items[0])
+	}
+}
+
+func TestParseSkillHubPageParsesPublicPaginatedResponse(t *testing.T) {
+	items, total, err := parseSkillHubPage([]byte(`{"code":0,"data":{"total":133272,"skills":[{"slug":"demo-skill","name":"Demo","description":"English","description_zh":"中文","category":"office-efficiency","iconUrl":"https://cdn.example/icon.png","downloads":12,"stars":3,"score":99}]}}`))
+	if err != nil || total != 133272 || len(items) != 1 {
+		t.Fatalf("items=%d total=%d err=%v", len(items), total, err)
+	}
+	if items[0].ID != "skillhub-demo-skill" || items[0].Category != "office-efficiency" || items[0].Description != "中文" || items[0].Downloads != 12 {
+		t.Fatalf("unexpected normalized SkillHub item: %+v", items[0])
+	}
+}
+
+func TestParseMCPServerPageParsesMetadata(t *testing.T) {
+	items, total, err := parseMCPServerPage([]byte(`{"page":1,"pageSize":100,"total":1,"items":[{"slug":"demo-mcp","name":"Demo MCP","summary":"summary","iconUrl":"https://cdn.example/icon.png","repoUrl":"https://github.com/example/demo-mcp","sourceUrl":"https://example.com/demo-mcp","stats":{"downloads":42},"tags":["search"]}]}`))
+	if err != nil || total != 1 || len(items) != 1 {
+		t.Fatalf("items=%d total=%d err=%v", len(items), total, err)
+	}
+	if items[0].ID != "mcp-demo-mcp" || items[0].RepositoryURL != "https://github.com/example/demo-mcp" || items[0].Downloads != 42 || len(items[0].Tags) != 1 {
+		t.Fatalf("unexpected normalized MCP item: %+v", items[0])
+	}
+}
+
+func TestMCPSitemapItemRejectsUntrustedURL(t *testing.T) {
+	if _, ok := mcpSitemapItem("http://mcpservers.org/servers/test"); ok {
+		t.Fatal("non-HTTPS URL accepted")
+	}
+	if _, ok := mcpSitemapItem("https://evil.example/servers/test"); ok {
+		t.Fatal("untrusted host accepted")
+	}
+	item, ok := mcpSitemapItem("https://mcpservers.org/servers/example-mcp-server")
+	if !ok || item.ID != "mcp-example-mcp-server" || item.Category != "mcp-server" {
+		t.Fatalf("unexpected result: %+v %v", item, ok)
+	}
+}

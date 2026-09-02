@@ -28,6 +28,7 @@ import type {
   InstallRuntimeResult,
   LaunchAgentResponse,
   MarketplaceRecommendationAgent,
+  MarketplaceDynamicResult,
   MarketplaceRecommendRequest,
   MarketplaceRecommendResult,
   MCPApplyRequest,
@@ -249,6 +250,8 @@ export const wailsApi = {
       builtAt: catalog.built_at,
       items: (catalog.items ?? []) as MarketplaceItem[],
     })),
+  marketplaceDiscoverSources: (options: { source?: string; category?: string; query?: string; limit?: number; offset?: number } = {}): Promise<MarketplaceDynamicResult> =>
+    call(() => MarketplaceService.DiscoverSources(options)) as Promise<MarketplaceDynamicResult>,
   marketplaceSkillDetail: (slug: string): Promise<string> =>
     call(() => MarketplaceService.FetchSkillDetail({ slug })).then((response) => response.body),
   marketplaceSkillFile: (slug: string): Promise<string> =>

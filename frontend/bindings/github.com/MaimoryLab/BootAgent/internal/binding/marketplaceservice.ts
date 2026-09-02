@@ -43,6 +43,14 @@ export function DeleteRecommendationHistory(id: string): $CancellablePromise<voi
     return $Call.ByID(853357243, id);
 }
 
+/**
+ * DiscoverSources returns the dynamic SkillHub and MCP Servers catalog. The
+ * response uses the same MarketplaceItem contract as the embedded manifest.
+ */
+export function DiscoverSources(options: app$0.MarketplaceDiscoverOptions): $CancellablePromise<app$0.MarketplaceDynamicResult> {
+    return $Call.ByID(1219321500, options);
+}
+
 export function FetchShowcase(): $CancellablePromise<$models.MarketplaceProxyResponse> {
     return $Call.ByID(2412491246);
 }

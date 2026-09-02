@@ -67,8 +67,13 @@ func (u *UseCases) FetchMarketplaceSkillFile(ctx context.Context, slug string) (
 }
 
 func (u *UseCases) fetchMarketplace(ctx context.Context, target, accept string) (string, error) {
+	body, _, _, err := u.fetchMarketplaceWithETag(ctx, target, accept, "")
+	return body, err
+}
+
+func (u *UseCases) fetchMarketplaceWithETag(ctx context.Context, target, accept, etag string) (string, string, bool, error) {
 	if u == nil {
-		return "", oneerrors.New(oneerrors.InternalError, "Marketplace proxy is not configured", oneerrors.WithStatus(501))
+		return "", "", false, oneerrors.New(oneerrors.InternalError, "Marketplace proxy is not configured", oneerrors.WithStatus(501))
 	}
 	// httpDoer is only set when a caller injected one, which in production is
 	// nobody: it exists so tests can answer without a network. The fallback
@@ -81,18 +86,24 @@ func (u *UseCases) fetchMarketplace(ctx context.Context, target, accept string) 
 	defer cancel()
 	request, err := http.NewRequestWithContext(requestCtx, http.MethodGet, target, nil)
 	if err != nil {
-		return "", oneerrors.New(oneerrors.InternalError, "Could not build the marketplace request", oneerrors.WithCause(err))
+		return "", "", false, oneerrors.New(oneerrors.InternalError, "Could not build the marketplace request", oneerrors.WithCause(err))
 	}
 	request.Header.Set("Accept", accept)
+	if etag != "" {
+		request.Header.Set("If-None-Match", etag)
+	}
 	response, err := client.Do(request)
 	if err != nil {
-		return "", oneerrors.New(oneerrors.InternalError, "Could not reach the marketplace API", oneerrors.WithRetryable(true), oneerrors.WithCause(err))
+		return "", "", false, oneerrors.New(oneerrors.InternalError, "Could not reach the marketplace API", oneerrors.WithRetryable(true), oneerrors.WithCause(err))
 	}
 	defer func() { _ = response.Body.Close() }()
+	if response.StatusCode == http.StatusNotModified {
+		return "", response.Header.Get("ETag"), true, nil
+	}
 	if response.StatusCode != http.StatusOK {
 		// Status only, never body content: upstream error pages are response
 		// content too and stay out of messages and logs.
-		return "", oneerrors.New(
+		return "", "", false, oneerrors.New(
 			oneerrors.InternalError,
 			fmt.Sprintf("Marketplace API returned HTTP %d", response.StatusCode),
 			oneerrors.WithStatus(502),
@@ -103,10 +114,10 @@ func (u *UseCases) fetchMarketplace(ctx context.Context, target, accept string) 
 	// distinguishable.
 	body, err := io.ReadAll(io.LimitReader(response.Body, marketplaceMaxBody+1))
 	if err != nil {
-		return "", oneerrors.New(oneerrors.InternalError, "Could not read the marketplace response", oneerrors.WithRetryable(true), oneerrors.WithCause(err))
+		return "", "", false, oneerrors.New(oneerrors.InternalError, "Could not read the marketplace response", oneerrors.WithRetryable(true), oneerrors.WithCause(err))
 	}
 	if len(body) > marketplaceMaxBody {
-		return "", oneerrors.New(oneerrors.InternalError, "Marketplace response exceeded the size limit", oneerrors.WithStatus(502))
+		return "", "", false, oneerrors.New(oneerrors.InternalError, "Marketplace response exceeded the size limit", oneerrors.WithStatus(502))
 	}
-	return string(body), nil
+	return string(body), response.Header.Get("ETag"), false, nil
 }

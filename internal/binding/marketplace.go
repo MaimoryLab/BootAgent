@@ -94,6 +94,18 @@ func (s *MarketplaceService) FetchSkillFile(ctx context.Context, request SkillDe
 	return MarketplaceProxyResponse{Body: body}, nil
 }
 
+// DiscoverSources returns the dynamic SkillHub and MCP Servers catalog. The
+// response uses the same MarketplaceItem contract as the embedded manifest.
+func (s *MarketplaceService) DiscoverSources(ctx context.Context, options app.MarketplaceDiscoverOptions) (app.MarketplaceDynamicResult, error) {
+	if err := contextError(ctx); err != nil {
+		return app.MarketplaceDynamicResult{}, err
+	}
+	if s == nil || s.core == nil {
+		return app.MarketplaceDynamicResult{}, notReady("Marketplace service is not configured")
+	}
+	return s.core.DiscoverMarketplaceSources(ctx, options)
+}
+
 // RecommendationAgents lists only installed CLI Agents whose non-interactive
 // mode can be constrained to recommendation output without write tools.
 func (s *MarketplaceService) RecommendationAgents(ctx context.Context) ([]app.MarketplaceRecommendationAgent, error) {

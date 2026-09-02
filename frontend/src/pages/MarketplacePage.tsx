@@ -45,6 +45,7 @@ import type { FilterState } from "../components/MarketplaceFilterSidebar";
 import { copyToClipboard } from "../utils/clipboard";
 import { marketplaceIconCandidates } from "../data/marketplace-icons";
 import { marketplaceCategories, marketplaceKinds } from "../data/marketplace-taxonomy";
+import { recordMarketplaceEvent } from "../utils/marketplace-telemetry";
 
 // ── icon registry ─────────────────────────────────────────────────────────────
 
@@ -373,6 +374,41 @@ export function KindBadge({ item }: { item: MarketplaceItem }) {
   return <StatusBadge tone={tone}>{t(labelKey)}</StatusBadge>;
 }
 
+function VirtualMarketplaceGrid({ items, onCopied }: { items: MarketplaceItem[]; onCopied: (item: MarketplaceItem) => void }) {
+  const [scrollTop, setScrollTop] = useState(0);
+  const [viewportHeight, setViewportHeight] = useState(() => window.innerHeight);
+  const [columns, setColumns] = useState(() => (window.innerWidth >= 900 ? 3 : 1));
+  const rowHeight = 188;
+  const overscan = 2;
+  useEffect(() => {
+    const update = () => {
+      setScrollTop(window.scrollY);
+      setViewportHeight(window.innerHeight);
+      setColumns(window.innerWidth >= 900 ? 3 : 1);
+    };
+    update();
+    window.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    return () => { window.removeEventListener("scroll", update); window.removeEventListener("resize", update); };
+  }, []);
+  if (items.length <= 100) {
+    return <ul className="marketplace-grid" aria-label="工具列表">{items.map((item) => <li key={item.id}><MarketplaceItemCard item={item} onCopied={onCopied} /></li>)}</ul>;
+  }
+  const rowCount = Math.ceil(items.length / columns);
+  const topRow = Math.max(0, Math.floor(scrollTop / rowHeight) - overscan);
+  const visibleRows = Math.ceil(viewportHeight / rowHeight) + overscan * 2;
+  const endRow = Math.min(rowCount, topRow + visibleRows);
+  const start = topRow * columns;
+  const end = Math.min(items.length, endRow * columns);
+  return <>
+    <div style={{ height: topRow * rowHeight }} aria-hidden="true" />
+    <ul className="marketplace-grid" aria-label="工具列表">
+      {items.slice(start, end).map((item) => <li key={item.id}><MarketplaceItemCard item={item} onCopied={onCopied} /></li>)}
+    </ul>
+    <div style={{ height: Math.max(0, (rowCount - endRow) * rowHeight) }} aria-hidden="true" />
+  </>;
+}
+
 // ── compact card (list view) ──────────────────────────────────────────────────
 
 /** Remote icon with a lucide fallback when the image fails to load. */
@@ -431,7 +467,7 @@ function MarketplaceItemCard({ item, onCopied }: { item: MarketplaceItem; onCopi
       data-item-id={item.id}
       role="button"
       tabIndex={0}
-      onClick={() => navigate(`/marketplace/${encodeURIComponent(item.id)}`, { state: { returnTo } })}
+      onClick={() => { recordMarketplaceEvent("item_open", item.source); navigate(`/marketplace/${encodeURIComponent(item.id)}`, { state: { returnTo } }); }}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
@@ -466,7 +502,7 @@ function MarketplaceItemCard({ item, onCopied }: { item: MarketplaceItem; onCopi
         <button
           type="button"
           className="marketplace-card-copy"
-          onClick={(e) => void copy(e)}
+          onClick={(e) => { recordMarketplaceEvent("install_prompt_copy", item.source); void copy(e); }}
           title={t("复制安装提示词")}
           aria-label={t("复制安装提示词")}
         >
@@ -530,7 +566,11 @@ export function MarketplacePage() {
   const [recommendationOpen, setRecommendationOpen] = useState(false);
   const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const { items, live, version } = useMarketplaceCatalog();
+  const { items, live, version, loading, sources = [] } = useMarketplaceCatalog({
+    query,
+    category: activeCategory === "all" ? undefined : activeCategory,
+    sources: [...filters.sources],
+  });
 
   const handleCopied = (item: MarketplaceItem) => {
     setCopyNotice(t("已复制「{name}」的安装提示词，{hint}", {
@@ -578,6 +618,7 @@ export function MarketplacePage() {
   };
 
   const updateFilters = (nextFilters: FilterState) => {
+    recordMarketplaceEvent("filter_change");
     const next = serializeMarketplaceFilters(searchParams, nextFilters);
     setSearchParams(next, { replace: true });
   };
@@ -625,6 +666,9 @@ export function MarketplacePage() {
           {live ? <span className="marketplace-live-dot" aria-hidden="true" /> : null}
           {live ? t("实时数据") : t("离线快照")}
         </span>
+        {sources.length > 0 ? <span className="marketplace-source-status" role="status" title={sources.map((source) => `${source.id}: ${source.state}`).join("; ")}>
+          {sources.map((source) => `${source.id} ${source.item_count}`).join(" · ")}
+        </span> : null}
       </div>
 
       <div className="management-toolbar marketplace-toolbar">
@@ -646,7 +690,9 @@ export function MarketplacePage() {
             </div>
           ) : null}
 
-          {visible.length === 0 ? (
+          {loading && items.length === 0 ? (
+            <EmptyState icon={ShoppingBag} title={t("正在加载工具市场")} hint={t("正在同步可用工具，请稍候")} />
+          ) : visible.length === 0 ? (
             <EmptyState
               icon={query || hasActiveFilters(filters) ? Search : ShoppingBag}
               title={
@@ -661,13 +707,7 @@ export function MarketplacePage() {
               }
             />
           ) : (
-            <ul className="marketplace-grid" aria-label={t("工具列表")}>
-              {visible.map((item) => (
-                <li key={item.id}>
-                  <MarketplaceItemCard item={item} onCopied={handleCopied} />
-                </li>
-              ))}
-            </ul>
+            <VirtualMarketplaceGrid items={visible} onCopied={handleCopied} />
           )}
         </div>
       </div>

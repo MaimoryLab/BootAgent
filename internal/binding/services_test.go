@@ -57,7 +57,7 @@ func TestServiceMethodAllowlist(t *testing.T) {
 		{&TransferService{}, []string{"ExportV2", "PreviewV2", "ApplyV2", "Read", "ReadBytes", "Write", "WriteBytes"}},
 		{&SkillService{}, []string{"Apply", "Export", "List", "ListBackups", "PreviewImport", "RestoreBackup", "Scan", "SetDraftState", "Uninstall"}},
 		{&ConversionService{}, []string{"Get", "Save"}},
-		{&MarketplaceService{}, []string{"Catalog", "ClearRecommendationHistory", "DeleteRecommendationHistory", "FetchShowcase", "FetchSkillDetail", "FetchSkillFile", "ListRecommendationHistory", "OpenExternal", "Recommend", "RecommendationAgents", "SaveRecommendationHistory"}},
+		{&MarketplaceService{}, []string{"Catalog", "ClearRecommendationHistory", "DeleteRecommendationHistory", "DiscoverSources", "FetchShowcase", "FetchSkillDetail", "FetchSkillFile", "ListRecommendationHistory", "OpenExternal", "Recommend", "RecommendationAgents", "SaveRecommendationHistory"}},
 		{&UpdateService{}, []string{"Check", "DownloadAndInstall", "Restart", "Version"}},
 	}
 	for _, test := range tests {

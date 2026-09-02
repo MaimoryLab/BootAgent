@@ -242,6 +242,23 @@ export interface MCPServerSummary {
     "has_secrets": boolean;
 }
 
+export interface MarketplaceDiscoverOptions {
+    "source"?: string;
+    "category"?: string;
+    "query"?: string;
+    "limit"?: number;
+    "offset"?: number;
+}
+
+export interface MarketplaceDynamicResult {
+    "items": catalog$0.MarketplaceItem[] | null;
+    "sources": MarketplaceSourceStatus[] | null;
+    "stale": boolean;
+    "fetched_at"?: string;
+    "total": number;
+    "has_more": boolean;
+}
+
 export interface MarketplaceKnowledgeItem {
     "id": string;
     "name": string;
@@ -287,6 +304,14 @@ export interface MarketplaceRecommendationSnapshot {
     "reason": string;
     "category": string;
     "source"?: string;
+}
+
+export interface MarketplaceSourceStatus {
+    "id": string;
+    "state": string;
+    "item_count": number;
+    "fetched_at"?: string;
+    "error"?: string;
 }
 
 /**
