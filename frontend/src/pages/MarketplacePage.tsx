@@ -381,15 +381,16 @@ function VirtualMarketplaceGrid({ items, onCopied }: { items: MarketplaceItem[];
   const rowHeight = 188;
   const overscan = 2;
   useEffect(() => {
+    const container = document.querySelector<HTMLElement>(".page-body");
     const update = () => {
-      setScrollTop(window.scrollY);
-      setViewportHeight(window.innerHeight);
+      setScrollTop(container?.scrollTop ?? 0);
+      setViewportHeight(container?.clientHeight ?? window.innerHeight);
       setColumns(window.innerWidth >= 900 ? 3 : 1);
     };
     update();
-    window.addEventListener("scroll", update, { passive: true });
+    container?.addEventListener("scroll", update, { passive: true });
     window.addEventListener("resize", update);
-    return () => { window.removeEventListener("scroll", update); window.removeEventListener("resize", update); };
+    return () => { container?.removeEventListener("scroll", update); window.removeEventListener("resize", update); };
   }, []);
   if (items.length <= 100) {
     return <ul className="marketplace-grid" aria-label="工具列表">{items.map((item) => <li key={item.id}><MarketplaceItemCard item={item} onCopied={onCopied} /></li>)}</ul>;

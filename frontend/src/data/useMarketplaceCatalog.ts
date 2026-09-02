@@ -71,14 +71,16 @@ export function useMarketplaceCatalog(options: { query?: string; category?: stri
         if (more.length === 0) { hasMore = false; return; }
         offset = dynamic.next_offset ?? (offset + 50);
         hasMore = dynamic.has_more;
-        offset = dynamic.next_offset ?? more.length;
         setState((current) => ({ ...current, items: mergeSkillhub(current.items, more), sources: dynamic.sources ?? current.sources, live: !dynamic.stale }));
       } finally {
         loadingMore = false;
       }
     };
+    const scrollContainer = () => document.querySelector<HTMLElement>(".page-body");
     const onScroll = () => {
-      if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 640) void loadMore();
+      const container = scrollContainer();
+      if (!container) return;
+      if (container.scrollTop + container.clientHeight >= container.scrollHeight - 640) void loadMore();
     };
     void ensureCatalog().then((snapshot) => {
       if (cancelled) return;
@@ -90,12 +92,12 @@ export function useMarketplaceCatalog(options: { query?: string; category?: stri
         resolved = next;
         if (!cancelled) setState(next);
         hasMore = dynamic.has_more;
-        window.addEventListener("scroll", onScroll, { passive: true });
+        scrollContainer()?.addEventListener("scroll", onScroll, { passive: true });
       }).catch(() => {
         if (!cancelled) setState({ ...snapshot, loading: false });
       });
     });
-    return () => { cancelled = true; window.removeEventListener("scroll", onScroll); };
+    return () => { cancelled = true; scrollContainer()?.removeEventListener("scroll", onScroll); };
   }, [options.query]);
 
   return state;
