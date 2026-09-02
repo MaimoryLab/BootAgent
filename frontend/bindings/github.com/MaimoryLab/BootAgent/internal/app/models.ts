@@ -257,6 +257,7 @@ export interface MarketplaceDynamicResult {
     "fetched_at"?: string;
     "total": number;
     "has_more": boolean;
+    "next_offset": number;
 }
 
 export interface MarketplaceKnowledgeItem {

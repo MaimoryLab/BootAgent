@@ -33,12 +33,13 @@ type MarketplaceSourceStatus struct {
 }
 
 type MarketplaceDynamicResult struct {
-	Items     []catalog.MarketplaceItem `json:"items"`
-	Sources   []MarketplaceSourceStatus `json:"sources"`
-	Stale     bool                      `json:"stale"`
-	FetchedAt string                    `json:"fetched_at,omitempty"`
-	Total     int                       `json:"total"`
-	HasMore   bool                      `json:"has_more"`
+	Items      []catalog.MarketplaceItem `json:"items"`
+	Sources    []MarketplaceSourceStatus `json:"sources"`
+	Stale      bool                      `json:"stale"`
+	FetchedAt  string                    `json:"fetched_at,omitempty"`
+	Total      int                       `json:"total"`
+	HasMore    bool                      `json:"has_more"`
+	NextOffset int                       `json:"next_offset"`
 }
 
 type MarketplaceDiscoverOptions struct {
@@ -111,6 +112,11 @@ func (u *UseCases) DiscoverMarketplaceSources(ctx context.Context, options Marke
 	if remotePage {
 		result.Items = filtered
 		result.HasMore = len(filtered) >= max(1, options.Limit)
+		pageSize := options.Limit
+		if pageSize <= 0 {
+			pageSize = 50
+		}
+		result.NextOffset = options.Offset + pageSize
 		if len(result.Items) > 0 {
 			result.FetchedAt = time.Now().UTC().Format(time.RFC3339)
 		}
@@ -136,6 +142,7 @@ func (u *UseCases) DiscoverMarketplaceSources(ctx context.Context, options Marke
 	}
 	result.Items = filtered[offset:end]
 	result.HasMore = end < len(filtered)
+	result.NextOffset = end
 	if len(result.Items) > 0 {
 		result.FetchedAt = time.Now().UTC().Format(time.RFC3339)
 	}

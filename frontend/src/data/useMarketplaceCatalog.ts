@@ -66,11 +66,12 @@ export function useMarketplaceCatalog(options: { query?: string; category?: stri
       if (cancelled || loadingMore || !hasMore) return;
       loadingMore = true;
       try {
-        const dynamic = await api.marketplaceDiscoverSources({ ...request, offset: offset + 50 });
+        const dynamic = await api.marketplaceDiscoverSources({ ...request, offset });
         const more = (dynamic.items ?? []) as MarketplaceItem[];
         if (more.length === 0) { hasMore = false; return; }
-        offset += more.length;
+        offset = dynamic.next_offset ?? (offset + 50);
         hasMore = dynamic.has_more;
+        offset = dynamic.next_offset ?? more.length;
         setState((current) => ({ ...current, items: mergeSkillhub(current.items, more), sources: dynamic.sources ?? current.sources, live: !dynamic.stale }));
       } finally {
         loadingMore = false;
