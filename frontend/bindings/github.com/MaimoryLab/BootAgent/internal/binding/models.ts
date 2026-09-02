@@ -103,6 +103,25 @@ export interface MCPImportRequest {
 }
 
 /**
+ * MCPServerDetailRequest names an MCP Server by its public SkillHub slug.
+ * Keeping this request distinct from SkillDetailRequest makes the generated
+ * binding self-documenting and prevents a caller from confusing the two
+ * upstream resource families.
+ */
+export interface MCPServerDetailRequest {
+    "slug": string;
+}
+
+/**
+ * MCPServersDirectoryDetailRequest names a server in the public
+ * mcpservers.org directory. Path is an owner/name path (or a single slug),
+ * never an arbitrary URL; the app layer validates and canonicalizes it.
+ */
+export interface MCPServersDirectoryDetailRequest {
+    "path": string;
+}
+
+/**
  * MarketplaceProxyResponse carries one upstream JSON payload verbatim.
  */
 export interface MarketplaceProxyResponse {

@@ -301,11 +301,15 @@ func (u *UseCases) fetchSkillHubPage(ctx context.Context, options MarketplaceDis
 	return items, total, responseETag, true, false, err
 }
 
-func (u *UseCases) fetchMCPPage(ctx context.Context, options MarketplaceDiscoverOptions, etag string) ([]catalog.MarketplaceItem, int, string, bool, bool, error) {
+// fetchSkillHubMCPPage keeps the SkillHub API adapter available as a
+// supplemental source and as a fallback when the MCP Servers directory is
+// unavailable. The public MCP Servers directory is composed in
+// fetchMCPPage (marketplace_mcpservers.go).
+func (u *UseCases) fetchSkillHubMCPPage(ctx context.Context, options MarketplaceDiscoverOptions, etag string) ([]catalog.MarketplaceItem, int, string, bool, bool, error) {
 	needle := strings.ToLower(strings.TrimSpace(options.Query))
 	if needle == "" {
 		page := options.Offset/options.Limit + 1
-		target := fmt.Sprintf("%s?page=%d&pageSize=%d", mcpServersAPIURL, page, options.Limit)
+		target := mcpServersPageURL(page, options.Limit, "")
 		body, responseETag, unchanged, err := u.fetchMarketplaceWithETag(ctx, target, "application/json", func() string {
 			if options.Offset == 0 && !options.ForceRefresh {
 				return etag
@@ -325,9 +329,10 @@ func (u *UseCases) fetchMCPPage(ctx context.Context, options MarketplaceDiscover
 		return items, total, responseETag, true, false, err
 	}
 
-	// MCP Servers does not document a keyword parameter. Walk its bounded
-	// public catalog, then paginate the filtered result so a match beyond the
-	// first page is still discoverable.
+	// The public API supports keyword filtering. Keep walking a bounded number
+	// of pages and apply a local match as well: older deployments have ignored
+	// the keyword parameter, and a malformed response must not make a valid
+	// later-page match disappear.
 	all := make([]catalog.MarketplaceItem, 0)
 	remoteTotal := 0
 	lastPageSize := 0
@@ -336,7 +341,7 @@ func (u *UseCases) fetchMCPPage(ctx context.Context, options MarketplaceDiscover
 		if err := ctx.Err(); err != nil {
 			return nil, 0, "", false, false, err
 		}
-		target := fmt.Sprintf("%s?page=%d&pageSize=%d", mcpServersAPIURL, page, marketplacePageSize)
+		target := mcpServersPageURL(page, marketplacePageSize, strings.TrimSpace(options.Query))
 		body, _, unchanged, err := u.fetchMarketplaceWithETag(ctx, target, "application/json", "")
 		if err != nil {
 			return nil, 0, "", false, false, err
@@ -364,7 +369,8 @@ func (u *UseCases) fetchMCPPage(ctx context.Context, options MarketplaceDiscover
 	}
 	filtered := all[:0]
 	for _, item := range all {
-		if strings.Contains(strings.ToLower(item.Name+" "+item.Description+" "+strings.Join(item.Tags, " ")), needle) {
+		searchText := strings.ToLower(item.ID + " " + item.Name + " " + item.Description + " " + strings.Join(item.Tags, " "))
+		if strings.Contains(searchText, needle) {
 			filtered = append(filtered, item)
 		}
 	}
@@ -374,7 +380,21 @@ func (u *UseCases) fetchMCPPage(ctx context.Context, options MarketplaceDiscover
 	return filtered[start:end], total, "", true, false, nil
 }
 
+func mcpServersPageURL(page, pageSize int, keyword string) string {
+	query := url.Values{
+		"page":     {fmt.Sprint(page)},
+		"pageSize": {fmt.Sprint(pageSize)},
+		"sortBy":   {"updated_at"},
+		"order":    {"desc"},
+	}
+	if strings.TrimSpace(keyword) != "" {
+		query.Set("keyword", strings.TrimSpace(keyword))
+	}
+	return mcpServersAPIURL + "?" + query.Encode()
+}
+
 var mcpSlugPattern = regexp.MustCompile(`/servers/([^/?#]+)$`)
+var npmPackagePattern = regexp.MustCompile(`^(?:@[A-Za-z0-9._~-]+/)?[A-Za-z0-9._~-]+$`)
 
 func mcpSitemapItem(raw string) (catalog.MarketplaceItem, bool) {
 	parsed, err := url.Parse(raw)
@@ -617,39 +637,162 @@ func safeMarketplaceHTTPSURL(raw string) string {
 	return parsed.String()
 }
 
+type mcpServerRecord struct {
+	Banned        bool     `json:"banned"`
+	Status        string   `json:"status"`
+	Slug          string   `json:"slug"`
+	Name          string   `json:"name"`
+	NameEn        string   `json:"nameEn"`
+	Category      string   `json:"category"`
+	Summary       string   `json:"summary"`
+	SummaryZh     string   `json:"summaryZh"`
+	IconURL       string   `json:"iconUrl"`
+	RepoURL       string   `json:"repoUrl"`
+	SourceURL     string   `json:"sourceUrl"`
+	Homepage      string   `json:"homepage"`
+	Publisher     string   `json:"publisher"`
+	PublisherType string   `json:"publisherType"`
+	UpdatedAt     int64    `json:"updatedAt"`
+	Tags          []string `json:"tags"`
+	Stats         struct {
+		Downloads int `json:"downloads"`
+		Installs  int `json:"installs"`
+	} `json:"stats"`
+}
+
+type mcpServerPagePayload struct {
+	Items []mcpServerRecord `json:"items"`
+	Total int               `json:"total"`
+	Data  *struct {
+		Items []mcpServerRecord `json:"items"`
+		Total int               `json:"total"`
+	} `json:"data"`
+}
+
 func parseMCPServerPage(data []byte) ([]catalog.MarketplaceItem, int, error) {
-	var payload struct {
-		Items []struct {
-			Slug, Name, NameEn, Category, Summary, SummaryZh, IconURL, RepoURL, SourceURL string
-			PublisherType                                                                 string                            `json:"publisherType"`
-			UpdatedAt                                                                     int64                             `json:"updatedAt"`
-			Tags                                                                          []string                          `json:"tags"`
-			Stats                                                                         struct{ Downloads, Installs int } `json:"stats"`
-		} `json:"items"`
-		Total int `json:"total"`
-	}
+	var payload mcpServerPagePayload
 	if err := json.Unmarshal(data, &payload); err != nil {
 		return nil, 0, fmt.Errorf("invalid MCP API payload: %w", err)
 	}
+	if len(payload.Items) == 0 && payload.Data != nil {
+		payload.Items = payload.Data.Items
+		if payload.Total == 0 {
+			payload.Total = payload.Data.Total
+		}
+	}
 	items := make([]catalog.MarketplaceItem, 0, len(payload.Items))
 	for _, server := range payload.Items {
-		if !marketplaceSlugPattern.MatchString(server.Slug) || strings.TrimSpace(server.Name) == "" {
-			continue
+		item, ok := normalizeMCPServerRecord(server)
+		if ok {
+			items = append(items, item)
 		}
-		docs := "https://skillhub.cloud.tencent.com/mcp-servers/" + url.PathEscape(server.Slug)
-		repositoryURL := safeMarketplaceHTTPSURL(server.RepoURL)
-		sourceURL := safeMarketplaceHTTPSURL(server.SourceURL)
-		trust := "community"
-		if strings.EqualFold(server.PublisherType, "tencent") {
-			trust = "official"
-		}
-		tags := append([]string(nil), server.Tags...)
-		if category := strings.TrimSpace(server.Category); category != "" && !containsString(tags, category) {
-			tags = append(tags, category)
-		}
-		items = append(items, catalog.MarketplaceItem{ID: "mcp-" + server.Slug, Category: "mcp-server", Type: "installable", Name: compactMarketplaceText(server.Name, 200), Description: firstNonEmpty(compactMarketplaceText(firstNonEmpty(server.SummaryZh, server.Summary), 4000), "MCP Server"), Icon: "Puzzle", IconColor: "oklch(55% 0.15 160)", Tags: tags, Scene: "integration", Source: "mcpservers", SourceLabel: "MCP Servers", SourceURL: firstNonEmpty(sourceURL, repositoryURL, docs), RepositoryURL: repositoryURL, DocumentationURL: docs, IconURL: safeMarketplaceHTTPSURL(server.IconURL), ExternalURL: firstNonEmpty(repositoryURL, sourceURL, docs), InstallableKind: "mcp", Downloads: server.Stats.Downloads, TrustLevel: trust, UpdatedAt: formatMarketplaceUnixMillis(server.UpdatedAt)})
 	}
 	return items, payload.Total, nil
+}
+
+// parseMCPServerDetail accepts both the current single-record response and the
+// envelope used by older SkillHub deployments. Keeping this tolerant lets a
+// client update independently from the public API without losing detail pages.
+func parseMCPServerDetail(data []byte) (catalog.MarketplaceItem, error) {
+	var record mcpServerRecord
+	if err := json.Unmarshal(data, &record); err != nil {
+		return catalog.MarketplaceItem{}, fmt.Errorf("invalid MCP detail payload: %w", err)
+	}
+	if strings.TrimSpace(record.Slug) == "" {
+		var envelope struct {
+			Data mcpServerRecord `json:"data"`
+		}
+		if err := json.Unmarshal(data, &envelope); err != nil {
+			return catalog.MarketplaceItem{}, fmt.Errorf("invalid MCP detail payload: %w", err)
+		}
+		record = envelope.Data
+	}
+	item, ok := normalizeMCPServerRecord(record)
+	if !ok {
+		return catalog.MarketplaceItem{}, fmt.Errorf("MCP detail payload contains no valid server")
+	}
+	return item, nil
+}
+
+func normalizeMCPServerRecord(server mcpServerRecord) (catalog.MarketplaceItem, bool) {
+	if server.Banned || (server.Status != "" && !strings.EqualFold(server.Status, "visible")) {
+		return catalog.MarketplaceItem{}, false
+	}
+	if !marketplaceSlugPattern.MatchString(server.Slug) || strings.TrimSpace(server.Name) == "" {
+		return catalog.MarketplaceItem{}, false
+	}
+	slug := server.Slug
+	docs := "https://skillhub.cloud.tencent.com/mcp-servers/" + url.PathEscape(slug)
+	repositoryURL := safeMarketplaceHTTPSURL(server.RepoURL)
+	sourceURL := safeMarketplaceHTTPSURL(server.SourceURL)
+	homepage := safeMarketplaceHTTPSURL(server.Homepage)
+	trust := "community"
+	if strings.EqualFold(server.PublisherType, "tencent") {
+		trust = "official"
+	}
+	tags := make([]string, 0, len(server.Tags)+2)
+	for _, tag := range server.Tags {
+		tag = compactMarketplaceText(tag, 80)
+		if tag != "" && !containsString(tags, tag) {
+			tags = append(tags, tag)
+		}
+	}
+	if category := compactMarketplaceText(server.Category, 80); category != "" && !containsString(tags, category) {
+		tags = append(tags, category)
+	}
+	if !containsString(tags, "MCP") {
+		tags = append(tags, "MCP")
+	}
+	name := compactMarketplaceText(server.Name, 200)
+	description := compactMarketplaceText(firstNonEmpty(server.SummaryZh, server.Summary), 4000)
+	if description == "" {
+		description = "MCP Server"
+	}
+	readmeURL := marketplaceMCPServerURLBase + url.PathEscape(slug) + "/readme"
+	return catalog.MarketplaceItem{
+		ID: "mcp-" + slug, Category: "mcp-server", Type: "installable", Name: name,
+		Description: description, DescriptionEn: compactMarketplaceText(server.Summary, 4000),
+		Icon: "Puzzle", IconColor: "oklch(55% 0.15 160)", Tags: tags, Scene: "integration",
+		Source: "mcpservers", SourceLabel: "MCP Servers", SourceURL: firstNonEmpty(sourceURL, homepage, repositoryURL, docs),
+		RepositoryURL: repositoryURL, DocumentationURL: docs, ReadmeURL: readmeURL,
+		IconURL: safeMarketplaceHTTPSURL(server.IconURL), ExternalURL: firstNonEmpty(homepage, repositoryURL, sourceURL, docs),
+		InstallableKind: "mcp", InstallPrompt: mcpInstallPrompt(name, npmPackageName(homepage), homepage, readmeURL),
+		TargetHint: "复制提示词到 MCP 配置页或 Agent 对话框，具体参数以实时 README 为准",
+		Downloads:  server.Stats.Downloads, TrustLevel: trust, UpdatedAt: formatMarketplaceUnixMillis(server.UpdatedAt),
+	}, true
+}
+
+func mcpInstallPrompt(name, packageName, homepage, readmeURL string) string {
+	packageName = strings.TrimSpace(packageName)
+	if !npmPackagePattern.MatchString(packageName) {
+		packageName = ""
+	}
+	if packageFromURL := npmPackageName(homepage); packageFromURL != "" {
+		packageName = packageFromURL
+	}
+	if packageName != "" {
+		return fmt.Sprintf("请帮我配置 MCP Server「%s」。\n\n推荐使用 npm 临时运行：\n1. 确认 Node.js 和 npx 可用。\n2. 在当前 Agent 的 MCP 配置中使用命令 `npx -y %s@latest`。\n3. 按官方 README 填写所需环境变量或密钥，密钥只写入本地安全配置，不要写入日志。\n\n官方 README：%s", name, packageName, readmeURL)
+	}
+	return fmt.Sprintf("请帮我配置 MCP Server「%s」。\n\n请先打开并阅读官方 README：%s\n根据当前 Agent 的 MCP 配置格式完成安装；如果需要密钥，使用占位符并提醒我在本地安全配置中填写，不要把密钥写入日志。", name, readmeURL)
+}
+
+// npmPackageName is intentionally conservative. The MCP detail endpoint's
+// homepage is untrusted metadata; only a real npm package path is accepted as
+// an executable package name in the generated prompt.
+func npmPackageName(raw string) string {
+	parsed, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil || parsed.Scheme != "https" || parsed.Hostname() != "www.npmjs.com" && parsed.Hostname() != "npmjs.com" {
+		return ""
+	}
+	const prefix = "/package/"
+	if !strings.HasPrefix(parsed.Path, prefix) {
+		return ""
+	}
+	name, err := url.PathUnescape(strings.TrimPrefix(parsed.Path, prefix))
+	if err != nil || !npmPackagePattern.MatchString(name) {
+		return ""
+	}
+	return name
 }
 
 func dedupeMarketplaceItems(items []catalog.MarketplaceItem) []catalog.MarketplaceItem {

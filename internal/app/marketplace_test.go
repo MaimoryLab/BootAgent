@@ -118,6 +118,52 @@ func TestFetchMarketplaceSkillFileReturnsLatestSkillMarkdown(t *testing.T) {
 	}
 }
 
+func TestFetchMarketplaceMCPServerDetailUsesPublicSlugEndpoint(t *testing.T) {
+	var requested *http.Request
+	core := marketplaceCore(t, func(request *http.Request) (*http.Response, error) {
+		requested = request
+		return marketplaceResponse(http.StatusOK, `{"slug":"demo-mcp","name":"Demo MCP"}`), nil
+	})
+	item, err := core.FetchMarketplaceMCPServerDetail(context.Background(), "demo-mcp")
+	if err != nil || item.ID != "mcp-demo-mcp" || item.Name != "Demo MCP" {
+		t.Fatalf("MCP detail item=%+v err=%v", item, err)
+	}
+	if requested == nil || requested.URL.String() != "https://api.skillhub.cn/api/v1/mcp/servers/demo-mcp" {
+		t.Fatalf("unexpected detail request: %#v", requested)
+	}
+}
+
+func TestFetchMarketplaceMCPServerReadmeUsesReadmeEndpoint(t *testing.T) {
+	var requested *http.Request
+	core := marketplaceCore(t, func(request *http.Request) (*http.Response, error) {
+		requested = request
+		return marketplaceResponse(http.StatusOK, "# Demo MCP README"), nil
+	})
+	body, err := core.FetchMarketplaceMCPServerReadme(context.Background(), "demo-mcp")
+	if err != nil || body != "# Demo MCP README" {
+		t.Fatalf("MCP README body=%q err=%v", body, err)
+	}
+	if requested == nil || requested.URL.String() != "https://api.skillhub.cn/api/v1/mcp/servers/demo-mcp/readme" || requested.Header.Get("Accept") != "text/markdown, text/plain;q=0.9" {
+		t.Fatalf("unexpected README request: %#v", requested)
+	}
+}
+
+func TestFetchMarketplaceMCPServerDetailRejectsUnsafeSlug(t *testing.T) {
+	requested := false
+	core := marketplaceCore(t, func(request *http.Request) (*http.Response, error) {
+		requested = true
+		return marketplaceResponse(http.StatusOK, "{}"), nil
+	})
+	for _, slug := range []string{"../escape", "MCP-Server", "demo/mcp", ""} {
+		if _, err := core.FetchMarketplaceMCPServerDetail(context.Background(), slug); err == nil || oneerrors.As(err).Code != oneerrors.InvalidRequest {
+			t.Errorf("unsafe MCP slug %q error = %v", slug, err)
+		}
+	}
+	if requested {
+		t.Fatal("unsafe MCP slug produced an upstream request")
+	}
+}
+
 // A non-200 answer must fail the call rather than hand an upstream error page
 // to the frontend as if it were catalog JSON.
 func TestFetchMarketplaceShowcaseRejectsNon200(t *testing.T) {
@@ -170,8 +216,64 @@ func TestParseMCPServerPageParsesMetadata(t *testing.T) {
 	if err != nil || total != 1 || len(items) != 1 {
 		t.Fatalf("items=%d total=%d err=%v", len(items), total, err)
 	}
-	if items[0].ID != "mcp-demo-mcp" || items[0].RepositoryURL != "https://github.com/example/demo-mcp" || items[0].IconURL == "" || items[0].Downloads != 42 || len(items[0].Tags) != 1 {
+	if items[0].ID != "mcp-demo-mcp" || items[0].RepositoryURL != "https://github.com/example/demo-mcp" || items[0].IconURL == "" || items[0].Downloads != 42 || !containsString(items[0].Tags, "search") || !containsString(items[0].Tags, "MCP") {
 		t.Fatalf("unexpected normalized MCP item: %+v", items[0])
+	}
+}
+
+func TestParseMCPServerDetailParsesInstallAndDocumentationMetadata(t *testing.T) {
+	item, err := parseMCPServerDetail([]byte(`{"slug":"demo-mcp","name":"Demo MCP","nameEn":"demo-mcp","homepage":"https://www.npmjs.com/package/demo-mcp","sourceUrl":"https://example.com/demo","publisher":"Demo Team","publisherType":"tencent","summary":"summary","stats":{"downloads":42},"updatedAt":1778851419243}`))
+	if err != nil {
+		t.Fatalf("parse MCP detail: %v", err)
+	}
+	if item.ID != "mcp-demo-mcp" || item.ExternalURL != "https://www.npmjs.com/package/demo-mcp" || item.SourceURL != "https://example.com/demo" || item.Downloads != 42 {
+		t.Fatalf("unexpected detail item: %+v", item)
+	}
+	if item.InstallPrompt == "" || !strings.Contains(item.InstallPrompt, "demo-mcp") || strings.Contains(item.InstallPrompt, `\\n`) {
+		t.Fatalf("detail install prompt is missing package name: %q", item.InstallPrompt)
+	}
+}
+
+func TestFetchSkillHubMCPPagePassesKeywordToPublicAPI(t *testing.T) {
+	var requested *http.Request
+	core := marketplaceCore(t, func(request *http.Request) (*http.Response, error) {
+		requested = request
+		return marketplaceResponse(http.StatusOK, `{"total":1,"items":[{"slug":"demo-mcp","name":"Demo MCP","summary":"target"}]}`), nil
+	})
+	items, _, _, _, _, err := core.fetchSkillHubMCPPage(context.Background(), MarketplaceDiscoverOptions{Query: "target", Limit: 50}, "")
+	if err != nil || len(items) != 1 || items[0].ID != "mcp-demo-mcp" {
+		t.Fatalf("MCP keyword result=%+v err=%v", items, err)
+	}
+	if requested == nil {
+		t.Fatal("MCP keyword request was not made")
+	}
+	query := requested.URL.Query()
+	if query.Get("keyword") != "target" || query.Get("sortBy") != "updated_at" || query.Get("order") != "desc" || query.Get("page") != "1" || query.Get("pageSize") != fmt.Sprint(marketplacePageSize) {
+		t.Fatalf("unexpected MCP keyword request: %s", requested.URL.String())
+	}
+}
+
+func TestNormalizeMCPServerDoesNotInventNPMInstallCommand(t *testing.T) {
+	item, err := parseMCPServerDetail([]byte(`{"slug":"hosted-mcp","name":"Hosted MCP","summary":"hosted"}`))
+	if err != nil {
+		t.Fatalf("parse hosted MCP: %v", err)
+	}
+	if strings.Contains(item.InstallPrompt, "npx -y") || !strings.Contains(item.InstallPrompt, "/readme") {
+		t.Fatalf("hosted MCP prompt contains an unsupported command: %q", item.InstallPrompt)
+	}
+}
+
+func TestFetchMarketplaceMCPServerReadmeRejectsUnsafeSlug(t *testing.T) {
+	requested := false
+	core := marketplaceCore(t, func(request *http.Request) (*http.Response, error) {
+		requested = true
+		return marketplaceResponse(http.StatusOK, "# unexpected"), nil
+	})
+	if _, err := core.FetchMarketplaceMCPServerReadme(context.Background(), "../escape"); err == nil || oneerrors.As(err).Code != oneerrors.InvalidRequest {
+		t.Fatalf("unsafe MCP README slug error = %v", err)
+	}
+	if requested {
+		t.Fatal("unsafe MCP README slug produced an upstream request")
 	}
 }
 
@@ -275,7 +377,7 @@ func TestDiscoverMarketplaceSourcesFallsBackToCacheOnNetworkError(t *testing.T) 
 	}
 }
 
-func TestDiscoverMarketplaceSourcesSearchesMCPBeyondFirstPage(t *testing.T) {
+func TestFetchSkillHubMCPPageSearchesBeyondFirstPage(t *testing.T) {
 	var requestedPages []string
 	core := marketplaceCore(t, func(request *http.Request) (*http.Response, error) {
 		page := request.URL.Query().Get("page")
@@ -289,16 +391,16 @@ func TestDiscoverMarketplaceSourcesSearchesMCPBeyondFirstPage(t *testing.T) {
 		}
 		return marketplaceResponse(http.StatusOK, `{"total":101,"items":[{"slug":"target-server","name":"Target server","summary":"match"}]}`), nil
 	})
-	result, err := core.DiscoverMarketplaceSources(context.Background(), MarketplaceDiscoverOptions{Source: "mcpservers", Query: "target"})
-	if err != nil || len(result.Items) != 1 || result.Items[0].ID != "mcp-target-server" {
-		t.Fatalf("MCP search result=%+v err=%v", result, err)
+	items, _, _, _, _, err := core.fetchSkillHubMCPPage(context.Background(), MarketplaceDiscoverOptions{Query: "target", Limit: marketplaceDefaultLimit}, "")
+	if err != nil || len(items) != 1 || items[0].ID != "mcp-target-server" {
+		t.Fatalf("MCP search result=%+v err=%v", items, err)
 	}
 	if strings.Join(requestedPages, ",") != "1,2" {
 		t.Fatalf("requested pages = %v", requestedPages)
 	}
 }
 
-func TestDiscoverMarketplaceSourcesSearchesMCPAfterInvalidRecords(t *testing.T) {
+func TestFetchSkillHubMCPPageSearchesAfterInvalidRecords(t *testing.T) {
 	var requestedPages []string
 	core := marketplaceCore(t, func(request *http.Request) (*http.Response, error) {
 		page := request.URL.Query().Get("page")
@@ -313,9 +415,9 @@ func TestDiscoverMarketplaceSourcesSearchesMCPAfterInvalidRecords(t *testing.T) 
 		}
 		return marketplaceResponse(http.StatusOK, `{"total":101,"items":[{"slug":"target-after-invalid","name":"Target server","summary":"match"},{"slug":"server-final","name":"Server final","summary":"other"}]}`), nil
 	})
-	result, err := core.DiscoverMarketplaceSources(context.Background(), MarketplaceDiscoverOptions{Source: "mcpservers", Query: "target"})
-	if err != nil || len(result.Items) != 1 || result.Items[0].ID != "mcp-target-after-invalid" {
-		t.Fatalf("MCP search after invalid record=%+v err=%v", result, err)
+	items, _, _, _, _, err := core.fetchSkillHubMCPPage(context.Background(), MarketplaceDiscoverOptions{Query: "target", Limit: marketplaceDefaultLimit}, "")
+	if err != nil || len(items) != 1 || items[0].ID != "mcp-target-after-invalid" {
+		t.Fatalf("MCP search after invalid record=%+v err=%v", items, err)
 	}
 	if strings.Join(requestedPages, ",") != "1,2" {
 		t.Fatalf("requested pages = %v", requestedPages)
@@ -338,7 +440,7 @@ func TestDiscoverMarketplaceSourcesAcceptsEmptySkillHubPageAndAdvancesCursor(t *
 	}
 }
 
-func TestDiscoverMarketplaceSourcesSearchesMCPWithoutTotal(t *testing.T) {
+func TestFetchSkillHubMCPPageSearchesWithoutTotal(t *testing.T) {
 	var requestedPages []string
 	core := marketplaceCore(t, func(request *http.Request) (*http.Response, error) {
 		page := request.URL.Query().Get("page")
@@ -352,9 +454,9 @@ func TestDiscoverMarketplaceSourcesSearchesMCPWithoutTotal(t *testing.T) {
 		}
 		return marketplaceResponse(http.StatusOK, `{"items":[{"slug":"target-without-total","name":"Target server","summary":"match"}]}`), nil
 	})
-	result, err := core.DiscoverMarketplaceSources(context.Background(), MarketplaceDiscoverOptions{Source: "mcpservers", Query: "target"})
-	if err != nil || len(result.Items) != 1 || result.Items[0].ID != "mcp-target-without-total" {
-		t.Fatalf("MCP search without total=%+v err=%v", result, err)
+	items, _, _, _, _, err := core.fetchSkillHubMCPPage(context.Background(), MarketplaceDiscoverOptions{Query: "target", Limit: marketplaceDefaultLimit}, "")
+	if err != nil || len(items) != 1 || items[0].ID != "mcp-target-without-total" {
+		t.Fatalf("MCP search without total=%+v err=%v", items, err)
 	}
 	if strings.Join(requestedPages, ",") != "1,2" {
 		t.Fatalf("requested pages = %v", requestedPages)

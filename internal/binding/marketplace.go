@@ -11,12 +11,11 @@ import (
 	oneerrors "github.com/MaimoryLab/BootAgent/internal/errors"
 )
 
-// MarketplaceService proxies the public skillhub API for the marketplace
-// pages. It exists because api.skillhub.cn only echoes CORS headers for
-// skillhub's own origins, so the renderer cannot fetch it directly; the Go
-// side has no CORS constraint. Payloads pass through as raw JSON strings --
-// normalisation stays in the frontend, which already owns it for the bundled
-// snapshot.
+// MarketplaceService proxies the public SkillHub API for marketplace pages.
+// It exists because api.skillhub.cn only echoes CORS headers for SkillHub's
+// own origins, so the renderer cannot fetch it directly. List and README
+// payloads remain bounded proxy responses; MCP detail metadata is normalized
+// into catalog.MarketplaceItem before it crosses the binding.
 type MarketplaceService struct {
 	core   *app.UseCases
 	opener BrowserOpener
@@ -44,6 +43,21 @@ type MarketplaceProxyResponse struct {
 // SkillDetailRequest names the skillhub skill to look up by its public slug.
 type SkillDetailRequest struct {
 	Slug string `json:"slug"`
+}
+
+// MCPServerDetailRequest names an MCP Server by its public SkillHub slug.
+// Keeping this request distinct from SkillDetailRequest makes the generated
+// binding self-documenting and prevents a caller from confusing the two
+// upstream resource families.
+type MCPServerDetailRequest struct {
+	Slug string `json:"slug"`
+}
+
+// MCPServersDirectoryDetailRequest names a server in the public
+// mcpservers.org directory. Path is an owner/name path (or a single slug),
+// never an arbitrary URL; the app layer validates and canonicalizes it.
+type MCPServersDirectoryDetailRequest struct {
+	Path string `json:"path"`
 }
 
 // OpenExternalRequest carries a user-clicked marketplace link. Only public
@@ -88,6 +102,59 @@ func (s *MarketplaceService) FetchSkillFile(ctx context.Context, request SkillDe
 		return MarketplaceProxyResponse{}, notReady("Marketplace service is not configured")
 	}
 	body, err := s.core.FetchMarketplaceSkillFile(ctx, request.Slug)
+	if err != nil {
+		return MarketplaceProxyResponse{}, err
+	}
+	return MarketplaceProxyResponse{Body: body}, nil
+}
+
+func (s *MarketplaceService) FetchMCPServerDetail(ctx context.Context, request MCPServerDetailRequest) (catalog.MarketplaceItem, error) {
+	if err := contextError(ctx); err != nil {
+		return catalog.MarketplaceItem{}, err
+	}
+	if s == nil || s.core == nil {
+		return catalog.MarketplaceItem{}, notReady("Marketplace service is not configured")
+	}
+	// The app layer normalizes the upstream response into the same contract used
+	// by the list adapter, so the renderer can merge it without a second schema.
+	return s.core.FetchMarketplaceMCPServerDetail(ctx, request.Slug)
+}
+
+func (s *MarketplaceService) FetchMCPServerReadme(ctx context.Context, request MCPServerDetailRequest) (MarketplaceProxyResponse, error) {
+	if err := contextError(ctx); err != nil {
+		return MarketplaceProxyResponse{}, err
+	}
+	if s == nil || s.core == nil {
+		return MarketplaceProxyResponse{}, notReady("Marketplace service is not configured")
+	}
+	body, err := s.core.FetchMarketplaceMCPServerReadme(ctx, request.Slug)
+	if err != nil {
+		return MarketplaceProxyResponse{}, err
+	}
+	return MarketplaceProxyResponse{Body: body}, nil
+}
+
+// FetchMCPServersDirectoryDetail loads live metadata from mcpservers.org.
+func (s *MarketplaceService) FetchMCPServersDirectoryDetail(ctx context.Context, request MCPServersDirectoryDetailRequest) (catalog.MarketplaceItem, error) {
+	if err := contextError(ctx); err != nil {
+		return catalog.MarketplaceItem{}, err
+	}
+	if s == nil || s.core == nil {
+		return catalog.MarketplaceItem{}, notReady("Marketplace service is not configured")
+	}
+	return s.core.FetchMarketplaceMCPServersDirectoryDetail(ctx, request.Path)
+}
+
+// FetchMCPServersDirectoryReadme proxies the Markdown document published by
+// mcpservers.org and keeps external HTML out of the renderer.
+func (s *MarketplaceService) FetchMCPServersDirectoryReadme(ctx context.Context, request MCPServersDirectoryDetailRequest) (MarketplaceProxyResponse, error) {
+	if err := contextError(ctx); err != nil {
+		return MarketplaceProxyResponse{}, err
+	}
+	if s == nil || s.core == nil {
+		return MarketplaceProxyResponse{}, notReady("Marketplace service is not configured")
+	}
+	body, err := s.core.FetchMarketplaceMCPServersDirectoryReadme(ctx, request.Path)
 	if err != nil {
 		return MarketplaceProxyResponse{}, err
 	}

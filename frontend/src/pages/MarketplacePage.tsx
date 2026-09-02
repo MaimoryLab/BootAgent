@@ -560,12 +560,26 @@ export function filterMarketplaceItems(
     }
 
     if (!needle) return true;
-    return (
-      item.name.toLowerCase().includes(needle) ||
-      item.description.toLowerCase().includes(needle) ||
-      item.descriptionEn?.toLowerCase().includes(needle) ||
-      item.tags?.some((tag) => tag.toLowerCase().includes(needle))
-    );
+    // Include stable identifiers and public origin URLs in the local index.
+    // The backend adapter can find a remote MCP by slug even when its display
+    // name is localized; dropping it here would make that successful request
+    // appear to have returned no result.
+    const searchable = [
+      item.id,
+      item.name,
+      item.description,
+      item.descriptionEn,
+      item.source,
+      item.sourceLabel,
+      item.sourceUrl,
+      item.repositoryUrl,
+      item.documentationUrl,
+      item.installationUrl,
+      item.externalUrl,
+      item.readmeUrl,
+      ...(item.tags ?? []),
+    ];
+    return searchable.some((value) => value?.toLowerCase().includes(needle));
   });
 }
 

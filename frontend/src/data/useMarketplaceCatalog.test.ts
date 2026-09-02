@@ -36,14 +36,22 @@ afterEach(() => {
 });
 
 describe("mergeMarketplaceItems", () => {
-  it("keeps the static baseline first and removes id and source/name duplicates", () => {
+	it("keeps the static baseline first and removes id and source/name duplicates", () => {
     const staticItem = item("static", "skillhub", "Same name");
     const result = mergeMarketplaceItems(
       [staticItem],
       [item("static", "skillhub", "Same name"), item("remote", "skillhub", "Same name"), item("other", "mcpservers")],
     );
-    expect(result.map(({ id }) => id)).toEqual(["static", "other"]);
-  });
+		expect(result.map(({ id }) => id)).toEqual(["static", "other"]);
+	});
+
+	it("keeps same-name MCP servers when their directory identities differ", () => {
+		const result = mergeMarketplaceItems([], [
+			{ ...item("mcp-one", "mcpservers", "Airtable"), documentationUrl: "https://mcpservers.org/servers/acme/one" },
+			{ ...item("mcp-two", "mcpservers", "Airtable"), documentationUrl: "https://mcpservers.org/servers/acme/two" },
+		]);
+		expect(result.map(({ id }) => id)).toEqual(["mcp-one", "mcp-two"]);
+	});
 });
 
 describe("useMarketplaceCatalog", () => {

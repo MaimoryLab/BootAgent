@@ -29,8 +29,9 @@ SkillHub 和 MCP Servers 各自维护 `offset`、`has_more` 和 `total`。后端
 
 ### 搜索与筛选
 
-- 关键词搜索传给远程适配器；SkillHub 使用 `keyword`，MCP 适配器在本地页内匹配，
-  必要时继续读取有限页以找到未加载的结果。
+- 关键词搜索传给远程适配器；SkillHub 使用 `keyword`。MCP Servers 目录使用公开的
+  `/search?query=&page=` 页面，SkillHub 的 MCP API 仅作为有界补充和故障回退；必要时
+  继续读取有限页以找到未加载的结果。
 - 分类、场景、工具类型等产品维度在统一卡片集合上执行；不支持远程映射的维度不
   得伪装成远程精确筛选。
 - 滚动请求复用当前查询条件和查询序号。
@@ -45,7 +46,8 @@ SkillHub 和 MCP Servers 各自维护 `offset`、`has_more` 和 `total`。后端
 ### 合并规则
 
 - 静态目录优先，动态卡片追加在静态卡片之后。
-- 以稳定 ID 去重，再以 `source + normalized name` 做跨版本兜底去重。
+- 以稳定 ID 去重，再以来源 URL/仓库 URL 做跨版本兜底；只有缺少稳定 URL 的旧记录才
+  使用 `source + normalized name`，避免同名 MCP Server 被错误合并。
 - 动态源失败时保留静态卡片，并在数据源状态中显示 `cached` 或 `unavailable`。
 
 ## API 契约
@@ -97,12 +99,18 @@ SkillHub 和 MCP Servers 各自维护 `offset`、`has_more` 和 `total`。后端
 ## 实施记录
 
 - 后端为 SkillHub 与 MCP Servers 建立独立来源适配器、分页游标、查询 ID、强制刷新、
-  ETag 和受限缓存回退；静态目录始终作为首屏基线。
+  ETag 和受限缓存回退；静态目录始终作为首屏基线。MCP 列表主源使用
+  `https://mcpservers.org/all` 与 `/search` 的公开分页 HTML，SkillHub 的
+  `https://api.skillhub.cn/api/v1/mcp/servers` 保留为有界补充和故障回退；详情与 README
+  从 mcpservers.org 的服务端序列化记录按需解析。旧 SkillHub slug 详情仍使用单条接口，
+  README 使用 `/readme` 接口并由 Go 跟随 COS 重定向。
 - 前端以查询会话隔离请求，按来源并发分页，滚动触发后续页；短结果集会有限度自动
   补页，避免本地场景/类型筛选后没有滚动事件而永远看不到后续匹配项。
-- 卡片以静态目录优先、动态结果追加，并按 ID 与来源/名称去重；详情页携带动态卡片
+- 卡片以静态目录优先、动态结果追加，并按 ID 与稳定来源 URL 去重；详情页携带动态卡片
   快照，后续页的工具不会因重新创建查询而丢失详情。
 - 数据源状态显示实时/缓存/不可用及已加载数/总数；刷新期间保留已有卡片。
+- MCP 详情页按需合并实时名称、来源、仓库、官网、统计和安装提示词；README 通过
+  Wails binding 延迟加载并在 renderer 中进行 Markdown 清理，避免 CORS 和不可信 HTML。
 - 设置页的版本 binding 增加字符串边界校验，避免浏览器预览或旧 binding 返回结构化
   错误对象时导致 React 渲染崩溃。
 

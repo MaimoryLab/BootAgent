@@ -773,6 +773,8 @@ const english = {
   "离线快照": "Offline snapshot",
   "刷新市场": "Refresh marketplace",
   "正在刷新工具市场": "Refreshing marketplace",
+  "正在加载 MCP Server 详情": "Loading MCP Server details",
+  "MCP Server 详情暂时不可用，已显示列表摘要": "MCP Server details are temporarily unavailable; showing the list summary",
   "{count} 个工具 · {status}": "{count} tools · {status}",
   "帮我找工具": "Find tools for me",
   "工具推荐": "Tool recommendations",

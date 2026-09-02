@@ -4,10 +4,11 @@
  * The marketplace is a pure discovery layer: it does not read or affect the
  * real install state on the Skills / MCP management pages.
  *
- * Ships a static local catalog as the baseline. Live skillhub data is fetched
- * through the Go MarketplaceService proxy (the "backend holds URLs"
- * convention; api.skillhub.cn's CORS policy blocks the renderer), with the
- * bundled snapshot as the offline fallback.
+ * Ships a static local catalog as the baseline. Live SkillHub and MCP Servers
+ * data is fetched through the Go MarketplaceService proxy (the "backend holds
+ * URLs" convention; api.skillhub.cn's CORS policy blocks the renderer), with
+ * the bundled snapshot as the offline fallback. MCP details and READMEs are
+ * loaded only after a card is opened.
  */
 
 export type MarketplaceCategory =

@@ -113,6 +113,18 @@ describe("filterMarketplaceItems", () => {
     expect(result[0].id).toBe("skill-a");
   });
 
+  it("matches a live MCP by its slug or public repository URL", () => {
+    const liveMCP = {
+      ...ITEMS[1],
+      id: "mcp-qcc-company-basic-information-mcp",
+      repositoryUrl: "https://github.com/example/qcc-company-basic-information-mcp",
+    };
+    expect(filterMarketplaceItems([liveMCP], "all", "qcc-company-basic-information-mcp").map((item) => item.id)).toEqual([
+      "mcp-qcc-company-basic-information-mcp",
+    ]);
+    expect(filterMarketplaceItems([liveMCP], "all", "github.com/example/qcc-company-basic-information-mcp")).toHaveLength(1);
+  });
+
   it("filters by installableKind via FilterState.kinds", () => {
     const filters = { ...EMPTY_FILTERS, kinds: new Set(["mcp" as const]) };
     const result = filterMarketplaceItems(ITEMS, "all", "", filters);

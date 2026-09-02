@@ -63,13 +63,22 @@ let snapshotPending: Promise<Pick<CatalogState, "items" | "version">> | null = n
  */
 export function mergeMarketplaceItems(snapshot: MarketplaceItem[], dynamic: MarketplaceItem[]): MarketplaceItem[] {
   const seenIDs = new Set<string>();
-  const seenSourceNames = new Set<string>();
+  const seenIdentities = new Set<string>();
   const items = [...snapshot, ...dynamic].filter((item) => {
     if (!item.id || seenIDs.has(item.id)) return false;
-    const sourceName = `${item.source ?? ""}:${item.name.trim().toLocaleLowerCase()}`;
-    if (sourceName !== ":" && seenSourceNames.has(sourceName)) return false;
+    // A source/name pair is not a safe identity for MCP Servers: the public
+    // directory legitimately contains several implementations with the same
+    // display name (for example multiple Airtable servers). Prefer a stable
+    // source URL/repository when one is available and fall back to the legacy
+    // name key only for records that provide no identity metadata.
+    const stableURL = [item.repositoryUrl, item.documentationUrl, item.sourceUrl, item.readmeUrl]
+      .find((value) => Boolean(value?.trim()))?.trim().toLocaleLowerCase();
+    const identity = stableURL
+      ? `${item.source ?? ""}:${stableURL}`
+      : `${item.source ?? ""}:${item.name.trim().toLocaleLowerCase()}`;
+    if (identity !== ":" && seenIdentities.has(identity)) return false;
     seenIDs.add(item.id);
-    if (sourceName !== ":") seenSourceNames.add(sourceName);
+    if (identity !== ":") seenIdentities.add(identity);
     return true;
   });
   const featured = items.find((item) => item.id === "github-maimorylab-codeoff");

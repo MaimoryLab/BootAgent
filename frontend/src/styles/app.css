@@ -3005,6 +3005,15 @@
 .is-spinning { animation: marketplace-refresh-spin 900ms linear infinite; }
 @keyframes marketplace-refresh-spin { to { transform: rotate(360deg); } }
 
+.detail-live-loading,
+.detail-live-error {
+  margin: 10px 0 0;
+  font-size: 12px;
+}
+
+.detail-live-loading { color: var(--text-tertiary); }
+.detail-live-error { color: var(--text-secondary); }
+
 /* Single-column layout — filter moved to top dropdown bar */
 .marketplace-layout {
   display: block;

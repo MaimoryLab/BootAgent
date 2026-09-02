@@ -3,8 +3,10 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@wailsio/runtime", () => ({ Events: { On: vi.fn(), Off: vi.fn() } }));
 
-const { marketplaceSkillFile, openMarketplaceExternal } = vi.hoisted(() => ({
+const { marketplaceSkillFile, marketplaceMCPServerReadme, marketplaceMCPServersDirectoryReadme, openMarketplaceExternal } = vi.hoisted(() => ({
   marketplaceSkillFile: vi.fn(() => Promise.resolve("# Skill README\n\n[Docs](https://example.com/docs) · [Usage](#usage)\n\n## Usage")),
+  marketplaceMCPServerReadme: vi.fn(() => Promise.resolve("# MCP README\n\n[Docs](https://example.com/mcp-docs)")),
+  marketplaceMCPServersDirectoryReadme: vi.fn(() => Promise.resolve("# Directory README\n\n[Docs](./docs)")),
   openMarketplaceExternal: vi.fn(() => Promise.resolve()),
 }));
 
@@ -12,7 +14,7 @@ vi.mock("../backend/api", async (importOriginal) => {
   const original = await importOriginal<typeof import("../backend/api")>();
   return {
     ...original,
-    api: { ...original.api, marketplaceSkillFile, openMarketplaceExternal },
+    api: { ...original.api, marketplaceSkillFile, marketplaceMCPServerReadme, marketplaceMCPServersDirectoryReadme, openMarketplaceExternal },
   };
 });
 
@@ -73,5 +75,31 @@ Document body.`);
     expect(screen.queryByText(/Captures learnings, errors/)).toBeNull();
     expect(screen.queryByText("metadata:")).toBeNull();
     expect(screen.getByText("Document body.")).toBeTruthy();
+  });
+
+  it("loads MCP Server README through the desktop binding", async () => {
+    render(
+      <I18nProvider>
+        <ReadmeSection mcpServerSlug="demo-mcp" />
+      </I18nProvider>,
+    );
+
+    expect(await screen.findByRole("heading", { name: "MCP README" })).toBeTruthy();
+    expect(marketplaceMCPServerReadme).toHaveBeenCalledWith("demo-mcp");
+    fireEvent.click(screen.getByRole("link", { name: "Docs" }));
+    expect(openMarketplaceExternal).toHaveBeenCalledWith("https://example.com/mcp-docs");
+  });
+
+  it("loads mcpservers.org README through the directory binding and resolves relative links", async () => {
+    render(
+      <I18nProvider>
+        <ReadmeSection mcpServersOrgPath="acme/demo-server" />
+      </I18nProvider>,
+    );
+
+    expect(await screen.findByRole("heading", { name: "Directory README" })).toBeTruthy();
+    expect(marketplaceMCPServersDirectoryReadme).toHaveBeenCalledWith("acme/demo-server");
+    fireEvent.click(screen.getByRole("link", { name: "Docs" }));
+    expect(openMarketplaceExternal).toHaveBeenCalledWith("https://mcpservers.org/servers/acme/demo-server/docs");
   });
 });

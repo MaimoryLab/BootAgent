@@ -256,6 +256,14 @@ export const wailsApi = {
     call(() => MarketplaceService.FetchSkillDetail({ slug })).then((response) => response.body),
   marketplaceSkillFile: (slug: string): Promise<string> =>
     call(() => MarketplaceService.FetchSkillFile({ slug })).then((response) => response.body),
+  marketplaceMCPServerDetail: (slug: string): Promise<MarketplaceItem> =>
+    call(() => MarketplaceService.FetchMCPServerDetail({ slug })) as Promise<MarketplaceItem>,
+  marketplaceMCPServerReadme: (slug: string): Promise<string> =>
+    call(() => MarketplaceService.FetchMCPServerReadme({ slug })).then((response) => response.body),
+  marketplaceMCPServersDirectoryDetail: (path: string): Promise<MarketplaceItem> =>
+    call(() => MarketplaceService.FetchMCPServersDirectoryDetail({ path })) as Promise<MarketplaceItem>,
+  marketplaceMCPServersDirectoryReadme: (path: string): Promise<string> =>
+    call(() => MarketplaceService.FetchMCPServersDirectoryReadme({ path })).then((response) => response.body),
   marketplaceRecommendationAgents: (): Promise<MarketplaceRecommendationAgent[]> =>
     call(() => MarketplaceService.RecommendationAgents()).then((agents) => agents ?? []),
   recommendMarketplace: (request: MarketplaceRecommendRequest): Promise<MarketplaceRecommendResult> =>
