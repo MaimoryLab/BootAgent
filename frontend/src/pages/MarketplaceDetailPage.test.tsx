@@ -50,10 +50,10 @@ vi.mock("../components/ReadmeSection", () => ({
 import { I18nProvider } from "../i18n";
 import { MarketplaceDetailPage } from "./MarketplaceDetailPage";
 
-function renderPage() {
+function renderPage(initialEntry: string | { pathname: string; state?: unknown } = "/marketplace/skillhub-example-skill") {
   render(
     <I18nProvider>
-      <MemoryRouter initialEntries={["/marketplace/skillhub-example-skill"]}>
+      <MemoryRouter initialEntries={[initialEntry]}>
         <Routes>
           <Route path="/marketplace/:itemId" element={<MarketplaceDetailPage />} />
           <Route path="/skills" element={<div>Skills management</div>} />
@@ -95,5 +95,29 @@ describe("MarketplaceDetailPage", () => {
 
     fireEvent.click(screen.getByRole("link", { name: "After installation, manage it on the Skills page." }));
     expect(screen.getByText("Skills management")).toBeTruthy();
+  });
+
+  it("renders a dynamically loaded card carried in navigation state", () => {
+    renderPage({
+      pathname: "/marketplace/skillhub-late-page",
+      state: {
+        returnTo: "/marketplace?q=late",
+        item: {
+          id: "skillhub-late-page",
+          category: "skill",
+          type: "installable",
+          installableKind: "skill",
+          name: "Late page skill",
+          description: "来自后续动态分页的 Skill",
+          icon: "Puzzle",
+          iconColor: "oklch(60% 0.16 75)",
+          source: "skillhub",
+          sourceLabel: "SkillHub",
+          sourceUrl: "https://skillhub.cloud.tencent.com/skills/late-page",
+        },
+      },
+    });
+
+    expect(screen.getByRole("heading", { name: "Late page skill" })).toBeTruthy();
   });
 });

@@ -30,6 +30,28 @@ const ICON_MAP: Record<MarketplaceIconName, ComponentType<{ size?: number; strok
   Code2, ExternalLink,
 };
 
+type MarketplaceDetailRouteState = { returnTo?: unknown; item?: unknown };
+
+function isMarketplaceItem(value: unknown): value is MarketplaceItem {
+  if (!value || typeof value !== "object") return false;
+  const item = value as Partial<MarketplaceItem>;
+  return typeof item.id === "string"
+    && typeof item.name === "string"
+    && typeof item.category === "string"
+    && typeof item.type === "string"
+    && typeof item.description === "string";
+}
+
+function decodeMarketplaceItemID(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    // A hand-crafted malformed route must render the normal not-found state,
+    // rather than throwing during render and taking down the desktop shell.
+    return value;
+  }
+}
+
 function ItemIcon({ item, size = 28 }: { item: MarketplaceItem; size?: number }) {
   const { name, color, iconUrl } = { name: item.icon, color: item.iconColor, iconUrl: item.iconUrl };
   const candidates = marketplaceIconCandidates(item);
@@ -313,9 +335,15 @@ export function MarketplaceDetailPage() {
   const location = useLocation();
   const { t, locale } = useI18n();
 
-  const { items } = useMarketplaceCatalog();
-  const item = items.find((i) => i.id === decodeURIComponent(itemId));
-  const returnTo = typeof location.state?.returnTo === "string" ? location.state.returnTo : "/marketplace";
+  const { items } = useMarketplaceCatalog({ autoRefresh: false });
+  const decodedItemID = decodeMarketplaceItemID(itemId);
+  const routeState = (location.state ?? {}) as MarketplaceDetailRouteState;
+  const routeItem = isMarketplaceItem(routeState.item) && routeState.item.id === decodedItemID ? routeState.item : undefined;
+  // Dynamic cards can be loaded on a later page and are intentionally not kept
+  // in a process-wide catalog. The navigation snapshot keeps that card's
+  // detail page usable while the catalog query is re-created.
+  const item = items.find((candidate) => candidate.id === decodedItemID) ?? routeItem;
+  const returnTo = typeof routeState.returnTo === "string" ? routeState.returnTo : "/marketplace";
 
   if (!item) {
     return (

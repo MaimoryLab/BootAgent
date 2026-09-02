@@ -13,6 +13,7 @@ import {
   Globe,
   Layers,
   Puzzle,
+  RefreshCw,
   Search,
   ShoppingBag,
   Sparkles,
@@ -377,22 +378,32 @@ export function KindBadge({ item }: { item: MarketplaceItem }) {
 function VirtualMarketplaceGrid({ items, onCopied }: { items: MarketplaceItem[]; onCopied: (item: MarketplaceItem) => void }) {
   const [scrollTop, setScrollTop] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(() => window.innerHeight);
-  const [columns, setColumns] = useState(() => (window.innerWidth >= 900 ? 3 : 1));
-  const rowHeight = 188;
+  const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth);
+  const columns = viewportWidth >= 900 ? 3 : viewportWidth >= 640 ? 2 : 1;
+  // The row pitch includes the grid gap. CSS below uses the same card heights;
+  // keeping this value stable prevents the spacer elements from creating blank
+  // bands or overlapping cards while the live catalog grows.
+  const rowHeight = viewportWidth < 640 ? 130 : 118;
+  const cardHeight = rowHeight - 10;
+  const gridGap = 10;
   const overscan = 2;
   useEffect(() => {
-    const container = document.querySelector<HTMLElement>(".page-body");
+    const container = document.querySelector<HTMLElement>(".page-body.marketplace-page");
     const update = () => {
       setScrollTop(container?.scrollTop ?? 0);
       setViewportHeight(container?.clientHeight ?? window.innerHeight);
-      setColumns(window.innerWidth >= 900 ? 3 : 1);
+      setViewportWidth(window.innerWidth);
     };
     update();
     container?.addEventListener("scroll", update, { passive: true });
     window.addEventListener("resize", update);
     return () => { container?.removeEventListener("scroll", update); window.removeEventListener("resize", update); };
   }, []);
-  if (items.length <= 100) {
+  // Keep the DOM bounded once the live adapters make a facet moderately
+  // large. Rendering every card for a 50-item first page made a filter look
+  // as if it had added results when the unfiltered virtual list was already
+  // showing only its viewport. Small result sets remain fully accessible.
+  if (items.length <= 24) {
     return <ul className="marketplace-grid" aria-label="工具列表">{items.map((item) => <li key={item.id}><MarketplaceItemCard item={item} onCopied={onCopied} /></li>)}</ul>;
   }
   const rowCount = Math.ceil(items.length / columns);
@@ -406,7 +417,7 @@ function VirtualMarketplaceGrid({ items, onCopied }: { items: MarketplaceItem[];
     <ul className="marketplace-grid" aria-label="工具列表">
       {items.slice(start, end).map((item) => <li key={item.id}><MarketplaceItemCard item={item} onCopied={onCopied} /></li>)}
     </ul>
-    <div style={{ height: Math.max(0, (rowCount - endRow) * rowHeight) }} aria-hidden="true" />
+    <div style={{ height: Math.max(0, (rowCount - endRow) * rowHeight + (endRow < rowCount ? gridGap : 0)) }} aria-hidden="true" />
   </>;
 }
 
@@ -443,6 +454,10 @@ function MarketplaceItemCard({ item, onCopied }: { item: MarketplaceItem; onCopi
   const navigate = useNavigate();
   const location = useLocation();
   const returnTo = `${location.pathname}${location.search}`;
+  const openDetail = () => {
+    recordMarketplaceEvent("item_open", item.source);
+    navigate(`/marketplace/${encodeURIComponent(item.id)}`, { state: { returnTo, item } });
+  };
 
   const teaser = useMemo(() => {
     const description =
@@ -468,11 +483,11 @@ function MarketplaceItemCard({ item, onCopied }: { item: MarketplaceItem; onCopi
       data-item-id={item.id}
       role="button"
       tabIndex={0}
-      onClick={() => { recordMarketplaceEvent("item_open", item.source); navigate(`/marketplace/${encodeURIComponent(item.id)}`, { state: { returnTo } }); }}
+      onClick={openDetail}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
-          navigate(`/marketplace/${encodeURIComponent(item.id)}`, { state: { returnTo } });
+          openDetail();
         }
       }}
       aria-label={item.name}
@@ -567,10 +582,15 @@ export function MarketplacePage() {
   const [recommendationOpen, setRecommendationOpen] = useState(false);
   const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const { items, live, version, loading, sources = [] } = useMarketplaceCatalog({
+  const { items, live, version, loading, sources = [], refresh = () => {}, refreshing = false, lastUpdated = "" } = useMarketplaceCatalog({
     query,
     category: activeCategory === "all" ? undefined : activeCategory,
     sources: [...filters.sources],
+    facetKey: [
+      [...filters.kinds].sort().join(","),
+      [...filters.scenes].sort().join(","),
+      filters.requiresApiKey === null ? "" : String(filters.requiresApiKey),
+    ].join("|"),
   });
 
   const handleCopied = (item: MarketplaceItem) => {
@@ -641,9 +661,16 @@ export function MarketplacePage() {
       title={t("工具市场")}
       description={t("发现并安装 Agent 扩展、MCP 服务器与配置模板")}
       bodyClassName="marketplace-page"
-      footerNote={t("{count} 个工具 · {status}", { count: items.length, status: live ? t("实时数据") : t("离线快照") })}
+      footerNote={t("{count} 个工具 · {status}", { count: items.length, status: refreshing ? t("正在刷新工具市场") : live ? t("实时数据") : t("离线快照") })}
       secondaryAction={(
-        <span className="marketplace-actions"><button className="button button-secondary" type="button" onClick={openHistory}><Clock3 size={15} />{t("推荐历史")}</button><button className="button button-primary" type="button" onClick={() => setRecommendationOpen(true)}><Sparkles size={15} />{t("帮我找工具")}</button></span>
+        <span className="marketplace-actions">
+          <button className="button button-secondary" type="button" onClick={refresh} disabled={loading || refreshing} aria-busy={loading || refreshing} title={lastUpdated ? `${t("刷新市场")} · ${lastUpdated}` : t("刷新市场")}>
+            <RefreshCw size={15} className={loading || refreshing ? "is-spinning" : undefined} />
+            {t("刷新市场")}
+          </button>
+          <button className="button button-secondary" type="button" onClick={openHistory}><Clock3 size={15} />{t("推荐历史")}</button>
+          <button className="button button-primary" type="button" onClick={() => setRecommendationOpen(true)}><Sparkles size={15} />{t("帮我找工具")}</button>
+        </span>
       )}
     >
       <div className="marketplace-tabs" role="tablist" aria-label={t("工具分类")}>
@@ -667,8 +694,8 @@ export function MarketplacePage() {
           {live ? <span className="marketplace-live-dot" aria-hidden="true" /> : null}
           {live ? t("实时数据") : t("离线快照")}
         </span>
-        {sources.length > 0 ? <span className="marketplace-source-status" role="status" title={sources.map((source) => `${source.id}: ${source.state}`).join("; ")}>
-          {sources.map((source) => `${source.id} ${source.item_count}`).join(" · ")}
+        {sources.length > 0 ? <span className="marketplace-source-status" role="status" title={sources.map((source) => `${source.id}: ${source.state}${source.error ? ` (${source.error})` : ""}`).join("; ")}>
+          {sources.map((source) => `${source.id} ${source.item_count}${source.total > source.item_count ? `/${source.total}` : ""}`).join(" · ")}
         </span> : null}
       </div>
 

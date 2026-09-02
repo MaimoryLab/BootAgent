@@ -35,7 +35,15 @@ export function SettingsPage() {
   const [autostartFailure, setAutostartFailure] = useState("");
   const [terminalFailure, setTerminalFailure] = useState("");
 
-  useEffect(() => { void api.version().then(setVersion).catch(() => {}); }, []);
+  useEffect(() => {
+    // The desktop bridge normally returns a string, but a browser preview or an
+    // older binding can resolve with a structured error object. Never put an
+    // arbitrary bridge value into React children: one malformed value would
+    // unmount the whole settings page and make unrelated controls unusable.
+    void api.version().then((value) => {
+      if (typeof value === "string" && value.trim()) setVersion(value);
+    }).catch(() => {});
+  }, []);
   useEffect(() => {
     let active = true;
     void api.getSettings().then((loaded) => {

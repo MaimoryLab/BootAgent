@@ -271,6 +271,25 @@ test("Marketplace multi-type filters narrow unique results without shifting cont
   expect(new Set(itemIDs).size).toBe(itemIDs.length);
 });
 
+test("Marketplace refresh keeps the static baseline and starts a new search session", async ({ page }) => {
+  await page.setViewportSize({ width: 1180, height: 760 });
+  await page.goto("/#/marketplace");
+
+  const baseline = page.locator('[data-item-id="github-maimorylab-codeoff"]');
+  await expect(baseline).toBeVisible();
+  const refresh = page.getByRole("button", { name: /刷新市场|Refresh marketplace/ });
+  await refresh.click();
+  // The refresh request may be offline in CI, but the bundled card must remain
+  // usable and the control must leave its busy state eventually.
+  await expect(baseline).toBeVisible();
+  await expect(refresh).toBeEnabled({ timeout: 15_000 });
+
+  const search = page.getByRole("textbox", { name: /搜索工具市场|Search Marketplace/ });
+  await search.fill("Codeoff");
+  await expect(baseline).toBeVisible();
+  await search.fill("");
+});
+
 async function checkMarketplaceFilter(filter: Locator) {
   // URL-backed controlled inputs can be replaced while the catalog snapshot is
   // refreshed. Retry only when the desired state was not committed, and fail

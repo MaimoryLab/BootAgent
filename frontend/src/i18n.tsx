@@ -771,6 +771,8 @@ const english = {
   // live catalog indicator
   "实时数据": "Live data",
   "离线快照": "Offline snapshot",
+  "刷新市场": "Refresh marketplace",
+  "正在刷新工具市场": "Refreshing marketplace",
   "{count} 个工具 · {status}": "{count} tools · {status}",
   "帮我找工具": "Find tools for me",
   "工具推荐": "Tool recommendations",

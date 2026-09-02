@@ -248,6 +248,8 @@ export interface MarketplaceDiscoverOptions {
     "query"?: string;
     "limit"?: number;
     "offset"?: number;
+    "force_refresh"?: boolean;
+    "query_id"?: string;
 }
 
 export interface MarketplaceDynamicResult {
@@ -258,6 +260,7 @@ export interface MarketplaceDynamicResult {
     "total": number;
     "has_more": boolean;
     "next_offset": number;
+    "query_id"?: string;
 }
 
 export interface MarketplaceKnowledgeItem {
@@ -311,6 +314,9 @@ export interface MarketplaceSourceStatus {
     "id": string;
     "state": string;
     "item_count": number;
+    "total": number;
+    "has_more": boolean;
+    "next_offset": number;
     "fetched_at"?: string;
     "error"?: string;
 }
