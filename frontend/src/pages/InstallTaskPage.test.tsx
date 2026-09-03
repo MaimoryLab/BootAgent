@@ -18,7 +18,7 @@ describe("InstallTaskPage without a matching task", () => {
   // link to a dismissed one. A bare "暂无任务" left the user unsure whether the
   // install had been lost. ActivationPage already has a recovery path for the
   // analogous case, so the two pages disagreed about the same situation.
-  it("says where the result actually is", () => {
+  it("keeps the empty task state focused", () => {
     render(
       <MemoryRouter initialEntries={["/tasks/install/codex"]}>
         <Routes>
@@ -27,7 +27,7 @@ describe("InstallTaskPage without a matching task", () => {
       </MemoryRouter>,
     );
     expect(screen.getByText("暂无任务")).toBeTruthy();
-    expect(screen.getByText(/安装结果请在环境总览中查看/)).toBeTruthy();
+    expect(screen.queryByText(/安装结果请在环境总览中查看/)).toBeNull();
     expect(screen.getByRole("button", { name: "进入总览" })).toBeTruthy();
   });
 });

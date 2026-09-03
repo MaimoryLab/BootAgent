@@ -50,12 +50,11 @@ describe("MirrorSetting", () => {
     expect((screen.getByRole("switch") as HTMLInputElement).checked).toBe(true);
   });
 
-  // The copy has to say the mirror covers Agent packages too, or a user who
-  // turned it on for a slow runtime download will not know why npm changed host.
-  it("names both downloads it governs", async () => {
+  it("keeps the mirror control compact", async () => {
     render(<MirrorSetting />);
     await waitFor(() => expect(getSettings).toHaveBeenCalled());
-    expect(screen.getByText(/优化中国大陆地区的下载速度/)).toBeTruthy();
+    expect(screen.getByRole("switch", { name: "优先使用国内镜像" })).toBeTruthy();
+    expect(screen.queryByText(/优化中国大陆地区的下载速度/)).toBeNull();
   });
 
   // A switch that looks on while the preference was never stored would send the
@@ -83,15 +82,14 @@ describe("MirrorSetting", () => {
     expect((screen.getByRole("switch") as HTMLInputElement).checked).toBe(false);
   });
 
-  // A box that is already ticked on first run has to say why, or it reads as
-  // something the user set and forgot.
-  it("explains a tick that came from the system region", async () => {
+  it("keeps a regional default as a normal preference", async () => {
     getSettings.mockResolvedValue({ schema_version: 1, prefer_mirror: true, mirror_from_region: true, backup_retention: 3 });
     render(<MirrorSetting />);
-    await waitFor(() => expect(screen.getByText(/已根据系统地区设置默认使用镜像/)).toBeTruthy());
+    await waitFor(() => expect(getSettings).toHaveBeenCalled());
 
     expect((screen.getByRole("switch") as HTMLInputElement).checked).toBe(true);
-    expect(screen.getByText(/已根据系统语言\/地区自动开启/)).toBeTruthy();
+    expect(screen.queryByText(/已根据系统地区设置默认使用镜像/)).toBeNull();
+    expect(screen.queryByText(/已根据系统语言\/地区自动开启/)).toBeNull();
   });
 
   // Turning off a regional default must persist as the user's own choice, so the

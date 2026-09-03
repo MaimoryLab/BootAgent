@@ -90,7 +90,6 @@ export function ConversionPage() {
   return (
     <PageScaffold
       title={t("API 协议适配")}
-      description={t("将 Responses 与 Messages 请求转换为目标服务支持的 Chat Completions")}
       bodyClassName="management-page conversion-page"
       secondaryAction={config ? <button className={`button button-secondary conversion-action${config.enabled ? " is-running" : " is-stopped"}`} type="button" onClick={() => void toggle()} disabled={saving || !config.target_profile}><Power size={15} />{config.enabled ? t("停止服务") : t("启动服务")}</button> : null}
       primaryLabel={t("保存设置")}
@@ -188,7 +187,7 @@ export function ConversionPage() {
                 />
               </div>
               <div className="field-stack">
-                <label htmlFor="conversion-anthropic-model">{t("Anthropic 模型")}<span className="conversion-field-note">{t("对 Claude Code 声明的名字")}</span></label>
+                <label htmlFor="conversion-anthropic-model">{t("Anthropic 模型")}</label>
                 <input
                   id="conversion-anthropic-model"
                   value={config.anthropic_model}
@@ -199,7 +198,7 @@ export function ConversionPage() {
                 />
               </div>
               <div className="field-stack">
-                <label htmlFor="conversion-responses-model">{t("Responses 模型")}<span className="conversion-field-note">{t("对 Codex 声明的名字")}</span></label>
+                <label htmlFor="conversion-responses-model">{t("Responses 模型")}</label>
                 <input
                   id="conversion-responses-model"
                   value={config.responses_model}
@@ -210,7 +209,7 @@ export function ConversionPage() {
                 />
               </div>
               <div className="field-stack">
-                <label htmlFor="conversion-chat-model">{t("Chat Completions 模型")}<span className="conversion-field-note">{t("对 OpenCode / Aider 声明的名字")}</span></label>
+                <label htmlFor="conversion-chat-model">{t("Chat Completions 模型")}</label>
                 <input
                   id="conversion-chat-model"
                   value={config.chat_model}

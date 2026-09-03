@@ -19,8 +19,10 @@ type FetchState = "idle" | "loading" | "success" | "error";
  * so they resolve when rendered outside their repo context.
  */
 type ReadmeSectionProps =
-  | { readmeUrl: string; skillhubSlug?: never }
-  | { readmeUrl?: never; skillhubSlug: string };
+  | { readmeUrl: string; skillhubSlug?: never; mcpServerSlug?: never; mcpServersOrgPath?: never }
+  | { readmeUrl?: never; skillhubSlug: string; mcpServerSlug?: never; mcpServersOrgPath?: never }
+  | { readmeUrl?: never; skillhubSlug?: never; mcpServerSlug: string; mcpServersOrgPath?: never }
+  | { readmeUrl?: never; skillhubSlug?: never; mcpServerSlug?: never; mcpServersOrgPath: string };
 
 function stripMarkdownFrontMatter(markdown: string): string {
   const content = markdown.startsWith("\uFEFF") ? markdown.slice(1) : markdown;
@@ -72,7 +74,8 @@ export function stripSkillhubMetadataPreamble(markdown: string): string {
   return removedMetadata ? lines.slice(index).join("\n") : content;
 }
 
-export function ReadmeSection({ readmeUrl, skillhubSlug }: ReadmeSectionProps) {
+export function ReadmeSection(props: ReadmeSectionProps) {
+  const { readmeUrl, skillhubSlug, mcpServerSlug, mcpServersOrgPath } = props;
   const { t } = useI18n();
   const [state, setState] = useState<FetchState>("idle");
   const [html, setHtml] = useState("");
@@ -93,14 +96,21 @@ export function ReadmeSection({ readmeUrl, skillhubSlug }: ReadmeSectionProps) {
       }
     };
 
+    const loadMCPServerReadme = (slug: string) => api.marketplaceMCPServerReadme(slug);
+    const loadMCPServersDirectoryReadme = (path: string) => api.marketplaceMCPServersDirectoryReadme(path);
+
     const load = skillhubSlug
       ? loadSkillhubFile(skillhubSlug)
-      : readmeUrl
-        ? fetch(readmeUrl).then((res) => {
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          return res.text();
-          })
-        : Promise.reject(new Error("README source is missing"));
+      : mcpServerSlug
+        ? loadMCPServerReadme(mcpServerSlug)
+        : mcpServersOrgPath
+          ? loadMCPServersDirectoryReadme(mcpServersOrgPath)
+          : readmeUrl
+            ? fetch(readmeUrl).then((res) => {
+              if (!res.ok) throw new Error(`HTTP ${res.status}`);
+              return res.text();
+              })
+            : Promise.reject(new Error("README source is missing"));
 
     load
       .then((md) => {
@@ -108,7 +118,9 @@ export function ReadmeSection({ readmeUrl, skillhubSlug }: ReadmeSectionProps) {
 
         const markdown = skillhubSlug
           ? stripSkillhubMetadataPreamble(stripMarkdownFrontMatter(md))
-          : md;
+          : mcpServerSlug || mcpServersOrgPath
+            ? stripMarkdownFrontMatter(md)
+            : md;
         const rawHtml = marked.parse(markdown, { async: false }) as string;
         const clean = DOMPurify.sanitize(rawHtml, {
           USE_PROFILES: { html: true },
@@ -121,6 +133,14 @@ export function ReadmeSection({ readmeUrl, skillhubSlug }: ReadmeSectionProps) {
           if (skillhubSlug) {
             const file = value.replace(/^\.\//, "");
             return `https://api.skillhub.cn/api/v1/skills/${encodeURIComponent(skillhubSlug)}/file?path=${encodeURIComponent(file)}`;
+          }
+          if (mcpServerSlug) {
+            const file = value.replace(/^\.\//, "");
+            return `https://skillhub-1388575217.cos.accelerate.myqcloud.com/mcp/${encodeURIComponent(mcpServerSlug)}/${file.split("/").map(encodeURIComponent).join("/")}`;
+          }
+          if (mcpServersOrgPath) {
+            const base = `https://mcpservers.org/servers/${mcpServersOrgPath.replace(/\/+$/, "")}/`;
+            return new URL(value, base).href;
           }
           return new URL(value, readmeUrl).href;
         };
@@ -138,7 +158,7 @@ export function ReadmeSection({ readmeUrl, skillhubSlug }: ReadmeSectionProps) {
       });
 
     return () => { cancelled = true; };
-  }, [readmeUrl, skillhubSlug]);
+  }, [readmeUrl, skillhubSlug, mcpServerSlug, mcpServersOrgPath]);
 
   const openLink = (event: MouseEvent<HTMLDivElement>) => {
     const target = event.target instanceof Element ? event.target.closest<HTMLAnchorElement>("a[href]") : null;

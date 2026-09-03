@@ -293,6 +293,22 @@
       "ecosystem": "go",
       "license": "BSD-3-Clause",
       "license_files": [
+        "licenses/go/golang.org_x_net@v0.56.0/LICENSE"
+      ],
+      "modification": "",
+      "name": "golang.org/x/net",
+      "platforms": [
+        "macos-arm64",
+        "macos-x64",
+        "windows-arm64",
+        "windows-x64"
+      ],
+      "version": "v0.56.0"
+    },
+    {
+      "ecosystem": "go",
+      "license": "BSD-3-Clause",
+      "license_files": [
         "licenses/go/golang.org_x_sys@v0.47.0/LICENSE"
       ],
       "modification": "",

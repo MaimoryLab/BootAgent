@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { describe, expect, it } from "vitest";
@@ -28,5 +28,19 @@ describe("ManagementSearch", () => {
     expect(input).toHaveValue("");
     await userEvent.type(input, "mcp{Escape}");
     expect(input).toHaveValue("");
+  });
+
+  it("does not write intermediate IME composition text back to the controlled value", () => {
+    render(<Harness />);
+    const input = screen.getByRole("textbox", { name: "搜索 Skills" });
+
+    fireEvent.compositionStart(input);
+    fireEvent.change(input, { target: { value: "zhong" }, nativeEvent: { isComposing: true } });
+    expect(input).toHaveValue("zhong");
+
+    (input as HTMLInputElement).value = "中";
+    fireEvent.compositionEnd(input, { data: "中" });
+    fireEvent.change(input, { target: { value: "中" } });
+    expect(input).toHaveValue("中");
   });
 });

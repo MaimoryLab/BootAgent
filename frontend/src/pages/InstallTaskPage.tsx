@@ -32,7 +32,6 @@ export function InstallTaskPage() {
     return (
       <PageScaffold
         title={t("暂无任务")}
-        description={t("这个任务已经结束或被关闭。安装结果请在环境总览中查看")}
         primaryLabel={t("进入总览")}
         onPrimary={() => navigate("/overview")}
       />
@@ -47,7 +46,7 @@ export function InstallTaskPage() {
   return (
     <PageScaffold
       title={`${title} · ${task.title}`}
-      description={task.message || t("每个 Agent 的结果彼此独立，失败项可以单独重试")}
+      description={task.message || undefined}
       primaryLabel={t("进入总览")}
       onPrimary={() => navigate("/overview")}
       footerNote={running ? t("请保持此窗口打开") : undefined}

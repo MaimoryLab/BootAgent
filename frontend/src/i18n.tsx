@@ -691,6 +691,8 @@ const english = {
   "自我成长型 Agent 框架": "Self-improving agent framework",
   // ── Marketplace ──────────────────────────────────────────────────────────
   "工具市场": "Marketplace",
+  "正在加载工具市场": "Loading marketplace",
+  "正在同步可用工具，请稍候": "Syncing available tools, please wait",
   "搜索工具市场": "Search Marketplace",
   "发现并安装 Agent 扩展、MCP 服务器与配置模板": "Discover and install Agent extensions, MCP servers, and config templates",
   "工具分类": "Tool categories",
@@ -769,6 +771,10 @@ const english = {
   // live catalog indicator
   "实时数据": "Live data",
   "离线快照": "Offline snapshot",
+  "刷新市场": "Refresh marketplace",
+  "正在刷新工具市场": "Refreshing marketplace",
+  "正在加载 MCP Server 详情": "Loading MCP Server details",
+  "MCP Server 详情暂时不可用，已显示列表摘要": "MCP Server details are temporarily unavailable; showing the list summary",
   "{count} 个工具 · {status}": "{count} tools · {status}",
   "帮我找工具": "Find tools for me",
   "工具推荐": "Tool recommendations",

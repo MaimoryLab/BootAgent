@@ -135,7 +135,6 @@ export function DesktopAppSection({ app: desktopApp, onChanged, onSetup, onConfi
         <div className="section-heading">
           <div>
             <h2>{t("桌面 Agent")}</h2>
-            <p>{t("共 {count} 个", { count: desktopApp.installed ? 1 : 0 })}</p>
           </div>
         </div>
       ) : null}

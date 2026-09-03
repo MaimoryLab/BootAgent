@@ -47,6 +47,7 @@ GO_LICENSES = {
     "github.com/tailscale/hujson": "BSD-3-Clause",
     "golang.org/x/sys": "BSD-3-Clause",
     "golang.org/x/mod": "BSD-3-Clause",
+    "golang.org/x/net": "BSD-3-Clause",
     "gopkg.in/yaml.v3": "MIT AND Apache-2.0",
     "modernc.org/libc": "BSD-3-Clause",
     "modernc.org/mathutil": "BSD-3-Clause",

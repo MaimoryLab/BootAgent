@@ -43,6 +43,8 @@ export type {
     LaunchResponse,
     MCPExportRequest,
     MCPImportRequest,
+    MCPServerDetailRequest,
+    MCPServersDirectoryDetailRequest,
     MarketplaceProxyResponse,
     ModelsRequest,
     ModelsResponse,

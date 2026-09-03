@@ -1,8 +1,9 @@
 import { ArrowLeft, ArrowRight, BookOpen, Brain, Check, Code2, Copy, Database, Download, ExternalLink, FileText, GitBranch, Globe, Layers, Puzzle, Search, Star, Terminal, Workflow, Zap } from "lucide-react";
-import { type ComponentType, useState } from "react";
+import { type ComponentType, useEffect, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 
 import { useMarketplaceCatalog } from "../data/useMarketplaceCatalog";
+import { api } from "../backend/api";
 import { marketplaceTagPairs } from "../data/tag-labels";
 import { PageScaffold } from "../components/PageScaffold";
 import { MarketplaceExternalLink } from "../components/MarketplaceExternalLink";
@@ -29,6 +30,106 @@ const ICON_MAP: Record<MarketplaceIconName, ComponentType<{ size?: number; strok
   Workflow, BookOpen, Puzzle, Database, Terminal, Search, Layers,
   Code2, ExternalLink,
 };
+
+type MarketplaceDetailRouteState = { returnTo?: unknown; item?: unknown };
+
+function isMarketplaceItem(value: unknown): value is MarketplaceItem {
+  if (!value || typeof value !== "object") return false;
+  const item = value as Partial<MarketplaceItem>;
+  return typeof item.id === "string"
+    && typeof item.name === "string"
+    && typeof item.category === "string"
+    && typeof item.type === "string"
+    && typeof item.description === "string";
+}
+
+function decodeMarketplaceItemID(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    // A hand-crafted malformed route must render the normal not-found state,
+    // rather than throwing during render and taking down the desktop shell.
+    return value;
+  }
+}
+
+/**
+ * Return the canonical server path for cards supplied by mcpservers.org.
+ *
+ * The dynamic adapter keeps the directory path in DocumentationURL/SourceURL
+ * because an owner/name pair cannot be recovered reliably from the display ID
+ * once it has been URL encoded. Only the two public route shapes are accepted
+ * here; the Go binding performs the authoritative validation again.
+ */
+export function mcpServersDirectoryPath(raw?: string): string | undefined {
+  const value = raw?.trim();
+  if (!value) return undefined;
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol !== "https:" || parsed.hostname !== "mcpservers.org" || parsed.username || parsed.password) {
+      return undefined;
+    }
+    const match = parsed.pathname.match(/^\/(?:[A-Za-z][A-Za-z-]{0,31}\/)?servers\/(.+)$/);
+    if (!match?.[1]) return undefined;
+    const path = decodeURIComponent(match[1]).replace(/^\/+|\/+$/g, "");
+    const segments = path.split("/");
+    if (segments.length < 1 || segments.length > 4 || segments.some((segment) => !/^[A-Za-z0-9][A-Za-z0-9._~-]{0,127}$/.test(segment))) {
+      return undefined;
+    }
+    return segments.join("/");
+  } catch {
+    return undefined;
+  }
+}
+
+interface MCPDetailState {
+  item?: MarketplaceItem;
+  loading: boolean;
+  error: boolean;
+}
+
+function useMCPServerDetail(item?: MarketplaceItem): MCPDetailState {
+  const [detail, setDetail] = useState<MarketplaceItem | null>(null);
+  const [loading, setLoading] = useState(item?.source === "mcpservers");
+  const [error, setError] = useState(false);
+  const itemID = item?.id ?? "";
+  const itemSource = item?.source ?? "";
+  const itemDocumentationURL = item?.documentationUrl ?? item?.sourceUrl ?? "";
+  const directoryPath = mcpServersDirectoryPath(itemDocumentationURL);
+
+  useEffect(() => {
+    if (!item || item.source !== "mcpservers") {
+      setDetail(null);
+      setLoading(false);
+      setError(false);
+      return;
+    }
+    let active = true;
+    // Do not let the previous server's detail metadata flash while a new slug
+    // is loading (the route can change without unmounting this page).
+    setDetail(null);
+    setLoading(true);
+    setError(false);
+    const detailRequest = directoryPath
+      ? api.marketplaceMCPServersDirectoryDetail(directoryPath)
+      : api.marketplaceMCPServerDetail(item.id.replace(/^mcp-/, ""));
+    void detailRequest.then((loaded) => {
+      if (!active) return;
+      // The bridge response is normalized by Go, but keep the route identity
+      // authoritative so a malformed upstream payload cannot replace another
+      // card's detail state.
+      if (loaded && loaded.id === item.id) setDetail(loaded);
+      else setError(true);
+    }).catch(() => {
+      if (active) setError(true);
+    }).finally(() => {
+      if (active) setLoading(false);
+    });
+    return () => { active = false; };
+  }, [itemID, itemSource, itemDocumentationURL, directoryPath]);
+
+  return { item: item ? (detail ? { ...item, ...detail } : item) : undefined, loading, error };
+}
 
 function ItemIcon({ item, size = 28 }: { item: MarketplaceItem; size?: number }) {
   const { name, color, iconUrl } = { name: item.icon, color: item.iconColor, iconUrl: item.iconUrl };
@@ -101,7 +202,7 @@ function InstallSection({ item }: { item: MarketplaceItem }) {
   return (
     <section className="detail-install-section">
       <h2 className="detail-section-title">{t("安装方式")}</h2>
-      <p className="detail-install-desc">{item.targetHint ?? t("复制下方提示词，粘贴到对应的 Agent 对话框中执行。")}</p>
+      {item.targetHint ? <p className="detail-install-desc">{item.targetHint}</p> : null}
 
       {/* Prompt preview box */}
       <div className="detail-prompt-box">
@@ -313,11 +414,18 @@ export function MarketplaceDetailPage() {
   const location = useLocation();
   const { t, locale } = useI18n();
 
-  const { items } = useMarketplaceCatalog();
-  const item = items.find((i) => i.id === decodeURIComponent(itemId));
-  const returnTo = typeof location.state?.returnTo === "string" ? location.state.returnTo : "/marketplace";
+  const { items } = useMarketplaceCatalog({ autoRefresh: false });
+  const decodedItemID = decodeMarketplaceItemID(itemId);
+  const routeState = (location.state ?? {}) as MarketplaceDetailRouteState;
+  const routeItem = isMarketplaceItem(routeState.item) && routeState.item.id === decodedItemID ? routeState.item : undefined;
+  // Dynamic cards can be loaded on a later page and are intentionally not kept
+  // in a process-wide catalog. The navigation snapshot keeps that card's
+  // detail page usable while the catalog query is re-created.
+  const baseItem = items.find((candidate) => candidate.id === decodedItemID) ?? routeItem;
+  const returnTo = typeof routeState.returnTo === "string" ? routeState.returnTo : "/marketplace";
+  const mcpDetail = useMCPServerDetail(baseItem);
 
-  if (!item) {
+  if (!baseItem || !mcpDetail.item) {
     return (
       <PageScaffold
         title={t("工具未找到")}
@@ -328,6 +436,9 @@ export function MarketplaceDetailPage() {
       </PageScaffold>
     );
   }
+
+  const item = mcpDetail.item;
+  const directoryPath = mcpServersDirectoryPath(item.documentationUrl ?? item.sourceUrl);
 
   return (
     <PageScaffold
@@ -375,7 +486,6 @@ export function MarketplaceDetailPage() {
           ) : item.externalUrl ? (
             <section className="detail-install-section">
               <h2 className="detail-section-title">{t("访问方式")}</h2>
-              <p className="detail-install-desc">{t("点击下方按钮访问该工具的官方页面。")}</p>
               <MarketplaceExternalLink
                 className="button button-primary"
                 href={item.externalUrl}
@@ -386,6 +496,13 @@ export function MarketplaceDetailPage() {
             </section>
           ) : null}
 
+          {item.source === "mcpservers" && mcpDetail.loading ? (
+            <p className="detail-live-loading" role="status">{t("正在加载 MCP Server 详情")}</p>
+          ) : null}
+          {item.source === "mcpservers" && mcpDetail.error ? (
+            <p className="detail-live-error" role="status">{t("MCP Server 详情暂时不可用，已显示列表摘要")}</p>
+          ) : null}
+
           {item.type === "installable" && item.installableKind === "skill" ? (
             <Link className="detail-management-link" to="/skills">
               {t("安装完成后，可在 Skills 页管理它。")}
@@ -393,11 +510,17 @@ export function MarketplaceDetailPage() {
             </Link>
           ) : null}
 
-          {item.source === "skillhub" || item.readmeUrl ? (
+          {item.source === "skillhub" || item.source === "mcpservers" || item.readmeUrl ? (
             <section className="detail-readme-section">
               <h2 className="detail-section-title">{t("README")}</h2>
               {item.source === "skillhub" ? (
                 <ReadmeSection skillhubSlug={item.id.replace(/^skillhub-/, "")} />
+              ) : item.source === "mcpservers" ? (
+                directoryPath ? (
+                  <ReadmeSection mcpServersOrgPath={directoryPath} />
+                ) : (
+                  <ReadmeSection mcpServerSlug={item.id.replace(/^mcp-/, "")} />
+                )
               ) : item.readmeUrl ? (
                 <ReadmeSection readmeUrl={item.readmeUrl} />
               ) : null}

@@ -56,7 +56,6 @@ export function ProfileSelectionPage() {
   return (
     <PageScaffold
       title={t("选择配置模版")}
-      description={t("选择一个已有配置模版，或新建配置模版")}
       stepper
       onBack={() => navigate("/setup/agents")}
       primaryLabel={t("继续")}

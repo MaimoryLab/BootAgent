@@ -27,6 +27,8 @@ export type SkillChange = AppModels.SkillChange;
 export type SkillBackupSummary = AppModels.SkillBackupSummary;
 export type SkillUninstallResult = AppModels.SkillUninstallResult;
 export type TransferV2Preview = TransferModels.Preview;
+export type MarketplaceDynamicResult = AppModels.MarketplaceDynamicResult;
+export type MarketplaceSourceStatus = AppModels.MarketplaceSourceStatus;
 
 export const PROTOCOL_LABELS: Record<ProtocolId, string> = {
   openai: "OpenAI Chat Completions",

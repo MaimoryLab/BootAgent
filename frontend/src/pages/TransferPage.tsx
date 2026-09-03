@@ -263,7 +263,6 @@ export function TransferPage() {
   return (
     <PageScaffold
       title={t("导入导出")}
-      description={t("选择要迁移的模型服务和配置模版")}
       bodyClassName="transfer-page"
       backLabel={t("设置")}
       onBack={() => navigate("/settings")}

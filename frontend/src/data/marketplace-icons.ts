@@ -1,6 +1,15 @@
 import type { MarketplaceIconName, MarketplaceItem } from "../types/marketplace";
 
-const TRUSTED_ICON_HOSTS = new Set(["github.com", "www.github.com", "icons.duckduckgo.com", "opengraph.githubassets.com", "repository-images.githubusercontent.com"]);
+const TRUSTED_ICON_HOSTS = new Set([
+  "github.com",
+  "www.github.com",
+  "icons.duckduckgo.com",
+  "opengraph.githubassets.com",
+  "repository-images.githubusercontent.com",
+  "raw.githubusercontent.com",
+  "cloudcache.tencent-cloud.com",
+  "skillhub-1388575217.cos.accelerate.myqcloud.com",
+]);
 
 function isHttps(value: string): boolean {
   try {
@@ -48,7 +57,7 @@ export function marketplaceIconCandidates(item: Pick<MarketplaceItem, "iconUrl" 
   ].filter((value): value is string => Boolean(value));
   return [...new Set(candidates)].filter((value) => {
     try {
-      return TRUSTED_ICON_HOSTS.has(new URL(value).hostname) || value.startsWith("https://raw.githubusercontent.com/") || value.startsWith("https://cloudcache.tencent-cloud.com/");
+      return TRUSTED_ICON_HOSTS.has(new URL(value).hostname);
     } catch {
       return false;
     }

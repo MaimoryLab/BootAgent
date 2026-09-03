@@ -213,7 +213,6 @@ export function ProfilesPage() {
   return (
     <PageScaffold
       title={t("配置模版")}
-      description={t("在这里创建配置模版，再将它应用到所选 Agent")}
       bodyClassName="management-page"
       secondaryAction={(
         <button className="button button-primary" type="button" onClick={openCreate} disabled={Boolean(editor)}>
@@ -253,21 +252,15 @@ export function ProfilesPage() {
             </div>
             <div className="field-stack">
               <label htmlFor="profile-label">{t("名称")}</label>
-              {/* Optional, matching the backend: an empty label falls back to the
-                  existing one, then to the ID (internal/profile/write.go:71-74).
-                  The hint says so, or a Profile saved without a name looks like it
-                  lost it. */}
               <input
                 id="profile-label"
                 value={editor.label}
                 onChange={(event) => setEditor({ ...editor, label: event.target.value })}
                 placeholder={t("例如 团队 PPIO")}
-                aria-describedby="profile-label-hint"
                 spellCheck={false}
                 autoCorrect="off"
                 autoCapitalize="none"
               />
-              <small id="profile-label-hint">{t("留空则使用配置模版 ID")}</small>
             </div>
             <div className="profile-editor-wide">
               <div className="field-stack">
@@ -327,7 +320,6 @@ export function ProfilesPage() {
                     { value: "max", label: t("max（最大）") },
                   ]}
                 />
-                <small>{t("各 Agent 支持的档位不同，应用时不支持的档位会明确报错")}</small>
               </div>
             </div>
             <label className="toggle-row profile-editor-wide">

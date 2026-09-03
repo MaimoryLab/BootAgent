@@ -313,7 +313,6 @@
 .settings-link { width: 100%; padding: 0 10px; display: flex; align-items: center; gap: 12px; border-right: 0; border-bottom: 0; border-left: 0; background: transparent; color: var(--text-primary); cursor: pointer; text-align: left; }
 .settings-link > span { min-width: 0; display: grid; flex: 1; gap: 3px; }
 .settings-link strong { font-size: 13px; }
-.settings-link small { color: var(--text-secondary); font-size: 11px; }
 .settings-link > svg:last-child { color: var(--text-tertiary); }
 .settings-footer-content { min-width: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 8px 18px; color: var(--text-secondary); font-size: 11px; white-space: normal; }
 .settings-about-meta { display: flex; flex-wrap: wrap; gap: 4px 16px; }
@@ -1088,7 +1087,6 @@
 .model-row.is-selected { color: var(--accent); background: var(--accent-soft); }
 .model-row > span { min-width: 0; display: grid; gap: 2px; }
 .model-row strong { overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
-.model-row small { color: var(--text-secondary); font-size: 11px; }
 
 .manual-model-field { padding-top: 2px; }
 .empty-row { padding: 18px; color: var(--text-secondary); font-size: 13px; text-align: center; }
@@ -2023,9 +2021,6 @@
 .conversion-hint { display: block; margin-top: 5px; font-size: 12px; line-height: 1.5; color: var(--text-tertiary); }
 /* One-liner intro sentence at the top of the page */
 .conversion-intro { margin: 0 0 20px; font-size: 13px; line-height: 1.6; color: var(--text-secondary); }
-/* Inline note after a field label, e.g. "(declared to Claude Code)" */
-.conversion-field-note { margin-left: 6px; font-size: 11px; font-weight: 400; color: var(--text-tertiary); }
-
 /* Separated from the fields above by a rule rather than only by gap: this block
    performs an action and reports a result, so it is not another field to fill in. */
 .provider-verify {
@@ -2258,13 +2253,6 @@
 }
 
 .provider-key-state.has-key { color: var(--green); }
-
-.provider-note {
-  margin: 14px 0 0;
-  color: var(--text-tertiary);
-  font-size: 11px;
-  line-height: 1.6;
-}
 
 /* The migration notice sits above .page-scaffold as its flex sibling, so its
    height is taken out of the page's. It carries a backend error containing a
@@ -2993,6 +2981,27 @@
   flex-shrink: 0;
 }
 
+.marketplace-source-status {
+  max-width: min(42vw, 360px);
+  overflow: hidden;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.is-spinning { animation: marketplace-refresh-spin 900ms linear infinite; }
+@keyframes marketplace-refresh-spin { to { transform: rotate(360deg); } }
+
+.detail-live-loading,
+.detail-live-error {
+  margin: 10px 0 0;
+  font-size: 12px;
+}
+
+.detail-live-loading { color: var(--text-tertiary); }
+.detail-live-error { color: var(--text-secondary); }
+
 /* Single-column layout — filter moved to top dropdown bar */
 .marketplace-layout {
   display: block;
@@ -3195,8 +3204,8 @@
   margin: 0;
   padding: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  grid-auto-rows: 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-auto-rows: 108px;
   gap: 10px;
 }
 
@@ -3313,6 +3322,20 @@
   background: var(--surface-pressed);
   color: var(--text-tertiary);
   font-size: 11px;
+}
+
+.marketplace-card .marketplace-tags {
+  min-width: 0;
+}
+
+.marketplace-card .marketplace-tag {
+  min-width: 0;
+  max-width: min(12rem, 100%);
+  flex: 0 1 auto;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Arrow on the right */
@@ -3803,8 +3826,12 @@
 }
 
 @media (max-width: 640px) {
-  .marketplace-grid { grid-template-columns: 1fr; grid-auto-rows: auto; }
+  .marketplace-grid { grid-template-columns: 1fr; grid-auto-rows: 120px; }
   .marketplace-tabs { gap: 4px; }
   .marketplace-tab { font-size: 12px; padding: 4px 9px; }
   .detail-hero { flex-direction: column; gap: 12px; }
+}
+
+@media (min-width: 641px) and (max-width: 899px) {
+  .marketplace-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: 108px; }
 }

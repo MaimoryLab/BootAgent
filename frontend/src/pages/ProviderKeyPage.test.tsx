@@ -118,14 +118,12 @@ describe("ProviderKeyPage", () => {
     expect(dispatch).toHaveBeenCalledWith({ type: "SET_PROBE_MODEL", value: "qwen/qwen3-coder" });
   });
 
-  // A model entered here is not configured anywhere, and a user who assumes it is
-  // will not understand why the next step asks again.
-  it("says the probe model configures nothing", () => {
+  it("keeps the probe model field free of duplicate guidance", () => {
     state = { ...baseState, status, statusState: "success", hasApiKey: true };
     render(<MemoryRouter><ProviderKeyPage /></MemoryRouter>);
 
-    expect(screen.getByText(/不会写入任何配置/)).toBeTruthy();
-    expect(screen.getByText(/真正使用的模型在下一步选择/)).toBeTruthy();
+    expect(screen.queryByText(/不会写入任何配置/)).toBeNull();
+    expect(screen.queryByText(/真正使用的模型在下一步选择/)).toBeNull();
   });
 
   it("leaves the probe model optional", () => {

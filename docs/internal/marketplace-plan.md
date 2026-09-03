@@ -49,7 +49,8 @@ Agent 对话框即可完成安装，无需引导式流程。
 ### 阶段一的内容来源（静态快照）
 
 静态目录由 `manifests/marketplace.lock.json` 管理，随 Go 二进制通过 `go:embed`
-提供给前端；前端只保留 SkillHub 在线数据的归一化适配器。
+提供给前端；SkillHub 与 MCP Servers 的在线数据由 Go 侧来源适配器归一化后增量追加，
+静态目录仍作为离线基线。
 
 ### 阶段三的内容来源（远程索引，计划）
 
@@ -133,6 +134,13 @@ Agent 对话框即可完成安装，无需引导式流程。
   列表页与详情页共用同一次请求，每次应用会话至多 fetch 一次。
 - **其他来源仍为快照**：统一写入 `manifests/marketplace.lock.json`，不再在
   `frontend/src/data/` 中维护条目代码或快照文件。
+- **MCP Servers 在线适配**：列表主源通过
+  `https://mcpservers.org/all?page=` 与 `/search?query=&page=` 获取公开分页 HTML，
+  后端按卡片解析名称、分类、图标、仓库、官方标识和 GitHub stars；SkillHub 的
+  `/api/v1/mcp/servers` 只作为有界补充和主目录故障回退。打开目录卡片后，Go binding
+  从对应详情页的服务端序列化记录获取官网、仓库、标签、更新时间和统计，并延迟提取
+  `markdownContent` 作为 README。旧版 SkillHub slug 卡片继续走原有单条接口。请求由
+  Go binding 发起，详情失败时保留列表摘要，不影响静态目录。
 - **详情页增强**：skillhub 条目详情页额外通过后端代理读取
   `https://api.skillhub.cn/api/v1/skills/{slug}` 渲染安全审核
   （科恩/三堡）、版本信息与作者区块，失败静默降级不阻塞页面
