@@ -15,6 +15,7 @@ import type { MarketplaceIconName, MarketplaceItem } from "../types/marketplace"
 import { copyToClipboard } from "../utils/clipboard";
 import { marketplaceIconCandidates } from "../data/marketplace-icons";
 import { marketplaceKinds } from "../data/marketplace-taxonomy";
+import { readMarketplaceQuerySession } from "./MarketplacePage";
 
 /** 12,345 -> "12.3k"; keeps the stats strip compact like skillhub's. */
 function formatCount(n: number): string {
@@ -422,7 +423,10 @@ export function MarketplaceDetailPage() {
   // in a process-wide catalog. The navigation snapshot keeps that card's
   // detail page usable while the catalog query is re-created.
   const baseItem = items.find((candidate) => candidate.id === decodedItemID) ?? routeItem;
-  const returnTo = typeof routeState.returnTo === "string" ? routeState.returnTo : "/marketplace";
+  const savedSession = readMarketplaceQuerySession();
+  const returnTo = typeof routeState.returnTo === "string"
+    ? routeState.returnTo
+    : savedSession?.returnTo ?? "/marketplace";
   const mcpDetail = useMCPServerDetail(baseItem);
 
   if (!baseItem || !mcpDetail.item) {

@@ -57,13 +57,16 @@ vi.mock("../data/useMarketplaceCatalog", () => ({
 
 import { I18nProvider } from "../i18n";
 import { api } from "../backend/api";
-import { filterMarketplaceItems, MarketplacePage, parseMarketplaceFilters, serializeMarketplaceFilters } from "./MarketplacePage";
+import { filterMarketplaceItems, MarketplacePage, parseMarketplaceFilters, readMarketplaceQuerySession, serializeMarketplaceFilters } from "./MarketplacePage";
 import { EMPTY_FILTERS } from "../components/MarketplaceFilterSidebar";
 import type { MarketplaceItem } from "../types/marketplace";
 
 const ITEMS = catalogItems as MarketplaceItem[];
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  vi.restoreAllMocks();
+  sessionStorage.clear();
+});
 
 describe("filterMarketplaceItems", () => {
   it("returns all items when category is 'all' and query is empty", () => {
@@ -186,6 +189,23 @@ describe("MarketplacePage category URL", () => {
     expect(screen.getByRole("tab", { name: /MCP servers/ }).getAttribute("aria-selected")).toBe("true");
     expect(screen.getByText("Sequential Thinking")).toBeTruthy();
     expect(screen.queryByText("Ultracode Skill")).toBeNull();
+  });
+
+  it("stores the complete query session before opening a detail page", async () => {
+    const user = userEvent.setup();
+    render(
+      <I18nProvider>
+        <MemoryRouter initialEntries={["/marketplace?q=ultracode&category=plugin&kind=skill"]}>
+          <MarketplacePage />
+        </MemoryRouter>
+      </I18nProvider>,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Ultracode Skill" }));
+    expect(readMarketplaceQuerySession()).toEqual({
+      returnTo: "/marketplace?q=ultracode&category=plugin&kind=skill",
+      scrollTop: 0,
+    });
   });
 
   it("does not expose filter values or top-level resource categories without tool supply", async () => {

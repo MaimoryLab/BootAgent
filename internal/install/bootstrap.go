@@ -42,6 +42,10 @@ const (
 	responseHeaderTimeout = 60 * time.Second
 )
 
+// renameRuntimePath is injectable so replacement failure can be tested without
+// relying on platform-specific file locks or permissions.
+var renameRuntimePath = os.Rename
+
 // defaultDownloadClient deliberately sets no Client.Timeout. That field bounds
 // the entire request including reading the body, which is exactly the wall-clock
 // limit this change removes; the phase timeouts above plus stall detection
@@ -291,7 +295,8 @@ func installRuntime(ctx context.Context, runtime Runtime, client Doer, runtimeID
 	}
 
 	// Extract beside the final directory so a partial or corrupt tree is never
-	// visible under the versioned path, then swap it in with one rename.
+	// visible under the versioned path. Keep the previous tree as a rollback
+	// sibling until the new tree has been published successfully.
 	staging, err := os.MkdirTemp(parent, ".staging-")
 	if err != nil {
 		return "", runtimeError(fmt.Sprintf("Cannot stage the %s installation", entry.Name), err)
@@ -324,11 +329,31 @@ func installRuntime(ctx context.Context, runtime Runtime, client Doer, runtimeID
 	if err := checkContext(ctx); err != nil {
 		return "", err
 	}
-	if err := os.RemoveAll(target); err != nil {
-		return "", runtimeError(fmt.Sprintf("Cannot replace the existing %s directory", entry.Name), err)
+	rollbackPath := ""
+	if _, statErr := os.Stat(target); statErr == nil {
+		rollbackPath, err = os.MkdirTemp(parent, ".rollback-")
+		if err != nil {
+			return "", runtimeError(fmt.Sprintf("Cannot prepare the existing %s directory for replacement", entry.Name), err)
+		}
+		if err := os.Remove(rollbackPath); err != nil {
+			return "", runtimeError(fmt.Sprintf("Cannot prepare the existing %s directory for replacement", entry.Name), err)
+		}
+		if err := renameRuntimePath(target, rollbackPath); err != nil {
+			return "", runtimeError(fmt.Sprintf("Cannot replace the existing %s directory", entry.Name), err)
+		}
 	}
-	if err := os.Rename(root, target); err != nil {
+	if err := renameRuntimePath(root, target); err != nil {
+		if rollbackPath != "" {
+			if restoreErr := renameRuntimePath(rollbackPath, target); restoreErr != nil {
+				return "", runtimeError(fmt.Sprintf("Cannot publish the %s installation and cannot restore the previous one", entry.Name), fmt.Errorf("publish: %w; restore: %v", err, restoreErr))
+			}
+		}
 		return "", runtimeError(fmt.Sprintf("Cannot publish the %s installation", entry.Name), err)
+	}
+	if rollbackPath != "" {
+		if err := os.RemoveAll(rollbackPath); err != nil {
+			return "", runtimeError(fmt.Sprintf("Cannot clean up the previous %s installation", entry.Name), err)
+		}
 	}
 	installed := target
 	if artifact.BinDir != "" && artifact.BinDir != "." {

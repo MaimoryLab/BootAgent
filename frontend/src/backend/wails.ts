@@ -281,7 +281,8 @@ export const wailsApi = {
   readTransferFile: (): Promise<string> => call(() => TransferService.Read()) as Promise<string>,
   readTransferBytes: (): Promise<Uint8Array> => call(() => TransferService.ReadBytes()).then((data) => Uint8Array.from(atob(data ?? ""), (char) => char.charCodeAt(0))),
   previewTransferV2: (data: Uint8Array): Promise<import("../types/api").TransferV2Preview> => call(() => TransferService.PreviewV2(encodeBytes(data))) as Promise<import("../types/api").TransferV2Preview>,
-  applyTransferV2: (data: Uint8Array): Promise<void> => call(() => TransferService.ApplyV2(encodeBytes(data))).then(() => undefined),
+  applyTransferV2: (data: Uint8Array, conflictPolicy: "overwrite" | "skip" = "overwrite"): Promise<void> =>
+    call(() => TransferService.ApplyV2WithOptions(encodeBytes(data), { conflict_policy: conflictPolicy })).then(() => undefined),
   writeTransferFile: (data: string): Promise<void> => call(() => TransferService.Write(data)).then(() => undefined),
   writeTransferBytes: (data: Uint8Array): Promise<void> => call(() => TransferService.WriteBytes(encodeBytes(data))).then(() => undefined),
   exportTransferV2: (providerIDs: string[], profileIDs: string[], mcpIDs: string[], skillIDs: string[]): Promise<Uint8Array> => call(() => TransferService.ExportV2(providerIDs, profileIDs, mcpIDs, skillIDs)).then((data) => Uint8Array.from(atob(data ?? ""), (char) => char.charCodeAt(0))),

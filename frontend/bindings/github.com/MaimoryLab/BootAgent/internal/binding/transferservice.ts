@@ -13,6 +13,10 @@ export function ApplyV2(data: string | null): $CancellablePromise<void> {
     return $Call.ByID(1345229917, data);
 }
 
+export function ApplyV2WithOptions(data: string | null, options: transfer$0.ApplyOptions): $CancellablePromise<void> {
+    return $Call.ByID(260512153, data, options);
+}
+
 export function ExportV2(providerIDs: string[] | null, profileIDs: string[] | null, mcpIDs: string[] | null, skillIDs: string[] | null): $CancellablePromise<string | null> {
     return $Call.ByID(1870855265, providerIDs, profileIDs, mcpIDs, skillIDs);
 }

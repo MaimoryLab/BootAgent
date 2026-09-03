@@ -91,6 +91,16 @@ func (s *TransferService) ApplyV2(ctx context.Context, data []byte) error {
 	return s.core.ImportTransferV2(ctx, data)
 }
 
+func (s *TransferService) ApplyV2WithOptions(ctx context.Context, data []byte, options transfer.ApplyOptions) error {
+	if err := contextError(ctx); err != nil {
+		return err
+	}
+	if s == nil || s.core == nil {
+		return notReady("Transfer service is not configured")
+	}
+	return s.core.ImportTransferV2WithOptions(ctx, data, options)
+}
+
 func (s *TransferService) Write(ctx context.Context, data string) error {
 	if err := contextError(ctx); err != nil {
 		return err

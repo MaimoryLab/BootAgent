@@ -100,19 +100,18 @@ func TestUpdateCheckReportsBothFailuresWhenNeitherSourceAnswers(t *testing.T) {
 	}
 }
 
-// A source that answers "nothing newer" has answered. Retrying elsewhere would
-// query both hosts on every check, spending the slow link the mirror preference
-// exists to avoid.
-func TestUpdateCheckAcceptsNoUpdateFromTheMirror(t *testing.T) {
-	official, mirror := &updateProviderFake{}, &updateProviderFake{noRelease: true}
+// A mirror that answers "nothing newer" is compared with official metadata so
+// a lagging mirror cannot hide a release.
+func TestUpdateCheckComparesOfficialWhenTheMirrorHasNoUpdate(t *testing.T) {
+	official, mirror := &updateProviderFake{noRelease: true}, &updateProviderFake{noRelease: true}
 	provider := updateProvider{official: official, mirror: mirror, preferMirror: func(context.Context) bool { return true }}
 
 	release, err := provider.Check(context.Background(), updater.CheckRequest{})
 	if release != nil || err != nil {
 		t.Fatalf("Check() = %#v, %v, want nil, nil", release, err)
 	}
-	if official.checks != 0 {
-		t.Errorf("official checks = %d, want 0: the mirror already answered", official.checks)
+	if official.checks != 1 {
+		t.Errorf("official checks = %d, want 1 to detect mirror lag", official.checks)
 	}
 }
 
