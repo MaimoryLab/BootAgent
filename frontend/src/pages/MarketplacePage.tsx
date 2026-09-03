@@ -673,7 +673,6 @@ export function MarketplacePage() {
   return (
     <PageScaffold
       title={t("工具市场")}
-      description={t("发现并安装 Agent 扩展、MCP 服务器与配置模板")}
       bodyClassName="marketplace-page"
       footerNote={t("{count} 个工具 · {status}", { count: items.length, status: refreshing ? t("正在刷新工具市场") : live ? t("实时数据") : t("离线快照") })}
       secondaryAction={(

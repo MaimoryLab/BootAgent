@@ -342,9 +342,9 @@ export function ActivationPage() {
     const loading = restoredTask.state === "running";
     const cancelled = restoredTask.state === "cancelled";
     return (
-      <PageScaffold
+        <PageScaffold
         title={loading ? t("正在安装") : restoredTask.state === "success" ? t("安装完成") : cancelled ? t("已取消") : t("需要处理部分问题")}
-        description={restoredTask.message || (cancelled ? t("已取消") : t("每个 Agent 的结果彼此独立，失败项可以单独重试"))}
+        description={restoredTask.message || (cancelled ? t("已取消") : undefined)}
         primaryLabel={t("进入总览")}
         onPrimary={() => navigate("/overview")}
         footerNote={loading ? t("请保持此窗口打开") : undefined}
@@ -379,11 +379,7 @@ export function ActivationPage() {
       // A cancel can land between steps, so it says what is guaranteed rather than
       // just "cancelled": runtime extraction is atomic (staging plus rename), and
       // re-running is safe because every write is idempotent.
-      description={activationLoading
-        ? t("安装请求同步执行，完成后将显示每个 Agent 的最终状态")
-        : activationCancelled
-          ? t("已取消。已完成的部分保留在本机，重新运行是安全的")
-          : t("每个 Agent 的结果彼此独立，失败项可以单独重试")}
+      description={activationCancelled ? t("已取消。已完成的部分保留在本机，重新运行是安全的") : undefined}
       stepper
       onBack={activationLoading ? undefined : () => navigate("/setup/review")}
       primaryLabel={allDone || anyConfigured ? t("进入总览") : undefined}

@@ -122,11 +122,9 @@ describe("ProvidersPage", () => {
     expect(screen.getByTestId("provider-novita").textContent).toMatch(/暂无/);
   });
 
-  it("states that a user Provider is the user's responsibility", () => {
-    // ADR-003 puts protocol compatibility on the user; the UI has to
-    // say it rather than leave it in a document.
+  it("keeps the Provider list focused on actionable data", () => {
     renderPage({ codex: "ppio" });
-    expect(screen.getByText(/用户模型服务/)).toBeTruthy();
+    expect(screen.queryByText(/用户模型服务的协议兼容性/)).toBeNull();
   });
 
   it("loads the saved API key when editing and sends updates", async () => {
@@ -302,13 +300,13 @@ describe("ProvidersPage", () => {
   // The ID is a storage key the user should not have to invent, but a collision is
   // now refused rather than silently overwriting -- so the suggested value has to
   // be one that is actually free.
-  it("prefills a free Provider ID and states the rule", () => {
+  it("prefills a free Provider ID without an extra rule paragraph", () => {
     renderPage({ codex: null });
     fireEvent.click(screen.getByRole("button", { name: "新增模型服务" }));
     const id = screen.getByLabelText("模型服务 ID") as HTMLInputElement;
     expect(id.value).toMatch(/^[a-z0-9][a-z0-9-]*$/);
     expect(Object.keys(mockState.status?.providers ?? {})).not.toContain(id.value);
-    expect(screen.getByText(/小写字母、数字或连字符/)).toBeTruthy();
+    expect(screen.queryByText(/小写字母、数字或连字符/)).toBeNull();
   });
 
   // create separates the two intents. An edit must keep overwriting, or saving a

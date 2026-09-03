@@ -23,6 +23,8 @@ interface ProviderModelPickerProps {
   required?: boolean;
   /** Committed-on-blur callers pass this through to the field. */
   onBlur?: () => void;
+  /** Keep the popup above the field when a following action row must stay clear. */
+  preferDropUp?: boolean;
   /**
    * grid-column: 1 / -1, which only means anything inside the Profile editor
    * grid. Off by default so a caller outside that grid is not handed a stray
@@ -31,7 +33,7 @@ interface ProviderModelPickerProps {
   wide?: boolean;
 }
 
-export function ProviderModelPicker({ provider, protocol, hasKey, value, onChange, inputId, inputLabel, hint, required = true, onBlur, wide = false }: ProviderModelPickerProps) {
+export function ProviderModelPicker({ provider, protocol, hasKey, value, onChange, inputId, inputLabel, hint, required = true, onBlur, preferDropUp = false, wide = false }: ProviderModelPickerProps) {
   const { t } = useI18n();
   const [models, setModels] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
@@ -66,7 +68,7 @@ export function ProviderModelPicker({ provider, protocol, hasKey, value, onChang
       {/* collapsible: every caller is a compact form where an always-open list
           pushed the footer off screen. The arrow is also the only affordance that
           said the discovered models were selectable at all. */}
-      <ModelPicker models={models} value={value} onChange={onChange} onBlur={onBlur} inputId={inputId} inputLabel={inputLabel || t("模型")} required={required} collapsible />
+      <ModelPicker models={models} value={value} onChange={onChange} onBlur={onBlur} inputId={inputId} inputLabel={inputLabel || t("模型")} required={required} collapsible preferDropUp={preferDropUp} />
       {hint ? <small>{hint}</small> : null}
     </div>
   );

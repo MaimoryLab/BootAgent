@@ -202,7 +202,7 @@ function InstallSection({ item }: { item: MarketplaceItem }) {
   return (
     <section className="detail-install-section">
       <h2 className="detail-section-title">{t("安装方式")}</h2>
-      <p className="detail-install-desc">{item.targetHint ?? t("复制下方提示词，粘贴到对应的 Agent 对话框中执行。")}</p>
+      {item.targetHint ? <p className="detail-install-desc">{item.targetHint}</p> : null}
 
       {/* Prompt preview box */}
       <div className="detail-prompt-box">
@@ -486,7 +486,6 @@ export function MarketplaceDetailPage() {
           ) : item.externalUrl ? (
             <section className="detail-install-section">
               <h2 className="detail-section-title">{t("访问方式")}</h2>
-              <p className="detail-install-desc">{t("点击下方按钮访问该工具的官方页面。")}</p>
               <MarketplaceExternalLink
                 className="button button-primary"
                 href={item.externalUrl}

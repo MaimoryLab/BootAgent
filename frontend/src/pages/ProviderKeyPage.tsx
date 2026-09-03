@@ -130,7 +130,6 @@ export function ProviderKeyPage() {
   return (
     <PageScaffold
       title={t("连接模型服务")}
-      description={t("将使用模型服务已保存的 Key")}
       stepper
       onBack={() => navigate("/setup/agents")}
       // The next step is the model unless the Agent owns that choice, in which
@@ -188,8 +187,8 @@ export function ProviderKeyPage() {
           onChange={(value) => dispatch({ type: "SET_PROBE_MODEL", value })}
           inputId="provider-probe-model"
           inputLabel={t("测试用模型（可选）")}
-          hint={t("仅用于测试这个模型服务是否连得通，不会写入任何配置。真正使用的模型在下一步选择")}
           required={false}
+          preferDropUp
         />
 
         <div className="connection-row">
@@ -199,9 +198,6 @@ export function ProviderKeyPage() {
           </button>
           <ConnectionStatus state={state.connectionState} result={state.connection} />
         </div>
-        {providerHasKey && state.connectionState === "idle" && (
-          <small>{needsModel ? t("连接测试是可选的，可以直接继续选择模型") : t("连接测试是可选的，可以直接继续")}</small>
-        )}
       </div>
     </PageScaffold>
   );

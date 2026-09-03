@@ -195,7 +195,7 @@ export function MCPPage() {
     } catch { /* leave invalid text visible for correction */ }
   };
 
-  return <PageScaffold title={t("MCP 服务器")} description={t("在已初始化的 Agent 之间同步 MCP 服务器")} bodyClassName="mcp-page" secondaryAction={<div className="management-footer-actions"><Link className="button button-secondary" to="/marketplace?category=mcp-server"><ShoppingBag size={16} />{t("去市场发现")}</Link><button className="button button-secondary" onClick={refresh} disabled={scanning} title={t("重新扫描")}><RefreshCw size={16} />{t("重新扫描")}</button><button className="button button-secondary" onClick={openNew}><Plus size={16} />{t("新增")}</button></div>} primaryLabel={dirtyCount ? t("应用更改（{count}）", { count: dirtyCount }) : t("应用更改")} onPrimary={() => void apply()} primaryDisabled={!dirty}>
+  return <PageScaffold title={t("MCP 服务器")} bodyClassName="mcp-page" secondaryAction={<div className="management-footer-actions"><Link className="button button-secondary" to="/marketplace?category=mcp-server"><ShoppingBag size={16} />{t("去市场发现")}</Link><button className="button button-secondary" onClick={refresh} disabled={scanning} title={t("重新扫描")}><RefreshCw size={16} />{t("重新扫描")}</button><button className="button button-secondary" onClick={openNew}><Plus size={16} />{t("新增")}</button></div>} primaryLabel={dirtyCount ? t("应用更改（{count}）", { count: dirtyCount }) : t("应用更改")} onPrimary={() => void apply()} primaryDisabled={!dirty}>
     <section className="content-section mcp-page">
       <div className="section-heading"><div><h2>{t("MCP Registry")}</h2><p>{t("配置只在点击应用更改后写入 Agent")}</p></div></div>
       {scanning ? <div className="mcp-scan-status"><span className="spinner" />{t("正在后台扫描")}</div> : null}

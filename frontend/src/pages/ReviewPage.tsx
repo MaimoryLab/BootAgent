@@ -103,7 +103,6 @@ export function ReviewPage() {
           autoCorrect="off"
           autoCapitalize="none"
         />
-        <small>{t("这次安装会保存为一个配置模版，之后可以直接应用")}</small>
       </div> : null}
     </PageScaffold>
   );

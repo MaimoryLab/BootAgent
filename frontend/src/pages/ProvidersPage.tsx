@@ -258,7 +258,6 @@ export function ProvidersPage({ create = false }: { create?: boolean }) {
   return (
     <PageScaffold
       title={create ? t("新增模型服务") : t("模型服务")}
-      description={t("管理模型服务、端点与本机保存的 API Key")}
       bodyClassName="management-page"
       secondaryAction={!create ? (
         <button className="button button-primary" type="button" onClick={() => { setEditor({ ...emptyProvider, id: suggestProviderID(Object.keys(status.providers)) }); setCreating(true); setFailure(""); setApplied(""); }}>
@@ -296,10 +295,6 @@ export function ProvidersPage({ create = false }: { create?: boolean }) {
                 autoCapitalize="none"
                 required
               />
-              {/* The rule was only enforced by `pattern`, so a user learned it by
-                  being rejected. Stated here instead, next to the prefilled value
-                  they are free to keep. */}
-              <small>{t("仅供本机识别，可保留默认值。小写字母、数字或连字符")}</small>
             </div>
             <div className="field-stack">
               <label htmlFor="provider-name">{t("名称")}</label>
@@ -338,7 +333,6 @@ export function ProvidersPage({ create = false }: { create?: boolean }) {
                     autoCorrect="off"
                     autoCapitalize="none"
                   />
-                  <small>{t("仅用于本次验证，不会写入模型服务配置")}</small>
                 </div>
                 <button
                   className="button button-secondary"
@@ -420,7 +414,6 @@ export function ProvidersPage({ create = false }: { create?: boolean }) {
         })}
       </div> : null}
 
-      {!create ? <p className="provider-note">{t("用户模型服务的协议兼容性由你自己保证，BootAgent 不会为它降级或改写请求")}</p> : null}
     </PageScaffold>
   );
 }

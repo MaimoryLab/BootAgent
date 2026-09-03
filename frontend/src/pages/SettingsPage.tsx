@@ -155,7 +155,6 @@ export function SettingsPage() {
   return (
     <PageScaffold
       title={t("设置")}
-      description={t("管理界面偏好与配置迁移")}
       bodyClassName="settings-page"
       footerNote={(
         <div className="settings-footer-content" aria-label={t("关于")}>
@@ -199,7 +198,6 @@ export function SettingsPage() {
             <Power size={16} aria-hidden="true" />
             <span>
               <strong>{t("开机自启动")}</strong>
-              <small>{t("登录系统后自动启动 BootAgent")}</small>
             </span>
             <input
               type="checkbox"
@@ -216,7 +214,6 @@ export function SettingsPage() {
           <TerminalIcon size={16} aria-hidden="true" />
           <label htmlFor="terminal-app">
             <strong>{t("启动 CLI Agent 的终端")}</strong>
-            <small>{t("自动会使用系统默认终端；未安装的终端不可选")}</small>
           </label>
           <SelectField
             id="terminal-app"
@@ -244,7 +241,6 @@ export function SettingsPage() {
           <Archive size={16} aria-hidden="true" />
           <label htmlFor="backup-retention">
             <strong>{t("备份历史版本数")}</strong>
-            <small>{t("每个目标分别保留历史版本，默认保留 3 个")}</small>
           </label>
           <input
             id="backup-retention"
@@ -262,7 +258,7 @@ export function SettingsPage() {
         {backupFailure ? <p className="settings-field-error" role="status">{backupFailure}</p> : null}
         <button className="settings-link" type="button" onClick={() => navigate("/settings/transfer")}>
           <Import size={18} aria-hidden="true" />
-          <span><strong>{t("导入导出")}</strong><small>{t("选择要迁移的模型服务和配置模版")}</small></span>
+          <span><strong>{t("导入导出")}</strong></span>
           <ChevronRight size={16} aria-hidden="true" />
         </button>
       </section>
@@ -273,12 +269,12 @@ export function SettingsPage() {
             would navigate the app away from itself. */}
         <button className="settings-link" type="button" onClick={() => void openHelp()}>
           <BookOpen size={18} aria-hidden="true" />
-          <span><strong>{t("帮助文档")}</strong><small>{t("安装、切换模型、备份回退与常见问题")}</small></span>
+          <span><strong>{t("帮助文档")}</strong></span>
           <ExternalLink size={15} aria-hidden="true" />
         </button>
         <button className="settings-link" type="button" onClick={() => void openGitHub()}>
           <GitHubMark size={18} />
-          <span><strong>{t("Star 支持 BootAgent")}</strong><small>{t("如果 BootAgent 对你有帮助，欢迎在 GitHub 点个 Star")}</small></span>
+          <span><strong>{t("Star 支持 BootAgent")}</strong></span>
           <ExternalLink size={15} aria-hidden="true" />
         </button>
         {helpFailure ? <p className="agent-manage-error">{helpFailure}</p> : null}

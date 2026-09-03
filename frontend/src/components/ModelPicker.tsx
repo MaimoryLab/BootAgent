@@ -19,9 +19,11 @@ interface ModelPickerProps {
    * list stays open.
    */
   collapsible?: boolean;
+  /** Keep the popup away from the action row that follows the field. */
+  preferDropUp?: boolean;
 }
 
-export function ModelPicker({ models, value, onChange, inputId = "manual-model", inputLabel, required, onBlur, collapsible = false }: ModelPickerProps) {
+export function ModelPicker({ models, value, onChange, inputId = "manual-model", inputLabel, required, onBlur, collapsible = false, preferDropUp = false }: ModelPickerProps) {
   const { t } = useI18n();
   const listId = `${inputId}-list`;
   // The typed query is tracked apart from the committed model ID. They used to
@@ -51,8 +53,8 @@ export function ModelPicker({ models, value, onChange, inputId = "manual-model",
     const list = listRef.current;
     if (!field || !list) return;
     const box = field.getBoundingClientRect();
-    setDropUp(box.bottom + list.offsetHeight + 16 > window.innerHeight);
-  }, [collapsible, listOpen, filtered.length]);
+    setDropUp(preferDropUp || box.bottom + list.offsetHeight + 16 > window.innerHeight);
+  }, [collapsible, listOpen, filtered.length, preferDropUp]);
 
   useEffect(() => {
     if (!collapsible || !open) return;
@@ -98,7 +100,6 @@ export function ModelPicker({ models, value, onChange, inputId = "manual-model",
         >
           <span>
             <strong>{model}</strong>
-            <small>OpenAI-compatible model</small>
           </span>
           {model === value ? <Check size={17} /> : null}
         </button>

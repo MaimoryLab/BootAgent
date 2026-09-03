@@ -223,7 +223,6 @@ export function AgentProfilePage() {
   return (
     <PageScaffold
       title={t("选择配置模版")}
-      description={t("为 {name} 选择关联的配置模版", { name: targetName })}
       backLabel={t("返回总览")}
       onBack={() => navigate("/overview")}
       primaryLabel={busy ? t("应用中") : t("应用")}
@@ -299,7 +298,6 @@ export function AgentProfilePage() {
                   { value: "max", label: t("max（最大）") },
                 ]}
               />
-              <small>{t("各 Agent 支持的档位不同，应用时不支持的档位会明确报错")}</small>
             </div>
             <label className="toggle-row">
               <span><strong>{t("启用1m上下文")}</strong></span>

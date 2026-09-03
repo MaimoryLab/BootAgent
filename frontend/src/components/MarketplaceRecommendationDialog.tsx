@@ -98,7 +98,6 @@ export function MarketplaceRecommendationDialog({ items, catalogVersion, onDismi
       <header>
         <div>
           <h2><Sparkles size={18} />{t("工具推荐")}</h2>
-          <p>{t("描述你的目标，由本地 Agent 从当前目录中筛选合适的工具")}</p>
         </div>
         <button className="icon-button" type="button" onClick={onDismiss} title={t("关闭")} aria-label={t("关闭")}><X size={18} /></button>
       </header>
