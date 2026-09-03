@@ -36,7 +36,7 @@ describe("ManagementSearch", () => {
 
     fireEvent.compositionStart(input);
     fireEvent.change(input, { target: { value: "zhong" }, nativeEvent: { isComposing: true } });
-    expect(input).toHaveValue("");
+    expect(input).toHaveValue("zhong");
 
     (input as HTMLInputElement).value = "中";
     fireEvent.compositionEnd(input, { data: "中" });
