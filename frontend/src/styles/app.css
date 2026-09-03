@@ -3324,6 +3324,20 @@
   font-size: 11px;
 }
 
+.marketplace-card .marketplace-tags {
+  min-width: 0;
+}
+
+.marketplace-card .marketplace-tag {
+  min-width: 0;
+  max-width: min(12rem, 100%);
+  flex: 0 1 auto;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* Arrow on the right */
 .marketplace-card-arrow {
   color: var(--text-tertiary);

@@ -271,6 +271,34 @@ test("Marketplace multi-type filters narrow unique results without shifting cont
   expect(new Set(itemIDs).size).toBe(itemIDs.length);
 });
 
+test("Marketplace card tags stay on one line and truncate long labels", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/#/marketplace");
+
+  const tag = page.locator(".marketplace-card .marketplace-tag").first();
+  await expect(tag).toBeVisible();
+  const metrics = await tag.evaluate((element) => {
+    element.textContent = "超长标签文本".repeat(12);
+    const style = window.getComputedStyle(element);
+    return {
+      whiteSpace: style.whiteSpace,
+      overflow: style.overflow,
+      textOverflow: style.textOverflow,
+      clientHeight: element.clientHeight,
+      lineHeight: Number.parseFloat(style.lineHeight),
+      clientWidth: element.clientWidth,
+      scrollWidth: element.scrollWidth,
+    };
+  });
+
+  expect(metrics.whiteSpace).toBe("nowrap");
+  expect(metrics.overflow).toBe("hidden");
+  expect(metrics.textOverflow).toBe("ellipsis");
+  expect(metrics.clientWidth).toBeGreaterThan(0);
+  expect(metrics.scrollWidth).toBeGreaterThan(metrics.clientWidth);
+  expect(metrics.clientHeight).toBeLessThanOrEqual(Math.ceil(metrics.lineHeight) + 1);
+});
+
 test("Marketplace refresh keeps the static baseline and starts a new search session", async ({ page }) => {
   await page.setViewportSize({ width: 1180, height: 760 });
   await page.goto("/#/marketplace");
