@@ -53,6 +53,15 @@ func (p updateProvider) Check(ctx context.Context, request updater.CheckRequest)
 	preferredMirror := p.preferMirror(ctx)
 	release, err := p.check(ctx, request, preferredMirror)
 	if err == nil {
+		// A mirror can be healthy yet lag behind the official release feed. When
+		// it reports no update, compare the official metadata before declaring the
+		// client current. A failed comparison remains non-fatal because the mirror
+		// already answered authoritatively for this check.
+		if release == nil && preferredMirror && ctx.Err() == nil {
+			if officialRelease, officialErr := p.check(ctx, request, false); officialErr == nil && officialRelease != nil {
+				return officialRelease, nil
+			}
+		}
 		return release, nil
 	}
 	// A cancelled check is the caller's decision, not a source that failed;
@@ -73,11 +82,9 @@ func (p updateProvider) Check(ctx context.Context, request updater.CheckRequest)
 // check runs one source and records which one answered, so Download goes back to
 // the host the release was resolved from.
 //
-// A nil release with a nil error means that source has nothing newer, which is an
-// answer rather than a failure and so is returned as-is. A mirror that lags a
-// release behind therefore delays the update until it syncs; that is the cost of
-// honouring the preference, and the alternative -- querying both hosts on every
-// check -- spends the slow link the preference exists to avoid.
+// A nil release with a nil error means that source has nothing newer. For a
+// preferred mirror, Check compares official metadata once before returning that
+// answer, so mirror lag cannot hide a release.
 func (p updateProvider) check(ctx context.Context, request updater.CheckRequest, mirror bool) (*updater.Release, error) {
 	provider := p.official
 	if mirror {

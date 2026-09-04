@@ -15,11 +15,15 @@ import (
 )
 
 const (
-	Format            = "bootagent-transfer"
-	Version           = 2
-	MaxArchiveBytes   = 256 << 20
-	MaxArchiveEntries = 20_000
+	Format               = "bootagent-transfer"
+	Version              = 2
+	MaxArchiveBytes      = 256 << 20
+	MaxUncompressedBytes = 512 << 20
+	MaxNestedSkillBytes  = 128 << 20
+	MaxArchiveEntries    = 20_000
 )
+
+var maxTransferUncompressedBytes = uint64(MaxUncompressedBytes)
 
 type Manifest struct {
 	Format   string   `json:"format"`
@@ -33,13 +37,26 @@ type Package struct {
 }
 
 type Preview struct {
-	Providers int      `json:"providers"`
-	Profiles  int      `json:"profiles"`
-	MCP       int      `json:"mcp"`
-	Skills    []string `json:"skills"`
+	Providers         int      `json:"providers"`
+	Profiles          int      `json:"profiles"`
+	MCP               int      `json:"mcp"`
+	Skills            []string `json:"skills"`
+	ProviderNew       []string `json:"provider_new,omitempty"`
+	ProfileNew        []string `json:"profile_new,omitempty"`
+	MCPNew            []string `json:"mcp_new,omitempty"`
+	SkillNew          []string `json:"skill_new,omitempty"`
+	ProviderConflicts []string `json:"provider_conflicts,omitempty"`
+	ProfileConflicts  []string `json:"profile_conflicts,omitempty"`
+	MCPConflicts      []string `json:"mcp_conflicts,omitempty"`
 	// SkillConflicts lists duplicate Skill IDs in the package. Existing local
 	// library conflicts are resolved by the confirmation/apply layer.
 	SkillConflicts []string `json:"skill_conflicts,omitempty"`
+}
+
+// ApplyOptions controls how an import handles resources already present in the
+// local Skill library. The default is overwrite for backwards compatibility.
+type ApplyOptions struct {
+	ConflictPolicy string `json:"conflict_policy"` // overwrite | skip
 }
 
 // PreviewPackage validates all declared resources, including nested Skill ZIPs,
@@ -130,10 +147,13 @@ func PreviewPackage(data []byte) (Preview, Package, error) {
 				if e != nil {
 					return Preview{}, Package{}, e
 				}
-				content, e := io.ReadAll(reader)
+				content, e := io.ReadAll(io.LimitReader(reader, MaxNestedSkillBytes+1))
 				_ = reader.Close()
 				if e != nil {
 					return Preview{}, Package{}, e
+				}
+				if len(content) > MaxNestedSkillBytes {
+					return Preview{}, Package{}, errors.New("nested Skill archive exceeds size limit")
 				}
 				if _, e = zip.NewReader(bytes.NewReader(content), int64(len(content))); e != nil {
 					return Preview{}, Package{}, fmt.Errorf("invalid nested Skill archive %q", entry.Name)
@@ -149,6 +169,9 @@ func PreviewPackage(data []byte) (Preview, Package, error) {
 		}
 		if !strings.HasPrefix(name, "skills/") || !strings.HasSuffix(name, ".skill.zip") {
 			continue
+		}
+		if len(raw) > MaxNestedSkillBytes {
+			return Preview{}, Package{}, errors.New("nested Skill archive exceeds size limit")
 		}
 		if _, err := zip.NewReader(bytes.NewReader(raw), int64(len(raw))); err != nil {
 			return Preview{}, Package{}, fmt.Errorf("invalid nested Skill archive %q", name)
@@ -221,6 +244,7 @@ func Parse(data []byte) (Package, error) {
 		return Package{}, errors.New("transfer archive exceeds entry limit")
 	}
 	files := make(map[string][]byte, len(r.File))
+	var totalUncompressed uint64
 	var manifest Manifest
 	for _, entry := range r.File {
 		if entry.FileInfo().IsDir() {
@@ -235,6 +259,9 @@ func Parse(data []byte) (Package, error) {
 		if entry.UncompressedSize64 > MaxArchiveBytes {
 			return Package{}, errors.New("transfer entry exceeds size limit")
 		}
+		if entry.UncompressedSize64 > maxTransferUncompressedBytes || totalUncompressed > maxTransferUncompressedBytes-entry.UncompressedSize64 {
+			return Package{}, errors.New("transfer archive exceeds uncompressed size limit")
+		}
 		reader, err := entry.Open()
 		if err != nil {
 			return Package{}, err
@@ -247,6 +274,7 @@ func Parse(data []byte) (Package, error) {
 		if len(content) > MaxArchiveBytes {
 			return Package{}, errors.New("transfer entry exceeds size limit")
 		}
+		totalUncompressed += uint64(len(content))
 		files[entry.Name] = content
 	}
 	if err := json.Unmarshal(files["manifest.json"], &manifest); err != nil || manifest.Format != Format || manifest.Version != Version {

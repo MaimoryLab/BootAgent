@@ -198,8 +198,35 @@ export function TransferPage() {
       if (binary.length >= 2 && binary[0] === 0x50 && binary[1] === 0x4b) {
         const preview = await api.previewTransferV2(binary);
         const skills = preview.skills ?? [];
-        if (!window.confirm(t("确认将 {count} 个 Skill 导入 BootAgent 库？", { count: String(skills.length) }))) return setSuccess(t("已取消导入"));
-        await api.applyTransferV2(binary);
+        const conflicts = preview.skill_conflicts ?? [];
+        const configConflicts = [
+          ...(preview.provider_conflicts ?? []).map((name) => `Provider:${name}`),
+          ...(preview.profile_conflicts ?? []).map((name) => `Profile:${name}`),
+          ...(preview.mcp_conflicts ?? []).map((name) => `MCP:${name}`),
+        ];
+        const newItems = [
+          ...(preview.provider_new ?? []).map((name) => `Provider:${name}`),
+          ...(preview.profile_new ?? []).map((name) => `Profile:${name}`),
+          ...(preview.mcp_new ?? []).map((name) => `MCP:${name}`),
+          ...(preview.skill_new ?? []).map((name) => `Skill:${name}`),
+        ];
+        let conflictPolicy: "overwrite" | "skip" = "overwrite";
+        if ((configConflicts.length > 0 || newItems.length > 0) && !window.confirm(t("导入预览新增：{names}；覆盖：{conflicts}", {
+          names: newItems.length > 0 ? newItems.join(", ") : t("无"),
+          conflicts: configConflicts.length > 0 ? configConflicts.join(", ") : t("无"),
+        }))) {
+          return setSuccess(t("已取消导入"));
+        }
+        if (conflicts.length > 0) {
+          const overwrite = window.confirm(t("导入包含 {count} 个 Skill 冲突：{names}，继续将覆盖现有版本。", { count: String(conflicts.length), names: conflicts.join(", ") }));
+          if (!overwrite) {
+            if (!window.confirm(t("是否跳过冲突 Skill 并继续导入？"))) return setSuccess(t("已取消导入"));
+            conflictPolicy = "skip";
+          }
+        } else if (!window.confirm(t("确认将 {count} 个 Skill 导入 BootAgent 库？", { count: String(skills.length) }))) {
+          return setSuccess(t("已取消导入"));
+        }
+        await api.applyTransferV2(binary, conflictPolicy);
         await refreshStatus();
         setSuccess(t("导入完成"));
         return;

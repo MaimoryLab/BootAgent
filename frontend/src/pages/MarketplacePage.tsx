@@ -48,6 +48,36 @@ import { marketplaceIconCandidates } from "../data/marketplace-icons";
 import { marketplaceCategories, marketplaceKinds } from "../data/marketplace-taxonomy";
 import { recordMarketplaceEvent } from "../utils/marketplace-telemetry";
 
+const MARKETPLACE_SESSION_KEY = "bootagent.marketplace.query-session";
+
+type MarketplaceQuerySession = {
+  returnTo: string;
+  scrollTop: number;
+};
+
+function saveMarketplaceQuerySession(session: MarketplaceQuerySession): void {
+  try {
+    sessionStorage.setItem(MARKETPLACE_SESSION_KEY, JSON.stringify(session));
+  } catch {
+    // Storage can be unavailable in private WebViews; route state still works.
+  }
+}
+
+export function readMarketplaceQuerySession(): MarketplaceQuerySession | undefined {
+  try {
+    const raw = sessionStorage.getItem(MARKETPLACE_SESSION_KEY);
+    if (!raw) return undefined;
+    const parsed = JSON.parse(raw) as Partial<MarketplaceQuerySession>;
+    if (typeof parsed.returnTo !== "string" || !parsed.returnTo.startsWith("/marketplace")) return undefined;
+    return {
+      returnTo: parsed.returnTo,
+      scrollTop: typeof parsed.scrollTop === "number" && parsed.scrollTop >= 0 ? parsed.scrollTop : 0,
+    };
+  } catch {
+    return undefined;
+  }
+}
+
 // ── icon registry ─────────────────────────────────────────────────────────────
 
 export const ICON_MAP: Record<MarketplaceIconName, ComponentType<{ size?: number; strokeWidth?: number }>> = {
@@ -456,6 +486,8 @@ function MarketplaceItemCard({ item, onCopied }: { item: MarketplaceItem; onCopi
   const returnTo = `${location.pathname}${location.search}`;
   const openDetail = () => {
     recordMarketplaceEvent("item_open", item.source);
+    const container = document.querySelector<HTMLElement>(".page-body.marketplace-page");
+    saveMarketplaceQuerySession({ returnTo, scrollTop: container?.scrollTop ?? 0 });
     navigate(`/marketplace/${encodeURIComponent(item.id)}`, { state: { returnTo, item } });
   };
 
@@ -595,6 +627,18 @@ export function MarketplacePage() {
   const [copyNotice, setCopyNotice] = useState("");
   const [recommendationOpen, setRecommendationOpen] = useState(false);
   const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const queryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchParamsRef = useRef(searchParams);
+  searchParamsRef.current = searchParams;
+
+  useEffect(() => {
+    const session = readMarketplaceQuerySession();
+    if (!session || session.returnTo !== `${location.pathname}${location.search}` || session.scrollTop <= 0) return;
+    const frame = requestAnimationFrame(() => {
+      document.querySelector<HTMLElement>(".page-body.marketplace-page")?.scrollTo({ top: session.scrollTop });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [location.pathname, location.search]);
 
   const { items, live, version, loading, sources = [], refresh = () => {}, refreshing = false, lastUpdated = "" } = useMarketplaceCatalog({
     query,
@@ -616,7 +660,10 @@ export function MarketplacePage() {
     noticeTimer.current = setTimeout(() => setCopyNotice(""), 4000);
   };
 
-  useEffect(() => () => { if (noticeTimer.current) clearTimeout(noticeTimer.current); }, []);
+  useEffect(() => () => {
+    if (noticeTimer.current) clearTimeout(noticeTimer.current);
+    if (queryTimer.current) clearTimeout(queryTimer.current);
+  }, []);
 
   const visible = useMemo(
     () => filterMarketplaceItems(items, activeCategory, query, filters),
@@ -646,10 +693,14 @@ export function MarketplacePage() {
   };
 
   const updateQuery = (value: string) => {
-    const next = new URLSearchParams(searchParams);
-    if (value.trim()) next.set("q", value);
-    else next.delete("q");
-    setSearchParams(next, { replace: true });
+    if (queryTimer.current) clearTimeout(queryTimer.current);
+    queryTimer.current = setTimeout(() => {
+      const next = new URLSearchParams(searchParamsRef.current);
+      if (value.trim()) next.set("q", value);
+      else next.delete("q");
+      setSearchParams(next, { replace: true });
+      queryTimer.current = null;
+    }, 180);
   };
 
   const updateFilters = (nextFilters: FilterState) => {

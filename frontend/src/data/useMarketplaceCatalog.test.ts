@@ -94,11 +94,29 @@ describe("useMarketplaceCatalog", () => {
     });
 
     const { result, rerender } = renderHook(({ query }) => useMarketplaceCatalog({ query, autoRefresh: false }), { initialProps: { query: "old" } });
+    await waitFor(() => expect(api.marketplaceDiscoverSources).toHaveBeenCalled());
     rerender({ query: "new" });
     await waitFor(() => expect(result.current.items.map(({ id }) => id)).toContain("new"));
     resolveOld?.(response("skillhub", 0, [item("old", "skillhub")], false, "marketplace-q1"));
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(result.current.items.map(({ id }) => id)).toEqual(["new"]);
+  });
+
+  it("isolates an in-flight bridge request when the query session changes", async () => {
+    let resolveOld: ((value: MarketplaceDynamicResult) => void) | undefined;
+    const oldResult = new Promise<MarketplaceDynamicResult>((resolve) => { resolveOld = resolve; });
+    vi.spyOn(api, "marketplaceCatalog").mockResolvedValue({ version: "v1", builtAt: "now", items: [] });
+    vi.spyOn(api, "marketplaceDiscoverSources").mockImplementation((options) => {
+      options ??= {};
+      if (options.query === "old") return oldResult;
+      return Promise.resolve(response(options.source ?? "skillhub", 0, [item("new", "skillhub")], false, options.query_id));
+    });
+
+    const { result, rerender } = renderHook(({ query }) => useMarketplaceCatalog({ query, autoRefresh: false }), { initialProps: { query: "old" } });
+    await waitFor(() => expect(api.marketplaceDiscoverSources).toHaveBeenCalled());
+    rerender({ query: "new" });
+    await waitFor(() => expect(result.current.items.map(({ id }) => id)).toContain("new"));
+    resolveOld?.(response("skillhub", 0, [item("old", "skillhub")], false, "marketplace-q1"));
   });
 
   it("forces a network refresh while retaining the current cards", async () => {

@@ -174,14 +174,16 @@ export function useMarketplaceCatalog(options: MarketplaceCatalogOptions = {}): 
     let snapshot: Pick<CatalogState, "items" | "version"> = { items: [], version: "" };
 
     const isCurrent = () => !disposed && generationRef.current === generation;
-    const requestPage = (source: string, offset: number, forceRefresh: boolean) => api.marketplaceDiscoverSources({
-      source,
-      query: query || undefined,
-      limit: PAGE_LIMIT,
-      offset,
-      force_refresh: forceRefresh,
-      query_id: expectedQueryID,
-    });
+    const requestPage = (source: string, offset: number, forceRefresh: boolean) => {
+      return api.marketplaceDiscoverSources({
+        source,
+        query: query || undefined,
+        limit: PAGE_LIMIT,
+        offset,
+        force_refresh: forceRefresh,
+        query_id: expectedQueryID,
+      });
+    };
 
     const publish = (loading: boolean, refreshing: boolean) => {
       if (!isCurrent()) return;

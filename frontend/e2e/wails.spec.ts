@@ -318,6 +318,27 @@ test("Marketplace refresh keeps the static baseline and starts a new search sess
   await search.fill("");
 });
 
+test("Marketplace detail back restores the search and filter session", async ({ page }) => {
+  await page.setViewportSize({ width: 1180, height: 760 });
+  await page.goto("/#/marketplace");
+  const search = page.getByRole("textbox", { name: /搜索工具市场|Search Marketplace/ });
+  await search.fill("Codeoff");
+  await expect(page.locator('[data-item-id="github-maimorylab-codeoff"]')).toBeVisible();
+
+  const typeButton = page.getByRole("button", { name: /工具类型|Tool type/ });
+  await typeButton.click();
+  await checkMarketplaceFilter(page.getByLabel(/独立 AI 产品|Independent AI products/, { exact: true }));
+  await expect(search).toHaveValue("Codeoff");
+
+  await page.locator('[data-item-id="github-maimorylab-codeoff"]').click();
+  await expect(page.getByRole("heading", { name: /Codeoff/ })).toBeVisible();
+  await page.getByRole("button", { name: /返回工具市场|Back to marketplace/ }).click();
+  await expect(page).toHaveURL(/#\/marketplace\?.*q=Codeoff.*kind=agent-product|#\/marketplace\?.*kind=agent-product.*q=Codeoff/);
+  await expect(search).toHaveValue("Codeoff");
+  await page.getByRole("button", { name: /工具类型|Tool type/ }).click();
+  await expect(page.getByLabel(/独立 AI 产品|Independent AI products/, { exact: true })).toBeChecked();
+});
+
 async function checkMarketplaceFilter(filter: Locator) {
   // URL-backed controlled inputs can be replaced while the catalog snapshot is
   // refreshed. Retry only when the desired state was not committed, and fail

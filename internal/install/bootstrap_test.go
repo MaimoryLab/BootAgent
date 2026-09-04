@@ -9,6 +9,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -278,6 +279,43 @@ func TestEnsureRuntimeInstallsVerifiesAndExposesOnPath(t *testing.T) {
 	}
 	if !hasPathEntry(again.Env["PATH"], binDir) {
 		t.Fatalf("second call lost the managed PATH entry: %q", again.Env["PATH"])
+	}
+}
+
+func TestInstallRuntimePublishFailurePreservesPreviousTree(t *testing.T) {
+	home := t.TempDir()
+	archive := tarball(t, "node-v1.2.3-darwin-arm64")
+	downloader := &fakeDownloader{bodies: map[string][]byte{"https://example.test/node.tar.gz": archive}}
+	entry := catalog.Runtime{
+		Name: "Node.js", Version: "1.2.3", Commands: []string{"node", "npm"}, ProbeCommand: "npm",
+		Artifacts: map[string]catalog.RuntimeArtifact{
+			"macos-arm64": {URL: "https://example.test/node.tar.gz", SHA256: digestOf(archive), Archive: "tar.gz", StripRoot: true, BinDir: "bin"},
+		},
+	}
+	runtime := bootstrapRuntime(t, home, "darwin")
+	target := runtimeDir(home, "node", entry.Version)
+	if err := os.MkdirAll(target, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	oldMarker := filepath.Join(target, "old-runtime-marker")
+	if err := os.WriteFile(oldMarker, []byte("old"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	originalRename := renameRuntimePath
+	t.Cleanup(func() { renameRuntimePath = originalRename })
+	call := 0
+	renameRuntimePath = func(old, new string) error {
+		call++
+		if call == 2 {
+			return fmt.Errorf("simulated publish failure")
+		}
+		return os.Rename(old, new)
+	}
+	if _, err := installRuntime(context.Background(), runtime, downloader, "node", entry, entry.Artifacts["macos-arm64"], RuntimeOptions{}); err == nil {
+		t.Fatal("publish failure was accepted")
+	}
+	if _, err := os.Stat(oldMarker); err != nil {
+		t.Fatalf("previous runtime was not preserved: %v", err)
 	}
 }
 
