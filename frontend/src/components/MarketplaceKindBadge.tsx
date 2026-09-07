@@ -1,7 +1,7 @@
 import { useI18n, type TranslationKey } from "../i18n";
 
 const LABELS: Record<string, TranslationKey> = {
-  skill: "Skill", mcp: "MCP", plugin: "插件", "agent-product": "独立 AI 产品",
+  skill: "Skill", mcp: "MCP", plugin: "插件", "agent-product": "工具",
   "prompt-template": "提示词模板", "workflow-script": "工作流", content: "内容", "external-link": "外部工具",
 };
 

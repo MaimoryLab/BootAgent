@@ -108,7 +108,7 @@ const KIND_OPTIONS: { key: MarketplaceKind; label: TranslationKey }[] = [
   { key: "prompt-template", label: "提示词模板" },
   { key: "workflow-script", label: "工作流" },
   { key: "plugin", label: "插件" },
-  { key: "agent-product", label: "独立 AI 产品" },
+  { key: "agent-product", label: "工具" },
 ];
 
 // SkillHub / MCP Servers / Anthropic are brand names and stay untranslated;
@@ -317,7 +317,7 @@ function FilterDropdownBar({
 
 interface CategoryMeta {
   id: MarketplaceCategory | "all";
-  labelKey: "全部" | "Skills" | "MCP 服务器" | "插件" | "独立 AI 产品" | "工作流与模板";
+  labelKey: "全部" | "Skills" | "MCP 服务器" | "插件" | "工具" | "工作流与模板";
 }
 
 const CATEGORIES: CategoryMeta[] = [
@@ -325,7 +325,7 @@ const CATEGORIES: CategoryMeta[] = [
   { id: "skill", labelKey: "Skills" },
   { id: "mcp-server", labelKey: "MCP 服务器" },
   { id: "plugin", labelKey: "插件" },
-  { id: "ai-product", labelKey: "独立 AI 产品" },
+  { id: "ai-product", labelKey: "工具" },
   { id: "workflow", labelKey: "工作流与模板" },
 ];
 
@@ -489,9 +489,12 @@ function MarketplaceItemCard({ item, onCopied }: { item: MarketplaceItem; onCopi
       data-item-id={item.id}
     >
       <a className="marketplace-card-link" role="button" aria-label={item.name} href={`/marketplace/${encodeURIComponent(item.id)}`} onClick={(event) => { event.preventDefault(); openDetail(); }} onKeyDown={(event) => { if (event.key === " ") { event.preventDefault(); openDetail(); } }}>
-        <CardIcon item={item} />
+        <div className="marketplace-card-icon-wrap">
+          <CardIcon item={item} />
+          <KindBadge item={item} />
+        </div>
         <div className="marketplace-card-body">
-          <div className="marketplace-card-title-row"><strong className="marketplace-card-name">{item.name}</strong><KindBadge item={item} /></div>
+          <div className="marketplace-card-title-row"><strong className="marketplace-card-name">{item.name}</strong></div>
         <p className="marketplace-card-teaser">{teaser}</p>
         {tagPairs.length ? (
           <ul className="marketplace-tags" aria-label={t("标签")}>
