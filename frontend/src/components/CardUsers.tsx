@@ -30,7 +30,7 @@ export function CardUsers({ users }: { users: readonly CardUser[] }) {
   const shown = users.slice(0, VISIBLE_CHIPS);
   const hidden = users.slice(VISIBLE_CHIPS);
   return (
-    <span className="card-users">
+    <span className="card-users" title={users.map((user) => user.name).join(locale === "en" ? ", " : "、")}>
       {shown.map((user) => (
         <span className="card-user-chip" key={user.id}>{user.name}</span>
       ))}

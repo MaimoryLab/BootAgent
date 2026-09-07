@@ -10,6 +10,7 @@ import { MarketplaceExternalLink } from "../components/MarketplaceExternalLink";
 import { ReadmeSection } from "../components/ReadmeSection";
 import { SkillhubDetailSection } from "../components/SkillhubDetailSection";
 import { StatusBadge } from "../components/StatusBadge";
+import { MarketplaceKindBadge } from "../components/MarketplaceKindBadge";
 import { useI18n, type TranslationKey } from "../i18n";
 import type { MarketplaceIconName, MarketplaceItem } from "../types/marketplace";
 import { copyToClipboard } from "../utils/clipboard";
@@ -169,20 +170,7 @@ function ItemIcon({ item, size = 28 }: { item: MarketplaceItem; size?: number })
 
 // ── kind label ────────────────────────────────────────────────────────────────
 
-const KIND_TONE: Record<string, "success" | "info" | "neutral"> = {
-  skill: "success", mcp: "info",
-  "prompt-template": "neutral", "workflow-script": "neutral",
-  content: "info", "external-link": "neutral",
-  plugin: "info", "agent-product": "neutral",
-};
 // Values are i18n dictionary keys, translated with t() at render time.
-const KIND_LABEL: Record<string, TranslationKey> = {
-  skill: "Skill", mcp: "MCP",
-  "prompt-template": "提示词模板", "workflow-script": "工作流",
-  content: "内容", "external-link": "外部工具",
-  plugin: "插件", "agent-product": "独立 AI 产品",
-};
-
 // ── copy-prompt section ───────────────────────────────────────────────────────
 
 function InstallSection({ item }: { item: MarketplaceItem }) {
@@ -264,14 +252,7 @@ function MetaSidebar({ item }: { item: MarketplaceItem }) {
           <div className="detail-meta-row">
             <dt>{t("类型")}</dt>
             <dd className="detail-type-badges">
-              {kindKeys.map((kindKey) => {
-                const kindLabel = KIND_LABEL[kindKey];
-                return (
-                  <StatusBadge key={kindKey} tone={KIND_TONE[kindKey] ?? "neutral"}>
-                    {kindLabel ? t(kindLabel) : kindKey}
-                  </StatusBadge>
-                );
-              })}
+              {kindKeys.map((kindKey) => <MarketplaceKindBadge key={kindKey} kind={kindKey} />)}
             </dd>
           </div>
         ) : null}

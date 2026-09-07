@@ -98,6 +98,7 @@ const english = {
   "登录系统后自动启动 BootAgent": "Start BootAgent automatically when you log in",
   "暂不启用": "Not now",
   "API 转换已启用，是否让 BootAgent 随系统启动？": "API conversion is enabled. Start BootAgent automatically when you log in?",
+  "API 模式：": "API mode: ",
   "无法保存开机自启动设置": "Could not save the launch-at-login setting",
   "启动 CLI Agent 的终端": "Terminal for launching CLI Agents",
   "自动会使用系统默认终端；未安装的终端不可选": "Auto uses the system default; terminals that are not installed cannot be chosen",

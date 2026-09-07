@@ -28,6 +28,8 @@ body {
   overflow-y: auto;
 }
 
+.app-main, .page-scaffold, .page-header, .page-header > div, .page-body, .page-footer, main { min-width: 0; }
+
 button,
 input,
 select {

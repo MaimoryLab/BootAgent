@@ -31,7 +31,7 @@ import { ManagementSearch } from "../components/ManagementSearch";
 import { MarketplaceRecommendationDialog } from "../components/MarketplaceRecommendationDialog";
 import { MarketplaceRecommendationHistoryDialog } from "../components/MarketplaceRecommendationHistoryDialog";
 import { PageScaffold } from "../components/PageScaffold";
-import { StatusBadge } from "../components/StatusBadge";
+import { MarketplaceKindBadge } from "../components/MarketplaceKindBadge";
 import { useI18n, type TranslationKey } from "../i18n";
 import type {
   MarketplaceCategory,
@@ -374,35 +374,10 @@ export function serializeMarketplaceFilters(searchParams: URLSearchParams, filte
 
 // ── kind badge ────────────────────────────────────────────────────────────────
 
-const KIND_TONE: Record<string, "success" | "info" | "neutral"> = {
-  skill: "success",
-  mcp: "info",
-  "prompt-template": "neutral",
-  "workflow-script": "neutral",
-  content: "info",
-  "external-link": "neutral",
-  plugin: "info",
-  "agent-product": "neutral",
-};
-
-const KIND_LABEL_KEY: Record<string, "Skill" | "MCP" | "提示词模板" | "工作流" | "内容" | "外部工具" | "插件" | "独立 AI 产品"> = {
-  skill: "Skill",
-  mcp: "MCP",
-  "prompt-template": "提示词模板",
-  "workflow-script": "工作流",
-  content: "内容",
-  "external-link": "外部工具",
-  plugin: "插件",
-  "agent-product": "独立 AI 产品",
-};
-
 export function KindBadge({ item }: { item: MarketplaceItem }) {
-  const { t } = useI18n();
-  const key = marketplaceKinds(item)[0];
-  const tone = KIND_TONE[key] ?? "neutral";
-  const labelKey = KIND_LABEL_KEY[key];
-  if (!labelKey) return null;
-  return <StatusBadge tone={tone}>{t(labelKey)}</StatusBadge>;
+  const kinds = marketplaceKinds(item);
+  if (!kinds.length) return null;
+  return <span className="marketplace-kind-group" title={kinds.join(", ")} aria-label={kinds.join(", ")}><MarketplaceKindBadge kind={kinds[0]} />{kinds.length > 1 ? <span className="marketplace-kind-more">+{kinds.length - 1}</span> : null}</span>;
 }
 
 function VirtualMarketplaceGrid({ items, onCopied }: { items: MarketplaceItem[]; onCopied: (item: MarketplaceItem) => void }) {
@@ -509,30 +484,14 @@ function MarketplaceItemCard({ item, onCopied }: { item: MarketplaceItem; onCopi
   };
 
   return (
-    <article
-      className="marketplace-card"
+    <article className="marketplace-card"
       data-type={item.type}
       data-item-id={item.id}
-      role="button"
-      tabIndex={0}
-      onClick={openDetail}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          openDetail();
-        }
-      }}
-      aria-label={item.name}
     >
-      {/* Left column: icon well + kind badge stacked vertically */}
-      <div className="marketplace-card-icon-wrap">
+      <a className="marketplace-card-link" role="button" aria-label={item.name} href={`/marketplace/${encodeURIComponent(item.id)}`} onClick={(event) => { event.preventDefault(); openDetail(); }} onKeyDown={(event) => { if (event.key === " ") { event.preventDefault(); openDetail(); } }}>
         <CardIcon item={item} />
-        <KindBadge item={item} />
-      </div>
-
-      {/* Right column: name + teaser + tags */}
-      <div className="marketplace-card-body">
-        <strong className="marketplace-card-name">{item.name}</strong>
+        <div className="marketplace-card-body">
+          <div className="marketplace-card-title-row"><strong className="marketplace-card-name">{item.name}</strong><KindBadge item={item} /></div>
         <p className="marketplace-card-teaser">{teaser}</p>
         {tagPairs.length ? (
           <ul className="marketplace-tags" aria-label={t("标签")}>
@@ -541,9 +500,9 @@ function MarketplaceItemCard({ item, onCopied }: { item: MarketplaceItem; onCopi
             ))}
           </ul>
         ) : null}
-      </div>
-
-      <ExternalLink size={14} className="marketplace-card-arrow" aria-hidden="true" />
+        </div>
+        <ExternalLink size={14} className="marketplace-card-arrow" aria-hidden="true" />
+      </a>
 
       {/* Icon-only copy button pinned to the bottom-right corner */}
       {item.installPrompt ? (

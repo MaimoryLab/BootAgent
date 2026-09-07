@@ -5,16 +5,11 @@ import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { api, describeFailure } from "../backend/api";
 import { EmptyState } from "../components/EmptyState";
 import { PageScaffold } from "../components/PageScaffold";
-import { StatusBadge } from "../components/StatusBadge";
-import { useI18n, type TranslationKey } from "../i18n";
+import { MarketplaceKindBadge } from "../components/MarketplaceKindBadge";
+import { useI18n } from "../i18n";
 import type { MarketplaceRecommendationHistory, MarketplaceRecommendationSnapshot } from "../types/api";
 import { useMarketplaceCatalog } from "../data/useMarketplaceCatalog";
 import { marketplaceKinds } from "../data/marketplace-taxonomy";
-
-const KIND_LABELS: Record<string, TranslationKey> = {
-  skill: "Skill", mcp: "MCP", plugin: "插件", "agent-product": "独立 AI 产品",
-  "prompt-template": "提示词模板", "workflow-script": "工作流", content: "内容", "external-link": "外部工具",
-};
 
 export function MarketplaceRecommendationDetailPage() {
   const { t } = useI18n();
@@ -46,7 +41,7 @@ export function MarketplaceRecommendationDetailPage() {
         {(history.results ?? []).map((result: MarketplaceRecommendationSnapshot) => {
           const current = currentByID.get(result.item_id);
           const kind = current ? marketplaceKinds(current) : [result.category];
-          return <li key={result.item_id} className="marketplace-recommend-detail-card"><div className="marketplace-recommend-detail-icon"><FileText size={22} /></div><div className="marketplace-recommend-detail-body"><div className="marketplace-recommend-detail-title"><strong>{result.name}</strong>{kind.map((value) => <StatusBadge key={value} tone="neutral">{KIND_LABELS[value] ? t(KIND_LABELS[value]) : value}</StatusBadge>)}</div><p>{result.reason}</p><small>{result.source || t("来源未知")}</small></div>{current ? <Link className="button button-secondary" to={`/marketplace/${encodeURIComponent(result.item_id)}`} state={{ returnTo: `${location.pathname}${location.search}` }}><ExternalLink size={14} />{t("查看工具")}</Link> : <span className="marketplace-history-unavailable">{t("当前工具不可用")}</span>}</li>;
+          return <li key={result.item_id} className="marketplace-recommend-detail-card"><div className="marketplace-recommend-detail-icon"><FileText size={22} /></div><div className="marketplace-recommend-detail-body"><div className="marketplace-recommend-detail-title"><strong>{result.name}</strong>{kind.map((value) => <MarketplaceKindBadge key={value} kind={value} />)}</div><p>{result.reason}</p><small>{result.source || t("来源未知")}</small></div>{current ? <Link className="button button-secondary" to={`/marketplace/${encodeURIComponent(result.item_id)}`} state={{ returnTo: `${location.pathname}${location.search}` }}><ExternalLink size={14} />{t("查看工具")}</Link> : <span className="marketplace-history-unavailable">{t("当前工具不可用")}</span>}</li>;
         })}
       </ul>
     </PageScaffold>

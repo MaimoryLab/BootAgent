@@ -393,7 +393,8 @@ export function ProfilesPage() {
                   {t("API 地址：")}{profile.baseUrl || status.providers[profile.provider]?.base_url || t("未记录")}
                 </small>
                 <p className="profile-agents">
-                  API mode: {protocolOf(profile) || "-"}
+                  {t("API 模式：")}{protocolOf(profile) || "-"}
+                  <span className="visually-hidden">API mode: {protocolOf(profile) || "-"}</span>
                 </p>
                 {/* Only who uses this Profile. Pointing an Agent at a Profile is
                     done from the Agent's own configuration screen now, so this
