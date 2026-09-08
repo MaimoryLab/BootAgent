@@ -1,11 +1,34 @@
 package app
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/MaimoryLab/BootAgent/internal/catalog"
 	"github.com/MaimoryLab/BootAgent/internal/mcp"
+	"github.com/MaimoryLab/BootAgent/internal/platform"
 )
+
+func TestEligibleMCPAllowsMissingUserConfigParent(t *testing.T) {
+	home := t.TempDir()
+	bin := t.TempDir()
+	if err := os.WriteFile(filepath.Join(bin, "codex"), []byte("#!/bin/sh\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	core := NewUseCases(StatusOptions{
+		Home: home, Platform: platform.Info{OS: "darwin", Arch: "arm64"},
+		Environment: map[string]string{"PATH": bin},
+		Lookup:      func(string) (string, bool) { return "", false },
+	})
+	eligible, err := core.eligibleMCPAgents()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := eligible["codex"]; !ok {
+		t.Fatalf("codex was excluded before its config directory exists: %#v", eligible)
+	}
+}
 
 func TestRemoveMCPAgentPrunesEmptyServers(t *testing.T) {
 	r := mcp.Registry{Servers: map[string]mcp.ServerFact{

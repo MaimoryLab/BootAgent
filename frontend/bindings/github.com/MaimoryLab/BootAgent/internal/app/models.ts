@@ -77,6 +77,7 @@ export interface AgentUninstallResult {
     "agent": string;
     "package": string;
     "command": string;
+    "removedData"?: string[] | null;
 }
 
 export interface AgentUpdateResult {

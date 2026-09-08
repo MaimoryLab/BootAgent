@@ -41,6 +41,39 @@ func TestUninstallAgentRemovesOnlyTheManagedNPMPackage(t *testing.T) {
 	}
 }
 
+func TestUninstallAgentCanPermanentlyRemoveDeclaredUserData(t *testing.T) {
+	home := t.TempDir()
+	dataRoot := filepath.Join(home, ".openclaw")
+	if err := os.MkdirAll(filepath.Join(dataRoot, "sessions"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	for path, contents := range map[string]string{
+		filepath.Join(dataRoot, "openclaw.json"):        `{"token":"secret"}`,
+		filepath.Join(dataRoot, "sessions", "one.json"): `{"conversation":true}`,
+		filepath.Join(home, "keep.txt"):                 "keep",
+	} {
+		if err := os.WriteFile(path, []byte(contents), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	runner := &installAppRunner{paths: map[string]string{"npm": "/fake/npm", "openclaw": "/fake/openclaw"}}
+	core := NewUseCases(StatusOptions{Home: home, Platform: platform.For("linux", "amd64"), Runner: runner})
+
+	result, err := core.UninstallAgentWithOptions(context.Background(), "openclaw", AgentUninstallOptions{RemoveUserData: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(dataRoot); !os.IsNotExist(err) {
+		t.Fatalf("OpenClaw user data still exists: %v", err)
+	}
+	if data, err := os.ReadFile(filepath.Join(home, "keep.txt")); err != nil || string(data) != "keep" {
+		t.Fatalf("unrelated user file changed: %q, %v", data, err)
+	}
+	if !slices.Equal(result.RemovedData, []string{dataRoot}) {
+		t.Fatalf("removed data = %v", result.RemovedData)
+	}
+}
+
 func TestUninstallAgentRejectsUnsupportedOrMissingAgents(t *testing.T) {
 	tests := []struct {
 		name    string

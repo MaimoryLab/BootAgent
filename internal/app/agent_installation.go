@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -160,7 +161,11 @@ func allCommandPaths(command string, environment map[string]string, osID string)
 
 func npmInstallationForPath(executable string, agent catalog.Agent) (string, string, bool) {
 	name := agent.Package.Name
-	for _, candidate := range append([]string{filepath.Dir(executable)}, npmPrefixes()...) {
+	candidates := append([]string{filepath.Dir(executable)}, npmPrefixes()...)
+	if resolved, err := filepath.EvalSymlinks(executable); err == nil {
+		candidates = append(candidates, filepath.Dir(resolved))
+	}
+	for _, candidate := range candidates {
 		prefix := candidate
 		if filepath.Base(prefix) == "bin" {
 			prefix = filepath.Dir(prefix)
@@ -173,6 +178,34 @@ func npmInstallationForPath(executable string, agent catalog.Agent) (string, str
 			}
 		}
 		return prefix, name, true
+	}
+	// A launcher may point into a non-standard npm prefix. Require a matching
+	// package.json while walking the resolved path before treating it as npm-owned.
+	resolved, err := filepath.EvalSymlinks(executable)
+	if err != nil {
+		return "", "", false
+	}
+	for dir := filepath.Dir(resolved); dir != filepath.Dir(dir); dir = filepath.Dir(dir) {
+		data, readErr := os.ReadFile(filepath.Join(dir, "package.json"))
+		if readErr != nil {
+			continue
+		}
+		var metadata struct {
+			Name string `json:"name"`
+		}
+		if json.Unmarshal(data, &metadata) != nil || metadata.Name != name {
+			continue
+		}
+		for parent := dir; parent != filepath.Dir(parent); parent = filepath.Dir(parent) {
+			if filepath.Base(parent) != "node_modules" {
+				continue
+			}
+			prefix := filepath.Dir(parent)
+			if filepath.Base(prefix) == "lib" {
+				prefix = filepath.Dir(prefix)
+			}
+			return prefix, name, true
+		}
 	}
 	return "", "", false
 }

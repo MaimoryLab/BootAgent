@@ -130,6 +130,13 @@ func validate(manifest Manifest) error {
 		if err := validateSkillsMetadata(id, agent); err != nil {
 			return err
 		}
+		for name, paths := range map[string][]string{"data_paths": agent.DataPaths, "windows_data_paths": agent.WindowsDataPaths} {
+			for _, path := range paths {
+				if !validUserLevelPath(path) {
+					return invalidManifest(id, name+" must contain relative user-level paths")
+				}
+			}
+		}
 		if agent.ConfigMode == "guide" {
 			if agent.Package != nil || agent.ConfigAdapter != "" || strings.TrimSpace(agent.Guide) == "" {
 				return invalidManifest(id, "guide Agent has an installation contract")

@@ -2437,6 +2437,7 @@
    --accent-soft. Unselected marks dim rather than disappear so the full set
    stays countable. */
 .agent-target-group { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.agent-target-empty { color: var(--text-tertiary); font-size: 12px; white-space: nowrap; }
 /* Inside the tables the group must not wrap: the wrap container already
    scrolls horizontally, and a wrapped set breaks the one-row-per-item scan
    the marks exist for. The header stays on one line for the same reason. */

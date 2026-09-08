@@ -10,6 +10,7 @@
       "config_mode": "auto",
       "config_adapter": "codex",
       "config_path": ".codex/config.toml",
+      "data_paths": [".codex"],
       "mcp_adapter": "codex",
       "mcp_section": "mcp_servers",
       "mcp_config_path": ".codex/config.toml",
@@ -43,6 +44,7 @@
         "model": "ANTHROPIC_MODEL"
       },
       "config_path": ".claude/settings.json",
+      "data_paths": [".claude"],
       "mcp_adapter": "claude",
       "mcp_section": "mcpServers",
       "mcp_config_path": ".claude.json",
@@ -74,6 +76,7 @@
       "config_mode": "auto",
       "config_adapter": "opencode",
       "config_path": ".config/opencode/opencode.json",
+      "data_paths": [".config/opencode"],
       "mcp_adapter": "opencode",
       "mcp_section": "mcp",
       "mcp_config_path": ".config/opencode/opencode.json",
@@ -103,6 +106,7 @@
       "config_mode": "auto",
       "config_adapter": "kilo-cli",
       "config_path": ".config/kilo/kilo.jsonc",
+      "data_paths": [".config/kilo"],
       "mcp_adapter": "kilo",
       "mcp_section": "mcp",
       "mcp_config_path": ".config/kilo/kilo.jsonc",
@@ -130,6 +134,7 @@
       "config_mode": "auto",
       "config_adapter": "aider",
       "config_path": ".bootagent/aider.env",
+      "data_paths": [".bootagent/aider.env"],
       "package": {
         "manager": "uv",
         "name": "aider-chat",
@@ -154,6 +159,7 @@
       "config_mode": "auto",
       "config_adapter": "openclaw",
       "config_path": ".openclaw/openclaw.json",
+      "data_paths": [".openclaw"],
       "package": {
         "manager": "npm",
         "name": "openclaw",
@@ -179,6 +185,7 @@
       "config_mode": "auto",
       "config_adapter": "hermes",
       "config_path": ".hermes/config.yaml",
+      "data_paths": [".hermes"],
       "mcp_adapter": "hermes",
       "mcp_section": "mcp_servers",
       "mcp_config_path": ".hermes/config.yaml",
@@ -212,6 +219,7 @@
       "config_mode": "auto",
       "config_adapter": "kimi-code",
       "config_path": ".kimi-code/config.toml",
+      "data_paths": [".kimi-code"],
       "package": {
         "manager": "official-script",
         "name": "kimi-code",
@@ -248,6 +256,7 @@
       "config_mode": "auto",
       "config_adapter": "pi",
       "config_path": ".pi/agent/models.json",
+      "data_paths": [".pi"],
       "package": {
         "manager": "npm",
         "name": "@earendil-works/pi-coding-agent",
@@ -274,6 +283,7 @@
       "config_adapter": "dsh",
       "model_selection": "agent",
       "config_path": ".dsh/settings.yaml",
+      "data_paths": [".dsh"],
       "web_url": "http://127.0.0.1:3080",
       "package": {
         "manager": "npm",

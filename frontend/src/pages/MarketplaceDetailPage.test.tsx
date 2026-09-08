@@ -144,8 +144,8 @@ describe("MarketplaceDetailPage", () => {
       description: "来自详情接口的说明",
       icon: "Puzzle",
       iconColor: "oklch(55% 0.15 160)",
-      source: "mcpservers",
-      sourceLabel: "MCP Servers",
+      source: "skillhub-mcp",
+      sourceLabel: "SkillHub MCP",
       sourceUrl: "https://example.com/source",
       externalUrl: "https://example.com/home",
       installPrompt: "live MCP install prompt",
@@ -167,8 +167,8 @@ describe("MarketplaceDetailPage", () => {
           description: "列表摘要",
           icon: "Puzzle",
           iconColor: "oklch(55% 0.15 160)",
-          source: "mcpservers",
-          sourceLabel: "MCP Servers",
+          source: "skillhub-mcp",
+          sourceLabel: "SkillHub MCP",
         },
       },
     });
@@ -179,47 +179,30 @@ describe("MarketplaceDetailPage", () => {
     await waitFor(() => expect(marketplaceMCPServerDetail).toHaveBeenCalledWith("demo-server"));
   });
 
-  it("uses the mcpservers.org adapter for owner/name directory cards", async () => {
-    marketplaceMCPServersDirectoryDetail.mockResolvedValue({
-      id: "mcp-acme--demo-server",
-      category: "mcp-server",
-      type: "installable",
-      installableKind: "mcp",
-      name: "Acme Demo Server",
-      description: "来自 mcpservers.org 详情页的说明",
-      icon: "Puzzle",
-      iconColor: "oklch(55% 0.15 160)",
-      source: "mcpservers",
-      sourceLabel: "MCP Servers",
-      sourceUrl: "https://mcpservers.org/servers/acme/demo-server",
-      documentationUrl: "https://mcpservers.org/servers/acme/demo-server",
-      installPrompt: "directory MCP install prompt",
-      stars: 19,
-    });
-
+  it("does not fetch Cloudflare-protected details for legacy MCP Servers cards", async () => {
     renderPage({
-      pathname: "/marketplace/mcp-acme--demo-server",
+      pathname: "/marketplace/mcp-acme--legacy-server",
       state: {
         returnTo: "/marketplace?category=mcp-server",
         item: {
-          id: "mcp-acme--demo-server",
+          id: "mcp-acme--legacy-server",
           category: "mcp-server",
           type: "installable",
           installableKind: "mcp",
-          name: "Acme Demo Server",
-          description: "列表摘要",
+          name: "Legacy MCP Server",
+          description: "Bundled summary",
           icon: "Puzzle",
           iconColor: "oklch(55% 0.15 160)",
           source: "mcpservers",
           sourceLabel: "MCP Servers",
-          sourceUrl: "https://mcpservers.org/servers/acme/demo-server",
-          documentationUrl: "https://mcpservers.org/servers/acme/demo-server",
+          sourceUrl: "https://mcpservers.org/servers/acme/legacy-server",
+          documentationUrl: "https://mcpservers.org/servers/acme/legacy-server",
         },
       },
     });
 
-    expect(await screen.findByRole("heading", { name: "Acme Demo Server" })).toBeTruthy();
-    await waitFor(() => expect(marketplaceMCPServersDirectoryDetail).toHaveBeenCalledWith("acme/demo-server"));
+    expect(screen.getByRole("heading", { name: "Legacy MCP Server" })).toBeTruthy();
+    expect(marketplaceMCPServersDirectoryDetail).not.toHaveBeenCalled();
     expect(marketplaceMCPServerDetail).not.toHaveBeenCalled();
   });
 });

@@ -23,6 +23,7 @@ export function AgentTargetGroup({ agents, selected, onToggle, disabled = false,
   const { t } = useI18n();
   return (
     <div className="agent-target-group" role="group" aria-label={t("选择目标 Agent")}>
+      {!agents.length ? <span className="agent-target-empty">{t("没有可管理目标")}</span> : null}
       {agents.map((agent) => {
         const on = selected.includes(agent);
         const label = labels[agent] || agent;

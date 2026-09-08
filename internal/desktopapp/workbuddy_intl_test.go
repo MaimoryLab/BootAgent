@@ -10,6 +10,12 @@ import (
 	"github.com/MaimoryLab/BootAgent/internal/platform"
 )
 
+func TestWorkBuddyCurrentBundleIdentifier(t *testing.T) {
+	if WorkBuddyBundleID != "com.tencent.workbuddy.mac" {
+		t.Fatalf("WorkBuddyBundleID = %q", WorkBuddyBundleID)
+	}
+}
+
 // The two editions install side by side, so each must ignore the other. Their
 // version strings are near-identical (both 5.3.11.x), which is why the bundle
 // identifier is the discriminator rather than the version or the app name alone.
@@ -68,6 +74,23 @@ func TestWorkBuddyPinnedPathStillChecksBundleIdentifier(t *testing.T) {
 	})
 	if status.Installed {
 		t.Fatalf("Chinese WorkBuddy accepted the international bundle: %#v", status)
+	}
+}
+
+func TestWorkBuddyDetectsLegacyBundleIdentifier(t *testing.T) {
+	root := t.TempDir()
+	appPath := makeBundle(t, root, "WorkBuddy.app")
+	if err := os.WriteFile(filepath.Join(appPath, "Contents", "Info.plist"), []byte("plist"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	status := Inspect(context.Background(), WorkBuddyID, Options{
+		Platform: platform.For("macos", "arm64"), SearchRoots: []string{root},
+		Runner: &probeRunner{macValues: map[string]string{
+			"CFBundleIdentifier": WorkBuddyLegacyBundleID, "CFBundleShortVersionString": "5.4.9",
+		}},
+	})
+	if !status.Installed || status.Path != appPath {
+		t.Fatalf("legacy WorkBuddy bundle was not detected: %#v", status)
 	}
 }
 

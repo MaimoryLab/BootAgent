@@ -92,15 +92,13 @@ interface MCPDetailState {
 
 function useMCPServerDetail(item?: MarketplaceItem): MCPDetailState {
   const [detail, setDetail] = useState<MarketplaceItem | null>(null);
-  const [loading, setLoading] = useState(item?.source === "mcpservers");
+  const [loading, setLoading] = useState(item?.source === "skillhub-mcp");
   const [error, setError] = useState(false);
   const itemID = item?.id ?? "";
   const itemSource = item?.source ?? "";
-  const itemDocumentationURL = item?.documentationUrl ?? item?.sourceUrl ?? "";
-  const directoryPath = mcpServersDirectoryPath(itemDocumentationURL);
 
   useEffect(() => {
-    if (!item || item.source !== "mcpservers") {
+    if (!item || item.source !== "skillhub-mcp") {
       setDetail(null);
       setLoading(false);
       setError(false);
@@ -112,10 +110,7 @@ function useMCPServerDetail(item?: MarketplaceItem): MCPDetailState {
     setDetail(null);
     setLoading(true);
     setError(false);
-    const detailRequest = directoryPath
-      ? api.marketplaceMCPServersDirectoryDetail(directoryPath)
-      : api.marketplaceMCPServerDetail(item.id.replace(/^mcp-/, ""));
-    void detailRequest.then((loaded) => {
+    void api.marketplaceMCPServerDetail(item.id.replace(/^mcp-/, "")).then((loaded) => {
       if (!active) return;
       // The bridge response is normalized by Go, but keep the route identity
       // authoritative so a malformed upstream payload cannot replace another
@@ -128,7 +123,7 @@ function useMCPServerDetail(item?: MarketplaceItem): MCPDetailState {
       if (active) setLoading(false);
     });
     return () => { active = false; };
-  }, [itemID, itemSource, itemDocumentationURL, directoryPath]);
+  }, [itemID, itemSource]);
 
   return { item: item ? (detail ? { ...item, ...detail } : item) : undefined, loading, error };
 }
@@ -229,7 +224,7 @@ const SCENE_LABEL: Record<string, TranslationKey> = {
 // Brand names (SkillHub / MCP Servers / Anthropic) are registered as keys
 // with identical English values; 社区/官方 actually translate.
 const SOURCE_LABEL: Record<string, TranslationKey> = {
-  skillhub: "SkillHub", mcpservers: "MCP Servers", anthropic: "Anthropic",
+  skillhub: "SkillHub", "skillhub-mcp": "SkillHub MCP", mcpservers: "MCP Servers", anthropic: "Anthropic",
   "mcp-registry": "MCP 官方 Registry", npm: "npm", pypi: "PyPI",
   docker: "Docker Hub", vscode: "VS Code Marketplace", huggingface: "Hugging Face",
   community: "社区", official: "官方",
@@ -423,8 +418,6 @@ export function MarketplaceDetailPage() {
   }
 
   const item = mcpDetail.item;
-  const directoryPath = mcpServersDirectoryPath(item.documentationUrl ?? item.sourceUrl);
-
   return (
     <PageScaffold
       title=""
@@ -481,10 +474,10 @@ export function MarketplaceDetailPage() {
             </section>
           ) : null}
 
-          {item.source === "mcpservers" && mcpDetail.loading ? (
+          {item.source === "skillhub-mcp" && mcpDetail.loading ? (
             <p className="detail-live-loading" role="status">{t("正在加载 MCP Server 详情")}</p>
           ) : null}
-          {item.source === "mcpservers" && mcpDetail.error ? (
+          {item.source === "skillhub-mcp" && mcpDetail.error ? (
             <p className="detail-live-error" role="status">{t("MCP Server 详情暂时不可用，已显示列表摘要")}</p>
           ) : null}
 
@@ -495,17 +488,13 @@ export function MarketplaceDetailPage() {
             </Link>
           ) : null}
 
-          {item.source === "skillhub" || item.source === "mcpservers" || item.readmeUrl ? (
+          {item.source === "skillhub" || item.source === "skillhub-mcp" || item.readmeUrl ? (
             <section className="detail-readme-section">
               <h2 className="detail-section-title">{t("README")}</h2>
               {item.source === "skillhub" ? (
                 <ReadmeSection skillhubSlug={item.id.replace(/^skillhub-/, "")} />
-              ) : item.source === "mcpservers" ? (
-                directoryPath ? (
-                  <ReadmeSection mcpServersOrgPath={directoryPath} />
-                ) : (
-                  <ReadmeSection mcpServerSlug={item.id.replace(/^mcp-/, "")} />
-                )
+              ) : item.source === "skillhub-mcp" ? (
+                <ReadmeSection mcpServerSlug={item.id.replace(/^mcp-/, "")} />
               ) : item.readmeUrl ? (
                 <ReadmeSection readmeUrl={item.readmeUrl} />
               ) : null}

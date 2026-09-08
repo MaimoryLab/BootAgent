@@ -327,7 +327,7 @@ test("Marketplace detail back restores the search and filter session", async ({ 
 
   const typeButton = page.getByRole("button", { name: /工具类型|Tool type/ });
   await typeButton.click();
-  await checkMarketplaceFilter(page.getByLabel(/独立 AI 产品|Independent AI products/, { exact: true }));
+  await checkMarketplaceFilter(page.getByRole("checkbox", { name: /^(工具|Tools)$/ }));
   await expect(search).toHaveValue("Codeoff");
 
   await page.locator('[data-item-id="github-maimorylab-codeoff"]').click();
@@ -336,7 +336,7 @@ test("Marketplace detail back restores the search and filter session", async ({ 
   await expect(page).toHaveURL(/#\/marketplace\?.*q=Codeoff.*kind=agent-product|#\/marketplace\?.*kind=agent-product.*q=Codeoff/);
   await expect(search).toHaveValue("Codeoff");
   await page.getByRole("button", { name: /工具类型|Tool type/ }).click();
-  await expect(page.getByLabel(/独立 AI 产品|Independent AI products/, { exact: true })).toBeChecked();
+  await expect(page.getByRole("checkbox", { name: /^(工具|Tools)$/ })).toBeChecked();
 });
 
 async function checkMarketplaceFilter(filter: Locator) {

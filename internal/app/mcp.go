@@ -97,26 +97,11 @@ func (u *UseCases) eligibleMCPAgents() (map[string]catalog.Agent, error) {
 	if err != nil {
 		return nil, err
 	}
-	lookup := u.status.Lookup
-	if lookup == nil && u.runner != nil {
-		lookup = u.runner.LookPath
-	}
 	result := make(map[string]catalog.Agent)
 	for id, agent := range manifest.Agents {
-		if agent.MCPAdapter == "" || agent.Command == "" || !contains(agent.Platforms, u.status.Platform.OS) || lookup == nil {
-			continue
+		if u.eligibleMCPAgent(context.Background(), id, agent) {
+			result[id] = agent
 		}
-		if _, ok := lookup(agent.Command); !ok {
-			continue
-		}
-		path := mcpPath(u.status.Home, u.status.Platform.OS, agent)
-		if path == "" {
-			continue
-		}
-		if _, err := os.Stat(filepath.Dir(path)); err != nil {
-			continue
-		}
-		result[id] = agent
 	}
 	return result, nil
 }

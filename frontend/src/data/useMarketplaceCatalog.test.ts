@@ -8,9 +8,9 @@ import { mergeMarketplaceItems, useMarketplaceCatalog } from "./useMarketplaceCa
 
 const item = (id: string, source: string, name = id): MarketplaceItem => ({
   id,
-  category: source === "mcpservers" ? "mcp-server" : "skill",
+  category: source === "mcpservers" || source === "skillhub-mcp" ? "mcp-server" : "skill",
   type: "installable",
-  installableKind: source === "mcpservers" ? "mcp" : "skill",
+  installableKind: source === "mcpservers" || source === "skillhub-mcp" ? "mcp" : "skill",
   icon: "Puzzle",
   iconColor: "oklch(60% 0.16 75)",
   name,
@@ -79,8 +79,8 @@ describe("useMarketplaceCatalog", () => {
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
     await waitFor(() => expect(result.current.items).toHaveLength(4));
-    expect(calls.filter((call) => call.offset === 0).map((call) => call.source).sort()).toEqual(["mcpservers", "skillhub"]);
-    expect(calls.filter((call) => call.offset !== 0).map((call) => `${call.source}:${call.offset}`).sort()).toEqual(["mcpservers:1", "skillhub:1"]);
+    expect(calls.filter((call) => call.offset === 0).map((call) => call.source).sort()).toEqual(["skillhub", "skillhub-mcp"]);
+    expect(calls.filter((call) => call.offset !== 0).map((call) => `${call.source}:${call.offset}`).sort()).toEqual(["skillhub-mcp:1", "skillhub:1"]);
   });
 
   it("drops a late response from an older query session", async () => {

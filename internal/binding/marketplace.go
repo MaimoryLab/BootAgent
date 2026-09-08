@@ -161,7 +161,7 @@ func (s *MarketplaceService) FetchMCPServersDirectoryReadme(ctx context.Context,
 	return MarketplaceProxyResponse{Body: body}, nil
 }
 
-// DiscoverSources returns the dynamic SkillHub and MCP Servers catalog. The
+// DiscoverSources returns the dynamic SkillHub Skills and MCP catalogs. The
 // response uses the same MarketplaceItem contract as the embedded manifest.
 func (s *MarketplaceService) DiscoverSources(ctx context.Context, options app.MarketplaceDiscoverOptions) (app.MarketplaceDynamicResult, error) {
 	if err := contextError(ctx); err != nil {

@@ -115,6 +115,7 @@ const KIND_OPTIONS: { key: MarketplaceKind; label: TranslationKey }[] = [
 // they are still registered as keys so every label flows through t().
 const SOURCE_OPTIONS: { key: MarketplaceSource; label: TranslationKey }[] = [
   { key: "skillhub", label: "SkillHub" },
+  { key: "skillhub-mcp", label: "SkillHub MCP" },
   { key: "mcpservers", label: "MCP Servers" },
   { key: "mcp-registry", label: "MCP 官方 Registry" },
   { key: "npm", label: "npm" },
@@ -128,6 +129,11 @@ const SOURCE_OPTIONS: { key: MarketplaceSource; label: TranslationKey }[] = [
   { key: "github", label: "GitHub" },
 ];
 
+const DYNAMIC_SOURCE_LABEL: Record<string, TranslationKey> = {
+  skillhub: "SkillHub",
+  "skillhub-mcp": "SkillHub MCP",
+};
+
 const SCENE_OPTIONS: { key: MarketplaceScene; label: TranslationKey }[] = [
   { key: "coding", label: "代码编写" },
   { key: "design", label: "界面设计" },
@@ -140,6 +146,7 @@ const SCENE_OPTIONS: { key: MarketplaceScene; label: TranslationKey }[] = [
 
 function Dropdown<K extends string>({
   label,
+  id,
   options,
   selected,
   onToggle,
@@ -149,6 +156,7 @@ function Dropdown<K extends string>({
   align = "left",
 }: {
   label: TranslationKey;
+  id?: string;
   options: { key: K; label: TranslationKey }[];
   selected?: Set<K>;
   onToggle?: (key: K) => void;
@@ -165,6 +173,13 @@ function Dropdown<K extends string>({
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const listId = `marketplace-filter-${id ?? "menu"}`;
+
+  const close = (restoreFocus = false) => {
+    setOpen(false);
+    if (restoreFocus) triggerRef.current?.focus();
+  };
 
   const activeCount = radio
     ? (radioValue !== null && radioValue !== undefined ? 1 : 0)
@@ -184,10 +199,18 @@ function Dropdown<K extends string>({
   return (
     <div className="mf-dropdown" ref={ref}>
       <button
+        ref={triggerRef}
         type="button"
         className={`mf-dropdown-trigger${activeCount > 0 ? " is-active" : ""}`}
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
+        aria-controls={listId}
+        onKeyDown={(event) => {
+          if (event.key === "Escape" && open) {
+            event.preventDefault();
+            close(true);
+          }
+        }}
       >
         <span>{t(label)}</span>
         <span
@@ -199,7 +222,7 @@ function Dropdown<K extends string>({
         <ChevronDown size={13} className={`mf-chevron${open ? " is-open" : ""}`} aria-hidden="true" />
       </button>
       {open && (
-        <div className={`mf-dropdown-panel${align === "right" ? " is-right" : ""}`} role="listbox">
+        <div id={listId} className={`mf-dropdown-panel${align === "right" ? " is-right" : ""}`} role="group" aria-label={t(label)}>
           {radio ? (
             <>
               {([{ key: null as K | null, label: t("全部") }, ...options.map((o) => ({ key: o.key as K | null, label: t(o.label) }))]).map(({ key, label: optLabel }) => (
@@ -208,7 +231,7 @@ function Dropdown<K extends string>({
                     type="radio"
                     name={`mf-radio-${label}`}
                     checked={radioValue === key}
-                    onChange={() => { onRadio?.(key); setOpen(false); }}
+                    onChange={() => { onRadio?.(key); close(true); }}
                   />
                   {optLabel}
                 </label>
@@ -264,7 +287,7 @@ function FilterDropdownBar({
   };
 
   return (
-    <div className="mf-dropdown-bar" aria-label={t("筛选")}>
+    <div className="mf-dropdown-bar" role="group" aria-label={t("筛选")}>
       {hasActiveFilters(filters) ? (
         <button
           type="button"
@@ -275,24 +298,28 @@ function FilterDropdownBar({
         </button>
       ) : null}
       <Dropdown
+        id="kind"
         label="工具类型"
         options={KIND_OPTIONS.filter((option) => availableKinds.has(option.key))}
         selected={filters.kinds}
         onToggle={toggleKind}
       />
       <Dropdown
+        id="source"
         label="来源"
         options={SOURCE_OPTIONS.filter((option) => availableSources.has(option.key)) as { key: MarketplaceSource; label: TranslationKey }[]}
         selected={filters.sources}
         onToggle={toggleSource}
       />
       <Dropdown
+        id="scene"
         label="场景"
         options={SCENE_OPTIONS.filter((option) => availableScenes.has(option.key)) as { key: MarketplaceScene; label: TranslationKey }[]}
         selected={filters.scenes}
         onToggle={toggleScene}
       />
       <Dropdown<"yes" | "no">
+        id="api-key"
         label="API Key"
         align="right"
         options={[
@@ -488,7 +515,7 @@ function MarketplaceItemCard({ item, onCopied }: { item: MarketplaceItem; onCopi
       data-type={item.type}
       data-item-id={item.id}
     >
-      <a className="marketplace-card-link" role="button" aria-label={item.name} href={`/marketplace/${encodeURIComponent(item.id)}`} onClick={(event) => { event.preventDefault(); openDetail(); }} onKeyDown={(event) => { if (event.key === " ") { event.preventDefault(); openDetail(); } }}>
+      <a className="marketplace-card-link" aria-label={item.name} href={`/marketplace/${encodeURIComponent(item.id)}`} onClick={(event) => { event.preventDefault(); openDetail(); }}>
         <div className="marketplace-card-icon-wrap">
           <CardIcon item={item} />
           <KindBadge item={item} />
@@ -700,14 +727,25 @@ export function MarketplacePage() {
       )}
     >
       <div className="marketplace-tabs" role="tablist" aria-label={t("工具分类")}>
-        {visibleCategories.map(({ id, labelKey }) => (
+        {visibleCategories.map(({ id, labelKey }, index) => (
           <button
             key={id}
             role="tab"
             type="button"
+            id={`marketplace-tab-${id}`}
+            aria-controls="marketplace-content-panel"
             aria-selected={activeCategory === id}
+            tabIndex={activeCategory === id ? 0 : -1}
             className={`marketplace-tab${activeCategory === id ? " is-active" : ""}`}
             onClick={() => selectCategory(id)}
+            onKeyDown={(event) => {
+              if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+              event.preventDefault();
+              const nextIndex = event.key === "Home" ? 0 : event.key === "End" ? visibleCategories.length - 1 : (index + (event.key === "ArrowRight" ? 1 : -1) + visibleCategories.length) % visibleCategories.length;
+              const next = visibleCategories[nextIndex];
+              selectCategory(next.id);
+              document.getElementById(`marketplace-tab-${next.id}`)?.focus();
+            }}
           >
             {t(labelKey)}
             {counts[id] ? (
@@ -720,11 +758,12 @@ export function MarketplacePage() {
           {live ? <span className="marketplace-live-dot" aria-hidden="true" /> : null}
           {live ? t("实时数据") : t("离线快照")}
         </span>
-        {sources.length > 0 ? <span className="marketplace-source-status" role="status" title={sources.map((source) => `${source.id}: ${source.state}${source.error ? ` (${source.error})` : ""}`).join("; ")}>
-          {sources.map((source) => `${source.id} ${source.item_count}${source.total > source.item_count ? `/${source.total}` : ""}`).join(" · ")}
+        {sources.length > 0 ? <span className="marketplace-source-status" role="status" title={sources.map((source) => `${DYNAMIC_SOURCE_LABEL[source.id] ? t(DYNAMIC_SOURCE_LABEL[source.id]) : source.id}: ${source.state}${source.error ? ` (${source.error})` : ""}`).join("; ")}>
+          {sources.map((source) => `${DYNAMIC_SOURCE_LABEL[source.id] ? t(DYNAMIC_SOURCE_LABEL[source.id]) : source.id} ${source.item_count}${source.total > source.item_count ? `/${source.total}` : ""}`).join(" · ")}
         </span> : null}
       </div>
 
+      <div id="marketplace-content-panel" role="tabpanel" aria-labelledby={`marketplace-tab-${activeCategory}`} tabIndex={0}>
       <div className="management-toolbar marketplace-toolbar">
         <ManagementSearch
           value={query}
@@ -764,6 +803,7 @@ export function MarketplacePage() {
             <VirtualMarketplaceGrid items={visible} onCopied={handleCopied} />
           )}
         </div>
+      </div>
       </div>
 
       {/* Bottom copy-notice bar */}

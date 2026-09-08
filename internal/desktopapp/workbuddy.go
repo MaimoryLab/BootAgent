@@ -14,9 +14,13 @@ import (
 )
 
 const (
-	WorkBuddyID              = "workbuddy"
-	WorkBuddyName            = "WorkBuddy"
-	WorkBuddyBundleID        = "com.workbuddy.workbuddy"
+	WorkBuddyID   = "workbuddy"
+	WorkBuddyName = "WorkBuddy"
+	// WorkBuddy changed its macOS bundle identifier in the 5.5 line. Keep the
+	// previous value for detecting an older installation, but use the current
+	// identifier for downloaded-package verification.
+	WorkBuddyBundleID        = "com.tencent.workbuddy.mac"
+	WorkBuddyLegacyBundleID  = "com.workbuddy.workbuddy"
 	WorkBuddyUpdateEndpoint  = "https://www.workbuddy.cn/v2/update"
 	WorkBuddyDownloadHost    = "download.codebuddy.cn"
 	WorkBuddyWindowsPlatform = "workbuddy-win32-x64-user"
@@ -53,15 +57,16 @@ type workBuddyUpdate struct {
 // international builds. Both are inspected, installed and launched by the same
 // code paths; only these values change.
 type workBuddyEdition struct {
-	id             string
-	name           string
-	bundleID       string
-	appName        string
-	executableName string
-	updateEndpoint string
-	updateHost     string
-	downloadHost   string
-	macTeamID      string
+	id              string
+	name            string
+	bundleID        string
+	legacyBundleIDs []string
+	appName         string
+	executableName  string
+	updateEndpoint  string
+	updateHost      string
+	downloadHost    string
+	macTeamID       string
 	// windowsSigners lists the Authenticode subjects accepted for this edition's
 	// installer.
 	windowsSigners []string
@@ -69,15 +74,16 @@ type workBuddyEdition struct {
 
 var (
 	workBuddyCN = workBuddyEdition{
-		id:             WorkBuddyID,
-		name:           WorkBuddyName,
-		bundleID:       WorkBuddyBundleID,
-		appName:        "WorkBuddy.app",
-		executableName: "WorkBuddy.exe",
-		updateEndpoint: WorkBuddyUpdateEndpoint,
-		updateHost:     "www.workbuddy.cn",
-		downloadHost:   WorkBuddyDownloadHost,
-		macTeamID:      WorkBuddyMacTeamID,
+		id:              WorkBuddyID,
+		name:            WorkBuddyName,
+		bundleID:        WorkBuddyBundleID,
+		legacyBundleIDs: []string{WorkBuddyLegacyBundleID},
+		appName:         "WorkBuddy.app",
+		executableName:  "WorkBuddy.exe",
+		updateEndpoint:  WorkBuddyUpdateEndpoint,
+		updateHost:      "www.workbuddy.cn",
+		downloadHost:    WorkBuddyDownloadHost,
+		macTeamID:       WorkBuddyMacTeamID,
 		windowsSigners: []string{
 			"Tencent Technology (Shenzhen) Company Limited",
 			"Shenzhen Tencent Computer Systems Company Limited",
@@ -130,6 +136,18 @@ func inspectWorkBuddy(edition workBuddyEdition) func(context.Context, Options) S
 	}
 }
 
+func (edition workBuddyEdition) acceptsBundleID(bundleID string) bool {
+	if bundleID == edition.bundleID {
+		return true
+	}
+	for _, legacy := range edition.legacyBundleIDs {
+		if bundleID == legacy {
+			return true
+		}
+	}
+	return false
+}
+
 func baseWorkBuddyStatus(edition workBuddyEdition, osID string) Status {
 	status := Status{ID: edition.id, Name: edition.name, Source: SourceUnknown}
 	switch osID {
@@ -176,7 +194,7 @@ func inspectWorkBuddyMacOS(ctx context.Context, edition workBuddyEdition, option
 		// strings are near-identical (both 5.3.11.x), so a version check could not
 		// tell them apart, and a SearchRoots entry pointing straight at an .app
 		// bypasses the name check above.
-		if metadata.bundleID != edition.bundleID {
+		if !edition.acceptsBundleID(metadata.bundleID) {
 			continue
 		}
 		status.Installed, status.Path, status.Version = true, candidate, metadata.version
