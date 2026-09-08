@@ -61,6 +61,21 @@ func TestWriteClaudeDesktopPreservesOtherConfiguration(t *testing.T) {
 	}
 }
 
+func TestWriteClaudeDesktopNormalizesAnthropicClientBaseURL(t *testing.T) {
+	home := t.TempDir()
+	path, err := testWriter(t, home, "macos").WriteClaudeDesktop(
+		context.Background(), "http://127.0.0.1:8787/v1/messages", "secret", "claude-sonnet-5", false,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var profile map[string]any
+	readJSONFile(t, path, &profile)
+	if got := profile["inferenceGatewayBaseUrl"]; got != "http://127.0.0.1:8787" {
+		t.Fatalf("inferenceGatewayBaseUrl = %q, want converter origin", got)
+	}
+}
+
 func TestWriteClaudeDesktopRejectsInvalidInputsWithoutChangingFiles(t *testing.T) {
 	home := t.TempDir()
 	paths, _ := claudeDesktopConfigPaths(home, "windows")

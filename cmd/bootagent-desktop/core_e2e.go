@@ -19,7 +19,10 @@ import (
 )
 
 func newDesktopUseCases() *app.UseCases {
-	info := platform.Current()
+	// Browser E2E exercises the Claude Desktop writer on every CI host. Its
+	// files still live below the temporary test home, never in a real macOS
+	// installation.
+	info := platform.For("macos", platform.Current().Arch)
 	home := platform.ResolveHome(nil, info.OS)
 	return app.NewUseCasesWithProviderClient(app.StatusOptions{
 		Home:        home,
@@ -105,12 +108,13 @@ type e2eProviderDoer struct{}
 
 func (e2eProviderDoer) Do(request *http.Request) (*http.Response, error) {
 	body := ""
+	status := http.StatusNoContent
 	if request.Method == http.MethodGet && strings.HasSuffix(request.URL.Path, "/models") {
 		body = `{"data":[{"id":"bootagent-e2e-model"}]}`
-	}
-	status := http.StatusNoContent
-	if body != "" {
 		status = http.StatusOK
+	} else if strings.HasSuffix(request.URL.Path, "/messages") {
+		body = `{"error":{"message":"Anthropic Messages is not supported by this test upstream"}}`
+		status = http.StatusNotFound
 	}
 	return &http.Response{
 		StatusCode: status,

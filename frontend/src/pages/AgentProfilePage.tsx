@@ -9,10 +9,11 @@ import { ProviderSegment } from "../components/ProviderSegment";
 import { SelectField } from "../components/SelectField";
 import { useI18n } from "../i18n";
 import { desktopApps, desktopProfileUsable, desktopProfiles, desktopProtocol, profileAgentIdForDesktop } from "../state/desktopSetup";
+import { confirmAction } from "../state/confirmDelete";
 import { byProfileCreatedAt, byProviderCreatedAt, preferProviderWithKey } from "../state/ranking";
 import { converterProfileName, isConverterID } from "../state/conversion";
 import { useWizard } from "../state/WizardContext";
-import type { ProfileSummary, ProtocolId, ProviderId } from "../types/api";
+import type { DesktopAgentProfileAssessment, ProfileSummary, ProtocolId, ProviderId } from "../types/api";
 
 interface ProfileDraft {
   id: string;
@@ -58,6 +59,8 @@ export function AgentProfilePage() {
   // is stored"; a string means the field has been touched and not yet committed.
   const [modelDraft, setModelDraft] = useState<string | null>(null);
   const [savingModel, setSavingModel] = useState(false);
+  const [assessment, setAssessment] = useState<DesktopAgentProfileAssessment | null>(null);
+  const [assessing, setAssessing] = useState(false);
 
   const profiles = useMemo(() => {
     if (!status) return [];
@@ -73,6 +76,28 @@ export function AgentProfilePage() {
       else if (profiles[0]) setSelectedId(profiles[0].id);
     }
   }, [app?.profileId, currentAgent?.profileId, profiles, selectedId]);
+
+  const selected = profiles.find((profile) => profile.id === selectedId);
+  const requiresConversion = Boolean(app?.id === "claude-desktop" && selected?.protocol === "openai");
+
+  useEffect(() => {
+    if (!app || !selected || !requiresConversion) {
+      setAssessment(null);
+      setAssessing(false);
+      return;
+    }
+    let active = true;
+    setAssessment(null);
+    setAssessing(true);
+    void api.assessDesktopAgentProfile(app.id, selected.id).then((result) => {
+      if (active) setAssessment(result);
+    }).catch((error) => {
+      if (active) setFailure(describeFailure(error, t("无法检查协议兼容性"), t).message);
+    }).finally(() => {
+      if (active) setAssessing(false);
+    });
+    return () => { active = false; };
+  }, [app, requiresConversion, selected, t]);
 
   if (!status) {
     return (
@@ -90,11 +115,12 @@ export function AgentProfilePage() {
     );
   }
 
-  const selected = profiles.find((profile) => profile.id === selectedId);
   const displayProfileName = (profile: ProfileSummary) => converterProfileName(profile.id, profile.label || profile.id, t);
   const duplicateID = Boolean(draft && !draft.originalId && status.profiles.some((profile) => profile.id === draft.id.trim().toLowerCase()));
   const canSave = Boolean(draft?.id.trim() && draft?.provider && draft?.model.trim() && !duplicateID);
-  const canApply = Boolean(selected && desktopProfileUsable(status, selected, app));
+  const canApply = Boolean(selected && desktopProfileUsable(status, selected, app) && (
+    !requiresConversion || assessment?.compatibility === "convertible"
+  ));
 
   const openCreate = () => {
     const usable = byProviderCreatedAt(status.providers).filter(([, meta]) =>
@@ -197,7 +223,20 @@ export function AgentProfilePage() {
     setFailure("");
     try {
       if (app) {
-        await api.configureDesktopAgent(app.id, selected.id);
+        if (requiresConversion) {
+          if (!await confirmAction({
+            title: t("启用协议适配"),
+            message: t("BootAgent 将在本机启动协议适配服务，并自动把 Claude Desktop 指向该服务。是否继续？"),
+            confirmLabel: t("启用并应用"),
+            cancelLabel: t("取消"),
+          })) {
+            setBusy(false);
+            return;
+          }
+          await api.configureDesktopAgentWithConversion(app.id, selected.id);
+        } else {
+          await api.configureDesktopAgent(app.id, selected.id);
+        }
       } else {
         await api.activateAgent(owner, {
           provider: selected.provider,
@@ -225,7 +264,7 @@ export function AgentProfilePage() {
       title={t("选择配置模版")}
       backLabel={t("返回总览")}
       onBack={() => navigate("/overview")}
-      primaryLabel={busy ? t("应用中") : t("应用")}
+      primaryLabel={busy ? t("应用中") : requiresConversion ? t("启用协议适配并应用") : t("应用")}
       onPrimary={() => void apply()}
       primaryDisabled={!canApply || busy}
       footerNote={selected ? displayProfileName(selected) : t("选择一个配置模版")}
@@ -238,6 +277,15 @@ export function AgentProfilePage() {
       )}
     >
       {failure ? <div className="notice notice-error">{failure}</div> : null}
+      {requiresConversion ? (
+        <div className={`notice ${assessment?.compatibility === "unusable" ? "notice-error" : "notice-info"}`} role="status">
+          {assessing
+            ? t("正在检查模型服务的协议兼容性")
+            : assessment?.compatibility === "convertible"
+              ? t("该模型服务不能直接使用 Claude Desktop 所需的 Anthropic Messages。BootAgent 可以在本机转换请求格式。")
+              : assessment?.message || t("无法确认该配置模版可以通过协议适配使用")}
+        </div>
+      ) : null}
 
       {draft ? (
         <form className="profile-editor desktop-profile-editor" onSubmit={(event) => void save(event)}>

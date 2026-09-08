@@ -2009,6 +2009,8 @@
 .conversion-advanced-toggle:hover { background: var(--surface-pressed); color: var(--text-primary); }
 .conversion-advanced-toggle .conversion-hint { margin-left: 6px; font-size: 11px; color: var(--text-tertiary); font-weight: 400; }
 .conversion-advanced .provider-editor-grid { margin-top: 16px; }
+.conversion-key-status { min-width: 0; min-height: 38px; display: flex; align-items: center; gap: 10px; }
+.conversion-key-status .button { min-width: 0; margin-left: auto; white-space: nowrap; }
 .conversion-guidance { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border-faint); color: var(--text-secondary); font-size: 12px; }
 .conversion-guidance summary { display: inline-flex; align-items: center; gap: 6px; color: var(--text-secondary); cursor: pointer; font-weight: 500; list-style: none; }
 .conversion-guidance summary::-webkit-details-marker { display: none; }
@@ -2023,6 +2025,11 @@
 .conversion-hint { display: block; margin-top: 5px; font-size: 12px; line-height: 1.5; color: var(--text-tertiary); }
 /* One-liner intro sentence at the top of the page */
 .conversion-intro { margin: 0 0 20px; font-size: 13px; line-height: 1.6; color: var(--text-secondary); }
+
+@media (max-width: 560px) {
+  .conversion-key-status { align-items: stretch; flex-direction: column; }
+  .conversion-key-status .button { width: 100%; margin-left: 0; }
+}
 /* Separated from the fields above by a rule rather than only by gap: this block
    performs an action and reports a result, so it is not another field to fill in. */
 .provider-verify {

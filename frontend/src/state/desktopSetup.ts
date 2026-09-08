@@ -28,6 +28,7 @@ export function desktopProfiles(status: StatusResponse, app: DesktopAgentStatus)
   const bound = status.agents[owner]?.profileId;
   const protocol = desktopProtocol(app);
   return status.profiles.filter((profile) => {
+    if (app.id === "claude-desktop" && (profile.protocol === "anthropic" || profile.protocol === "openai")) return true;
     if (protocol && profile.protocol) return profile.protocol === protocol;
     return profile.id === bound;
   });
@@ -36,7 +37,7 @@ export function desktopProfiles(status: StatusResponse, app: DesktopAgentStatus)
 export function desktopProfileUsable(status: StatusResponse, profile: ProfileSummary, app?: DesktopAgentStatus | null): boolean {
   const provider = status.providers[profile.provider];
   const model = profile.model?.trim() || "";
-  if (app?.id === "claude-desktop" && !model.toLowerCase().includes("claude")) return false;
+  if (app?.id === "claude-desktop" && profile.protocol === "anthropic" && !model.toLowerCase().includes("claude")) return false;
   return Boolean(provider && model && (provider.has_key || isConverterID(profile.id)));
 }
 

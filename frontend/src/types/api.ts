@@ -52,6 +52,12 @@ export type RuntimeStatus = AppModels.RuntimeStatus;
 export type DesktopAgentStatus = Omit<AppModels.DesktopAgentStatus, "protocol"> & { protocol: ProtocolId | "" };
 export type DesktopAgentActionResult = Omit<AppModels.DesktopAgentActionResult, "app"> & { app: DesktopAgentStatus };
 export type DesktopAgentProfileResult = AppModels.DesktopAgentProfileResult;
+export type DesktopAgentProfileAssessment = Omit<AppModels.DesktopAgentProfileAssessment, "compatibility"> & {
+  compatibility: "native" | "convertible" | "unusable";
+};
+export type DesktopAgentConversionResult = Omit<AppModels.DesktopAgentConversionResult, "compatibility"> & {
+  compatibility: "convertible";
+};
 export type InstallRuntimeResult = Omit<AppModels.InstallRuntimeResult, "runtimes"> & { runtimes: RuntimeStatus[] };
 export type Settings = AppModels.Settings;
 export type SettingsPatch = AppModels.SettingsPatch;

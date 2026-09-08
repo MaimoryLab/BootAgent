@@ -172,7 +172,7 @@ export function AgentManageRow({
   // PATH, so it is already the precise "there is something to launch" signal.
   const canLaunch = status.installed;
   const offer = updateOffer(catalog, status);
-  const manageable = Boolean(catalog?.packageManager && ["npm", "uv", "official-script"].includes(catalog.packageManager) && status.installed);
+  const manageable = Boolean(catalog?.packageManager && ["npm", "uv", "official-script"].includes(catalog.packageManager) && status.installed && (installations.length === 0 || installations.some((item) => item.canUninstall)));
   const busy = launching || updating || uninstalling || migration.running || isTaskRunning(taskKey("install", agentId));
 
   const startLaunch = async (directory: string) => {
@@ -244,15 +244,15 @@ export function AgentManageRow({
 		const confirmLabel = t("卸载 Agent");
 		const choice = await Dialogs.Question({
 			Title: confirmLabel,
-			Message: t("确定卸载「{name}」吗？只会移除 Agent 程序，配置模版、模型服务、配置文件和对话数据都会保留。", { name: catalog?.name || agentId }),
-			Buttons: [{ Label: confirmLabel }, { Label: t("卸载并删除全部数据") }, { Label: t("取消"), IsCancel: true }],
+			Message: t("确定卸载「{name}」吗？普通卸载只会移除 Agent 程序，配置模版、模型服务、配置文件和对话数据都会保留。删除已声明数据需要再次确认。", { name: catalog?.name || agentId }),
+			Buttons: [{ Label: confirmLabel }, { Label: t("卸载并删除已声明数据") }, { Label: t("取消"), IsCancel: true }],
 		}).catch(() => "");
-		if (![confirmLabel, t("卸载并删除全部数据")].includes(choice)) return;
-		const removeUserData = choice === t("卸载并删除全部数据");
+		if (![confirmLabel, t("卸载并删除已声明数据")].includes(choice)) return;
+		const removeUserData = choice === t("卸载并删除已声明数据");
 		if (removeUserData) {
 			const destructiveChoice = await Dialogs.Question({
 				Title: t("确认永久删除数据"),
-				Message: t("全量清理将永久删除配置文件、凭据、会话和对话数据，删除后无法找回。请确认你已完成备份。"),
+				Message: t("将永久删除 BootAgent 为该 Agent 声明的数据路径，包括其中的配置、凭据和对话，删除后无法找回。不会额外清理系统钥匙串、声明路径之外的项目目录或自定义路径，也不会删除 BootAgent 的 Profile 和 Provider。所选实例共享这些数据，未选中的实例也可能受影响。请确认你已完成备份。"),
 				Buttons: [{ Label: t("永久删除并卸载") }, { Label: t("取消"), IsCancel: true }],
 			}).catch(() => "");
 			if (destructiveChoice !== t("永久删除并卸载")) return;
@@ -280,13 +280,15 @@ export function AgentManageRow({
 			if (!(error instanceof BootAgentApiError) || error.code !== "AGENT_NPM_ENVIRONMENT_MISMATCH") throw error;
 			const crossChoice = await Dialogs.Question({
 				Title: t("确认跨环境卸载"),
-				Message: t("当前 Agent 由另一套 Node/npm 环境管理。是否允许使用已记录的原始 npm 环境卸载？不会使用 sudo，也不会删除配置和对话数据。"),
+				Message: removeUserData
+					? t("当前 Agent 由另一套 Node/npm 环境管理。是否允许使用已记录的原始 npm 环境卸载？不会使用 sudo。所选实例全部卸载成功后，仍将永久删除已声明的数据；系统钥匙串、声明路径之外的项目目录或自定义路径，以及 BootAgent 的 Profile、Provider 不在清理范围内。")
+					: t("当前 Agent 由另一套 Node/npm 环境管理。是否允许使用已记录的原始 npm 环境卸载？不会使用 sudo，也不会删除配置和对话数据。"),
 				Buttons: [{ Label: t("允许并继续") }, { Label: t("取消"), IsCancel: true }],
 			}).catch(() => "");
 			if (crossChoice !== t("允许并继续")) throw error;
 			await runUninstall(true);
 		}
-		finishTask(uninstallTaskID, { kind: "success", message: removeUserData ? t("已卸载 {name}，全部数据已删除", { name: catalog?.name || agentId }) : t("已卸载 {name}，配置和对话数据已保留", { name: catalog?.name || agentId }) });
+		finishTask(uninstallTaskID, { kind: "success", message: removeUserData ? t("已卸载 {name}，已清理声明的数据路径", { name: catalog?.name || agentId }) : t("已卸载 {name}，配置和对话数据已保留", { name: catalog?.name || agentId }) });
       await onChanged?.();
     } catch (error) {
       finishTask(uninstallTaskID, { kind: "failure", message: describeFailure(error, t("无法卸载 Agent"), t).message });

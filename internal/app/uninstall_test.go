@@ -8,8 +8,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/MaimoryLab/BootAgent/internal/catalog"
 	oneerrors "github.com/MaimoryLab/BootAgent/internal/errors"
 	"github.com/MaimoryLab/BootAgent/internal/platform"
+	"github.com/MaimoryLab/BootAgent/internal/process"
 )
 
 func TestUninstallAgentRemovesOnlyTheManagedNPMPackage(t *testing.T) {
@@ -71,6 +73,126 @@ func TestUninstallAgentCanPermanentlyRemoveDeclaredUserData(t *testing.T) {
 	}
 	if !slices.Equal(result.RemovedData, []string{dataRoot}) {
 		t.Fatalf("removed data = %v", result.RemovedData)
+	}
+}
+
+type batchUninstallRunner struct {
+	installAppRunner
+	failPrefix string
+}
+
+func (runner *batchUninstallRunner) Run(ctx context.Context, argv []string, env map[string]string, timeout time.Duration) (process.Result, error) {
+	result, err := runner.installAppRunner.Run(ctx, argv, env, timeout)
+	if env["npm_config_prefix"] == runner.failPrefix && len(argv) > 1 && argv[1] == "uninstall" {
+		result.ExitCode = 1
+	}
+	return result, err
+}
+
+func TestUninstallAgentBatchCleansOnlyAfterAllInstancesSucceed(t *testing.T) {
+	for _, fail := range []bool{false, true} {
+		name := "success reports removed data"
+		if fail {
+			name = "failure preserves data"
+		}
+		t.Run(name, func(t *testing.T) {
+			home := t.TempDir()
+			dataRoot := filepath.Join(home, ".codex")
+			if err := os.MkdirAll(dataRoot, 0o700); err != nil {
+				t.Fatal(err)
+			}
+			configPath := filepath.Join(dataRoot, "config.toml")
+			if err := os.WriteFile(configPath, []byte("keep"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			runner := &batchUninstallRunner{installAppRunner: installAppRunner{paths: map[string]string{"npm": "/fake/npm", "codex": "/fake/codex"}}}
+			if fail {
+				runner.failPrefix = "/second"
+			}
+			core := NewUseCases(StatusOptions{Home: home, Platform: platform.For("linux", "amd64"), Runner: runner})
+			result, err := core.UninstallAgentWithOptions(context.Background(), "codex", AgentUninstallOptions{
+				InstallationIDs: []string{"npm:/first", "npm:/second"}, RemoveUserData: true,
+			})
+			if fail {
+				if err == nil {
+					t.Fatal("expected second uninstall to fail")
+				}
+				if data, err := os.ReadFile(configPath); err != nil || string(data) != "keep" {
+					t.Fatalf("failed batch deleted user data: %q, %v", data, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !slices.Equal(result.RemovedData, []string{dataRoot}) {
+				t.Fatalf("removed data = %v, want %s", result.RemovedData, dataRoot)
+			}
+			if _, err := os.Stat(configPath); !os.IsNotExist(err) {
+				t.Fatalf("successful batch retained config: %v", err)
+			}
+		})
+	}
+}
+
+func TestRemoveAgentUserDataIncludesDeclaredPlatformConfigs(t *testing.T) {
+	manifest, err := catalog.LoadEmbedded()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, test := range []struct{ agent, osID, relative string }{
+		{"claude-code", "linux", ".claude.json"},
+		{"hermes", "windows", "AppData/Local/hermes/config.yaml"},
+		{"hermes", "windows", ".hermes/config.yaml"},
+	} {
+		t.Run(test.agent+"/"+test.relative, func(t *testing.T) {
+			agent, ok := manifest.Agents[test.agent]
+			if !ok {
+				t.Fatalf("Agent %s is missing from the catalog", test.agent)
+			}
+			home := t.TempDir()
+			path := filepath.Join(home, filepath.FromSlash(test.relative))
+			if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(path, []byte("test"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			core := NewUseCases(StatusOptions{Home: home, Platform: platform.For(test.osID, "amd64")})
+			if _, err := core.removeAgentUserData(context.Background(), test.agent, agent); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := os.Stat(path); !os.IsNotExist(err) {
+				t.Fatalf("declared config survived cleanup: %v", err)
+			}
+		})
+	}
+}
+
+func TestRemoveAgentUserDataRejectsUnsafePaths(t *testing.T) {
+	for _, relative := range []string{"..", "../outside", ".", "link"} {
+		t.Run(relative, func(t *testing.T) {
+			root := t.TempDir()
+			home, outside := filepath.Join(root, "home"), filepath.Join(root, "outside")
+			if err := os.MkdirAll(home, 0o700); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(outside, []byte("keep"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if relative == "link" {
+				if err := os.Symlink(outside, filepath.Join(home, "link")); err != nil {
+					t.Skipf("symlinks unavailable: %v", err)
+				}
+			}
+			core := NewUseCases(StatusOptions{Home: home, Platform: platform.For("linux", "amd64")})
+			if _, err := core.removeAgentUserData(context.Background(), "test", catalog.Agent{DataPaths: []string{relative}}); err == nil {
+				t.Fatal("unsafe cleanup accepted")
+			}
+			if data, err := os.ReadFile(outside); err != nil || string(data) != "keep" {
+				t.Fatalf("outside data changed: %q, %v", data, err)
+			}
+		})
 	}
 }
 

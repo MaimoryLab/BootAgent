@@ -44,7 +44,7 @@
         "model": "ANTHROPIC_MODEL"
       },
       "config_path": ".claude/settings.json",
-      "data_paths": [".claude"],
+      "data_paths": [".claude", ".claude.json"],
       "mcp_adapter": "claude",
       "mcp_section": "mcpServers",
       "mcp_config_path": ".claude.json",
@@ -186,6 +186,7 @@
       "config_adapter": "hermes",
       "config_path": ".hermes/config.yaml",
       "data_paths": [".hermes"],
+      "windows_data_paths": [".hermes", "AppData/Local/hermes"],
       "mcp_adapter": "hermes",
       "mcp_section": "mcp_servers",
       "mcp_config_path": ".hermes/config.yaml",

@@ -107,7 +107,7 @@ export interface ConversationMigrationResult {
 export interface ConversionConfig {
     "enabled": boolean;
     "listen": string;
-    "api_key": string;
+    "has_api_key": boolean;
     "target_profile": string;
     "anthropic_model": string;
     "responses_model": string;
@@ -123,6 +123,30 @@ export interface DesktopAgentActionResult {
     "message": string;
     "refreshNeeded": boolean;
     "app": DesktopAgentStatus;
+}
+
+export interface DesktopAgentConversionResult {
+    "agent": string;
+    "profileId": string;
+    "profileAgentId": string;
+    "config"?: string;
+    "restart"?: string;
+    "message": string;
+    "compatibility": string;
+    "conversionRunning": boolean;
+    "localAuthVerified": boolean;
+    "upstreamVerified": boolean;
+    "agentConfigured": boolean;
+    "endToEndVerified": boolean;
+}
+
+export interface DesktopAgentProfileAssessment {
+    "agent": string;
+    "profileId": string;
+    "compatibility": string;
+    "message": string;
+    "errorCode"?: string;
+    "upstreamVerified": boolean;
 }
 
 /**

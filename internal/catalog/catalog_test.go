@@ -3,7 +3,9 @@ package catalog
 import (
 	"encoding/json"
 	"fmt"
+	"path"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -38,6 +40,51 @@ func TestEmbeddedManifestMatchesCurrentCatalogContract(t *testing.T) {
 	for index := 1; index < len(items); index++ {
 		if items[index-1].Rank > items[index].Rank || (items[index-1].Rank == items[index].Rank && items[index-1].ID > items[index].ID) {
 			t.Fatalf("catalog is not deterministic: %#v", items)
+		}
+	}
+}
+
+func TestEmbeddedCleanupPathsCoverDeclaredAgentData(t *testing.T) {
+	manifest, err := LoadEmbedded()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for agentID, agent := range manifest.Agents {
+		if len(agent.DataPaths) == 0 {
+			continue
+		}
+		for _, osID := range agent.Platforms {
+			paths := agent.DataPaths
+			configPath, mcpPath, skillsPath := agent.ConfigPath, agent.MCPConfigPath, agent.SkillsPath
+			if osID == "windows" {
+				if len(agent.WindowsDataPaths) > 0 {
+					paths = agent.WindowsDataPaths
+				}
+				if agent.WindowsConfigPath != "" {
+					configPath = agent.WindowsConfigPath
+				}
+				if agent.MCPWindowsConfigPath != "" {
+					mcpPath = agent.MCPWindowsConfigPath
+				}
+				if agent.SkillsWindowsPath != "" {
+					skillsPath = agent.SkillsWindowsPath
+				}
+			}
+			for _, declaredPath := range []string{configPath, mcpPath, skillsPath} {
+				if declaredPath == "" {
+					continue
+				}
+				covered := false
+				for _, root := range paths {
+					if path.Clean(declaredPath) == path.Clean(root) || strings.HasPrefix(path.Clean(declaredPath), path.Clean(root)+"/") {
+						covered = true
+						break
+					}
+				}
+				if !covered {
+					t.Errorf("%s/%s: cleanup does not cover declared path %s", agentID, osID, declaredPath)
+				}
+			}
 		}
 	}
 }

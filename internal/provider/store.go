@@ -239,7 +239,7 @@ func (s Store) Save(ctx context.Context, entry Entry) (Entry, error) {
 	entry.Name = strings.TrimSpace(entry.Name)
 	entry.Home = strings.TrimSpace(entry.Home)
 	entry.BaseURL = strings.TrimSpace(entry.BaseURL)
-	entry.AnthropicBaseURL = strings.TrimSpace(entry.AnthropicBaseURL)
+	entry.AnthropicBaseURL = AnthropicClientBaseURL(entry.AnthropicBaseURL)
 	if err := validateEntry(entry); err != nil {
 		return Entry{}, err
 	}

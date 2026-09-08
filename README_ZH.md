@@ -49,7 +49,7 @@ BootAgent 是一个本地桌面工作台，用来统一管理 AI 编程 Agent。
 - 检测、安装、更新、启动和卸载支持的 CLI 与桌面 Agent。
 - 只要命令或已知安装路径可发现，也可以识别不是由 BootAgent 安装的 Agent。
 - 在任务中心查看长时间安装和更新任务的进度、来源及可取消步骤。
-- 选择具体安装实例卸载，同时保留 Profile、Provider、配置文件和对话。
+- 选择具体安装实例卸载，默认保留 Profile、Provider、配置文件和对话。
 
 ### 连接 Provider 与 Profile
 
@@ -67,7 +67,8 @@ BootAgent 是一个本地桌面工作台，用来统一管理 AI 编程 Agent。
 ### 本地工具
 
 - 当 Agent 需要时，按需准备 Node.js、uv 和 Aider 所需的托管 Python 运行时。
-- 可选启用本地 API 格式转换和开机启动；两项功能默认关闭。
+- 当 Chat Completions Profile 无法直接用于 Claude Desktop 时，可在 Agent 配置页验证兼容性，并通过一次确认启用仅监听本机回环地址的协议适配。BootAgent 会自动生成本地鉴权信息并应用转换后的 Profile。
+- 可选启用开机启动；协议适配和开机启动在用户启用前均保持关闭。
 - 将已有 Codex 和 ChatGPT Desktop 对话迁移到 BootAgent 的本地 Provider 分桶；此迁移按设计不创建历史备份。
 
 ### 在工具市场发现工具
@@ -123,7 +124,7 @@ BootAgent 不重新分发 Agent 包，也不捆绑 Node.js、Git、WebView 或 A
 - BootAgent 以本地存储为主。Provider 凭据、配置、推荐历史和备份默认只保存在本机。
 - 推荐提示词只包含用户提出的需求和公开目录元数据；推荐进程没有安装或写文件工具。
 - 每个 Profile、Provider、MCP、Agent 配置目标和 Skill 默认保留最近 3 个历史版本。备份位于 `~/.bootagent/backup`，可在“设置”中修改保留数量。
-- 卸载只移除选中的程序实例，不会删除用户的 Profile、Provider、配置文件或对话。
+- 普通卸载只移除选中的程序实例，保留 Profile、Provider、配置文件和对话。可选的**卸载并删除已声明数据**需要二次确认，仅在所选实例全部卸载成功后，清理 `agents.lock.json` 为该 Agent 声明的 `data_paths`（Windows 可由 `windows_data_paths` 覆盖）。这些路径由多个安装实例共享，因此清理也可能影响未选中的实例。系统钥匙串、声明路径之外的项目目录或自定义路径，以及 BootAgent 的 Profile 和 Provider 不在清理范围内；此操作不等于彻底清除凭据。
 - BootAgent 不是 VPN、代理、共享 Key 服务或 Agent 软件包分发平台。下载使用官方来源、授权镜像或文档化的手动安装路径。
 
 ## 常见问题

@@ -91,6 +91,12 @@ export function failureCopyFor(code: string | null | undefined, status: number |
       return { message: t("无法获取模型列表"), hint: t("这个端点不提供模型列表，可以直接手动输入模型 ID") };
     case "CONFIG_WRITE_FAILED":
       return { message: t("无法写入配置文件"), hint: t("确认配置文件没有被其他程序占用，以及你对它有写入权限") };
+    case "CONVERSION_PORT_UNAVAILABLE":
+      return { message: t("本地协议适配端口不可用"), hint: t("关闭占用该端口的程序，或在高级设置中更换端口") };
+    case "CONVERSION_VERIFICATION_FAILED":
+      return { message: t("协议适配端到端验证失败"), hint: t("检查上游配置模板、模型服务余额和网络后重试") };
+    case "CONVERSION_ROLLBACK_FAILED":
+      return { message: t("协议适配失败且未能完整恢复原配置"), hint: t("保留 BootAgent 运行并检查 Claude Desktop 与协议适配设置") };
     case "UPDATE_LOCATION_BLOCKED":
       // Withheld at check time on purpose: the swap runs after the app exits, so
       // this is the last moment anything can tell the user.

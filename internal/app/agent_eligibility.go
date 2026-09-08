@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/MaimoryLab/BootAgent/internal/catalog"
 	"github.com/MaimoryLab/BootAgent/internal/platform"
@@ -39,7 +40,7 @@ func safeUserPath(home, target string) bool {
 		return false
 	}
 	rel, err := filepath.Rel(homeAbs, targetAbs)
-	return err == nil && rel != ".." && len(rel) >= 2 && rel[:2] != ".."+string(filepath.Separator)
+	return err == nil && rel != "." && rel != ".." && !filepath.IsAbs(rel) && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }
 
 func validAgentPlatform(agent catalog.Agent, osID string) bool {
@@ -59,11 +60,11 @@ func (u *UseCases) eligibleSkillAgent(ctx context.Context, id string, agent cata
 		return false
 	}
 	root := skillPath(u.status.Home, u.status.Platform.OS, agent)
-	if root == "" || !safeUserPath(u.status.Home, root) {
+	if root == "" || !safeUserPath(u.status.Home, root) || hasSymlinkComponent(u.status.Home, root) {
 		return false
 	}
 	if info, err := os.Lstat(root); err == nil {
-		return info.IsDir() && info.Mode()&os.ModeSymlink == 0 && !hasSymlinkComponent(u.status.Home, root)
+		return info.IsDir()
 	} else if !os.IsNotExist(err) {
 		return false
 	}
@@ -78,15 +79,12 @@ func (u *UseCases) eligibleMCPAgent(ctx context.Context, id string, agent catalo
 		return false
 	}
 	path := mcpPath(u.status.Home, u.status.Platform.OS, agent)
-	if path == "" || !safeUserPath(u.status.Home, path) {
+	if path == "" || !safeUserPath(u.status.Home, path) || hasSymlinkComponent(u.status.Home, path) {
 		return false
 	}
 	parent := filepath.Dir(path)
-	if !safeUserPath(u.status.Home, parent) {
-		return false
-	}
 	if info, err := os.Stat(parent); err == nil {
-		return info.IsDir() && !hasSymlinkComponent(u.status.Home, parent)
+		return info.IsDir()
 	} else if os.IsNotExist(err) {
 		return true
 	}

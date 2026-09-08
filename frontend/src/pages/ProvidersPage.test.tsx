@@ -221,6 +221,28 @@ describe("ProvidersPage", () => {
     await waitFor(() => expect(save).toHaveBeenCalledWith(expect.objectContaining({ id: "acme", base_url: "https://api.acme.test", api_key: "sk-acme", create: true })));
   });
 
+  it("normalizes an Anthropic endpoint before saving it", async () => {
+    const save = vi.spyOn(api, "saveProvider").mockResolvedValue({
+      entry: {
+        id: "acme", name: "Acme", home: "", base_url: "",
+        anthropic_base_url: "https://api.acme.test/anthropic", api_key: "sk-acme", built_in: false,
+      },
+      reapplied: null,
+      failures: null,
+    });
+    renderPage({ codex: null });
+    fireEvent.click(screen.getByRole("button", { name: "新增模型服务" }));
+    fireEvent.change(screen.getByLabelText("模型服务 ID"), { target: { value: "acme" } });
+    fireEvent.change(screen.getByLabelText("名称"), { target: { value: "Acme" } });
+    fireEvent.change(screen.getByLabelText("Anthropic 兼容 Base URL"), { target: { value: "https://api.acme.test/anthropic/v1/messages" } });
+    expect(screen.getByText(/保存时将调整为 https:\/\/api\.acme\.test\/anthropic/)).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("API Key"), { target: { value: "sk-acme" } });
+    fireEvent.click(screen.getByRole("button", { name: /^保存$/ }));
+    await waitFor(() => expect(save).toHaveBeenCalledWith(expect.objectContaining({
+      anthropic_base_url: "https://api.acme.test/anthropic",
+    })));
+  });
+
   // The point of #157: the endpoint and key are entered here, so a wrong one
   // should be caught here rather than only on the Agent page.
   it("tests the endpoints and key currently in the editor without saving them", async () => {

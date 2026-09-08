@@ -152,6 +152,10 @@ export const wailsApi = {
     call(() => DesktopAgentService.Open({ agent_id: agentId })).then(() => undefined),
   configureDesktopAgent: (agentId: string, profileId: string): CancellableRequest<DesktopAgentProfileResult> =>
     call(() => DesktopAgentService.Configure({ agent_id: agentId, profile_id: profileId })) as CancellableRequest<DesktopAgentProfileResult>,
+  assessDesktopAgentProfile: (agentId: string, profileId: string) =>
+    call(() => DesktopAgentService.AssessProfile({ agent_id: agentId, profile_id: profileId })) as Promise<import("../types/api").DesktopAgentProfileAssessment>,
+  configureDesktopAgentWithConversion: (agentId: string, profileId: string) =>
+    call(() => DesktopAgentService.ConfigureWithConversion({ agent_id: agentId, profile_id: profileId })) as CancellableRequest<import("../types/api").DesktopAgentConversionResult>,
   probe: (input: {
     provider: ProviderId;
     apiBaseUrl: string;
@@ -239,6 +243,7 @@ export const wailsApi = {
     call(() => RuntimeService.SaveSettings(settings)) as Promise<Settings>,
   getConversion: (): Promise<ConversionConfig> => call(() => ConversionService.Get()) as Promise<ConversionConfig>,
   saveConversion: (config: ConversionConfig): Promise<ConversionConfig> => call(() => ConversionService.Save(config)) as Promise<ConversionConfig>,
+  regenerateConversionKey: (): Promise<ConversionConfig> => call(() => ConversionService.RegenerateKey()) as Promise<ConversionConfig>,
   // Marketplace proxy: raw JSON strings from the public skillhub API. The Go
   // side does the GET because api.skillhub.cn only echoes CORS headers for
   // skillhub's own origins; parsing stays with the frontend normalisers.

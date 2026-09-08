@@ -55,10 +55,23 @@ func (u *UseCases) UninstallAgentWithOptions(ctx context.Context, agentID string
 	if !ok || agent.Package == nil {
 		return AgentUninstallResult{}, oneerrors.New(oneerrors.InvalidRequest, "Agent has no managed installation source: "+agentID)
 	}
+	unlockTask := u.lockTask("agent-task:" + agentID)
+	defer unlockTask()
+	result, err := u.uninstallAgentWithOptions(ctx, agentID, agent, options, listeners...)
+	if err == nil && options.RemoveUserData {
+		result.RemovedData, err = u.removeAgentUserData(ctx, agentID, agent)
+	}
+	return result, err
+}
+
+func (u *UseCases) uninstallAgentWithOptions(ctx context.Context, agentID string, agent catalog.Agent, options AgentUninstallOptions, listeners ...process.OutputListener) (AgentUninstallResult, error) {
+	if err := contextError(ctx, "Agent uninstall request was cancelled"); err != nil {
+		return AgentUninstallResult{}, err
+	}
 	if len(options.InstallationIDs) > 0 {
 		var commands []string
 		for _, installationID := range options.InstallationIDs {
-			result, uninstallErr := u.UninstallAgentWithOptions(ctx, agentID, AgentUninstallOptions{AllowCrossEnvironment: options.AllowCrossEnvironment, InstallationID: installationID, RemoveUserData: options.RemoveUserData}, listeners...)
+			result, uninstallErr := u.uninstallAgentWithOptions(ctx, agentID, agent, AgentUninstallOptions{AllowCrossEnvironment: options.AllowCrossEnvironment, InstallationID: installationID}, listeners...)
 			if uninstallErr != nil {
 				return AgentUninstallResult{}, uninstallErr
 			}
@@ -67,13 +80,6 @@ func (u *UseCases) UninstallAgentWithOptions(ctx context.Context, agentID string
 			}
 		}
 		result := AgentUninstallResult{Agent: agentID, Package: agent.Package.Name, Command: strings.Join(commands, " && ")}
-		if options.RemoveUserData {
-			removed, cleanupErr := u.removeAgentUserData(ctx, agentID, agent)
-			if cleanupErr != nil {
-				return AgentUninstallResult{}, cleanupErr
-			}
-			result.RemovedData = removed
-		}
 		return result, nil
 	}
 	if options.InstallationID == "" {
@@ -83,7 +89,7 @@ func (u *UseCases) UninstallAgentWithOptions(ctx context.Context, agentID string
 			}
 		}
 		if len(options.InstallationIDs) > 0 {
-			return u.UninstallAgentWithOptions(ctx, agentID, options, listeners...)
+			return u.uninstallAgentWithOptions(ctx, agentID, agent, options, listeners...)
 		}
 	}
 	manager := agent.Package.Manager
@@ -102,25 +108,15 @@ func (u *UseCases) UninstallAgentWithOptions(ctx context.Context, agentID string
 		}
 	}
 	if manager == "uv" {
-		result, err := u.uninstallUVAgent(ctx, agentID, agent, listeners...)
-		if err == nil && options.RemoveUserData {
-			result.RemovedData, err = u.removeAgentUserData(ctx, agentID, agent)
-		}
-		return result, err
+		return u.uninstallUVAgent(ctx, agentID, agent, listeners...)
 	}
 	if manager == "official-script" {
-		result, err := u.uninstallOfficialScriptAgent(ctx, agentID, agent)
-		if err == nil && options.RemoveUserData {
-			result.RemovedData, err = u.removeAgentUserData(ctx, agentID, agent)
-		}
-		return result, err
+		return u.uninstallOfficialScriptAgent(ctx, agentID, agent)
 	}
 	if manager != "npm" {
 		return AgentUninstallResult{}, oneerrors.New(oneerrors.InvalidRequest, "Unsupported Agent installation source: "+manager)
 	}
 
-	unlockTask := u.lockTask("agent-task:" + agentID)
-	defer unlockTask()
 	if err := contextError(ctx, "Agent uninstall request was cancelled"); err != nil {
 		return AgentUninstallResult{}, err
 	}
@@ -203,10 +199,7 @@ func (u *UseCases) UninstallAgentWithOptions(ctx context.Context, agentID string
 		return AgentUninstallResult{}, oneerrors.New(oneerrors.AgentNPMFailed, fmt.Sprintf("npm failed while uninstalling %s: command exited with code %d", agent.Name, result.ExitCode), oneerrors.WithStatus(500), oneerrors.WithRetryable(true))
 	}
 	uninstallResult := AgentUninstallResult{Agent: agentID, Package: agent.Package.Name, Command: strings.Join(args, " ")}
-	if options.RemoveUserData {
-		uninstallResult.RemovedData, err = u.removeAgentUserData(ctx, agentID, agent)
-	}
-	return uninstallResult, err
+	return uninstallResult, nil
 }
 
 func findAlternativePackage(agent catalog.Agent, installationID string) (catalog.Package, bool) {
@@ -249,8 +242,6 @@ func npmPackageListed(output, packageName string) bool {
 }
 
 func (u *UseCases) uninstallUVAgent(ctx context.Context, agentID string, agent catalog.Agent, listeners ...process.OutputListener) (AgentUninstallResult, error) {
-	unlockTask := u.lockTask("agent-task:" + agentID)
-	defer unlockTask()
 	var output process.OutputListener
 	if len(listeners) > 0 && listeners[0] != nil {
 		base := listeners[0]

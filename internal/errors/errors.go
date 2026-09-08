@@ -8,20 +8,23 @@ import (
 )
 
 const (
-	InvalidRequest      = "INVALID_REQUEST"
-	PrerequisiteMissing = "PREREQUISITE_MISSING"
-	AgentInstallFailed  = "AGENT_INSTALL_FAILED"
-	AgentPackageMissing = "AGENT_PACKAGE_MISSING"
-	AgentNPMMismatch    = "AGENT_NPM_ENVIRONMENT_MISMATCH"
-	AgentNPMPermission  = "AGENT_NPM_PERMISSION_DENIED"
-	AgentNPMFailed      = "AGENT_NPM_EXECUTION_FAILED"
-	ConfigWriteFailed   = "CONFIG_WRITE_FAILED"
-	APIKeyRejected      = "API_KEY_REJECTED"
-	ProviderUnreachable = "PROVIDER_UNREACHABLE"
-	ModelsUnsupported   = "MODELS_UNSUPPORTED"
-	ProtocolUnsupported = "PROTOCOL_UNSUPPORTED"
-	Timeout             = "TIMEOUT"
-	InternalError       = "INTERNAL_ERROR"
+	InvalidRequest               = "INVALID_REQUEST"
+	PrerequisiteMissing          = "PREREQUISITE_MISSING"
+	AgentInstallFailed           = "AGENT_INSTALL_FAILED"
+	AgentPackageMissing          = "AGENT_PACKAGE_MISSING"
+	AgentNPMMismatch             = "AGENT_NPM_ENVIRONMENT_MISMATCH"
+	AgentNPMPermission           = "AGENT_NPM_PERMISSION_DENIED"
+	AgentNPMFailed               = "AGENT_NPM_EXECUTION_FAILED"
+	ConfigWriteFailed            = "CONFIG_WRITE_FAILED"
+	APIKeyRejected               = "API_KEY_REJECTED"
+	ProviderUnreachable          = "PROVIDER_UNREACHABLE"
+	ModelsUnsupported            = "MODELS_UNSUPPORTED"
+	ProtocolUnsupported          = "PROTOCOL_UNSUPPORTED"
+	ConversionPortUnavailable    = "CONVERSION_PORT_UNAVAILABLE"
+	ConversionVerificationFailed = "CONVERSION_VERIFICATION_FAILED"
+	ConversionRollbackFailed     = "CONVERSION_ROLLBACK_FAILED"
+	Timeout                      = "TIMEOUT"
+	InternalError                = "INTERNAL_ERROR"
 	// UpdateNotInstallable marks a downloaded update the helper cannot swap
 	// over the installed application. Distinct from InternalError because the
 	// only way forward is a manual download, and the interface has to say so.
@@ -45,20 +48,23 @@ const (
 
 // ExitCodes preserves the numeric codes included in existing error payloads.
 var ExitCodes = map[string]int{
-	InvalidRequest:      2,
-	PrerequisiteMissing: 3,
-	AgentInstallFailed:  4,
-	AgentPackageMissing: 3,
-	AgentNPMMismatch:    3,
-	AgentNPMPermission:  3,
-	AgentNPMFailed:      10,
-	ConfigWriteFailed:   5,
-	APIKeyRejected:      6,
-	ProviderUnreachable: 6,
-	ModelsUnsupported:   6,
-	ProtocolUnsupported: 7,
-	Timeout:             8,
-	InternalError:       10,
+	InvalidRequest:               2,
+	PrerequisiteMissing:          3,
+	AgentInstallFailed:           4,
+	AgentPackageMissing:          3,
+	AgentNPMMismatch:             3,
+	AgentNPMPermission:           3,
+	AgentNPMFailed:               10,
+	ConfigWriteFailed:            5,
+	APIKeyRejected:               6,
+	ProviderUnreachable:          6,
+	ModelsUnsupported:            6,
+	ProtocolUnsupported:          7,
+	ConversionPortUnavailable:    10,
+	ConversionVerificationFailed: 6,
+	ConversionRollbackFailed:     5,
+	Timeout:                      8,
+	InternalError:                10,
 	// Shares InternalError's exit code: this is an environment failure with no
 	// distinct CLI contract, and the numeric codes in existing payloads are
 	// pinned by tests.
