@@ -100,6 +100,28 @@ func TestFetchMarketplaceShowcaseReturnsUpstreamBody(t *testing.T) {
 	}
 }
 
+func TestDiscoverSkillHubMCPUsesOnlySkillHubAPI(t *testing.T) {
+	var requested []string
+	core := marketplaceCore(t, func(request *http.Request) (*http.Response, error) {
+		requested = append(requested, request.URL.String())
+		if request.URL.Hostname() != "api.skillhub.cn" {
+			t.Fatalf("unexpected MCP source host: %s", request.URL.Hostname())
+		}
+		return marketplaceResponse(http.StatusOK, `{"total":1,"items":[{"slug":"demo","name":"Demo MCP","status":"visible"}]}`), nil
+	})
+
+	result, err := core.DiscoverMarketplaceSources(context.Background(), MarketplaceDiscoverOptions{Source: "skillhub-mcp", Limit: 50})
+	if err != nil {
+		t.Fatalf("discover SkillHub MCP: %v", err)
+	}
+	if len(requested) != 1 || len(result.Items) != 1 {
+		t.Fatalf("requests=%v items=%+v", requested, result.Items)
+	}
+	if result.Sources[0].ID != "skillhub-mcp" || result.Items[0].Source != "skillhub-mcp" || result.Items[0].SourceLabel != "SkillHub MCP" {
+		t.Fatalf("unexpected source identity: status=%+v item=%+v", result.Sources[0], result.Items[0])
+	}
+}
+
 func TestFetchMarketplaceSkillFileReturnsLatestSkillMarkdown(t *testing.T) {
 	var requested *http.Request
 	core := marketplaceCore(t, func(request *http.Request) (*http.Response, error) {

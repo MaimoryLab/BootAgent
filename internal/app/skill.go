@@ -127,28 +127,11 @@ func (u *UseCases) eligibleSkillAgents() (map[string]catalog.Agent, error) {
 	if err != nil {
 		return nil, err
 	}
-	lookup := u.status.Lookup
-	if lookup == nil && u.runner != nil {
-		lookup = u.runner.LookPath
-	}
-	osID := platform.For(u.status.Platform.OS, u.status.Platform.Arch).OS
 	result := map[string]catalog.Agent{}
 	for id, agent := range manifest.Agents {
-		if agent.SkillsPath == "" || agent.Command == "" || lookup == nil || !contains(agent.Platforms, osID) {
-			continue
+		if agent.SkillsPath != "" && u.eligibleSkillAgent(context.Background(), id, agent) {
+			result[id] = agent
 		}
-		if _, ok := lookup(agent.Command); !ok {
-			continue
-		}
-		root := skillPath(u.status.Home, u.status.Platform.OS, agent)
-		if info, statErr := os.Lstat(root); statErr == nil {
-			if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 || hasSymlinkComponent(u.status.Home, root) {
-				continue
-			}
-		} else if !os.IsNotExist(statErr) {
-			continue
-		}
-		result[id] = agent
 	}
 	return result, nil
 }

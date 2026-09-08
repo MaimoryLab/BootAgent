@@ -320,6 +320,7 @@ export function AgentProfilePage() {
       ) : null}
 
       {profiles.length ? (
+        <>
         <div className="profile-list desktop-profile-list">
           {profiles.map((profile) => {
             const usable = desktopProfileUsable(status, profile, app);
@@ -336,34 +337,30 @@ export function AgentProfilePage() {
                     common change -- same Profile, different model -- costs no
                     trip through the editor. The others stay one line of text;
                     a picker on every card would be a wall of inputs. */}
-                {active && !isConverterID(profile.id) ? (
-                  <div className="profile-choice-model" onClick={(event) => event.stopPropagation()}>
-                    <ProviderModelPicker
-                      key={`${profile.id}:${profile.model ?? ""}`}
-                      provider={profile.provider}
-                      protocol={profile.protocol || protocol}
-                      hasKey={Boolean(status.providers[profile.provider]?.has_key)}
-                      value={modelDraft ?? profile.model ?? ""}
-                      // Typing only records; the write happens on blur. There is
-                      // no way to tell a list pick from a keystroke here -- both
-                      // arrive as onChange -- so committing on change would write
-                      // a Profile per letter.
-                      onChange={setModelDraft}
-                      onBlur={() => { if (modelDraft !== null) void commitModel(profile, modelDraft); }}
-                      inputId={`agent-profile-inline-model-${profile.id}`}
-                      inputLabel={t("模型")}
-                      hint={savingModel ? t("正在保存模型") : undefined}
-                    />
-                  </div>
-                ) : (
-                  <p>{status.providers[profile.provider]?.name || profile.provider} · {profile.model || t("未指定模型")}</p>
-                )}
+                <p>{status.providers[profile.provider]?.name || profile.provider} · {profile.model || t("未指定模型")}</p>
                 {!usable ? <small className="profile-key-hint">{t("这个配置模版还缺少模型服务 Key 或模型")}</small> : null}
                 {!isConverterID(profile.id) ? <button className="icon-button" type="button" onClick={(event) => { event.stopPropagation(); openEdit(profile); }} aria-label={t("编辑 {name}", { name: profile.label })} title={t("编辑")}><Pencil size={14} /></button> : null}
               </article>
             );
           })}
         </div>
+        {selected && !isConverterID(selected.id) ? (
+          <section className="profile-model-panel">
+            <header><strong>{t("编辑 {name}", { name: displayProfileName(selected) })}</strong>{savingModel ? <small>{t("正在保存模型")}</small> : null}</header>
+            <ProviderModelPicker
+              key={`${selected.id}:${selected.model ?? ""}`}
+              provider={selected.provider}
+              protocol={selected.protocol || protocol}
+              hasKey={Boolean(status.providers[selected.provider]?.has_key)}
+              value={modelDraft ?? selected.model ?? ""}
+              onChange={setModelDraft}
+              onBlur={() => { if (modelDraft !== null) void commitModel(selected, modelDraft); }}
+              inputId={`agent-profile-model-${selected.id}`}
+              inputLabel={t("模型")}
+            />
+          </section>
+        ) : null}
+        </>
       ) : (
         <div className="empty-overview">
           <strong>{t("还没有可用的配置模版")}</strong>

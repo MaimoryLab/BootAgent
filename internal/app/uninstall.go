@@ -19,15 +19,17 @@ import (
 // AgentUninstallResult reports the package removed without implying that user
 // configuration, Profiles, Providers, or conversation data were deleted.
 type AgentUninstallResult struct {
-	Agent   string `json:"agent"`
-	Package string `json:"package"`
-	Command string `json:"command"`
+	Agent       string   `json:"agent"`
+	Package     string   `json:"package"`
+	Command     string   `json:"command"`
+	RemovedData []string `json:"removedData,omitempty"`
 }
 
 type AgentUninstallOptions struct {
 	AllowCrossEnvironment bool
 	InstallationID        string
 	InstallationIDs       []string
+	RemoveUserData        bool
 }
 
 // UninstallAgent removes one npm-managed Agent executable. User-owned state is
@@ -56,7 +58,7 @@ func (u *UseCases) UninstallAgentWithOptions(ctx context.Context, agentID string
 	if len(options.InstallationIDs) > 0 {
 		var commands []string
 		for _, installationID := range options.InstallationIDs {
-			result, uninstallErr := u.UninstallAgentWithOptions(ctx, agentID, AgentUninstallOptions{AllowCrossEnvironment: options.AllowCrossEnvironment, InstallationID: installationID}, listeners...)
+			result, uninstallErr := u.UninstallAgentWithOptions(ctx, agentID, AgentUninstallOptions{AllowCrossEnvironment: options.AllowCrossEnvironment, InstallationID: installationID, RemoveUserData: options.RemoveUserData}, listeners...)
 			if uninstallErr != nil {
 				return AgentUninstallResult{}, uninstallErr
 			}
@@ -64,7 +66,15 @@ func (u *UseCases) UninstallAgentWithOptions(ctx context.Context, agentID string
 				commands = append(commands, result.Command)
 			}
 		}
-		return AgentUninstallResult{Agent: agentID, Package: agent.Package.Name, Command: strings.Join(commands, " && ")}, nil
+		result := AgentUninstallResult{Agent: agentID, Package: agent.Package.Name, Command: strings.Join(commands, " && ")}
+		if options.RemoveUserData {
+			removed, cleanupErr := u.removeAgentUserData(ctx, agentID, agent)
+			if cleanupErr != nil {
+				return AgentUninstallResult{}, cleanupErr
+			}
+			result.RemovedData = removed
+		}
+		return result, nil
 	}
 	if options.InstallationID == "" {
 		for _, installation := range u.discoverAgentInstallations(ctx, agentID, agent) {
@@ -92,10 +102,18 @@ func (u *UseCases) UninstallAgentWithOptions(ctx context.Context, agentID string
 		}
 	}
 	if manager == "uv" {
-		return u.uninstallUVAgent(ctx, agentID, agent, listeners...)
+		result, err := u.uninstallUVAgent(ctx, agentID, agent, listeners...)
+		if err == nil && options.RemoveUserData {
+			result.RemovedData, err = u.removeAgentUserData(ctx, agentID, agent)
+		}
+		return result, err
 	}
 	if manager == "official-script" {
-		return u.uninstallOfficialScriptAgent(ctx, agentID, agent)
+		result, err := u.uninstallOfficialScriptAgent(ctx, agentID, agent)
+		if err == nil && options.RemoveUserData {
+			result.RemovedData, err = u.removeAgentUserData(ctx, agentID, agent)
+		}
+		return result, err
 	}
 	if manager != "npm" {
 		return AgentUninstallResult{}, oneerrors.New(oneerrors.InvalidRequest, "Unsupported Agent installation source: "+manager)
@@ -184,7 +202,11 @@ func (u *UseCases) UninstallAgentWithOptions(ctx context.Context, agentID string
 		}
 		return AgentUninstallResult{}, oneerrors.New(oneerrors.AgentNPMFailed, fmt.Sprintf("npm failed while uninstalling %s: command exited with code %d", agent.Name, result.ExitCode), oneerrors.WithStatus(500), oneerrors.WithRetryable(true))
 	}
-	return AgentUninstallResult{Agent: agentID, Package: agent.Package.Name, Command: strings.Join(args, " ")}, nil
+	uninstallResult := AgentUninstallResult{Agent: agentID, Package: agent.Package.Name, Command: strings.Join(args, " ")}
+	if options.RemoveUserData {
+		uninstallResult.RemovedData, err = u.removeAgentUserData(ctx, agentID, agent)
+	}
+	return uninstallResult, err
 }
 
 func findAlternativePackage(agent catalog.Agent, installationID string) (catalog.Package, bool) {
@@ -330,6 +352,42 @@ func officialInstallMarkerPresent(agentID, root string) bool {
 		return err == nil
 	}
 	return false
+}
+
+func (u *UseCases) removeAgentUserData(ctx context.Context, agentID string, agent catalog.Agent) ([]string, error) {
+	if err := contextError(ctx, "Agent data cleanup request was cancelled"); err != nil {
+		return nil, err
+	}
+	paths := agent.DataPaths
+	if u.status.Platform.OS == "windows" && len(agent.WindowsDataPaths) > 0 {
+		paths = agent.WindowsDataPaths
+	}
+	removed := make([]string, 0, len(paths))
+	for _, relative := range paths {
+		relative = filepath.Clean(filepath.FromSlash(strings.TrimSpace(relative)))
+		if relative == "." || filepath.IsAbs(relative) || strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
+			return nil, oneerrors.New(oneerrors.InvalidRequest, "Refusing to clean an unsafe data path for "+agentID)
+		}
+		target := filepath.Join(u.status.Home, relative)
+		if !safeUserPath(u.status.Home, target) || hasSymlinkComponent(u.status.Home, target) {
+			return nil, oneerrors.New(oneerrors.InvalidRequest, "Refusing to clean an unsafe data path for "+agentID)
+		}
+		info, err := os.Lstat(target)
+		if os.IsNotExist(err) {
+			continue
+		}
+		if err != nil {
+			return nil, oneerrors.New(oneerrors.AgentInstallFailed, "Unable to inspect data for "+agent.Name, oneerrors.WithStatus(500), oneerrors.WithCause(err))
+		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			return nil, oneerrors.New(oneerrors.InvalidRequest, "Refusing to clean a symlinked data path for "+agent.Name)
+		}
+		if err := os.RemoveAll(target); err != nil {
+			return nil, oneerrors.New(oneerrors.AgentInstallFailed, "Unable to remove data for "+agent.Name, oneerrors.WithStatus(500), oneerrors.WithCause(err))
+		}
+		removed = append(removed, target)
+	}
+	return removed, nil
 }
 
 func pathWithin(root, candidate string) bool {

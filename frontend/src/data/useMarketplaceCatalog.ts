@@ -9,7 +9,7 @@ import { recordMarketplaceEvent } from "../utils/marketplace-telemetry";
 export { normalizeShowcaseSkill, type ShowcaseSkill } from "./marketplace-source-adapters";
 
 const PAGE_LIMIT = 50;
-const DEFAULT_SOURCES = ["skillhub", "mcpservers"];
+const DEFAULT_SOURCES = ["skillhub", "skillhub-mcp"];
 const DYNAMIC_SOURCES = new Set(DEFAULT_SOURCES);
 const REFRESH_INTERVAL_MS = 10 * 60 * 1000;
 // Local facets (scene, kind and API-key requirement) are applied after a
@@ -66,11 +66,8 @@ export function mergeMarketplaceItems(snapshot: MarketplaceItem[], dynamic: Mark
   const seenIdentities = new Set<string>();
   const items = [...snapshot, ...dynamic].filter((item) => {
     if (!item.id || seenIDs.has(item.id)) return false;
-    // A source/name pair is not a safe identity for MCP Servers: the public
-    // directory legitimately contains several implementations with the same
-    // display name (for example multiple Airtable servers). Prefer a stable
-    // source URL/repository when one is available and fall back to the legacy
-    // name key only for records that provide no identity metadata.
+    // Prefer a stable source URL/repository when one is available and fall
+    // back to the legacy name key only for records with no identity metadata.
     const stableURL = [item.repositoryUrl, item.documentationUrl, item.sourceUrl, item.readmeUrl]
       .find((value) => Boolean(value?.trim()))?.trim().toLocaleLowerCase();
     const identity = stableURL

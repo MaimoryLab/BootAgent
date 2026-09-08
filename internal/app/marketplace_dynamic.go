@@ -80,7 +80,8 @@ type marketplacePage struct {
 	Err         error
 }
 
-var dynamicMarketplaceSources = []string{"skillhub", "mcpservers"}
+var dynamicMarketplaceSources = []string{"skillhub", "skillhub-mcp"}
+var supportedMarketplaceSources = []string{"skillhub", "skillhub-mcp", "mcpservers"}
 
 // Requests for the two sources run concurrently in the renderer. Keep the
 // network outside this lock, but serialize cache read/merge/write so a slow
@@ -149,7 +150,7 @@ func (u *UseCases) DiscoverMarketplaceSources(ctx context.Context, options Marke
 
 func normalizeMarketplaceOptions(options MarketplaceDiscoverOptions) (MarketplaceDiscoverOptions, error) {
 	options.Source = strings.TrimSpace(options.Source)
-	if options.Source != "" && !containsString(dynamicMarketplaceSources, options.Source) {
+	if options.Source != "" && !containsString(supportedMarketplaceSources, options.Source) {
 		return MarketplaceDiscoverOptions{}, oneerrors.New(oneerrors.InvalidRequest, "Unsupported marketplace source")
 	}
 	options.Query = strings.TrimSpace(options.Query)
@@ -209,7 +210,11 @@ func (u *UseCases) discoverMarketplacePage(ctx context.Context, source string, o
 	switch source {
 	case "skillhub":
 		page.Items, page.Total, etag, page.Fresh, page.NotModified, err = u.fetchSkillHubPage(ctx, options, etag)
+	case "skillhub-mcp":
+		page.Items, page.Total, etag, page.Fresh, page.NotModified, err = u.fetchSkillHubMCPPage(ctx, options, etag)
 	case "mcpservers":
+		// Kept as an explicit compatibility source only. Default discovery never
+		// selects this Cloudflare-protected HTML directory.
 		page.Items, page.Total, etag, page.Fresh, page.NotModified, err = u.fetchMCPPage(ctx, options, etag)
 	default:
 		err = fmt.Errorf("unknown marketplace source %q", source)
@@ -301,10 +306,9 @@ func (u *UseCases) fetchSkillHubPage(ctx context.Context, options MarketplaceDis
 	return items, total, responseETag, true, false, err
 }
 
-// fetchSkillHubMCPPage keeps the SkillHub API adapter available as a
-// supplemental source and as a fallback when the MCP Servers directory is
-// unavailable. The public MCP Servers directory is composed in
-// fetchMCPPage (marketplace_mcpservers.go).
+// fetchSkillHubMCPPage reads SkillHub's public MCP catalog. It is the default
+// MCP source because mcpservers.org protects its HTML directory with a
+// browser-only Cloudflare challenge and does not publish a stable API.
 func (u *UseCases) fetchSkillHubMCPPage(ctx context.Context, options MarketplaceDiscoverOptions, etag string) ([]catalog.MarketplaceItem, int, string, bool, bool, error) {
 	needle := strings.ToLower(strings.TrimSpace(options.Query))
 	if needle == "" {
@@ -753,7 +757,7 @@ func normalizeMCPServerRecord(server mcpServerRecord) (catalog.MarketplaceItem, 
 		ID: "mcp-" + slug, Category: "mcp-server", Type: "installable", Name: name,
 		Description: description, DescriptionEn: compactMarketplaceText(server.Summary, 4000),
 		Icon: "Puzzle", IconColor: "oklch(55% 0.15 160)", Tags: tags, Scene: "integration",
-		Source: "mcpservers", SourceLabel: "MCP Servers", SourceURL: firstNonEmpty(sourceURL, homepage, repositoryURL, docs),
+		Source: "skillhub-mcp", SourceLabel: "SkillHub MCP", SourceURL: firstNonEmpty(sourceURL, homepage, repositoryURL, docs),
 		RepositoryURL: repositoryURL, DocumentationURL: docs, ReadmeURL: readmeURL,
 		IconURL: safeMarketplaceHTTPSURL(server.IconURL), ExternalURL: firstNonEmpty(homepage, repositoryURL, sourceURL, docs),
 		InstallableKind: "mcp", InstallPrompt: mcpInstallPrompt(name, npmPackageName(homepage), homepage, readmeURL),

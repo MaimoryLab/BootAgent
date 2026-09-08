@@ -433,4 +433,21 @@ describe("the update affordance in the row", () => {
     await waitFor(() => expect(bridge.uninstallAgent).toHaveBeenCalledWith("codex"));
     await waitFor(() => expect(onChanged).toHaveBeenCalledOnce());
   });
+
+  it("requires a second confirmation before full cleanup", async () => {
+    const onChanged = vi.fn();
+    bridge.question
+      .mockResolvedValueOnce("卸载并删除全部数据")
+      .mockResolvedValueOnce("永久删除并卸载");
+    renderRow({}, "团队 PPIO", {}, onChanged);
+    await userEvent.click(screen.getByRole("button", { name: "Codex 更多操作" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "卸载 Agent" }));
+
+    await waitFor(() => expect(bridge.uninstallAgent).toHaveBeenCalledWith("codex", false, "", [], true));
+    expect(bridge.question).toHaveBeenLastCalledWith(expect.objectContaining({
+      Title: "确认永久删除数据",
+      Message: expect.stringMatching(/永久删除.*无法找回/),
+    }));
+    await waitFor(() => expect(onChanged).toHaveBeenCalledOnce());
+  });
 });

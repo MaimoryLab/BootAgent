@@ -34,8 +34,8 @@ export function MarketplaceRecommendationHistoryDialog({ onDismiss }: { onDismis
       {records.length === 0 && !failure ? <p className="marketplace-recommend-status">{t("暂无推荐历史")}</p> : null}
       <ul className="marketplace-history-list">
         {records.map((record) => (
-          <li key={record.id} className="marketplace-history-card" role="button" tabIndex={0} onClick={() => navigate(`/marketplace/recommendations/${encodeURIComponent(record.id)}`, { state: { returnTo: `${location.pathname}${location.search}` } })} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); navigate(`/marketplace/recommendations/${encodeURIComponent(record.id)}`, { state: { returnTo: `${location.pathname}${location.search}` } }); } }}>
-            <div><strong>{record.need}</strong><small>{new Date(record.created_at).toLocaleString()} · {(record.results ?? []).length} {t("个结果")}</small></div>
+          <li key={record.id} className="marketplace-history-card">
+            <a className="marketplace-history-link" href={`/marketplace/recommendations/${encodeURIComponent(record.id)}`} onClick={(event) => { event.preventDefault(); navigate(`/marketplace/recommendations/${encodeURIComponent(record.id)}`, { state: { returnTo: `${location.pathname}${location.search}` } }); }}><strong>{record.need}</strong><small>{new Date(record.created_at).toLocaleString()} · {(record.results ?? []).length} {t("个结果")}</small></a>
             <div className="marketplace-history-actions">
               <span className="marketplace-history-result-count">{(record.results ?? []).length} {t("个结果")}</span>
               <button className="icon-button" type="button" onClick={(event) => { event.stopPropagation(); void remove(record.id); }} title={t("删除")} aria-label={`${t("删除")} ${record.need}`}><Trash2 size={14} /></button>

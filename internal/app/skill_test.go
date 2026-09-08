@@ -243,6 +243,27 @@ func skillTestCore(home string) *UseCases {
 	})
 }
 
+func TestEligibleSkillsUsesDiscoveredExecutableWhenLookupMisses(t *testing.T) {
+	home := t.TempDir()
+	bin := t.TempDir()
+	executable := filepath.Join(bin, "codex")
+	if err := os.WriteFile(executable, []byte("#!/bin/sh\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	core := NewUseCases(StatusOptions{
+		Home: home, Platform: platform.Info{OS: "darwin", Arch: "arm64"},
+		Environment: map[string]string{"PATH": bin},
+		Lookup:      func(string) (string, bool) { return "", false },
+	})
+	eligible, err := core.eligibleSkillAgents()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := eligible["codex"]; !ok {
+		t.Fatalf("codex was excluded despite discovered executable: %#v", eligible)
+	}
+}
+
 func writeTestSkill(t *testing.T, root, id, body string) {
 	t.Helper()
 	writeTestSkillAt(t, filepath.Join(root, id), body)

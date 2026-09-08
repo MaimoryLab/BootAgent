@@ -235,19 +235,29 @@ export function AgentManageRow({
       setLocalUpdating(false);
     }
   };
-  const uninstall = async (selectedIDs?: string[]) => {
+	const uninstall = async (selectedIDs?: string[]) => {
     if (installations.length > 1 && !selectedIDs) {
       setSelectedInstallationIDs(installations.filter((item) => item.canUninstall).map((item) => item.id));
       setUninstallPickerOpen(true);
       return;
     }
-    const confirmLabel = t("卸载 Agent");
-    const choice = await Dialogs.Question({
-      Title: confirmLabel,
-      Message: t("确定卸载「{name}」吗？只会移除 Agent 程序，配置模版、模型服务、配置文件和对话数据都会保留。", { name: catalog?.name || agentId }),
-      Buttons: [{ Label: confirmLabel }, { Label: t("取消"), IsCancel: true }],
-    }).catch(() => "");
-    if (choice !== confirmLabel || !startTask({
+		const confirmLabel = t("卸载 Agent");
+		const choice = await Dialogs.Question({
+			Title: confirmLabel,
+			Message: t("确定卸载「{name}」吗？只会移除 Agent 程序，配置模版、模型服务、配置文件和对话数据都会保留。", { name: catalog?.name || agentId }),
+			Buttons: [{ Label: confirmLabel }, { Label: t("卸载并删除全部数据") }, { Label: t("取消"), IsCancel: true }],
+		}).catch(() => "");
+		if (![confirmLabel, t("卸载并删除全部数据")].includes(choice)) return;
+		const removeUserData = choice === t("卸载并删除全部数据");
+		if (removeUserData) {
+			const destructiveChoice = await Dialogs.Question({
+				Title: t("确认永久删除数据"),
+				Message: t("全量清理将永久删除配置文件、凭据、会话和对话数据，删除后无法找回。请确认你已完成备份。"),
+				Buttons: [{ Label: t("永久删除并卸载") }, { Label: t("取消"), IsCancel: true }],
+			}).catch(() => "");
+			if (destructiveChoice !== t("永久删除并卸载")) return;
+		}
+		if (!startTask({
       id: uninstallTaskID,
       kind: "uninstall",
       target: agentId,
@@ -260,7 +270,7 @@ export function AgentManageRow({
 	try {
 		const runUninstall = async (allowCrossEnvironment: boolean) => {
 				const ids = selectedIDs ?? (installations.length === 1 ? [installations[0].id] : []);
-				const request = ids.length ? api.uninstallAgent(agentId, allowCrossEnvironment, "", ids) : (allowCrossEnvironment || installationID ? api.uninstallAgent(agentId, allowCrossEnvironment, installationID) : api.uninstallAgent(agentId));
+				const request = ids.length ? api.uninstallAgent(agentId, allowCrossEnvironment, "", ids, removeUserData) : (allowCrossEnvironment || installationID || removeUserData ? api.uninstallAgent(agentId, allowCrossEnvironment, installationID, [], removeUserData) : api.uninstallAgent(agentId));
 			setTaskCanceller(uninstallTaskID, taskCanceller(request));
 			await request;
 		};
@@ -276,7 +286,7 @@ export function AgentManageRow({
 			if (crossChoice !== t("允许并继续")) throw error;
 			await runUninstall(true);
 		}
-      finishTask(uninstallTaskID, { kind: "success", message: t("已卸载 {name}，配置和对话数据已保留", { name: catalog?.name || agentId }) });
+		finishTask(uninstallTaskID, { kind: "success", message: removeUserData ? t("已卸载 {name}，全部数据已删除", { name: catalog?.name || agentId }) : t("已卸载 {name}，配置和对话数据已保留", { name: catalog?.name || agentId }) });
       await onChanged?.();
     } catch (error) {
       finishTask(uninstallTaskID, { kind: "failure", message: describeFailure(error, t("无法卸载 Agent"), t).message });

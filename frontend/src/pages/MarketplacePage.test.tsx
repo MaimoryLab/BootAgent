@@ -201,7 +201,7 @@ describe("MarketplacePage category URL", () => {
       </I18nProvider>,
     );
 
-    await user.click(screen.getByRole("button", { name: "Ultracode Skill" }));
+    await user.click(screen.getByRole("link", { name: "Ultracode Skill" }));
     expect(readMarketplaceQuerySession()).toEqual({
       returnTo: "/marketplace?q=ultracode&category=plugin&kind=skill",
       scrollTop: 0,
@@ -223,7 +223,7 @@ describe("MarketplacePage category URL", () => {
     expect(screen.queryByRole("tab", { name: /Content and guides/ })).toBeNull();
 
     await user.click(screen.getByRole("button", { name: "Tool type" }));
-    const typeOptions = screen.getByRole("listbox");
+    const typeOptions = screen.getByRole("group", { name: "Tool type" });
     expect(within(typeOptions).getByText("Plugins")).toBeTruthy();
     expect(within(typeOptions).queryByText("External tools")).toBeNull();
     expect(within(typeOptions).queryByText("Content")).toBeNull();
@@ -246,6 +246,21 @@ describe("MarketplacePage category URL", () => {
     const buttons = within(filterBar).getAllByRole("button");
     expect(buttons[0].textContent).toBe("Clear all filters");
     expect(buttons[1].textContent).toContain("Tool type");
+  });
+
+  it("gives each filter trigger a unique controlled panel", async () => {
+    const user = userEvent.setup();
+    render(
+      <I18nProvider>
+        <MemoryRouter initialEntries={["/marketplace"]}>
+          <MarketplacePage />
+        </MemoryRouter>
+      </I18nProvider>,
+    );
+    const trigger = screen.getByRole("button", { name: "Tool type" });
+    expect(trigger.getAttribute("aria-controls")).toBe("marketplace-filter-kind");
+    await user.click(trigger);
+    expect(screen.getByRole("group", { name: "Tool type" }).id).toBe("marketplace-filter-kind");
   });
 
   it("uses an installed local Agent to recommend only catalog tools", async () => {

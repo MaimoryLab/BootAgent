@@ -26,6 +26,8 @@ type Agent struct {
 	EnvVars              map[string]string `json:"env_vars"`
 	ConfigPath           string            `json:"config_path"`
 	WindowsConfigPath    string            `json:"windows_config_path"`
+	DataPaths            []string          `json:"data_paths,omitempty"`
+	WindowsDataPaths     []string          `json:"windows_data_paths,omitempty"`
 	MCPAdapter           string            `json:"mcp_adapter,omitempty"`
 	MCPSection           string            `json:"mcp_section,omitempty"`
 	MCPConfigPath        string            `json:"mcp_config_path,omitempty"`
