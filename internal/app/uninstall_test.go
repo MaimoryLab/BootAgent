@@ -74,6 +74,18 @@ func TestUninstallAgentCanPermanentlyRemoveDeclaredUserData(t *testing.T) {
 	}
 }
 
+func TestUninstallAgentRejectsUndiscoveredInstallationID(t *testing.T) {
+	runner := &installAppRunner{paths: map[string]string{"npm": "/fake/npm", "codex": "/fake/codex"}}
+	core := NewUseCases(StatusOptions{Home: t.TempDir(), Platform: platform.For("linux", "amd64"), Runner: runner})
+	_, err := core.UninstallAgentWithOptions(context.Background(), "codex", AgentUninstallOptions{InstallationID: "npm:/outside-prefix"})
+	if err == nil || oneerrors.As(err).Code != oneerrors.InvalidRequest {
+		t.Fatalf("undiscovered installation ID error = %v, want %s", err, oneerrors.InvalidRequest)
+	}
+	if len(runner.calls) != 0 {
+		t.Fatalf("forged installation ID ran commands: %v", runner.calls)
+	}
+}
+
 func TestUninstallAgentRejectsUnsupportedOrMissingAgents(t *testing.T) {
 	tests := []struct {
 		name    string

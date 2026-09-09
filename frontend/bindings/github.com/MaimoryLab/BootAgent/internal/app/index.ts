@@ -11,6 +11,8 @@ export type {
     ConversationMigrationResult,
     ConversionConfig,
     DesktopAgentActionResult,
+    DesktopAgentConversionResult,
+    DesktopAgentProfileAssessment,
     DesktopAgentProfileResult,
     DesktopAgentStatus,
     DetectedConfig,

@@ -75,6 +75,20 @@ export function ConversionPage() {
     finally { setSaving(false); }
   };
 
+  const regenerateKey = async () => {
+    setSaving(true);
+    setFailure("");
+    try {
+      const saved = await api.regenerateConversionKey();
+      setConfig(saved);
+      void refreshStatus();
+    } catch (error) {
+      setFailure(describeFailure(error, t("无法重新生成本地 Key"), t).message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const profiles = (status?.profiles ?? []).filter((profile) => profile.protocol === "openai" && profile.model);
   // Only auto-configured Agents can be pointed anywhere, and an Agent already
   // speaking Chat Completions has nothing to gain: the adapter converts *to* that
@@ -177,14 +191,17 @@ export function ConversionPage() {
                 />
               </div>
               <div className="field-stack">
-                <label htmlFor="conversion-key">{t("本地 API Key")}</label>
-                <input
-                  id="conversion-key"
-                  type="password"
-                  value={config.api_key}
-                  onChange={(event) => setConfig({ ...config, api_key: event.target.value })}
-                  autoComplete="off"
-                />
+                <label>{t("本地鉴权")}</label>
+                <div className="conversion-key-status">
+                  <StatusBadge tone={config.has_api_key ? "success" : "neutral"}>
+                    {config.has_api_key ? t("已安全生成") : t("启动时自动生成")}
+                  </StatusBadge>
+                  {config.has_api_key ? (
+                    <button className="button button-secondary" type="button" onClick={() => void regenerateKey()} disabled={saving}>
+                      {t("重新生成 Key")}
+                    </button>
+                  ) : null}
+                </div>
               </div>
               <div className="field-stack">
                 <label htmlFor="conversion-anthropic-model">{t("Anthropic 模型")}</label>

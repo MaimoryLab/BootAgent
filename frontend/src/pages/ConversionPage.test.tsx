@@ -14,7 +14,7 @@ beforeEach(() => {
   vi.spyOn(api, "getConversion").mockResolvedValue({
     enabled: false,
     listen: "127.0.0.1:8787",
-    api_key: "",
+    has_api_key: false,
     target_profile: "",
     anthropic_model: "claude-sonnet-5",
     responses_model: "gpt-5.6-sol",
@@ -55,5 +55,18 @@ describe("ConversionPage", () => {
     );
 
     expect(await screen.findByRole("link", { name: "创建配置模板" })).toHaveAttribute("href", "/profiles");
+  });
+
+  it("does not expose a local API key input", async () => {
+    render(
+      <MemoryRouter>
+        <ConversionPage />
+      </MemoryRouter>,
+    );
+
+    await screen.findByText("适配服务已停止");
+    fireEvent.click(screen.getByRole("button", { name: "高级设置" }));
+    expect(screen.queryByLabelText("本地 API Key")).toBeNull();
+    expect(screen.getByText("启动时自动生成")).toBeTruthy();
   });
 });

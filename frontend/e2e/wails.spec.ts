@@ -194,6 +194,41 @@ test("a discovered model can be selected in the Profile editor", async ({ page }
   await expect(page.getByTestId(/^profile-/).first()).toContainText("bootagent-e2e-model");
 });
 
+test("Claude Desktop adapts a Chat Completions Profile after one confirmation", async ({ page }) => {
+  await page.goto("/#/providers");
+  await page.getByRole("button", { name: "编辑 PPIO" }).click();
+  await page.getByLabel("OpenAI 兼容 Base URL").fill("http://127.0.0.1:34124/v1");
+  await page.getByLabel("API Key").fill("e2e-key");
+  await page.getByRole("button", { name: "保存", exact: true }).click();
+
+  await page.goto("/#/profiles");
+  await page.getByRole("button", { name: "新增配置模版" }).click();
+  await page.getByLabel("配置模版 ID").fill("claude-desktop-e2e-chat");
+  await page.getByLabel("名称").fill("Claude Desktop E2E Chat");
+  await page.getByRole("combobox", { name: "API 类型" }).click();
+  await page.getByRole("option", { name: "OpenAI Chat Completions" }).click();
+  await page.getByRole("textbox", { name: "模型", exact: true }).fill("bootagent-e2e-model");
+  await page.getByRole("button", { name: "保存配置模版" }).click();
+
+  await page.goto("/#/conversion");
+  await page.getByRole("combobox", { name: "请求最终发往" }).click();
+  await page.getByRole("option", { name: "Claude Desktop E2E Chat" }).click();
+  await page.getByRole("button", { name: "高级设置" }).click();
+  await page.getByLabel("监听地址").fill("127.0.0.1:34125");
+  await page.getByRole("button", { name: "保存设置" }).click();
+
+  await page.goto("/#/agents/claude-desktop");
+  await page.getByLabel("选择 Claude Desktop E2E Chat").check();
+  await expect(page.getByText("该模型服务不能直接使用 Claude Desktop 所需的 Anthropic Messages。BootAgent 可以在本机转换请求格式。")).toBeVisible();
+  const apply = page.getByRole("button", { name: "启用协议适配并应用" });
+  await expect(apply).toBeEnabled();
+  page.once("dialog", (dialog) => void dialog.accept());
+  await apply.click();
+
+  await expect(page).toHaveURL(/#\/overview$/);
+  await expect(page.getByRole("heading", { name: "环境总览" })).toBeVisible();
+});
+
 test("Skills and MCP management lead to their marketplace categories", async ({ page }) => {
   const browserProblems: string[] = [];
   page.on("console", (message) => {

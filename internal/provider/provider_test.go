@@ -67,6 +67,20 @@ func TestEndpointNormalizers(t *testing.T) {
 			t.Errorf("AnthropicMessagesURL(%q) = %q, want %q", input, got, want)
 		}
 	}
+	clientBases := map[string]string{
+		"https://proxy.test":                     "https://proxy.test",
+		"https://proxy.test/v1":                  "https://proxy.test",
+		"https://proxy.test/messages":            "https://proxy.test",
+		"https://proxy.test/v1/messages":         "https://proxy.test",
+		"https://proxy.test/anthropic/v1":        "https://proxy.test/anthropic",
+		"https://proxy.test/anthropic/v1/":       "https://proxy.test/anthropic",
+		"https://proxy.test/custom-version-path": "https://proxy.test/custom-version-path",
+	}
+	for input, want := range clientBases {
+		if got := AnthropicClientBaseURL(input); got != want {
+			t.Errorf("AnthropicClientBaseURL(%q) = %q, want %q", input, got, want)
+		}
+	}
 }
 
 func TestProtocolAndModelProjection(t *testing.T) {

@@ -55,10 +55,19 @@ func (u *UseCases) UninstallAgentWithOptions(ctx context.Context, agentID string
 	if !ok || agent.Package == nil {
 		return AgentUninstallResult{}, oneerrors.New(oneerrors.InvalidRequest, "Agent has no managed installation source: "+agentID)
 	}
+	requestedInstallations := append([]string(nil), options.InstallationIDs...)
+	if options.InstallationID != "" {
+		requestedInstallations = append(requestedInstallations, options.InstallationID)
+	}
+	if len(requestedInstallations) > 0 {
+		if err := u.validateInstallationSelections(ctx, agentID, agent, requestedInstallations); err != nil {
+			return AgentUninstallResult{}, err
+		}
+	}
 	if len(options.InstallationIDs) > 0 {
 		var commands []string
 		for _, installationID := range options.InstallationIDs {
-			result, uninstallErr := u.UninstallAgentWithOptions(ctx, agentID, AgentUninstallOptions{AllowCrossEnvironment: options.AllowCrossEnvironment, InstallationID: installationID, RemoveUserData: options.RemoveUserData}, listeners...)
+			result, uninstallErr := u.UninstallAgentWithOptions(ctx, agentID, AgentUninstallOptions{AllowCrossEnvironment: options.AllowCrossEnvironment, InstallationID: installationID}, listeners...)
 			if uninstallErr != nil {
 				return AgentUninstallResult{}, uninstallErr
 			}
@@ -207,6 +216,39 @@ func (u *UseCases) UninstallAgentWithOptions(ctx context.Context, agentID string
 		uninstallResult.RemovedData, err = u.removeAgentUserData(ctx, agentID, agent)
 	}
 	return uninstallResult, err
+}
+
+// validateInstallationSelections binds destructive requests to installations
+// discovered by the backend. Wails callers are local, but the frontend is not
+// a trust boundary and must not be able to substitute an arbitrary npm prefix.
+func (u *UseCases) validateInstallationSelections(ctx context.Context, agentID string, agent catalog.Agent, requested []string) error {
+	discovered := make(map[string]AgentInstallation)
+	for _, installation := range u.discoverAgentInstallations(ctx, agentID, agent) {
+		discovered[installation.ID] = installation
+	}
+	seen := make(map[string]struct{}, len(requested))
+	for _, id := range requested {
+		id = strings.TrimSpace(id)
+		if id == "" {
+			return oneerrors.New(oneerrors.InvalidRequest, "Installation ID must not be empty")
+		}
+		if _, duplicate := seen[id]; duplicate {
+			return oneerrors.New(oneerrors.InvalidRequest, "Installation ID was selected more than once: "+id)
+		}
+		seen[id] = struct{}{}
+		installation, found := discovered[id]
+		if !found {
+			return oneerrors.New(oneerrors.InvalidRequest, "Installation was not discovered for this Agent: "+id)
+		}
+		if !installation.CanUninstall {
+			reason := installation.Reason
+			if reason == "" {
+				reason = "installation ownership could not be verified"
+			}
+			return oneerrors.New(oneerrors.InvalidRequest, "Installation cannot be safely uninstalled: "+reason)
+		}
+	}
+	return nil
 }
 
 func findAlternativePackage(agent catalog.Agent, installationID string) (catalog.Package, bool) {

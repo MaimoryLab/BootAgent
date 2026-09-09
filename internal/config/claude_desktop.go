@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+
+	"github.com/MaimoryLab/BootAgent/internal/provider"
 )
 
 const (
@@ -23,13 +25,23 @@ type claudeDesktopSnapshot struct {
 	exists, secret bool
 }
 
+// ClaudeDesktopManagedPaths lists every file changed by WriteClaudeDesktop so
+// a higher-level operation can include the writer in a larger transaction.
+func ClaudeDesktopManagedPaths(home, osID string) ([]string, error) {
+	paths, err := claudeDesktopConfigPaths(home, osID)
+	if err != nil {
+		return nil, err
+	}
+	return []string{paths.profile, paths.meta, paths.threep, paths.normal}, nil
+}
+
 // WriteClaudeDesktop activates one BootAgent-owned, transactional 3P profile.
 func (w Writer) WriteClaudeDesktop(ctx context.Context, baseURL, apiKey, model string, context1M bool) (string, error) {
 	paths, err := claudeDesktopConfigPaths(w.Home, w.OS)
 	if err != nil {
 		return "", err
 	}
-	baseURL, apiKey, model = strings.TrimSpace(baseURL), strings.TrimSpace(apiKey), strings.TrimSpace(model)
+	baseURL, apiKey, model = provider.AnthropicClientBaseURL(baseURL), strings.TrimSpace(apiKey), strings.TrimSpace(model)
 	if baseURL == "" || apiKey == "" {
 		return "", configError("Claude Desktop requires an Anthropic base URL and API key")
 	}

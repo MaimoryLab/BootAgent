@@ -14,6 +14,10 @@ vi.mock("../state/WizardContext", () => ({
   useWizard: () => ({ state: mockState, dispatch, refreshStatus }),
 }));
 
+vi.mock("../state/confirmDelete", () => ({
+  confirmAction: vi.fn(async () => true),
+}));
+
 let mockState: { status: StatusResponse | null; statusState: string };
 
 function profile(over: Partial<ProfileSummary> = {}): ProfileSummary {
@@ -65,6 +69,26 @@ function renderPage(profiles: ProfileSummary[]) {
   mockState = { status: statusWith(profiles), statusState: "success" };
   render(
     <MemoryRouter initialEntries={["/agents/codex"]}>
+      <Routes>
+        <Route path="/agents/:agentId" element={<AgentProfilePage />} />
+        <Route path="/overview" element={<h1>overview</h1>} />
+      </Routes>
+    </MemoryRouter>,
+  );
+}
+
+function renderClaudeDesktopPage(profiles: ProfileSummary[]) {
+  const status = statusWith(profiles);
+  status.desktopAgents = [{
+    id: "claude-desktop", name: "Claude Desktop", installed: true, supported: true,
+    version: "1.0.0", source: "application", protocol: "anthropic", profileAgentId: "claude-desktop", profileId: null,
+  }];
+  status.providers = {
+    "chat-only": { name: "Chat only", home: "", base_url: "https://chat.example/v1", has_key: true },
+  };
+  mockState = { status, statusState: "success" };
+  render(
+    <MemoryRouter initialEntries={["/agents/claude-desktop"]}>
       <Routes>
         <Route path="/agents/:agentId" element={<AgentProfilePage />} />
         <Route path="/overview" element={<h1>overview</h1>} />
@@ -185,5 +209,26 @@ describe("AgentProfilePage", () => {
     expect(screen.getAllByText("协议适配（Codex）")).toHaveLength(2);
     expect(screen.queryByText("BootAgent Converter responses")).toBeNull();
     expect(screen.getByRole("radio", { name: "选择 协议适配（Codex）" })).toBeTruthy();
+  });
+
+  it("offers one-confirmation protocol adaptation for a Chat Completions Profile", async () => {
+    vi.spyOn(api, "assessDesktopAgentProfile").mockResolvedValue({
+      agent: "claude-desktop", profileId: "chat-profile", compatibility: "convertible",
+      message: "convertible", upstreamVerified: true,
+    });
+    const configure = vi.spyOn(api, "configureDesktopAgentWithConversion").mockResolvedValue({
+      agent: "claude-desktop", profileId: "bootagent-converter-anthropic", profileAgentId: "claude-desktop",
+      message: "configured", compatibility: "convertible", conversionRunning: true,
+      localAuthVerified: true, upstreamVerified: true, agentConfigured: true, endToEndVerified: true,
+    });
+    renderClaudeDesktopPage([profile({
+      id: "chat-profile", label: "Chat Profile", provider: "chat-only", model: "model-a", protocol: "openai",
+    })]);
+
+    expect(await screen.findByText("该模型服务不能直接使用 Claude Desktop 所需的 Anthropic Messages。BootAgent 可以在本机转换请求格式。")).toBeTruthy();
+    const apply = screen.getByRole("button", { name: "启用协议适配并应用" });
+    await userEvent.click(apply);
+    await waitFor(() => expect(configure).toHaveBeenCalledWith("claude-desktop", "chat-profile"));
+    expect(await screen.findByRole("heading", { name: "overview" })).toBeTruthy();
   });
 });

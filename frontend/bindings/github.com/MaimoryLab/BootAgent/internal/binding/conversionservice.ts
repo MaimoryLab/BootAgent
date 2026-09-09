@@ -13,6 +13,10 @@ export function Get(): $CancellablePromise<app$0.ConversionConfig> {
     return $Call.ByID(358447276);
 }
 
+export function RegenerateKey(): $CancellablePromise<app$0.ConversionConfig> {
+    return $Call.ByID(33188605);
+}
+
 export function Save(c: app$0.ConversionConfig): $CancellablePromise<app$0.ConversionConfig> {
     return $Call.ByID(3070277773, c);
 }

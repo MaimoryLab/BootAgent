@@ -136,6 +136,20 @@ func AnthropicMessagesURL(baseURL string) string {
 	return base + "/v1/messages"
 }
 
+// AnthropicClientBaseURL returns the base expected by clients that append the
+// Anthropic Messages path themselves. Keep arbitrary provider path prefixes,
+// but remove a terminal protocol endpoint so clients such as Claude Desktop do
+// not produce /v1/v1/messages.
+func AnthropicClientBaseURL(baseURL string) string {
+	base := strings.TrimRight(strings.TrimSpace(baseURL), "/")
+	for _, suffix := range []string{"/v1/messages", "/messages", "/v1"} {
+		if before, ok := strings.CutSuffix(base, suffix); ok {
+			return strings.TrimRight(before, "/")
+		}
+	}
+	return base
+}
+
 // PickChatModel keeps provider ordering while skipping IDs that clearly refer
 // to embeddings, rerankers, speech, vision, or other non-chat endpoints.
 func PickChatModel(models []string) string {

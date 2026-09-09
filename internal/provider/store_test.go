@@ -69,6 +69,23 @@ func TestStoreAcceptsEitherAPIEndpoint(t *testing.T) {
 	}
 }
 
+func TestStoreNormalizesAnthropicClientBaseURLOnSave(t *testing.T) {
+	store := NewStore(t.TempDir(), securefs.New(securefs.Options{OS: "linux"}))
+	saved, err := store.Save(context.Background(), Entry{
+		ID: "anthropic-versioned", Name: "Anthropic", AnthropicBaseURL: "https://api.example.test/anthropic/v1/messages/",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if saved.AnthropicBaseURL != "https://api.example.test/anthropic" {
+		t.Fatalf("saved Anthropic base = %q", saved.AnthropicBaseURL)
+	}
+	loaded, err := store.Get(saved.ID)
+	if err != nil || loaded.AnthropicBaseURL != saved.AnthropicBaseURL {
+		t.Fatalf("loaded Provider = %#v, err=%v", loaded, err)
+	}
+}
+
 // Create is the "add Provider" path and must refuse an ID that is taken. Save
 // stays an upsert, because editing a Provider legitimately overwrites it, and
 // SaveKey rewrites the whole entry to rotate a key.

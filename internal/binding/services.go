@@ -104,6 +104,16 @@ func (s *ConversionService) Save(ctx context.Context, c app.ConversionConfig) (a
 	return s.core.SaveConversion(ctx, c)
 }
 
+func (s *ConversionService) RegenerateKey(ctx context.Context) (app.ConversionConfig, error) {
+	if err := contextError(ctx); err != nil {
+		return app.ConversionConfig{}, err
+	}
+	if s == nil || s.core == nil {
+		return app.ConversionConfig{}, notReady("Conversion service is not configured")
+	}
+	return s.core.RegenerateConversionAPIKey(ctx)
+}
+
 // DesktopAgentService exposes the configured desktop Agent lifecycle. Every
 // operation names its target explicitly.
 type DesktopAgentService struct {
@@ -155,6 +165,30 @@ func (s *DesktopAgentService) Configure(ctx context.Context, request DesktopAgen
 		return app.DesktopAgentProfileResult{}, notReady("Desktop agent service is not configured")
 	}
 	return s.core.ConfigureDesktopAgent(ctx, request.AgentID, request.ProfileID)
+}
+
+// AssessProfile verifies whether a saved Profile can be used directly or
+// through BootAgent's local protocol adapter. It never changes Agent config.
+func (s *DesktopAgentService) AssessProfile(ctx context.Context, request DesktopAgentProfileRequest) (app.DesktopAgentProfileAssessment, error) {
+	if err := contextError(ctx); err != nil {
+		return app.DesktopAgentProfileAssessment{}, err
+	}
+	if s == nil || s.core == nil {
+		return app.DesktopAgentProfileAssessment{}, notReady("Desktop agent service is not configured")
+	}
+	return s.core.AssessDesktopAgentProfile(ctx, request.AgentID, request.ProfileID)
+}
+
+// ConfigureWithConversion atomically enables the local adapter and applies its
+// generated Anthropic Profile to Claude Desktop.
+func (s *DesktopAgentService) ConfigureWithConversion(ctx context.Context, request DesktopAgentProfileRequest) (app.DesktopAgentConversionResult, error) {
+	if err := contextError(ctx); err != nil {
+		return app.DesktopAgentConversionResult{}, err
+	}
+	if s == nil || s.core == nil {
+		return app.DesktopAgentConversionResult{}, notReady("Desktop agent service is not configured")
+	}
+	return s.core.ConfigureDesktopAgentWithConversion(ctx, request.AgentID, request.ProfileID)
 }
 
 // RuntimeService exposes the Node.js and uv bootstrap. It reuses the install

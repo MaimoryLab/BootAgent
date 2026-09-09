@@ -9,6 +9,7 @@ import { PageScaffold } from "../components/PageScaffold";
 import { SecureKeyField } from "../components/SecureKeyField";
 import { useI18n } from "../i18n";
 import { confirmDelete } from "../state/confirmDelete";
+import { anthropicClientBaseURL } from "../state/providerUrl";
 import { useWizard } from "../state/WizardContext";
 import { byProviderCreatedAt } from "../state/ranking";
 import { isConverterID } from "../state/conversion";
@@ -196,7 +197,11 @@ export function ProvidersPage({ create = false }: { create?: boolean }) {
       // create tells Go to refuse an ID that is taken instead of overwriting that
       // Provider. Only the caller knows which of the two this is: a complete
       // entry whose ID is not on disk looks the same either way.
-      const result = await api.saveProvider({ ...editor, create: creating });
+      const result = await api.saveProvider({
+        ...editor,
+        anthropic_base_url: anthropicClientBaseURL(editor.anthropic_base_url || ""),
+        create: creating,
+      });
       const reapplied = result.reapplied ?? [];
       const failures = Object.entries(result.failures ?? {});
       if (failures.length) {
@@ -306,7 +311,23 @@ export function ProvidersPage({ create = false }: { create?: boolean }) {
             </div>
             <div className="field-stack provider-editor-wide">
               <label htmlFor="provider-anthropic-url">{t("Anthropic 兼容 Base URL")}</label>
-              <input id="provider-anthropic-url" type="url" value={editor.anthropic_base_url} onChange={(event) => setEditor({ ...editor, anthropic_base_url: event.target.value })} placeholder="https://api.example.com/anthropic/v1" spellCheck={false} autoCorrect="off" autoCapitalize="none" />
+              <input
+                id="provider-anthropic-url"
+                type="url"
+                value={editor.anthropic_base_url}
+                onChange={(event) => setEditor({ ...editor, anthropic_base_url: event.target.value })}
+                onBlur={() => setEditor({ ...editor, anthropic_base_url: anthropicClientBaseURL(editor.anthropic_base_url || "") })}
+                placeholder="https://api.example.com/anthropic"
+                aria-describedby={editor.anthropic_base_url && anthropicClientBaseURL(editor.anthropic_base_url) !== editor.anthropic_base_url.replace(/\/+$/, "") ? "provider-anthropic-url-hint" : undefined}
+                spellCheck={false}
+                autoCorrect="off"
+                autoCapitalize="none"
+              />
+              {editor.anthropic_base_url && anthropicClientBaseURL(editor.anthropic_base_url) !== editor.anthropic_base_url.replace(/\/+$/, "") ? (
+                <small id="provider-anthropic-url-hint" className="field-hint">
+                  {t("Claude Desktop 使用基础地址，保存时将调整为 {url}", { url: anthropicClientBaseURL(editor.anthropic_base_url) })}
+                </small>
+              ) : null}
             </div>
             <div className="field-stack provider-editor-wide">
               <label htmlFor="provider-home">{t("官网（可选）")}</label>

@@ -66,6 +66,9 @@ describe("failureCopyFor", () => {
       "PROTOCOL_UNSUPPORTED",
       "MODELS_UNSUPPORTED",
       "CONFIG_WRITE_FAILED",
+      "CONVERSION_PORT_UNAVAILABLE",
+      "CONVERSION_VERIFICATION_FAILED",
+      "CONVERSION_ROLLBACK_FAILED",
       "UPDATE_NOT_INSTALLABLE",
       "UPDATE_LOCATION_BLOCKED",
       "UPDATE_STALLED",
@@ -75,6 +78,12 @@ describe("failureCopyFor", () => {
       expect(copy, code).not.toBeNull();
       expect(copy?.hint, code).toBeTruthy();
     }
+  });
+
+  it("distinguishes protocol adapter startup, verification, and rollback failures", () => {
+    expect(failureCopyFor("CONVERSION_PORT_UNAVAILABLE", 409, t)?.message).toContain("端口");
+    expect(failureCopyFor("CONVERSION_VERIFICATION_FAILED", 502, t)?.message).toContain("验证");
+    expect(failureCopyFor("CONVERSION_ROLLBACK_FAILED", 500, t)?.message).toContain("恢复");
   });
 
   it("never leaks a raw transport detail into the copy", () => {

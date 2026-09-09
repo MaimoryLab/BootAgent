@@ -83,6 +83,8 @@ type UseCases struct {
 	skillPreviewMu sync.Mutex
 	skillPreviews  map[string]skillPreview
 	conversion     *convertproxy.Server
+	conversionMu   sync.Mutex
+	capabilities   provider.CapabilityStore
 }
 
 // DraftState combines the independent MCP and Skills drafts for the native
@@ -196,6 +198,7 @@ func newUseCases(options StatusOptions, client *provider.Client, profiles profil
 		runner:          runner,
 		environment:     cloneEnvironment(options.Environment),
 		migrationNotice: migrationNotice,
+		capabilities:    provider.NewCapabilityStore(options.Home, filesystem),
 	}
 	u.conversion = convertproxy.New(nil)
 	_ = u.startSavedConversion()

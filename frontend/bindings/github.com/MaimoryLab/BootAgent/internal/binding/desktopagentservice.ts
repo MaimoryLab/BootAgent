@@ -20,11 +20,27 @@ import * as app$0 from "../app/models.js";
 import * as $models from "./models.js";
 
 /**
+ * AssessProfile verifies whether a saved Profile can be used directly or
+ * through BootAgent's local protocol adapter. It never changes Agent config.
+ */
+export function AssessProfile(request: $models.DesktopAgentProfileRequest): $CancellablePromise<app$0.DesktopAgentProfileAssessment> {
+    return $Call.ByID(2714541892, request);
+}
+
+/**
  * Configure applies a saved Profile to the selected desktop Agent. The profile
  * ID is the only user-supplied value; secrets stay in the Go profile store.
  */
 export function Configure(request: $models.DesktopAgentProfileRequest): $CancellablePromise<app$0.DesktopAgentProfileResult> {
     return $Call.ByID(2275818587, request);
+}
+
+/**
+ * ConfigureWithConversion atomically enables the local adapter and applies its
+ * generated Anthropic Profile to Claude Desktop.
+ */
+export function ConfigureWithConversion(request: $models.DesktopAgentProfileRequest): $CancellablePromise<app$0.DesktopAgentConversionResult> {
+    return $Call.ByID(1301908915, request);
 }
 
 export function GetStatus(request: $models.DesktopAgentRequest): $CancellablePromise<app$0.DesktopAgentStatus> {
