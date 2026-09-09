@@ -2,6 +2,11 @@ name: Sync Releases to Gitee
 
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: Release version to mirror (for example v0.8.5)
+        required: true
+        type: string
   workflow_run:
     workflows: [Build artifacts]
     types: [completed]
@@ -13,7 +18,29 @@ jobs:
   sync:
     name: Sync Releases to Gitee
     runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    env:
+      RELEASE_VERSION: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.event.workflow_run.head_branch }}
     steps:
+      - name: Check out release policy
+        uses: actions/checkout@v4
+
+      - name: Validate release version
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+            echo "release version must match vX.Y.Z: $RELEASE_VERSION" >&2
+            exit 1
+          }
+
+      # Gitee counts release attachments cumulatively. Remove only releases
+      # from older MAJOR.MINOR lines; Git tags and the current line remain.
+      - name: Retain current Gitee release line
+        env:
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+        run: python3 scripts/retain_gitee_release_line.py --version "$RELEASE_VERSION" --apply
+
       - name: Sync GitHub Release to Gitee
         uses: trustedinster/sync-release-gitee@v1.3
         with:
@@ -25,4 +52,3 @@ jobs:
           gitee_upload_retry_times: 3
           debug: false
   
-
