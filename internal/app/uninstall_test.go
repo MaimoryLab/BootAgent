@@ -97,6 +97,28 @@ func TestUninstallAgentBatchCleansOnlyAfterAllInstancesSucceed(t *testing.T) {
 		}
 		t.Run(name, func(t *testing.T) {
 			home := t.TempDir()
+			firstPrefix := filepath.Join(home, "npm-first")
+			secondPrefix := filepath.Join(home, "npm-second")
+			for _, prefix := range []string{firstPrefix, secondPrefix} {
+				packageRoot := filepath.Join(prefix, "lib", "node_modules", "@openai", "codex")
+				if err := os.MkdirAll(filepath.Join(packageRoot, "bin"), 0o700); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(packageRoot, "package.json"), []byte(`{"name":"@openai/codex"}`), 0o600); err != nil {
+					t.Fatal(err)
+				}
+				executable := filepath.Join(packageRoot, "bin", "codex")
+				if err := os.WriteFile(executable, []byte("#!/bin/sh\n"), 0o700); err != nil {
+					t.Fatal(err)
+				}
+				binDir := filepath.Join(prefix, "bin")
+				if err := os.MkdirAll(binDir, 0o700); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.Symlink(executable, filepath.Join(binDir, "codex")); err != nil {
+					t.Fatal(err)
+				}
+			}
 			dataRoot := filepath.Join(home, ".codex")
 			if err := os.MkdirAll(dataRoot, 0o700); err != nil {
 				t.Fatal(err)
@@ -105,13 +127,24 @@ func TestUninstallAgentBatchCleansOnlyAfterAllInstancesSucceed(t *testing.T) {
 			if err := os.WriteFile(configPath, []byte("keep"), 0o600); err != nil {
 				t.Fatal(err)
 			}
-			runner := &batchUninstallRunner{installAppRunner: installAppRunner{paths: map[string]string{"npm": "/fake/npm", "codex": "/fake/codex"}}}
+			runner := &batchUninstallRunner{installAppRunner: installAppRunner{paths: map[string]string{"npm": "/fake/npm", "codex": filepath.Join(firstPrefix, "bin", "codex")}}}
 			if fail {
-				runner.failPrefix = "/second"
+				runner.failPrefix = secondPrefix
 			}
-			core := NewUseCases(StatusOptions{Home: home, Platform: platform.For("linux", "amd64"), Runner: runner})
+			core := NewUseCases(StatusOptions{Home: home, Platform: platform.For("linux", "amd64"), Runner: runner, Environment: map[string]string{"PATH": filepath.Join(firstPrefix, "bin") + string(os.PathListSeparator) + filepath.Join(secondPrefix, "bin")}})
+			manifest, manifestErr := catalog.LoadEmbedded()
+			if manifestErr != nil {
+				t.Fatal(manifestErr)
+			}
+			discovered := core.discoverAgentInstallations(context.Background(), "codex", manifest.Agents["codex"])
+			if len(discovered) != 2 {
+				t.Fatalf("discovered installations = %#v", discovered)
+			}
+			if fail {
+				runner.failPrefix = discovered[1].Prefix
+			}
 			result, err := core.UninstallAgentWithOptions(context.Background(), "codex", AgentUninstallOptions{
-				InstallationIDs: []string{"npm:/first", "npm:/second"}, RemoveUserData: true,
+				InstallationIDs: []string{discovered[0].ID, discovered[1].ID}, RemoveUserData: true,
 			})
 			if fail {
 				if err == nil {
@@ -132,6 +165,19 @@ func TestUninstallAgentBatchCleansOnlyAfterAllInstancesSucceed(t *testing.T) {
 				t.Fatalf("successful batch retained config: %v", err)
 			}
 		})
+	}
+}
+
+func TestUninstallAgentRejectsUndiscoveredInstallationID(t *testing.T) {
+	home := t.TempDir()
+	runner := &installAppRunner{paths: map[string]string{"npm": "/fake/npm", "codex": "/fake/codex"}}
+	core := NewUseCases(StatusOptions{Home: home, Platform: platform.For("linux", "amd64"), Runner: runner})
+	_, err := core.UninstallAgentWithOptions(context.Background(), "codex", AgentUninstallOptions{InstallationID: "npm:/outside-prefix"})
+	if err == nil || oneerrors.As(err).Code != oneerrors.InvalidRequest {
+		t.Fatalf("undiscovered installation ID error = %v, want %s", err, oneerrors.InvalidRequest)
+	}
+	if len(runner.calls) != 0 {
+		t.Fatalf("forged installation ID ran commands: %v", runner.calls)
 	}
 }
 

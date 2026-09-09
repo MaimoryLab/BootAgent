@@ -57,11 +57,54 @@ func (u *UseCases) UninstallAgentWithOptions(ctx context.Context, agentID string
 	}
 	unlockTask := u.lockTask("agent-task:" + agentID)
 	defer unlockTask()
+	requestedInstallations := append([]string(nil), options.InstallationIDs...)
+	if options.InstallationID != "" {
+		requestedInstallations = append(requestedInstallations, options.InstallationID)
+	}
+	if len(requestedInstallations) > 0 {
+		if err := u.validateInstallationSelections(ctx, agentID, agent, requestedInstallations); err != nil {
+			return AgentUninstallResult{}, err
+		}
+	}
 	result, err := u.uninstallAgentWithOptions(ctx, agentID, agent, options, listeners...)
 	if err == nil && options.RemoveUserData {
 		result.RemovedData, err = u.removeAgentUserData(ctx, agentID, agent)
 	}
 	return result, err
+}
+
+// validateInstallationSelections binds destructive requests to installations
+// discovered by the backend in this request. The frontend may display these
+// IDs, but it is not a trust boundary: callers must not be able to substitute
+// an arbitrary npm prefix or executable path.
+func (u *UseCases) validateInstallationSelections(ctx context.Context, agentID string, agent catalog.Agent, requested []string) error {
+	discovered := make(map[string]AgentInstallation)
+	for _, installation := range u.discoverAgentInstallations(ctx, agentID, agent) {
+		discovered[installation.ID] = installation
+	}
+	seen := make(map[string]struct{}, len(requested))
+	for _, id := range requested {
+		id = strings.TrimSpace(id)
+		if id == "" {
+			return oneerrors.New(oneerrors.InvalidRequest, "Installation ID must not be empty")
+		}
+		if _, duplicate := seen[id]; duplicate {
+			return oneerrors.New(oneerrors.InvalidRequest, "Installation ID was selected more than once: "+id)
+		}
+		seen[id] = struct{}{}
+		installation, found := discovered[id]
+		if !found {
+			return oneerrors.New(oneerrors.InvalidRequest, "Installation was not discovered for this Agent: "+id)
+		}
+		if !installation.CanUninstall {
+			reason := installation.Reason
+			if reason == "" {
+				reason = "installation ownership could not be verified"
+			}
+			return oneerrors.New(oneerrors.InvalidRequest, "Installation cannot be safely uninstalled: "+reason)
+		}
+	}
+	return nil
 }
 
 func (u *UseCases) uninstallAgentWithOptions(ctx context.Context, agentID string, agent catalog.Agent, options AgentUninstallOptions, listeners ...process.OutputListener) (AgentUninstallResult, error) {
