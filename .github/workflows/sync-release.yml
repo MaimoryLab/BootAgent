@@ -19,18 +19,34 @@ jobs:
     name: Sync Releases to Gitee
     runs-on: ubuntu-latest
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
-    env:
-      RELEASE_VERSION: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.event.workflow_run.head_branch }}
     steps:
       - name: Check out release policy
         uses: actions/checkout@v4
+
+      - name: Resolve release version
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MANUAL_VERSION: ${{ inputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            version="$MANUAL_VERSION"
+          else
+            # workflow_run.head_branch is "main" for tag-triggered runs. The
+            # completed build has just published the newest release, so resolve
+            # the tag from GitHub's release feed instead of trusting that field.
+            version="$(gh release list --repo MaimoryLab/BootAgent --limit 1 --json tagName --jq '.[0].tagName')"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
 
       - name: Validate release version
         shell: bash
         run: |
           set -euo pipefail
-          [[ "$RELEASE_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
-            echo "release version must match vX.Y.Z: $RELEASE_VERSION" >&2
+          [[ "${{ steps.release.outputs.version }}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+            echo "release version must match vX.Y.Z: ${{ steps.release.outputs.version }}" >&2
             exit 1
           }
 
@@ -39,7 +55,7 @@ jobs:
       - name: Retain current Gitee release line
         env:
           GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
-        run: python3 scripts/retain_gitee_release_line.py --version "$RELEASE_VERSION" --apply
+        run: python3 scripts/retain_gitee_release_line.py --version "${{ steps.release.outputs.version }}" --apply
 
       - name: Sync GitHub Release to Gitee
         uses: trustedinster/sync-release-gitee@v1.3
