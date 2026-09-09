@@ -49,7 +49,7 @@ func (u *UseCases) discoverAgentInstallations(ctx context.Context, agentID strin
 		if strings.Contains(filepath.ToSlash(executable), "/Cellar/") || strings.Contains(filepath.ToSlash(executable), "/homebrew/") {
 			installation.Manager = "homebrew"
 		}
-		if prefix, packageName, ok := npmInstallationForPath(executable, agent, u.status.Platform.OS); ok {
+		if prefix, packageName, ok := npmInstallationForPath(executable, agent); ok {
 			installation.Manager = "npm"
 			installation.Package = packageName
 			installation.Prefix = prefix
@@ -159,63 +159,65 @@ func allCommandPaths(command string, environment map[string]string, osID string)
 	return result
 }
 
-func npmInstallationForPath(executable string, agent catalog.Agent, osID string) (string, string, bool) {
+func npmInstallationForPath(executable string, agent catalog.Agent) (string, string, bool) {
 	name := agent.Package.Name
+	candidates := append([]string{filepath.Dir(executable)}, npmPrefixes()...)
+	if resolved, err := filepath.EvalSymlinks(executable); err == nil {
+		candidates = append(candidates, filepath.Dir(resolved))
+	}
+	for _, candidate := range candidates {
+		prefix := candidate
+		if filepath.Base(prefix) == "bin" {
+			prefix = filepath.Dir(prefix)
+		}
+		packageDir := filepath.Join(prefix, "lib", "node_modules", name)
+		if _, err := os.Stat(filepath.Join(packageDir, "package.json")); err != nil {
+			packageDir = filepath.Join(prefix, "node_modules", name)
+			if _, err := os.Stat(filepath.Join(packageDir, "package.json")); err != nil {
+				continue
+			}
+		}
+		return prefix, name, true
+	}
+	// A launcher may point into a non-standard npm prefix. Require a matching
+	// package.json while walking the resolved path before treating it as npm-owned.
 	resolved, err := filepath.EvalSymlinks(executable)
 	if err != nil {
 		return "", "", false
 	}
-	if osID == "windows" {
-		launcherDirectory, err := filepath.EvalSymlinks(filepath.Dir(executable))
-		if err != nil {
-			return "", "", false
-		}
-		packageRoot := filepath.Join(launcherDirectory, "node_modules", filepath.FromSlash(name))
-		if prefix, ok := npmGlobalPrefixForPackage(packageRoot, name, osID); ok && npmPackageNameMatches(packageRoot, name) {
-			return prefix, name, true
-		}
-		return "", "", false
-	}
 	for dir := filepath.Dir(resolved); dir != filepath.Dir(dir); dir = filepath.Dir(dir) {
-		if prefix, ok := npmGlobalPrefixForPackage(dir, name, osID); ok && npmPackageNameMatches(dir, name) {
+		data, readErr := os.ReadFile(filepath.Join(dir, "package.json"))
+		if readErr != nil {
+			continue
+		}
+		var metadata struct {
+			Name string `json:"name"`
+		}
+		if json.Unmarshal(data, &metadata) != nil || metadata.Name != name {
+			continue
+		}
+		for parent := dir; parent != filepath.Dir(parent); parent = filepath.Dir(parent) {
+			if filepath.Base(parent) != "node_modules" {
+				continue
+			}
+			prefix := filepath.Dir(parent)
+			if filepath.Base(prefix) == "lib" {
+				prefix = filepath.Dir(prefix)
+			}
 			return prefix, name, true
 		}
 	}
 	return "", "", false
 }
 
-func npmGlobalPrefixForPackage(packageRoot, name, osID string) (string, bool) {
-	modules := filepath.Dir(packageRoot)
-	if strings.HasPrefix(name, "@") {
-		modules = filepath.Dir(modules)
-	}
-	if filepath.Base(modules) != "node_modules" || filepath.Join(modules, filepath.FromSlash(name)) != packageRoot {
-		return "", false
-	}
-	prefix := filepath.Dir(modules)
-	if osID != "windows" {
-		if filepath.Base(prefix) != "lib" {
-			return "", false
-		}
-		prefix = filepath.Dir(prefix)
-	}
-	for _, component := range strings.Split(filepath.ToSlash(prefix), "/") {
-		if strings.EqualFold(component, "node_modules") || strings.EqualFold(component, ".pnpm") {
-			return "", false
+func npmPrefixes() []string {
+	result := []string{}
+	for _, value := range []string{os.Getenv("NPM_CONFIG_PREFIX"), os.Getenv("npm_config_prefix")} {
+		if strings.TrimSpace(value) != "" {
+			result = append(result, filepath.Clean(value))
 		}
 	}
-	return prefix, true
-}
-
-func npmPackageNameMatches(packageRoot, name string) bool {
-	data, err := os.ReadFile(filepath.Join(packageRoot, "package.json"))
-	if err != nil {
-		return false
-	}
-	var metadata struct {
-		Name string `json:"name"`
-	}
-	return json.Unmarshal(data, &metadata) == nil && metadata.Name == name
+	return result
 }
 
 func uvToolListed(ctx context.Context, u *UseCases, packageName string) bool {

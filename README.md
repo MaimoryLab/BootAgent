@@ -51,7 +51,7 @@ Launch BootAgent
 - Detect, install, update, launch, and uninstall supported CLI and desktop Agents.
 - Detect Agents installed outside BootAgent when their command or known installation path is available.
 - See long-running install and update tasks in Task Center, including progress, source, and cancellable steps.
-- Uninstall selected installation instances while keeping Profiles, Providers, configuration files, and conversations by default.
+- Uninstall selected installation instances while keeping Profiles, Providers, configuration files, and conversations.
 
 ### Connect Providers and Profiles
 
@@ -69,8 +69,7 @@ Launch BootAgent
 ### Local utilities
 
 - Bootstrap Node.js, uv, and Aider's managed Python runtime when an Agent needs them.
-- When a Chat Completions Profile cannot be used directly by Claude Desktop, verify compatibility and enable the loopback-only protocol adapter from the Agent configuration screen in one confirmed action. BootAgent generates the local adapter credential and applies the resulting Profile automatically.
-- Optionally launch BootAgent at login; protocol adaptation and autostart remain off until the user enables them.
+- Optionally run local API format conversion and launch BootAgent at login; both features are off by default.
 - Migrate existing Codex and ChatGPT Desktop conversations into BootAgent's local provider bucket. This migration intentionally creates no history backup.
 
 ### Discover tools in Marketplace
@@ -126,7 +125,7 @@ BootAgent does not redistribute Agent packages and does not bundle Node.js, Git,
 - BootAgent is local-first. Provider credentials, configuration, recommendation history, and backups stay on the machine by default.
 - Recommendation prompts contain the stated need and public catalog metadata only; the recommendation process receives no install or file-write tools.
 - The latest three historical versions are kept for each Profile, Provider, MCP, Agent configuration target, and Skill by default. Backups live under `~/.bootagent/backup`; retention can be changed in Settings.
-- Standard uninstall removes the selected program instances and preserves Profiles, Providers, configuration files, and conversations. The optional **Uninstall and delete declared data** action requires a second confirmation and cleans up only the Agent's `data_paths` (or `windows_data_paths`) from `agents.lock.json`, after all selected instances uninstall successfully. These paths are shared across installations, so cleanup can affect unselected instances. System keychains, project directories or custom locations outside the declared paths, and BootAgent Profiles and Providers are outside this cleanup scope; it is not a complete credential wipe.
+- Uninstall removes the selected program instance, not the user's Profiles, Providers, configuration files, or conversations.
 - BootAgent is not a VPN, proxy, shared-key service, or Agent package distributor. Downloads use official sources, authorized mirrors, or documented manual installation paths.
 
 ## Troubleshooting

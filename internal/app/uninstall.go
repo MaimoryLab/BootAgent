@@ -55,8 +55,6 @@ func (u *UseCases) UninstallAgentWithOptions(ctx context.Context, agentID string
 	if !ok || agent.Package == nil {
 		return AgentUninstallResult{}, oneerrors.New(oneerrors.InvalidRequest, "Agent has no managed installation source: "+agentID)
 	}
-	unlockTask := u.lockTask("agent-task:" + agentID)
-	defer unlockTask()
 	requestedInstallations := append([]string(nil), options.InstallationIDs...)
 	if options.InstallationID != "" {
 		requestedInstallations = append(requestedInstallations, options.InstallationID)
@@ -66,55 +64,10 @@ func (u *UseCases) UninstallAgentWithOptions(ctx context.Context, agentID string
 			return AgentUninstallResult{}, err
 		}
 	}
-	result, err := u.uninstallAgentWithOptions(ctx, agentID, agent, options, listeners...)
-	if err == nil && options.RemoveUserData {
-		result.RemovedData, err = u.removeAgentUserData(ctx, agentID, agent)
-	}
-	return result, err
-}
-
-// validateInstallationSelections binds destructive requests to installations
-// discovered by the backend in this request. The frontend may display these
-// IDs, but it is not a trust boundary: callers must not be able to substitute
-// an arbitrary npm prefix or executable path.
-func (u *UseCases) validateInstallationSelections(ctx context.Context, agentID string, agent catalog.Agent, requested []string) error {
-	discovered := make(map[string]AgentInstallation)
-	for _, installation := range u.discoverAgentInstallations(ctx, agentID, agent) {
-		discovered[installation.ID] = installation
-	}
-	seen := make(map[string]struct{}, len(requested))
-	for _, id := range requested {
-		id = strings.TrimSpace(id)
-		if id == "" {
-			return oneerrors.New(oneerrors.InvalidRequest, "Installation ID must not be empty")
-		}
-		if _, duplicate := seen[id]; duplicate {
-			return oneerrors.New(oneerrors.InvalidRequest, "Installation ID was selected more than once: "+id)
-		}
-		seen[id] = struct{}{}
-		installation, found := discovered[id]
-		if !found {
-			return oneerrors.New(oneerrors.InvalidRequest, "Installation was not discovered for this Agent: "+id)
-		}
-		if !installation.CanUninstall {
-			reason := installation.Reason
-			if reason == "" {
-				reason = "installation ownership could not be verified"
-			}
-			return oneerrors.New(oneerrors.InvalidRequest, "Installation cannot be safely uninstalled: "+reason)
-		}
-	}
-	return nil
-}
-
-func (u *UseCases) uninstallAgentWithOptions(ctx context.Context, agentID string, agent catalog.Agent, options AgentUninstallOptions, listeners ...process.OutputListener) (AgentUninstallResult, error) {
-	if err := contextError(ctx, "Agent uninstall request was cancelled"); err != nil {
-		return AgentUninstallResult{}, err
-	}
 	if len(options.InstallationIDs) > 0 {
 		var commands []string
 		for _, installationID := range options.InstallationIDs {
-			result, uninstallErr := u.uninstallAgentWithOptions(ctx, agentID, agent, AgentUninstallOptions{AllowCrossEnvironment: options.AllowCrossEnvironment, InstallationID: installationID}, listeners...)
+			result, uninstallErr := u.UninstallAgentWithOptions(ctx, agentID, AgentUninstallOptions{AllowCrossEnvironment: options.AllowCrossEnvironment, InstallationID: installationID}, listeners...)
 			if uninstallErr != nil {
 				return AgentUninstallResult{}, uninstallErr
 			}
@@ -123,6 +76,13 @@ func (u *UseCases) uninstallAgentWithOptions(ctx context.Context, agentID string
 			}
 		}
 		result := AgentUninstallResult{Agent: agentID, Package: agent.Package.Name, Command: strings.Join(commands, " && ")}
+		if options.RemoveUserData {
+			removed, cleanupErr := u.removeAgentUserData(ctx, agentID, agent)
+			if cleanupErr != nil {
+				return AgentUninstallResult{}, cleanupErr
+			}
+			result.RemovedData = removed
+		}
 		return result, nil
 	}
 	if options.InstallationID == "" {
@@ -132,7 +92,7 @@ func (u *UseCases) uninstallAgentWithOptions(ctx context.Context, agentID string
 			}
 		}
 		if len(options.InstallationIDs) > 0 {
-			return u.uninstallAgentWithOptions(ctx, agentID, agent, options, listeners...)
+			return u.UninstallAgentWithOptions(ctx, agentID, options, listeners...)
 		}
 	}
 	manager := agent.Package.Manager
@@ -151,15 +111,25 @@ func (u *UseCases) uninstallAgentWithOptions(ctx context.Context, agentID string
 		}
 	}
 	if manager == "uv" {
-		return u.uninstallUVAgent(ctx, agentID, agent, listeners...)
+		result, err := u.uninstallUVAgent(ctx, agentID, agent, listeners...)
+		if err == nil && options.RemoveUserData {
+			result.RemovedData, err = u.removeAgentUserData(ctx, agentID, agent)
+		}
+		return result, err
 	}
 	if manager == "official-script" {
-		return u.uninstallOfficialScriptAgent(ctx, agentID, agent)
+		result, err := u.uninstallOfficialScriptAgent(ctx, agentID, agent)
+		if err == nil && options.RemoveUserData {
+			result.RemovedData, err = u.removeAgentUserData(ctx, agentID, agent)
+		}
+		return result, err
 	}
 	if manager != "npm" {
 		return AgentUninstallResult{}, oneerrors.New(oneerrors.InvalidRequest, "Unsupported Agent installation source: "+manager)
 	}
 
+	unlockTask := u.lockTask("agent-task:" + agentID)
+	defer unlockTask()
 	if err := contextError(ctx, "Agent uninstall request was cancelled"); err != nil {
 		return AgentUninstallResult{}, err
 	}
@@ -242,7 +212,43 @@ func (u *UseCases) uninstallAgentWithOptions(ctx context.Context, agentID string
 		return AgentUninstallResult{}, oneerrors.New(oneerrors.AgentNPMFailed, fmt.Sprintf("npm failed while uninstalling %s: command exited with code %d", agent.Name, result.ExitCode), oneerrors.WithStatus(500), oneerrors.WithRetryable(true))
 	}
 	uninstallResult := AgentUninstallResult{Agent: agentID, Package: agent.Package.Name, Command: strings.Join(args, " ")}
-	return uninstallResult, nil
+	if options.RemoveUserData {
+		uninstallResult.RemovedData, err = u.removeAgentUserData(ctx, agentID, agent)
+	}
+	return uninstallResult, err
+}
+
+// validateInstallationSelections binds destructive requests to installations
+// discovered by the backend. Wails callers are local, but the frontend is not
+// a trust boundary and must not be able to substitute an arbitrary npm prefix.
+func (u *UseCases) validateInstallationSelections(ctx context.Context, agentID string, agent catalog.Agent, requested []string) error {
+	discovered := make(map[string]AgentInstallation)
+	for _, installation := range u.discoverAgentInstallations(ctx, agentID, agent) {
+		discovered[installation.ID] = installation
+	}
+	seen := make(map[string]struct{}, len(requested))
+	for _, id := range requested {
+		id = strings.TrimSpace(id)
+		if id == "" {
+			return oneerrors.New(oneerrors.InvalidRequest, "Installation ID must not be empty")
+		}
+		if _, duplicate := seen[id]; duplicate {
+			return oneerrors.New(oneerrors.InvalidRequest, "Installation ID was selected more than once: "+id)
+		}
+		seen[id] = struct{}{}
+		installation, found := discovered[id]
+		if !found {
+			return oneerrors.New(oneerrors.InvalidRequest, "Installation was not discovered for this Agent: "+id)
+		}
+		if !installation.CanUninstall {
+			reason := installation.Reason
+			if reason == "" {
+				reason = "installation ownership could not be verified"
+			}
+			return oneerrors.New(oneerrors.InvalidRequest, "Installation cannot be safely uninstalled: "+reason)
+		}
+	}
+	return nil
 }
 
 func findAlternativePackage(agent catalog.Agent, installationID string) (catalog.Package, bool) {
@@ -285,6 +291,8 @@ func npmPackageListed(output, packageName string) bool {
 }
 
 func (u *UseCases) uninstallUVAgent(ctx context.Context, agentID string, agent catalog.Agent, listeners ...process.OutputListener) (AgentUninstallResult, error) {
+	unlockTask := u.lockTask("agent-task:" + agentID)
+	defer unlockTask()
 	var output process.OutputListener
 	if len(listeners) > 0 && listeners[0] != nil {
 		base := listeners[0]

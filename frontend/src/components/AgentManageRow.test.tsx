@@ -420,12 +420,6 @@ describe("the update affordance in the row", () => {
     expect(screen.getByRole("menuitem", { name: "刷新状态" })).toBeTruthy();
   });
 
-  it("does not offer uninstall for a known unmanaged installation", async () => {
-    renderRow({ installations: [{ id: "npm:/project/node_modules/.bin/codex", manager: "npm", package: "@openai/codex", executable: "/project/node_modules/.bin/codex", canUninstall: false }] });
-    await userEvent.click(screen.getByRole("button", { name: "Codex 更多操作" }));
-    expect(screen.queryByRole("menuitem", { name: "卸载 Agent" })).toBeNull();
-  });
-
   it("confirms that user data is preserved before uninstalling", async () => {
     const onChanged = vi.fn();
     renderRow({}, "团队 PPIO", {}, onChanged);
@@ -440,57 +434,10 @@ describe("the update affordance in the row", () => {
     await waitFor(() => expect(onChanged).toHaveBeenCalledOnce());
   });
 
-  it("preserves data when retrying a standard uninstall", async () => {
-    bridge.question.mockResolvedValueOnce("卸载 Agent").mockResolvedValueOnce("允许并继续");
-    bridge.uninstallAgent.mockRejectedValueOnce(new BootAgentApiError("mismatch", "AGENT_NPM_ENVIRONMENT_MISMATCH", false, 409));
-    renderRow({}, "团队 PPIO", {}, vi.fn());
-    await userEvent.click(screen.getByRole("button", { name: "Codex 更多操作" }));
-    await userEvent.click(screen.getByRole("menuitem", { name: "卸载 Agent" }));
-    await waitFor(() => expect(bridge.uninstallAgent).toHaveBeenCalledTimes(2));
-    expect(bridge.uninstallAgent).toHaveBeenLastCalledWith("codex", true, "", [], false);
-    expect(bridge.question.mock.calls.at(-1)?.[0].Message).toContain("不会删除配置和对话数据");
-  });
-
-  it("does not uninstall when permanent deletion is cancelled", async () => {
-    bridge.question.mockResolvedValueOnce("卸载并删除已声明数据").mockResolvedValueOnce("取消");
-    renderRow({}, "团队 PPIO", {}, vi.fn());
-    await userEvent.click(screen.getByRole("button", { name: "Codex 更多操作" }));
-    await userEvent.click(screen.getByRole("menuitem", { name: "卸载 Agent" }));
-    expect(bridge.question).toHaveBeenCalledTimes(2);
-    expect(bridge.uninstallAgent).not.toHaveBeenCalled();
-  });
-
-  it("does not retry destructive uninstall without cross-environment approval", async () => {
-    bridge.question.mockResolvedValueOnce("卸载并删除已声明数据").mockResolvedValueOnce("永久删除并卸载").mockResolvedValueOnce("取消");
-    bridge.uninstallAgent.mockRejectedValueOnce(new BootAgentApiError("mismatch", "AGENT_NPM_ENVIRONMENT_MISMATCH", false, 409));
-    const onChanged = vi.fn();
-    renderRow({}, "团队 PPIO", {}, onChanged);
-    await userEvent.click(screen.getByRole("button", { name: "Codex 更多操作" }));
-    await userEvent.click(screen.getByRole("menuitem", { name: "卸载 Agent" }));
-    await waitFor(() => expect(bridge.question).toHaveBeenCalledTimes(3));
-    expect(bridge.uninstallAgent).toHaveBeenCalledTimes(1);
-    expect(onChanged).not.toHaveBeenCalled();
-  });
-
-  it("keeps the destructive warning when retrying cross-environment uninstall", async () => {
-    bridge.question
-      .mockResolvedValueOnce("卸载并删除已声明数据")
-      .mockResolvedValueOnce("永久删除并卸载")
-      .mockResolvedValueOnce("允许并继续");
-    bridge.uninstallAgent.mockRejectedValueOnce(new BootAgentApiError("mismatch", "AGENT_NPM_ENVIRONMENT_MISMATCH", false, 409));
-    renderRow({}, "团队 PPIO", {}, vi.fn());
-    await userEvent.click(screen.getByRole("button", { name: "Codex 更多操作" }));
-    await userEvent.click(screen.getByRole("menuitem", { name: "卸载 Agent" }));
-    await waitFor(() => expect(bridge.uninstallAgent).toHaveBeenCalledTimes(2));
-    expect(bridge.uninstallAgent).toHaveBeenLastCalledWith("codex", true, "", [], true);
-    expect(bridge.question.mock.calls.at(-1)?.[0].Message).toMatch(/永久删除.*已声明/);
-    expect(bridge.question.mock.calls.at(-1)?.[0].Message).not.toContain("不会删除配置和对话数据");
-  });
-
   it("requires a second confirmation before full cleanup", async () => {
     const onChanged = vi.fn();
     bridge.question
-      .mockResolvedValueOnce("卸载并删除已声明数据")
+      .mockResolvedValueOnce("卸载并删除全部数据")
       .mockResolvedValueOnce("永久删除并卸载");
     renderRow({}, "团队 PPIO", {}, onChanged);
     await userEvent.click(screen.getByRole("button", { name: "Codex 更多操作" }));
@@ -501,8 +448,6 @@ describe("the update affordance in the row", () => {
       Title: "确认永久删除数据",
       Message: expect.stringMatching(/永久删除.*无法找回/),
     }));
-    expect(bridge.question.mock.calls.at(-1)?.[0].Message).toMatch(/系统钥匙串.*项目目录.*自定义路径/);
-    expect(bridge.question.mock.calls.at(-1)?.[0].Message).toContain("未选中的实例也可能受影响");
     await waitFor(() => expect(onChanged).toHaveBeenCalledOnce());
   });
 });
