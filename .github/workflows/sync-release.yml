@@ -57,14 +57,11 @@ jobs:
           GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
         run: python3 scripts/retain_gitee_release_line.py --version "${{ steps.release.outputs.version }}" --apply
 
-      - name: Sync GitHub Release to Gitee
-        uses: trustedinster/sync-release-gitee@v1.3
-        with:
-          gitee_owner: maimory
-          gitee_repo: BootAgent
-          gitee_token: ${{ secrets.GITEE_TOKEN }}
-          github_owner: MaimoryLab
-          github_repo: BootAgent
-          gitee_upload_retry_times: 3
-          debug: false
+      - name: Sync current OTA release to Gitee
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+        run: >-
+          python3 scripts/sync_gitee_ota_release.py
+          --version "${{ steps.release.outputs.version }}"
   
