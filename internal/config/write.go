@@ -512,6 +512,14 @@ func (w Writer) WriteOpenClaw(ctx context.Context, path, providerName, baseURL, 
 // The endpoint goes in with OpenAIBaseURL's /v1 rather than bare, because the
 // adapter appends only the operation path to whatever it is given.
 func (w Writer) WriteDSH(ctx context.Context, path, providerName, baseURL, apiKey, model string) error {
+	return w.WriteDSHProtocol(ctx, path, providerName, baseURL, apiKey, model, provider.ProtocolOpenAI)
+}
+
+// WriteDSHProtocol writes a hand-declared pi-ai route using the protocol
+// accepted by the selected upstream model. DSH supports both OpenAI Chat
+// Completions and Responses; the install flow probes and passes the one that
+// actually works.
+func (w Writer) WriteDSHProtocol(ctx context.Context, path, providerName, baseURL, apiKey, model, protocolID string) error {
 	// The credential lands first: a route pointing at a provider dsh cannot
 	// authenticate is worse than an unreferenced key.
 	if err := w.writeDSHCredential(ctx, filepath.Join(filepath.Dir(path), ".credentials.yaml"), dshCredentialReference, apiKey); err != nil {
@@ -530,10 +538,14 @@ func (w Writer) WriteDSH(ctx context.Context, path, providerName, baseURL, apiKe
 		return configError("Existing llm-pi-ai providers must contain an object: %s", path)
 	}
 	route := &yaml.Node{Kind: yaml.MappingNode}
+	apiName := "openai-completions"
+	if protocolID == provider.ProtocolResponses {
+		apiName = "openai-responses"
+	}
 	for _, item := range []struct{ key, value string }{
 		{"displayName", providerName},
 		{"apiKeyEnv", dshCredentialReference},
-		{"api", "openai-completions"},
+		{"api", apiName},
 		{"baseURL", provider.OpenAIBaseURL(baseURL)},
 	} {
 		yamlSet(route, item.key, item.value)
@@ -636,16 +648,41 @@ func (w Writer) WriteDSHOfficial(ctx context.Context, path, apiKey, model, reaso
 // the given reference, keeping every other credential the user stored from
 // dsh's Models page.
 //
-// The document is a strict credential-to-value mapping: dsh rejects a non-string
-// value, an empty string, or a key that is not a POSIX identifier, and fails loud
-// rather than skipping the entry. So this writes one identifier and nothing else
-// -- no wrapper level, no version field.
+// The document is dsh's strict version-1 credential store: references live
+// under refs and must contain non-empty strings keyed by POSIX identifiers.
+// Legacy flat files are migrated on the first write so the current Web app can
+// load them without losing existing credentials.
 func (w Writer) writeDSHCredential(ctx context.Context, path, reference, apiKey string) error {
 	root, err := yamlDocument(path, "DeepSeek Harness credentials")
 	if err != nil {
 		return err
 	}
-	yamlSet(root.Content[0], reference, apiKey)
+	// dsh 0.1.5 and newer use the versioned credential document. Older
+	// releases accepted a flat map, so migrate that shape in memory while
+	// preserving every existing reference before writing the new document.
+	version := yamlLookup(root.Content[0], "version")
+	refs := yamlChild(root.Content[0], "refs")
+	if version == nil && refs == nil {
+		legacy := append([]*yaml.Node(nil), root.Content[0].Content...)
+		root.Content[0].Content = nil
+		root.Content[0].Content = append(root.Content[0].Content,
+			&yaml.Node{Kind: yaml.ScalarNode, Value: "version"},
+			&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!int", Value: "1"})
+		refs = &yaml.Node{Kind: yaml.MappingNode}
+		root.Content[0].Content = append(root.Content[0].Content,
+			&yaml.Node{Kind: yaml.ScalarNode, Value: "refs"}, refs)
+		for index := 0; index+1 < len(legacy); index += 2 {
+			refs.Content = append(refs.Content, legacy[index], legacy[index+1])
+		}
+	} else {
+		if version == nil || version.Value != "1" {
+			return configError("DeepSeek Harness credentials must use version: 1: %s", path)
+		}
+		if refs == nil || refs.Kind != yaml.MappingNode {
+			return configError("DeepSeek Harness credentials refs must be an object: %s", path)
+		}
+	}
+	yamlSet(refs, reference, apiKey)
 	data, err := yaml.Marshal(root)
 	if err != nil {
 		return configError("Cannot encode YAML credentials %s: %v", path, err)
@@ -889,6 +926,15 @@ func yamlReplace(parent *yaml.Node, key string, value *yaml.Node) {
 func yamlChild(parent *yaml.Node, key string) *yaml.Node {
 	for index := 0; index < len(parent.Content); index += 2 {
 		if parent.Content[index].Value == key && parent.Content[index+1].Kind == yaml.MappingNode {
+			return parent.Content[index+1]
+		}
+	}
+	return nil
+}
+
+func yamlLookup(parent *yaml.Node, key string) *yaml.Node {
+	for index := 0; index+1 < len(parent.Content); index += 2 {
+		if parent.Content[index].Value == key {
 			return parent.Content[index+1]
 		}
 	}

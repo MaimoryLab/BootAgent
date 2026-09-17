@@ -97,7 +97,11 @@ func (c *Client) Probe(ctx context.Context, protocol, providerID, apiKey, model,
 		// stream an unbounded response into the process.
 		_, _ = io.Copy(io.Discard, io.LimitReader(response.Body, c.maxBody))
 		return ProbeResult{
-			OK:        response.StatusCode == http.StatusOK || response.StatusCode == http.StatusNoContent,
+			// Every 2xx response proves that the endpoint accepted the protocol
+			// request. Restricting this to 200/204 produced a contradictory result
+			// for proxies returning 201/202: the message said "connection test
+			// passed" while OK=false made the UI render a failure state.
+			OK:        response.StatusCode >= http.StatusOK && response.StatusCode < http.StatusMultipleChoices,
 			Reachable: true,
 			Status:    response.StatusCode,
 			Message:   fmt.Sprintf("%s connection test passed.", ProtocolLabel(protocol)),

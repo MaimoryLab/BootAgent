@@ -91,6 +91,26 @@ func TestProbeBuildsProtocolSpecificRequests(t *testing.T) {
 	}
 }
 
+func TestProbeTreatsEverySuccessfulHTTPStatusAsPassed(t *testing.T) {
+	for _, status := range []int{http.StatusOK, http.StatusCreated, http.StatusAccepted, http.StatusNoContent, http.StatusPartialContent, 299} {
+		t.Run(http.StatusText(status), func(t *testing.T) {
+			client := NewClient(fakeDoer(func(*http.Request) (*http.Response, error) {
+				return fakeResponse(status, `{}`), nil
+			}))
+			result, err := client.Probe(context.Background(), ProtocolAnthropic, "custom", "key", "model-a", "https://proxy.test/v1")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !result.OK {
+				t.Fatalf("HTTP %d was reported as failed: %#v", status, result)
+			}
+			if !strings.Contains(result.Message, "connection test passed") {
+				t.Fatalf("HTTP %d message = %q, want passed message", status, result.Message)
+			}
+		})
+	}
+}
+
 func TestProbeClassifiesUnsupportedAndTransientResponses(t *testing.T) {
 	unsupported := NewClient(fakeDoer(func(*http.Request) (*http.Response, error) {
 		return fakeResponse(http.StatusBadRequest, `{"message":"model does not support endpoint"}`), nil

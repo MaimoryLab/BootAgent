@@ -232,7 +232,15 @@ func (u *UseCases) probeInstallProtocols(ctx context.Context, options InstallAge
 	}
 	protocols := make(map[string]bool)
 	for _, agentID := range autoAgents {
-		protocols[provider.ProtocolForAdapter(manifest.Agents[agentID].ConfigAdapter)] = true
+		agent := manifest.Agents[agentID]
+		protocols[provider.ProtocolForAdapter(agent.ConfigAdapter)] = true
+		// DSH's current pi-ai adapter supports both OpenAI wire protocols.
+		// Probe both because newer reasoning models (for example gpt-5.6-sol)
+		// may reject Chat Completions while accepting Responses.
+		if agent.ConfigAdapter == "dsh" {
+			protocols[provider.ProtocolResponses] = true
+			protocols[provider.ProtocolOpenAI] = true
+		}
 	}
 	ordered := make([]string, 0, len(protocols))
 	for protocolID := range protocols {
@@ -247,6 +255,30 @@ func (u *UseCases) probeInstallProtocols(ctx context.Context, options InstallAge
 		return nil, err
 	}
 	u.sharpenInstallModelDiagnosis(ctx, probes, options)
+	// A DSH install can use either protocol. Keep the preferred successful
+	// result (Responses first) and discard a failed alternative so one
+	// unsupported wire format does not fail an otherwise valid installation.
+	if slices.Contains(autoAgents, "dsh") {
+		nonDSHNeedsOpenAI := false
+		nonDSHNeedsResponses := false
+		for _, agentID := range autoAgents {
+			agent := manifest.Agents[agentID]
+			if agent.ConfigAdapter == "dsh" {
+				continue
+			}
+			switch provider.ProtocolForAdapter(agent.ConfigAdapter) {
+			case provider.ProtocolOpenAI:
+				nonDSHNeedsOpenAI = true
+			case provider.ProtocolResponses:
+				nonDSHNeedsResponses = true
+			}
+		}
+		if responses, ok := probes[provider.ProtocolResponses]; ok && responses.OK && !nonDSHNeedsOpenAI {
+			delete(probes, provider.ProtocolOpenAI)
+		} else if chat, ok := probes[provider.ProtocolOpenAI]; ok && chat.OK && !nonDSHNeedsResponses {
+			delete(probes, provider.ProtocolResponses)
+		}
+	}
 	return probes, nil
 }
 
@@ -402,6 +434,11 @@ func (r *installRun) configure(ctx context.Context, agentID string, agent catalo
 	if r.options.Configure {
 		r.emitPhase(agentID, "configuring")
 		protocolID := provider.ProtocolForAdapter(agent.ConfigAdapter)
+		if agent.ConfigAdapter == "dsh" {
+			if verdict, ok := r.probes[provider.ProtocolResponses]; ok && verdict.OK {
+				protocolID = provider.ProtocolResponses
+			}
+		}
 		if verdict, found := r.probes[protocolID]; found && !verdict.OK {
 			code := pointerString(verdict.ErrorCode)
 			if code == "" {
@@ -424,7 +461,7 @@ func (r *installRun) configure(ctx context.Context, agentID string, agent catalo
 		// launched with is the only carrier.
 		reasoningEffort := r.core.profileReasoningEffort(r.options.ProfileID)
 		context1M := r.core.profileContext1M(r.options.ProfileID)
-		if err := writeManagedAgentConfig(ctx, writer, agentID, agent, configPathValue, dshRouteProviderID(target, r.options.APIBaseURL), r.providerName, configBase, r.options.APIKey, r.options.Model, reasoningEffort, context1M); err != nil {
+		if err := writeManagedAgentConfig(ctx, writer, agentID, agent, configPathValue, dshRouteProviderID(target, r.options.APIBaseURL), r.providerName, configBase, r.options.APIKey, r.options.Model, reasoningEffort, context1M, protocolID); err != nil {
 			return err
 		}
 		if _, err := r.core.profiles.WriteAgentBinding(ctx, agentID, profileStore.BindingWriteRequest{
@@ -579,6 +616,11 @@ func (r *installRun) finish(ctx context.Context, baseURL string) InstallAgentsRe
 		for _, agentID := range r.options.Agents {
 			if agent, ok := r.manifest.Agents[agentID]; ok && agent.ConfigMode == "auto" {
 				profileProtocol = provider.ProtocolForAdapter(agent.ConfigAdapter)
+				if agent.ConfigAdapter == "dsh" {
+					if verdict, ok := r.probes[provider.ProtocolResponses]; ok && verdict.OK {
+						profileProtocol = provider.ProtocolResponses
+					}
+				}
 				break
 			}
 		}

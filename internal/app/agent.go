@@ -246,7 +246,7 @@ func (u *UseCases) profileContext1M(profileID string) bool {
 // config shapes read off one observed version with no documented reasoning
 // field, and inventing keys in files those apps own risks corrupting state
 // they manage (see WriteZCode).
-func writeManagedAgentConfig(ctx context.Context, writer configWriter.Writer, agentID string, agent catalog.Agent, path, providerID, providerName, baseURL, apiKey, model, reasoningEffort string, context1M bool) error {
+func writeManagedAgentConfig(ctx context.Context, writer configWriter.Writer, agentID string, agent catalog.Agent, path, providerID, providerName, baseURL, apiKey, model, reasoningEffort string, context1M bool, selectedProtocol ...string) error {
 	switch agent.ConfigAdapter {
 	case "codex":
 		return writer.WriteCodex(ctx, path, providerName, baseURL, apiKey, model, reasoningEffort)
@@ -275,7 +275,11 @@ func writeManagedAgentConfig(ctx context.Context, writer configWriter.Writer, ag
 		if providerID == "deepseek" {
 			return writer.WriteDSHOfficial(ctx, path, apiKey, model, reasoningEffort)
 		}
-		return writer.WriteDSH(ctx, path, providerName, baseURL, apiKey, model)
+		protocolID := provider.ProtocolOpenAI
+		if len(selectedProtocol) > 0 && selectedProtocol[0] != "" {
+			protocolID = selectedProtocol[0]
+		}
+		return writer.WriteDSHProtocol(ctx, path, providerName, baseURL, apiKey, model, protocolID)
 	case "hermes":
 		return writer.WriteHermes(ctx, path, baseURL, apiKey, model)
 	case "kimi-code":
