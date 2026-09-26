@@ -522,8 +522,11 @@ func (w Writer) WriteDSH(ctx context.Context, path, providerName, baseURL, apiKe
 func (w Writer) WriteDSHProtocol(ctx context.Context, path, providerName, baseURL, apiKey, model, protocolID string) error {
 	// The credential lands first: a route pointing at a provider dsh cannot
 	// authenticate is worse than an unreferenced key.
-	if err := w.writeDSHCredential(ctx, filepath.Join(filepath.Dir(path), ".credentials.yaml"), dshCredentialReference, apiKey); err != nil {
+	if err := w.writeDSHCredential(ctx, dshCredentialsPath(path), dshCredentialReference, apiKey); err != nil {
 		return err
+	}
+	if dshUsesProfilePatch(path) {
+		return w.writeDSHProfileRoute(ctx, path, providerName, baseURL, apiKey, model, protocolID)
 	}
 	root, err := yamlDocument(path, "DeepSeek Harness settings")
 	if err != nil {
@@ -611,8 +614,11 @@ func (w Writer) WriteDSHProtocol(ctx context.Context, path, providerName, baseUR
 func (w Writer) WriteDSHOfficial(ctx context.Context, path, apiKey, model, reasoningEffort string) error {
 	// The credential lands first: a selection pointing at a route dsh cannot
 	// authenticate is worse than an unreferenced key.
-	if err := w.writeDSHCredential(ctx, filepath.Join(filepath.Dir(path), ".credentials.yaml"), dshOfficialCredential, apiKey); err != nil {
+	if err := w.writeDSHCredential(ctx, dshCredentialsPath(path), dshOfficialCredential, apiKey); err != nil {
 		return err
+	}
+	if dshUsesProfilePatch(path) {
+		return w.writeDSHProfileOfficial(ctx, path, model, reasoningEffort)
 	}
 	root, err := yamlDocument(path, "DeepSeek Harness settings")
 	if err != nil {
