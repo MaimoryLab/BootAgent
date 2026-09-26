@@ -145,3 +145,29 @@ func TestMigrateContinuesPastAFileItCannotParse(t *testing.T) {
 		t.Errorf("zcode was skipped because an earlier file failed: %s", data)
 	}
 }
+
+// OpenClaw's own config format is JSON5. A file with no OneAgent entry has
+// nothing to migrate, so it must be neither parsed nor reported -- this shape
+// (unquoted top-level key, trailing comma) is what a real install contains.
+func TestMigrateIgnoresAConfigWithNothingToMigrate(t *testing.T) {
+	home := t.TempDir()
+	path := filepath.Join(home, ".openclaw", "openclaw.json")
+	content := "{\n  models: {\n    \"mode\": \"merge\",\n    \"providers\": {\n      \"ppio\": {\"baseUrl\": \"https://api.ppio.com/openai\", \"models\": [{\"id\": \"m\"}]}\n    }\n  },\n}\n"
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	fs := securefs.New(securefs.Options{OS: "linux", BackupRoot: filepath.Join(home, ".bootagent", "backup")})
+	if err := MigrateLegacyAgentConfigs(context.Background(), home, fs); err != nil {
+		t.Fatalf("MigrateLegacyAgentConfigs() = %v, want nil for a file with nothing to migrate", err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != content {
+		t.Errorf("config was rewritten:\n%s", data)
+	}
+}
