@@ -16,7 +16,7 @@ type Info struct {
 }
 
 func Current() Info {
-	return For(runtime.GOOS, runtime.GOARCH)
+	return For(runtime.GOOS, nativeArch(runtime.GOARCH))
 }
 
 func For(goos, goarch string) Info {

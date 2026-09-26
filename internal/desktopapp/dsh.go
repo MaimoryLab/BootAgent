@@ -180,11 +180,20 @@ func installDSH(ctx context.Context, options Options) (ActionResult, error) {
 	if err := downloadDSH(ctx, options, url, name); err != nil {
 		return ActionResult{}, err
 	}
-	mount := filepath.Dir(name) + "/mount"
-	if err := os.MkdirAll(mount, 0o700); err != nil {
+	mount, err := os.MkdirTemp(filepath.Dir(name), "dsh-mount-")
+	if err != nil {
 		return ActionResult{}, err
 	}
-	defer os.RemoveAll(mount)
+	mounted := false
+	defer func() {
+		if mounted {
+			// Cleanup must run even when the install context is cancelled. The
+			// image is read-only, so detaching it is safe and prevents a leaked
+			// volume from blocking later installs or temporary-directory removal.
+			_, _ = run(options, context.Background(), []string{"/usr/bin/hdiutil", "detach", mount}, installTimeout)
+		}
+		_ = os.RemoveAll(mount)
+	}()
 	result, err := run(options, ctx, []string{"/usr/bin/hdiutil", "attach", name, "-nobrowse", "-readonly", "-mountpoint", mount}, installTimeout)
 	if err != nil {
 		return ActionResult{}, fmt.Errorf("mount %s installer: %w", DSHDesktopName, err)
@@ -192,6 +201,7 @@ func installDSH(ctx context.Context, options Options) (ActionResult, error) {
 	if result.ExitCode != 0 {
 		return ActionResult{}, commandFailure("mount "+DSHDesktopName+" installer", result)
 	}
+	mounted = true
 	app := filepath.Join(mount, "DSH Desktop.app")
 	if _, err := os.Stat(app); err != nil {
 		return ActionResult{}, errors.New("DSH Desktop.app not found in installer")

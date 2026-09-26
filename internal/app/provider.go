@@ -117,6 +117,13 @@ func (u *UseCases) probeProtocols(ctx context.Context, protocols []string, apiKe
 		}(protocolID)
 	}
 	group.Wait()
+	// Callers may probe alternative protocols (notably DSH, which supports both
+	// Chat Completions and Responses). A transport failure for one alternative
+	// must not discard a successful result for another; only fail when every
+	// requested probe failed before producing a verdict.
+	if len(results) > 0 {
+		return results, nil
+	}
 	for _, protocolID := range protocols {
 		if err := errorsByProtocol[protocolID]; err != nil {
 			return results, err

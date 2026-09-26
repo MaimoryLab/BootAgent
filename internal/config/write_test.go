@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/MaimoryLab/BootAgent/internal/provider"
 	"github.com/MaimoryLab/BootAgent/internal/securefs"
 	"gopkg.in/yaml.v3"
 )
@@ -855,20 +856,26 @@ func dshSettings(t *testing.T, path string) map[string]map[string]any {
 	return parsed.PiAI.Providers
 }
 
-// dshCredentials returns the credential document as the strict mapping dsh
-// requires it to be: any other shape fails on dsh's side rather than being
-// skipped, so the test asserts the shape too.
+// dshCredentials returns the refs from the versioned credential document dsh
+// requires. Legacy flat files are accepted as input by the migration test
+// path, but writes must publish version: 1 with a refs mapping.
 func dshCredentials(t *testing.T, path string) map[string]string {
 	t.Helper()
 	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	parsed := map[string]string{}
-	if err := yaml.Unmarshal(data, &parsed); err != nil {
-		t.Fatalf("credentials are not a string mapping: %v\n%s", err, data)
+	var document struct {
+		Version int               `yaml:"version"`
+		Refs    map[string]string `yaml:"refs"`
 	}
-	return parsed
+	if err := yaml.Unmarshal(data, &document); err != nil {
+		t.Fatalf("credentials are not a versioned document: %v\n%s", err, data)
+	}
+	if document.Version != 1 {
+		t.Fatalf("credential version = %d, want 1\n%s", document.Version, data)
+	}
+	return document.Refs
 }
 
 // Both files BootAgent writes for dsh are the user's, shared with dsh's own
@@ -1015,6 +1022,25 @@ func TestWriteDSHIsIdempotent(t *testing.T) {
 	}
 	if stored := dshCredentials(t, filepath.Join(home, ".dsh", ".credentials.yaml")); len(stored) != 1 {
 		t.Errorf("credential count = %d, want 1: %v", len(stored), stored)
+	}
+}
+
+func TestWriteDSHProtocolUsesResponsesForModelsThatRequireIt(t *testing.T) {
+	home := t.TempDir()
+	path := filepath.Join(home, ".dsh", "settings.yaml")
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	writer := testWriter(t, home, "linux")
+	if err := writer.WriteDSHProtocol(context.Background(), path, "OpenAI", "https://api.example", "sk-x", "gpt-5.6-sol", provider.ProtocolResponses); err != nil {
+		t.Fatal(err)
+	}
+	route := dshSettings(t, path)["bootagent"]
+	if route["api"] != "openai-responses" {
+		t.Fatalf("route api = %v, want openai-responses", route["api"])
+	}
+	if route["baseURL"] != "https://api.example/v1" {
+		t.Fatalf("route baseURL = %v, want /v1", route["baseURL"])
 	}
 }
 
