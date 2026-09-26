@@ -305,6 +305,52 @@ func TestWriteDSHProfileStartsFromACommentOnlyPatch(t *testing.T) {
 	}
 }
 
+// What DeepSeek Harness 0.1.7-rc.2 leaves on Windows after its first launch and
+// before the user saves any key: an empty flow sequence under the scaffold
+// comment, and a credential document with records but no refs yet.
+func TestWriteDSHProfileIntoAFreshDesktopInstall(t *testing.T) {
+	const patch = "# Your patch layer for this dsh profile, applied after every bundle layer:\n" +
+		"# a top-level YAML array of loader patch entries (id-targeted config\n" +
+		"# overrides, disables, and insert lists; `!!js` expressions allowed).\n" +
+		"[]\n"
+	const credentials = "version: 1\n" +
+		"records:\n" +
+		"  client-connection/browser-session:\n" +
+		"    kind: grant\n" +
+		"    payload:\n" +
+		"      version: 1\n" +
+		"      secret: browser-session-secret\n"
+	home, path, credentialsPath := dshProfileHome(t, DSHDesktopProfile, patch, credentials)
+	if err := testWriter(t, home, "linux").WriteDSH(context.Background(), path, "PPIO", "https://api.example", "sk-new", "m"); err != nil {
+		t.Fatal(err)
+	}
+	if rows := dshPatchRows(t, path); rows["llm-pi-ai"] == nil || rows["agent-default-model"] == nil {
+		t.Fatalf("rows = %v, want llm-pi-ai and agent-default-model", rows)
+	}
+	written, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(string(written), strings.TrimSuffix(patch, "[]\n")+"- id: ") {
+		t.Errorf("patch was not written as a block list under the header:\n%s", written)
+	}
+	data, err := os.ReadFile(credentialsPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var document struct {
+		Version int                       `yaml:"version"`
+		Refs    map[string]string         `yaml:"refs"`
+		Records map[string]map[string]any `yaml:"records"`
+	}
+	if err := yaml.Unmarshal(data, &document); err != nil {
+		t.Fatal(err)
+	}
+	if document.Version != 1 || document.Refs["BOOTAGENT_API_KEY"] != "sk-new" || document.Records["client-connection/browser-session"] == nil {
+		t.Fatalf("credentials after write:\n%s", data)
+	}
+}
+
 // The rest of the file is rewritten with the indentation dsh itself uses, so a
 // write changes only the rows it touched. A row the write never addresses
 // comes out byte-for-byte as it went in.

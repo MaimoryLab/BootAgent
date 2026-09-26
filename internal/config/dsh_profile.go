@@ -243,6 +243,12 @@ func yamlSequenceDocument(path, label string) (*yaml.Node, error) {
 	if len(root.Content) != 1 || root.Content[0].Kind != yaml.SequenceNode {
 		return nil, configError("Existing %s must contain a list: %s", label, path)
 	}
+	// The desktop app's scaffold ends in a flow-style `[]`. Rows appended to it
+	// would inherit that style and land on one line in a file meant for hand
+	// editing, so an empty list is written back in block style.
+	if sequence := root.Content[0]; len(sequence.Content) == 0 {
+		sequence.Style &^= yaml.FlowStyle
+	}
 	return root, nil
 }
 

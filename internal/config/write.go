@@ -689,7 +689,13 @@ func (w Writer) writeDSHCredential(ctx context.Context, path, reference, apiKey 
 		if version == nil || version.Value != "1" {
 			return configError("DeepSeek Harness credentials must use version: 1: %s", path)
 		}
-		if refs == nil || refs.Kind != yaml.MappingNode {
+		// A fresh desktop install writes version and records but no refs until
+		// the user saves a key of their own.
+		if existing := yamlLookup(root.Content[0], "refs"); existing == nil || existing.Tag == "!!null" {
+			refs = &yaml.Node{Kind: yaml.MappingNode}
+			yamlReplace(root.Content[0], "refs", refs)
+		}
+		if refs == nil {
 			return configError("DeepSeek Harness credentials refs must be an object: %s", path)
 		}
 	}
