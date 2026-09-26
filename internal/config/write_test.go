@@ -1325,12 +1325,25 @@ func TestWriteDSHOfficialRejectsAnUnsupportedReasoningEffort(t *testing.T) {
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		t.Fatal(err)
 	}
+	credentials := filepath.Join(home, ".dsh", ".credentials.yaml")
+	if err := os.WriteFile(credentials, []byte("version: 1\nrefs:\n  DEEPSEEK_API_KEY: sk-users-own\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	writer := testWriter(t, home, "linux")
 	if err := writer.WriteDSHOfficial(context.Background(), path, "sk-x", "deepseek-v4-pro", "medium"); err == nil {
 		t.Fatal("an effort the shipped route cannot dispatch was accepted")
 	}
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
 		t.Errorf("a rejected effort still wrote settings: err=%v", err)
+	}
+	// A rejected activation must not leave a half-applied one behind. The
+	// credential is written before the selection, so it is the write a late
+	// validation would have already done.
+	if stored := dshCredentials(t, credentials); stored["DEEPSEEK_API_KEY"] != "sk-users-own" {
+		t.Errorf("a rejected effort still replaced the credential: %v", stored)
+	}
+	if backups, _ := filepath.Glob(credentials + ".backup-*"); len(backups) != 0 {
+		t.Errorf("a rejected effort still produced credential backups: %v", backups)
 	}
 	for _, valid := range []string{"off", "high", "max"} {
 		if err := ValidateDSHOfficialReasoningEffort(valid); err != nil {

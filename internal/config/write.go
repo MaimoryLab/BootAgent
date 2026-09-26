@@ -612,8 +612,16 @@ func (w Writer) WriteDSHProtocol(ctx context.Context, path, providerName, baseUR
 // as complete and would otherwise keep sending an effort this model never
 // declared.
 func (w Writer) WriteDSHOfficial(ctx context.Context, path, apiKey, model, reasoningEffort string) error {
-	// The credential lands first: a selection pointing at a route dsh cannot
-	// authenticate is worse than an unreferenced key.
+	// Validation before any write: an effort the shipped route cannot dispatch
+	// is a request error, and a request error must not leave a half-applied
+	// activation behind -- least of all a replaced credential.
+	if reasoningEffort != "" {
+		if err := ValidateDSHOfficialReasoningEffort(reasoningEffort); err != nil {
+			return err
+		}
+	}
+	// Then the credential, before the selection: a selection pointing at a
+	// route dsh cannot authenticate is worse than an unreferenced key.
 	if err := w.writeDSHCredential(ctx, dshCredentialsPath(path), dshOfficialCredential, apiKey); err != nil {
 		return err
 	}
@@ -636,9 +644,6 @@ func (w Writer) WriteDSHOfficial(ctx context.Context, path, apiKey, model, reaso
 	yamlSet(selection, "provider", dshOfficialRoute)
 	yamlSet(selection, "model", model)
 	if reasoningEffort != "" {
-		if err := ValidateDSHOfficialReasoningEffort(reasoningEffort); err != nil {
-			return err
-		}
 		yamlSet(selection, "reasoningEffort", reasoningEffort)
 	}
 	yamlReplace(root.Content[0], "agent-default-model", selection)

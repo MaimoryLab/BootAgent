@@ -111,25 +111,63 @@ func dshPatchRows(t *testing.T, path string) map[string]map[string]any {
 	return result
 }
 
-func TestResolveDSHConfigPathPrefersTheProfilePatchOnceTheProfileExists(t *testing.T) {
+func TestResolveDSHConfigPathFollowsWhatEachProfileReads(t *testing.T) {
 	home := t.TempDir()
 	legacy := filepath.Join(home, ".dsh", DSHLegacySettings)
-	// Nothing on disk yet: an older CLI reads settings.yaml, so that is what
-	// gets written. The profile directory is never invented.
-	if got := ResolveDSHConfigPath(home, DSHWebProfile); got != legacy {
-		t.Fatalf("fresh home resolves to %q, want %q", got, legacy)
+	desktopPatch := filepath.Join(home, ".dsh", "profiles", DSHDesktopProfile, DSHProfilePatchName)
+	webPatch := filepath.Join(home, ".dsh", "profiles", DSHWebProfile, DSHProfilePatchName)
+
+	// Nothing on disk yet. The desktop app is 0.1.7-only and the install flow
+	// does not launch it, so this is exactly the state at first configuration:
+	// the patch it will read, not a legacy file it would half-import. The web
+	// profile may be a 0.1.5 CLI, which reads settings.yaml.
+	if got := ResolveDSHConfigPath(home, DSHDesktopProfile); got != desktopPatch {
+		t.Fatalf("fresh desktop profile resolves to %q, want %q", got, desktopPatch)
 	}
-	// dsh 0.1.7 has booted the desktop profile. Only that profile switches; the
-	// web profile it has not created still resolves to the legacy file.
-	desktop := filepath.Join(home, ".dsh", "profiles", DSHDesktopProfile)
-	if err := os.MkdirAll(desktop, 0o700); err != nil {
+	if got := ResolveDSHConfigPath(home, DSHWebProfile); got != legacy {
+		t.Fatalf("fresh web profile resolves to %q, want %q", got, legacy)
+	}
+	// Once `dsh web` from 0.1.7 has created its profile, the web profile
+	// switches too.
+	if err := os.MkdirAll(filepath.Dir(webPatch), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if got := ResolveDSHConfigPath(home, DSHDesktopProfile); got != filepath.Join(desktop, DSHProfilePatchName) {
-		t.Fatalf("desktop profile resolves to %q", got)
+	if got := ResolveDSHConfigPath(home, DSHWebProfile); got != webPatch {
+		t.Fatalf("web profile resolves to %q, want %q", got, webPatch)
 	}
-	if got := ResolveDSHConfigPath(home, DSHWebProfile); got != legacy {
-		t.Fatalf("web profile resolves to %q, want the legacy file", got)
+}
+
+// The desktop profile directory does not exist before the app's first launch.
+// The write has to create it, and leave only the patch behind: the app's own
+// initProfile fills in package.json and pnpm-workspace.yaml where absent, and
+// must not find files BootAgent guessed at.
+func TestWriteDSHProfileCreatesTheDesktopProfileAheadOfTheApp(t *testing.T) {
+	home := t.TempDir()
+	path := ResolveDSHConfigPath(home, DSHDesktopProfile)
+	if _, err := os.Stat(filepath.Dir(path)); !os.IsNotExist(err) {
+		t.Fatalf("profile directory exists before the write: %v", err)
+	}
+	if err := testWriter(t, home, "linux").WriteDSH(context.Background(), path, "PPIO", "https://api.example", "sk", "m"); err != nil {
+		t.Fatal(err)
+	}
+	entries, err := os.ReadDir(filepath.Dir(path))
+	if err != nil {
+		t.Fatal(err)
+	}
+	names := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		names = append(names, entry.Name())
+	}
+	if len(names) != 1 || names[0] != DSHProfilePatchName {
+		t.Fatalf("profile directory contains %v, want only %s", names, DSHProfilePatchName)
+	}
+	// And the legacy file was not touched: nothing reads it for this profile.
+	if _, err := os.Stat(filepath.Join(home, ".dsh", DSHLegacySettings)); !os.IsNotExist(err) {
+		t.Fatalf("legacy settings.yaml was written: %v", err)
+	}
+	rows := dshPatchRows(t, path)
+	if rows["agent-default-model"]["provider"] != "bootagent" {
+		t.Fatalf("default selection = %v", rows["agent-default-model"])
 	}
 }
 
@@ -260,6 +298,37 @@ func TestWriteDSHProfileStartsFromACommentOnlyPatch(t *testing.T) {
 	if !strings.Contains(string(data), dshPiAIEntryName) || !strings.Contains(string(data), dshDefaultModelEntryName) {
 		t.Errorf("new rows do not name their plugins:\n%s", data)
 	}
+	// The scaffold's header comment is the user's orientation in the file and
+	// has to survive the first write, which is the one that finds no rows.
+	if !strings.HasPrefix(string(data), "# Your patch layer for this dsh profile.\n# Edit freely.\n- id: ") {
+		t.Errorf("header comment was lost or displaced:\n%s", data)
+	}
+}
+
+// The rest of the file is rewritten with the indentation dsh itself uses, so a
+// write changes only the rows it touched. A row the write never addresses
+// comes out byte-for-byte as it went in.
+func TestWriteDSHProfileKeepsTheFilesIndentation(t *testing.T) {
+	untouched := "- id: session-persistence-jsonl\n  config:\n    root: !!js dshHomePath('sessions')\n- id: ui-settings-general\n  name: \"@deepseek-ai/dsh-client-ui-settings-general\"\n  config:\n    welcomeNoticeVersion: 2026-08-13.1\n"
+	home, path, _ := dshProfileHome(t, DSHDesktopProfile, untouched, "")
+	if err := testWriter(t, home, "linux").WriteDSH(context.Background(), path, "PPIO", "https://api.example", "sk", "m"); err != nil {
+		t.Fatal(err)
+	}
+	data, _ := os.ReadFile(path)
+	if !strings.HasPrefix(string(data), untouched) {
+		t.Fatalf("rows the write did not address were re-indented or reordered:\nwant prefix:\n%s\ngot:\n%s", untouched, data)
+	}
+}
+
+// A hand edit that repeats a row id must read as the writer would treat it:
+// the first row wins. Decoding both into one struct would merge them.
+func TestReadDSHConfigTakesTheFirstRowPerID(t *testing.T) {
+	text := "- id: llm-pi-ai\n  config:\n    providers:\n      bootagent:\n        baseURL: https://first.example/v1\n        models:\n          - id: first\n" +
+		"- id: llm-pi-ai\n  config:\n    providers:\n      other:\n        baseURL: https://second.example/v1\n"
+	got := ReadDSHConfig(text)
+	if got.BaseURL != "https://first.example/v1" || got.Model != "first" || !got.ManagedByBootAgent {
+		t.Fatalf("duplicate rows read as %#v, want the first row alone", got)
+	}
 }
 
 func TestWriteDSHProfileIsIdempotent(t *testing.T) {
@@ -339,6 +408,21 @@ func TestWriteDSHProfileOfficialLeavesNoEmptyPiAIRow(t *testing.T) {
 	}
 	if _, stale := rows["agent-default-model"]["reasoningEffort"]; stale {
 		t.Errorf("an empty reasoningEffort was written: %v", rows["agent-default-model"])
+	}
+}
+
+func TestWriteDSHProfileOfficialRejectsAnEffortBeforeTouchingCredentials(t *testing.T) {
+	home, path, credentials := dshProfileHome(t, DSHDesktopProfile, "", dshCredentialsWithRecordsFixture)
+	err := testWriter(t, home, "linux").WriteDSHOfficial(context.Background(), path, "sk-x", "deepseek-v4-pro", "medium")
+	if err == nil || !strings.Contains(err.Error(), "must be one of off, high, max") {
+		t.Fatalf("unsupported effort = %v", err)
+	}
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Errorf("a rejected effort still wrote the patch: err=%v", err)
+	}
+	after, _ := os.ReadFile(credentials)
+	if string(after) != dshCredentialsWithRecordsFixture {
+		t.Errorf("a rejected effort still rewrote the credential store:\n%s", after)
 	}
 }
 

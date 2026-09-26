@@ -1,6 +1,7 @@
 package config
 
 import (
+	"bytes"
 	"context"
 	"os"
 	"path/filepath"
@@ -41,13 +42,27 @@ const (
 )
 
 // ResolveDSHConfigPath picks the document BootAgent should write for one dsh
-// profile. The profile patch wins whenever its directory exists: dsh creates it
-// on first boot of that profile, and once it does the legacy file is either gone
-// or renamed. Without it the legacy settings.yaml is returned so an older CLI
-// keeps working -- the patch is never created speculatively, because a
-// profiles/<name> directory BootAgent invented would not be one dsh boots.
+// profile.
+//
+// The desktop profile always resolves to its patch. The Electron shell exists
+// only in the 0.1.7 line, so nothing that reads settings.yaml ever boots that
+// profile; and the install flow leaves the app on disk without launching it,
+// so at the moment the user configures it the profile directory does not exist
+// yet. Falling back to the legacy file there would write a document the app
+// imports only partially on first start. Creating the patch ahead of the app is
+// safe: its initProfile fills in package.json, pnpm-workspace.yaml and a
+// template patch only where each file is absent, and the directory is made
+// with mkdir -p semantics.
+//
+// The web profile is what `dsh web` boots, and which release that is depends
+// on the npm tag installed: `latest` is still 0.1.5, which reads settings.yaml.
+// There the patch wins only once dsh itself has created the profile directory;
+// otherwise the legacy file is written so the older CLI keeps working.
 func ResolveDSHConfigPath(home, profile string) string {
 	patch := filepath.Join(home, ".dsh", "profiles", profile, DSHProfilePatchName)
+	if profile == DSHDesktopProfile {
+		return patch
+	}
 	if info, err := os.Stat(filepath.Dir(patch)); err == nil && info.IsDir() {
 		return patch
 	}
@@ -106,7 +121,7 @@ func (w Writer) writeDSHProfileRoute(ctx context.Context, path, providerName, ba
 	yamlSet(selection, "model", model)
 	yamlReplace(dshPatchRow(root.Content[0], dshDefaultModelEntryID, dshDefaultModelEntryName), "config", selection)
 
-	data, err := yaml.Marshal(root)
+	data, err := encodeDSHProfilePatch(root)
 	if err != nil {
 		return configError("Cannot encode YAML configuration %s: %v", path, err)
 	}
@@ -131,19 +146,36 @@ func (w Writer) writeDSHProfileOfficial(ctx context.Context, path, model, reason
 	selection := &yaml.Node{Kind: yaml.MappingNode}
 	yamlSet(selection, "provider", dshOfficialRoute)
 	yamlSet(selection, "model", model)
+	// Already validated by WriteDSHOfficial, before the credential was written.
 	if reasoningEffort != "" {
-		if err := ValidateDSHOfficialReasoningEffort(reasoningEffort); err != nil {
-			return err
-		}
 		yamlSet(selection, "reasoningEffort", reasoningEffort)
 	}
 	yamlReplace(dshPatchRow(root.Content[0], dshDefaultModelEntryID, dshDefaultModelEntryName), "config", selection)
 
-	data, err := yaml.Marshal(root)
+	data, err := encodeDSHProfilePatch(root)
 	if err != nil {
 		return configError("Cannot encode YAML configuration %s: %v", path, err)
 	}
 	return w.write(ctx, path, data, false)
+}
+
+// encodeDSHProfilePatch serializes the patch with two-space indentation, which
+// is what dsh's own scaffold and Models page write. yaml.Marshal defaults to
+// four, so a rewrite through it would re-indent every row the user had -- a
+// semantically identical file, but a noisy diff for someone who keeps the
+// profile in version control, and not what "leaves the rest untouched" should
+// mean.
+func encodeDSHProfilePatch(root *yaml.Node) ([]byte, error) {
+	var buffer bytes.Buffer
+	encoder := yaml.NewEncoder(&buffer)
+	encoder.SetIndent(2)
+	if err := encoder.Encode(root); err != nil {
+		return nil, err
+	}
+	if err := encoder.Close(); err != nil {
+		return nil, err
+	}
+	return buffer.Bytes(), nil
 }
 
 // dshFindPatchRow returns the row addressing entry id, or nil.
@@ -198,7 +230,11 @@ func yamlSequenceDocument(path, label string) (*yaml.Node, error) {
 		return nil, configError("Cannot read existing %s %s: %v", label, path, err)
 	}
 	if isBlankYAML(text) {
-		return &yaml.Node{Kind: yaml.DocumentNode, Content: []*yaml.Node{{Kind: yaml.SequenceNode}}}, nil
+		// dsh's scaffold writes a header comment and nothing else. yaml.v3 parses
+		// that as an empty document, so the comment is carried over by hand: it
+		// is the user's orientation in a file dsh tells them to edit directly.
+		sequence := &yaml.Node{Kind: yaml.SequenceNode, HeadComment: strings.TrimRight(text, "\n")}
+		return &yaml.Node{Kind: yaml.DocumentNode, Content: []*yaml.Node{sequence}}, nil
 	}
 	root := &yaml.Node{}
 	if err := yaml.Unmarshal([]byte(text), root); err != nil {

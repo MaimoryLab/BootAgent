@@ -204,20 +204,28 @@ func ReadDSHConfig(text string) Detected {
 	var piAI dshPiAISection
 	var selection dshDefaultModelSection
 	if len(root.Content) == 1 && root.Content[0].Kind == yaml.SequenceNode {
+		// The first row addressing an id is the one read, matching the writer,
+		// which edits the first row it finds. dsh's own tooling does not produce
+		// duplicates; if a hand edit did, decoding a later row into the same
+		// struct would merge the two, and the file would read as something no
+		// single row says.
+		seen := make(map[string]bool, 2)
 		for _, row := range root.Content[0].Content {
 			var entry struct {
 				ID     string    `yaml:"id"`
 				Config yaml.Node `yaml:"config"`
 			}
-			if row.Decode(&entry) != nil {
+			if row.Decode(&entry) != nil || seen[entry.ID] {
 				continue
 			}
 			switch entry.ID {
 			case dshPiAIEntryID:
+				seen[entry.ID] = true
 				if entry.Config.Decode(&piAI) != nil {
 					return unreadable("llm-pi-ai 配置无法解析")
 				}
 			case dshDefaultModelEntryID:
+				seen[entry.ID] = true
 				if entry.Config.Decode(&selection) != nil {
 					return unreadable("agent-default-model 配置无法解析")
 				}
