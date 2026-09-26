@@ -93,7 +93,7 @@ BootAgent 会根据每个 Agent 的官方约定提供检测、配置、启动、
 
 | CLI 和本地 Agent | 桌面 Agent |
 | --- | --- |
-| Codex · Claude Code · OpenCode | DSH Desktop · Claude Desktop |
+| Codex · Claude Code · OpenCode | DeepSeek Harness · Claude Desktop |
 | Kilo CLI · Aider · OpenClaw | ChatGPT Desktop · WorkBuddy |
 | Hermes Agent · Kimi Code · Pi | WorkBuddy AI · ZCode |
 | DeepSeek Harness（本地 Web 应用） | |

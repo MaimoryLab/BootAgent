@@ -31,6 +31,14 @@ func verifyZCodeMacOSApp(ctx context.Context, options Options, appPath string) e
 	return verifyMacOSIdentity(ctx, options, appPath, ZCodeBundleID, ZCodeMacTeamID, "")
 }
 
+// verifyDSHMacOSApp pins DeepSeek's Developer ID team and bundle identifier the
+// same way, and requires notarization through spctl. The previous check for this
+// entry ran codesign --verify alone, which any validly signed bundle passes; a
+// stranger's app renamed to match would have installed.
+func verifyDSHMacOSApp(ctx context.Context, options Options, appPath string) error {
+	return verifyMacOSIdentity(ctx, options, appPath, DSHDesktopBundleID, DSHDesktopTeamID, "")
+}
+
 func verifyMacOSIdentity(ctx context.Context, options Options, appPath, bundleID, teamID, authority string) error {
 	result, err := run(options, ctx, []string{"/usr/bin/codesign", "--verify", "--deep", "--strict", "--verbose=2", appPath}, installTimeout)
 	if err != nil {

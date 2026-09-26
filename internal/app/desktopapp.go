@@ -257,7 +257,7 @@ func (u *UseCases) writeDesktopAgentConfig(ctx context.Context, definition deskt
 	if strings.TrimSpace(definition.ConfigPath) == "" {
 		return "", false, nil
 	}
-	path := filepath.Join(u.status.Home, filepath.FromSlash(definition.ConfigPath))
+	path := u.desktopAgentConfigPath(definition)
 	if err := writeManagedAgentConfig(ctx, writer, definition.ID, catalog.Agent{
 		ConfigAdapter: definition.ConfigAdapter,
 	}, path, dshRouteProviderID(target, ""), target.Name, target.BaseFor(protocol), target.APIKey, model, "", false); err != nil {
@@ -318,9 +318,20 @@ func (u *UseCases) publicDesktopAgentStatus(value desktopapp.Status) DesktopAgen
 			status.Protocol = provider.ProtocolForAdapter(shared.ConfigAdapter)
 		}
 	} else if definition.ConfigPath != "" && value.Supported {
-		status.ConfigPath = filepath.Join(u.status.Home, filepath.FromSlash(definition.ConfigPath))
+		status.ConfigPath = u.desktopAgentConfigPath(definition)
 	}
 	return status
+}
+
+// desktopAgentConfigPath is the document a desktop Agent's configuration is
+// written to. For DeepSeek Harness that is the patch of the profile the Electron
+// shell owns, once the shell has created it; the definition's ConfigPath is the
+// legacy fallback an older harness still reads.
+func (u *UseCases) desktopAgentConfigPath(definition desktopapp.Definition) string {
+	if definition.ConfigAdapter == desktopapp.ConfigAdapterDSH {
+		return configWriter.ResolveDSHConfigPath(u.status.Home, configWriter.DSHDesktopProfile)
+	}
+	return filepath.Join(u.status.Home, filepath.FromSlash(definition.ConfigPath))
 }
 
 func knownDesktopAgentID(value string) (string, error) {

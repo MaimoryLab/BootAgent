@@ -522,8 +522,11 @@ func (w Writer) WriteDSH(ctx context.Context, path, providerName, baseURL, apiKe
 func (w Writer) WriteDSHProtocol(ctx context.Context, path, providerName, baseURL, apiKey, model, protocolID string) error {
 	// The credential lands first: a route pointing at a provider dsh cannot
 	// authenticate is worse than an unreferenced key.
-	if err := w.writeDSHCredential(ctx, filepath.Join(filepath.Dir(path), ".credentials.yaml"), dshCredentialReference, apiKey); err != nil {
+	if err := w.writeDSHCredential(ctx, dshCredentialsPath(path), dshCredentialReference, apiKey); err != nil {
 		return err
+	}
+	if dshUsesProfilePatch(path) {
+		return w.writeDSHProfileRoute(ctx, path, providerName, baseURL, apiKey, model, protocolID)
 	}
 	root, err := yamlDocument(path, "DeepSeek Harness settings")
 	if err != nil {
@@ -609,10 +612,21 @@ func (w Writer) WriteDSHProtocol(ctx context.Context, path, providerName, baseUR
 // as complete and would otherwise keep sending an effort this model never
 // declared.
 func (w Writer) WriteDSHOfficial(ctx context.Context, path, apiKey, model, reasoningEffort string) error {
-	// The credential lands first: a selection pointing at a route dsh cannot
-	// authenticate is worse than an unreferenced key.
-	if err := w.writeDSHCredential(ctx, filepath.Join(filepath.Dir(path), ".credentials.yaml"), dshOfficialCredential, apiKey); err != nil {
+	// Validation before any write: an effort the shipped route cannot dispatch
+	// is a request error, and a request error must not leave a half-applied
+	// activation behind -- least of all a replaced credential.
+	if reasoningEffort != "" {
+		if err := ValidateDSHOfficialReasoningEffort(reasoningEffort); err != nil {
+			return err
+		}
+	}
+	// Then the credential, before the selection: a selection pointing at a
+	// route dsh cannot authenticate is worse than an unreferenced key.
+	if err := w.writeDSHCredential(ctx, dshCredentialsPath(path), dshOfficialCredential, apiKey); err != nil {
 		return err
+	}
+	if dshUsesProfilePatch(path) {
+		return w.writeDSHProfileOfficial(ctx, path, model, reasoningEffort)
 	}
 	root, err := yamlDocument(path, "DeepSeek Harness settings")
 	if err != nil {
@@ -630,9 +644,6 @@ func (w Writer) WriteDSHOfficial(ctx context.Context, path, apiKey, model, reaso
 	yamlSet(selection, "provider", dshOfficialRoute)
 	yamlSet(selection, "model", model)
 	if reasoningEffort != "" {
-		if err := ValidateDSHOfficialReasoningEffort(reasoningEffort); err != nil {
-			return err
-		}
 		yamlSet(selection, "reasoningEffort", reasoningEffort)
 	}
 	yamlReplace(root.Content[0], "agent-default-model", selection)
@@ -677,6 +688,12 @@ func (w Writer) writeDSHCredential(ctx context.Context, path, reference, apiKey 
 	} else {
 		if version == nil || version.Value != "1" {
 			return configError("DeepSeek Harness credentials must use version: 1: %s", path)
+		}
+		// A fresh desktop install writes version and records but no refs until
+		// the user saves a key of their own.
+		if existing := yamlLookup(root.Content[0], "refs"); existing == nil || existing.Tag == "!!null" {
+			refs = &yaml.Node{Kind: yaml.MappingNode}
+			yamlReplace(root.Content[0], "refs", refs)
 		}
 		if refs == nil || refs.Kind != yaml.MappingNode {
 			return configError("DeepSeek Harness credentials refs must be an object: %s", path)

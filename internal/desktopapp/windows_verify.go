@@ -17,7 +17,6 @@ type windowsAuthenticodeSignature struct {
 	Status        string `json:"Status"`
 	StatusMessage string `json:"StatusMessage"`
 	Publisher     string `json:"Publisher"`
-	Organization  string `json:"Organization"`
 	Subject       string `json:"Subject"`
 	Issuer        string `json:"Issuer"`
 }
@@ -34,22 +33,11 @@ func verifyWorkBuddyWindowsInstaller(ctx context.Context, edition workBuddyEditi
 	return verifyWindowsInstallerPublisher(ctx, options, installerPath, edition.windowsSigners)
 }
 
+// verifyDSHWindowsInstaller pins the vendor's publisher rather than accepting any
+// valid Authenticode signature, which is what this check did for the third-party
+// build it used to install.
 func verifyDSHWindowsInstaller(ctx context.Context, options Options, installerPath string) error {
-	result, err := runWithEnvironment(options, ctx, windowsAuthenticodeQuery(), map[string]string{"BOOTAGENT_VERIFY_PATH": installerPath}, installTimeout)
-	if err != nil {
-		return err
-	}
-	if result.ExitCode != 0 {
-		return commandFailure("run Windows Authenticode verification", result)
-	}
-	signature, err := parseWindowsAuthenticodeSignature(result.Stdout)
-	if err != nil {
-		return err
-	}
-	if !strings.EqualFold(strings.TrimSpace(signature.Status), "Valid") || strings.TrimSpace(signature.Subject) == "" || strings.TrimSpace(signature.Issuer) == "" {
-		return errors.New("DSH Desktop Windows installer has no valid Authenticode signature")
-	}
-	return nil
+	return verifyWindowsInstallerPublisher(ctx, options, installerPath, []string{DSHDesktopWindowsPublisher})
 }
 
 // verifyZCodeWindowsInstaller pins the EV code-signing subject read out of the
@@ -97,11 +85,44 @@ func verifyWindowsInstallerPublisher(ctx context.Context, options Options, insta
 	if strings.TrimSpace(signature.Subject) == "" || strings.TrimSpace(signature.Issuer) == "" {
 		return errors.New("Windows Authenticode result has no signer certificate")
 	}
-	if !approvedWindowsSigner(signature.Organization, allowed) || !approvedWindowsSigner(signature.Publisher, allowed) {
-		return fmt.Errorf("Windows Authenticode publisher %q (organization %q) is not approved", signature.Publisher, signature.Organization)
+	organization := distinguishedNameAttribute(signature.Subject, "O")
+	if !approvedWindowsSigner(organization, allowed) || !approvedWindowsSigner(signature.Publisher, allowed) {
+		return fmt.Errorf("Windows Authenticode publisher %q (organization %q) is not approved", signature.Publisher, organization)
 	}
 
 	return nil
+}
+
+// distinguishedNameAttribute reads one attribute out of a certificate Subject as
+// .NET formats it: a value holding a comma is wrapped in double quotes, with any
+// quote inside it doubled. Splitting on every comma cuts such a value short --
+// "Co., Ltd." is exactly that case.
+func distinguishedNameAttribute(subject, key string) string {
+	var components []string
+	var current strings.Builder
+	quoted := false
+	for i := 0; i < len(subject); i++ {
+		switch c := subject[i]; {
+		case c == '"' && quoted && i+1 < len(subject) && subject[i+1] == '"':
+			current.WriteByte('"')
+			i++
+		case c == '"':
+			quoted = !quoted
+		case c == ',' && !quoted:
+			components = append(components, current.String())
+			current.Reset()
+		default:
+			current.WriteByte(c)
+		}
+	}
+	components = append(components, current.String())
+	for _, component := range components {
+		name, value, ok := strings.Cut(component, "=")
+		if ok && strings.EqualFold(strings.TrimSpace(name), key) {
+			return strings.TrimSpace(value)
+		}
+	}
+	return ""
 }
 
 func approvedWindowsSigner(value string, allowed []string) bool {
@@ -118,7 +139,6 @@ func windowsAuthenticodeQuery() []string {
 	const script = `[Console]::OutputEncoding = [Text.Encoding]::UTF8
 $signature = Get-AuthenticodeSignature -LiteralPath $env:BOOTAGENT_VERIFY_PATH
 $certificate = $signature.SignerCertificate
-$organization = ""
 $publisher = ""
 $subject = ""
 $issuer = ""
@@ -126,14 +146,11 @@ if ($null -ne $certificate) {
   $publisher = [string]$certificate.GetNameInfo([System.Security.Cryptography.X509Certificates.X509NameType]::SimpleName, $false)
   $subject = [string]$certificate.Subject
   $issuer = [string]$certificate.Issuer
-  $organization = ($subject -split "," | Where-Object { $_.TrimStart().StartsWith("O=") } | Select-Object -First 1)
-  if ($null -ne $organization) { $organization = $organization.Substring($organization.IndexOf("=") + 1).Trim() }
 }
 [pscustomobject]@{
   Status = [string]$signature.Status
   StatusMessage = [string]$signature.StatusMessage
   Publisher = $publisher
-  Organization = $organization
   Subject = $subject
   Issuer = $issuer
 } | ConvertTo-Json -Compress`

@@ -186,30 +186,17 @@ func TestDesktopLifecycleRequiresAnExplicitKnownAgent(t *testing.T) {
 	}
 }
 
-func TestDSHURLUsesTheNPMMirrorPreference(t *testing.T) {
-	mac := Options{Platform: platform.For("macos", "arm64")}
-	mac.PreferMirror = true
-	got, err := dshURL(context.Background(), mac)
-	if err != nil || got != DSHDesktopMacMirrorURL {
-		t.Fatalf("mirror dsh URL = %q, %v", got, err)
-	}
-	win := Options{Platform: platform.For("windows", "amd64"), PreferMirror: true}
-	got, err = dshURL(context.Background(), win)
-	if err != nil || got != DSHDesktopWinMirrorURL {
-		t.Fatalf("windows mirror dsh URL = %q, %v", got, err)
-	}
-}
-
 func TestDesktopDefinitionsExposeIndependentProducts(t *testing.T) {
 	definitions := Definitions()
-	// DSH Desktop leads the list because the UI renders it in this order.
+	// DeepSeek Harness leads the list because the UI renders it in this order.
 	if len(definitions) < 4 || definitions[0].ID != DSHDesktopID || definitions[1].ID != ClaudeDesktopID || definitions[2].ID != ChatGPTDesktopID || definitions[3].ID != WorkBuddyID {
 		t.Fatalf("desktop definitions = %#v", definitions)
 	}
-	// Only the third-party build carries the flag; claiming it for a vendor's own
-	// app would put a false disclaimer on the row.
+	// DeepSeek publishes this build itself. The flag belonged to the third-party
+	// app this entry used to install; carrying it forward would put a false
+	// disclaimer on the vendor's own row.
 	dsh, ok := DefinitionFor(DSHDesktopID)
-	if !ok || !dsh.Unofficial {
+	if !ok || dsh.Unofficial || dsh.Name != "DeepSeek Harness" || dsh.ProfileAgentID != "dsh" || dsh.Home != DSHDesktopHome {
 		t.Fatalf("DSH definition = %#v, found=%v", dsh, ok)
 	}
 	if chatGPT, ok := DefinitionFor(ChatGPTDesktopID); !ok || chatGPT.Unofficial {

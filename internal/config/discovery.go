@@ -193,26 +193,57 @@ func ReadAiderConfig(text string) Detected {
 // an endpoint -- the shipped route's endpoint is dsh's own fact, not something
 // this file records.
 func ReadDSHConfig(text string) Detected {
-	var parsed struct {
-		PiAI struct {
-			Providers map[string]struct {
-				BaseURL string `yaml:"baseURL"`
-				Models  []struct {
-					ID string `yaml:"id"`
-				} `yaml:"models"`
-			} `yaml:"providers"`
-		} `yaml:"llm-pi-ai"`
-		Selection struct {
-			Provider string `yaml:"provider"`
-			Model    string `yaml:"model"`
-		} `yaml:"agent-default-model"`
-	}
-	if err := yaml.Unmarshal([]byte(text), &parsed); err != nil {
+	// Both documents carry the same two sections; only the container differs.
+	// The 0.1.7 profile patch is a sequence of rows keyed by entry id, the
+	// legacy settings.yaml a mapping keyed by section name. The root node's kind
+	// says which, without guessing from the path.
+	var root yaml.Node
+	if err := yaml.Unmarshal([]byte(text), &root); err != nil {
 		return unreadable(fmt.Sprintf("YAML 无法解析：%v", err))
 	}
-	route, managed := parsed.PiAI.Providers[dshOwnedRoute]
-	if !managed && parsed.Selection.Provider == dshOfficialRoute {
-		return Detected{Model: parsed.Selection.Model}
+	var piAI dshPiAISection
+	var selection dshDefaultModelSection
+	if len(root.Content) == 1 && root.Content[0].Kind == yaml.SequenceNode {
+		// The first row addressing an id is the one read, matching the writer,
+		// which edits the first row it finds. dsh's own tooling does not produce
+		// duplicates; if a hand edit did, decoding a later row into the same
+		// struct would merge the two, and the file would read as something no
+		// single row says.
+		seen := make(map[string]bool, 2)
+		for _, row := range root.Content[0].Content {
+			var entry struct {
+				ID     string    `yaml:"id"`
+				Config yaml.Node `yaml:"config"`
+			}
+			if row.Decode(&entry) != nil || seen[entry.ID] {
+				continue
+			}
+			switch entry.ID {
+			case dshPiAIEntryID:
+				seen[entry.ID] = true
+				if entry.Config.Decode(&piAI) != nil {
+					return unreadable("llm-pi-ai 配置无法解析")
+				}
+			case dshDefaultModelEntryID:
+				seen[entry.ID] = true
+				if entry.Config.Decode(&selection) != nil {
+					return unreadable("agent-default-model 配置无法解析")
+				}
+			}
+		}
+	} else {
+		var parsed struct {
+			PiAI      dshPiAISection         `yaml:"llm-pi-ai"`
+			Selection dshDefaultModelSection `yaml:"agent-default-model"`
+		}
+		if err := root.Decode(&parsed); err != nil {
+			return unreadable(fmt.Sprintf("YAML 无法解析：%v", err))
+		}
+		piAI, selection = parsed.PiAI, parsed.Selection
+	}
+	route, managed := piAI.Providers[dshOwnedRoute]
+	if !managed && selection.Provider == dshOfficialRoute {
+		return Detected{Model: selection.Model}
 	}
 	model := ""
 	// The first entry, not a search for a match: the route's catalog is ordered
@@ -222,6 +253,20 @@ func ReadDSHConfig(text string) Detected {
 		model = route.Models[0].ID
 	}
 	return Detected{BaseURL: route.BaseURL, Model: model, ManagedByBootAgent: managed}
+}
+
+type dshPiAISection struct {
+	Providers map[string]struct {
+		BaseURL string `yaml:"baseURL"`
+		Models  []struct {
+			ID string `yaml:"id"`
+		} `yaml:"models"`
+	} `yaml:"providers"`
+}
+
+type dshDefaultModelSection struct {
+	Provider string `yaml:"provider"`
+	Model    string `yaml:"model"`
 }
 
 func ReadHermesConfig(text string) Detected {

@@ -823,6 +823,13 @@ func configPath(home, osID string, agent catalog.Agent) string {
 	if agent.ConfigPath == "" {
 		return ""
 	}
+	// dsh moved its live configuration into the profile `dsh web` boots between
+	// 0.1.5 and 0.1.7. The manifest keeps the legacy path as the default; on a
+	// machine where the new release has already created its profile, that
+	// profile's patch is the document that is actually read.
+	if agent.ConfigAdapter == "dsh" {
+		return configWriter.ResolveDSHConfigPath(home, configWriter.DSHWebProfile)
+	}
 	relative := agent.ConfigPath
 	if osID == "windows" && agent.WindowsConfigPath != "" {
 		relative = agent.WindowsConfigPath

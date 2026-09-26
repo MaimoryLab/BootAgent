@@ -95,7 +95,7 @@ BootAgent supports detection, configuration, launch, or installation guidance ac
 
 | CLI and local Agents | Desktop Agents |
 | --- | --- |
-| Codex · Claude Code · OpenCode | DSH Desktop · Claude Desktop |
+| Codex · Claude Code · OpenCode | DeepSeek Harness · Claude Desktop |
 | Kilo CLI · Aider · OpenClaw | ChatGPT Desktop · WorkBuddy |
 | Hermes Agent · Kimi Code · Pi | WorkBuddy AI · ZCode |
 | DeepSeek Harness (local web app) | |

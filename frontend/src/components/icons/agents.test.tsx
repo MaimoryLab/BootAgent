@@ -31,8 +31,8 @@ describe("AgentIcon", () => {
     const assetIds = AGENT_ICON_IDS.filter((id) => agentMarkKind(id) === "asset");
     // chatgpt-desktop is a desktop Agent rather than a CLI, and it reuses the
     // OpenAI mark because it is OpenAI's own product sharing Codex's config.
-    // dsh-desktop reuses the DeepSeek mark for the same reason: it drives
-    // DeepSeek, though anywhere-labs rather than DeepSeek publishes it.
+    // dsh-desktop reuses the DeepSeek mark for the same reason: it is
+    // DeepSeek's own desktop shell around the dsh CLI.
     expect(assetIds.sort()).toEqual(["chatgpt-desktop", "claude-code", "claude-desktop", "codex", "dsh", "dsh-desktop", "hermes", "kilo-cli", "kimi-code", "openclaw", "opencode", "pi"]);
     for (const id of assetIds) {
       const rights = agentMarkRights(id);
