@@ -135,6 +135,19 @@ func approvedWindowsSigner(value string, allowed []string) bool {
 	return false
 }
 
+// windowsProductVersion reads the executable's VersionInfo.ProductVersion. It
+// returns nil when the query fails: an unknown version is not an inspection
+// failure worth surfacing.
+func windowsProductVersion(ctx context.Context, options Options, path string) *string {
+	const script = `[Console]::OutputEncoding = [Text.Encoding]::UTF8
+(Get-Item -LiteralPath $env:BOOTAGENT_VERSION_PATH).VersionInfo.ProductVersion`
+	result, err := runWithEnvironment(options, ctx, []string{"powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script}, map[string]string{"BOOTAGENT_VERSION_PATH": path}, inspectTimeout)
+	if err != nil || result.ExitCode != 0 {
+		return nil
+	}
+	return nonEmptyPointer(strings.TrimPrefix(strings.TrimSpace(result.Stdout), "\ufeff"))
+}
+
 func windowsAuthenticodeQuery() []string {
 	const script = `[Console]::OutputEncoding = [Text.Encoding]::UTF8
 $signature = Get-AuthenticodeSignature -LiteralPath $env:BOOTAGENT_VERIFY_PATH

@@ -248,7 +248,10 @@ func inspectDSH(ctx context.Context, options Options) Status {
 	case "windows":
 		for _, candidate := range dshWindowsCandidates(options) {
 			if info, err := os.Stat(candidate); err == nil && !info.IsDir() {
+				// The on-disk ProductVersion is authoritative for the same reason
+				// as the macOS plist: electron-updater replaces the app in place.
 				status.Installed, status.Path = true, candidate
+				status.Version = windowsProductVersion(ctx, options, candidate)
 				return status
 			}
 		}
@@ -302,9 +305,8 @@ func inspectDSHMacOS(ctx context.Context, options Options) (Status, error) {
 
 // dshWindowsCandidates lists where the vendor's NSIS installer places the app.
 // It is configured perMachine: false with a fixed directory, which for
-// electron-builder is %LOCALAPPDATA%\Programs\<productName>. Not verified on
-// Windows: this machine is macOS, so the path follows electron-builder's
-// documented default rather than an observed installation.
+// electron-builder is %LOCALAPPDATA%\Programs\<productName>. Observed on a
+// Windows 11 install of 0.1.7-rc.2.
 func dshWindowsCandidates(options Options) []string {
 	if len(options.SearchRoots) > 0 {
 		candidates := make([]string, 0, len(options.SearchRoots))
