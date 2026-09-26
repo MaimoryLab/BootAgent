@@ -245,12 +245,17 @@ func TestDSHMacOSInstallStopsBeforeExtractingOnDigestMismatch(t *testing.T) {
 	}
 }
 
+// dshWindowsSignature is Get-AuthenticodeSignature's view of the real win-x64
+// installer. The Subject quotes each name because it contains a comma, which is
+// the shape that used to cut the organization off at "Co.".
+const dshWindowsSignature = `{"Status":"Valid","StatusMessage":"Signature verified.","Publisher":"Hangzhou DeepSeek Artificial Intelligence Co., Ltd.","Subject":"CN=\"Hangzhou DeepSeek Artificial Intelligence Co., Ltd.\", O=\"Hangzhou DeepSeek Artificial Intelligence Co., Ltd.\", L=Hangzhou, S=Zhejiang, C=CN, OID.1.3.6.1.4.1.311.60.2.1.1=Hangzhou, OID.1.3.6.1.4.1.311.60.2.1.2=Zhejiang, OID.1.3.6.1.4.1.311.60.2.1.3=CN, SERIALNUMBER=91330105MACPN4X08Y, OID.2.5.4.15=Private Organization","Issuer":"CN=GlobalSign GCC R45 EV CodeSigning CA 2020, O=GlobalSign nv-sa, C=BE"}`
+
 func TestDSHWindowsInstallVerifiesAuthenticodeBeforeStarting(t *testing.T) {
 	payload := []byte("DeepSeek Harness Windows installer")
 	feed := dshFeedYAML("0.1.7-rc.2", dshWinExeURL, dshDigest(payload), int64(len(payload)))
 	downloader := &routeDownloader{routes: map[string][]byte{dshWinFeedURL: feed, dshWinExeURL: payload}}
 	runner := &dshRunner{t: t, results: []process.Result{
-		{ExitCode: 0, Stdout: `{"Status":"Valid","StatusMessage":"Signature verified.","Publisher":"Hangzhou DeepSeek Artificial Intelligence Co., Ltd","Organization":"Hangzhou DeepSeek Artificial Intelligence Co., Ltd","Subject":"CN=Hangzhou DeepSeek Artificial Intelligence Co., Ltd, O=Hangzhou DeepSeek Artificial Intelligence Co., Ltd, C=CN","Issuer":"CN=Some Code Signing CA"}`},
+		{ExitCode: 0, Stdout: dshWindowsSignature},
 	}}
 	result, err := Install(context.Background(), DSHDesktopID, Options{
 		Home: t.TempDir(), Platform: platform.For("windows", "x64"), Runner: runner, Downloader: downloader,
@@ -351,7 +356,7 @@ func TestDSHWindowsOnARMInstallsTheX64Build(t *testing.T) {
 	feed := dshFeedYAML("0.1.7-rc.2", dshWinExeURL, dshDigest(payload), int64(len(payload)))
 	downloader := &routeDownloader{routes: map[string][]byte{dshWinFeedURL: feed, dshWinExeURL: payload}}
 	runner := &dshRunner{t: t, results: []process.Result{
-		{ExitCode: 0, Stdout: `{"Status":"Valid","StatusMessage":"Signature verified.","Publisher":"Hangzhou DeepSeek Artificial Intelligence Co., Ltd","Organization":"Hangzhou DeepSeek Artificial Intelligence Co., Ltd","Subject":"O=Hangzhou DeepSeek Artificial Intelligence Co., Ltd","Issuer":"CN=CA"}`},
+		{ExitCode: 0, Stdout: dshWindowsSignature},
 	}}
 	options := Options{Home: t.TempDir(), Platform: platform.For("windows", "arm64"), Runner: runner, Downloader: downloader, SearchRoots: []string{t.TempDir()}}
 	if status := Inspect(context.Background(), DSHDesktopID, options); !status.Supported {

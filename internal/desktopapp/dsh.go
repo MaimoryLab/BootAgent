@@ -36,12 +36,11 @@ const (
 	DSHDesktopBundleID = "com.deepseek.dsh"
 	DSHDesktopTeamID   = "NAN929V4UM"
 
-	// DSHDesktopWindowsPublisher is the legal entity behind the macOS Developer ID
-	// team, which is also what the vendor's Windows signing derives publisherName
-	// from (the certificate's O attribute). Read off the same release line; the
-	// Windows certificate itself was not inspected on this machine, so a mismatch
-	// here surfaces as a refused install rather than an accepted stranger.
-	DSHDesktopWindowsPublisher = "Hangzhou DeepSeek Artificial Intelligence Co., Ltd"
+	// DSHDesktopWindowsPublisher is the CN and O of the EV certificate that signs
+	// the win-x64 installer (issuer GlobalSign GCC R45 EV CodeSigning CA 2020), as
+	// Get-AuthenticodeSignature reports it on 0.1.7-rc.2. Unlike the macOS
+	// Developer ID name it ends in "Ltd." with the period.
+	DSHDesktopWindowsPublisher = "Hangzhou DeepSeek Artificial Intelligence Co., Ltd."
 
 	// DSHDesktopDownloadHost is the vendor's release origin. The desktop app's own
 	// app-update.yml points electron-updater at dsh-desk/feeds/<target>/ under it,
