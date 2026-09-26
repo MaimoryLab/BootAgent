@@ -80,26 +80,44 @@ func (r *dshRunner) Start(argv []string, _ map[string]string) error {
 	return nil
 }
 
-// The vendor publishes two targets. Intel macOS and Windows on ARM have no
-// package, and the feed for them does not exist, so the lookup has to refuse
-// rather than request a 404.
-func TestDSHFeedURLCoversOnlyThePublishedTargets(t *testing.T) {
-	for _, test := range []struct{ osID, arch, want string }{
+// The vendor publishes two targets, and Supported has to say the same thing the
+// feed lookup does: a row reported Supported on a platform the lookup then
+// refuses is an install button that always fails. Intel macOS gets nothing.
+// Windows on ARM gets the x64 installer, which is how x64-only products are
+// installed there.
+func TestDSHSupportMatchesThePublishedTargets(t *testing.T) {
+	for _, test := range []struct {
+		osID, arch string
+		feed       string
+	}{
 		{"macos", "arm64", dshMacFeedURL},
 		{"macos", "aarch64", dshMacFeedURL},
 		{"windows", "x64", dshWinFeedURL},
 		{"windows", "amd64", dshWinFeedURL},
+		{"windows", "arm64", dshWinFeedURL},
 	} {
-		got, err := dshFeedURL(test.osID, test.arch)
-		if err != nil || got != test.want {
-			t.Errorf("dshFeedURL(%q, %q) = %q, %v; want %q", test.osID, test.arch, got, err, test.want)
+		info := platform.For(test.osID, test.arch)
+		if status := baseDSHStatus(info); !status.Supported {
+			t.Errorf("baseDSHStatus(%s/%s).Supported = false, want true", info.OS, info.Arch)
+		}
+		got, err := dshFeedURL(info.OS, info.Arch)
+		if err != nil || got != test.feed {
+			t.Errorf("dshFeedURL(%s/%s) = %q, %v; want %q", info.OS, info.Arch, got, err, test.feed)
 		}
 	}
 	for _, test := range []struct{ osID, arch string }{
-		{"macos", "amd64"}, {"macos", "x86_64"}, {"windows", "arm64"}, {"linux", "amd64"},
+		{"macos", "amd64"}, {"macos", "x86_64"}, {"linux", "amd64"}, {"linux", "arm64"},
 	} {
-		if got, err := dshFeedURL(test.osID, test.arch); err == nil {
-			t.Errorf("dshFeedURL(%q, %q) = %q, want an error", test.osID, test.arch, got)
+		info := platform.For(test.osID, test.arch)
+		if status := baseDSHStatus(info); status.Supported {
+			t.Errorf("baseDSHStatus(%s/%s).Supported = true, but the vendor ships no package there", info.OS, info.Arch)
+		}
+		if got, err := dshFeedURL(info.OS, info.Arch); err == nil {
+			t.Errorf("dshFeedURL(%s/%s) = %q, want an error", info.OS, info.Arch, got)
+		}
+		// And Inspect, the call the UI actually makes, agrees.
+		if status := Inspect(context.Background(), DSHDesktopID, Options{Platform: info, SearchRoots: []string{t.TempDir()}}); status.Supported {
+			t.Errorf("Inspect(%s/%s).Supported = true", info.OS, info.Arch)
 		}
 	}
 }
@@ -313,11 +331,40 @@ func TestInspectDSHWindowsLooksInThePerUserProgramsDirectory(t *testing.T) {
 	}
 }
 
+// Not offered means both halves: Supported is false so the UI shows no install
+// entry, and Install refuses if called anyway.
 func TestDSHIsNotOfferedOnIntelMacOrLinux(t *testing.T) {
 	for _, info := range []platform.Info{platform.For("macos", "amd64"), platform.For("linux", "amd64")} {
-		_, err := Install(context.Background(), DSHDesktopID, Options{Home: t.TempDir(), Platform: info, Runner: &dshRunner{t: t}, SearchRoots: []string{t.TempDir()}})
-		if err == nil {
+		options := Options{Home: t.TempDir(), Platform: info, Runner: &dshRunner{t: t}, SearchRoots: []string{t.TempDir()}}
+		if status := Inspect(context.Background(), DSHDesktopID, options); status.Supported {
+			t.Errorf("Inspect(%s/%s).Supported = true; the vendor ships no package there", info.OS, info.Arch)
+		}
+		if _, err := Install(context.Background(), DSHDesktopID, options); err == nil {
 			t.Errorf("Install() on %s/%s succeeded; the vendor ships no package there", info.OS, info.Arch)
 		}
+	}
+}
+
+// Windows on ARM installs the x64 build: Supported, and the feed is win-x64.
+func TestDSHWindowsOnARMInstallsTheX64Build(t *testing.T) {
+	payload := []byte("DeepSeek Harness Windows installer")
+	feed := dshFeedYAML("0.1.7-rc.2", dshWinExeURL, dshDigest(payload), int64(len(payload)))
+	downloader := &routeDownloader{routes: map[string][]byte{dshWinFeedURL: feed, dshWinExeURL: payload}}
+	runner := &dshRunner{t: t, results: []process.Result{
+		{ExitCode: 0, Stdout: `{"Status":"Valid","StatusMessage":"Signature verified.","Publisher":"Hangzhou DeepSeek Artificial Intelligence Co., Ltd","Organization":"Hangzhou DeepSeek Artificial Intelligence Co., Ltd","Subject":"O=Hangzhou DeepSeek Artificial Intelligence Co., Ltd","Issuer":"CN=CA"}`},
+	}}
+	options := Options{Home: t.TempDir(), Platform: platform.For("windows", "arm64"), Runner: runner, Downloader: downloader, SearchRoots: []string{t.TempDir()}}
+	if status := Inspect(context.Background(), DSHDesktopID, options); !status.Supported {
+		t.Fatalf("Inspect(windows/arm64) = %#v, want Supported", status)
+	}
+	result, err := Install(context.Background(), DSHDesktopID, options)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Status != "installer-started" || downloader.hits[0] != dshWinFeedURL {
+		t.Fatalf("Install() = %#v hits=%v", result, downloader.hits)
+	}
+	if err := os.Remove(runner.started[0][0]); err != nil {
+		t.Fatal(err)
 	}
 }

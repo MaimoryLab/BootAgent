@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/MaimoryLab/BootAgent/internal/platform"
 	"gopkg.in/yaml.v3"
 )
 
@@ -65,22 +66,40 @@ type dshFeedFile struct {
 	Size   int64  `yaml:"size"`
 }
 
-// dshFeedURL names the manifest for one target. The vendor publishes mac-arm64
-// and win-x64 only; the channel is "nightly" in the shipped app-update.yml even
-// for release-candidate builds, so that is the file name electron-updater asks
-// for and the one that exists.
-func dshFeedURL(osID, arch string) (string, error) {
+// dshTarget names the vendor's feed directory for a platform, or "" when the
+// vendor publishes nothing BootAgent can install there. This is the one place
+// that decides both what Status.Supported reports and what dshFeedURL fetches,
+// so the UI cannot offer an install that the lookup then refuses.
+//
+// The vendor publishes mac-arm64 and win-x64 only. An Intel Mac gets nothing:
+// there is no x64 build and Rosetta does not run arm64 binaries. Windows on ARM
+// gets the x64 installer, which is the supported way to install x64-only
+// products there (see platform.nativeArch) and what the vendor's own updater
+// would serve on such a machine.
+func dshTarget(osID, arch string) string {
 	switch osID {
 	case "macos":
-		if arch != "arm64" && arch != "aarch64" {
-			return "", fmt.Errorf("%s has no package for %s/%s", DSHDesktopName, osID, arch)
+		if arch == "arm64" {
+			return "mac-arm64"
 		}
-		return DSHDesktopFeedBase + "mac-arm64/nightly-mac.yml", nil
 	case "windows":
-		switch strings.ToLower(strings.TrimSpace(arch)) {
-		case "x64", "amd64", "x86_64":
-			return DSHDesktopFeedBase + "win-x64/nightly.yml", nil
-		}
+		return "win-x64"
+	}
+	return ""
+}
+
+// dshFeedURL names the manifest for one target. The channel is "nightly" in the
+// shipped app-update.yml even for release-candidate builds, so that is the file
+// name electron-updater asks for and the one that exists.
+func dshFeedURL(osID, arch string) (string, error) {
+	target := dshTarget(osID, arch)
+	switch target {
+	case "mac-arm64":
+		return DSHDesktopFeedBase + target + "/nightly-mac.yml", nil
+	case "win-x64":
+		return DSHDesktopFeedBase + target + "/nightly.yml", nil
+	}
+	if osID == "macos" || osID == "windows" {
 		return "", fmt.Errorf("%s has no package for %s/%s", DSHDesktopName, osID, arch)
 	}
 	return "", fmt.Errorf("%s is not supported on %s", DSHDesktopName, osID)
@@ -200,19 +219,22 @@ func verifyDSHDigest(path string, expected dshFeedFile) error {
 	return nil
 }
 
-func baseDSHStatus(osID string) Status {
+// baseDSHStatus reports Supported only for a platform the vendor publishes a
+// package for. The OS alone is not enough: an Intel Mac is macOS and gets no
+// package, and a Supported=true there is an install button that always fails.
+func baseDSHStatus(info platform.Info) Status {
 	status := Status{ID: DSHDesktopID, Name: DSHDesktopName, Source: SourceUnknown}
-	switch osID {
-	case "macos":
+	switch dshTarget(info.OS, info.Arch) {
+	case "mac-arm64":
 		status.Supported, status.Source = true, SourceMacOSZIP
-	case "windows":
+	case "win-x64":
 		status.Supported, status.Source = true, SourceWindowsInstaller
 	}
 	return status
 }
 
 func inspectDSH(ctx context.Context, options Options) Status {
-	status := baseDSHStatus(options.Platform.OS)
+	status := baseDSHStatus(options.Platform)
 	if err := contextError(ctx); err != nil {
 		status.InspectionUnavailable = nonEmptyPointer(err.Error())
 		return status
@@ -240,7 +262,7 @@ func inspectDSH(ctx context.Context, options Options) Status {
 // plist: the app updates itself through electron-updater, so the version on
 // disk is not the one BootAgent installed.
 func inspectDSHMacOS(ctx context.Context, options Options) (Status, error) {
-	status := baseDSHStatus("macos")
+	status := baseDSHStatus(options.Platform)
 	roots := options.SearchRoots
 	if len(roots) == 0 {
 		roots = []string{"/Applications"}
@@ -387,7 +409,7 @@ func installDSHMacOS(ctx context.Context, options Options) (ActionResult, error)
 			lastErr = commandFailure("copy "+DSHDesktopName+" app", copied)
 			continue
 		}
-		installed := baseDSHStatus("macos")
+		installed := baseDSHStatus(options.Platform)
 		installed.Installed, installed.Path, installed.Version = true, destination, metadata.version
 		if installed.Version == nil {
 			installed.Version = nonEmptyPointer(feed.Version)
@@ -440,7 +462,7 @@ func installDSHWindows(ctx context.Context, options Options) (ActionResult, erro
 		return ActionResult{}, fmt.Errorf("start %s installer: %w", DSHDesktopName, err)
 	}
 	keep = true
-	status := baseDSHStatus("windows")
+	status := baseDSHStatus(options.Platform)
 	status.Version = nonEmptyPointer(feed.Version)
 	return ActionResult{Status: "installer-started", Message: "The downloaded " + DSHDesktopName + " installer was started", RefreshNeeded: true, App: status}, nil
 }
