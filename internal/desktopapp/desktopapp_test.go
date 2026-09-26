@@ -856,13 +856,13 @@ func TestVerifyWindowsInstallerPassesPathViaEnvironment(t *testing.T) {
 	}
 }
 
-func TestWorkBuddyWindowsVersionPassesPathViaEnvironment(t *testing.T) {
+func TestWindowsProductVersionPassesPathViaEnvironment(t *testing.T) {
 	runner := &scriptedRunner{results: []process.Result{{ExitCode: 0, Stdout: "5.3.11\n"}}}
 	path := `C:\Users\test\AppData\Local\Programs\WorkBuddy\WorkBuddy.exe`
 
-	version := workBuddyWindowsVersion(context.Background(), Options{Runner: runner}, path)
+	version := windowsProductVersion(context.Background(), Options{Runner: runner}, path)
 	if version == nil || *version != "5.3.11" {
-		t.Fatalf("workBuddyWindowsVersion() = %v, want 5.3.11", version)
+		t.Fatalf("windowsProductVersion() = %v, want 5.3.11", version)
 	}
 	argv := runner.calls[0]
 	if len(argv) != 5 {
