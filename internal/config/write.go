@@ -695,7 +695,7 @@ func (w Writer) writeDSHCredential(ctx context.Context, path, reference, apiKey 
 			refs = &yaml.Node{Kind: yaml.MappingNode}
 			yamlReplace(root.Content[0], "refs", refs)
 		}
-		if refs == nil {
+		if refs == nil || refs.Kind != yaml.MappingNode {
 			return configError("DeepSeek Harness credentials refs must be an object: %s", path)
 		}
 	}
