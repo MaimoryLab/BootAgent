@@ -553,16 +553,15 @@
   "environmentError": null,
   "desktopAgents": [
     {
-      "home": "https://dshdesktop.cn",
+      "home": "https://www.deepseek.com/harness/",
       "id": "dsh-desktop",
       "installed": false,
-      "name": "DSH Desktop",
+      "name": "DeepSeek Harness",
       "profileAgentId": "dsh",
       "profileId": null,
       "protocol": "openai",
       "source": "unknown",
       "supported": false,
-      "unofficial": true,
       "version": null
     },
     {

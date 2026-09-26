@@ -56,16 +56,17 @@ type implementation struct {
 	open    func(context.Context, Options) error
 }
 
-// First entry first in the UI: the list is rendered in this order, and DSH
-// Desktop leads it.
+// First entry first in the UI: the list is rendered in this order, and DeepSeek
+// Harness leads it.
 var implementations = []implementation{
 	{
 		Definition: Definition{
 			ID: DSHDesktopID, Name: DSHDesktopName, ProfileAgentID: "dsh",
+			// The legacy document. The app layer resolves the profile patch a
+			// 0.1.7 harness actually reads when that profile exists; this is what
+			// an older harness falls back to.
 			ConfigPath: ".dsh/settings.yaml", ConfigAdapter: ConfigAdapterDSH,
 			Protocol: "openai", Home: DSHDesktopHome,
-			// anywhere-labs builds this, not DeepSeek.
-			Unofficial: true,
 		},
 		inspect: inspectDSH,
 		install: installDSH,

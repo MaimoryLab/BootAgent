@@ -34,22 +34,11 @@ func verifyWorkBuddyWindowsInstaller(ctx context.Context, edition workBuddyEditi
 	return verifyWindowsInstallerPublisher(ctx, options, installerPath, edition.windowsSigners)
 }
 
+// verifyDSHWindowsInstaller pins the vendor's publisher rather than accepting any
+// valid Authenticode signature, which is what this check did for the third-party
+// build it used to install.
 func verifyDSHWindowsInstaller(ctx context.Context, options Options, installerPath string) error {
-	result, err := runWithEnvironment(options, ctx, windowsAuthenticodeQuery(), map[string]string{"BOOTAGENT_VERIFY_PATH": installerPath}, installTimeout)
-	if err != nil {
-		return err
-	}
-	if result.ExitCode != 0 {
-		return commandFailure("run Windows Authenticode verification", result)
-	}
-	signature, err := parseWindowsAuthenticodeSignature(result.Stdout)
-	if err != nil {
-		return err
-	}
-	if !strings.EqualFold(strings.TrimSpace(signature.Status), "Valid") || strings.TrimSpace(signature.Subject) == "" || strings.TrimSpace(signature.Issuer) == "" {
-		return errors.New("DSH Desktop Windows installer has no valid Authenticode signature")
-	}
-	return nil
+	return verifyWindowsInstallerPublisher(ctx, options, installerPath, []string{DSHDesktopWindowsPublisher})
 }
 
 // verifyZCodeWindowsInstaller pins the EV code-signing subject read out of the

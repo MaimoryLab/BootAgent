@@ -138,15 +138,11 @@ const MARKS: Record<string, Mark> = {
     source: assetRightsManifest.assets.dsh.source,
     rights: assetRightsManifest.assets.dsh,
   },
-  // DSH Desktop reuses the CLI Harness mark: both drive DeepSeek, and the whale
-  // is what identifies whose model is behind them. Keyed by desktop Agent id
-  // because the desktop card looks itself up by id, as with chatgpt-desktop
-  // above -- without this entry the card fell back to the generic Bot glyph.
-  //
-  // Unlike chatgpt-desktop, this is not the vendor's own app: anywhere-labs
-  // publishes it. The mark still says DeepSeek because that is the model it
-  // talks to, so the Definition carries Unofficial and the UI states the
-  // publisher rather than letting the mark imply it.
+  // DeepSeek Harness (the desktop shell) reuses the CLI Harness mark: it is
+  // DeepSeek's own application around the same dsh, so the whale is the right
+  // identity for both. Keyed by desktop Agent id because the desktop card looks
+  // itself up by id, as with chatgpt-desktop above -- without this entry the
+  // card fell back to the generic Bot glyph.
   "dsh-desktop": {
     kind: "asset",
     markup: deepseekMark,

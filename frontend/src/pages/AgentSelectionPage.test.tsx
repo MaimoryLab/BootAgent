@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 
-import type { AgentCatalogItem, StatusResponse } from "../types/api";
+import type { AgentCatalogItem, DesktopAgentStatus, StatusResponse } from "../types/api";
 import { AgentSelectionPage } from "./AgentSelectionPage";
 
 const dispatch = vi.fn();
@@ -38,15 +38,14 @@ const CATALOG: AgentCatalogItem[] = [
 }));
 
 /**
- * Three desktop Agents: a third-party build, one with a registered image mark,
- * and one with a vendor bitmap. DSH Desktop leads, matching the order
- * desktopapp.Definitions() returns.
+ * Three desktop Agents: two with registered image marks and one with a vendor
+ * bitmap. DeepSeek Harness leads, matching the order desktopapp.Definitions()
+ * returns.
  */
-const DESKTOP_AGENTS = [
+const DESKTOP_AGENTS: DesktopAgentStatus[] = [
   {
-    id: "dsh-desktop", name: "DSH Desktop", installed: false, supported: true,
+    id: "dsh-desktop", name: "DeepSeek Harness", installed: false, supported: true,
     source: "unknown", version: null, profileAgentId: "dsh", profileId: null, protocol: "openai",
-    unofficial: true,
   },
   {
     id: "chatgpt-desktop", name: "ChatGPT Desktop", installed: false, supported: true,
@@ -58,7 +57,7 @@ const DESKTOP_AGENTS = [
   },
 ];
 
-function renderPage({ desktop = false }: { desktop?: boolean } = {}) {
+function renderPage({ desktop = false, desktopAgents = DESKTOP_AGENTS }: { desktop?: boolean; desktopAgents?: DesktopAgentStatus[] } = {}) {
   dispatch.mockClear();
   mockState = {
     status: {
@@ -93,7 +92,7 @@ function renderPage({ desktop = false }: { desktop?: boolean } = {}) {
       backups: {},
       environment: null,
       environmentError: null,
-      desktopAgents: desktop ? DESKTOP_AGENTS : [],
+      desktopAgents: desktop ? desktopAgents : [],
       profiles: [],
       activeProfile: null,
       firstRun: false,
@@ -160,36 +159,47 @@ describe("AgentSelectionPage", () => {
       };
     });
     // Every row must resolve through the icon registry rather than a literal:
-    // DSH Desktop and ChatGPT Desktop to licensed vectors, ZCode to Z.ai's own
-    // bitmap. DSH Desktop had no registry entry of its own and fell back to the
-    // generic Bot glyph, which is what "asset" here guards against.
+    // DeepSeek Harness and ChatGPT Desktop to licensed vectors, ZCode to Z.ai's
+    // own bitmap. The dsh-desktop id once had no registry entry of its own and
+    // fell back to the generic Bot glyph, which is what "asset" here guards
+    // against.
     expect(marks).toEqual([
-      { name: "选择 DSH Desktop", kind: "asset" },
+      { name: "选择 DeepSeek Harness", kind: "asset" },
       { name: "选择 ChatGPT Desktop", kind: "asset" },
       { name: "选择 ZCode", kind: "raster" },
     ]);
   });
 
   it("does not advertise a third-party desktop build as the official application", () => {
-    // The mark is DeepSeek's because that is the model the app drives, but
-    // anywhere-labs publishes it. Without the disclaimer the row pairs a vendor
-    // mark with "install the official desktop application", which together read
-    // as a vendor download.
-    renderPage({ desktop: true });
-    const row = screen.getByLabelText("选择 DSH Desktop").closest(".agent-row");
+    // A build the backend marks unofficial must not pair a vendor mark with
+    // "install the official desktop application", which together read as a
+    // vendor download. None of the shipped entries carry the flag today -- the
+    // dsh-desktop row is DeepSeek's own app since the switch from the
+    // anywhere-labs build -- so the flag is exercised on a synthetic row.
+    renderPage({
+      desktop: true,
+      desktopAgents: [
+        { ...DESKTOP_AGENTS[0], id: "third-party-desktop", name: "Third Party", profileAgentId: "third-party", unofficial: true },
+        ...DESKTOP_AGENTS,
+      ],
+    });
+    const row = screen.getByLabelText("选择 Third Party").closest(".agent-row");
     expect(row?.textContent).toContain("第三方桌面应用，非官方出品");
     expect(row?.textContent).not.toContain("安装官方桌面应用");
     // The vendors' own apps must not pick up the disclaimer.
-    const official = screen.getByLabelText("选择 ChatGPT Desktop").closest(".agent-row");
-    expect(official?.textContent).toContain("安装官方桌面应用");
+    for (const name of ["DeepSeek Harness", "ChatGPT Desktop"]) {
+      const official = screen.getByLabelText(`选择 ${name}`).closest(".agent-row");
+      expect(official?.textContent).toContain("安装官方桌面应用");
+      expect(official?.textContent).not.toContain("第三方桌面应用，非官方出品");
+    }
   });
 
   it("puts the desktop downloads in the order the backend returns", () => {
-    // The page must not re-sort: DSH Desktop leads because Definitions() puts it
-    // first, and a client-side sort here would silently override that.
+    // The page must not re-sort: DeepSeek Harness leads because Definitions()
+    // puts it first, and a client-side sort here would silently override that.
     renderPage({ desktop: true });
     expect(screen.getAllByLabelText(/^选择 /).map((radio) => radio.getAttribute("aria-label"))).toEqual([
-      "选择 DSH Desktop",
+      "选择 DeepSeek Harness",
       "选择 ChatGPT Desktop",
       "选择 ZCode",
     ]);
