@@ -619,6 +619,19 @@ func (s *ProfileService) SaveProfile(ctx context.Context, request SaveProfileReq
 	})
 }
 
+// CheckModel sends a live request to a Profile's model when the user asks for
+// it. Saving and applying a Profile never check on their own: each check is a
+// billed request.
+func (s *ProfileService) CheckModel(ctx context.Context, request CheckProfileModelRequest) (*app.ProfileModelCheck, error) {
+	if err := contextError(ctx); err != nil {
+		return nil, err
+	}
+	if s == nil || s.core == nil {
+		return nil, notReady("Profile service is not configured")
+	}
+	return s.core.CheckProfileModel(ctx, request.ProfileID, request.Agents)
+}
+
 func (s *ProfileService) DeleteProfile(ctx context.Context, request ProviderIDRequest) (ProviderMutationResponse, error) {
 	if err := contextError(ctx); err != nil {
 		return ProviderMutationResponse{}, err
@@ -814,6 +827,12 @@ type SaveProfileRequest struct {
 	Context1M       bool   `json:"context_1m,omitempty"`
 	ConfigMode      string `json:"config_mode"`
 	Protocol        string `json:"protocol"`
+}
+
+type CheckProfileModelRequest struct {
+	ProfileID string `json:"profile_id"`
+	// Agents narrows the check; empty means every Agent bound to the Profile.
+	Agents []string `json:"agents"`
 }
 
 func contextError(ctx context.Context) error {

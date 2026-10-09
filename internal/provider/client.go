@@ -48,6 +48,9 @@ type ProbeResult struct {
 	ErrorCode *string `json:"error_code"`
 	Retryable bool    `json:"retryable"`
 	Protocol  *string `json:"protocol"`
+	// Detail is the provider's own explanation of a refused request, cleaned
+	// and bounded. Empty on success and on transport failures.
+	Detail string `json:"detail,omitempty"`
 }
 
 type ModelsResult struct {
@@ -110,7 +113,58 @@ func (c *Client) Probe(ctx context.Context, protocol, providerID, apiKey, model,
 		}, nil
 	}
 	body, _, _ := c.readBody(response.Body)
-	return classifyHTTPProbe(response.StatusCode, string(body), protocol, requestModel), nil
+	result := classifyHTTPProbe(response.StatusCode, string(body), protocol, requestModel)
+	result.Detail = upstreamDetail(body, apiKey)
+	return result, nil
+}
+
+// maxDetailRunes bounds the provider's own explanation carried back to the UI:
+// enough for "model X does not exist or you do not have access", not a page.
+const maxDetailRunes = 300
+
+// upstreamDetail is the provider's explanation of a refused request, which is
+// the part of a failure the user can act on. "HTTP 404" does not say whether
+// the model, the key, or the endpoint was refused; the provider's message
+// usually does.
+//
+// The key is scrubbed even though the body comes from the provider, because
+// some gateways echo the request back into the error.
+func upstreamDetail(body []byte, apiKey string) string {
+	text := ""
+	var parsed struct {
+		Error   json.RawMessage `json:"error"`
+		Message string          `json:"message"`
+		Detail  string          `json:"detail"`
+	}
+	if json.Unmarshal(body, &parsed) == nil {
+		var nested struct {
+			Message string `json:"message"`
+		}
+		var flat string
+		switch {
+		case json.Unmarshal(parsed.Error, &nested) == nil && nested.Message != "":
+			text = nested.Message
+		case json.Unmarshal(parsed.Error, &flat) == nil && flat != "":
+			text = flat
+		case parsed.Message != "":
+			text = parsed.Message
+		case parsed.Detail != "":
+			text = parsed.Detail
+		}
+	}
+	if text == "" && !bytes.HasPrefix(bytes.TrimSpace(body), []byte("<")) {
+		// Plain text, but not an HTML error page, which says nothing useful.
+		text = string(body)
+	}
+	if strings.TrimSpace(apiKey) != "" {
+		text = strings.ReplaceAll(text, apiKey, "[redacted]")
+	}
+	text = strings.Join(strings.FieldsFunc(text, func(r rune) bool { return r < 0x20 || r == 0x7f }), " ")
+	text = strings.Join(strings.Fields(text), " ")
+	if runes := []rune(text); len(runes) > maxDetailRunes {
+		text = string(runes[:maxDetailRunes]) + "…"
+	}
+	return text
 }
 
 func (c *Client) ListModels(ctx context.Context, providerID, apiKey, customBase string) (ModelsResult, error) {

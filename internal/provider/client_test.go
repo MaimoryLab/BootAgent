@@ -274,3 +274,29 @@ func TestListModelsMapsBodyReadCancellationToTimeout(t *testing.T) {
 		t.Fatalf("body cancellation result = %#v, err=%v", result, err)
 	}
 }
+
+// The provider's explanation is what makes a refused probe actionable, but it is
+// untrusted text bound for the UI: it is extracted from every error shape
+// gateways use, an HTML error page is dropped as saying nothing, control
+// characters cannot reach the screen, the key is scrubbed, and length is bounded.
+func TestUpstreamDetailExtractsCleansAndBounds(t *testing.T) {
+	long := strings.Repeat("x", maxDetailRunes+50)
+	for _, test := range []struct {
+		name, body, want string
+	}{
+		{"anthropic nested", `{"type":"error","error":{"type":"not_found_error","message":"model: m does not exist"}}`, "model: m does not exist"},
+		{"flat string error", `{"error":"model not found"}`, "model not found"},
+		{"top-level message", `{"message":"quota exceeded"}`, "quota exceeded"},
+		{"fastapi detail", `{"detail":"Not Found"}`, "Not Found"},
+		{"plain text", "upstream says no\n", "upstream says no"},
+		{"html page", "<html><body>502 Bad Gateway</body></html>", ""},
+		{"control characters", "{\"error\":{\"message\":\"bad\\u001b[31m model\\u0007\"}}", "bad [31m model"},
+		{"key echoed back", `{"error":{"message":"key sk-live-123 is not allowed"}}`, "key [redacted] is not allowed"},
+		{"bounded", `{"error":{"message":"` + long + `"}}`, strings.Repeat("x", maxDetailRunes) + "…"},
+		{"empty", ``, ""},
+	} {
+		if got := upstreamDetail([]byte(test.body), "sk-live-123"); got != test.want {
+			t.Errorf("%s: upstreamDetail = %q, want %q", test.name, got, test.want)
+		}
+	}
+}

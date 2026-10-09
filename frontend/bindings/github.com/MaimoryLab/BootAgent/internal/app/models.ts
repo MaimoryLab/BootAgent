@@ -347,6 +347,59 @@ export interface MarketplaceSourceStatus {
 }
 
 /**
+ * ProfileModelCheck is the verdict of a live request to a Profile's model,
+ * sent only when the user asks for it.
+ * 
+ * A model the provider lists can still be refused when an Agent calls it --
+ * not served over that Agent's protocol, or not granted to the key -- and a
+ * Profile edit rewrites every Agent bound to it at once. The check lets the
+ * user find that out before an Agent fails. It is not run on save or apply:
+ * each check is a billed completion request, so it is the user's to send.
+ */
+export interface ProfileModelCheck {
+    "profileId": string;
+    "model": string;
+
+    /**
+     * Status is "available" when every checked Agent's protocol answered,
+     * "unavailable" when the provider answered and refused, and "unverified"
+     * when no verdict could be had at all. The last is not a claim that the
+     * model is broken, and the UI must not word it as one.
+     */
+    "status": string;
+
+    /**
+     * Reason is the cause the remedy follows from:
+     *   refused   the provider refused this model on this protocol
+     *   key       the provider rejected the API key
+     *   transient the provider answered but was busy or failing (408, 429, 5xx)
+     *   network   the provider could not be reached
+     *   no_key    no API key is saved for the Provider
+     *   error     the request could not be made (an endpoint misconfiguration)
+     * Empty when Status is "available".
+     */
+    "reason"?: string;
+    "protocol"?: string;
+
+    /**
+     * HTTPStatus is the status the provider answered with, 0 when it did not.
+     */
+    "httpStatus"?: number;
+
+    /**
+     * Detail is the provider's own explanation, cleaned and bounded.
+     */
+    "detail"?: string;
+
+    /**
+     * Agents are the Agents the verdict is about: on a failure, those whose
+     * requests to this model would fail; when available, those checked. Empty
+     * for a Profile nothing follows yet.
+     */
+    "agents": string[] | null;
+}
+
+/**
  * ProfileSummary is intentionally a public projection with no credential field.
  */
 export interface ProfileSummary {

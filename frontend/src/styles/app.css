@@ -1917,6 +1917,61 @@
 
 .agent-manage-applied strong { font-size: 13px; }
 
+/* Orange, not red: the save succeeded. What is reported is the model failing a
+   live request afterwards, which the user may knowingly accept. */
+.model-check-notice {
+  margin: 12px 0;
+  padding: 10px 12px;
+  display: flex;
+  gap: 9px;
+  align-items: flex-start;
+  border-radius: var(--radius-control);
+  background: var(--orange-soft);
+  color: var(--orange);
+  font-size: 13px;
+}
+
+.model-check-notice > svg { flex-shrink: 0; margin-top: 1px; }
+
+.model-check-body {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.model-check-body strong { font-size: 13px; }
+
+.model-check-body span { color: var(--text-primary); }
+
+/* The provider's own words: unbounded vocabulary, so it must wrap rather than
+   widen the page. */
+.model-check-detail {
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.model-check-actions {
+  margin-top: 4px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* A check the user asked for that passed. */
+.model-check-notice.is-ok {
+  background: var(--green-soft);
+  color: var(--green);
+}
+
+/* Sits in a card footer beside the Agent avatars, so it stays small. */
+.model-check-button {
+  flex-shrink: 0;
+  min-height: 26px;
+  padding: 0 9px;
+  gap: 5px;
+  font-size: 12px;
+}
+
 .agent-manage-applied pre {
   margin: 0;
   padding: 7px 9px;

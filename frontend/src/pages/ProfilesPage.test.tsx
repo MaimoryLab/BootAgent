@@ -278,6 +278,120 @@ describe("ProfilesPage", () => {
     await waitFor(() => expect(screen.getByText(/Codex.*重新应用失败.*写入失败/)).toBeTruthy());
   });
 
+  // A check is a billed request, so saving never sends one; the card's
+  // 检测模型 does, for every Agent following the Profile.
+  it("checks the model only when 检测模型 is pressed", async () => {
+    vi.spyOn(api, "saveProfile").mockResolvedValue({ profile: profile({ model: "claude-opus-5-5" }), reapplied: ["codex"], failures: null });
+    const check = vi.spyOn(api, "checkProfileModel").mockResolvedValue({
+      profileId: "team-ppio", model: "deepseek/deepseek-v3", status: "available", protocol: "responses", agents: ["codex"],
+    });
+    renderPage([profile()]);
+    fireEvent.click(screen.getByRole("button", { name: "编辑 团队 PPIO" }));
+    fireEvent.change(screen.getByLabelText("模型"), { target: { value: "claude-opus-5-5" } });
+    fireEvent.click(screen.getByRole("button", { name: "保存配置模版" }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "保存配置模版" })).toBeNull());
+    expect(check).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "检测 团队 PPIO 的模型" }));
+    await waitFor(() => expect(check).toHaveBeenCalledWith("team-ppio"));
+    expect(await screen.findByText(/模型「deepseek\/deepseek-v3」可用/)).toBeTruthy();
+    expect(screen.getByText("已检测的 Agent：Codex")).toBeTruthy();
+  });
+
+  // The report: a model the provider refuses broke every Agent on the Profile.
+  // A check after the edit names the model, the Agents and the provider's
+  // words, and offers the model the edit replaced -- which saves the same
+  // Profile with only the model changed.
+  it("names a refused model and switches back to the one the edit replaced", async () => {
+    const save = vi.spyOn(api, "saveProfile")
+      .mockResolvedValueOnce({ profile: profile({ model: "claude-opus-5-5" }), reapplied: ["codex"], failures: null })
+      .mockResolvedValueOnce({ profile: profile(), reapplied: ["codex"], failures: null });
+    vi.spyOn(api, "checkProfileModel").mockResolvedValue({
+      profileId: "team-ppio", model: "claude-opus-5-5", status: "unavailable", reason: "refused", protocol: "responses", httpStatus: 404,
+      detail: "model does not exist or you do not have access", agents: ["codex"],
+    });
+    renderPage([profile()]);
+    fireEvent.click(screen.getByRole("button", { name: "编辑 团队 PPIO" }));
+    fireEvent.change(screen.getByLabelText("模型"), { target: { value: "claude-opus-5-5" } });
+    fireEvent.click(screen.getByRole("button", { name: "保存配置模版" }));
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByRole("button", { name: "检测 团队 PPIO 的模型" }));
+
+    const notice = await screen.findByRole("alert");
+    expect(notice.textContent).toContain("模型「claude-opus-5-5」不可用");
+    expect(notice.textContent).toContain("HTTP 404");
+    expect(notice.textContent).toContain("Codex");
+    expect(notice.textContent).toContain("model does not exist or you do not have access");
+    expect(notice.querySelectorAll("button")).toHaveLength(0);
+
+    fireEvent.click(screen.getByRole("button", { name: "改回 deepseek/deepseek-v3" }));
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(2));
+    expect(save.mock.calls[1][0]).toMatchObject({ id: "team-ppio", model: "deepseek/deepseek-v3", provider: "ppio" });
+    await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+  });
+
+  // Without an edit on this page there is no earlier model to go back to.
+  it("offers no switch-back for a model this page did not change", async () => {
+    vi.spyOn(api, "checkProfileModel").mockResolvedValue({
+      profileId: "team-ppio", model: "deepseek/deepseek-v3", status: "unavailable", reason: "refused", agents: ["codex"],
+    });
+    renderPage([profile()]);
+    fireEvent.click(screen.getByRole("button", { name: "检测 团队 PPIO 的模型" }));
+    await screen.findByRole("alert");
+    expect(screen.queryByRole("button", { name: /改回/ })).toBeNull();
+  });
+
+  // A network failure is no evidence against the model. It is worded as
+  // "could not verify", and a recheck that now passes replaces it.
+  it("words an unreachable provider as unverified and rechecks on request", async () => {
+    const check = vi.spyOn(api, "checkProfileModel")
+      .mockResolvedValueOnce({ profileId: "team-ppio", model: "deepseek/deepseek-v3", status: "unverified", reason: "network", agents: ["codex"] })
+      .mockResolvedValueOnce({ profileId: "team-ppio", model: "deepseek/deepseek-v3", status: "available", agents: ["codex"] });
+    renderPage([profile()]);
+    fireEvent.click(screen.getByRole("button", { name: "检测 团队 PPIO 的模型" }));
+
+    const notice = await screen.findByRole("alert");
+    expect(notice.textContent).toContain("无法验证模型「deepseek/deepseek-v3」");
+    expect(notice.textContent).not.toContain("不可用");
+
+    fireEvent.click(screen.getByRole("button", { name: "重新检测" }));
+    await waitFor(() => expect(check).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+    expect(screen.getByText(/可用/)).toBeTruthy();
+  });
+
+  // A busy provider is no evidence against the model.
+  it("words a busy provider as unverified, not as the model failing", async () => {
+    vi.spyOn(api, "checkProfileModel").mockResolvedValue({
+      profileId: "team-ppio", model: "new-model", status: "unverified", reason: "transient", httpStatus: 429, agents: ["codex"],
+    });
+    renderPage([profile({ model: "new-model" })]);
+    fireEvent.click(screen.getByRole("button", { name: "检测 团队 PPIO 的模型" }));
+    const notice = await screen.findByRole("alert");
+    expect(notice.textContent).toContain("无法验证模型「new-model」");
+    expect(notice.textContent).toContain("HTTP 429");
+    expect(notice.textContent).not.toContain("拒绝");
+  });
+
+  // Switching models cannot fix a rejected key, so the notice points at the
+  // key instead of offering to switch back.
+  it("sends a rejected key to the Provider instead of offering to switch back", async () => {
+    vi.spyOn(api, "saveProfile").mockResolvedValue({ profile: profile({ model: "new-model" }), reapplied: ["codex"], failures: null });
+    vi.spyOn(api, "checkProfileModel").mockResolvedValue({
+      profileId: "team-ppio", model: "new-model", status: "unavailable", reason: "key", httpStatus: 401, agents: ["codex"],
+    });
+    renderPage([profile()]);
+    fireEvent.click(screen.getByRole("button", { name: "编辑 团队 PPIO" }));
+    fireEvent.change(screen.getByLabelText("模型"), { target: { value: "new-model" } });
+    fireEvent.click(screen.getByRole("button", { name: "保存配置模版" }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "保存配置模版" })).toBeNull());
+    fireEvent.click(screen.getByRole("button", { name: "检测 团队 PPIO 的模型" }));
+
+    await screen.findByRole("alert");
+    expect(screen.queryByRole("button", { name: /改回/ })).toBeNull();
+    expect(screen.getByRole("button", { name: "检查模型服务的 API Key" })).toBeTruthy();
+  });
+
   it("saves a Profile whose name was left blank", async () => {
     // The backend fills an empty label in from the existing value or the ID
     // (internal/profile/write.go:71-74), so requiring one here was stricter than

@@ -13,6 +13,15 @@ import * as app$0 from "../app/models.js";
 // @ts-ignore: Unused imports
 import * as $models from "./models.js";
 
+/**
+ * CheckModel sends a live request to a Profile's model when the user asks for
+ * it. Saving and applying a Profile never check on their own: each check is a
+ * billed request.
+ */
+export function CheckModel(request: $models.CheckProfileModelRequest): $CancellablePromise<app$0.ProfileModelCheck | null> {
+    return $Call.ByID(3431853122, request);
+}
+
 export function DeleteProfile(request: $models.ProviderIDRequest): $CancellablePromise<$models.ProviderMutationResponse> {
     return $Call.ByID(2548092141, request);
 }

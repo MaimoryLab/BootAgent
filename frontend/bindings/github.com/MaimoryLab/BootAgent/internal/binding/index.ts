@@ -34,6 +34,7 @@ export type {
     ActivateRequest,
     ActivateResponse,
     AgentInstallResult,
+    CheckProfileModelRequest,
     DesktopAgentProfileRequest,
     DesktopAgentRequest,
     InstallRequest,

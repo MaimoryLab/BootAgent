@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 
 import { api, describeFailure } from "../backend/api";
 import { CardUsers } from "../components/CardUsers";
+import { ModelCheckButton, ModelCheckNotice } from "../components/ModelCheckNotice";
 import { PageScaffold } from "../components/PageScaffold";
 import { ProviderModelPicker } from "../components/ProviderModelPicker";
 import { ProviderSegment } from "../components/ProviderSegment";
@@ -13,7 +14,18 @@ import { confirmDelete } from "../state/confirmDelete";
 import { byProviderCreatedAt, preferProviderWithKey } from "../state/ranking";
 import { isConverterID } from "../state/conversion";
 import { useWizard } from "../state/WizardContext";
-import { PROTOCOL_LABELS, type ProfileSummary, type ProtocolId, type ProviderId } from "../types/api";
+import { PROTOCOL_LABELS, type ProfileModelCheck, type ProfileSummary, type ProtocolId, type ProviderId } from "../types/api";
+
+type SaveRequest = Parameters<typeof api.saveProfile>[0];
+
+// The last model edit saved from this page, so a check that then fails can
+// offer the model the Profile held before it. Only an edit on the same
+// Provider qualifies: a model ID is not portable between Providers.
+interface ModelEdit {
+  profileId: string;
+  previousModel: string;
+  request: SaveRequest;
+}
 
 // A Profile no longer carries its own key: the Provider it points at owns one,
 // and asking twice for the same secret was the bug worth deleting.
@@ -50,6 +62,10 @@ export function ProfilesPage() {
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState("");
   const [applied, setApplied] = useState("");
+  // A check runs only when the user presses 检测模型: it is a billed request.
+  const [checked, setChecked] = useState<ProfileModelCheck | null>(null);
+  const [checkingId, setCheckingId] = useState("");
+  const [lastEdit, setLastEdit] = useState<ModelEdit | null>(null);
 
   if (!status) {
     return (
@@ -61,8 +77,11 @@ export function ProfilesPage() {
 
   const profiles = status.profiles.filter((profile) => !isConverterID(profile.id));
   const configurableAgents = status.catalog.filter((agent) => agent.configMode === "auto");
+  // Desktop Agents follow Profiles too, and the model check names them.
   const nameOf = (agentId: string) =>
-    status.catalog.find((item) => item.id === agentId)?.name || agentId;
+    status.catalog.find((item) => item.id === agentId)?.name
+      || status.desktopAgents?.find((app) => app.id === agentId)?.name
+      || agentId;
   const protocolOf = (profile: ProfileSummary) =>
     profile.protocol || status.catalog.find((agent) => status.agents[agent.id]?.profileId === profile.id)?.protocol || "";
   const providerHasKey = Boolean(editor && status.providers[editor.provider]?.has_key);
@@ -139,6 +158,33 @@ export function ProfilesPage() {
     return { ...draft, provider, model, id, label };
   };
 
+  // Switching the Provider or model rewrites every Agent already following this
+  // Profile, so the outcome has to be reported rather than applied silently --
+  // the Agent's own config file moves with it. Shared by the editor's save and
+  // the check result's "switch back", which is the same save with the old model.
+  const persist = async (request: SaveRequest) => {
+    const before = status.profiles.find((profile) => profile.id === request.id);
+    const result = await api.saveProfile(request);
+    // A result for this Profile describes the model it held before this save.
+    if (checked?.profileId === request.id) setChecked(null);
+    setLastEdit(before && before.provider === request.provider && before.model && before.model !== request.model
+      ? { profileId: request.id, previousModel: before.model, request }
+      : null);
+    const reapplied = result.reapplied ?? [];
+    const failures = Object.entries(result.failures ?? {});
+    if (failures.length) {
+      setFailure(t("{agents} 重新应用失败：{message}", {
+        agents: failures.map(([agentId]) => nameOf(agentId)).join(locale === "en" ? ", " : "、"),
+        message: failures[0][1] ?? "",
+      }));
+    } else if (reapplied.length) {
+      setApplied(t("已重新应用到 {agents}", {
+        agents: reapplied.map(nameOf).join(locale === "en" ? ", " : "、"),
+      }));
+    }
+    await refreshStatus();
+  };
+
   const save = async (event: FormEvent) => {
     event.preventDefault();
     if (!editor || !canSave) return;
@@ -146,10 +192,7 @@ export function ProfilesPage() {
     setFailure("");
     setApplied("");
     try {
-      // Switching the Provider or model rewrites every Agent already following
-      // this Profile, so the outcome has to be reported rather than applied
-      // silently -- the Agent's own config file moves with it.
-      const result = await api.saveProfile({
+      await persist({
         id: editor.id.trim().toLowerCase(),
         label: editor.label.trim(),
         provider: editor.provider,
@@ -161,20 +204,39 @@ export function ProfilesPage() {
         configMode: "provider",
         protocol: editor.protocol,
       });
-      const reapplied = result.reapplied ?? [];
-      const failures = Object.entries(result.failures ?? {});
-      if (failures.length) {
-        setFailure(t("{agents} 重新应用失败：{message}", {
-          agents: failures.map(([agentId]) => nameOf(agentId)).join(locale === "en" ? ", " : "、"),
-          message: failures[0][1] ?? "",
-        }));
-      } else if (reapplied.length) {
-        setApplied(t("已重新应用到 {agents}", {
-          agents: reapplied.map(nameOf).join(locale === "en" ? ", " : "、"),
-        }));
-      }
-      await refreshStatus();
       setEditor(null);
+    } catch (error) {
+      setFailure(describeFailure(error, t("无法保存配置模版"), t).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const checkModel = async (profileId: string) => {
+    setCheckingId(profileId);
+    setFailure("");
+    try {
+      const check = await api.checkProfileModel(profileId);
+      const edit = lastEdit?.profileId === profileId && lastEdit.request.model === check.model ? lastEdit : null;
+      setChecked({ ...check, previousModel: edit?.previousModel });
+    } catch (error) {
+      setFailure(describeFailure(error, t("无法检测模型"), t).message);
+    } finally {
+      setCheckingId("");
+    }
+  };
+
+  // Saves the model back without checking it again; the user can press
+  // 检测模型 once more if they want the old one confirmed.
+  const revertModel = async () => {
+    if (!checked?.previousModel || lastEdit?.profileId !== checked.profileId) return;
+    const request = { ...lastEdit.request, model: checked.previousModel };
+    setBusy(true);
+    setFailure("");
+    setApplied("");
+    try {
+      await persist(request);
+      setChecked(null);
     } catch (error) {
       setFailure(describeFailure(error, t("无法保存配置模版"), t).message);
     } finally {
@@ -351,6 +413,19 @@ export function ProfilesPage() {
 
       {failure ? <p className="agent-manage-error">{failure}</p> : null}
       {applied ? <div className="agent-manage-applied"><strong>{t("应用完成")}</strong><span>{applied}</span></div> : null}
+      {checked ? (
+        <ModelCheckNotice
+          check={checked}
+          providerId={profiles.find((profile) => profile.id === checked.profileId)?.provider || ""}
+          nameOf={nameOf}
+          returnTo="/profiles"
+          profileName={profiles.find((profile) => profile.id === checked.profileId)?.label}
+          busy={busy || Boolean(checkingId)}
+          onRevert={() => void revertModel()}
+          onRecheck={() => void checkModel(checked.profileId)}
+          onDismiss={() => setChecked(null)}
+        />
+      ) : null}
 
       {!profiles.length && !editor ? (
         <div className="empty-overview">
@@ -401,6 +476,14 @@ export function ProfilesPage() {
                     card no longer writes anything. */}
                 <footer>
                   <CardUsers users={users} />
+                  {profile.model ? (
+                    <ModelCheckButton
+                      checking={checkingId === profile.id}
+                      disabled={busy || Boolean(checkingId)}
+                      onCheck={() => void checkModel(profile.id)}
+                      ariaLabel={t("检测 {name} 的模型", { name: profile.label })}
+                    />
+                  ) : null}
                 </footer>
               </article>
             );

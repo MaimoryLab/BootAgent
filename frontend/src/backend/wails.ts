@@ -39,6 +39,7 @@ import type {
   ModelsResponse,
   OpenRegistrationResponse,
   ProbeResponse,
+  ProfileModelCheck,
   ProfileSummary,
   ProviderEntry,
   ProviderId,
@@ -337,4 +338,13 @@ export const wailsApi = {
       config_mode: input.configMode,
       protocol: input.protocol ?? "",
     })) as CancellableRequest<SaveProfileResult>,
+  // Sends a live (billed) request to the Profile's model; only called from a
+  // button the user presses. `agents` narrows the check to the Agent a page is
+  // configuring; omitted means every Agent bound to the Profile.
+  checkProfileModel: (profileId: string, agents?: string[]): Promise<ProfileModelCheck> =>
+    call(() => ProfileService.CheckModel({ profile_id: profileId, agents: agents?.length ? agents : null }))
+      .then((check) => {
+        if (!check) throw new Error("Model check returned no result");
+        return { ...check, agents: check.agents ?? [] };
+      }) as Promise<ProfileModelCheck>,
 };

@@ -34,6 +34,15 @@ export interface AgentInstallResult {
     "retryable": boolean;
 }
 
+export interface CheckProfileModelRequest {
+    "profile_id": string;
+
+    /**
+     * Agents narrows the check; empty means every Agent bound to the Profile.
+     */
+    "agents": string[] | null;
+}
+
 export interface DesktopAgentProfileRequest {
     "agent_id": string;
     "profile_id": string;

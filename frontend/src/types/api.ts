@@ -90,6 +90,19 @@ export type ProfileSummary = Omit<AppModels.ProfileSummary, "protocol" | "create
   reasoningEffort?: string;
   context1M?: boolean;
 };
+// The verdict of a live request to a Profile's model, sent only when the user
+// asks for it. The strings are narrowed here because the UI picks its wording
+// and remedy by them: "unverified" must never be worded as "the model is broken".
+export type ProfileModelCheckStatus = "available" | "unavailable" | "unverified";
+export type ProfileModelCheckReason = "refused" | "key" | "transient" | "network" | "no_key" | "error";
+export type ProfileModelCheck = Omit<AppModels.ProfileModelCheck, "status" | "reason" | "agents"> & {
+  status: ProfileModelCheckStatus;
+  reason?: ProfileModelCheckReason;
+  agents: string[];
+  // Filled in by the page, not the backend: the model this Profile held before
+  // an edit made on that page, offered as the way back from a failed check.
+  previousModel?: string;
+};
 // Mirrors SaveProviderResult: saving a Profile can rewrite the Agents bound to
 // it, so the outcome per Agent travels with the saved record.
 export type SaveProfileResult = Omit<AppModels.SaveProfileResult, "profile"> & { profile: ProfileSummary };

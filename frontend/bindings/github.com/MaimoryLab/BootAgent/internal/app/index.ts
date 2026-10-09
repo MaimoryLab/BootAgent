@@ -34,6 +34,7 @@ export type {
     MarketplaceRecommendationHistory,
     MarketplaceRecommendationSnapshot,
     MarketplaceSourceStatus,
+    ProfileModelCheck,
     ProfileSummary,
     RuntimeStatus,
     SaveProfileResult,
