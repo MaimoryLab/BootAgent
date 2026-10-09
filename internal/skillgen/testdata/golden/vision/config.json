@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "generator": "bootagent",
+  "capability": "vision",
+  "adapter": "openai-chat-vision",
+  "provider_id": "novita",
+  "provider_name": "Novita",
+  "model": "qwen/qwen3-vl-8b",
+  "base_url": "https://api.novita.ai/openai/v1",
+  "key_env": "BOOTAGENT_NOVITA_API_KEY",
+  "key_file": "~/.bootagent/skill-env/novita.env",
+  "output_dir": "bootagent-output"
+}

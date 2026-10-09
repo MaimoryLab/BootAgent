@@ -59,7 +59,7 @@ func TestServiceMethodAllowlist(t *testing.T) {
 		{&ConversionService{}, []string{"Get", "RegenerateKey", "Save"}},
 		{&MarketplaceService{}, []string{"Catalog", "ClearRecommendationHistory", "DeleteRecommendationHistory", "DiscoverSources", "FetchMCPServerDetail", "FetchMCPServerReadme", "FetchMCPServersDirectoryDetail", "FetchMCPServersDirectoryReadme", "FetchShowcase", "FetchSkillDetail", "FetchSkillFile", "ListRecommendationHistory", "OpenExternal", "Recommend", "RecommendationAgents", "SaveRecommendationHistory"}},
 		{&UpdateService{}, []string{"Check", "DownloadAndInstall", "Restart", "Version"}},
-		{&MultimodalService{}, []string{"Detect", "Probe"}},
+		{&MultimodalService{}, []string{"Detect", "Install", "Probe"}},
 	}
 	for _, test := range tests {
 		typeOf := reflect.TypeOf(test.service)

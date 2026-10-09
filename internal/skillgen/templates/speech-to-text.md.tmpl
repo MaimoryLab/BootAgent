@@ -1,0 +1,20 @@
+{{template "header" .}}
+## When to use
+
+When the user asks for the text of an audio recording: transcribing a voice note, a meeting recording or an interview.
+
+## Command
+
+Run the script in this Skill's directory (the directory containing this `SKILL.md`):
+
+```bash
+node <this Skill's directory>/scripts/run.mjs transcribe --audio <path> [--language <code>] [--prompt "<context>"]
+```
+
+- `--audio`: a local audio file (mp3, wav, m4a, webm and similar), at most 25 MB.
+- `--language`: the spoken language as an ISO 639-1 code, for example `en` or `zh`. Leave it out to let the model detect it.
+- `--prompt`: names or terms that appear in the recording, to help spelling.
+- `--timeout`: seconds to wait. Default 300.
+
+The transcript is printed to stdout.
+{{template "footer" .}}

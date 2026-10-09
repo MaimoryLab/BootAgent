@@ -167,6 +167,18 @@ export interface MultimodalProbeRequest {
     "provider": string;
     "model": string;
     "capability": string;
+
+    /**
+     * Adapter picks the route; empty is the capability's chat route. A model
+     * the user typed by hand is probed on its manual route.
+     */
+    "adapter": string;
+
+    /**
+     * Confirmed must be set for a probe that produces billed output (one
+     * image); the UI sets it only after asking the user.
+     */
+    "confirmed": boolean;
 }
 
 /**

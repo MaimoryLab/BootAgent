@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"maps"
 	"slices"
 	"sort"
 	"strings"
@@ -208,7 +209,42 @@ func (u *UseCases) SaveProvider(ctx context.Context, entry provider.Entry, creat
 	if err != nil {
 		return result, err
 	}
+	u.reapplyGeneratedSkillsLocked(ctx, saved, &result)
 	return result, nil
+}
+
+// reapplyGeneratedSkillsLocked carries a Provider edit to its multimodal
+// Skills: a new endpoint re-renders them, and a new key rewrites the variable
+// in every Agent they are published to. Agents rewritten this way join
+// Reapplied; failures join Failures, keyed by Agent like the rest.
+func (u *UseCases) reapplyGeneratedSkillsLocked(ctx context.Context, saved provider.Entry, result *SaveProviderResult) {
+	using := u.generatedSkillsUsing(saved.ID)
+	if len(using) == 0 {
+		return
+	}
+	failures := u.refreshGeneratedSkillsLocked(ctx, saved)
+	for agentID, failure := range u.reconcileSkillEnvLocked(ctx) {
+		failures[agentID] = failure
+	}
+	touched := map[string]bool{}
+	for _, variant := range using {
+		for _, agentID := range variant.targets {
+			touched[agentID] = true
+		}
+	}
+	for _, agentID := range slices.Sorted(maps.Keys(touched)) {
+		if failure, failed := failures[agentID]; failed {
+			if result.Failures == nil {
+				result.Failures = map[string]string{}
+			}
+			result.Failures[agentID] = failure
+			continue
+		}
+		if !slices.Contains(result.Reapplied, agentID) {
+			result.Reapplied = append(result.Reapplied, agentID)
+		}
+	}
+	sort.Strings(result.Reapplied)
 }
 
 // reapplyProviderLocked rewrites each configured Agent that points at this
@@ -328,6 +364,16 @@ func (u *UseCases) DeleteProvider(ctx context.Context, providerID string) error 
 	if len(users) > 0 {
 		sort.Strings(users)
 		return oneerrors.New(oneerrors.InvalidRequest, fmt.Sprintf("Provider %s is used by Agent(s): %s", strings.TrimSpace(providerID), strings.Join(users, ", ")))
+	}
+	// A multimodal Skill bound to this Provider would be left reading a key
+	// that no longer exists; the user removes the Skill first.
+	var skills []string
+	for _, variant := range u.generatedSkillsUsing(strings.TrimSpace(providerID)) {
+		skills = append(skills, variant.id)
+	}
+	if len(skills) > 0 {
+		skills = slices.Compact(slices.Sorted(slices.Values(skills)))
+		return oneerrors.New(oneerrors.InvalidRequest, fmt.Sprintf("Provider %s is used by Skill(s): %s", strings.TrimSpace(providerID), strings.Join(skills, ", ")))
 	}
 	return u.providers.Delete(ctx, providerID)
 }

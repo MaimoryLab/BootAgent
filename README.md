@@ -63,7 +63,8 @@ Launch BootAgent
 ### Manage Skills and MCP servers
 
 - Keep a local Skill library, scan Skills already present on supported Agents, and choose which Agents receive each Skill.
-- See which models on your keyed Providers can understand images, video or audio, or generate images, and where each finding comes from (declared by the Provider, inferred from the model name, or probed). Listing models is free; a probe is a real request and is sent only when you click it.
+- See which models on your keyed Providers can understand images, video or audio, or generate images, and where each finding comes from (declared by the Provider, inferred from the model name, or probed). Listing models is free; a probe is a real request and is sent only when you click it, and an image-generation probe asks first.
+- Install a multimodal Skill (image understanding, image generation, speech-to-text, text-to-speech) into Claude Code or Codex, with example prompts to copy. Its script needs Node.js 18 or later. BootAgent writes the Provider key into the Agent's own configuration as `BOOTAGENT_<PROVIDER>_API_KEY`, so the Agent and its model can read it; the install confirmation says so. Uninstalling the last Skill that uses a Provider removes the variable.
 - Discover MCP servers from initialized Claude Code, Codex, OpenCode, Kilo CLI, and Hermes installations.
 - Store MCP servers in a local user-level Registry, select sync targets explicitly, and apply changes only when you are ready.
 

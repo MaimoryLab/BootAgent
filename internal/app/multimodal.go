@@ -7,20 +7,41 @@ import (
 	"sync"
 
 	"github.com/MaimoryLab/BootAgent/internal/catalog"
+	configWriter "github.com/MaimoryLab/BootAgent/internal/config"
 	oneerrors "github.com/MaimoryLab/BootAgent/internal/errors"
 	"github.com/MaimoryLab/BootAgent/internal/modality"
 	"github.com/MaimoryLab/BootAgent/internal/provider"
+	"github.com/MaimoryLab/BootAgent/internal/skillgen"
 )
 
 // MultimodalDetection lists, for every Provider with a saved key, the models
 // that offer a multimodal capability and where each finding came from.
 type MultimodalDetection struct {
 	Providers []MultimodalProvider `json:"providers"`
+	// Installed are the generated Skills published to at least one Agent.
+	Installed []InstalledMultimodal `json:"installed"`
+	// Targets are the Agents a multimodal Skill can be installed into now.
+	Targets []string `json:"targets"`
+	// Generatable lists the adapters a Skill can be generated for in this
+	// version; a capability on any other adapter is shown but not offered.
+	Generatable []string `json:"generatable"`
+	// Manual lists the capabilities a user can reach with a model ID typed by
+	// hand, the route it is probed on, and how that probe is sent.
+	Manual []MultimodalManualRoute `json:"manual"`
+}
+
+type MultimodalManualRoute struct {
+	Capability string `json:"capability"`
+	Adapter    string `json:"adapter"`
+	Probe      string `json:"probe"`
 }
 
 type MultimodalProvider struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
+	// KeyEnv is the variable an install writes this Provider's key into, so
+	// the install confirmation can name it.
+	KeyEnv string `json:"keyEnv"`
 	// Listed is false when /models could not be read. Message and ErrorCode
 	// then say why; catalog generation models are still listed, since they do
 	// not come from /models.
@@ -36,6 +57,7 @@ type MultimodalProbe struct {
 	ProviderID string `json:"providerId"`
 	Model      string `json:"model"`
 	Capability string `json:"capability"`
+	Adapter    string `json:"adapter"`
 	Status     string `json:"status"`
 	Reason     string `json:"reason,omitempty"`
 	HTTPStatus int    `json:"httpStatus,omitempty"`
@@ -97,11 +119,27 @@ func (u *UseCases) DetectMultimodal(ctx context.Context) (MultimodalDetection, e
 	if err := contextError(ctx, "Multimodal detection was cancelled"); err != nil {
 		return MultimodalDetection{}, err
 	}
-	return MultimodalDetection{Providers: results}, nil
+	installTargets, _, err := u.multimodalInstallTargets()
+	if err != nil {
+		return MultimodalDetection{}, err
+	}
+	if installTargets == nil {
+		installTargets = []string{}
+	}
+	manual := []MultimodalManualRoute{}
+	for _, capability := range modality.Capabilities {
+		if adapter := modality.ManualAdapter(capability); adapter != "" {
+			manual = append(manual, MultimodalManualRoute{Capability: capability, Adapter: adapter, Probe: modality.ProbeKind(adapter)})
+		}
+	}
+	return MultimodalDetection{
+		Providers: results, Installed: u.installedMultimodal(), Targets: installTargets,
+		Generatable: skillgen.SupportedAdapters(), Manual: manual,
+	}, nil
 }
 
 func (u *UseCases) detectProvider(ctx context.Context, rules modality.Rules, target provider.Entry) MultimodalProvider {
-	result := MultimodalProvider{ID: target.ID, Name: target.Name, Models: []modality.Model{}}
+	result := MultimodalProvider{ID: target.ID, Name: target.Name, KeyEnv: configWriter.SkillEnvName(target.ID), Models: []modality.Model{}}
 	listing, err := u.provider.ListModels(ctx, "custom", target.APIKey, target.BaseURL)
 	var entries []provider.ModelEntry
 	switch {
@@ -124,13 +162,16 @@ func (u *UseCases) detectProvider(ctx context.Context, rules modality.Rules, tar
 	return result
 }
 
-// ProbeMultimodal sends one live request testing a model's capability. It is a
-// billed request, so only a button the user presses may call it; detection,
-// saving and installing never do. A conclusive answer -- accepted, or refused
-// for this model -- is cached and outranks every other source on the next
-// detection. A rejected key or an unreachable endpoint says nothing about the
-// model and is not cached.
-func (u *UseCases) ProbeMultimodal(ctx context.Context, providerID, model, capability string) (*MultimodalProbe, error) {
+// ProbeMultimodal sends one live request testing a model's capability over an
+// adapter (empty: the capability's chat route). It is a billed request, so
+// only a button the user presses may call it; detection, saving and installing
+// never do. A probe that produces billed output (one image) also needs
+// confirmed, which the UI sets only after asking.
+//
+// A conclusive answer -- accepted, or refused for this model -- is cached and
+// outranks every other source on the next detection. A rejected key or an
+// unreachable endpoint says nothing about the model and is not cached.
+func (u *UseCases) ProbeMultimodal(ctx context.Context, providerID, model, capability, adapter string, confirmed bool) (*MultimodalProbe, error) {
 	if u == nil || u.provider == nil {
 		return nil, oneerrors.New(oneerrors.InternalError, "Multimodal probing is not configured", oneerrors.WithStatus(501))
 	}
@@ -141,14 +182,17 @@ func (u *UseCases) ProbeMultimodal(ctx context.Context, providerID, model, capab
 	if model == "" {
 		return nil, oneerrors.New(oneerrors.InvalidRequest, "A model is required")
 	}
-	adapter := modality.ChatAdapter(capability)
-	// Only probes that cost a token or so can be sent from here. A probe that
-	// produces billed output needs its own confirmation path, and the rest do
-	// not exist yet.
-	if modality.ProbeKind(adapter) != modality.ProbeMinimal {
+	if adapter == "" {
+		adapter = modality.ChatAdapter(capability)
+	}
+	kind := modality.ProbeKind(adapter)
+	if !modality.Serves(adapter, capability) || kind == modality.ProbeNone {
 		return nil, oneerrors.New(oneerrors.InvalidRequest, "No live check is available for this capability: "+strings.TrimSpace(capability))
 	}
-	check := &MultimodalProbe{ProviderID: providerID, Model: model, Capability: capability}
+	if kind == modality.ProbeConfirm && !confirmed {
+		return nil, oneerrors.New(oneerrors.InvalidRequest, "This check produces billed output; confirm it first")
+	}
+	check := &MultimodalProbe{ProviderID: providerID, Model: model, Capability: capability, Adapter: adapter}
 	target, err := u.providers.Get(providerID)
 	if err != nil {
 		return nil, err
@@ -157,7 +201,20 @@ func (u *UseCases) ProbeMultimodal(ctx context.Context, providerID, model, capab
 		check.Status, check.Reason = ModelCheckUnverified, "no_key"
 		return check, nil
 	}
-	result, err := u.provider.ProbeVision(ctx, target.APIKey, model, target.BaseURL)
+	var probe func(context.Context, string, string, string) (provider.ProbeResult, error)
+	switch adapter {
+	case modality.AdapterChatVision:
+		probe = u.provider.ProbeVision
+	case modality.AdapterAudioTranscriptions:
+		probe = u.provider.ProbeTranscription
+	case modality.AdapterAudioSpeech:
+		probe = u.provider.ProbeSpeech
+	case modality.AdapterImages:
+		probe = u.provider.ProbeImageGeneration
+	default:
+		return nil, oneerrors.New(oneerrors.InvalidRequest, "No live check is available for "+adapter)
+	}
+	result, err := probe(ctx, target.APIKey, model, target.BaseURL)
 	if ctx.Err() != nil {
 		return nil, contextError(ctx, "Multimodal probe was cancelled")
 	}

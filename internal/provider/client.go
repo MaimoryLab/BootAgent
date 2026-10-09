@@ -3,10 +3,12 @@ package provider
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net"
 	"net/http"
 	"strings"
@@ -98,7 +100,7 @@ func (c *Client) Probe(ctx context.Context, protocol, providerID, apiKey, model,
 	if err != nil {
 		return ProbeResult{}, err
 	}
-	return c.sendProbe(request, protocol, apiKey, requestModel), nil
+	return c.sendProbe(request, protocol, apiKey, requestModel, 0), nil
 }
 
 // probePNG is a 32x32 opaque grey PNG. Some vision endpoints refuse images
@@ -142,13 +144,123 @@ func (c *Client) ProbeVision(ctx context.Context, apiKey, model, customBase stri
 	}
 	request.Header.Set("Authorization", "Bearer "+apiKey)
 	request.Header.Set("Content-Type", "application/json")
-	return c.sendProbe(request, ProtocolOpenAI, apiKey, model), nil
+	return c.sendProbe(request, ProtocolOpenAI, apiKey, model, 0), nil
+}
+
+// Probe timeouts for the generation and audio routes. A chat probe answers in
+// seconds; producing one image can take a minute.
+const (
+	audioProbeTimeout = 60 * time.Second
+	imageProbeTimeout = 180 * time.Second
+)
+
+// ProbeTranscription sends half a second of silent WAV to
+// /audio/transcriptions. Billed by audio length, so it costs next to nothing,
+// but it is still a billed request: only a user's click may send it.
+func (c *Client) ProbeTranscription(ctx context.Context, apiKey, model, customBase string) (ProbeResult, error) {
+	base, err := probeTarget(apiKey, model, customBase)
+	if err != nil {
+		return ProbeResult{}, err
+	}
+	var body bytes.Buffer
+	form := multipart.NewWriter(&body)
+	if err := form.WriteField("model", model); err != nil {
+		return ProbeResult{}, probeBuildError(err)
+	}
+	part, err := form.CreateFormFile("file", "probe.wav")
+	if err != nil {
+		return ProbeResult{}, probeBuildError(err)
+	}
+	if _, err := part.Write(silentWAV()); err != nil {
+		return ProbeResult{}, probeBuildError(err)
+	}
+	if err := form.Close(); err != nil {
+		return ProbeResult{}, probeBuildError(err)
+	}
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, OpenAIBaseURL(base)+"/audio/transcriptions", &body)
+	if err != nil {
+		return ProbeResult{}, oneerrors.New(oneerrors.InvalidRequest, "Provider endpoint is invalid", oneerrors.WithCause(err))
+	}
+	request.Header.Set("Authorization", "Bearer "+apiKey)
+	request.Header.Set("Content-Type", form.FormDataContentType())
+	return c.sendProbe(request, ProtocolOpenAI, apiKey, model, audioProbeTimeout), nil
+}
+
+// ProbeSpeech asks /audio/speech to say "ok". The voice is OpenAI's default;
+// a gateway whose model wants another voice refuses, and its message says so.
+func (c *Client) ProbeSpeech(ctx context.Context, apiKey, model, customBase string) (ProbeResult, error) {
+	return c.postJSONProbe(ctx, apiKey, model, customBase, "/audio/speech", map[string]any{
+		"model": model, "input": "ok", "voice": "alloy",
+	}, audioProbeTimeout)
+}
+
+// ProbeImageGeneration asks /images/generations for one image. That is a
+// billed image, so the UI asks the user before calling it. No size is sent:
+// the valid sizes differ by model, and a size the model rejects would fail the
+// probe for a reason that says nothing about the endpoint.
+func (c *Client) ProbeImageGeneration(ctx context.Context, apiKey, model, customBase string) (ProbeResult, error) {
+	return c.postJSONProbe(ctx, apiKey, model, customBase, "/images/generations", map[string]any{
+		"model": model, "prompt": "a plain grey square", "n": 1,
+	}, imageProbeTimeout)
+}
+
+func (c *Client) postJSONProbe(ctx context.Context, apiKey, model, customBase, path string, body map[string]any, timeout time.Duration) (ProbeResult, error) {
+	base, err := probeTarget(apiKey, model, customBase)
+	if err != nil {
+		return ProbeResult{}, err
+	}
+	payload, err := json.Marshal(body)
+	if err != nil {
+		return ProbeResult{}, probeBuildError(err)
+	}
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, OpenAIBaseURL(base)+path, bytes.NewReader(payload))
+	if err != nil {
+		return ProbeResult{}, oneerrors.New(oneerrors.InvalidRequest, "Provider endpoint is invalid", oneerrors.WithCause(err))
+	}
+	request.Header.Set("Authorization", "Bearer "+apiKey)
+	request.Header.Set("Content-Type", "application/json")
+	return c.sendProbe(request, ProtocolOpenAI, apiKey, model, timeout), nil
+}
+
+func probeTarget(apiKey, model, customBase string) (string, error) {
+	if apiKey == "" {
+		return "", oneerrors.New(oneerrors.InvalidRequest, "API key is required")
+	}
+	if strings.TrimSpace(model) == "" {
+		return "", oneerrors.New(oneerrors.InvalidRequest, "A model is required")
+	}
+	return ProviderBase("custom", customBase)
+}
+
+func probeBuildError(err error) error {
+	return oneerrors.New(oneerrors.InternalError, "Unable to build Provider request", oneerrors.WithCause(err))
+}
+
+// silentWAV is half a second of 16 kHz mono 16-bit silence.
+func silentWAV() []byte {
+	const rate, samples = 16000, 8000
+	data := samples * 2
+	out := make([]byte, 44+data)
+	copy(out[0:], "RIFF")
+	binary.LittleEndian.PutUint32(out[4:], uint32(36+data))
+	copy(out[8:], "WAVEfmt ")
+	binary.LittleEndian.PutUint32(out[16:], 16)
+	binary.LittleEndian.PutUint16(out[20:], 1)
+	binary.LittleEndian.PutUint16(out[22:], 1)
+	binary.LittleEndian.PutUint32(out[24:], rate)
+	binary.LittleEndian.PutUint32(out[28:], rate*2)
+	binary.LittleEndian.PutUint16(out[32:], 2)
+	binary.LittleEndian.PutUint16(out[34:], 16)
+	copy(out[36:], "data")
+	binary.LittleEndian.PutUint32(out[40:], uint32(data))
+	return out
 }
 
 // sendProbe runs one probe request and classifies the answer. It never
 // returns an error: every outcome, transport failures included, is a verdict.
-func (c *Client) sendProbe(request *http.Request, protocol, apiKey, requestModel string) ProbeResult {
-	response, cancelRequest, err := c.do(request)
+// A zero timeout uses the client's own.
+func (c *Client) sendProbe(request *http.Request, protocol, apiKey, requestModel string, timeout time.Duration) ProbeResult {
+	response, cancelRequest, err := c.doWithin(request, timeout)
 	defer cancelRequest()
 	if err != nil {
 		if response != nil && response.Body != nil {
@@ -372,7 +484,13 @@ func protocolRequest(ctx context.Context, protocol, providerID, customBase, apiK
 }
 
 func (c *Client) do(request *http.Request) (*http.Response, context.CancelFunc, error) {
-	timeout := c.timeout
+	return c.doWithin(request, 0)
+}
+
+func (c *Client) doWithin(request *http.Request, timeout time.Duration) (*http.Response, context.CancelFunc, error) {
+	if timeout <= 0 {
+		timeout = c.timeout
+	}
 	if timeout <= 0 {
 		timeout = defaultTimeout
 	}

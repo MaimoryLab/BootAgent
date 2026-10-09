@@ -245,7 +245,7 @@ describe("multimodal bridge", () => {
     const { wailsApi } = await import("./wails");
     bridge.probeMultimodal.mockResolvedValue({ providerId: "novita", model: "m", capability: "vision", status: "available" });
     await wailsApi.probeMultimodal("novita", "m", "vision");
-    expect(bridge.probeMultimodal).toHaveBeenCalledWith({ provider: "novita", model: "m", capability: "vision" });
+    expect(bridge.probeMultimodal).toHaveBeenCalledWith({ provider: "novita", model: "m", capability: "vision", adapter: "", confirmed: false });
     bridge.probeMultimodal.mockResolvedValue(null);
     await expect(wailsApi.probeMultimodal("novita", "m", "vision")).rejects.toThrow();
   });

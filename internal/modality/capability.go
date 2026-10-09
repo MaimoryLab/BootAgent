@@ -95,10 +95,52 @@ const (
 // probeKind lists the adapters that can be probed today. Others are added as
 // their probes are written; until then the UI offers no button for them.
 var probeKind = map[string]string{
-	AdapterChatVision: ProbeMinimal,
+	AdapterChatVision:          ProbeMinimal,
+	AdapterAudioTranscriptions: ProbeMinimal,
+	AdapterAudioSpeech:         ProbeMinimal,
+	AdapterImages:              ProbeConfirm,
 }
 
 // ProbeKind reports how an adapter can be probed.
 func ProbeKind(adapter string) string {
 	return probeKind[adapter]
+}
+
+// adapterCapability is the capability each adapter serves. A probe or an
+// install naming an adapter for another capability is refused.
+var adapterCapability = map[string]string{
+	AdapterChatVision:          Vision,
+	AdapterChatVideo:           VideoUnderstanding,
+	AdapterChatImageOutput:     ImageGeneration,
+	AdapterChatAudioInput:      SpeechToText,
+	AdapterImages:              ImageGeneration,
+	AdapterAudioTranscriptions: SpeechToText,
+	AdapterAudioSpeech:         TextToSpeech,
+	AdapterNovitaAsync:         "",
+	AdapterNovitaAudio:         "",
+	AdapterPPIOVideo:           VideoGeneration,
+}
+
+// Serves reports whether an adapter can deliver a capability. The native
+// adapters serve several, so for them the catalog entry decides.
+func Serves(adapter, capability string) bool {
+	served, known := adapterCapability[adapter]
+	return known && (served == "" || served == capability)
+}
+
+// manualAdapter is the route a model the user names by hand is reached on.
+// /models does not list dedicated image, transcription or speech models, so a
+// user who knows one (gpt-image-1, whisper-1, tts-1) types its ID; it then
+// installs only after a probe on this route passes.
+var manualAdapter = map[string]string{
+	Vision:          AdapterChatVision,
+	ImageGeneration: AdapterImages,
+	SpeechToText:    AdapterAudioTranscriptions,
+	TextToSpeech:    AdapterAudioSpeech,
+}
+
+// ManualAdapter is the adapter for a hand-entered model, empty when the
+// capability cannot be reached that way.
+func ManualAdapter(capability string) string {
+	return manualAdapter[capability]
 }

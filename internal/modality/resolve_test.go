@@ -243,3 +243,51 @@ func TestDeclaredCapabilitiesIgnoreChatAudioAndVideoOutput(t *testing.T) {
 		t.Fatalf("declared = %v, want %v", got, want)
 	}
 }
+
+// A model the user typed by hand and probed is in no listing; the verdict is
+// all there is, and a pass is enough to install it.
+func TestResolveKeepsHandEnteredProbedModels(t *testing.T) {
+	rules := embeddedRules(t)
+	verdicts := map[string]map[string]provider.ModalityVerdict{
+		"whisper-1": {SpeechToText: {Supported: true, Source: SourceProbe, Adapter: AdapterAudioTranscriptions}},
+		"broken":    {TextToSpeech: {Supported: false, Source: SourceProbe, Adapter: AdapterAudioSpeech}},
+	}
+	models := rules.Resolve("custom", nil, verdicts)
+	whisper, ok := Find(models, "whisper-1", SpeechToText)
+	if !ok || !whisper.Installable || whisper.Adapter != AdapterAudioTranscriptions || whisper.Probe != ProbeMinimal {
+		t.Fatalf("whisper = %#v, %v", whisper, ok)
+	}
+	broken, ok := Find(models, "broken", TextToSpeech)
+	if !ok || broken.Installable || broken.Supported {
+		t.Fatalf("broken = %#v", broken)
+	}
+	if _, ok := Find(models, "whisper-1", Vision); ok {
+		t.Fatal("Find invented a capability")
+	}
+}
+
+func TestAdapterVocabulary(t *testing.T) {
+	for capability, adapter := range manualAdapter {
+		if !Serves(adapter, capability) || ProbeKind(adapter) == ProbeNone {
+			t.Errorf("manual route %s for %s cannot be probed", adapter, capability)
+		}
+	}
+	if Serves(AdapterAudioSpeech, Vision) || Serves("fax", Vision) {
+		t.Fatal("Serves accepted a mismatch")
+	}
+	// The native routes serve what their catalog entry says.
+	if !Serves(AdapterNovitaAsync, VideoGeneration) || !Serves(AdapterNovitaAsync, ImageGeneration) {
+		t.Fatal("native async route refused a catalog capability")
+	}
+	if ProbeKind(AdapterImages) != ProbeConfirm {
+		t.Fatal("the image probe must ask first: it produces a billed image")
+	}
+	for _, adapter := range Adapters {
+		if _, ok := adapterCapability[adapter]; !ok {
+			t.Errorf("adapter %s has no capability", adapter)
+		}
+	}
+	if ManualAdapter(VideoGeneration) != "" || ManualAdapter(VideoUnderstanding) != "" {
+		t.Fatal("a capability with no OpenAI-compatible route offered manual entry")
+	}
+}

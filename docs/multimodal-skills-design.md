@@ -1,6 +1,6 @@
 # Multimodal Skills: Design
 
-Status: In progress. Phase 1 (detection) is implemented. Branch `codex/multimodal-skills`.
+Status: In progress. Phase 1 (detection) and Phase 2 (generation and install for Claude Code and Codex) are implemented. Branch `codex/multimodal-skills`.
 
 ## Goal
 
@@ -213,11 +213,38 @@ refused / key / transient / network classification from
 | Capability | Probe | Cost |
 | --- | --- | --- |
 | Image understanding | Chat request with a 32x32 PNG, `max_tokens: 1` | Minimal |
-| Speech-to-text | 0.5 s of silent WAV | Minimal |
-| Text-to-speech | The text `ok` | Minimal |
-| Image generation | Smallest size the adapter allows, one image | One image; the button says so and asks first |
+| Speech-to-text | 0.5 s of silent 16 kHz WAV to `/audio/transcriptions` | Minimal |
+| Text-to-speech | The text `ok` to `/audio/speech`, voice `alloy` | Minimal |
+| Image generation | One image from `/images/generations`, no size sent | One image; the button says so and a dialog asks first, and the backend refuses the probe without that confirmation |
 | Video generation | Not probed | A probe is a full billed generation that cannot be cancelled reliably, so this capability is catalog-only |
 | Video understanding | Native video models: catalog-only. Frame sampling: inherits the image-understanding verdict | None |
+
+Implementation notes:
+
+- The probe image is 32x32 rather than the 8x8 first planned: some vision
+  endpoints refuse images under 10 pixels a side, which would fail the probe for
+  a reason unrelated to the model. It still costs a few tokens.
+- The image probe sends no size. "The smallest size the adapter allows" is not
+  knowable for a generic OpenAI-compatible route: valid sizes differ by model
+  (`dall-e-2` allows 256x256, `gpt-image-1` does not), and a rejected size would
+  fail the probe for a reason unrelated to the endpoint. The confirmation says it
+  is one billed image.
+- A chat probe keeps the 10 s client timeout; audio probes allow 60 s and the
+  image probe 180 s, since producing one image can take a minute.
+- The image probe ships in Phase 2, not Phase 3 as first planned: without it a
+  hand-entered image model (below) could never be installed.
+
+### Models entered by hand
+
+`/models` does not list dedicated image, transcription or speech models, so
+detection alone would leave image generation, speech-to-text and text-to-speech
+with nothing to install on most Providers. The section therefore lets the user
+type a model ID they know (`gpt-image-1`, `whisper-1`, `tts-1`) for those
+capabilities and image understanding. The ID is probed on the capability's
+OpenAI-compatible route (`openai-images`, `openai-audio-transcriptions`,
+`openai-audio-speech`, `openai-chat-vision`), and installs only once that probe
+passes. This is the user naming a model, not BootAgent guessing an endpoint; a
+probe verdict for a model in no listing is still shown and installable.
 
 ### Cache
 
@@ -249,12 +276,9 @@ cached; only probe verdicts are, and only conclusive ones: the Provider accepted
 the request, or refused it for this model. A rejected key, a busy endpoint or a
 network failure says nothing about the model and is not stored.
 
-The probe image is 32x32 rather than the 8x8 first planned: some vision
-endpoints refuse images under 10 pixels a side, which would fail the probe for a
-reason unrelated to the model. It still costs a few tokens. Today the store treats any schema version other
-than its own as a miss. It must accept version 1 and read it as version 2 with no
-modalities: discarding it would throw away the protocol verdicts and make the
-next activation spend a billed probe to rebuild them. The file stays derived
+The store reads a version 1 file as version 2 with no modalities, and writes
+version 2. Discarding version 1 would throw away the protocol verdicts and make
+the next activation spend a billed probe to rebuild them. The file stays derived
 data that may be deleted at any time.
 
 ## Generated Skill
@@ -274,10 +298,26 @@ IDs: `bootagent-vision`, `bootagent-image-generation`, `bootagent-speech-to-text
 `bootagent-video-understanding`.
 
 `SKILL.md` has the frontmatter Agents use to decide when to load a Skill, then:
-when to use it, the exact command (`node scripts/run.mjs <subcommand> …`) with
-every argument, where outputs are written, what each exit code means and what to
-tell the user, and two rules: confirm with the user before any generation that
-costs money, and never print environment variables.
+when to use it, the exact command (`node <this Skill's directory>/scripts/run.mjs
+<subcommand> …`) with every argument, where outputs are written, what each exit
+code means and what to tell the user, and two rules: confirm with the user before
+any generation that costs money, and never print environment variables. The
+description is emitted as a quoted YAML scalar, so a Provider name with quotes
+or a colon cannot break the frontmatter.
+
+| Capability | Subcommand | Output |
+| --- | --- | --- |
+| Image understanding | `describe --image <path>… [--prompt] [--max-tokens]` | The answer on stdout |
+| Image generation | `generate --prompt <text> [--size] [--n 1-4] [--out <dir>]` | Saved file paths on stdout |
+| Speech-to-text | `transcribe --audio <path> [--language] [--prompt]` | The transcript on stdout |
+| Text-to-speech | `speak --text <text> [--voice] [--format] [--out]` | The saved file path on stdout |
+
+Every Skill also has `check`, which confirms the key is available without
+sending a request. Exit codes: 0 success, 2 bad arguments or input, 3 setup
+(Node older than 18, no key), 4 refused by the Provider, 5 key rejected, 6
+unreachable, busy or timed out. Outputs default to `bootagent-output/` in the
+working directory and never overwrite an existing file. Result URLs are
+downloaded without the key, because they may be on another host.
 
 `config.json` is non-secret: Provider ID, adapter, model, base URLs and the
 name of the environment variable that holds the key. The key itself is never in
@@ -299,9 +339,16 @@ self-contained trees through the existing hash, variant and backup machinery,
 and a shared script outside the tree would bypass it.
 
 Changing the model or Provider regenerates the tree. A new hash is a new variant,
-published over the previous managed one by `ApplySkills`; the existing managed
-target check still refuses to overwrite an unmanaged Skill with the same ID.
-`"generated"` joins `agent`, `folder` and `zip` as an import source.
+published over the previous managed one by the install use case, which replaces
+what is at the destination only when its hash is a stored variant of the same
+Skill. It does not go through `ApplySkills`, contrary to the first draft:
+`ApplySkills` takes a preview token the generator has no use for, and its
+`verifyManagedPublishTarget` compares the destination with the *new* hash, so it
+refuses to replace one managed variant with another. A Skill of the same ID that
+BootAgent did not write is left alone, per Agent.
+
+`"generated"` joins `agent`, `folder` and `zip` as an import source in the
+registry. The import path still refuses it: only the generator writes it.
 
 ## Credential delivery
 
@@ -312,7 +359,7 @@ secret and stay in `config.json`.
 | Agent | Where the variable is written | Notes |
 | --- | --- | --- |
 | Claude Code | `env` in `~/.claude/settings.json` | Already a secret file under ADR-008; the Bash tool inherits `env`. |
-| Codex | `[shell_environment_policy] set` in `~/.codex/config.toml` | `set` is applied after Codex's default `KEY`/`SECRET`/`TOKEN` exclusion, so the variable survives it. `config.toml` then carries a key and must be written as a secret (backups included), which it is not today. |
+| Codex | `[shell_environment_policy.set]` in `~/.codex/config.toml` | `set` is applied after Codex's default `KEY`/`SECRET`/`TOKEN` exclusion, so the variable survives it. The table is merged with the user's own entries and placed after the user's tables; inline-table and dotted-key spellings of it are refused rather than duplicated. Every writer of `config.toml` (Profile, MCP, Skill) writes it as a secret whenever the old or the new content holds a `BOOTAGENT_*` key, since the backup it takes is of the old content. |
 | OpenCode | To be confirmed | How its shell tool receives configured environment variables is not yet checked. |
 | Hermes | To be confirmed | Same as OpenCode. |
 
@@ -320,14 +367,28 @@ Fallback for an Agent with no configurable environment: a private
 `~/.bootagent/skill-env/<provider>.env`, the same pattern ADR-008 uses for
 Aider. `run.mjs` reads it only when the variable is not already set.
 
-Lifecycle:
+Lifecycle. One reconcile makes every Agent's `BOOTAGENT_*` variables exactly
+what its generated Skills need, and runs after every change that can alter that:
 
 - Install writes the variable for each target Agent.
 - Saving a Provider with a new key rewrites it, on the same reapply path that
-  already rewrites Agent configs (`SaveProvider` reports it in `reapplied`).
-- Uninstalling the last Skill that uses a Provider removes the variable.
+  already rewrites Agent configs (`SaveProvider` reports it in `reapplied`). A new
+  endpoint also re-renders the Provider's Skills, since `config.json` carries the
+  base URL.
+- Uninstalling the last Skill that uses a Provider removes the variable. So does
+  removing a generated Skill's target on the Skills page, or restoring a backup.
+- Deleting a Provider that a generated Skill still uses is refused, as deleting
+  one an Agent uses already is.
+- A generated Skill reaching an Agent with no native writer (through the Skills
+  page) gets the fallback file; the file is deleted, not backed up, when no Agent
+  needs it.
+- Only variants BootAgent rendered here earn a key. A `bootagent-*` tree imported
+  from a ZIP can name any base URL, and writing the real key for it would hand
+  the key to whoever wrote the ZIP.
 - Every write follows the existing order: private directory, backup, temp file in
-  the same directory, tighten permissions, atomic replace.
+  the same directory, tighten permissions, atomic replace. A writer with nothing
+  to write does not parse the file, so an unrelated problem in an Agent's config
+  does not fail a Skill change.
 
 Accepted risk: the key is visible to every command the Agent runs, so the Agent's
 model can read it. That is the exposure Claude Code's own token already has under
@@ -343,15 +404,23 @@ The Skills page gets a Multimodal capabilities section:
    declared by the Provider, ID rule, catalog, or probed.
 2. Per capability, a model choice and, where the probe table allows, a
    Probe button.
-3. Target Agents: those with `skills_path` in `agents.lock.json`, which today are
-   Codex, Claude Code, OpenCode and Hermes.
-4. Install: generate the tree, `ApplySkills` to the targets, write the variables,
-   and show the result per Agent.
+3. Target Agents: those with `skills_path` in `agents.lock.json` and a native
+   writer for the variable. In Phase 2 that is Claude Code and Codex; OpenCode
+   and Hermes follow in Phase 4.
+4. Install: a confirmation names the variable, states that the Agent and its
+   model can read it, and notes the Node 18 requirement. Then the tree is
+   generated, stored and published, the variables are written, and the result is
+   shown per Agent with a reminder that running Agents need a restart.
+
+Install re-checks the evidence on the backend rather than trusting the page: an
+ID rule alone, or a declaration for an unverified chat adapter, is refused until
+a probe passes. Install sends no billed request.
 
 After install, each Skill shows two or three example prompts, in Chinese and
 English, each with a copy button, for example "Look at ./screenshot.png and find
-the error message in the UI" for image understanding. Uninstall reuses the existing Skill uninstall,
-which already keeps a backup, and then cleans up the variables.
+the error message in the UI" for image understanding. Uninstall reuses the
+existing Skill uninstall (`SkillService.Uninstall`), which keeps a backup and now
+also runs the reconcile, so no separate multimodal uninstall exists.
 
 ### Agents without Skills
 

@@ -1,0 +1,21 @@
+{{template "header" .}}
+## When to use
+
+When the user asks you to create an image: an illustration, an icon draft, a mock-up, a diagram-style picture.
+
+## Command
+
+Run the script in this Skill's directory (the directory containing this `SKILL.md`):
+
+```bash
+node <this Skill's directory>/scripts/run.mjs generate --prompt "<description>" [--size <WxH>] [--n <count>] [--out <directory>]
+```
+
+- `--prompt`: a full description of the image to create.
+- `--size`: for example `1024x1024`. Leave it out unless the user asks; valid sizes depend on the model.
+- `--n`: how many images, 1 to 4. Default 1.
+- `--out`: directory for the files. Default `bootagent-output` in the current directory.
+- `--timeout`: seconds to wait. Default 300.
+
+The saved file paths are printed to stdout, one per line. Existing files are never overwritten.
+{{template "footer" .}}

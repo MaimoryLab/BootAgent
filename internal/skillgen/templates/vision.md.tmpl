@@ -1,0 +1,20 @@
+{{template "header" .}}
+## When to use
+
+When the user asks about the contents of an image file: reading a screenshot, finding an error message in a UI, comparing two images, describing a diagram or photo. Use it whenever your own model cannot see images.
+
+## Command
+
+Run the script in this Skill's directory (the directory containing this `SKILL.md`):
+
+```bash
+node <this Skill's directory>/scripts/run.mjs describe --image <path> [--image <path> ...] [--prompt "<question>"] [--max-tokens <n>]
+```
+
+- `--image`: a local PNG, JPEG, WebP or GIF file, at most 20 MB. Repeat for up to 8 images.
+- `--prompt`: what to ask about the images. Put the user's actual question here. Default: "Describe this image."
+- `--max-tokens`: the longest answer to allow. Default 1024.
+- `--timeout`: seconds to wait. Default 120.
+
+The answer is printed to stdout as plain text.
+{{template "footer" .}}

@@ -143,6 +143,13 @@ func (s Store) SaveVariant(ctx context.Context, id, source string, stats TreeSta
 	return PublishTree(ctx, stage, s.VariantPath(id, stats.Hash))
 }
 
+// EnsureSkillsRoot creates the private Skill storage root, for callers that
+// stage a tree there before SaveVariant (the generator does: staging under the
+// root keeps the copy on one filesystem and inside the private tree).
+func (s Store) EnsureSkillsRoot(ctx context.Context) error {
+	return s.ensurePrivateRoot(ctx, s.SkillsRoot())
+}
+
 func (s Store) RemoveSkill(ctx context.Context, id string) error {
 	if err := ValidateID(id); err != nil {
 		return err
@@ -338,7 +345,7 @@ func validateFact(id string, fact Fact) error {
 			}
 		}
 		for _, source := range variant.ImportSources {
-			if source != "agent" && source != "folder" && source != "zip" {
+			if source != "agent" && source != "folder" && source != "zip" && source != ImportSourceGenerated {
 				return fmt.Errorf("Skill %q has invalid import source", id)
 			}
 		}

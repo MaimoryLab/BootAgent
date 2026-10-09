@@ -225,8 +225,39 @@ func (r Rules) Resolve(providerID string, entries []provider.ModelEntry, verdict
 		}
 		models = append(models, Model{ID: generation.ID, Capabilities: capabilities})
 	}
+	// A model the user entered by hand and probed is in no listing; its probe
+	// verdict is all there is to show, and it is enough to install a pass.
+	for id, probed := range verdicts {
+		if seen[id] || len(probed) == 0 {
+			continue
+		}
+		var capabilities []Capability
+		for _, capabilityID := range Capabilities {
+			if verdict, ok := probed[capabilityID]; ok {
+				capabilities = append(capabilities, probedCapability(capabilityID, verdict))
+			}
+		}
+		if len(capabilities) > 0 {
+			models = append(models, Model{ID: id, Capabilities: capabilities})
+		}
+	}
 	sort.SliceStable(models, func(i, j int) bool { return models[i].ID < models[j].ID })
 	return models
+}
+
+// Find returns one model's resolved capability, if detection found it.
+func Find(models []Model, modelID, capability string) (Capability, bool) {
+	for _, model := range models {
+		if model.ID != modelID {
+			continue
+		}
+		for _, found := range model.Capabilities {
+			if found.ID == capability {
+				return found, true
+			}
+		}
+	}
+	return Capability{}, false
 }
 
 func probedCapability(capabilityID string, verdict provider.ModalityVerdict) Capability {

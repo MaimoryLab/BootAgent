@@ -117,7 +117,23 @@ export type MultimodalCapability = Omit<ModalityModels.Capability, "id" | "sourc
 };
 export type MultimodalModel = Omit<ModalityModels.Model, "capabilities"> & { capabilities: MultimodalCapability[] };
 export type MultimodalProvider = Omit<AppModels.MultimodalProvider, "models"> & { models: MultimodalModel[] };
-export type MultimodalDetection = { providers: MultimodalProvider[] };
+export type InstalledMultimodal = Omit<AppModels.InstalledMultimodal, "capability" | "agents"> & {
+  capability: MultimodalCapabilityId;
+  agents: string[];
+};
+export type MultimodalManualRoute = Omit<AppModels.MultimodalManualRoute, "capability" | "probe"> & {
+  capability: MultimodalCapabilityId;
+  probe: MultimodalProbeKind;
+};
+export type MultimodalDetection = {
+  providers: MultimodalProvider[];
+  installed: InstalledMultimodal[];
+  targets: string[];
+  generatable: string[];
+  manual: MultimodalManualRoute[];
+};
+export type MultimodalInstallRequest = Omit<AppModels.MultimodalInstallRequest, "capability"> & { capability: MultimodalCapabilityId };
+export type MultimodalInstallResult = Omit<AppModels.MultimodalInstallResult, "results"> & { results: AppModels.MultimodalAgentResult[] };
 export type MultimodalProbe = Omit<AppModels.MultimodalProbe, "status" | "reason" | "capability"> & {
   capability: MultimodalCapabilityId;
   status: ProfileModelCheckStatus;

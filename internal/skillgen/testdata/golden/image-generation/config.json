@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "generator": "bootagent",
+  "capability": "image-generation",
+  "adapter": "openai-images",
+  "provider_id": "my-gateway",
+  "provider_name": "Gateway \"Prod\": EU",
+  "model": "gpt-image-1",
+  "base_url": "https://gw.example/v1",
+  "key_env": "BOOTAGENT_MY_GATEWAY_API_KEY",
+  "key_file": "~/.bootagent/skill-env/my-gateway.env",
+  "output_dir": "bootagent-output"
+}

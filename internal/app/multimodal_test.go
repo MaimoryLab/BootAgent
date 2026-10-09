@@ -145,7 +145,7 @@ func TestDetectMultimodalReportsAFailedListing(t *testing.T) {
 func TestProbeMultimodalCachesAPassAndOutranksTheIDRule(t *testing.T) {
 	gateway := &multimodalGateway{listing: gatewayListing}
 	core := multimodalCore(t, gateway)
-	check, err := core.ProbeMultimodal(context.Background(), "gw", "moonshotai/kimi-k3", modality.Vision)
+	check, err := core.ProbeMultimodal(context.Background(), "gw", "moonshotai/kimi-k3", modality.Vision, "", false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -168,7 +168,7 @@ func TestProbeMultimodalCachesARefusalButNotAKeyProblem(t *testing.T) {
 		"moonshotai/kimi-k3": http.StatusUnauthorized,
 	}}
 	core := multimodalCore(t, gateway)
-	refused, err := core.ProbeMultimodal(context.Background(), "gw", "qwen/qwen3-vl-8b", modality.Vision)
+	refused, err := core.ProbeMultimodal(context.Background(), "gw", "qwen/qwen3-vl-8b", modality.Vision, "", false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -178,7 +178,7 @@ func TestProbeMultimodalCachesARefusalButNotAKeyProblem(t *testing.T) {
 	if strings.Contains(refused.Detail, multimodalKey) || !strings.Contains(refused.Detail, "does not support image input") {
 		t.Fatalf("detail = %q", refused.Detail)
 	}
-	key, err := core.ProbeMultimodal(context.Background(), "gw", "moonshotai/kimi-k3", modality.Vision)
+	key, err := core.ProbeMultimodal(context.Background(), "gw", "moonshotai/kimi-k3", modality.Vision, "", false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -211,11 +211,11 @@ func TestProbeMultimodalRefusesWhatItCannotCheck(t *testing.T) {
 	gateway := &multimodalGateway{listing: gatewayListing}
 	core := multimodalCore(t, gateway)
 	for _, capability := range []string{modality.VideoGeneration, modality.ImageGeneration, modality.TextToSpeech, "smell"} {
-		if _, err := core.ProbeMultimodal(context.Background(), "gw", "m", capability); err == nil {
+		if _, err := core.ProbeMultimodal(context.Background(), "gw", "m", capability, "", false); err == nil {
 			t.Errorf("%s probe accepted", capability)
 		}
 	}
-	if _, err := core.ProbeMultimodal(context.Background(), "gw", " ", modality.Vision); err == nil {
+	if _, err := core.ProbeMultimodal(context.Background(), "gw", " ", modality.Vision, "", false); err == nil {
 		t.Error("probe without a model accepted")
 	}
 	if posts := gateway.billed(); len(posts) != 0 {
@@ -226,7 +226,7 @@ func TestProbeMultimodalRefusesWhatItCannotCheck(t *testing.T) {
 func TestProbeMultimodalWithoutAKeySendsNothing(t *testing.T) {
 	gateway := &multimodalGateway{listing: gatewayListing}
 	core := activationCore(t, t.TempDir(), provider.NewClient(gateway), "linux")
-	check, err := core.ProbeMultimodal(context.Background(), "novita", "qwen/qwen3-vl-8b", modality.Vision)
+	check, err := core.ProbeMultimodal(context.Background(), "novita", "qwen/qwen3-vl-8b", modality.Vision, "", false)
 	if err != nil {
 		t.Fatal(err)
 	}

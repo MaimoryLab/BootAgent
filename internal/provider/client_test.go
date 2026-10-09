@@ -400,3 +400,83 @@ func TestProbePNGDecodes(t *testing.T) {
 		t.Fatalf("probe image is %dx%d; some endpoints refuse images under 10px a side", config.Width, config.Height)
 	}
 }
+
+func TestProbeTranscriptionSendsSilentWAV(t *testing.T) {
+	var seen *http.Request
+	var model string
+	var audio []byte
+	client := NewClient(fakeDoer(func(request *http.Request) (*http.Response, error) {
+		seen = request
+		if err := request.ParseMultipartForm(1 << 20); err != nil {
+			t.Fatal(err)
+		}
+		model = request.FormValue("model")
+		file, _, err := request.FormFile("file")
+		if err != nil {
+			t.Fatal(err)
+		}
+		audio, _ = io.ReadAll(file)
+		return fakeResponse(http.StatusOK, `{"text":""}`), nil
+	}))
+	result, err := client.ProbeTranscription(context.Background(), "key", "whisper-1", "https://proxy.test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.OK || seen.URL.Path != "/v1/audio/transcriptions" || model != "whisper-1" {
+		t.Fatalf("result = %#v, path = %s, model = %q", result, seen.URL.Path, model)
+	}
+	if len(audio) != 44+16000 || string(audio[0:4]) != "RIFF" || string(audio[8:12]) != "WAVE" {
+		t.Fatalf("probe audio is not half a second of 16 kHz WAV: %d bytes", len(audio))
+	}
+}
+
+func TestProbeSpeechAndImagesSendMinimalBodies(t *testing.T) {
+	bodies := map[string]map[string]any{}
+	client := NewClient(fakeDoer(func(request *http.Request) (*http.Response, error) {
+		var body map[string]any
+		if err := json.NewDecoder(request.Body).Decode(&body); err != nil {
+			t.Fatal(err)
+		}
+		bodies[request.URL.Path] = body
+		return fakeResponse(http.StatusOK, `{}`), nil
+	}))
+	if result, err := client.ProbeSpeech(context.Background(), "key", "tts-1", "https://proxy.test"); err != nil || !result.OK {
+		t.Fatalf("speech = %#v, %v", result, err)
+	}
+	if result, err := client.ProbeImageGeneration(context.Background(), "key", "gpt-image-1", "https://proxy.test"); err != nil || !result.OK {
+		t.Fatalf("image = %#v, %v", result, err)
+	}
+	speech := bodies["/v1/audio/speech"]
+	if speech["input"] != "ok" || speech["model"] != "tts-1" || speech["voice"] == nil {
+		t.Fatalf("speech body = %#v", speech)
+	}
+	image := bodies["/v1/images/generations"]
+	if image["n"] != float64(1) || image["model"] != "gpt-image-1" {
+		t.Fatalf("image body = %#v", image)
+	}
+	// Valid sizes differ by model; sending one could fail the probe for a
+	// reason unrelated to the endpoint.
+	if _, ok := image["size"]; ok {
+		t.Fatalf("image probe sent a size: %#v", image)
+	}
+	for _, probe := range []func(context.Context, string, string, string) (ProbeResult, error){client.ProbeSpeech, client.ProbeImageGeneration, client.ProbeTranscription} {
+		if _, err := probe(context.Background(), "", "m", "https://proxy.test"); err == nil {
+			t.Fatal("probe without a key accepted")
+		}
+		if _, err := probe(context.Background(), "k", "", "https://proxy.test"); err == nil {
+			t.Fatal("probe without a model accepted")
+		}
+	}
+}
+
+func TestSlowProbesOutlastTheChatTimeout(t *testing.T) {
+	client := NewClient(fakeDoer(func(request *http.Request) (*http.Response, error) {
+		deadline, ok := request.Context().Deadline()
+		if !ok || time.Until(deadline) < 2*defaultTimeout {
+			t.Errorf("%s deadline = %v away, want well over the %v chat timeout", request.URL.Path, time.Until(deadline), defaultTimeout)
+		}
+		return fakeResponse(http.StatusOK, `{}`), nil
+	}))
+	_, _ = client.ProbeImageGeneration(context.Background(), "k", "m", "https://proxy.test")
+	_, _ = client.ProbeSpeech(context.Background(), "k", "m", "https://proxy.test")
+}

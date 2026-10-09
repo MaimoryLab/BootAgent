@@ -3958,3 +3958,34 @@
 .multimodal-verdict { flex-basis: 100%; margin: 0; }
 .multimodal-empty { margin: 0; color: var(--text-secondary); font-size: 13px; }
 .multimodal-error { margin: 0; color: var(--red); font-size: 13px; }
+.multimodal-installed { display: grid; gap: 8px; }
+.multimodal-installed h3 { margin: 0; font-size: 13px; font-weight: 650; }
+.multimodal-installed-card { display: grid; gap: 6px; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius-panel); background: var(--surface-subtle); }
+.multimodal-installed-card > header { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+.multimodal-installed-card > header code { color: var(--text-secondary); font-size: 12px; }
+.multimodal-installed-card > header .icon-button { margin-left: auto; }
+.multimodal-installed-line { margin: 0; color: var(--text-secondary); font-size: 13px; overflow-wrap: anywhere; }
+.multimodal-prompts { display: grid; gap: 4px; }
+.multimodal-prompts-title { color: var(--text-secondary); font-size: 12px; font-weight: 600; }
+.multimodal-prompts ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
+.multimodal-prompts li { display: flex; align-items: flex-start; gap: 6px; font-size: 13px; }
+.multimodal-prompts li > span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.multimodal-prompts .icon-button { flex-shrink: 0; width: 26px; height: 26px; }
+.multimodal-manual { font-size: 13px; }
+.multimodal-manual summary { cursor: pointer; color: var(--text-secondary); }
+.multimodal-manual p { margin: 6px 0; color: var(--text-secondary); }
+.multimodal-manual-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.multimodal-manual-row select,
+.multimodal-manual-row input { min-height: 28px; padding: 0 8px; border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--window-bg); color: var(--text-primary); font: inherit; font-size: 12px; }
+.multimodal-manual-row input { min-width: 0; width: 220px; }
+.multimodal-modal p { margin: 12px 0; font-size: 13px; line-height: 1.5; }
+.mcp-modal .multimodal-agents { margin: 12px 0; padding: 0; border: 0; display: flex; flex-wrap: wrap; gap: 14px; }
+.mcp-modal .multimodal-agents legend { margin-bottom: 6px; color: var(--text-secondary); font-size: 13px; }
+.mcp-modal .multimodal-agents label { margin: 0; display: inline-flex; align-items: center; gap: 6px; color: var(--text-primary); }
+.mcp-modal .multimodal-agents input { width: auto; padding: 0; }
+.multimodal-note { color: var(--text-secondary); }
+.multimodal-key-notice { margin: 12px 0; }
+.multimodal-results { margin: 12px 0; padding: 0; list-style: none; display: grid; gap: 6px; font-size: 13px; }
+.multimodal-results li { display: flex; gap: 10px; }
+.multimodal-results li.is-ok span { color: var(--green); }
+.multimodal-results li.is-failed span { color: var(--red); overflow-wrap: anywhere; }

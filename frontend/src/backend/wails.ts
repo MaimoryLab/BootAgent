@@ -40,6 +40,8 @@ import type {
   ModelsResponse,
   MultimodalCapabilityId,
   MultimodalDetection,
+  MultimodalInstallRequest,
+  MultimodalInstallResult,
   MultimodalProbe,
   OpenRegistrationResponse,
   ProbeResponse,
@@ -358,11 +360,21 @@ export const wailsApi = {
         ...entry,
         models: (entry.models ?? []).map((model) => ({ ...model, capabilities: model.capabilities ?? [] })),
       })),
+      installed: (detection?.installed ?? []).map((entry) => ({ ...entry, agents: entry.agents ?? [] })),
+      targets: detection?.targets ?? [],
+      generatable: detection?.generatable ?? [],
+      manual: detection?.manual ?? [],
     })) as Promise<MultimodalDetection>,
   // Sends a live (billed) request; only called from a button the user presses.
-  probeMultimodal: (provider: string, model: string, capability: MultimodalCapabilityId): Promise<MultimodalProbe> =>
-    call(() => MultimodalService.Probe({ provider, model, capability })).then((check) => {
+  // `confirmed` is set only after the user agreed to a probe that produces
+  // billed output (one image). `adapter` picks the route for a hand-entered
+  // model; empty is the capability's chat route.
+  probeMultimodal: (provider: string, model: string, capability: MultimodalCapabilityId, adapter = "", confirmed = false): Promise<MultimodalProbe> =>
+    call(() => MultimodalService.Probe({ provider, model, capability, adapter, confirmed })).then((check) => {
       if (!check) throw new Error("Multimodal probe returned no result");
       return check;
     }) as Promise<MultimodalProbe>,
+  // Sends no billed request: it installs on evidence already gathered.
+  installMultimodal: (request: MultimodalInstallRequest): Promise<MultimodalInstallResult> =>
+    call(() => MultimodalService.Install(request)).then((result) => ({ ...result, results: result?.results ?? [] })) as Promise<MultimodalInstallResult>,
 };

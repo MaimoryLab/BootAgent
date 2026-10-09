@@ -227,6 +227,19 @@ export interface InstallRuntimeResult {
     "runtimes": RuntimeStatus[] | null;
 }
 
+/**
+ * InstalledMultimodal is one generated Skill variant that is published to at
+ * least one Agent.
+ */
+export interface InstalledMultimodal {
+    "skillId": string;
+    "capability": string;
+    "providerId": string;
+    "model": string;
+    "adapter": string;
+    "agents": string[] | null;
+}
+
 export interface MCPAgentApplyResult {
     "agent": string;
     "config_updated": boolean;
@@ -349,12 +362,71 @@ export interface MarketplaceSourceStatus {
     "error"?: string;
 }
 
+export interface MultimodalAgentResult {
+    "agent": string;
+
+    /**
+     * Installed: the Skill tree is in the Agent's Skills directory.
+     */
+    "installed": boolean;
+
+    /**
+     * EnvWritten: the key variable is in the Agent's own configuration.
+     */
+    "envWritten": boolean;
+    "error"?: string;
+}
+
 /**
  * MultimodalDetection lists, for every Provider with a saved key, the models
  * that offer a multimodal capability and where each finding came from.
  */
 export interface MultimodalDetection {
     "providers": MultimodalProvider[] | null;
+
+    /**
+     * Installed are the generated Skills published to at least one Agent.
+     */
+    "installed": InstalledMultimodal[] | null;
+
+    /**
+     * Targets are the Agents a multimodal Skill can be installed into now.
+     */
+    "targets": string[] | null;
+
+    /**
+     * Generatable lists the adapters a Skill can be generated for in this
+     * version; a capability on any other adapter is shown but not offered.
+     */
+    "generatable": string[] | null;
+
+    /**
+     * Manual lists the capabilities a user can reach with a model ID typed by
+     * hand, the route it is probed on, and how that probe is sent.
+     */
+    "manual": MultimodalManualRoute[] | null;
+}
+
+/**
+ * MultimodalInstallRequest installs the Skill for one capability, bound to one
+ * Provider and model, into the named Agents.
+ */
+export interface MultimodalInstallRequest {
+    "provider": string;
+    "model": string;
+    "capability": string;
+    "agents": string[] | null;
+}
+
+export interface MultimodalInstallResult {
+    "skillId": string;
+    "results": MultimodalAgentResult[] | null;
+}
+
+export interface MultimodalManualRoute {
+    "capability": string;
+    "adapter": string;
+    "probe": string;
 }
 
 /**
@@ -365,6 +437,7 @@ export interface MultimodalProbe {
     "providerId": string;
     "model": string;
     "capability": string;
+    "adapter": string;
     "status": string;
     "reason"?: string;
     "httpStatus"?: number;
@@ -374,6 +447,12 @@ export interface MultimodalProbe {
 export interface MultimodalProvider {
     "id": string;
     "name": string;
+
+    /**
+     * KeyEnv is the variable an install writes this Provider's key into, so
+     * the install confirmation can name it.
+     */
+    "keyEnv": string;
 
     /**
      * Listed is false when /models could not be read. Message and ErrorCode

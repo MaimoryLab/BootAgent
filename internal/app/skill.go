@@ -6,15 +6,19 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
+	"strings"
 	"sync/atomic"
 	"time"
 
 	"github.com/MaimoryLab/BootAgent/internal/catalog"
 	"github.com/MaimoryLab/BootAgent/internal/platform"
 	"github.com/MaimoryLab/BootAgent/internal/skill"
+	"github.com/MaimoryLab/BootAgent/internal/skillgen"
 )
 
 type SkillSummary struct {
@@ -467,6 +471,13 @@ func (u *UseCases) ApplySkills(ctx context.Context, req SkillApplyRequest) Skill
 			}
 		}
 	}
+	touchedGenerated := false
+	for _, change := range req.Changes {
+		touchedGenerated = touchedGenerated || skillgen.CapabilityFromSkillID(change.ID) != ""
+	}
+	if touchedGenerated {
+		result.Results = append(result.Results, skillEnvResults(u.reconcileSkillEnvLocked(ctx))...)
+	}
 	if req.PreviewToken != "" {
 		allSucceeded := true
 		for _, item := range result.Results {
@@ -542,6 +553,12 @@ func (u *UseCases) UninstallSkill(ctx context.Context, id string) SkillUninstall
 		return result
 	}
 	result.RegistryUpdated = true
+	// A generated Skill's key variable goes with the last Skill that needed it.
+	if skillgen.CapabilityFromSkillID(id) != "" {
+		if failures := u.reconcileSkillEnvLocked(ctx); len(failures) > 0 {
+			result.Error = "Skill removed, but its key variable could not be removed from: " + strings.Join(slices.Sorted(maps.Keys(failures)), ", ")
+		}
+	}
 	return result
 }
 
@@ -662,7 +679,21 @@ func (u *UseCases) RestoreSkillBackup(ctx context.Context, backupID string, targ
 		result.Results = append(result.Results, item)
 		_ = agent
 	}
+	if skillgen.CapabilityFromSkillID(id) != "" {
+		result.Results = append(result.Results, skillEnvResults(u.reconcileSkillEnvLocked(ctx))...)
+	}
 	return result
+}
+
+// skillEnvResults reports key variables that could not be written after a
+// change to generated Skills, one entry per Agent. The Skill change itself
+// already succeeded or failed on its own entries.
+func skillEnvResults(failures map[string]string) []SkillAgentApplyResult {
+	results := make([]SkillAgentApplyResult, 0, len(failures))
+	for _, agentID := range slices.Sorted(maps.Keys(failures)) {
+		results = append(results, SkillAgentApplyResult{Agent: agentID, Error: "Skill key variable was not updated: " + failures[agentID]})
+	}
+	return results
 }
 
 func (u *UseCases) SetSkillDraftState(dirty bool, locale string) {
