@@ -221,6 +221,35 @@ func TestModelCheckReportsAnUnreachableProviderAsUnverified(t *testing.T) {
 	}
 }
 
+func TestCodexDesktopModelCheckReportsUnsupportedResponsesEndpoint(t *testing.T) {
+	model := "aphrodite/venus-marble-5-5-es-cc-dst"
+	detail := "model: " + model + " does not support endpoint: responses"
+	gateway := &modelGateway{verdicts: map[string]func(string) (*http.Response, error){
+		model: func(path string) (*http.Response, error) {
+			if path != "/v1/responses" {
+				return appProviderResponse(http.StatusOK, `{}`), nil
+			}
+			return appProviderResponse(http.StatusBadRequest, `{"code":400,"reason":"INVALID_REQUEST_BODY","message":"`+detail+`","metadata":0}`), nil
+		},
+	}}
+	core := gatewayCore(t, gateway)
+	saveModel(t, core, model)
+	gateway.reset()
+	check, err := core.CheckProfileModel(context.Background(), "team", []string{"codex", "chatgpt-desktop"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if check == nil || check.Status != ModelCheckUnavailable || check.Reason != "refused" || check.Protocol != provider.ProtocolResponses || check.HTTPStatus != http.StatusBadRequest || check.Detail != detail {
+		t.Fatalf("check = %#v", check)
+	}
+	if !slices.Equal(check.Agents, []string{"chatgpt-desktop", "codex"}) {
+		t.Fatalf("affected Agents = %v", check.Agents)
+	}
+	if !slices.Equal(gateway.requests, []string{"/v1/responses " + model}) {
+		t.Fatalf("requests = %v; a Codex check must not fall back to another protocol", gateway.requests)
+	}
+}
+
 // A rate limit or a server error is about the provider's state, not the model.
 // It is reported as unverified so the user is not told to abandon a model that
 // works. A 5xx that says the endpoint does not serve the protocol is a real

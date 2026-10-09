@@ -27,6 +27,7 @@ export function describeModelCheck(check: ProfileModelCheck, t: Translate, nameO
       reason: protocol ? t("模型服务已通过 {protocol} 正常响应。", { protocol }) : t("模型服务已正常响应。"),
       agents: agents ? t("已检测的 Agent：{agents}", { agents }) : "",
       detail: "",
+      hint: "",
     };
   }
   const title = check.status === "unverified"
@@ -61,6 +62,9 @@ export function describeModelCheck(check: ProfileModelCheck, t: Translate, nameO
     reason,
     agents: agents ? t("受影响的 Agent：{agents}", { agents }) : "",
     detail: check.detail ? t("模型服务返回：{detail}", { detail: check.detail }) : "",
+    hint: check.reason === "refused" && check.protocol === "responses"
+      ? t("Codex 使用 Responses API。请选择支持 Responses 的模型；如果模型服务仅支持 Chat Completions，可使用 API 协议适配，并应用适配器生成的 Codex 配置模版。")
+      : "",
   };
 }
 
@@ -141,8 +145,14 @@ export function ModelCheckNotice({ check, providerId, nameOf, returnTo, profileN
           <span>{parts.reason}</span>
           {parts.agents ? <span>{parts.agents}</span> : null}
           {parts.detail ? <span className="model-check-detail">{parts.detail}</span> : null}
+          {parts.hint ? <span>{parts.hint}</span> : null}
         </div>
         <div className="model-check-actions">
+          {parts.hint ? (
+            <button className="button button-secondary" type="button" disabled={busy} onClick={() => navigate("/conversion")}>
+              {t("打开 API 协议适配")}
+            </button>
+          ) : null}
           {canRevert ? (
             <button className="button button-secondary" type="button" disabled={busy} onClick={onRevert}>
               {t("改回 {model}", { model: check.previousModel ?? "" })}
