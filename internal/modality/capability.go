@@ -1,0 +1,104 @@
+// Package modality decides which multimodal capabilities a Provider's models
+// offer, and names the adapter that reaches each one. It sends no request
+// itself: listing models and probing are the caller's, and a probe is billed,
+// so only a user's click may send one.
+package modality
+
+// Capability IDs. They double as the suffix of the generated Skill ID
+// (bootagent-<capability>) and as keys in the capability cache, so they must
+// never be renamed.
+const (
+	Vision             = "vision"
+	ImageGeneration    = "image-generation"
+	SpeechToText       = "speech-to-text"
+	TextToSpeech       = "text-to-speech"
+	VideoGeneration    = "video-generation"
+	VideoUnderstanding = "video-understanding"
+)
+
+// Capabilities lists every capability in the order the UI shows them.
+var Capabilities = []string{Vision, ImageGeneration, SpeechToText, TextToSpeech, VideoGeneration, VideoUnderstanding}
+
+// Adapter IDs: the calling convention the generated script uses, shared with
+// the probes so a probe tests exactly what the Skill will send.
+const (
+	// AdapterChatVision sends images as Chat Completions image_url parts.
+	AdapterChatVision = "openai-chat-vision"
+	// AdapterChatVideo sends video as Chat Completions content parts, for models
+	// that take video natively.
+	AdapterChatVideo = "openai-chat-video"
+	// AdapterChatImageOutput asks a chat model for an image in its reply
+	// (gemini-*-image, gpt-image-* on JieKou.AI). How gateways return the image
+	// is not yet verified, so models on this route install only after a probe.
+	AdapterChatImageOutput = "openai-chat-image-output"
+	// AdapterChatAudioInput sends audio as Chat Completions input_audio parts
+	// (*-omni-*, gemini-*, mimo-v2.6-*). Unverified across gateways, like the
+	// image-output route, so it installs only after a probe.
+	AdapterChatAudioInput = "openai-chat-audio-input"
+	// The OpenAI-compatible generation and audio routes.
+	AdapterImages              = "openai-images"
+	AdapterAudioTranscriptions = "openai-audio-transcriptions"
+	AdapterAudioSpeech         = "openai-audio-speech"
+	// Native routes at the Provider's host root, named by the catalog.
+	AdapterNovitaAsync = "novita-async"
+	AdapterNovitaAudio = "novita-audio"
+	AdapterPPIOVideo   = "ppio-video"
+)
+
+// Adapters is the closed vocabulary the catalog may name.
+var Adapters = []string{
+	AdapterChatVision, AdapterChatVideo, AdapterChatImageOutput, AdapterChatAudioInput,
+	AdapterImages, AdapterAudioTranscriptions, AdapterAudioSpeech,
+	AdapterNovitaAsync, AdapterNovitaAudio, AdapterPPIOVideo,
+}
+
+// Sources say how a capability was established, in resolution order.
+const (
+	SourceProbe    = "probe"
+	SourceDeclared = "declared"
+	SourceCatalog  = "catalog"
+	SourceIDRule   = "id-rule"
+)
+
+// chatAdapter is the adapter a capability found on a chat model uses. Text to
+// speech and video generation have no chat route: no rule claims them, and a
+// chat model that declares audio or video output is not offered for either,
+// because how a gateway returns that output is unknown.
+var chatAdapter = map[string]string{
+	Vision:             AdapterChatVision,
+	VideoUnderstanding: AdapterChatVideo,
+	SpeechToText:       AdapterChatAudioInput,
+	ImageGeneration:    AdapterChatImageOutput,
+}
+
+// probeOnly are the adapters whose request and response format across gateways
+// is not verified: neither a declaration nor a rule is enough to install them,
+// only a probe that passed.
+var probeOnly = map[string]bool{
+	AdapterChatImageOutput: true,
+	AdapterChatAudioInput:  true,
+}
+
+// Probe kinds tell the UI whether a capability can be checked live and whether
+// the check needs a confirmation first.
+const (
+	// ProbeNone: no live check exists for this adapter yet, or ever (video
+	// generation is a full billed generation that cannot be cancelled).
+	ProbeNone = ""
+	// ProbeMinimal: a request costing a token or so; the button warns of cost.
+	ProbeMinimal = "minimal"
+	// ProbeConfirm: a request that produces billed output, such as one image;
+	// the UI asks before sending.
+	ProbeConfirm = "confirm"
+)
+
+// probeKind lists the adapters that can be probed today. Others are added as
+// their probes are written; until then the UI offers no button for them.
+var probeKind = map[string]string{
+	AdapterChatVision: ProbeMinimal,
+}
+
+// ProbeKind reports how an adapter can be probed.
+func ProbeKind(adapter string) string {
+	return probeKind[adapter]
+}

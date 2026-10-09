@@ -85,6 +85,9 @@ type UseCases struct {
 	conversion     *convertproxy.Server
 	conversionMu   sync.Mutex
 	capabilities   provider.CapabilityStore
+	// capabilityMu serializes capability-cache writes from multimodal probes,
+	// which run outside writeMu so a slow probe never blocks an install.
+	capabilityMu sync.Mutex
 }
 
 // DraftState combines the independent MCP and Skills drafts for the native

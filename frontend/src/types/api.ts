@@ -2,6 +2,7 @@ import type * as AppModels from "../../bindings/github.com/MaimoryLab/BootAgent/
 import type * as BindingModels from "../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/models.js";
 import type * as CatalogModels from "../../bindings/github.com/MaimoryLab/BootAgent/internal/catalog/models.js";
 import type * as MCPModels from "../../bindings/github.com/MaimoryLab/BootAgent/internal/mcp/models.js";
+import type * as ModalityModels from "../../bindings/github.com/MaimoryLab/BootAgent/internal/modality/models.js";
 import type * as PlatformModels from "../../bindings/github.com/MaimoryLab/BootAgent/internal/platform/models.js";
 import type * as ProviderModels from "../../bindings/github.com/MaimoryLab/BootAgent/internal/provider/models.js";
 import type * as TransferModels from "../../bindings/github.com/MaimoryLab/BootAgent/internal/transfer/models.js";
@@ -102,6 +103,25 @@ export type ProfileModelCheck = Omit<AppModels.ProfileModelCheck, "status" | "re
   // Filled in by the page, not the backend: the model this Profile held before
   // an edit made on that page, offered as the way back from a failed check.
   previousModel?: string;
+};
+// Multimodal detection. The strings are narrowed because the UI words each
+// source and probe kind differently; "id-rule" in particular must never read
+// as a confirmed capability.
+export type MultimodalCapabilityId = "vision" | "image-generation" | "speech-to-text" | "text-to-speech" | "video-generation" | "video-understanding";
+export type MultimodalSource = "probe" | "declared" | "catalog" | "id-rule";
+export type MultimodalProbeKind = "" | "minimal" | "confirm";
+export type MultimodalCapability = Omit<ModalityModels.Capability, "id" | "source" | "probe"> & {
+  id: MultimodalCapabilityId;
+  source: MultimodalSource;
+  probe: MultimodalProbeKind;
+};
+export type MultimodalModel = Omit<ModalityModels.Model, "capabilities"> & { capabilities: MultimodalCapability[] };
+export type MultimodalProvider = Omit<AppModels.MultimodalProvider, "models"> & { models: MultimodalModel[] };
+export type MultimodalDetection = { providers: MultimodalProvider[] };
+export type MultimodalProbe = Omit<AppModels.MultimodalProbe, "status" | "reason" | "capability"> & {
+  capability: MultimodalCapabilityId;
+  status: ProfileModelCheckStatus;
+  reason?: ProfileModelCheckReason;
 };
 // Mirrors SaveProviderResult: saving a Profile can rewrite the Agents bound to
 // it, so the outcome per Agent travels with the saved record.

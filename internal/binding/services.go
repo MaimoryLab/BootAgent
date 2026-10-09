@@ -34,6 +34,7 @@ type Services struct {
 	Conversion   *ConversionService
 	Marketplace  *MarketplaceService
 	Task         *TaskService
+	Multimodal   *MultimodalService
 }
 
 type ServicesOptions struct {
@@ -61,6 +62,7 @@ func NewServicesWithOptions(core *app.UseCases, opener BrowserOpener, options Se
 		Conversion:   NewConversionService(core),
 		Marketplace:  NewMarketplaceService(core, opener),
 		Task:         &TaskService{core: core},
+		Multimodal:   NewMultimodalService(core),
 	}
 }
 

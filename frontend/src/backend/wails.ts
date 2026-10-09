@@ -5,6 +5,7 @@ import * as ConversionService from "../../bindings/github.com/MaimoryLab/BootAge
 import * as DesktopAgentService from "../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/desktopagentservice.js";
 import * as MarketplaceService from "../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/marketplaceservice.js";
 import * as MCPService from "../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/mcpservice.js";
+import * as MultimodalService from "../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/multimodalservice.js";
 import * as ProfileService from "../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/profileservice.js";
 import * as ProviderService from "../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/providerservice.js";
 import * as RuntimeService from "../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/runtimeservice.js";
@@ -37,6 +38,9 @@ import type {
   MCPServerDetail,
   MCPServerSummary,
   ModelsResponse,
+  MultimodalCapabilityId,
+  MultimodalDetection,
+  MultimodalProbe,
   OpenRegistrationResponse,
   ProbeResponse,
   ProfileModelCheck,
@@ -347,4 +351,18 @@ export const wailsApi = {
         if (!check) throw new Error("Model check returned no result");
         return { ...check, agents: check.agents ?? [] };
       }) as Promise<ProfileModelCheck>,
+  // Lists each keyed Provider's models: an unbilled GET, safe to call on open.
+  detectMultimodal: (): Promise<MultimodalDetection> =>
+    call(() => MultimodalService.Detect()).then((detection) => ({
+      providers: (detection?.providers ?? []).map((entry) => ({
+        ...entry,
+        models: (entry.models ?? []).map((model) => ({ ...model, capabilities: model.capabilities ?? [] })),
+      })),
+    })) as Promise<MultimodalDetection>,
+  // Sends a live (billed) request; only called from a button the user presses.
+  probeMultimodal: (provider: string, model: string, capability: MultimodalCapabilityId): Promise<MultimodalProbe> =>
+    call(() => MultimodalService.Probe({ provider, model, capability })).then((check) => {
+      if (!check) throw new Error("Multimodal probe returned no result");
+      return check;
+    }) as Promise<MultimodalProbe>,
 };

@@ -62,6 +62,25 @@ type ModelsResult struct {
 	Retryable bool     `json:"retryable"`
 	Protocol  *string  `json:"protocol"`
 	Models    []string `json:"models"`
+	// Entries carries what each listed model declares about itself, in the same
+	// order as Models. Most callers only need the IDs; multimodal detection reads
+	// the modality lists.
+	Entries []ModelEntry `json:"entries,omitempty"`
+}
+
+// ModelEntry is one /models item. The modality lists are nil when the
+// Provider did not send the field at all, and empty when it sent an empty
+// list: only the second is a declaration.
+type ModelEntry struct {
+	ID               string   `json:"id"`
+	InputModalities  []string `json:"input_modalities"`
+	OutputModalities []string `json:"output_modalities"`
+}
+
+// Declared reports whether the Provider said anything about this model's
+// modalities.
+func (e ModelEntry) Declared() bool {
+	return e.InputModalities != nil || e.OutputModalities != nil
 }
 
 func (c *Client) Probe(ctx context.Context, protocol, providerID, apiKey, model, customBase string) (ProbeResult, error) {
@@ -79,6 +98,56 @@ func (c *Client) Probe(ctx context.Context, protocol, providerID, apiKey, model,
 	if err != nil {
 		return ProbeResult{}, err
 	}
+	return c.sendProbe(request, protocol, apiKey, requestModel), nil
+}
+
+// probePNG is a 32x32 opaque grey PNG. Some vision endpoints refuse images
+// smaller than 10 pixels a side, so the design's 8x8 would fail on them for a
+// reason that says nothing about the model; 32x32 is still a few tokens.
+const probePNG = "iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAAAAABWESUoAAAAFklEQVR42mNoIAAYRhWMKhhVMFIVAABCAAAfN5c2AAAAAABJRU5ErkJggg=="
+
+// ProbeVision sends one Chat Completions request carrying a small image, with
+// max_tokens 1. It is a billed request, so only a user's click may send it.
+// The answer is classified exactly like a protocol probe: a model that cannot
+// take images is refused with a 4xx, which reads as "refused", not as a key or
+// network problem.
+func (c *Client) ProbeVision(ctx context.Context, apiKey, model, customBase string) (ProbeResult, error) {
+	if apiKey == "" {
+		return ProbeResult{}, oneerrors.New(oneerrors.InvalidRequest, "API key is required")
+	}
+	if strings.TrimSpace(model) == "" {
+		return ProbeResult{}, oneerrors.New(oneerrors.InvalidRequest, "A model is required")
+	}
+	base, err := ProviderBase("custom", customBase)
+	if err != nil {
+		return ProbeResult{}, err
+	}
+	payload, err := json.Marshal(map[string]any{
+		"model": model,
+		"messages": []map[string]any{{
+			"role": "user",
+			"content": []map[string]any{
+				{"type": "text", "text": "ok"},
+				{"type": "image_url", "image_url": map[string]string{"url": "data:image/png;base64," + probePNG}},
+			},
+		}},
+		"max_tokens": 1,
+	})
+	if err != nil {
+		return ProbeResult{}, oneerrors.New(oneerrors.InternalError, "Unable to build Provider request", oneerrors.WithCause(err))
+	}
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, OpenAIBaseURL(base)+"/chat/completions", bytes.NewReader(payload))
+	if err != nil {
+		return ProbeResult{}, oneerrors.New(oneerrors.InvalidRequest, "Provider endpoint is invalid", oneerrors.WithCause(err))
+	}
+	request.Header.Set("Authorization", "Bearer "+apiKey)
+	request.Header.Set("Content-Type", "application/json")
+	return c.sendProbe(request, ProtocolOpenAI, apiKey, model), nil
+}
+
+// sendProbe runs one probe request and classifies the answer. It never
+// returns an error: every outcome, transport failures included, is a verdict.
+func (c *Client) sendProbe(request *http.Request, protocol, apiKey, requestModel string) ProbeResult {
 	response, cancelRequest, err := c.do(request)
 	defer cancelRequest()
 	if err != nil {
@@ -87,12 +156,12 @@ func (c *Client) Probe(ctx context.Context, protocol, providerID, apiKey, model,
 		}
 		result := transportResult(err)
 		result.Protocol = new(protocol)
-		return result, nil
+		return result
 	}
 	if response == nil {
 		result := transportResult(errors.New("Provider transport returned no response"))
 		result.Protocol = new(protocol)
-		return result, nil
+		return result
 	}
 	defer response.Body.Close()
 	if response.StatusCode >= 200 && response.StatusCode < 300 {
@@ -110,12 +179,12 @@ func (c *Client) Probe(ctx context.Context, protocol, providerID, apiKey, model,
 			Message:   fmt.Sprintf("%s connection test passed.", ProtocolLabel(protocol)),
 			Retryable: false,
 			Protocol:  new(protocol),
-		}, nil
+		}
 	}
 	body, _, _ := c.readBody(response.Body)
 	result := classifyHTTPProbe(response.StatusCode, string(body), protocol, requestModel)
 	result.Detail = upstreamDetail(body, apiKey)
-	return result, nil
+	return result
 }
 
 // maxDetailRunes bounds the provider's own explanation carried back to the UI:
@@ -213,8 +282,12 @@ func (c *Client) ListModels(ctx context.Context, providerID, apiKey, customBase 
 			Models:    []string{},
 		}, nil
 	}
-	models := modelIDs(raw)
-	result := ModelsResult{Reachable: true, Status: response.StatusCode, Models: models}
+	entries := modelEntries(raw)
+	models := make([]string, len(entries))
+	for index, entry := range entries {
+		models[index] = entry.ID
+	}
+	result := ModelsResult{Reachable: true, Status: response.StatusCode, Models: models, Entries: entries}
 	if len(models) > 0 {
 		result.OK = true
 		result.Message = fmt.Sprintf("Found %d models.", len(models))
@@ -429,27 +502,51 @@ func modelsFailure(message string) ModelsResult {
 	}
 }
 
-func modelIDs(raw any) []string {
+func modelEntries(raw any) []ModelEntry {
 	data := raw
 	if object, ok := raw.(map[string]any); ok {
 		data = object["data"]
 	}
 	items, ok := data.([]any)
 	if !ok {
-		return []string{}
+		return []ModelEntry{}
 	}
-	models := make([]string, 0, len(items))
+	entries := make([]ModelEntry, 0, len(items))
 	for _, item := range items {
 		switch value := item.(type) {
 		case string:
-			models = append(models, value)
+			entries = append(entries, ModelEntry{ID: value})
 		case map[string]any:
 			if id, ok := value["id"]; ok && id != nil {
-				models = append(models, fmt.Sprint(id))
+				entries = append(entries, ModelEntry{
+					ID:               fmt.Sprint(id),
+					InputModalities:  modalityList(value, "input_modalities"),
+					OutputModalities: modalityList(value, "output_modalities"),
+				})
 			}
 		}
 	}
-	return models
+	return entries
+}
+
+// modalityList keeps the absent/empty distinction ModelEntry documents, and
+// drops anything that is not a string: the listing is third-party data.
+func modalityList(item map[string]any, key string) []string {
+	raw, ok := item[key]
+	if !ok || raw == nil {
+		return nil
+	}
+	values, ok := raw.([]any)
+	if !ok {
+		return nil
+	}
+	list := make([]string, 0, len(values))
+	for _, value := range values {
+		if text, ok := value.(string); ok {
+			list = append(list, strings.ToLower(strings.TrimSpace(text)))
+		}
+	}
+	return list
 }
 
 func unsupportedProtocol(status int, body string) bool {

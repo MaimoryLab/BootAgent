@@ -213,25 +213,33 @@ func (u *UseCases) checkProfileModel(ctx context.Context, profile profileStore.P
 	}
 	sort.Strings(check.Agents)
 	check.Protocol = worstProtocol
-	check.HTTPStatus = worst.Status
-	check.Detail = worst.Detail
-	switch {
-	case !worst.Reachable && worst.Status == 0 && worst.ErrorCode == nil && worst.Message == "":
-		check.Status, check.Reason = ModelCheckUnverified, "error"
-	case !worst.Reachable:
-		check.Status, check.Reason = ModelCheckUnverified, "network"
-		check.HTTPStatus = 0
-	case worst.ErrorCode != nil && *worst.ErrorCode == oneerrors.APIKeyRejected:
-		check.Status, check.Reason = ModelCheckUnavailable, "key"
-	case transientProbe(*worst):
-		check.Status, check.Reason = ModelCheckUnverified, "transient"
-	default:
-		check.Status, check.Reason = ModelCheckUnavailable, "refused"
-	}
-	if check.Detail == "" && worst.Message != "" && check.Reason != "refused" {
-		check.Detail = worst.Message
-	}
+	check.Status, check.Reason, check.HTTPStatus, check.Detail = probeVerdict(*worst)
 	return check
+}
+
+// probeVerdict classifies a failed probe into the status and reason the UI
+// words its remedy by. Every billed check BootAgent sends -- the Profile model
+// check and the multimodal capability probes -- goes through it, so a refusal,
+// a rejected key and a busy endpoint read the same everywhere.
+func probeVerdict(result provider.ProbeResult) (status, reason string, httpStatus int, detail string) {
+	httpStatus, detail = result.Status, result.Detail
+	switch {
+	case !result.Reachable && result.Status == 0 && result.ErrorCode == nil && result.Message == "":
+		status, reason = ModelCheckUnverified, "error"
+	case !result.Reachable:
+		status, reason = ModelCheckUnverified, "network"
+		httpStatus = 0
+	case result.ErrorCode != nil && *result.ErrorCode == oneerrors.APIKeyRejected:
+		status, reason = ModelCheckUnavailable, "key"
+	case transientProbe(result):
+		status, reason = ModelCheckUnverified, "transient"
+	default:
+		status, reason = ModelCheckUnavailable, "refused"
+	}
+	if detail == "" && result.Message != "" && reason != "refused" {
+		detail = result.Message
+	}
+	return status, reason, httpStatus, detail
 }
 
 // modelCheckRank orders failures by how much the user can do about them: a

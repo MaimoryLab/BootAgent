@@ -8,6 +8,8 @@ vi.mock("../backend/api", () => ({
     listSkills: vi.fn(() => Promise.resolve([])),
     scanSkills: vi.fn(() => Promise.resolve({ skills: [], candidates: [], eligible_agents: [] })),
     setSkillDraftState: vi.fn(() => Promise.resolve()),
+    detectMultimodal: vi.fn(() => Promise.resolve({ providers: [] })),
+    probeMultimodal: vi.fn(),
   },
 }));
 vi.mock("../state/WizardContext", () => ({

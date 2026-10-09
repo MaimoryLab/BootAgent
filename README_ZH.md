@@ -61,6 +61,7 @@ BootAgent 是一个本地桌面工作台，用来统一管理 AI 编程 Agent。
 ### 管理 Skills 和 MCP 服务器
 
 - 在本机维护 Skill 管理库，扫描支持的 Agent 已有的 Skill，并选择每个 Skill 要同步到哪些 Agent。
+- 查看已保存 API Key 的 Provider 中哪些模型能理解图片、视频或音频，或能生成图片，以及每项结论的来源（Provider 声明、按模型名推断或实测）。列出模型不收费；实测是一次真实请求，只在你点击时发出。
 - 从已初始化的 Claude Code、Codex、OpenCode、Kilo CLI 和 Hermes 中发现 MCP 服务器。
 - 使用本机用户级 Registry 保存 MCP 服务器，明确选择同步目标，并在确认后再应用改动。
 

@@ -12,6 +12,9 @@ import * as install$0 from "../install/models.js";
 import * as mcp$0 from "../mcp/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import * as modality$0 from "../modality/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import * as platform$0 from "../platform/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
@@ -344,6 +347,43 @@ export interface MarketplaceSourceStatus {
     "next_offset": number;
     "fetched_at"?: string;
     "error"?: string;
+}
+
+/**
+ * MultimodalDetection lists, for every Provider with a saved key, the models
+ * that offer a multimodal capability and where each finding came from.
+ */
+export interface MultimodalDetection {
+    "providers": MultimodalProvider[] | null;
+}
+
+/**
+ * MultimodalProbe is the verdict of one capability probe. Status and Reason
+ * use the Profile model check's vocabulary; see ProfileModelCheck.
+ */
+export interface MultimodalProbe {
+    "providerId": string;
+    "model": string;
+    "capability": string;
+    "status": string;
+    "reason"?: string;
+    "httpStatus"?: number;
+    "detail"?: string;
+}
+
+export interface MultimodalProvider {
+    "id": string;
+    "name": string;
+
+    /**
+     * Listed is false when /models could not be read. Message and ErrorCode
+     * then say why; catalog generation models are still listed, since they do
+     * not come from /models.
+     */
+    "listed": boolean;
+    "message"?: string;
+    "errorCode"?: string;
+    "models": modality$0.Model[] | null;
 }
 
 /**

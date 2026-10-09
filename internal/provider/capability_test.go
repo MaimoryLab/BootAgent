@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -200,5 +201,100 @@ func TestCapabilitiesTreatCorruptFileAsAMiss(t *testing.T) {
 	}
 	if _, ok := store.Get(probedEntry(), "gpt-test"); !ok {
 		t.Fatal("the cache did not recover after a save")
+	}
+}
+
+// A version 1 file must survive the upgrade: dropping it would throw away
+// protocol verdicts and make the next activation spend a billed probe.
+func TestCapabilitiesReadVersionOneAsVersionTwo(t *testing.T) {
+	home := t.TempDir()
+	store := capabilityStore(t, home)
+	entry := probedEntry()
+	legacy := `{"schema_version":1,"providers":{"relay":{"fingerprint":"` + Fingerprint(entry) + `","models":{"gpt-test":{"probed_at":"2026-09-01T00:00:00Z","protocols":{"openai":{"supported":true,"reachable":true,"status":200}}}}}}}`
+	if err := os.MkdirAll(filepath.Dir(store.Path()), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(store.Path(), []byte(legacy), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	saved, ok := store.Get(entry, "gpt-test")
+	if !ok || !saved.Protocols[ProtocolOpenAI].Supported || saved.Modalities != nil {
+		t.Fatalf("version 1 record = %#v, %v", saved, ok)
+	}
+	if err := store.SaveModality(context.Background(), entry, "gpt-test", "vision", ModalityVerdict{Supported: true, Source: "probe", Adapter: "openai-chat-vision"}); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(store.Path())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), `"schema_version": 2`) {
+		t.Fatalf("rewritten file is not version 2: %s", data)
+	}
+	saved, ok = store.Get(entry, "gpt-test")
+	if !ok || !saved.Protocols[ProtocolOpenAI].Supported || !saved.Modalities["vision"].Supported {
+		t.Fatalf("upgrade lost a verdict: %#v", saved)
+	}
+}
+
+func TestCapabilitiesRejectUnknownSchemaVersion(t *testing.T) {
+	store := capabilityStore(t, t.TempDir())
+	entry := probedEntry()
+	if err := os.MkdirAll(filepath.Dir(store.Path()), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	future := `{"schema_version":3,"providers":{"relay":{"fingerprint":"` + Fingerprint(entry) + `","models":{"m":{"protocols":{"openai":{"supported":true}}}}}}}`
+	if err := os.WriteFile(store.Path(), []byte(future), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := store.Get(entry, "m"); ok {
+		t.Fatal("a file from a newer schema was trusted")
+	}
+}
+
+func TestModalityVerdictsKeepProtocolsAndFollowTheFingerprint(t *testing.T) {
+	store := capabilityStore(t, t.TempDir())
+	entry := probedEntry()
+	ctx := context.Background()
+	if err := store.Save(ctx, entry, "m", map[string]ProtocolCapability{ProtocolOpenAI: {Supported: true, Reachable: true}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.SaveModality(ctx, entry, "m", "vision", ModalityVerdict{Supported: false, Source: "probe", Adapter: "openai-chat-vision", Status: 400}); err != nil {
+		t.Fatal(err)
+	}
+	// Saving protocols afterwards must not drop the modality, and vice versa.
+	if err := store.Save(ctx, entry, "m", map[string]ProtocolCapability{ProtocolResponses: {Reachable: true, Status: 404}}); err != nil {
+		t.Fatal(err)
+	}
+	saved, ok := store.Get(entry, "m")
+	if !ok || !saved.Protocols[ProtocolOpenAI].Supported || len(saved.Protocols) != 2 {
+		t.Fatalf("protocols = %#v", saved.Protocols)
+	}
+	all := store.Modalities(entry)
+	verdict, ok := all["m"]["vision"]
+	if !ok || verdict.Supported || verdict.Status != 400 || verdict.ProbedAt.IsZero() {
+		t.Fatalf("modality verdicts = %#v", all)
+	}
+	// A model with only a modality verdict is still a protocol miss.
+	if err := store.SaveModality(ctx, entry, "vision-only", "vision", ModalityVerdict{Supported: true, Source: "probe"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := store.Get(entry, "vision-only"); ok {
+		t.Fatal("a modality verdict answered a protocol lookup")
+	}
+	changed := entry
+	changed.APIKey = "sk-another-value"
+	if got := store.Modalities(changed); len(got) != 0 {
+		t.Fatalf("verdicts survived a key change: %#v", got)
+	}
+	if err := store.SaveModality(ctx, entry, "", "vision", ModalityVerdict{}); err == nil {
+		t.Fatal("verdict without a model accepted")
+	}
+	data, err := os.ReadFile(store.Path())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), entry.APIKey) {
+		t.Fatal("capability file contains the API key")
 	}
 }

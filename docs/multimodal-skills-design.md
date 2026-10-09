@@ -1,6 +1,6 @@
 # Multimodal Skills: Design
 
-Status: Draft, not implemented. Branch `codex/multimodal-skills`.
+Status: In progress. Phase 1 (detection) is implemented. Branch `codex/multimodal-skills`.
 
 ## Goal
 
@@ -109,6 +109,32 @@ video, or outputs images through chat; it cannot establish a generation
 endpoint. A model found by an ID rule alone may be installed only after a
 successful probe.
 
+Two details the implementation settles:
+
+- Probe verdicts answer per capability; declared metadata answers for the whole
+  model. A model that declares modalities gets nothing more from an ID rule, so a
+  Provider that declares a model text-only is believed over a rule that matches
+  its name.
+- Declared audio or video output on a chat model (`gpt-image-2.5-*`,
+  `gemini-omni-flash`, `ming-image-*`, `qwen3.5-omni-flash`) maps to no
+  capability. There is no chat route for text-to-speech or video generation, and
+  how a gateway would return that output is unknown.
+
+### Chat adapters
+
+A capability found on a chat model uses one of four adapters. Two are verified
+calling conventions; the other two are known only from declared metadata, and
+their request and response format across gateways is not yet checked, so neither
+a declaration nor an ID rule is enough to install them. They install only after a
+probe passes, and each gets a probe once its format is verified (Phase 3).
+
+| Capability | Adapter | Installable from a declaration |
+| --- | --- | --- |
+| Image understanding | `openai-chat-vision` | Yes |
+| Video understanding (native) | `openai-chat-video` | Yes |
+| Image generation via chat output | `openai-chat-image-output` | No, probe first. JieKou.AI's `gemini-*-image` and `gpt-image-*`, whose `endpoints` is empty |
+| Speech-to-text via chat audio input | `openai-chat-audio-input` | No, probe first. `*-omni-*`, `gemini-*`, `mimo-v2.6-*` |
+
 ### ID rules
 
 Each rule is a regular expression matched against the model ID lower-cased with
@@ -160,7 +186,8 @@ and the generation and audio models `/models` does not list:
 ```json
 {
   "id_rules": [
-    { "pattern": "^kimi-k(2\\.[5-9]|3)", "capabilities": ["vision", "video-understanding"] }
+    { "pattern": "^kimi-k(2\\.[5-9]|3)", "capabilities": ["vision", "video-understanding"] },
+    { "pattern": "^gemini-", "exclude": "-image", "capabilities": ["vision", "video-understanding", "speech-to-text"] }
   ],
   "providers": {
     "novita": {
@@ -185,7 +212,7 @@ refused / key / transient / network classification from
 
 | Capability | Probe | Cost |
 | --- | --- | --- |
-| Image understanding | Chat request with an 8x8 PNG, `max_tokens: 1` | Minimal |
+| Image understanding | Chat request with a 32x32 PNG, `max_tokens: 1` | Minimal |
 | Speech-to-text | 0.5 s of silent WAV | Minimal |
 | Text-to-speech | The text `ok` | Minimal |
 | Image generation | Smallest size the adapter allows, one image | One image; the button says so and asks first |
@@ -218,7 +245,13 @@ Provider fingerprint, so editing the endpoint or key discards them:
 ```
 
 Catalog matches and declared metadata are recomputed on every read and are not
-cached; only probe verdicts are. Today the store treats any schema version other
+cached; only probe verdicts are, and only conclusive ones: the Provider accepted
+the request, or refused it for this model. A rejected key, a busy endpoint or a
+network failure says nothing about the model and is not stored.
+
+The probe image is 32x32 rather than the 8x8 first planned: some vision
+endpoints refuse images under 10 pixels a side, which would fail the probe for a
+reason unrelated to the model. It still costs a few tokens. Today the store treats any schema version other
 than its own as a miss. It must accept version 1 and read it as version 2 with no
 modalities: discarding it would throw away the protocol verdicts and make the
 next activation spend a billed probe to rebuild them. The file stays derived
@@ -252,7 +285,8 @@ the tree.
 
 `scripts/run.mjs` is a dependency-free script for Node 18 or later (built-in
 `fetch`). It implements the adapters (`openai-chat-vision`, `openai-images`,
-`openai-audio-transcriptions`, `openai-audio-speech`, `novita-async`,
+`openai-audio-transcriptions`, `openai-audio-speech`, `openai-chat-video`,
+`openai-chat-image-output`, `openai-chat-audio-input`, `novita-async`,
 `novita-audio`, `ppio-video`), submits and polls async tasks with a timeout
 (video: 10 minutes by default), and downloads results before their URLs expire.
 Video understanding uses a native video model when the catalog names one;

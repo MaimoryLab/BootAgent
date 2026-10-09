@@ -28,6 +28,8 @@ const bridge = vi.hoisted(() => ({
   eventsOn: vi.fn(),
   readTransfer: vi.fn(),
   writeTransfer: vi.fn(),
+  detectMultimodal: vi.fn(),
+  probeMultimodal: vi.fn(),
 }));
 
 vi.mock("@wailsio/runtime", async (importOriginal) => ({
@@ -62,6 +64,10 @@ vi.mock("../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/desktop
   Install: bridge.desktopInstall,
   Open: bridge.desktopOpen,
   Configure: bridge.desktopConfigure,
+}));
+vi.mock("../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/multimodalservice.js", () => ({
+  Detect: bridge.detectMultimodal,
+  Probe: bridge.probeMultimodal,
 }));
 vi.mock("../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/profileservice.js", () => ({
   ListProfiles: bridge.profiles,
@@ -222,5 +228,25 @@ describe("Wails backend adapter", () => {
     expect(onInstallOutput(listener)).toBe(unsubscribe);
     expect(bridge.eventsOn).toHaveBeenCalledWith(INSTALL_OUTPUT_EVENT, expect.any(Function));
     expect(listener).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("multimodal bridge", () => {
+  it("fills null lists so the page never sees them", async () => {
+    const { wailsApi } = await import("./wails");
+    bridge.detectMultimodal.mockResolvedValue({ providers: [{ id: "novita", name: "Novita", listed: true, models: [{ id: "m", capabilities: null }] }] });
+    const detection = await wailsApi.detectMultimodal();
+    expect(detection.providers[0].models[0].capabilities).toEqual([]);
+    bridge.detectMultimodal.mockResolvedValue({ providers: null });
+    expect((await wailsApi.detectMultimodal()).providers).toEqual([]);
+  });
+
+  it("passes the probe target through and refuses an empty answer", async () => {
+    const { wailsApi } = await import("./wails");
+    bridge.probeMultimodal.mockResolvedValue({ providerId: "novita", model: "m", capability: "vision", status: "available" });
+    await wailsApi.probeMultimodal("novita", "m", "vision");
+    expect(bridge.probeMultimodal).toHaveBeenCalledWith({ provider: "novita", model: "m", capability: "vision" });
+    bridge.probeMultimodal.mockResolvedValue(null);
+    await expect(wailsApi.probeMultimodal("novita", "m", "vision")).rejects.toThrow();
   });
 });

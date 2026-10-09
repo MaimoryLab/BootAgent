@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "id_rules": [
+    { "pattern": "^gpt-image-", "capabilities": ["image-generation"] },
+    { "pattern": "^gemini-.*-image", "capabilities": ["vision", "image-generation"] },
+    { "pattern": "^ming-image-", "capabilities": ["image-generation"] },
+    { "pattern": "(^|-)omni(-|$)", "exclude": "captioner", "capabilities": ["vision", "speech-to-text"] },
+    { "pattern": "^gemini-", "exclude": "-image", "capabilities": ["vision", "video-understanding", "speech-to-text"] },
+    { "pattern": "^claude-", "capabilities": ["vision"] },
+    { "pattern": "^(gpt-4o|gpt-4\\.1|gpt-5|gpt-6|o3)", "exclude": "^gpt-oss", "capabilities": ["vision"] },
+    { "pattern": "^grok-(4|code)", "capabilities": ["vision"] },
+    { "pattern": "^kimi-k(2\\.[5-9]|3)", "capabilities": ["vision", "video-understanding"] },
+    { "pattern": "^deepseek-(v4\\.[1-9]-flash|v4-flash-vision)", "capabilities": ["vision"] },
+    { "pattern": "(^|-)ocr(-|$)", "capabilities": ["vision"] },
+    { "pattern": "(^|-)vl(-|$)", "capabilities": ["vision"] },
+    { "pattern": "^glm-[\\d.]+v", "capabilities": ["vision"] },
+    { "pattern": "^gemma-[34]-", "capabilities": ["vision"] },
+    { "pattern": "^llama-4-", "capabilities": ["vision"] },
+    { "pattern": "^minimax-m3", "capabilities": ["vision", "video-understanding"] },
+    { "pattern": "^qwen3\\.(5|6|8)-(\\d+b|flash|max|plus)", "capabilities": ["vision", "video-understanding"] },
+    { "pattern": "^mimo-v2\\.(5$|6-)", "capabilities": ["vision", "video-understanding"] }
+  ],
+  "providers": {
+    "novita": {
+      "native_base_url": "https://api.novita.ai",
+      "generation": []
+    },
+    "ppio": {
+      "native_base_url": "https://api.ppio.com",
+      "generation": []
+    }
+  }
+}

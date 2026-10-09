@@ -163,6 +163,12 @@ export interface ModelsResponse {
     "models": string[] | null;
 }
 
+export interface MultimodalProbeRequest {
+    "provider": string;
+    "model": string;
+    "capability": string;
+}
+
 /**
  * OpenExternalRequest carries a user-clicked marketplace link. Only public
  * HTTPS destinations are accepted before handing the URL to the OS browser.

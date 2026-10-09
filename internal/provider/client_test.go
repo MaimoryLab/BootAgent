@@ -1,9 +1,12 @@
 package provider
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"image/png"
 	"io"
 	"net/http"
 	"net/url"
@@ -298,5 +301,102 @@ func TestUpstreamDetailExtractsCleansAndBounds(t *testing.T) {
 		if got := upstreamDetail([]byte(test.body), "sk-live-123"); got != test.want {
 			t.Errorf("%s: upstreamDetail = %q, want %q", test.name, got, test.want)
 		}
+	}
+}
+
+func TestListModelsKeepsDeclaredModalities(t *testing.T) {
+	client := NewClient(fakeDoer(func(*http.Request) (*http.Response, error) {
+		return fakeResponse(http.StatusOK, `{"data":[
+			{"id":"vision-a","input_modalities":["text","Image"],"output_modalities":["text"]},
+			{"id":"silent","input_modalities":[],"output_modalities":null},
+			{"id":"bare"},
+			{"id":"odd","input_modalities":"image"},
+			"plain"
+		]}`), nil
+	}))
+	result, err := client.ListModels(context.Background(), "custom", "key", "https://proxy.test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(result.Models, []string{"vision-a", "silent", "bare", "odd", "plain"}) {
+		t.Fatalf("models = %v", result.Models)
+	}
+	if len(result.Entries) != len(result.Models) {
+		t.Fatalf("entries = %#v", result.Entries)
+	}
+	if got := result.Entries[0]; !got.Declared() || !reflect.DeepEqual(got.InputModalities, []string{"text", "image"}) {
+		t.Fatalf("declared entry = %#v", got)
+	}
+	// An explicitly empty list is a declaration of "nothing"; an absent field
+	// says nothing at all, and neither does a value of the wrong shape.
+	if !result.Entries[1].Declared() {
+		t.Fatalf("empty list should count as declared: %#v", result.Entries[1])
+	}
+	for _, index := range []int{2, 3, 4} {
+		if result.Entries[index].Declared() {
+			t.Fatalf("entry %d should not be declared: %#v", index, result.Entries[index])
+		}
+	}
+}
+
+func TestProbeVisionSendsOneImageWithOneToken(t *testing.T) {
+	var seen *http.Request
+	var body map[string]any
+	client := NewClient(fakeDoer(func(request *http.Request) (*http.Response, error) {
+		seen = request
+		if err := json.NewDecoder(request.Body).Decode(&body); err != nil {
+			t.Fatal(err)
+		}
+		return fakeResponse(http.StatusOK, `{}`), nil
+	}))
+	result, err := client.ProbeVision(context.Background(), "key", "vision-a", "https://proxy.test/openai")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.OK || seen.URL.String() != "https://proxy.test/openai/v1/chat/completions" {
+		t.Fatalf("result = %#v, url = %v", result, seen.URL)
+	}
+	if body["max_tokens"] != float64(1) || body["model"] != "vision-a" {
+		t.Fatalf("body = %#v", body)
+	}
+	encoded, _ := json.Marshal(body["messages"])
+	if !strings.Contains(string(encoded), `"type":"image_url"`) || !strings.Contains(string(encoded), "data:image/png;base64,") {
+		t.Fatalf("messages = %s", encoded)
+	}
+}
+
+func TestProbeVisionClassifiesRefusalAndScrubsKey(t *testing.T) {
+	client := NewClient(fakeDoer(func(*http.Request) (*http.Response, error) {
+		return fakeResponse(http.StatusBadRequest, `{"error":{"message":"model text-only does not support image input (key sk-secret)"}}`), nil
+	}))
+	result, err := client.ProbeVision(context.Background(), "sk-secret", "text-only", "https://proxy.test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.OK || !result.Reachable || result.Status != http.StatusBadRequest {
+		t.Fatalf("result = %#v", result)
+	}
+	if strings.Contains(result.Detail, "sk-secret") || !strings.Contains(result.Detail, "does not support image input") {
+		t.Fatalf("detail = %q", result.Detail)
+	}
+	if _, err := client.ProbeVision(context.Background(), "", "m", "https://proxy.test"); err == nil {
+		t.Fatal("missing key accepted")
+	}
+	if _, err := client.ProbeVision(context.Background(), "k", " ", "https://proxy.test"); err == nil {
+		t.Fatal("missing model accepted")
+	}
+}
+
+func TestProbePNGDecodes(t *testing.T) {
+	data, err := base64.StdEncoding.DecodeString(probePNG)
+	if err != nil {
+		t.Fatal(err)
+	}
+	config, err := png.DecodeConfig(bytes.NewReader(data))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if config.Width < 10 || config.Height < 10 {
+		t.Fatalf("probe image is %dx%d; some endpoints refuse images under 10px a side", config.Width, config.Height)
 	}
 }
