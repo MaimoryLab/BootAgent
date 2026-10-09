@@ -1,0 +1,991 @@
+{
+ "fetched_at": "2026-10-09",
+ "data": [
+  {
+   "id": "ai_infer_test_2",
+   "input_modalities": [
+    "text"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "model_type": "chat",
+   "endpoints": [
+    "chat/completions"
+   ]
+  },
+  {
+   "id": "ai_infer_test_3",
+   "input_modalities": [
+    "text"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "model_type": "chat",
+   "endpoints": [
+    "chat/completions"
+   ]
+  },
+  {
+   "id": "baidu/ernie-5.0-thinking-exp",
+   "input_modalities": [
+    "text",
+    "image"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "model_type": "chat",
+   "endpoints": [
+    "chat/completions"
+   ]
+  },
+  {
+   "id": "baidu/ernie-5.0-thinking-preview",
+   "input_modalities": [
+    "text",
+    "image",
+    "video",
+    "audio"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "model_type": "chat",
+   "endpoints": [
+    "chat/completions"
+   ]
+  },
+  {
+   "id": "deepseek/deepseek-ocr-2",
+   "input_modalities": [
+    "text",
+    "image"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "model_type": "chat",
+   "endpoints": [
+    "chat/completions",
+    "anthropic"
+   ]
+  },
+  {
+   "id": "deepseek/deepseek-v4-flash",
+   "input_modalities": [
+    "text"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "model_type": "chat",
+   "endpoints": [
+    "chat/completions",
+    "anthropic",
+    "responses"
+   ]
+  },
+  {
+   "id": "deepseek/deepseek-v4-flash-0731",
+   "input_modalities": [
+    "text"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "model_type": "chat",
+   "endpoints": [
+    "chat/completions",
+    "anthropic",
+    "responses"
+   ]
+  },
+  {
+   "id": "deepseek/deepseek-v4-flash-0731-p",
+   "input_modalities": [
+    "text"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "model_type": "chat",
+   "endpoints": [
+    "chat/completions",
+    "anthropic",
+    "responses"
+   ]
+  },
+  {
+   "id": "deepseek/deepseek-v4-flash-vision-exp",
+   "input_modalities": [
+    "text",
+    "image"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "model_type": "chat",
+   "endpoints": [
+    "chat/completions",
+    "anthropic",
+    "responses"
+   ]
+  },
+  {
+   "id": "deepseek/deepseek-v4-pro",
+   "input_modalities": [
+    "text"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "model_type": "chat",
+   "endpoints": [
+    "chat/completions",
+    "anthropic",
+    "responses"
+   ]
+  },
+  {
+   "id": "deepseek/deepseek-v4-pro-0813",
+   "input_modalities": [
+    "text"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "model_type": "chat",
+   "endpoints": [
+    "chat/completions",
+    "anthropic",
+    "responses"
+   ]
+  },
+  {
+   "id": "deepseek/deepseek-v4-pro-0813-p",
+   "input_modalities": [
+    "text"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "model_type": "chat",
+   "endpoints": [
+    "chat/completions",
+    "anthropic",
+    "responses"
+   ]
+  },
+  {
+   "id": "deepseek/deepseek-v4.1-flash",
+   "input_modalities": [
+    "text",
+    "image"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "model_type": "chat",
+   "endpoints": [
+    "chat/completions",
+    "anthropic",
+    "responses"
+   ]
+  },
+  {
+   "id": "deepseek/deepseek-v4.1-flash-z",
+   "input_modalities": [
+    "text",
+    "image"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "model_type": "chat",
+   "endpoints": [
+    "chat/completions",
+    "anthropic",
+    "responses"
+   ]
+  },
+  {
+   "id": "elephant",
+   "input_modalities": [
+    "text"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "model_type": "chat",
+   "endpoints": [
+    "chat/completions"
+   ]
+  },
+  {
+   "id": "kwaipilot/kat-dev-72b-exp",
+   "input_modalities": [
+    "text"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "model_type": "chat",
+   "endpoints": [
+    "chat/completions"
+   ]
+  },
+  {
+   "id": "minimax/minimax-m2.1-h",
+   "input_modalities": [
+    "text"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "model_type": "chat",
+   "endpoints": [
+    "chat/completions",
+    "anthropic"
+   ]
+  },
+  {
+   "id": "minimax/minimax-m2.5",
+   "input_modalities": [
+    "text"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "model_type": "chat",
+   "endpoints": [
+    "chat/completions",
+    "anthropic"
+   ]
+  },
+  {
+   "id": "minimax/minimax-m2.7",
+   "input_modalities": [
+    "text"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "model_type": "chat",
+   "endpoints": [
+    "chat/completions",
+    "anthropic"
+   ]
+  },
+  {
+   "id": "minimax/minimax-m2.7-highspeed",
+   "input_modalities": [
+    "text"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "model_type": "chat",
+   "endpoints": [
+    "chat/completions",
+    "anthropic"
+   ]
+  },
+  {
+   "id": "minimax/minimax-m3",
+   "input_modalities": [
+    "text",
+    "image",
+    "video"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "model_type": "chat",
+   "endpoints": [
+    "chat/completions",
+    "anthropic"
+   ]
+  },
+  {
+   "id": "minimaxai/minimax-m1-80k",
+   "input_modalities": [
+    "text"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "model_type": "chat",
+   "endpoints": [
+    "chat/completions"
+   ]
+  },
+  {
+   "id": "moonshotai/kimi-k2-0905",
+   "input_modalities": [
+    "text"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "model_type": "chat",
+   "endpoints": [
+    "chat/completions",
+    "anthropic"
+   ]
+  },
+  {
+   "id": "moonshotai/kimi-k2-instruct",
+   "input_modalities": [
+    "text"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "model_type": "chat",
+   "endpoints": [
+    "chat/completions",
+    "anthropic"
+   ]
+  },
+  {
+   "id": "moonshotai/kimi-k2-thinking",
+   "input_modalities": [
+    "text"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "model_type": "chat",
+   "endpoints": [
+    "chat/completions",
+    "anthropic"
+   ]
+  },
+  {
+   "id": "moonshotai/kimi-k2.5",
+   "input_modalities": [
+    "text",
+    "image",
+    "video"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "model_type": "chat",
+   "endpoints": [
+    "chat/completions",
+    "anthropic"
+   ]
+  },
+  {
+   "id": "moonshotai/kimi-k2.6",
+   "input_modalities": [
+    "text",
+    "image",
+    "video"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "model_type": "chat",
+   "endpoints": [
+    "chat/completions",
+    "anthropic"
+   ]
+  },
+  {
+   "id": "moonshotai/kimi-k2.7-code",
+   "input_modalities": [
+    "text",
+    "image",
+    "video"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "model_type": "chat",
+   "endpoints": [
+    "chat/completions",
+    "anthropic"
+   ]
+  },
+  {
+   "id": "moonshotai/kimi-k3",
+   "input_modalities": [
+    "text",
+    "image",
+    "video"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "model_type": "chat",
+   "endpoints": [
+    "chat/completions",
+    "anthropic",
+    "responses"
+   ]
+  },
+  {
+   "id": "ppio-4b",
+   "input_modalities": [
+    "text"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "model_type": "chat",
+   "endpoints": [
+    "chat/completions"
+   ]
+  },
+  {
+   "id": "pprouter/auto",
+   "input_modalities": [
+    "text"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "model_type": "chat",
+   "endpoints": [
+    "chat/completions",
+    "anthropic",
+    "responses"
+   ]
+  },
+  {
+   "id": "pprouter/fusion",
+   "input_modalities": [
+    "text"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "model_type": "chat",
+   "endpoints": [
+    "chat/completions",
+    "anthropic",
+    "responses"
+   ]
+  },
+  {
+   "id": "pprouter/mom",
+   "input_modalities": [
+    "text"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "model_type": "chat",
+   "endpoints": [
+    "chat/completions"
+   ]
+  },
+  {
+   "id": "qwen/qwen3-omni-30b-a3b-captioner",
+   "input_modalities": [
+    "text"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "model_type": "chat",
+   "endpoints": [
+    "chat/completions"
+   ]
+  },
+  {
+   "id": "qwen/qwen3.5-122b-a10b",
+   "input_modalities": [
+    "text",
+    "image",
+    "video"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "model_type": "chat",
+   "endpoints": [
+    "chat/completions"
+   ]
+  },
+  {
+   "id": "qwen/qwen3.5-27b",
+   "input_modalities": [
+    "text",
+    "image",
+    "video"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "model_type": "chat",
+   "endpoints": [
+    "chat/completions"
+   ]
+  },
+  {
+   "id": "qwen/qwen3.5-35b-a3b",
+   "input_modalities": [
+    "text",
+    "image",
+    "video"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "model_type": "chat",
+   "endpoints": [
+    "chat/completions"
+   ]
+  },
+  {
+   "id": "qwen/qwen3.5-397b-a17b",
+   "input_modalities": [
+    "text",
+    "image",
+    "video"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "model_type": "chat",
+   "endpoints": [
+    "chat/completions"
+   ]
+  },
+  {
+   "id": "qwen/qwen3.5-omni-flash",
+   "input_modalities": [
+    "text",
+    "image",
+    "video",
+    "audio"
+   ],
+   "output_modalities": [
+    "text",
+    "audio"
+   ],
+   "model_type": "chat",
+   "endpoints": [
+    "chat/completions"
+   ]
+  },
+  {
+   "id": "qwen/qwen3.6-27b",
+   "input_modalities": [
+    "text",
+    "image",
+    "video"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "model_type": "chat",
+   "endpoints": [
+    "chat/completions"
+   ]
+  },
+  {
+   "id": "qwen/qwen3.6-35b-a3b",
+   "input_modalities": [
+    "text",
+    "image",
+    "video"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "model_type": "chat",
+   "endpoints": [
+    "chat/completions"
+   ]
+  },
+  {
+   "id": "qwen/qwen3.7-max",
+   "input_modalities": [
+    "text"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "model_type": "chat",
+   "endpoints": [
+    "chat/completions"
+   ]
+  },
+  {
+   "id": "qwen/qwen3.7-plus",
+   "input_modalities": [
+    "text",
+    "image",
+    "video"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "model_type": "chat",
+   "endpoints": [
+    "chat/completions",
+    "anthropic",
+    "responses"
+   ]
+  },
+  {
+   "id": "qwen/qwen3.8-2.4t-a95b",
+   "input_modalities": [
+    "text"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "model_type": "chat",
+   "endpoints": [
+    "chat/completions",
+    "responses"
+   ]
+  },
+  {
+   "id": "qwen/qwen3.8-27b",
+   "input_modalities": [
+    "text",
+    "image",
+    "video"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "model_type": "chat",
+   "endpoints": [
+    "chat/completions",
+    "anthropic",
+    "responses"
+   ]
+  },
+  {
+   "id": "qwen/qwen3.8-flash",
+   "input_modalities": [
+    "text",
+    "image",
+    "video"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "model_type": "chat",
+   "endpoints": [
+    "chat/completions",
+    "anthropic",
+    "responses"
+   ]
+  },
+  {
+   "id": "qwen/qwen3.8-max",
+   "input_modalities": [
+    "text",
+    "image",
+    "video"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "model_type": "chat",
+   "endpoints": [
+    "chat/completions",
+    "anthropic",
+    "responses"
+   ]
+  },
+  {
+   "id": "thudm/glm-4.1v-9b-thinking",
+   "input_modalities": [
+    "text",
+    "image"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "model_type": "chat",
+   "endpoints": [
+    "chat/completions"
+   ]
+  },
+  {
+   "id": "xiaomimimo/mimo-v2.5",
+   "input_modalities": [
+    "text",
+    "image",
+    "video"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "model_type": "chat",
+   "endpoints": [
+    "completions",
+    "chat/completions",
+    "anthropic"
+   ]
+  },
+  {
+   "id": "xiaomimimo/mimo-v2.5-pro",
+   "input_modalities": [
+    "text"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "model_type": "chat",
+   "endpoints": [
+    "completions",
+    "chat/completions",
+    "anthropic"
+   ]
+  },
+  {
+   "id": "xiaomimimo/mimo-v2.6-flash",
+   "input_modalities": [
+    "text",
+    "image",
+    "video",
+    "audio"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "model_type": "chat",
+   "endpoints": [
+    "chat/completions",
+    "anthropic",
+    "responses"
+   ]
+  },
+  {
+   "id": "xiaomimimo/mimo-v2.6-pro",
+   "input_modalities": [
+    "text",
+    "image",
+    "video",
+    "audio"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "model_type": "chat",
+   "endpoints": [
+    "chat/completions",
+    "anthropic",
+    "responses"
+   ]
+  },
+  {
+   "id": "zai-org/autoglm-phone-9b-multilingual",
+   "input_modalities": [
+    "text",
+    "image"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "model_type": "chat",
+   "endpoints": [
+    "chat/completions"
+   ]
+  },
+  {
+   "id": "zai-org/glm-4.5-air",
+   "input_modalities": [
+    "text"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "model_type": "chat",
+   "endpoints": [
+    "chat/completions",
+    "anthropic"
+   ]
+  },
+  {
+   "id": "zai-org/glm-4.5v",
+   "input_modalities": [
+    "text",
+    "video",
+    "image"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "model_type": "chat",
+   "endpoints": [
+    "chat/completions",
+    "completions"
+   ]
+  },
+  {
+   "id": "zai-org/glm-4.6",
+   "input_modalities": [
+    "text"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "model_type": "chat",
+   "endpoints": [
+    "chat/completions",
+    "anthropic"
+   ]
+  },
+  {
+   "id": "zai-org/glm-4.6v",
+   "input_modalities": [
+    "text",
+    "image",
+    "video"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "model_type": "chat",
+   "endpoints": [
+    "chat/completions",
+    "anthropic"
+   ]
+  },
+  {
+   "id": "zai-org/glm-4.7",
+   "input_modalities": [
+    "text"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "model_type": "chat",
+   "endpoints": [
+    "chat/completions",
+    "anthropic"
+   ]
+  },
+  {
+   "id": "zai-org/glm-4.7-flash",
+   "input_modalities": [
+    "text"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "model_type": "chat",
+   "endpoints": [
+    "chat/completions",
+    "anthropic"
+   ]
+  },
+  {
+   "id": "zai-org/glm-5",
+   "input_modalities": [
+    "text"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "model_type": "chat",
+   "endpoints": [
+    "chat/completions",
+    "anthropic"
+   ]
+  },
+  {
+   "id": "zai-org/glm-5.1",
+   "input_modalities": [
+    "text"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "model_type": "chat",
+   "endpoints": [
+    "chat/completions",
+    "anthropic"
+   ]
+  },
+  {
+   "id": "zai-org/glm-5.2",
+   "input_modalities": [
+    "text"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "model_type": "chat",
+   "endpoints": [
+    "chat/completions",
+    "anthropic"
+   ]
+  },
+  {
+   "id": "zai-org/glm-5.3",
+   "input_modalities": [
+    "text"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "model_type": "chat",
+   "endpoints": [
+    "chat/completions",
+    "anthropic",
+    "responses"
+   ]
+  },
+  {
+   "id": "zai-org/glm-5.3-flash",
+   "input_modalities": [
+    "text",
+    "image",
+    "video"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "model_type": "chat",
+   "endpoints": [
+    "chat/completions",
+    "anthropic",
+    "responses"
+   ]
+  },
+  {
+   "id": "zai-org/glm-5.3-p",
+   "input_modalities": [
+    "text"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "model_type": "chat",
+   "endpoints": [
+    "chat/completions",
+    "anthropic",
+    "responses"
+   ]
+  },
+  {
+   "id": "zai-org/glm-5.3-t",
+   "input_modalities": [
+    "text"
+   ],
+   "output_modalities": [
+    "text"
+   ],
+   "model_type": "chat",
+   "endpoints": [
+    "chat/completions",
+    "anthropic",
+    "responses"
+   ]
+  }
+ ]
+}

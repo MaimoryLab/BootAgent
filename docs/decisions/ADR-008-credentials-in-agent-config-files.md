@@ -105,3 +105,5 @@ Accompanying changes:
 - The status transport contract changes (`paths` has one key fewer, `backups` one key
   fewer), and the consumers in `frontend/src/types/api.ts` and the frozen status
   fixture have been updated to match.
+
+Related: [ADR-011](ADR-011-provider-keys-for-multimodal-skills.md) extends this delivery to Skill environment variables.
