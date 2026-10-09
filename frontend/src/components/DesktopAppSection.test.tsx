@@ -285,6 +285,20 @@ describe("DesktopAppSection", () => {
     expect(screen.queryByRole("heading", { name: "桌面 Agent" })).toBeNull();
   });
 
+  it("explains missing version metadata without blocking launch", async () => {
+    bridge.openDesktopAgent.mockResolvedValue(undefined);
+    render(
+      <TaskCenterProvider>
+        <DesktopAppSection app={app({ installed: true, source: "windows-store", inspectionUnavailable: "Windows registered the app, but AppX version metadata was unavailable" })} onChanged={vi.fn()} />
+      </TaskCenterProvider>,
+    );
+
+    expect(screen.getByText("已检测到应用，但版本信息不可用")).toBeTruthy();
+    expect(screen.getByText("可继续尝试启动；版本检测与模型 API 兼容性无关。")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "启动" }));
+    await waitFor(() => expect(bridge.openDesktopAgent).toHaveBeenCalledWith("chatgpt-desktop"));
+  });
+
   // This component renders every desktop Agent, and it used to hardcode
   // agentId="codex" for all of them. WorkBuddy is a Tencent product, so its card
   // displayed OpenAI's mark -- a trademark problem rather than a styling one.

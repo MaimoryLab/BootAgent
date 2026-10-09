@@ -388,8 +388,77 @@ func TestInspectWindowsStartAppsFallbackReportsUnknownMetadata(t *testing.T) {
 		if status.InspectionUnavailable == nil {
 			t.Fatalf("appID=%q fallback did not explain unavailable version metadata", appID)
 		}
-		if len(runner.calls) != 2 {
+		if len(runner.calls) != 3 {
 			t.Fatalf("appID=%q queries = %#v", appID, runner.calls)
+		}
+	}
+}
+
+func TestInspectWindowsRecoversRegisteredPackageMetadata(t *testing.T) {
+	for _, initial := range []process.Result{
+		{ExitCode: 0},
+		{ExitCode: 1, Stderr: "AppX module unavailable"},
+	} {
+		runner := &scriptedRunner{results: []process.Result{
+			initial,
+			{ExitCode: 0, Stdout: "OpenAI.Codex_2p2nqsd0c76g0!App\n"},
+			{ExitCode: 0, Stdout: `{"Name":"OpenAI.Codex","PackageFullName":"OpenAI.Codex_26.10.3.0_neutral__2p2nqsd0c76g0","PackageFamilyName":"OpenAI.Codex_2p2nqsd0c76g0","Version":"26.10.3.0","InstallLocation":"C:\\Apps\\Codex"}`},
+		}}
+		status := Inspect(context.Background(), ChatGPTDesktopID, Options{Platform: platform.For("windows", "amd64"), Runner: runner})
+		if !status.Installed || status.Version == nil || *status.Version != "26.10.3.0" || status.Path != `C:\Apps\Codex` || status.InspectionUnavailable != nil {
+			t.Fatalf("initial=%#v status = %#v", initial, status)
+		}
+		if len(runner.calls) != 3 {
+			t.Fatalf("queries = %#v", runner.calls)
+		}
+		script := strings.Join(runner.calls[2], " ")
+		if !strings.Contains(script, "FindPackagesForUser") || !strings.Contains(script, "$env:BOOTAGENT_DESKTOP_PACKAGE_FAMILY") {
+			t.Fatalf("metadata query = %q", script)
+		}
+		if runner.environments[2]["BOOTAGENT_DESKTOP_PACKAGE_FAMILY"] != "OpenAI.Codex_2p2nqsd0c76g0" || strings.Contains(script, "OpenAI.Codex_2p2nqsd0c76g0") {
+			t.Fatalf("metadata query must receive the package family through the environment: %#v", runner.environments)
+		}
+		for _, forbidden := range []string{"WindowsApps", "Get-ChildItem", "AllUsers"} {
+			if strings.Contains(script, forbidden) {
+				t.Fatalf("metadata query contains %q: %s", forbidden, script)
+			}
+		}
+	}
+}
+
+func TestInspectWindowsRecoversAMissingPackageVersion(t *testing.T) {
+	runner := &scriptedRunner{results: []process.Result{
+		{ExitCode: 0, Stdout: `{"Name":"OpenAI.Codex","PackageFamilyName":"OpenAI.Codex_2p2nqsd0c76g0"}`},
+		{ExitCode: 0, Stdout: `{"Name":"OpenAI.Codex","PackageFullName":"OpenAI.Codex_26.10.3.0_neutral__2p2nqsd0c76g0","PackageFamilyName":"OpenAI.Codex_2p2nqsd0c76g0"}`},
+	}}
+	status := Inspect(context.Background(), ChatGPTDesktopID, Options{Platform: platform.For("windows", "amd64"), Runner: runner})
+	if !status.Installed || status.Version == nil || *status.Version != "26.10.3.0" || status.InspectionUnavailable != nil {
+		t.Fatalf("status = %#v", status)
+	}
+	if len(runner.calls) != 2 || !strings.Contains(strings.Join(runner.calls[1], " "), "FindPackagesForUser") {
+		t.Fatalf("queries = %#v", runner.calls)
+	}
+}
+
+func TestInspectWindowsMetadataFailureKeepsTheRegisteredApp(t *testing.T) {
+	for _, metadata := range []process.Result{
+		{ExitCode: 1, Stderr: "Access denied"},
+		{ExitCode: 0, Stdout: "not JSON"},
+		{ExitCode: 0, Stdout: `{"Name":"Other.App","Version":"1.2.3.0","PackageFamilyName":"Other.App_publisher"}`},
+		{ExitCode: 0, Stdout: `{"Name":"OpenAI.CodexBeta","Version":"1.2.3.0","PackageFamilyName":"OpenAI.CodexBeta_2p2nqsd0c76g0"}`},
+		{ExitCode: 0, Stdout: `{"Name":"OpenAI.Codex","PackageFamilyName":"OpenAI.Codex_2p2nqsd0c76g0"}`},
+	} {
+		runner := &scriptedRunner{results: []process.Result{
+			{ExitCode: 0},
+			{ExitCode: 0, Stdout: "OpenAI.Codex_2p2nqsd0c76g0!App\n"},
+			metadata,
+		}}
+		status := Inspect(context.Background(), ChatGPTDesktopID, Options{Platform: platform.For("windows", "arm64"), Runner: runner})
+		if !status.Installed || status.PackageFamily != "OpenAI.Codex_2p2nqsd0c76g0" || status.Version != nil || status.InspectionUnavailable == nil {
+			t.Fatalf("metadata=%#v status = %#v", metadata, status)
+		}
+		if len(runner.calls) != 3 {
+			t.Fatalf("queries = %#v", runner.calls)
 		}
 	}
 }

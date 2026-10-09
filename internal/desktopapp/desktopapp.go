@@ -456,6 +456,7 @@ func inspectChatGPTWindows(ctx context.Context, options Options) (Status, error)
 			if status.Version == nil {
 				status.Version = nonEmptyPointer(versionFromPackageFullName(packageInfo.PackageFullName))
 			}
+			recoverChatGPTWindowsMetadata(ctx, options, &status)
 			return status, nil
 		}
 		// An empty JSON result means no registered package. The StartApps query
@@ -482,14 +483,44 @@ func inspectChatGPTWindows(ctx context.Context, options Options) (Status, error)
 		}
 		status.Installed = true
 		status.PackageFamily = appID[:strings.IndexByte(appID, '!')]
-		message := "Windows registered the app, but AppX version metadata was unavailable"
-		status.InspectionUnavailable = &message
+		recoverChatGPTWindowsMetadata(ctx, options, &status)
 		return status, nil
 	}
 	if packageQueryErr != nil {
 		return status, packageQueryErr
 	}
 	return status, nil
+}
+
+func recoverChatGPTWindowsMetadata(ctx context.Context, options Options, status *Status) {
+	if status.Version != nil {
+		return
+	}
+	if status.PackageFamily != "" {
+		result, err := runWithEnvironment(options, ctx, chatGPTWindowsMetadataQuery(), map[string]string{
+			"BOOTAGENT_DESKTOP_PACKAGE_FAMILY": status.PackageFamily,
+		}, inspectTimeout)
+		if err == nil && result.ExitCode == 0 {
+			metadata, ok := parseWindowsPackage(result.Stdout)
+			family := strings.TrimSpace(metadata.PackageFamilyName)
+			if family == "" {
+				family = packageFamilyFromFullName(metadata.PackageFullName)
+			}
+			if ok && isChatGPTPackage(metadata.Name, metadata.PackageFullName) && strings.EqualFold(family, status.PackageFamily) {
+				status.Version = nonEmptyPointer(metadata.Version)
+				if status.Version == nil {
+					status.Version = nonEmptyPointer(versionFromPackageFullName(metadata.PackageFullName))
+				}
+				if path := strings.TrimSpace(metadata.InstallLocation); path != "" {
+					status.Path = path
+				}
+			}
+		}
+	}
+	if status.Version == nil {
+		message := "Windows registered the app, but AppX version metadata was unavailable"
+		status.InspectionUnavailable = &message
+	}
 }
 
 type windowsPackage struct {
@@ -514,6 +545,27 @@ $items | Sort-Object Version -Descending | Select-Object -First 1 Name,PackageFu
 func chatGPTWindowsStartAppsQuery() []string {
 	script := `[Console]::OutputEncoding = [Text.Encoding]::UTF8
 Get-StartApps | Where-Object { $_.AppID -like 'OpenAI.Codex_*!App' -or $_.AppID -like 'OpenAI.CodexBeta_*!App' -or $_.AppID -like 'OpenAI.ChatGPT-Desktop_*!App' } | Select-Object -First 1 -ExpandProperty AppID`
+	return []string{"powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script}
+}
+
+func chatGPTWindowsMetadataQuery() []string {
+	script := `[Console]::OutputEncoding = [Text.Encoding]::UTF8
+$ErrorActionPreference = 'Stop'
+$manager = [Windows.Management.Deployment.PackageManager,Windows.Management.Deployment,ContentType=WindowsRuntime]::new()
+$items = @($manager.FindPackagesForUser('', $env:BOOTAGENT_DESKTOP_PACKAGE_FAMILY))
+$items | ForEach-Object {
+  $identity = $_.Id
+  $version = $identity.Version
+  $installLocation = ''
+  try { $installLocation = $_.InstalledLocation.Path } catch {}
+  [PSCustomObject]@{
+    Name = $identity.Name
+    PackageFullName = $identity.FullName
+    PackageFamilyName = $identity.FamilyName
+    Version = '{0}.{1}.{2}.{3}' -f $version.Major,$version.Minor,$version.Build,$version.Revision
+    InstallLocation = $installLocation
+  }
+} | Sort-Object { [version]$_.Version } -Descending | Select-Object -First 1 | ConvertTo-Json -Compress`
 	return []string{"powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script}
 }
 
