@@ -8,8 +8,6 @@ vi.mock("../backend/api", () => ({
     listSkills: vi.fn(() => Promise.resolve([])),
     scanSkills: vi.fn(() => Promise.resolve({ skills: [], candidates: [], eligible_agents: [] })),
     setSkillDraftState: vi.fn(() => Promise.resolve()),
-    detectMultimodal: vi.fn(() => Promise.resolve({ providers: [] })),
-    probeMultimodal: vi.fn(),
   },
 }));
 vi.mock("../state/WizardContext", () => ({
@@ -110,5 +108,18 @@ describe("Skills marketplace discovery", () => {
 
     expect(screen.getByRole("link", { name: "Discover in Marketplace" }).getAttribute("href")).toBe("/marketplace?category=agent-enhance");
     expect(screen.getByRole("link", { name: "Or discover one in Marketplace" }).getAttribute("href")).toBe("/marketplace?category=agent-enhance");
+  });
+
+  it("links to the multimodal page instead of listing it below the Skill library", () => {
+    render(
+      <I18nProvider>
+        <MemoryRouter>
+          <SkillsPage />
+        </MemoryRouter>
+      </I18nProvider>,
+    );
+
+    expect(screen.getByRole("link", { name: "Multimodal capabilities" }).getAttribute("href")).toBe("/multimodal");
+    expect(screen.queryByRole("heading", { name: "Multimodal capabilities" })).toBeNull();
   });
 });

@@ -3946,7 +3946,6 @@
 
 /* Multimodal capabilities on the Skills page: one block per keyed Provider,
    one row per capability. */
-.multimodal-section { margin-top: 28px; }
 .multimodal-section .section-heading h2 { display: flex; align-items: center; gap: 6px; }
 .multimodal-provider { display: grid; gap: 8px; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius-panel); }
 .multimodal-provider > header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; font-size: 13px; }

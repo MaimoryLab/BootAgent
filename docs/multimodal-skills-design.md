@@ -368,7 +368,7 @@ of their timestamps. ffmpeg runs with an argv array, a timeout and an
 environment of `PATH` alone, so it never sees the key; the frames go to a
 temporary directory that is removed afterwards. Without ffmpeg on `PATH` the
 script exits 3. Any model with image understanding gets this capability with
-that evidence; the Skills page warns when BootAgent itself finds no ffmpeg,
+that evidence; the Multimodal page warns when BootAgent itself finds no ffmpeg,
 which is only a hint, since the Agent may run elsewhere.
 
 Every Skill also has `check`, which confirms the key is available without
@@ -465,7 +465,9 @@ and to keys for Providers the Agent does not otherwise use, it is recorded in
 
 ## Install and prompts
 
-The Skills page gets a Multimodal capabilities section:
+Multimodal capabilities have their own sidebar page (`/multimodal`), linked
+from the Skills page; below a long Skill library a section there was out of
+sight. The page lists:
 
 1. Each Provider with a key, with the capabilities found and each one's source:
    declared by the Provider, ID rule, catalog, or probed.
