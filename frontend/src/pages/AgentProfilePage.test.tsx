@@ -173,6 +173,17 @@ describe("AgentProfilePage", () => {
     await waitFor(() => expect(refreshStatus).toHaveBeenCalled());
   });
 
+  // The editor is a page of its own; the Profile list returns when it closes.
+  it("shows only the editor while a Profile is being edited", async () => {
+    renderPage([profile()]);
+    expect(screen.getByTestId("agent-profile-team-ppio")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "编辑 团队 PPIO" }));
+    expect(await screen.findByText("编辑配置模版")).toBeTruthy();
+    expect(screen.queryByTestId("agent-profile-team-ppio")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "取消" }));
+    expect(screen.getByTestId("agent-profile-team-ppio")).toBeTruthy();
+  });
+
   // A check is a billed request, so it is the user's to send: an inline model
   // edit and an Apply send none.
   it("does not check the model on an inline edit or on apply", async () => {

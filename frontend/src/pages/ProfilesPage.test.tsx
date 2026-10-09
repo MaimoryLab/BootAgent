@@ -278,6 +278,17 @@ describe("ProfilesPage", () => {
     await waitFor(() => expect(screen.getByText(/Codex.*重新应用失败.*写入失败/)).toBeTruthy());
   });
 
+  // The editor is a page of its own. The list used to stay rendered below the
+  // form, which read as the previous page appended to this one.
+  it("shows only the editor while a Profile is being edited", () => {
+    renderPage([profile()]);
+    expect(screen.getByTestId("profile-team-ppio")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "编辑 团队 PPIO" }));
+    expect(screen.queryByTestId("profile-team-ppio")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "取消" }));
+    expect(screen.getByTestId("profile-team-ppio")).toBeTruthy();
+  });
+
   // A check is a billed request, so saving never sends one; the card's
   // 检测模型 does, for every Agent following the Profile.
   it("checks the model only when 检测模型 is pressed", async () => {

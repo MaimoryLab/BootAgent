@@ -1,5 +1,5 @@
 import { KeyRound, Layers, Pencil, Plus, Save, Trash2, X } from "lucide-react";
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { api, describeFailure } from "../backend/api";
@@ -66,6 +66,14 @@ export function ProfilesPage() {
   const [checked, setChecked] = useState<ProfileModelCheck | null>(null);
   const [checkingId, setCheckingId] = useState("");
   const [lastEdit, setLastEdit] = useState<ModelEdit | null>(null);
+  const editorRef = useRef<HTMLFormElement>(null);
+  const editing = editor ? editor.originalId || "new" : "";
+
+  // The editor takes the page over, so it opens at the top. Clicking 编辑 on a
+  // card further down the list otherwise left the form above the fold.
+  useEffect(() => {
+    if (editing) editorRef.current?.scrollIntoView?.({ block: "start" });
+  }, [editing]);
 
   if (!status) {
     return (
@@ -110,6 +118,7 @@ export function ProfilesPage() {
   const openCreate = () => {
     const [provider = "ppio", providerMeta] = preferProviderWithKey(byProviderCreatedAt(Object.fromEntries(Object.entries(status.providers).filter(([providerId]) => !isConverterID(providerId))))) || [];
     setFailure("");
+    setApplied("");
     setEditor({
       id: suggestProfileID(provider),
       label: suggestProfileLabel(provider),
@@ -285,7 +294,7 @@ export function ProfilesPage() {
     >
 
       {editor ? (
-        <form className="profile-editor" onSubmit={(event) => void save(event)}>
+        <form className="profile-editor" ref={editorRef} onSubmit={(event) => void save(event)}>
           <header>
             <strong>{editor.originalId ? t("编辑 {name}", { name: editor.label || editor.id }) : t("创建配置模版")}</strong>
             <button className="icon-button" type="button" onClick={() => setEditor(null)} aria-label={t("关闭编辑")} title={t("关闭编辑")}>
@@ -412,8 +421,11 @@ export function ProfilesPage() {
       ) : null}
 
       {failure ? <p className="agent-manage-error">{failure}</p> : null}
-      {applied ? <div className="agent-manage-applied"><strong>{t("应用完成")}</strong><span>{applied}</span></div> : null}
-      {checked ? (
+      {/* The editor is a page of its own: the list, and notices about what
+          happened to it, return when the editor closes. Rendering them below
+          the form read as the previous page appended to this one. */}
+      {applied && !editor ? <div className="agent-manage-applied"><strong>{t("应用完成")}</strong><span>{applied}</span></div> : null}
+      {checked && !editor ? (
         <ModelCheckNotice
           check={checked}
           providerId={profiles.find((profile) => profile.id === checked.profileId)?.provider || ""}
@@ -427,7 +439,7 @@ export function ProfilesPage() {
         />
       ) : null}
 
-      {!profiles.length && !editor ? (
+      {editor ? null : !profiles.length ? (
         <div className="empty-overview">
           <Layers size={26} />
           <strong>{t("还没有配置模版")}</strong>
@@ -448,7 +460,7 @@ export function ProfilesPage() {
                       <KeyRound size={12} aria-hidden="true" />
                       {status.providers[profile.provider]?.has_key ? t("模型服务已有 Key") : t("模型服务缺少 Key")}
                     </span>
-                    <button className="icon-button" type="button" onClick={() => { setEditor(editDraft(profile, protocolOf(profile))); setFailure(""); }} aria-label={t("编辑 {name}", { name: profile.label })} title={t("编辑")}>
+                    <button className="icon-button" type="button" onClick={() => { setEditor(editDraft(profile, protocolOf(profile))); setFailure(""); setApplied(""); }} aria-label={t("编辑 {name}", { name: profile.label })} title={t("编辑")}>
                       <Pencil size={14} />
                     </button>
                     {/* disabled while busy: without it a double-click sent two

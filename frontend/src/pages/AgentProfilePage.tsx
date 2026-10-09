@@ -389,7 +389,7 @@ export function AgentProfilePage() {
       )}
     >
       {failure ? <div className="notice notice-error">{failure}</div> : null}
-      {checked ? (
+      {checked && !draft ? (
         <ModelCheckNotice
           check={checked}
           providerId={profiles.find((profile) => profile.id === checked.profileId)?.provider || ""}
@@ -492,7 +492,9 @@ export function AgentProfilePage() {
         </form>
       ) : null}
 
-      {profiles.length ? (
+      {/* The editor is a page of its own; the list returns when it closes.
+          Rendering it below the form read as the previous page appended. */}
+      {draft ? null : profiles.length ? (
         <>
         <div className="profile-list desktop-profile-list">
           {profiles.map((profile) => {
