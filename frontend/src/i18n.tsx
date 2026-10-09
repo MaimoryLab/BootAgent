@@ -561,6 +561,7 @@ const english = {
   "位置": "Location",
   "打开": "Open",
   "已检测到应用，但版本信息不可用": "The app was detected, but version information is unavailable",
+  "可继续尝试启动；版本检测与模型 API 兼容性无关。": "You can still try launching the app; version detection is separate from model API compatibility.",
   "应用状态检测不可用": "Desktop app status could not be inspected",
   "{name} 已打开": "{name} opened",
   "{name} 安装完成": "{name} installed",
@@ -677,6 +678,8 @@ const english = {
   "无法向模型服务发送验证请求。": "A verification request could not be sent to the provider.",
   "受影响的 Agent：{agents}": "Affected Agents: {agents}",
   "模型服务返回：{detail}": "Provider said: {detail}",
+  "Codex 使用 Responses API。请选择支持 Responses 的模型；如果模型服务仅支持 Chat Completions，可使用 API 协议适配，并应用适配器生成的 Codex 配置模版。": "Codex uses the Responses API. Choose a model that supports Responses. If the provider only supports Chat Completions, use the API protocol adapter and apply its generated Codex Profile.",
+  "打开 API 协议适配": "Open API protocol adapter",
   "改回 {model}": "Switch back to {model}",
   "检测模型": "Check model",
   "检测 {name} 的模型": "Check the model of {name}",
@@ -974,6 +977,7 @@ const english = {
   "确认实测": "Confirm the probe",
   "这次实测会让「{model}」真实生成一张图片，按模型服务的价格计费。确定要发送吗？": "This probe makes \"{model}\" generate one real image, billed at the provider's price. Send it?",
   "重新安装": "Reinstall",
+  "{capabilities}：该模型服务目前没有可核实的公开接口，暂不支持。": "{capabilities}: this provider documents no public API for it yet, so it is not supported.",
 } as const;
 
 export type Locale = "zh-CN" | "en";

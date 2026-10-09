@@ -27,6 +27,11 @@ export interface Capability {
      * Probe is the live check available for this capability; see ProbeKind.
      */
     "probe": string;
+
+    /**
+     * Recommended marks the catalog's preferred model for this capability.
+     */
+    "recommended"?: boolean;
 }
 
 /**

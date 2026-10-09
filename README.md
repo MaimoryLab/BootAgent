@@ -64,7 +64,7 @@ Launch BootAgent
 
 - Keep a local Skill library, scan Skills already present on supported Agents, and choose which Agents receive each Skill.
 - See which models on your keyed Providers can understand images, video or audio, or generate images, and where each finding comes from (declared by the Provider, inferred from the model name, or probed). Listing models is free; a probe is a real request and is sent only when you click it, and an image-generation probe asks first.
-- Install a multimodal Skill (image understanding, image generation, speech-to-text, text-to-speech) into Claude Code or Codex, with example prompts to copy. Its script needs Node.js 18 or later. BootAgent writes the Provider key into the Agent's own configuration as `BOOTAGENT_<PROVIDER>_API_KEY`, so the Agent and its model can read it; the install confirmation says so. Uninstalling the last Skill that uses a Provider removes the variable.
+- Install a multimodal Skill (image understanding, image generation, speech-to-text, text-to-speech, video generation) into Claude Code or Codex, with example prompts to copy. Built-in Providers add the models their docs name: MiniMax Speech on Novita, PPIO and JieKou.AI, GPT Image and async text-to-video on JieKou.AI. Video is never probed, because a probe would be a full billed generation. Its script needs Node.js 18 or later. BootAgent writes the Provider key into the Agent's own configuration as `BOOTAGENT_<PROVIDER>_API_KEY`, so the Agent and its model can read it; the install confirmation says so. Uninstalling the last Skill that uses a Provider removes the variable.
 - Discover MCP servers from initialized Claude Code, Codex, OpenCode, Kilo CLI, and Hermes installations.
 - Store MCP servers in a local user-level Registry, select sync targets explicitly, and apply changes only when you are ready.
 
@@ -135,7 +135,9 @@ BootAgent does not redistribute Agent packages and does not bundle Node.js, Git,
 | Symptom | First check |
 | --- | --- |
 | Agent is not listed | Refresh Environment overview, check that the command is on `PATH`, or use the Agent's documented manual install path. |
-| Provider connection check fails | Confirm the endpoint and model match the Agent's protocol; an endpoint that exposes only another API is rejected before writing configuration. |
+| Provider connection check fails | Confirm the endpoint and model match the Agent's protocol. Use Check model for a saved Profile; saving or applying a Profile does not automatically send a model request. |
+| Codex reports `does not support endpoint: responses` | Codex is configured to use Responses. Select a model that supports it, or use the API protocol adapter with a working Chat Completions Profile and apply its generated Codex Profile. A model appearing in `/models` does not prove Responses support. |
+| Windows detects a desktop app but its version is unavailable | BootAgent retries the registered package's metadata through Windows PackageManager. If the metadata remains inaccessible, launch is still available; this warning is separate from model API compatibility. |
 | Marketplace looks incomplete | Check the source status and refresh. A bundled snapshot remains available when an online source is unavailable. |
 | Import reports a conflict | Review the preview, choose skip or overwrite, and apply only after checking the affected resource names. |
 | BootAgent cannot check for an update | In Settings, switch between GitHub and the domestic Gitee mirror, then retry. Existing installation files are not replaced by a failed check. |

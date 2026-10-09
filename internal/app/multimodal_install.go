@@ -123,6 +123,9 @@ func (u *UseCases) InstallMultimodal(ctx context.Context, request MultimodalInst
 		Capability: capability, Adapter: found.Adapter, ProviderID: target.ID, ProviderName: target.Name,
 		Model: model, BaseURL: target.BaseURL, NativeBaseURL: rules.NativeBaseURL(target.ID),
 	}
+	if generation, ok := rules.Generation(target.ID, model); ok && generation.Adapter == found.Adapter {
+		spec.Options = generation.Options
+	}
 
 	u.writeMu.Lock()
 	defer u.writeMu.Unlock()
@@ -499,7 +502,7 @@ func (u *UseCases) refreshGeneratedSkillsLocked(ctx context.Context, target prov
 		spec := skillgen.Spec{
 			Capability: variant.config.Capability, Adapter: variant.config.Adapter,
 			ProviderID: target.ID, ProviderName: target.Name, Model: variant.config.Model,
-			BaseURL: target.BaseURL, NativeBaseURL: variant.config.NativeBaseURL,
+			BaseURL: target.BaseURL, NativeBaseURL: variant.config.NativeBaseURL, Options: variant.config.Options,
 		}
 		published, err := u.publishGeneratedLocked(ctx, spec, variant.targets)
 		if err != nil {

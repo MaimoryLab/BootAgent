@@ -358,6 +358,7 @@ export const wailsApi = {
     call(() => MultimodalService.Detect()).then((detection) => ({
       providers: (detection?.providers ?? []).map((entry) => ({
         ...entry,
+        unsupported: entry.unsupported ?? [],
         models: (entry.models ?? []).map((model) => ({ ...model, capabilities: model.capabilities ?? [] })),
       })),
       installed: (detection?.installed ?? []).map((entry) => ({ ...entry, agents: entry.agents ?? [] })),

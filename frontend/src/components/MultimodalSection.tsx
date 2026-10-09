@@ -54,8 +54,9 @@ export interface CapabilityGroup {
 
 /**
  * Regroups one Provider's models by capability. Within a capability, models
- * that can be installed come first, then by strength of evidence, then by ID,
- * so the first option is the sensible default.
+ * that can be installed come first, then the catalog's recommended one, then
+ * by strength of evidence, then by ID, so the first option is the sensible
+ * default.
  */
 export function groupByCapability(entry: MultimodalProvider): CapabilityGroup[] {
   const groups = new Map<MultimodalCapabilityId, CapabilityOption[]>();
@@ -71,6 +72,8 @@ export function groupByCapability(entry: MultimodalProvider): CapabilityGroup[] 
     options: (groups.get(id) ?? []).sort((left, right) => {
       const usable = Number(right.capability.installable) - Number(left.capability.installable);
       if (usable) return usable;
+      const recommended = Number(Boolean(right.capability.recommended)) - Number(Boolean(left.capability.recommended));
+      if (recommended) return recommended;
       const evidence = SOURCE_RANK[left.capability.source] - SOURCE_RANK[right.capability.source];
       return evidence || left.model.localeCompare(right.model);
     }),
@@ -290,6 +293,9 @@ export function MultimodalSection({ agentLabels = {}, onSkillsChanged }: Multimo
               <strong>{entry.name || entry.id}</strong>
               {!entry.listed ? <span className="multimodal-provider-note">{t("无法读取模型列表：{message}", { message: entry.message || entry.errorCode || "" })}</span> : null}
             </header>
+            {entry.unsupported.length ? (
+              <p className="multimodal-provider-note">{t("{capabilities}：该模型服务目前没有可核实的公开接口，暂不支持。", { capabilities: entry.unsupported.map((id) => t(CAPABILITY_LABELS[id])).join(separator) })}</p>
+            ) : null}
             {!groups.length ? (
               <p className="multimodal-empty">{entry.listed ? t("没有找到多模态模型。") : t("可以稍后重新检测。")}</p>
             ) : (

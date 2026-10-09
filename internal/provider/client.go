@@ -11,6 +11,7 @@ import (
 	"mime/multipart"
 	"net"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 
@@ -220,6 +221,90 @@ func (c *Client) postJSONProbe(ctx context.Context, apiKey, model, customBase, p
 	request.Header.Set("Authorization", "Bearer "+apiKey)
 	request.Header.Set("Content-Type", "application/json")
 	return c.sendProbe(request, ProtocolOpenAI, apiKey, model, timeout), nil
+}
+
+// nativeModelPattern bounds a model ID used as a path segment on a native
+// route, so a hand-edited ID cannot add path or query parts.
+var nativeModelPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$`)
+
+// NativeSpeechVoice is the system voice the native speech probe asks for.
+// It is one of the system voices Novita, PPIO and JieKou.AI document for
+// MiniMax Speech 2.8.
+const NativeSpeechVoice = "English_Graceful_Lady"
+
+// ProbeNativeSpeech asks a native MiniMax-style speech route
+// (POST <native base>/v3/<model>) to say "ok". These routes answer HTTP 200
+// for some refusals and put the verdict in base_resp.status_code, so the body
+// is read on success too and mapped onto the HTTP classification: 1004 is a
+// rejected key, 1002 and 1039 are rate limits, 1000 and 1001 are the
+// provider's own failures, anything else is a refusal.
+func (c *Client) ProbeNativeSpeech(ctx context.Context, apiKey, model, nativeBase string) (ProbeResult, error) {
+	if apiKey == "" {
+		return ProbeResult{}, oneerrors.New(oneerrors.InvalidRequest, "API key is required")
+	}
+	if !nativeModelPattern.MatchString(model) {
+		return ProbeResult{}, oneerrors.New(oneerrors.InvalidRequest, "A valid model is required")
+	}
+	base, err := ValidateBaseURL(strings.TrimSpace(nativeBase))
+	if err != nil {
+		return ProbeResult{}, err
+	}
+	payload, err := json.Marshal(map[string]any{
+		"text":          "ok",
+		"voice_setting": map[string]string{"voice_id": NativeSpeechVoice},
+		"audio_setting": map[string]string{"format": "mp3"},
+	})
+	if err != nil {
+		return ProbeResult{}, probeBuildError(err)
+	}
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, base+"/v3/"+model, bytes.NewReader(payload))
+	if err != nil {
+		return ProbeResult{}, oneerrors.New(oneerrors.InvalidRequest, "Provider endpoint is invalid", oneerrors.WithCause(err))
+	}
+	request.Header.Set("Authorization", "Bearer "+apiKey)
+	request.Header.Set("Content-Type", "application/json")
+	response, cancelRequest, err := c.doWithin(request, audioProbeTimeout)
+	defer cancelRequest()
+	if err != nil || response == nil {
+		if response != nil && response.Body != nil {
+			_ = response.Body.Close()
+		}
+		if err == nil {
+			err = errors.New("Provider transport returned no response")
+		}
+		result := transportResult(err)
+		result.Protocol = new(ProtocolOpenAI)
+		return result, nil
+	}
+	defer response.Body.Close()
+	body, _, _ := c.readBody(response.Body)
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		result := classifyHTTPProbe(response.StatusCode, string(body), ProtocolOpenAI, model)
+		result.Detail = upstreamDetail(body, apiKey)
+		return result, nil
+	}
+	var parsed struct {
+		BaseResp *struct {
+			StatusCode int    `json:"status_code"`
+			StatusMsg  string `json:"status_msg"`
+		} `json:"base_resp"`
+	}
+	_ = json.Unmarshal(body, &parsed)
+	if parsed.BaseResp == nil || parsed.BaseResp.StatusCode == 0 {
+		return ProbeResult{OK: true, Reachable: true, Status: response.StatusCode, Message: "Speech route accepted the request.", Protocol: new(ProtocolOpenAI)}, nil
+	}
+	status := http.StatusBadRequest
+	switch parsed.BaseResp.StatusCode {
+	case 1004:
+		status = http.StatusUnauthorized
+	case 1002, 1039:
+		status = http.StatusTooManyRequests
+	case 1000, 1001:
+		status = http.StatusServiceUnavailable
+	}
+	result := classifyHTTPProbe(status, "", ProtocolOpenAI, model)
+	result.Detail = upstreamDetail([]byte(parsed.BaseResp.StatusMsg), apiKey)
+	return result, nil
 }
 
 func probeTarget(apiKey, model, customBase string) (string, error) {

@@ -455,6 +455,11 @@ export interface MultimodalProvider {
     "keyEnv": string;
 
     /**
+     * Unsupported lists capabilities this Provider documents no API for.
+     */
+    "unsupported": string[] | null;
+
+    /**
      * Listed is false when /models could not be read. Message and ErrorCode
      * then say why; catalog generation models are still listed, since they do
      * not come from /models.

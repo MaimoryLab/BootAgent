@@ -62,7 +62,7 @@ BootAgent 是一个本地桌面工作台，用来统一管理 AI 编程 Agent。
 
 - 在本机维护 Skill 管理库，扫描支持的 Agent 已有的 Skill，并选择每个 Skill 要同步到哪些 Agent。
 - 查看已保存 API Key 的 Provider 中哪些模型能理解图片、视频或音频，或能生成图片，以及每项结论的来源（Provider 声明、按模型名推断或实测）。列出模型不收费；实测是一次真实请求，只在你点击时发出，图片生成实测会先确认。
-- 把多模态 Skill（图片理解、图片生成、语音识别、语音合成）安装到 Claude Code 或 Codex，并提供可复制的示例提示词。Skill 脚本需要 Node.js 18 或更高版本。BootAgent 会把 Provider 的 Key 以 `BOOTAGENT_<PROVIDER>_API_KEY` 写进 Agent 自己的配置，因此 Agent 及其模型能读到它，安装确认里会说明。卸载最后一个用到该 Provider 的 Skill 时，这个变量会被移除。
+- 把多模态 Skill（图片理解、图片生成、语音识别、语音合成、视频生成）安装到 Claude Code 或 Codex，并提供可复制的示例提示词。内置 Provider 会补充其文档中列出的模型：Novita、PPIO 和 JieKou.AI 的 MiniMax Speech，JieKou.AI 的 GPT Image 与异步文生视频。视频生成从不实测，因为一次实测就是一次完整的计费生成。Skill 脚本需要 Node.js 18 或更高版本。BootAgent 会把 Provider 的 Key 以 `BOOTAGENT_<PROVIDER>_API_KEY` 写进 Agent 自己的配置，因此 Agent 及其模型能读到它，安装确认里会说明。卸载最后一个用到该 Provider 的 Skill 时，这个变量会被移除。
 - 从已初始化的 Claude Code、Codex、OpenCode、Kilo CLI 和 Hermes 中发现 MCP 服务器。
 - 使用本机用户级 Registry 保存 MCP 服务器，明确选择同步目标，并在确认后再应用改动。
 
@@ -133,7 +133,9 @@ BootAgent 不重新分发 Agent 包，也不捆绑 Node.js、Git、WebView 或 A
 | 现象 | 先检查什么 |
 | --- | --- |
 | 找不到 Agent | 刷新“环境总览”，确认命令在 `PATH` 中，或按 Agent 官方指引手动安装后再次检测。 |
-| Provider 连接检查失败 | 确认端点和模型与 Agent 使用的协议一致；只支持另一种 API 的端点会在写入前被拒绝。 |
+| Provider 连接检查失败 | 确认端点和模型与 Agent 使用的协议一致。对已保存的 Profile 使用“检测模型”；保存或应用 Profile 不会自动发送模型请求。 |
+| Codex 报错 `does not support endpoint: responses` | Codex 的配置使用 Responses。选择支持它的模型，或在 API 协议适配中选择可用的 Chat Completions Profile，再应用生成的 Codex Profile。模型出现在 `/models` 中并不证明它支持 Responses。 |
+| Windows 检测到桌面应用但版本不可用 | BootAgent 会通过 Windows PackageManager 重试读取已注册应用包的元数据。如果仍无法读取，仍可尝试启动；这个提示与模型 API 兼容性无关。 |
 | 工具市场内容不完整 | 查看来源状态并点击刷新；在线来源不可用时仍会显示内置目录。 |
 | 导入提示冲突 | 查看导入预览，选择跳过或覆盖，并确认受影响的资源名称。 |
 | BootAgent 检查更新失败 | 在“设置”中切换 GitHub 与国内 Gitee 镜像后重试；检查失败不会替换现有安装文件。 |

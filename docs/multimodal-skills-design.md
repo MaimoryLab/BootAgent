@@ -1,6 +1,6 @@
 # Multimodal Skills: Design
 
-Status: In progress. Phase 1 (detection) and Phase 2 (generation and install for Claude Code and Codex) are implemented. Branch `codex/multimodal-skills`.
+Status: In progress. Phases 1 to 3 are implemented: detection; generation and install for Claude Code and Codex; native speech and async video on the routes the vendors document. Branch `codex/multimodal-skills`.
 
 ## Goal
 
@@ -35,22 +35,54 @@ and choosing between several Providers for the same capability.
 
 ## Provider landscape
 
-Endpoints differ by capability far more than chat does. Only the rows marked
-verified were confirmed from the Provider's own documentation; the rest are
-inferences that must be checked before the matching adapter is written.
+Endpoints differ by capability far more than chat does. Every route below was
+read from the vendor's own documentation on 2026-10-09; the request path comes
+from the page's API playground, since the Markdown exports omit it.
 
 | Provider | Image understanding | Image / video generation | Audio |
 | --- | --- | --- | --- |
-| DeepSeek | `deepseek-flash` takes images on Chat Completions (verified) | None | None |
-| Moonshot | `kimi-k3`, `kimi-k2.6` and the `kimi-k2.7-code` models take image and video input on Chat Completions (verified) | None | None |
-| Novita | Vision chat models on the OpenAI route | Async: `POST /v3/async/<model>` returns a `task_id`; `GET /v3/async/task-result` returns `images[]`, `videos[]` or `audios[]` with URLs that expire, 3600 s in the example (verified). Some image models also serve `/openai/v1/images/generations`. | Native routes, not OpenAI `/audio/*`: for example `/v4beta/txt2speech` and the synchronous GLM TTS and ASR endpoints (verified) |
-| PPIO | Vision chat models on the OpenAI route | `POST /v3/video/create` for unified video generation (verified); task polling assumed to follow Novita's `/v3/async/task-result` with the same `TASK_STATUS_*` values (unverified) | Assumed to mirror Novita (unverified) |
-| JieKou.AI | Gateway that reports text, vision, audio and video support (unverified, no endpoint pages found) | Unknown | Unknown |
+| DeepSeek | `deepseek-flash` takes images on Chat Completions | None | None |
+| Moonshot | `kimi-k3`, `kimi-k2.6` and the `kimi-k2.7-code` models take image and video input on Chat Completions | None | None |
+| Novita | Vision chat models on the OpenAI route | `ming-image-0.1-design` on `POST /openai/v1/images/generations`. No video generation model is documented any more. | MiniMax Speech 2.8 Turbo and HD: synchronous `POST /v3/<model>`, asynchronous `POST /v3/async/<model>`. Fish Audio on `POST /v4beta/txt2speech`. No speech-to-text route is documented. |
+| PPIO | Vision chat models on the OpenAI route | None documented. The unified video route (`/v3/video/create`) that was documented when this design began now returns 404 and is in neither the sitemap nor the docs index. | MiniMax Speech 2.8 Turbo and HD on the same paths as Novita |
+| JieKou.AI | Vision chat models on the OpenAI route | GPT Image (`gpt-image-2`, `gpt-image-2-oai`, `gpt-image-2.5-flare-oai`, `gpt-image-2.5-sunburst-oai`) on `POST /openai/v1/images/generations`. Async video, for example `POST /v3/async/wan2.7-t2v` and `POST /v3/async/kling-v3.0-4k-t2v`, returning a `task_id`. | MiniMax Speech 2.8 Turbo and HD on the same paths as Novita |
+
+All three gateways share one native API family. `GET /v3/async/task-result?task_id=`
+answers with `task.status` (`TASK_STATUS_QUEUED`, `TASK_STATUS_PROCESSING`,
+`TASK_STATUS_SUCCEED`, `TASK_STATUS_FAILED`), `task.reason`, `task.eta`, and
+`images[]`, `videos[]` or `audios[]` whose `*_url` expires after `*_url_ttl`
+seconds (3600 by default; the TTL is an integer for images and a string for video
+and audio). The synchronous MiniMax speech route returns the audio as hex in
+`data.audio` and reports refusals in `base_resp.status_code` under HTTP 200.
 
 The catalog's `base_url` is the OpenAI-compatible route (for example
 `https://api.novita.ai/openai`). Native async and audio routes sit at the host
 root, so the modality catalog carries its own native base per Provider instead
-of deriving it from `base_url`.
+of deriving it from `base_url`: `https://api.novita.ai`, `https://api.ppio.com`
+and `https://api.highwayapi.ai`.
+
+### What Phase 3 found and how it was handled
+
+- Because the native API family is shared, the adapters are named after Novita,
+  where it was first documented, and serve all three: `novita-audio` for the
+  synchronous speech route, `novita-async` for submit, poll and download.
+- `ppio-video` is reserved and not implemented: PPIO no longer documents a
+  video route. The catalog marks video generation unsupported for PPIO and
+  Novita, and the UI says so for each.
+- JieKou.AI's generation endpoints, which the first draft could not find, are now
+  documented, so its async video and GPT Image models are in the catalog.
+- Speech-to-text has no native route on any of the three; it stays on the
+  OpenAI-compatible route with a hand-entered model.
+- JieKou.AI's GPT Image models are on the images route, not chat output, so they
+  are catalog entries on `openai-images`. Gemini image output and chat audio
+  input are still undocumented anywhere (JieKou.AI's Gemini page covers text and
+  tools only), so `openai-chat-image-output` and `openai-chat-audio-input` stay
+  uninstallable with no probe.
+- The catalog lists only models whose request body was read: two video models,
+  four GPT Image models, `ming-image-0.1-design` and the two MiniMax Speech
+  models. A catalog entry may carry `options` (the request fields beyond the
+  prompt it documents, from a closed vocabulary) and `recommended` (preselected
+  in the UI, usually the cheaper of two).
 
 ## Architecture
 
@@ -98,9 +130,16 @@ listing, so they were not sampled.
 For each model ID from `ListModels`, the first source that answers wins:
 
 1. A probe verdict in the capability cache.
-2. The model's declared `input_modalities` / `output_modalities`, when present.
-3. An ID rule from the table below.
-4. Unknown: not offered.
+2. A catalog entry for the model, for the capabilities it names.
+3. The model's declared `input_modalities` / `output_modalities`, when present.
+4. An ID rule from the table below.
+5. Unknown: not offered.
+
+The catalog sits above the declaration, which the first draft did not have: a
+catalog entry names a verified route, while a declaration only says a model
+outputs images, not how a gateway returns them. `ming-image-0.1-design` is
+declared with image output on Novita and is reached on the images route; the
+declaration alone would have put it on the unverified chat route.
 
 Async generation and audio models never appear in `/models`, so they come only
 from the catalog's per-Provider generation entries, which also name the adapter.
@@ -216,6 +255,7 @@ refused / key / transient / network classification from
 | Speech-to-text | 0.5 s of silent 16 kHz WAV to `/audio/transcriptions` | Minimal |
 | Text-to-speech | The text `ok` to `/audio/speech`, voice `alloy` | Minimal |
 | Image generation | One image from `/images/generations`, no size sent | One image; the button says so and a dialog asks first, and the backend refuses the probe without that confirmation |
+| Text-to-speech (native) | The text `ok` to `POST <native base>/v3/<model>` with a documented system voice; the verdict is read from `base_resp.status_code` too | Minimal |
 | Video generation | Not probed | A probe is a full billed generation that cannot be cancelled reliably, so this capability is catalog-only |
 | Video understanding | Native video models: catalog-only. Frame sampling: inherits the image-understanding verdict | None |
 
@@ -310,12 +350,21 @@ or a colon cannot break the frontmatter.
 | Image understanding | `describe --image <path>… [--prompt] [--max-tokens]` | The answer on stdout |
 | Image generation | `generate --prompt <text> [--size] [--n 1-4] [--out <dir>]` | Saved file paths on stdout |
 | Speech-to-text | `transcribe --audio <path> [--language] [--prompt]` | The transcript on stdout |
-| Text-to-speech | `speak --text <text> [--voice] [--format] [--out]` | The saved file path on stdout |
+| Text-to-speech | `speak --text <text> [--voice] [--format] [--out]` (native route: also `--speed`) | The saved file path on stdout |
+| Video generation | `video --prompt <text> [options the model documents] [--out]`, and `video-result --task <id>` | The saved file path on stdout; `task: <id>` on stderr |
 
 Every Skill also has `check`, which confirms the key is available without
 sending a request. Exit codes: 0 success, 2 bad arguments or input, 3 setup
 (Node older than 18, no key), 4 refused by the Provider, 5 key rejected, 6
-unreachable, busy or timed out. Outputs default to `bootagent-output/` in the
+unreachable, busy or timed out, 7 (video only) submitted but not finished in time.
+
+Video polls the task with the Provider's `eta` as the pace, clamped to 1 to 15
+s, until 10 minutes have passed by default. A busy or unreachable poll is
+retried; a refused or failed task is final, since retrying spends money. A
+timeout prints the task ID so `video-result` can collect it later without
+submitting again, and `SKILL.md` tells the Agent never to retry on its own.
+Results are streamed to disk as they download, without the key, and a partial
+file is removed on failure. Outputs default to `bootagent-output/` in the
 working directory and never overwrite an existing file. Result URLs are
 downloaded without the key, because they may be on another host.
 
@@ -467,13 +516,16 @@ those Agents' instruction files.
 2. Generator, install and env delivery for Claude Code and Codex: image
    understanding, image generation, speech-to-text and text-to-speech over the
    OpenAI-compatible adapters.
-3. Novita and PPIO async adapters: image and video generation, native audio.
+3. Native speech and async video on the routes Novita, PPIO and JieKou.AI
+   document; catalog image models on the images route. PPIO video is not
+   implemented (no documented route).
 4. Video understanding; OpenCode, Hermes and the guide for Agents without Skills.
 
 ## Open questions
 
-- PPIO's task-result path and status values, and every JieKou.AI endpoint, need
-  confirming against their documentation or a real call.
+- Gemini image output and chat audio input need a documented request and
+  response format before their adapters can be written. A native speech-to-text
+  route, and PPIO and Novita video generation, need documenting by the vendors.
 - How OpenCode and Hermes pass configured environment variables to their shell
   tools.
 - Hermes is installed by its official script, so Node may be absent. If so, should
@@ -486,7 +538,7 @@ those Agents' instruction files.
 
 - [DeepSeek: V4-Flash-Vision release](https://api-docs.deepseek.com/news/news260821/), [vision guide](https://api-docs.deepseek.com/guides/vision/), [updates](https://api-docs.deepseek.com/updates)
 - [Kimi: vision models](https://platform.kimi.ai/docs/guide/use-kimi-vision-model), [API overview](https://platform.kimi.ai/docs/overview)
-- [Novita: task result](https://docs.novita.ai/api-reference/model-apis-task-result), [webhook](https://novita.ai/docs/api-reference/model-apis-webhook), [Wan 2.7 text-to-video](https://novita.ai/docs/de/api-reference/model-apis-wan2.7-t2v), [Fish Audio TTS](https://docs.novita.ai/api-reference/model-apis-fish-audio-text-to-speech), [GLM TTS and ASR](https://blogs.novita.ai/glm-tts-asr-voice-clone-api-quick-start/)
-- [PPIO: unified video generation](https://ppio.com/docs/models/reference-unified-video-generation)
-- [JieKou.AI docs](https://docs.jiekou.ai)
+- [Novita: task result](https://docs.novita.ai/api-reference/model-apis-task-result), [MiniMax Speech 2.8 Turbo](https://docs.novita.ai/api-reference/model-apis-minimax-speech-2.8-turbo), [MiniMax Speech 2.8 Turbo async](https://docs.novita.ai/api-reference/model-apis-minimax-speech-2.8-turbo-async), [Ming Image](https://docs.novita.ai/api-reference/model-apis-ming-image-txt2img), [Fish Audio TTS](https://docs.novita.ai/api-reference/model-apis-fish-audio-text-to-speech)
+- [PPIO: task result](https://ppio.com/docs/models/reference-get-async-task-result), [MiniMax Speech 2.8 Turbo](https://ppio.com/docs/models/reference-minimax-speech-2.8-turbo)
+- [JieKou.AI: task result](https://docs.jiekou.ai/docs/models/reference-get-async-task-result), [Wan 2.7 text-to-video](https://docs.jiekou.ai/docs/models/reference-wan2.7-t2v), [Kling v3.0 4K text-to-video](https://docs.jiekou.ai/docs/models/reference-kling-v3.0-4k-t2v), [GPT Image](https://docs.jiekou.ai/docs/models/reference-gpt-image), [Gemini](https://docs.jiekou.ai/docs/providers/gemini), [MiniMax Speech 2.8 Turbo](https://docs.jiekou.ai/docs/models/reference-minimax-speech-2.8-turbo)
 - [Codex: configuration reference](https://developers.openai.com/codex/config-reference)

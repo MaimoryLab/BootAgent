@@ -33,6 +33,15 @@ var goldenSpecs = map[string]Spec{
 		Capability: modality.TextToSpeech, Adapter: modality.AdapterAudioSpeech,
 		ProviderID: "local", ProviderName: "", Model: "tts-1", BaseURL: "http://127.0.0.1:8000",
 	},
+	"text-to-speech-native": {
+		Capability: modality.TextToSpeech, Adapter: modality.AdapterNovitaAudio,
+		ProviderID: "ppio", ProviderName: "PPIO", Model: "minimax-speech-2.8-turbo", BaseURL: "https://api.ppio.com/openai", NativeBaseURL: "https://api.ppio.com",
+	},
+	modality.VideoGeneration: {
+		Capability: modality.VideoGeneration, Adapter: modality.AdapterNovitaAsync,
+		ProviderID: "jiekou", ProviderName: "JieKou.AI", Model: "wan2.7-t2v", BaseURL: "https://api.highwayapi.ai/openai", NativeBaseURL: "https://api.highwayapi.ai",
+		Options: []string{"duration", "size", "negative_prompt"},
+	},
 }
 
 func renderTo(t *testing.T, spec Spec) string {
@@ -173,6 +182,24 @@ func TestNewConfigRefusesWhatItCannotGenerate(t *testing.T) {
 		"model with newline": func(s *Spec) { s.Model = "m\nrm -rf" },
 		"empty model":        func(s *Spec) { s.Model = " " },
 		"bad base":           func(s *Spec) { s.BaseURL = "ftp://x" },
+		"native without base": func(s *Spec) {
+			s.Capability, s.Adapter, s.NativeBaseURL = modality.TextToSpeech, modality.AdapterNovitaAudio, ""
+		},
+		"native over http": func(s *Spec) {
+			s.Capability, s.Adapter, s.NativeBaseURL = modality.TextToSpeech, modality.AdapterNovitaAudio, "http://api.novita.ai"
+		},
+		"native base with a path": func(s *Spec) {
+			s.Capability, s.Adapter, s.NativeBaseURL = modality.TextToSpeech, modality.AdapterNovitaAudio, "https://api.novita.ai/openai"
+		},
+		"native model with a slash": func(s *Spec) {
+			s.Capability, s.Adapter, s.NativeBaseURL, s.Model = modality.TextToSpeech, modality.AdapterNovitaAudio, "https://api.novita.ai", "a/../b"
+		},
+		"unknown video option": func(s *Spec) {
+			s.Capability, s.Adapter, s.NativeBaseURL, s.Options = modality.VideoGeneration, modality.AdapterNovitaAsync, "https://api.novita.ai", []string{"fps"}
+		},
+		"reserved ppio video": func(s *Spec) {
+			s.Capability, s.Adapter, s.NativeBaseURL = modality.VideoGeneration, modality.AdapterPPIOVideo, "https://api.ppio.com"
+		},
 		"base with userinfo": func(s *Spec) { s.BaseURL = "https://user:pass@x.test" },
 	}
 	for name, mutate := range cases {

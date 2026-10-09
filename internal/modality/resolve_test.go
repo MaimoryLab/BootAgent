@@ -119,7 +119,9 @@ func TestResolveReplaysSnapshotsSafely(t *testing.T) {
 				if probeOnly[capability.Adapter] && capability.Installable {
 					t.Errorf("%s: %s %s installable on unverified adapter %s without a probe", name, model.ID, capability.ID, capability.Adapter)
 				}
-				if capability.ID == TextToSpeech || capability.ID == VideoGeneration {
+				// Speech and video generation have no chat route; only the
+				// catalog, which names a native route, may offer them.
+				if (capability.ID == TextToSpeech || capability.ID == VideoGeneration) && capability.Source != SourceCatalog {
 					t.Errorf("%s: %s offered %s from a chat listing", name, model.ID, capability.ID)
 				}
 			}
@@ -289,5 +291,79 @@ func TestAdapterVocabulary(t *testing.T) {
 	}
 	if ManualAdapter(VideoGeneration) != "" || ManualAdapter(VideoUnderstanding) != "" {
 		t.Fatal("a capability with no OpenAI-compatible route offered manual entry")
+	}
+}
+
+// A catalog entry names a verified route. For a listed model it outranks the
+// declaration, which only says the model outputs images, not how a gateway
+// returns them.
+func TestCatalogOutranksDeclarationForListedModels(t *testing.T) {
+	rules := embeddedRules(t)
+	entries := loadSnapshot(t, "novita")
+	models := rules.Resolve("novita", entries, nil)
+	ming, ok := Find(models, "ming-image-0.1-design", ImageGeneration)
+	if !ok || ming.Source != SourceCatalog || ming.Adapter != AdapterImages || !ming.Installable || !ming.Recommended {
+		t.Fatalf("ming image = %#v, %v", ming, ok)
+	}
+	// Its other declared capabilities still come from the declaration.
+	if vision, ok := Find(models, "ming-image-0.1-design", Vision); !ok || vision.Source != SourceDeclared {
+		t.Fatalf("ming vision = %#v, %v", vision, ok)
+	}
+	// The layer model shares the name prefix but is edit-only: the catalog
+	// does not list it, so it stays on the unverified chat route.
+	if layer, ok := Find(models, "ming-image-0.1-design-layer", ImageGeneration); ok && layer.Installable {
+		t.Fatalf("edit-only model installable: %#v", layer)
+	}
+	// A probe verdict still outranks the catalog.
+	probed := rules.Resolve("novita", entries, map[string]map[string]provider.ModalityVerdict{
+		"ming-image-0.1-design": {ImageGeneration: {Supported: false, Source: SourceProbe, Adapter: AdapterImages}},
+	})
+	if found, _ := Find(probed, "ming-image-0.1-design", ImageGeneration); found.Source != SourceProbe || found.Installable {
+		t.Fatalf("probe did not outrank catalog: %#v", found)
+	}
+}
+
+func TestEmbeddedCatalogOffersVerifiedNativeRoutes(t *testing.T) {
+	rules := embeddedRules(t)
+	for _, providerID := range []string{"novita", "ppio", "jiekou"} {
+		models := rules.Resolve(providerID, nil, nil)
+		speech, ok := Find(models, "minimax-speech-2.8-turbo", TextToSpeech)
+		if !ok || speech.Adapter != AdapterNovitaAudio || !speech.Installable || speech.Probe != ProbeMinimal {
+			t.Errorf("%s speech = %#v, %v", providerID, speech, ok)
+		}
+		if rules.NativeBaseURL(providerID) == "" {
+			t.Errorf("%s has no native base", providerID)
+		}
+	}
+	video, ok := Find(rules.Resolve("jiekou", nil, nil), "wan2.7-t2v", VideoGeneration)
+	if !ok || video.Adapter != AdapterNovitaAsync || !video.Installable || video.Probe != ProbeNone {
+		t.Fatalf("jiekou video = %#v, %v", video, ok)
+	}
+	generation, _ := rules.Generation("jiekou", "kling-v3.0-4k-t2v")
+	if strings.Join(generation.Options, ",") != "duration,aspect_ratio,negative_prompt,sound" {
+		t.Fatalf("kling options = %v", generation.Options)
+	}
+	for _, providerID := range []string{"novita", "ppio"} {
+		if !slices.Contains(rules.Unsupported(providerID), VideoGeneration) {
+			t.Errorf("%s video generation should be marked unsupported", providerID)
+		}
+	}
+}
+
+func TestNewRulesRejectsBrokenGenerationEntries(t *testing.T) {
+	with := func(provider catalog.ModalityProvider) catalog.ModalityManifest {
+		return catalog.ModalityManifest{SchemaVersion: 1, IDRules: []catalog.ModalityIDRule{{Pattern: "^x", Capabilities: []string{Vision}}}, Providers: map[string]catalog.ModalityProvider{"novita": provider}}
+	}
+	cases := map[string]catalog.ModalityProvider{
+		"native without base": {Generation: []catalog.ModalityGenerationModel{{ID: "m", Capabilities: []string{TextToSpeech}, Adapter: AdapterNovitaAudio}}},
+		"reserved adapter":    {NativeBaseURL: "https://api.novita.ai", Generation: []catalog.ModalityGenerationModel{{ID: "m", Capabilities: []string{VideoGeneration}, Adapter: AdapterPPIOVideo}}},
+		"adapter mismatch":    {NativeBaseURL: "https://api.novita.ai", Generation: []catalog.ModalityGenerationModel{{ID: "m", Capabilities: []string{Vision}, Adapter: AdapterNovitaAudio}}},
+		"unknown option":      {NativeBaseURL: "https://api.novita.ai", Generation: []catalog.ModalityGenerationModel{{ID: "m", Capabilities: []string{VideoGeneration}, Adapter: AdapterNovitaAsync, Options: []string{"fps"}}}},
+		"unknown unsupported": {Unsupported: []string{"smell"}},
+	}
+	for name, entry := range cases {
+		if _, err := NewRules(with(entry)); err == nil {
+			t.Errorf("%s accepted", name)
+		}
 	}
 }

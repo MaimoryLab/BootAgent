@@ -27,6 +27,8 @@ type Capability struct {
 	Installable bool `json:"installable"`
 	// Probe is the live check available for this capability; see ProbeKind.
 	Probe string `json:"probe"`
+	// Recommended marks the catalog's preferred model for this capability.
+	Recommended bool `json:"recommended,omitempty"`
 }
 
 // Model is one model with every capability found for it, in Capabilities order.
@@ -87,14 +89,48 @@ func NewRules(manifest catalog.ModalityManifest) (Rules, error) {
 			if !slices.Contains(Adapters, model.Adapter) {
 				return Rules{}, invalid(fmt.Sprintf("Modality provider %q model %q names unknown adapter %q", providerID, model.ID, model.Adapter))
 			}
+			if model.Adapter == AdapterPPIOVideo {
+				return Rules{}, invalid(fmt.Sprintf("Modality provider %q model %q names the reserved adapter %q", providerID, model.ID, model.Adapter))
+			}
+			if IsNative(model.Adapter) && entry.NativeBaseURL == "" {
+				return Rules{}, invalid(fmt.Sprintf("Modality provider %q model %q needs a native_base_url", providerID, model.ID))
+			}
 			for _, capability := range model.Capabilities {
 				if !slices.Contains(Capabilities, capability) {
 					return Rules{}, invalid(fmt.Sprintf("Modality provider %q model %q names unknown capability %q", providerID, model.ID, capability))
 				}
+				if !Serves(model.Adapter, capability) {
+					return Rules{}, invalid(fmt.Sprintf("Modality provider %q model %q: %s does not serve %s", providerID, model.ID, model.Adapter, capability))
+				}
+			}
+			for _, option := range model.Options {
+				if !slices.Contains(Options, option) {
+					return Rules{}, invalid(fmt.Sprintf("Modality provider %q model %q names unknown option %q", providerID, model.ID, option))
+				}
+			}
+		}
+		for _, capability := range entry.Unsupported {
+			if !slices.Contains(Capabilities, capability) {
+				return Rules{}, invalid(fmt.Sprintf("Modality provider %q marks unknown capability %q unsupported", providerID, capability))
 			}
 		}
 	}
 	return result, nil
+}
+
+// Unsupported lists the capabilities a Provider is known not to offer.
+func (r Rules) Unsupported(providerID string) []string {
+	return slices.Clone(r.providers[providerID].Unsupported)
+}
+
+// Generation returns the catalog entry for one Provider's model, if any.
+func (r Rules) Generation(providerID, modelID string) (catalog.ModalityGenerationModel, bool) {
+	for _, model := range r.providers[providerID].Generation {
+		if model.ID == modelID {
+			return model, true
+		}
+	}
+	return catalog.ModalityGenerationModel{}, false
 }
 
 // NativeBaseURL is the host root for a Provider's native routes, empty when
@@ -160,8 +196,13 @@ func DeclaredCapabilities(entry provider.ModelEntry) []string {
 //
 // The declared metadata answers for the whole model: a model that declares
 // modalities is not given more by an ID rule, because the Provider's own word
-// about a model it serves outranks a guess from its name. Generation models
-// the catalog lists for the Provider are appended with source catalog.
+// about a model it serves outranks a guess from its name.
+//
+// A catalog entry for a listed model outranks both for the capabilities it
+// names: the catalog names a verified route, where a declaration only says
+// the model produces, say, images, not how a gateway returns them. Catalog
+// models no listing has (async generation, native audio) are appended with
+// source catalog.
 func (r Rules) Resolve(providerID string, entries []provider.ModelEntry, verdicts map[string]map[string]provider.ModalityVerdict) []Model {
 	models := make([]Model, 0, len(entries))
 	seen := map[string]bool{}
@@ -176,10 +217,15 @@ func (r Rules) Resolve(providerID string, entries []provider.ModelEntry, verdict
 			source, claimed = SourceDeclared, DeclaredCapabilities(entry)
 		}
 		probed := verdicts[id]
+		generation, cataloged := r.Generation(providerID, id)
 		var capabilities []Capability
 		for _, capabilityID := range Capabilities {
 			if verdict, ok := probed[capabilityID]; ok {
 				capabilities = append(capabilities, probedCapability(capabilityID, verdict))
+				continue
+			}
+			if cataloged && slices.Contains(generation.Capabilities, capabilityID) {
+				capabilities = append(capabilities, catalogCapability(capabilityID, generation))
 				continue
 			}
 			if !slices.Contains(claimed, capabilityID) {
@@ -214,14 +260,7 @@ func (r Rules) Resolve(providerID string, entries []provider.ModelEntry, verdict
 				capabilities = append(capabilities, probedCapability(capabilityID, verdict))
 				continue
 			}
-			capabilities = append(capabilities, Capability{
-				ID:          capabilityID,
-				Source:      SourceCatalog,
-				Adapter:     generation.Adapter,
-				Supported:   true,
-				Installable: true,
-				Probe:       ProbeKind(generation.Adapter),
-			})
+			capabilities = append(capabilities, catalogCapability(capabilityID, generation))
 		}
 		models = append(models, Model{ID: generation.ID, Capabilities: capabilities})
 	}
@@ -258,6 +297,20 @@ func Find(models []Model, modelID, capability string) (Capability, bool) {
 		}
 	}
 	return Capability{}, false
+}
+
+// catalogCapability is a capability on a verified route the catalog names. It
+// installs without a probe; the probe, where one exists, is still offered.
+func catalogCapability(capabilityID string, generation catalog.ModalityGenerationModel) Capability {
+	return Capability{
+		ID:          capabilityID,
+		Source:      SourceCatalog,
+		Adapter:     generation.Adapter,
+		Supported:   true,
+		Installable: true,
+		Probe:       ProbeKind(generation.Adapter),
+		Recommended: generation.Recommended,
+	}
 }
 
 func probedCapability(capabilityID string, verdict provider.ModalityVerdict) Capability {

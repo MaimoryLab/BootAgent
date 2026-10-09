@@ -116,7 +116,10 @@ export type MultimodalCapability = Omit<ModalityModels.Capability, "id" | "sourc
   probe: MultimodalProbeKind;
 };
 export type MultimodalModel = Omit<ModalityModels.Model, "capabilities"> & { capabilities: MultimodalCapability[] };
-export type MultimodalProvider = Omit<AppModels.MultimodalProvider, "models"> & { models: MultimodalModel[] };
+export type MultimodalProvider = Omit<AppModels.MultimodalProvider, "models" | "unsupported"> & {
+  models: MultimodalModel[];
+  unsupported: MultimodalCapabilityId[];
+};
 export type InstalledMultimodal = Omit<AppModels.InstalledMultimodal, "capability" | "agents"> & {
   capability: MultimodalCapabilityId;
   agents: string[];

@@ -32,6 +32,7 @@ const gateway: MultimodalProvider = {
   id: "novita",
   name: "Novita",
   keyEnv: "BOOTAGENT_NOVITA_API_KEY",
+  unsupported: [],
   listed: true,
   models: [
     {
@@ -83,6 +84,14 @@ describe("groupByCapability", () => {
   });
 });
 
+describe("recommended models", () => {
+  it("preselects the catalog's recommended model among equally usable ones", () => {
+    const speech = (id: string, recommended: boolean) => ({ id, capabilities: [{ id: "text-to-speech" as const, source: "catalog" as const, adapter: "novita-audio", supported: true, installable: true, probe: "minimal" as const, recommended }] });
+    const groups = groupByCapability({ ...gateway, models: [speech("minimax-speech-2.8-hd", false), speech("minimax-speech-2.8-turbo", true)] });
+    expect(groups[0].options[0].model).toBe("minimax-speech-2.8-turbo");
+  });
+});
+
 describe("installLabel", () => {
   it("never calls a guess installable, and says what would settle it", () => {
     const [guess, video] = gateway.models[0].capabilities;
@@ -125,7 +134,7 @@ describe("groupInstalled", () => {
 
 describe("example prompts", () => {
   it("has bilingual prompts for every capability that can be installed", () => {
-    for (const capability of ["vision", "image-generation", "speech-to-text", "text-to-speech"] as const) {
+    for (const capability of ["vision", "image-generation", "speech-to-text", "text-to-speech", "video-generation"] as const) {
       const prompts = EXAMPLE_PROMPTS[capability] ?? [];
       expect(prompts.length).toBeGreaterThanOrEqual(2);
       for (const prompt of prompts) {
@@ -238,6 +247,25 @@ describe("MultimodalSection", () => {
     expect(screen.getAllByRole("button", { name: /^实测$/ })).toHaveLength(1);
   });
 
+  it("says which capabilities a Provider documents no API for", async () => {
+    detectMultimodal.mockResolvedValue(detection({ providers: [{ ...gateway, unsupported: ["video-generation"] }] }));
+    renderSection();
+    expect(await screen.findByText("视频生成：该模型服务目前没有可核实的公开接口，暂不支持。")).toBeTruthy();
+  });
+
+  it("offers install without a probe for a catalog video model", async () => {
+    detectMultimodal.mockResolvedValue(detection({
+      generatable: [...GENERATABLE, "novita-async"],
+      providers: [{ ...gateway, models: [{ id: "wan2.7-t2v", capabilities: [{ id: "video-generation", source: "catalog", adapter: "novita-async", supported: true, installable: true, probe: "", recommended: true }] }] }],
+    }));
+    renderSection();
+    expect(await screen.findByLabelText("视频生成")).toBeTruthy();
+    expect(screen.getByText("内置目录")).toBeTruthy();
+    const row = screen.getByLabelText("视频生成").closest("li") as HTMLElement;
+    expect(within(row).queryByRole("button", { name: /^实测$/ })).toBeNull();
+    expect(within(row).getByRole("button", { name: /^安装$/ })).toBeTruthy();
+  });
+
   it("points to the Providers page when no key is saved", async () => {
     detectMultimodal.mockResolvedValue(detection({ providers: [] }));
     renderSection();
@@ -245,7 +273,7 @@ describe("MultimodalSection", () => {
   });
 
   it("reports a failed listing without hiding the Provider", async () => {
-    detectMultimodal.mockResolvedValue(detection({ providers: [{ id: "deepseek", name: "DeepSeek", keyEnv: "BOOTAGENT_DEEPSEEK_API_KEY", listed: false, message: "API key was rejected (401).", errorCode: "API_KEY_REJECTED", models: [] }] }));
+    detectMultimodal.mockResolvedValue(detection({ providers: [{ id: "deepseek", name: "DeepSeek", keyEnv: "BOOTAGENT_DEEPSEEK_API_KEY", unsupported: [], listed: false, message: "API key was rejected (401).", errorCode: "API_KEY_REJECTED", models: [] }] }));
     renderSection();
     expect(await screen.findByText(/无法读取模型列表/)).toBeTruthy();
   });

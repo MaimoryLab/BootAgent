@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"image/png"
 	"io"
 	"net/http"
@@ -479,4 +480,45 @@ func TestSlowProbesOutlastTheChatTimeout(t *testing.T) {
 	}))
 	_, _ = client.ProbeImageGeneration(context.Background(), "k", "m", "https://proxy.test")
 	_, _ = client.ProbeSpeech(context.Background(), "k", "m", "https://proxy.test")
+}
+
+func TestProbeNativeSpeechReadsTheVerdictInTheBody(t *testing.T) {
+	var seen *http.Request
+	var body map[string]any
+	answer := `{"data":{"audio":"4944"},"base_resp":{"status_code":0,"status_msg":"success"}}`
+	client := NewClient(fakeDoer(func(request *http.Request) (*http.Response, error) {
+		seen = request
+		_ = json.NewDecoder(request.Body).Decode(&body)
+		return fakeResponse(http.StatusOK, answer), nil
+	}))
+	result, err := client.ProbeNativeSpeech(context.Background(), "sk-native", "minimax-speech-2.8-turbo", "https://api.novita.ai")
+	if err != nil || !result.OK {
+		t.Fatalf("result = %#v, %v", result, err)
+	}
+	if seen.URL.String() != "https://api.novita.ai/v3/minimax-speech-2.8-turbo" || body["text"] != "ok" {
+		t.Fatalf("url = %v, body = %#v", seen.URL, body)
+	}
+	if voice := body["voice_setting"].(map[string]any)["voice_id"]; voice != NativeSpeechVoice {
+		t.Fatalf("voice = %v", voice)
+	}
+	for code, want := range map[int]string{1004: oneerrors.APIKeyRejected, 1002: oneerrors.ProviderUnreachable, 2013: oneerrors.ProviderUnreachable} {
+		answer = fmt.Sprintf(`{"base_resp":{"status_code":%d,"status_msg":"refused for this voice"}}`, code)
+		result, err := client.ProbeNativeSpeech(context.Background(), "sk-native", "minimax-speech-2.8-turbo", "https://api.novita.ai")
+		if err != nil || result.OK || result.ErrorCode == nil || *result.ErrorCode != want {
+			t.Fatalf("code %d: result = %#v, %v", code, result, err)
+		}
+		if result.Detail != "refused for this voice" {
+			t.Fatalf("detail = %q", result.Detail)
+		}
+	}
+	answer = `{"base_resp":{"status_code":1002,"status_msg":"rate limit"}}`
+	// The app reads 408, 429 and 5xx as transient from the status alone.
+	if result, _ := client.ProbeNativeSpeech(context.Background(), "sk-native", "m", "https://api.novita.ai"); result.Status != http.StatusTooManyRequests || !result.Reachable {
+		t.Fatalf("rate limit should map to 429: %#v", result)
+	}
+	for _, model := range []string{"", "../x", "m?x=1", "a/b"} {
+		if _, err := client.ProbeNativeSpeech(context.Background(), "sk-native", model, "https://api.novita.ai"); err == nil {
+			t.Fatalf("model %q accepted as a path segment", model)
+		}
+	}
 }

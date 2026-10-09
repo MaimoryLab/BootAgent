@@ -39,11 +39,42 @@ const (
 	AdapterImages              = "openai-images"
 	AdapterAudioTranscriptions = "openai-audio-transcriptions"
 	AdapterAudioSpeech         = "openai-audio-speech"
-	// Native routes at the Provider's host root, named by the catalog.
+	// Native routes at the Provider's host root, named by the catalog. Novita,
+	// PPIO and JieKou.AI document the same native API family, so the adapters
+	// are named after Novita, where it was first documented, and serve all
+	// three: novita-async submits to /v3/async/<model> and polls
+	// /v3/async/task-result; novita-audio posts to /v3/<model> and gets the
+	// audio back in the response.
 	AdapterNovitaAsync = "novita-async"
 	AdapterNovitaAudio = "novita-audio"
-	AdapterPPIOVideo   = "ppio-video"
+	// AdapterPPIOVideo is reserved. PPIO's unified video route
+	// (/v3/video/create) was documented when this design began and is not any
+	// more; no catalog entry may name it until it can be verified again.
+	AdapterPPIOVideo = "ppio-video"
 )
+
+// nativeAdapters reach the Provider's host root rather than its OpenAI base,
+// so a Skill using one needs the catalog's native_base_url.
+var nativeAdapters = map[string]bool{AdapterNovitaAsync: true, AdapterNovitaAudio: true, AdapterPPIOVideo: true}
+
+// IsNative reports whether an adapter needs the Provider's native base URL.
+func IsNative(adapter string) bool {
+	return nativeAdapters[adapter]
+}
+
+// Generation options are the request fields beyond the prompt that an async
+// generation model may document. The vocabulary is closed: the generated
+// script maps each to one command-line flag and refuses anything else.
+const (
+	OptionDuration       = "duration"
+	OptionSize           = "size"
+	OptionAspectRatio    = "aspect_ratio"
+	OptionNegativePrompt = "negative_prompt"
+	OptionSound          = "sound"
+)
+
+// Options is the closed option vocabulary.
+var Options = []string{OptionDuration, OptionSize, OptionAspectRatio, OptionNegativePrompt, OptionSound}
 
 // Adapters is the closed vocabulary the catalog may name.
 var Adapters = []string{
@@ -99,6 +130,7 @@ var probeKind = map[string]string{
 	AdapterAudioTranscriptions: ProbeMinimal,
 	AdapterAudioSpeech:         ProbeMinimal,
 	AdapterImages:              ProbeConfirm,
+	AdapterNovitaAudio:         ProbeMinimal,
 }
 
 // ProbeKind reports how an adapter can be probed.
@@ -117,7 +149,7 @@ var adapterCapability = map[string]string{
 	AdapterAudioTranscriptions: SpeechToText,
 	AdapterAudioSpeech:         TextToSpeech,
 	AdapterNovitaAsync:         "",
-	AdapterNovitaAudio:         "",
+	AdapterNovitaAudio:         TextToSpeech,
 	AdapterPPIOVideo:           VideoGeneration,
 }
 

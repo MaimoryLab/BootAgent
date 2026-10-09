@@ -42,6 +42,8 @@ type MultimodalProvider struct {
 	// KeyEnv is the variable an install writes this Provider's key into, so
 	// the install confirmation can name it.
 	KeyEnv string `json:"keyEnv"`
+	// Unsupported lists capabilities this Provider documents no API for.
+	Unsupported []string `json:"unsupported"`
 	// Listed is false when /models could not be read. Message and ErrorCode
 	// then say why; catalog generation models are still listed, since they do
 	// not come from /models.
@@ -139,7 +141,10 @@ func (u *UseCases) DetectMultimodal(ctx context.Context) (MultimodalDetection, e
 }
 
 func (u *UseCases) detectProvider(ctx context.Context, rules modality.Rules, target provider.Entry) MultimodalProvider {
-	result := MultimodalProvider{ID: target.ID, Name: target.Name, KeyEnv: configWriter.SkillEnvName(target.ID), Models: []modality.Model{}}
+	result := MultimodalProvider{ID: target.ID, Name: target.Name, KeyEnv: configWriter.SkillEnvName(target.ID), Unsupported: rules.Unsupported(target.ID), Models: []modality.Model{}}
+	if result.Unsupported == nil {
+		result.Unsupported = []string{}
+	}
 	listing, err := u.provider.ListModels(ctx, "custom", target.APIKey, target.BaseURL)
 	var entries []provider.ModelEntry
 	switch {
@@ -201,8 +206,18 @@ func (u *UseCases) ProbeMultimodal(ctx context.Context, providerID, model, capab
 		check.Status, check.Reason = ModelCheckUnverified, "no_key"
 		return check, nil
 	}
+	base := target.BaseURL
 	var probe func(context.Context, string, string, string) (provider.ProbeResult, error)
 	switch adapter {
+	case modality.AdapterNovitaAudio:
+		rules, err := modality.Load()
+		if err != nil {
+			return nil, err
+		}
+		if base = rules.NativeBaseURL(target.ID); base == "" {
+			return nil, oneerrors.New(oneerrors.InvalidRequest, "This Provider has no native speech route")
+		}
+		probe = u.provider.ProbeNativeSpeech
 	case modality.AdapterChatVision:
 		probe = u.provider.ProbeVision
 	case modality.AdapterAudioTranscriptions:
@@ -214,7 +229,7 @@ func (u *UseCases) ProbeMultimodal(ctx context.Context, providerID, model, capab
 	default:
 		return nil, oneerrors.New(oneerrors.InvalidRequest, "No live check is available for "+adapter)
 	}
-	result, err := probe(ctx, target.APIKey, model, target.BaseURL)
+	result, err := probe(ctx, target.APIKey, model, base)
 	if ctx.Err() != nil {
 		return nil, contextError(ctx, "Multimodal probe was cancelled")
 	}

@@ -6,14 +6,14 @@
 // dependencies. The API key comes from the environment variable named in
 // config.json, or from BootAgent's private fallback file; it is never printed.
 
-import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { createWriteStream, existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, dirname, extname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const EXIT = { ok: 0, internal: 1, usage: 2, setup: 3, refused: 4, key: 5, unavailable: 6 };
+const EXIT = { ok: 0, internal: 1, usage: 2, setup: 3, refused: 4, key: 5, unavailable: 6, pending: 7 };
 const MiB = 1024 * 1024;
-const LIMITS = { image: 20 * MiB, audio: 25 * MiB, download: 50 * MiB, speech: 50 * MiB };
+const LIMITS = { image: 20 * MiB, audio: 25 * MiB, download: 50 * MiB, speech: 50 * MiB, video: 2048 * MiB };
 
 class Failure extends Error {
   constructor(code, message) {
@@ -49,6 +49,9 @@ function loadConfig() {
     if (typeof config[field] !== "string" || !config[field]) fail(EXIT.setup, `config.json has no ${field}. Reinstall the Skill from BootAgent.`);
   }
   if (!/^https?:\/\//.test(config.base_url)) fail(EXIT.setup, "config.json has an invalid base_url. Reinstall the Skill from BootAgent.");
+  if (NATIVE.has(config.adapter) && !/^https:\/\/[^/]+$/.test(config.native_base_url ?? "")) {
+    fail(EXIT.setup, "config.json has no native_base_url. Reinstall the Skill from BootAgent.");
+  }
   return config;
 }
 
@@ -175,8 +178,11 @@ function detail(text) {
   return message.length > 400 ? `${message.slice(0, 400)}…` : message;
 }
 
-async function call(config, key, path, init, timeoutMs) {
-  const url = config.base_url.replace(/\/+$/, "") + path;
+const NATIVE = new Set(["novita-audio", "novita-async"]);
+
+// base picks the OpenAI-compatible route or the Provider's host root.
+async function call(config, key, path, init, timeoutMs, base = config.base_url) {
+  const url = base.replace(/\/+$/, "") + path;
   let response;
   try {
     response = await fetch(url, {
@@ -317,18 +323,172 @@ async function speak(config, key, options, timeoutMs) {
   process.stdout.write(writeOutput(target, data) + "\n");
 }
 
-const COMMANDS = {
-  vision: { name: "describe", run: describe, timeout: 120 },
-  "image-generation": { name: "generate", run: generate, timeout: 300 },
-  "speech-to-text": { name: "transcribe", run: transcribe, timeout: 300 },
-  "text-to-speech": { name: "speak", run: speak, timeout: 120 },
-};
+// MiniMax-style routes answer HTTP 200 for some refusals and carry the
+// verdict in base_resp.status_code.
+function checkBaseResp(body) {
+  const code = body?.base_resp?.status_code;
+  if (code === undefined || code === 0) return;
+  const said = detail(JSON.stringify({ message: body?.base_resp?.status_msg ?? "" }));
+  const suffix = said ? `: ${said}` : ".";
+  if (code === 1004) fail(EXIT.key, `The provider rejected the API key (${code})${suffix}`);
+  if (code === 1002 || code === 1039) fail(EXIT.unavailable, `The provider is rate limiting (${code})${suffix}`);
+  if (code === 1000 || code === 1001) fail(EXIT.unavailable, `The provider failed (${code})${suffix}`);
+  fail(EXIT.refused, `The provider refused the request (${code})${suffix}`);
+}
 
-const ADAPTERS = {
-  vision: "openai-chat-vision",
-  "image-generation": "openai-images",
-  "speech-to-text": "openai-audio-transcriptions",
-  "text-to-speech": "openai-audio-speech",
+const NATIVE_SPEECH_FORMATS = ["mp3", "wav", "flac", "pcm"];
+
+async function speakNative(config, key, options, timeoutMs) {
+  if (!options.text) fail(EXIT.usage, "Give the --text to speak.");
+  if (options.text.length > 9999) fail(EXIT.usage, "--text is longer than 9999 characters; split it.");
+  const format = (options.format || "mp3").toLowerCase();
+  if (!NATIVE_SPEECH_FORMATS.includes(format)) fail(EXIT.usage, `--format must be one of ${NATIVE_SPEECH_FORMATS.join(", ")}.`);
+  const voice = { voice_id: options.voice || "English_Graceful_Lady" };
+  if (options.speed !== undefined) {
+    const speed = Number(options.speed);
+    if (!(speed >= 0.5 && speed <= 2)) fail(EXIT.usage, "--speed must be from 0.5 to 2.");
+    voice.speed = speed;
+  }
+  const response = await call(config, key, `/v3/${encodeURIComponent(config.model)}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text: options.text, voice_setting: voice, audio_setting: { format }, output_format: "hex" }),
+  }, timeoutMs, config.native_base_url);
+  const body = await json(response);
+  checkBaseResp(body);
+  const hex = body?.data?.audio;
+  if (typeof hex !== "string" || !hex || !/^[0-9a-fA-F]+$/.test(hex) || hex.length % 2) fail(EXIT.unavailable, "The provider returned no audio.");
+  const data = Buffer.from(hex, "hex");
+  if (data.length > LIMITS.speech) fail(EXIT.unavailable, "The audio is larger than expected and was not saved.");
+  const target = options.out && extname(options.out)
+    ? options.out
+    : join(options.out || config.output_dir || "bootagent-output", `speech-${stamp()}.${format}`);
+  process.stdout.write(writeOutput(target, data) + "\n");
+}
+
+const VIDEO_FLAGS = { duration: "duration", size: "size", "aspect-ratio": "aspect_ratio", "negative-prompt": "negative_prompt", sound: "sound" };
+
+async function generateVideo(config, key, options, timeoutMs) {
+  if (!options.prompt) fail(EXIT.usage, "Give a --prompt.");
+  const allowed = new Set(config.options ?? []);
+  const request = { prompt: options.prompt };
+  for (const [flag, field] of Object.entries(VIDEO_FLAGS)) {
+    if (options[flag] === undefined) continue;
+    if (!allowed.has(field)) fail(EXIT.usage, `${config.model} does not take --${flag}.`);
+    if (field === "duration") request.duration = positiveInt(options[flag], flag, 5, 60);
+    else if (field === "sound") {
+      if (options[flag] !== "true" && options[flag] !== "false") fail(EXIT.usage, "--sound must be true or false.");
+      request.sound = options[flag] === "true";
+    } else request[field] = options[flag];
+  }
+  for (const flag of Object.keys(options)) {
+    if (!["_", "prompt", "out", "timeout", ...Object.keys(VIDEO_FLAGS)].includes(flag)) fail(EXIT.usage, `Unknown option --${flag}.`);
+  }
+  const deadline = Date.now() + timeoutMs;
+  const response = await call(config, key, `/v3/async/${encodeURIComponent(config.model)}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(request),
+  }, Math.min(timeoutMs, 60000), config.native_base_url);
+  const body = await json(response);
+  const task = body?.task_id;
+  if (typeof task !== "string" || !task) fail(EXIT.unavailable, "The provider returned no task id.");
+  process.stderr.write(`task: ${task}\n`);
+  await finishVideo(config, key, task, options, deadline);
+}
+
+async function videoResult(config, key, options, timeoutMs) {
+  if (!options.task || !/^[A-Za-z0-9._-]{1,128}$/.test(options.task)) fail(EXIT.usage, "Give the --task id the video command printed.");
+  await finishVideo(config, key, options.task, options, Date.now() + timeoutMs);
+}
+
+const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
+
+// Polls the task until it settles or the deadline passes. A busy or briefly
+// unreachable provider is polled again; a refusal or a failed task is final,
+// because retrying a generation spends money.
+async function finishVideo(config, key, task, options, deadline) {
+  let delay = 5000;
+  for (;;) {
+    let body;
+    try {
+      const response = await call(config, key, `/v3/async/task-result?task_id=${encodeURIComponent(task)}`, { method: "GET" }, 30000, config.native_base_url);
+      body = await json(response);
+    } catch (error) {
+      if (!(error instanceof Failure) || error.code !== EXIT.unavailable) throw error;
+    }
+    const status = body?.task?.status;
+    if (status === "TASK_STATUS_SUCCEED") {
+      const videos = Array.isArray(body?.videos) ? body.videos.filter((item) => typeof item?.video_url === "string") : [];
+      if (!videos.length) fail(EXIT.unavailable, `Task ${task} finished without a video.`);
+      const directory = resolve(options.out || config.output_dir || "bootagent-output");
+      const saved = [];
+      for (const [index, item] of videos.entries()) {
+        const extension = item.video_type === "gif" ? "gif" : "mp4";
+        const name = `video-${stamp()}${videos.length > 1 ? `-${index + 1}` : ""}.${extension}`;
+        saved.push(await downloadTo(item.video_url, join(directory, name), Math.max(deadline - Date.now(), 120000)));
+      }
+      process.stdout.write(saved.join("\n") + "\n");
+      return;
+    }
+    if (status === "TASK_STATUS_FAILED") {
+      const reason = redact(String(body?.task?.reason ?? "")).slice(0, 400);
+      fail(EXIT.refused, `Task ${task} failed${reason ? `: ${reason}` : "."}`);
+    }
+    // The provider's eta paces the next poll when it gives one; otherwise
+    // back off from 5 s to 15 s.
+    const eta = Number(body?.task?.eta);
+    const wait = Number.isFinite(eta) && eta > 0 ? Math.min(Math.max(eta * 1000, 1000), 15000) : delay;
+    if (Date.now() + wait > deadline) {
+      fail(EXIT.pending, `Task ${task} has not finished yet. It may still finish and be billed; fetch it later with: video-result --task ${task}`);
+    }
+    await sleep(wait);
+    delay = Math.min(delay + 5000, 15000);
+  }
+}
+
+// Streams a result to disk, so a large video is never held in memory, and
+// removes the partial file on failure. The URL is pre-signed and may be on
+// another host, so the key is not sent.
+async function downloadTo(url, path, timeoutMs) {
+  let response;
+  try {
+    response = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
+  } catch {
+    fail(EXIT.unavailable, "Cannot download the result from the provider.");
+  }
+  if (!response.ok || !response.body) fail(EXIT.unavailable, `Cannot download the result (HTTP ${response.status}).`);
+  const target = freePath(resolve(path));
+  mkdirSync(dirname(target), { recursive: true });
+  const partial = `${target}.part`;
+  const out = createWriteStream(partial);
+  let size = 0;
+  try {
+    for await (const chunk of response.body) {
+      size += chunk.length;
+      if (size > LIMITS.video) throw new Failure(EXIT.unavailable, "The result is larger than expected and was not saved.");
+      if (!out.write(chunk)) await new Promise((done) => out.once("drain", done));
+    }
+    await new Promise((done, failed) => out.end((error) => (error ? failed(error) : done())));
+    renameSync(partial, target);
+  } catch (error) {
+    out.destroy();
+    rmSync(partial, { force: true });
+    if (error instanceof Failure) throw error;
+    fail(EXIT.unavailable, "The download was interrupted.");
+  }
+  return target;
+}
+
+// Each capability and adapter this script implements: the subcommand, its
+// handler and default timeout in seconds, plus any extra subcommands.
+const COMMANDS = {
+  "vision/openai-chat-vision": { name: "describe", run: describe, timeout: 120 },
+  "image-generation/openai-images": { name: "generate", run: generate, timeout: 300 },
+  "speech-to-text/openai-audio-transcriptions": { name: "transcribe", run: transcribe, timeout: 300 },
+  "text-to-speech/openai-audio-speech": { name: "speak", run: speak, timeout: 120 },
+  "text-to-speech/novita-audio": { name: "speak", run: speakNative, timeout: 120 },
+  "video-generation/novita-async": { name: "video", run: generateVideo, timeout: 600, extra: { "video-result": videoResult } },
 };
 
 async function main() {
@@ -337,8 +497,8 @@ async function main() {
     fail(EXIT.setup, `Node.js 18 or later is required; this is ${process.versions.node}.`);
   }
   const config = loadConfig();
-  const command = COMMANDS[config.capability];
-  if (!command || ADAPTERS[config.capability] !== config.adapter) {
+  const command = COMMANDS[`${config.capability}/${config.adapter}`];
+  if (!command) {
     fail(EXIT.setup, `This version of the script cannot run ${config.capability} over ${config.adapter}. Reinstall the Skill from BootAgent.`);
   }
   const [subcommand, ...rest] = process.argv.slice(2);
@@ -351,12 +511,13 @@ async function main() {
     process.stdout.write(`ready: ${config.capability} with ${config.model}\n`);
     return;
   }
-  if (subcommand !== command.name) fail(EXIT.usage, `This Skill runs "${command.name}", not "${subcommand}".`);
+  const run = subcommand === command.name ? command.run : command.extra?.[subcommand];
+  if (!run) fail(EXIT.usage, `This Skill runs "${command.name}", not "${subcommand}".`);
   const options = parseArgs(rest);
   if (options._.length) fail(EXIT.usage, `Unexpected argument: ${options._[0]}`);
-  const timeout = positiveInt(options.timeout, "timeout", command.timeout, 3600) * 1000;
+  const timeout = positiveInt(options.timeout, "timeout", command.timeout, 7200) * 1000;
   const key = loadKey(config);
-  await command.run(config, key, options, timeout);
+  await run(config, key, options, timeout);
 }
 
 main().then(

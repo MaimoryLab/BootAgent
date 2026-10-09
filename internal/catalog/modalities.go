@@ -44,6 +44,10 @@ type ModalityProvider struct {
 	// (https://api.novita.ai/openai), which is not where those routes live.
 	NativeBaseURL string                    `json:"native_base_url"`
 	Generation    []ModalityGenerationModel `json:"generation"`
+	// Unsupported names capabilities this Provider is known not to offer
+	// through any documented API, so the UI can say so instead of showing
+	// nothing.
+	Unsupported []string `json:"unsupported,omitempty"`
 }
 
 // ModalityGenerationModel is a model only the catalog knows about: the async
@@ -52,6 +56,13 @@ type ModalityGenerationModel struct {
 	ID           string   `json:"id"`
 	Capabilities []string `json:"capabilities"`
 	Adapter      string   `json:"adapter"`
+	// Options are the request fields the model documents beyond the prompt,
+	// from the adapter's option vocabulary. The generated script refuses any
+	// other.
+	Options []string `json:"options,omitempty"`
+	// Recommended marks the model preselected for its capability on this
+	// Provider, usually the cheaper of two that do the same job.
+	Recommended bool `json:"recommended,omitempty"`
 }
 
 func LoadEmbeddedModalities() (ModalityManifest, error) {
@@ -97,7 +108,7 @@ func ParseModalities(data []byte) (ModalityManifest, error) {
 		if _, ok := ProviderByID(providerID); !ok {
 			return ModalityManifest{}, invalidModalities(fmt.Sprintf("Modality provider %q is not a built-in Provider", providerID))
 		}
-		if !httpsURL(entry.NativeBaseURL) || strings.HasSuffix(entry.NativeBaseURL, "/") {
+		if entry.NativeBaseURL != "" && (!httpsURL(entry.NativeBaseURL) || strings.HasSuffix(entry.NativeBaseURL, "/")) {
 			return ModalityManifest{}, invalidModalities(fmt.Sprintf("Modality provider %q has an invalid native_base_url", providerID))
 		}
 		seen := map[string]bool{}
@@ -130,9 +141,10 @@ func cloneModalityManifest(source ModalityManifest) ModalityManifest {
 		models := make([]ModalityGenerationModel, len(entry.Generation))
 		for index, model := range entry.Generation {
 			model.Capabilities = append([]string(nil), model.Capabilities...)
+			model.Options = append([]string(nil), model.Options...)
 			models[index] = model
 		}
-		result.Providers[id] = ModalityProvider{NativeBaseURL: entry.NativeBaseURL, Generation: models}
+		result.Providers[id] = ModalityProvider{NativeBaseURL: entry.NativeBaseURL, Generation: models, Unsupported: append([]string(nil), entry.Unsupported...)}
 	}
 	return result
 }

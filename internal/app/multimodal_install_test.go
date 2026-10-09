@@ -384,3 +384,95 @@ func TestImportedLookalikeGetsNoKey(t *testing.T) {
 		t.Fatalf("an imported tree was listed as installed: %#v", installed)
 	}
 }
+
+// jiekouCore keys the built-in JieKou.AI Provider, whose catalog lists async
+// video, native speech and GPT Image models.
+func jiekouCore(t *testing.T, gateway *multimodalGateway) (*UseCases, string) {
+	t.Helper()
+	core, home := multimodalInstallCore(t, gateway)
+	if _, err := core.SaveProvider(context.Background(), provider.Entry{ID: "jiekou", Name: "JieKou.AI", BaseURL: "https://api.highwayapi.ai/openai", APIKey: multimodalKey}, false, false); err != nil {
+		t.Fatal(err)
+	}
+	return core, home
+}
+
+func TestCatalogVideoInstallsWithItsOptionsAndNoProbe(t *testing.T) {
+	gateway := &multimodalGateway{listing: `{"data":[]}`}
+	core, home := jiekouCore(t, gateway)
+	detection, err := core.DetectMultimodal(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var jiekou MultimodalProvider
+	for _, entry := range detection.Providers {
+		if entry.ID == "jiekou" {
+			jiekou = entry
+		}
+	}
+	video, ok := modality.Find(jiekou.Models, "kling-v3.0-4k-t2v", modality.VideoGeneration)
+	if !ok || !video.Installable || video.Probe != modality.ProbeNone {
+		t.Fatalf("catalog video = %#v, %v", video, ok)
+	}
+	// Video generation is never probed: a probe would be a full billed run.
+	if _, err := core.ProbeMultimodal(context.Background(), "jiekou", "kling-v3.0-4k-t2v", modality.VideoGeneration, modality.AdapterNovitaAsync, true); err == nil {
+		t.Fatal("a video generation probe was accepted")
+	}
+	result, err := core.InstallMultimodal(context.Background(), MultimodalInstallRequest{Provider: "jiekou", Model: "kling-v3.0-4k-t2v", Capability: modality.VideoGeneration, Agents: []string{"codex"}})
+	if err != nil || !result.Results[0].Installed || !result.Results[0].EnvWritten {
+		t.Fatalf("install = %#v", result)
+	}
+	if posts := gateway.billed(); len(posts) != 0 {
+		t.Fatalf("install sent billed requests: %v", posts)
+	}
+	cfg, err := skillgen.ReadConfig(filepath.Join(home, ".codex", "skills", "bootagent-video-generation"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.NativeBaseURL != "https://api.highwayapi.ai" || strings.Join(cfg.Options, ",") != "duration,aspect_ratio,negative_prompt,sound" || cfg.KeyEnv != "BOOTAGENT_JIEKOU_API_KEY" {
+		t.Fatalf("config = %#v", cfg)
+	}
+	if codexSet(t, home)["BOOTAGENT_JIEKOU_API_KEY"] != multimodalKey {
+		t.Fatal("the key variable was not written")
+	}
+}
+
+func TestNativeSpeechProbeUsesTheNativeRoute(t *testing.T) {
+	gateway := &multimodalGateway{listing: `{"data":[]}`}
+	core, _ := jiekouCore(t, gateway)
+	check, err := core.ProbeMultimodal(context.Background(), "jiekou", "minimax-speech-2.8-turbo", modality.TextToSpeech, modality.AdapterNovitaAudio, false)
+	if err != nil || check.Status != ModelCheckAvailable {
+		t.Fatalf("probe = %#v, %v", check, err)
+	}
+	posts := gateway.billed()
+	if len(posts) != 1 || !strings.HasPrefix(posts[0], "POST /v3/minimax-speech-2.8-turbo") {
+		t.Fatalf("probe went to %v", posts)
+	}
+	// A Provider without a native route cannot take this probe.
+	if _, err := core.ProbeMultimodal(context.Background(), "gw", "minimax-speech-2.8-turbo", modality.TextToSpeech, modality.AdapterNovitaAudio, false); err == nil {
+		t.Fatal("a native probe ran on a Provider with no native route")
+	}
+}
+
+func TestDetectionMarksUndocumentedCapabilities(t *testing.T) {
+	gateway := &multimodalGateway{listing: `{"data":[]}`}
+	core, _ := multimodalInstallCore(t, gateway)
+	if _, err := core.SaveProvider(context.Background(), provider.Entry{ID: "ppio", Name: "PPIO", BaseURL: "https://api.ppio.com/openai", APIKey: multimodalKey}, false, false); err != nil {
+		t.Fatal(err)
+	}
+	detection, err := core.DetectMultimodal(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range detection.Providers {
+		switch entry.ID {
+		case "ppio":
+			if strings.Join(entry.Unsupported, ",") != modality.VideoGeneration {
+				t.Fatalf("ppio unsupported = %v", entry.Unsupported)
+			}
+		case "gw":
+			if len(entry.Unsupported) != 0 {
+				t.Fatalf("a custom Provider was marked: %v", entry.Unsupported)
+			}
+		}
+	}
+}
