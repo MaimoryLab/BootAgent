@@ -157,8 +157,10 @@ func TestInstallMultimodalPublishesAndWritesTheKeyOnlyWhereItBelongs(t *testing.
 	if len(detection.Installed) != 1 || detection.Installed[0].Model != "qwen/qwen3-vl-8b" || len(detection.Installed[0].Agents) != 2 {
 		t.Fatalf("installed = %#v", detection.Installed)
 	}
-	if strings.Join(detection.Targets, ",") != "claude-code,codex" {
-		t.Fatalf("targets = %v", detection.Targets)
+	// Hermes has a Skills directory but is not offered yet; see
+	// pendingSkillTargets.
+	if strings.Join(detection.Targets, ",") != "claude-code,codex,opencode" || strings.Join(detection.Fallback, ",") != "opencode" {
+		t.Fatalf("targets = %v, fallback = %v", detection.Targets, detection.Fallback)
 	}
 }
 
@@ -186,10 +188,10 @@ func TestInstallMultimodalRefusesWeakEvidence(t *testing.T) {
 			t.Fatalf("%v after a probe: %#v", target, result)
 		}
 	}
-	// An Agent with no native place for the key is not offered here.
-	result := installSkill(t, core, "qwen/qwen3-vl-8b", modality.Vision, "opencode")
+	// Hermes is not offered until its Node question is settled.
+	result := installSkill(t, core, "qwen/qwen3-vl-8b", modality.Vision, "hermes")
 	if len(result.Results) != 1 || result.Results[0].Installed || result.Results[0].Error == "" {
-		t.Fatalf("opencode result = %#v", result)
+		t.Fatalf("hermes result = %#v", result)
 	}
 }
 
@@ -474,5 +476,130 @@ func TestDetectionMarksUndocumentedCapabilities(t *testing.T) {
 				t.Fatalf("a custom Provider was marked: %v", entry.Unsupported)
 			}
 		}
+	}
+}
+
+// OpenCode documents no way to set its shell tool's environment, so its
+// Skill reads the private fallback file.
+func TestOpenCodeInstallsWithTheFallbackFile(t *testing.T) {
+	gateway := &multimodalGateway{listing: gatewayListing}
+	core, home := multimodalInstallCore(t, gateway)
+	result := installSkill(t, core, "qwen/qwen3-vl-8b", modality.Vision, "opencode")
+	if !result.Results[0].Installed || !result.Results[0].EnvWritten {
+		t.Fatalf("result = %#v", result)
+	}
+	if _, err := os.Stat(filepath.Join(home, ".config", "opencode", "skills", "bootagent-vision", "SKILL.md")); err != nil {
+		t.Fatal(err)
+	}
+	fallback := filepath.Join(home, ".bootagent", "skill-env", "gw.env")
+	if data, err := os.ReadFile(fallback); err != nil || !strings.Contains(string(data), "BOOTAGENT_GW_API_KEY=") {
+		t.Fatalf("fallback = %q, %v", data, err)
+	}
+	// Nothing was written into OpenCode's own configuration.
+	if data, err := os.ReadFile(filepath.Join(home, ".config", "opencode", "opencode.json")); err == nil && strings.Contains(string(data), multimodalKey) {
+		t.Fatal("the key went into opencode.json")
+	}
+	if result := core.UninstallSkill(context.Background(), "bootagent-vision"); result.Error != "" {
+		t.Fatalf("uninstall = %#v", result)
+	}
+	if _, err := os.Stat(fallback); !os.IsNotExist(err) {
+		t.Fatal("the fallback file outlived the Skill")
+	}
+}
+
+// Agents without Skills get the same tree as a guide and a prompt pointing at
+// it. The guide is not in the registry's targets; it is found by its hash.
+func TestGuideForAgentsWithoutSkills(t *testing.T) {
+	gateway := &multimodalGateway{listing: gatewayListing}
+	core, home := multimodalInstallCore(t, gateway)
+	result, err := core.InstallMultimodal(context.Background(), MultimodalInstallRequest{Provider: "gw", Model: "qwen/qwen3-vl-8b", Capability: modality.Vision, Guide: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	guide := filepath.Join(home, ".bootagent", "multimodal", "vision")
+	if result.GuidePath != guide || len(result.Results) != 1 || result.Results[0].Agent != GuideTarget || !result.Results[0].Installed || !result.Results[0].EnvWritten {
+		t.Fatalf("result = %#v", result)
+	}
+	if cfg, err := skillgen.ReadConfig(guide); err != nil || cfg.Model != "qwen/qwen3-vl-8b" {
+		t.Fatalf("guide config = %#v, %v", cfg, err)
+	}
+	fallback := filepath.Join(home, ".bootagent", "skill-env", "gw.env")
+	if _, err := os.Stat(fallback); err != nil {
+		t.Fatal("the guide got no key file")
+	}
+	registry, _ := core.skillStore().Load()
+	if variant := registry.Skills["bootagent-vision"].Variants[0]; len(variant.ManagedTargets) != 0 {
+		t.Fatalf("the guide entered the registry targets: %#v", variant)
+	}
+	detection, err := core.DetectMultimodal(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(detection.Installed) != 1 || detection.Installed[0].GuidePath != guide || len(detection.Installed[0].Agents) != 0 {
+		t.Fatalf("installed = %#v", detection.Installed)
+	}
+	// A rotated key reaches the guide's file too.
+	if _, err := core.SaveProvider(context.Background(), provider.Entry{ID: "gw", Name: "Gateway", BaseURL: "https://gw.example/v1", APIKey: "sk-rotated-guide"}, false, false); err != nil {
+		t.Fatal(err)
+	}
+	if data, _ := os.ReadFile(fallback); !strings.Contains(string(data), "sk-rotated-guide") {
+		t.Fatalf("fallback after rotation = %q", data)
+	}
+	if err := core.DeleteProvider(context.Background(), "gw"); err == nil {
+		t.Fatal("deleting a Provider a guide uses was allowed")
+	}
+	if result := core.UninstallSkill(context.Background(), "bootagent-vision"); result.Error != "" {
+		t.Fatalf("uninstall = %#v", result)
+	}
+	for _, path := range []string{guide, fallback} {
+		if _, err := os.Stat(path); !os.IsNotExist(err) {
+			t.Fatalf("%s outlived the uninstall", path)
+		}
+	}
+}
+
+func TestGuideLeavesAFolderBootAgentDidNotWrite(t *testing.T) {
+	gateway := &multimodalGateway{listing: gatewayListing}
+	core, home := multimodalInstallCore(t, gateway)
+	guide := filepath.Join(home, ".bootagent", "multimodal", "vision")
+	writeTestSkillAt(t, guide, "the user's notes")
+	result, err := core.InstallMultimodal(context.Background(), MultimodalInstallRequest{Provider: "gw", Model: "qwen/qwen3-vl-8b", Capability: modality.Vision, Guide: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.GuidePath != "" || result.Results[0].Installed || result.Results[0].Error == "" {
+		t.Fatalf("result = %#v", result)
+	}
+	if data, _ := os.ReadFile(filepath.Join(guide, "SKILL.md")); !strings.Contains(string(data), "the user's notes") {
+		t.Fatal("the user's folder was overwritten")
+	}
+	if _, err := os.Stat(filepath.Join(home, ".bootagent", "skill-env", "gw.env")); !os.IsNotExist(err) {
+		t.Fatal("a key file was written for a guide that was not installed")
+	}
+}
+
+// Video by frame sampling is a chat vision request; its probe is recorded as
+// image understanding and both rows follow it.
+func TestVideoByFramesInstallsOnTheImageVerdict(t *testing.T) {
+	gateway := &multimodalGateway{listing: gatewayListing}
+	core, home := multimodalInstallCore(t, gateway)
+	// kimi-k3 is an ID-rule guess: neither row installs yet.
+	if _, err := core.InstallMultimodal(context.Background(), MultimodalInstallRequest{Provider: "gw", Model: "moonshotai/kimi-k3", Capability: modality.VideoUnderstanding, Agents: []string{"codex"}}); err == nil {
+		t.Fatal("video on a guess was installed")
+	}
+	check, err := core.ProbeMultimodal(context.Background(), "gw", "moonshotai/kimi-k3", modality.VideoUnderstanding, modality.AdapterFramesVision, false)
+	if err != nil || check.Status != ModelCheckAvailable || check.Capability != modality.Vision || check.Adapter != modality.AdapterChatVision {
+		t.Fatalf("probe = %#v, %v", check, err)
+	}
+	if posts := gateway.billed(); len(posts) != 1 || !strings.Contains(posts[0], "/chat/completions") {
+		t.Fatalf("probe sent %v", posts)
+	}
+	result, err := core.InstallMultimodal(context.Background(), MultimodalInstallRequest{Provider: "gw", Model: "moonshotai/kimi-k3", Capability: modality.VideoUnderstanding, Agents: []string{"codex"}})
+	if err != nil || !result.Results[0].Installed {
+		t.Fatalf("install = %#v, %v", result, err)
+	}
+	cfg, err := skillgen.ReadConfig(filepath.Join(home, ".codex", "skills", "bootagent-video-understanding"))
+	if err != nil || cfg.Adapter != modality.AdapterFramesVision || cfg.Model != "moonshotai/kimi-k3" {
+		t.Fatalf("config = %#v, %v", cfg, err)
 	}
 }

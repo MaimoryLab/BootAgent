@@ -134,6 +134,10 @@ export type MultimodalDetection = {
   targets: string[];
   generatable: string[];
   manual: MultimodalManualRoute[];
+  /** Targets whose key goes to the private fallback file. */
+  fallback: string[];
+  /** ffmpeg is on BootAgent's PATH; a hint for video understanding. */
+  ffmpeg: boolean;
 };
 export type MultimodalInstallRequest = Omit<AppModels.MultimodalInstallRequest, "capability"> & { capability: MultimodalCapabilityId };
 export type MultimodalInstallResult = Omit<AppModels.MultimodalInstallResult, "results"> & { results: AppModels.MultimodalAgentResult[] };

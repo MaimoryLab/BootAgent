@@ -158,15 +158,17 @@ func TestResolveOrder(t *testing.T) {
 	if len(kimi) != 2 || kimi[0] != (Capability{ID: Vision, Source: SourceProbe, Adapter: AdapterChatVision, Supported: true, Installable: true, Probe: ProbeMinimal}) {
 		t.Fatalf("kimi vision = %#v", kimi)
 	}
-	if kimi[1].ID != VideoUnderstanding || kimi[1].Source != SourceIDRule || kimi[1].Installable {
+	// Video understanding by frame sampling inherits the probed image verdict.
+	if kimi[1].ID != VideoUnderstanding || kimi[1].Adapter != AdapterFramesVision || kimi[1].Source != SourceProbe || !kimi[1].Installable {
 		t.Fatalf("kimi video = %#v", kimi[1])
 	}
 	qwen := byID["qwen/qwen3-vl-8b"].Capabilities
-	if len(qwen) != 1 || qwen[0].Supported || qwen[0].Installable || qwen[0].Source != SourceProbe {
+	// The refusal carries to video by frame sampling: it is the same request.
+	if len(qwen) != 2 || qwen[0].Supported || qwen[0].Installable || qwen[0].Source != SourceProbe || qwen[1].ID != VideoUnderstanding || qwen[1].Installable {
 		t.Fatalf("refused probe = %#v", qwen)
 	}
 	gemini := byID["gemini-3-pro-image"].Capabilities
-	if len(gemini) != 2 || !gemini[0].Installable || gemini[1].ID != ImageGeneration || gemini[1].Installable || gemini[1].Adapter != AdapterChatImageOutput {
+	if len(gemini) != 3 || !gemini[0].Installable || gemini[1].ID != ImageGeneration || gemini[1].Installable || gemini[1].Adapter != AdapterChatImageOutput || gemini[2].Adapter != AdapterFramesVision {
 		t.Fatalf("declared image output = %#v", gemini)
 	}
 }
@@ -365,5 +367,44 @@ func TestNewRulesRejectsBrokenGenerationEntries(t *testing.T) {
 		if _, err := NewRules(with(entry)); err == nil {
 			t.Errorf("%s accepted", name)
 		}
+	}
+}
+
+func TestFrameSamplingFollowsTheImageVerdict(t *testing.T) {
+	rules := embeddedRules(t)
+	entries := []provider.ModelEntry{
+		// Declares image and video input: native video is unverified, so
+		// frames over the declared image route are offered instead.
+		{ID: "qwen/qwen3.6-flash", InputModalities: []string{"text", "image", "video"}, OutputModalities: []string{"text"}},
+		// Image input only: frames still give it video understanding.
+		{ID: "glm-4.6v", InputModalities: []string{"text", "image"}, OutputModalities: []string{"text"}},
+		// An ID-rule guess stays a guess for video too.
+		{ID: "claude-sonnet-x"},
+		// No image input: no frame sampling.
+		{ID: "text-only", InputModalities: []string{"text"}, OutputModalities: []string{"text"}},
+	}
+	models := rules.Resolve("custom", entries, map[string]map[string]provider.ModalityVerdict{
+		"refused-vision": {Vision: {Supported: false, Source: SourceProbe, Adapter: AdapterChatVision}},
+	})
+	for _, id := range []string{"qwen/qwen3.6-flash", "glm-4.6v"} {
+		video, ok := Find(models, id, VideoUnderstanding)
+		if !ok || video.Adapter != AdapterFramesVision || video.Source != SourceDeclared || !video.Installable || video.Probe != ProbeMinimal {
+			t.Errorf("%s video = %#v, %v", id, video, ok)
+		}
+	}
+	if video, _ := Find(models, "claude-sonnet-x", VideoUnderstanding); video.Installable || video.Source != SourceIDRule {
+		t.Errorf("guessed video = %#v", video)
+	}
+	if _, ok := Find(models, "text-only", VideoUnderstanding); ok {
+		t.Error("frame sampling offered without image input")
+	}
+	// A refused image probe makes the frames route refused too.
+	if video, ok := Find(models, "refused-vision", VideoUnderstanding); !ok || video.Supported || video.Installable {
+		t.Errorf("refused video = %#v, %v", video, ok)
+	}
+	// A declared native video route alone is not installable.
+	native := rules.Resolve("custom", []provider.ModelEntry{{ID: "video-only", InputModalities: []string{"text", "video"}, OutputModalities: []string{"text"}}}, nil)
+	if video, _ := Find(native, "video-only", VideoUnderstanding); video.Installable || video.Adapter != AdapterChatVideo {
+		t.Errorf("native video = %#v", video)
 	}
 }

@@ -28,6 +28,12 @@ type MultimodalDetection struct {
 	// Manual lists the capabilities a user can reach with a model ID typed by
 	// hand, the route it is probed on, and how that probe is sent.
 	Manual []MultimodalManualRoute `json:"manual"`
+	// Fallback lists the Targets with no configurable environment: their key
+	// goes to BootAgent's private fallback file, which the install says.
+	Fallback []string `json:"fallback"`
+	// FFmpeg says ffmpeg is on BootAgent's PATH. Video understanding needs it
+	// where the Agent runs, which may differ, so this is a hint only.
+	FFmpeg bool `json:"ffmpeg"`
 }
 
 type MultimodalManualRoute struct {
@@ -44,6 +50,9 @@ type MultimodalProvider struct {
 	KeyEnv string `json:"keyEnv"`
 	// Unsupported lists capabilities this Provider documents no API for.
 	Unsupported []string `json:"unsupported"`
+	// KeyFile is the private fallback file an install for an Agent without a
+	// configurable environment writes the key into.
+	KeyFile string `json:"keyFile"`
 	// Listed is false when /models could not be read. Message and ErrorCode
 	// then say why; catalog generation models are still listed, since they do
 	// not come from /models.
@@ -121,12 +130,18 @@ func (u *UseCases) DetectMultimodal(ctx context.Context) (MultimodalDetection, e
 	if err := contextError(ctx, "Multimodal detection was cancelled"); err != nil {
 		return MultimodalDetection{}, err
 	}
-	installTargets, _, err := u.multimodalInstallTargets()
+	installTargets, eligible, err := u.multimodalInstallTargets()
 	if err != nil {
 		return MultimodalDetection{}, err
 	}
 	if installTargets == nil {
 		installTargets = []string{}
+	}
+	fallback := []string{}
+	for _, agentID := range installTargets {
+		if !nativeSkillEnvAdapters[eligible[agentID].ConfigAdapter] {
+			fallback = append(fallback, agentID)
+		}
 	}
 	manual := []MultimodalManualRoute{}
 	for _, capability := range modality.Capabilities {
@@ -136,12 +151,22 @@ func (u *UseCases) DetectMultimodal(ctx context.Context) (MultimodalDetection, e
 	}
 	return MultimodalDetection{
 		Providers: results, Installed: u.installedMultimodal(), Targets: installTargets,
-		Generatable: skillgen.SupportedAdapters(), Manual: manual,
+		Generatable: skillgen.SupportedAdapters(), Manual: manual, Fallback: fallback, FFmpeg: u.commandOnPath("ffmpeg"),
 	}, nil
 }
 
+// commandOnPath reports whether a command resolves the way status does.
+func (u *UseCases) commandOnPath(command string) bool {
+	if u.status.Lookup != nil {
+		_, ok := u.status.Lookup(command)
+		return ok
+	}
+	_, ok := u.lookPath(command)
+	return ok
+}
+
 func (u *UseCases) detectProvider(ctx context.Context, rules modality.Rules, target provider.Entry) MultimodalProvider {
-	result := MultimodalProvider{ID: target.ID, Name: target.Name, KeyEnv: configWriter.SkillEnvName(target.ID), Unsupported: rules.Unsupported(target.ID), Models: []modality.Model{}}
+	result := MultimodalProvider{ID: target.ID, Name: target.Name, KeyEnv: configWriter.SkillEnvName(target.ID), KeyFile: configWriter.SkillEnvFilePath(u.status.Home, target.ID), Unsupported: rules.Unsupported(target.ID), Models: []modality.Model{}}
 	if result.Unsupported == nil {
 		result.Unsupported = []string{}
 	}
@@ -196,6 +221,11 @@ func (u *UseCases) ProbeMultimodal(ctx context.Context, providerID, model, capab
 	}
 	if kind == modality.ProbeConfirm && !confirmed {
 		return nil, oneerrors.New(oneerrors.InvalidRequest, "This check produces billed output; confirm it first")
+	}
+	if adapter == modality.AdapterFramesVision {
+		// Video by frame sampling is a chat vision request carrying frames:
+		// probe that, and record it as what it is, image understanding.
+		capability, adapter = modality.Vision, modality.AdapterChatVision
 	}
 	check := &MultimodalProbe{ProviderID: providerID, Model: model, Capability: capability, Adapter: adapter}
 	target, err := u.providers.Get(providerID)

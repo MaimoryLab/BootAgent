@@ -460,6 +460,10 @@ func (u *UseCases) ApplySkills(ctx context.Context, req SkillApplyRequest) Skill
 			result.Results = append(result.Results, item)
 		}
 		if deleteSkill && !deleteFailed && !hasManagedTargets(fact) {
+			if err := u.removeGeneratedGuide(ctx, change.ID, fact); err != nil {
+				result.Results = append(result.Results, SkillAgentApplyResult{Error: "Cannot remove the Skill's guide: " + err.Error()})
+				continue
+			}
 			if err := store.RemoveSkill(ctx, change.ID); err != nil {
 				result.Results = append(result.Results, SkillAgentApplyResult{Error: "Cannot remove Skill from Registry"})
 				continue
@@ -542,6 +546,12 @@ func (u *UseCases) UninstallSkill(ctx context.Context, id string) SkillUninstall
 				return result
 			}
 		}
+	}
+	// The guide for Agents without Skills goes with the Skill, before its
+	// stored variants, which identify it, are removed.
+	if err := u.removeGeneratedGuide(ctx, id, fact); err != nil {
+		result.Error = err.Error()
+		return result
 	}
 	if err := store.RemoveSkill(ctx, id); err != nil {
 		result.Error = err.Error()

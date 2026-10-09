@@ -27,7 +27,16 @@ type MultimodalInstallRequest struct {
 	Model      string   `json:"model"`
 	Capability string   `json:"capability"`
 	Agents     []string `json:"agents"`
+	// Guide also writes the Skill to ~/.bootagent/multimodal/<capability>/
+	// for Agents without a Skills directory, which are pointed at it by a
+	// prompt. Their key goes to the fallback file.
+	Guide bool `json:"guide"`
 }
+
+// GuideTarget names the guide in per-target results. It is not an Agent ID
+// and never enters the Skill registry: the guide directory is found again by
+// its hash.
+const GuideTarget = "guide"
 
 type MultimodalAgentResult struct {
 	Agent string `json:"agent"`
@@ -41,6 +50,8 @@ type MultimodalAgentResult struct {
 type MultimodalInstallResult struct {
 	SkillID string                  `json:"skillId"`
 	Results []MultimodalAgentResult `json:"results"`
+	// GuidePath is the guide directory when one was written.
+	GuidePath string `json:"guidePath,omitempty"`
 }
 
 // InstalledMultimodal is one generated Skill variant that is published to at
@@ -52,28 +63,45 @@ type InstalledMultimodal struct {
 	Model      string   `json:"model"`
 	Adapter    string   `json:"adapter"`
 	Agents     []string `json:"agents"`
+	// GuidePath is set when this variant is also the guide for Agents
+	// without Skills.
+	GuidePath string `json:"guidePath,omitempty"`
 }
 
 // nativeSkillEnvAdapters are the config adapters with a writer for Skill
 // variables (ADR-011). Other Agents get the private fallback file.
 var nativeSkillEnvAdapters = map[string]bool{"claude-code": true, "codex": true}
 
+// pendingSkillTargets are Agents with a Skills directory that are not offered
+// yet. Hermes is installed by its official script, so Node may be absent
+// where it runs; whether its Skill should run BootAgent's managed Node by
+// absolute path is an open decision (design doc, Open questions).
+var pendingSkillTargets = map[string]bool{"hermes": true}
+
 // multimodalInstallTargets are the Agents a multimodal Skill can be installed
 // into from the multimodal section: those with a Skills directory BootAgent
-// can see, and a native place for the key variable. Phase 4 widens this.
+// can see. Claude Code and Codex get the key in their own configuration; the
+// others read the private fallback file, since neither OpenCode nor Hermes
+// documents a way to set the environment of its shell tool.
 func (u *UseCases) multimodalInstallTargets() ([]string, map[string]catalog.Agent, error) {
 	eligible, err := u.eligibleSkillAgents()
 	if err != nil {
 		return nil, nil, err
 	}
 	var targets []string
-	for id, agent := range eligible {
-		if nativeSkillEnvAdapters[agent.ConfigAdapter] {
+	for id := range eligible {
+		if !pendingSkillTargets[id] {
 			targets = append(targets, id)
 		}
 	}
 	sort.Strings(targets)
 	return targets, eligible, nil
+}
+
+// guideDir is where the Skill for a capability is written for Agents without
+// a Skills directory.
+func (u *UseCases) guideDir(capability string) string {
+	return filepath.Join(u.status.Home, ".bootagent", "multimodal", capability)
 }
 
 // InstallMultimodal generates the Skill, stores it as a variant with source
@@ -95,7 +123,7 @@ func (u *UseCases) InstallMultimodal(ctx context.Context, request MultimodalInst
 		return result, oneerrors.New(oneerrors.InvalidRequest, "A model and a known capability are required")
 	}
 	agents := slices.Compact(slices.Sorted(slices.Values(request.Agents)))
-	if len(agents) == 0 {
+	if len(agents) == 0 && !request.Guide {
 		return result, oneerrors.New(oneerrors.InvalidRequest, "Choose at least one Agent")
 	}
 	target, err := u.providers.Get(request.Provider)
@@ -141,12 +169,18 @@ func (u *UseCases) InstallMultimodal(ctx context.Context, request MultimodalInst
 			result.Results = append(result.Results, MultimodalAgentResult{Agent: agentID, Error: "This Agent cannot take a multimodal Skill yet"})
 		}
 	}
-	if len(install) == 0 {
+	if len(install) == 0 && !request.Guide {
 		return result, nil
 	}
-	published, err := u.publishGeneratedLocked(ctx, spec, install)
+	published, err := u.publishGeneratedLocked(ctx, spec, install, request.Guide)
 	if err != nil {
 		return result, err
+	}
+	if request.Guide {
+		install = append(install, GuideTarget)
+		if published[GuideTarget] == "" {
+			result.GuidePath = u.guideDir(capability)
+		}
 	}
 	envFailures := u.reconcileSkillEnvLocked(ctx)
 	for _, agentID := range install {
@@ -190,9 +224,11 @@ func (u *UseCases) resolveForInstall(ctx context.Context, rules modality.Rules, 
 }
 
 // publishGeneratedLocked renders the Skill, stores it as a variant and
-// publishes it to each Agent. It returns a per-Agent error message ("" on
-// success); an error return means nothing was published. Callers hold writeMu.
-func (u *UseCases) publishGeneratedLocked(ctx context.Context, spec skillgen.Spec, agentIDs []string) (map[string]string, error) {
+// publishes it to each Agent, and to the guide directory when guide is set.
+// It returns a per-target error message ("" on success), the guide under
+// GuideTarget; an error return means nothing was published. Callers hold
+// writeMu.
+func (u *UseCases) publishGeneratedLocked(ctx context.Context, spec skillgen.Spec, agentIDs []string, guide bool) (map[string]string, error) {
 	id := skillgen.SkillID(spec.Capability)
 	store := u.skillStore()
 	registry, err := store.Load()
@@ -277,7 +313,60 @@ func (u *UseCases) publishGeneratedLocked(ctx context.Context, spec skillgen.Spe
 		}
 		results[agentID] = ""
 	}
+	if guide {
+		results[GuideTarget] = u.publishGuideLocked(ctx, store, id, stats.Hash, fact)
+	}
 	return results, nil
+}
+
+// publishGuideLocked writes a stored variant to the guide directory, with
+// the same rule as an Agent target: only a variant of this Skill BootAgent
+// stored may be replaced. It returns an error message, "" on success.
+func (u *UseCases) publishGuideLocked(ctx context.Context, store skill.Store, id, hash string, fact skill.Fact) string {
+	destination := u.guideDir(skillgen.CapabilityFromSkillID(id))
+	parent := filepath.Dir(destination)
+	if hasSymlinkComponent(u.status.Home, parent) {
+		return "Guide path is not private"
+	}
+	if err := u.filesystem.EnsurePrivateDir(ctx, parent); err != nil {
+		return "Cannot prepare the guide directory"
+	}
+	if err := verifyGeneratedTarget(ctx, destination, fact); err != nil {
+		return err.Error()
+	}
+	if err := skill.PublishTree(ctx, store.VariantPath(id, hash), destination); err != nil {
+		return "Cannot write the guide"
+	}
+	return ""
+}
+
+// guideHash is the hash of a capability's guide directory, empty when there
+// is none or it is not a plain directory.
+func (u *UseCases) guideHash(ctx context.Context, capability string) string {
+	destination := u.guideDir(capability)
+	info, err := os.Lstat(destination)
+	if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+		return ""
+	}
+	stats, err := skill.HashTree(ctx, destination)
+	if err != nil {
+		return ""
+	}
+	return stats.Hash
+}
+
+// removeGeneratedGuide deletes a Skill's guide directory when it holds one of
+// the Skill's stored variants; anything else there is left alone.
+func (u *UseCases) removeGeneratedGuide(ctx context.Context, id string, fact skill.Fact) error {
+	capability := skillgen.CapabilityFromSkillID(id)
+	if capability == "" {
+		return nil
+	}
+	hash := u.guideHash(ctx, capability)
+	if hash == "" || variantIndex(fact.Variants, hash) < 0 {
+		return nil
+	}
+	return removeManagedSkill(ctx, u.guideDir(capability), hash)
 }
 
 // verifyGeneratedTarget allows replacing what is at the destination only when
@@ -329,6 +418,8 @@ type generatedVariant struct {
 	hash    string
 	config  skillgen.Config
 	targets []string
+	// guide: this variant is what the capability's guide directory holds.
+	guide bool
 }
 
 // generatedVariants lists the variants BootAgent rendered here. Only these
@@ -338,9 +429,11 @@ func (u *UseCases) generatedVariants(registry skill.Registry) []generatedVariant
 	store := u.skillStore()
 	var result []generatedVariant
 	for _, id := range slices.Sorted(maps.Keys(registry.Skills)) {
-		if skillgen.CapabilityFromSkillID(id) == "" {
+		capability := skillgen.CapabilityFromSkillID(id)
+		if capability == "" {
 			continue
 		}
+		guide := u.guideHash(context.Background(), capability)
 		for _, variant := range registry.Skills[id].Variants {
 			if !variant.Stored || !slices.Contains(variant.ImportSources, skill.ImportSourceGenerated) {
 				continue
@@ -349,7 +442,7 @@ func (u *UseCases) generatedVariants(registry skill.Registry) []generatedVariant
 			if err != nil {
 				continue
 			}
-			result = append(result, generatedVariant{id: id, hash: variant.Hash, config: config, targets: variant.ManagedTargets})
+			result = append(result, generatedVariant{id: id, hash: variant.Hash, config: config, targets: variant.ManagedTargets, guide: guide == variant.Hash})
 		}
 	}
 	return result
@@ -390,6 +483,13 @@ func (u *UseCases) reconcileSkillEnvLocked(ctx context.Context) map[string]strin
 	desired := map[string]map[string]string{}
 	fallback := map[string][]string{}
 	for _, variant := range u.generatedVariants(registry) {
+		if variant.guide {
+			if keyFor(variant.config.ProviderID) == "" {
+				failures[GuideTarget] = "Provider " + variant.config.ProviderID + " has no saved API key"
+			} else {
+				fallback[variant.config.ProviderID] = append(fallback[variant.config.ProviderID], GuideTarget)
+			}
+		}
 		for _, agentID := range variant.targets {
 			agent, ok := manifest.Agents[agentID]
 			if !ok {
@@ -462,13 +562,20 @@ func (u *UseCases) installedMultimodal() []InstalledMultimodal {
 	}
 	result := []InstalledMultimodal{}
 	for _, variant := range u.generatedVariants(registry) {
-		if len(variant.targets) == 0 {
+		if len(variant.targets) == 0 && !variant.guide {
 			continue
 		}
-		result = append(result, InstalledMultimodal{
+		installed := InstalledMultimodal{
 			SkillID: variant.id, Capability: variant.config.Capability, ProviderID: variant.config.ProviderID,
 			Model: variant.config.Model, Adapter: variant.config.Adapter, Agents: slices.Clone(variant.targets),
-		})
+		}
+		if installed.Agents == nil {
+			installed.Agents = []string{}
+		}
+		if variant.guide {
+			installed.GuidePath = u.guideDir(variant.config.Capability)
+		}
+		result = append(result, installed)
 	}
 	return result
 }
@@ -482,7 +589,7 @@ func (u *UseCases) generatedSkillsUsing(providerID string) []generatedVariant {
 	}
 	var result []generatedVariant
 	for _, variant := range u.generatedVariants(registry) {
-		if variant.config.ProviderID == providerID && len(variant.targets) > 0 {
+		if variant.config.ProviderID == providerID && (len(variant.targets) > 0 || variant.guide) {
 			result = append(result, variant)
 		}
 	}
@@ -504,7 +611,7 @@ func (u *UseCases) refreshGeneratedSkillsLocked(ctx context.Context, target prov
 			ProviderID: target.ID, ProviderName: target.Name, Model: variant.config.Model,
 			BaseURL: target.BaseURL, NativeBaseURL: variant.config.NativeBaseURL, Options: variant.config.Options,
 		}
-		published, err := u.publishGeneratedLocked(ctx, spec, variant.targets)
+		published, err := u.publishGeneratedLocked(ctx, spec, variant.targets, variant.guide)
 		if err != nil {
 			for _, agentID := range variant.targets {
 				failures[agentID] = oneerrors.As(err).Message

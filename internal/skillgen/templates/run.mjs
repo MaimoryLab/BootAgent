@@ -6,9 +6,10 @@
 // dependencies. The API key comes from the environment variable named in
 // config.json, or from BootAgent's private fallback file; it is never printed.
 
-import { createWriteStream, existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
-import { homedir } from "node:os";
-import { basename, dirname, extname, join, resolve } from "node:path";
+import { execFile } from "node:child_process";
+import { accessSync, constants, createWriteStream, existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { homedir, tmpdir } from "node:os";
+import { basename, delimiter, dirname, extname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const EXIT = { ok: 0, internal: 1, usage: 2, setup: 3, refused: 4, key: 5, unavailable: 6, pending: 7 };
@@ -482,6 +483,88 @@ async function downloadTo(url, path, timeoutMs) {
 
 // Each capability and adapter this script implements: the subcommand, its
 // handler and default timeout in seconds, plus any extra subcommands.
+// findExecutable looks a command up on PATH the way a shell would.
+function findExecutable(name) {
+  const names = process.platform === "win32" ? [`${name}.exe`, `${name}.cmd`, name] : [name];
+  for (const directory of (process.env.PATH ?? "").split(delimiter)) {
+    if (!directory) continue;
+    for (const candidate of names) {
+      const path = join(directory, candidate);
+      try {
+        accessSync(path, constants.X_OK);
+        if (statSync(path).isFile()) return path;
+      } catch {
+        // Not here.
+      }
+    }
+  }
+  return "";
+}
+
+// runTool runs a helper with an argv array, a timeout, and an environment of
+// PATH alone: the child never sees the API key.
+function runTool(file, args, timeoutMs) {
+  const env = { PATH: process.env.PATH ?? "" };
+  if (process.env.SystemRoot) env.SystemRoot = process.env.SystemRoot;
+  return new Promise((done) => {
+    execFile(file, args, { env, timeout: timeoutMs, maxBuffer: 4 * MiB, windowsHide: true }, (error, stdout, stderr) => {
+      done({ code: error ? (typeof error.code === "number" ? error.code : -1) : 0, stderr: String(stderr ?? "") });
+    });
+  });
+}
+
+async function videoDuration(ffmpeg, path) {
+  // ffmpeg with an input and no output prints the input's details, then
+  // exits non-zero; the duration line is what is wanted.
+  const { stderr } = await runTool(ffmpeg, ["-hide_banner", "-i", path], 30000);
+  const match = /Duration:\s*(\d+):(\d{2}):(\d{2}(?:\.\d+)?)/.exec(stderr);
+  return match ? Number(match[1]) * 3600 + Number(match[2]) * 60 + Number(match[3]) : 0;
+}
+
+async function describeVideo(config, key, options, timeoutMs) {
+  if (!options.video) fail(EXIT.usage, "Give a --video file.");
+  const path = resolve(options.video);
+  let info;
+  try {
+    info = statSync(path);
+  } catch {
+    fail(EXIT.usage, `Video file not found: ${options.video}`);
+  }
+  if (!info.isFile()) fail(EXIT.usage, `Video path is not a file: ${options.video}`);
+  const count = positiveInt(options.frames, "frames", 8, 16);
+  const ffmpeg = findExecutable("ffmpeg");
+  if (!ffmpeg) fail(EXIT.setup, "ffmpeg was not found on PATH. Install ffmpeg to describe videos.");
+  const duration = await videoDuration(ffmpeg, path);
+  const work = mkdtempSync(join(tmpdir(), "bootagent-frames-"));
+  try {
+    const frames = [];
+    for (let index = 0; index < count; index++) {
+      // Evenly spaced, at the middle of each slice; without a duration, one
+      // frame a second from the start.
+      const at = duration > 0 ? Math.min((duration / count) * (index + 0.5), Math.max(duration - 0.05, 0)) : index;
+      const out = join(work, `frame-${index}.jpg`);
+      await runTool(ffmpeg, ["-hide_banner", "-loglevel", "error", "-ss", at.toFixed(2), "-i", path, "-frames:v", "1", "-vf", "scale='min(1024,iw)':-2", "-q:v", "4", "-y", out], 60000);
+      if (existsSync(out) && statSync(out).size > 0) frames.push({ at, data: readFileSync(out) });
+    }
+    if (!frames.length) fail(EXIT.usage, `No frames could be read from ${options.video}.`);
+    const when = frames.map((frame) => `${frame.at.toFixed(1)} s`).join(", ");
+    const preface = `${options.prompt || "Describe what happens in this video."}\n\nThe images are ${frames.length} frames sampled in order from a${duration > 0 ? ` ${duration.toFixed(1)} s` : ""} video, at ${when}.`;
+    const content = [{ type: "text", text: preface }, ...frames.map((frame) => ({ type: "image_url", image_url: { url: `data:image/jpeg;base64,${frame.data.toString("base64")}` } }))];
+    const response = await call(config, key, "/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model: config.model, messages: [{ role: "user", content }], max_tokens: positiveInt(options["max-tokens"], "max-tokens", 1024, 32768) }),
+    }, timeoutMs);
+    const body = await json(response);
+    const text = body?.choices?.[0]?.message?.content;
+    const answer = Array.isArray(text) ? text.map((part) => part?.text ?? "").join("") : text;
+    if (typeof answer !== "string") fail(EXIT.unavailable, "The provider returned no text.");
+    process.stdout.write(answer.trim() + "\n");
+  } finally {
+    rmSync(work, { recursive: true, force: true });
+  }
+}
+
 const COMMANDS = {
   "vision/openai-chat-vision": { name: "describe", run: describe, timeout: 120 },
   "image-generation/openai-images": { name: "generate", run: generate, timeout: 300 },
@@ -489,6 +572,7 @@ const COMMANDS = {
   "text-to-speech/openai-audio-speech": { name: "speak", run: speak, timeout: 120 },
   "text-to-speech/novita-audio": { name: "speak", run: speakNative, timeout: 120 },
   "video-generation/novita-async": { name: "video", run: generateVideo, timeout: 600, extra: { "video-result": videoResult } },
+  "video-understanding/frames-chat-vision": { name: "describe-video", run: describeVideo, timeout: 300 },
 };
 
 async function main() {

@@ -241,6 +241,7 @@ func (r Rules) Resolve(providerID string, entries []provider.ModelEntry, verdict
 				Probe:       ProbeKind(adapter),
 			})
 		}
+		capabilities = withFrameSampling(capabilities)
 		if len(capabilities) > 0 {
 			models = append(models, Model{ID: id, Capabilities: capabilities})
 		}
@@ -276,6 +277,7 @@ func (r Rules) Resolve(providerID string, entries []provider.ModelEntry, verdict
 				capabilities = append(capabilities, probedCapability(capabilityID, verdict))
 			}
 		}
+		capabilities = withFrameSampling(capabilities)
 		if len(capabilities) > 0 {
 			models = append(models, Model{ID: id, Capabilities: capabilities})
 		}
@@ -297,6 +299,51 @@ func Find(models []Model, modelID, capability string) (Capability, bool) {
 		}
 	}
 	return Capability{}, false
+}
+
+// withFrameSampling gives a model that understands images video
+// understanding by frame sampling, with the image-understanding verdict as
+// its own: the request is the same chat vision request, carrying frames. It
+// replaces a native video claim, whose route is unverified, unless a probe of
+// that route already answered.
+func withFrameSampling(capabilities []Capability) []Capability {
+	visionIndex, videoIndex := -1, -1
+	for index, capability := range capabilities {
+		switch capability.ID {
+		case Vision:
+			visionIndex = index
+		case VideoUnderstanding:
+			videoIndex = index
+		}
+	}
+	if visionIndex < 0 {
+		return capabilities
+	}
+	if videoIndex >= 0 && capabilities[videoIndex].Source == SourceProbe && capabilities[videoIndex].Adapter != AdapterFramesVision {
+		return capabilities
+	}
+	vision := capabilities[visionIndex]
+	frames := vision
+	frames.ID = VideoUnderstanding
+	frames.Adapter = AdapterFramesVision
+	frames.Probe = ProbeKind(AdapterFramesVision)
+	frames.Recommended = false
+	if videoIndex >= 0 {
+		capabilities[videoIndex] = frames
+		return capabilities
+	}
+	result := make([]Capability, 0, len(capabilities)+1)
+	for _, capabilityID := range Capabilities {
+		for _, capability := range capabilities {
+			if capability.ID == capabilityID {
+				result = append(result, capability)
+			}
+		}
+		if capabilityID == VideoUnderstanding {
+			result = append(result, frames)
+		}
+	}
+	return result
 }
 
 // catalogCapability is a capability on a verified route the catalog names. It

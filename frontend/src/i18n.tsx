@@ -977,6 +977,12 @@ const english = {
   "确认实测": "Confirm the probe",
   "这次实测会让「{model}」真实生成一张图片，按模型服务的价格计费。确定要发送吗？": "This probe makes \"{model}\" generate one real image, billed at the provider's price. Send it?",
   "重新安装": "Reinstall",
+  "{model}（{provider}）": "{model} ({provider})",
+  "视频理解要先用 ffmpeg 抽帧。BootAgent 没有在 PATH 上找到 ffmpeg；请在 Agent 运行的环境里安装它。": "Video understanding samples frames with ffmpeg. BootAgent did not find ffmpeg on PATH; install it where the Agent runs.",
+  "其他 Agent：说明文件在 {path}": "Other Agents: the guide is at {path}",
+  "其他 Agent（说明文件）": "Other Agents (guide)",
+  "其他 Agent（生成说明文件）": "Other Agents (write a guide)",
+  "{agents}没有可配置的环境变量，Key 会写进 BootAgent 的私有文件 {path}，由 Skill 的脚本读取。": "{agents} have no configurable environment, so the key goes into BootAgent's private file {path}, which the Skill's script reads.",
   "{capabilities}：该模型服务目前没有可核实的公开接口，暂不支持。": "{capabilities}: this provider documents no public API for it yet, so it is not supported.",
 } as const;
 

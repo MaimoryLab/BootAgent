@@ -25,8 +25,15 @@ const (
 	// AdapterChatVision sends images as Chat Completions image_url parts.
 	AdapterChatVision = "openai-chat-vision"
 	// AdapterChatVideo sends video as Chat Completions content parts, for models
-	// that take video natively.
+	// that take video natively. Vendors disagree on the part: Moonshot takes
+	// only a file uploaded to its own storage (ms://<file id>), not a data URL,
+	// so this route installs only after a probe, which none has yet.
 	AdapterChatVideo = "openai-chat-video"
+	// AdapterFramesVision samples frames from a video with ffmpeg and sends
+	// them to an image-understanding model on the chat vision route. It
+	// inherits that model's image-understanding verdict and needs ffmpeg on
+	// PATH where the Agent runs.
+	AdapterFramesVision = "frames-chat-vision"
 	// AdapterChatImageOutput asks a chat model for an image in its reply
 	// (gemini-*-image, gpt-image-* on JieKou.AI). How gateways return the image
 	// is not yet verified, so models on this route install only after a probe.
@@ -78,7 +85,7 @@ var Options = []string{OptionDuration, OptionSize, OptionAspectRatio, OptionNega
 
 // Adapters is the closed vocabulary the catalog may name.
 var Adapters = []string{
-	AdapterChatVision, AdapterChatVideo, AdapterChatImageOutput, AdapterChatAudioInput,
+	AdapterChatVision, AdapterChatVideo, AdapterFramesVision, AdapterChatImageOutput, AdapterChatAudioInput,
 	AdapterImages, AdapterAudioTranscriptions, AdapterAudioSpeech,
 	AdapterNovitaAsync, AdapterNovitaAudio, AdapterPPIOVideo,
 }
@@ -108,6 +115,7 @@ var chatAdapter = map[string]string{
 var probeOnly = map[string]bool{
 	AdapterChatImageOutput: true,
 	AdapterChatAudioInput:  true,
+	AdapterChatVideo:       true,
 }
 
 // Probe kinds tell the UI whether a capability can be checked live and whether
@@ -131,6 +139,8 @@ var probeKind = map[string]string{
 	AdapterAudioSpeech:         ProbeMinimal,
 	AdapterImages:              ProbeConfirm,
 	AdapterNovitaAudio:         ProbeMinimal,
+	// The frames route sends a chat vision request; its probe is that one.
+	AdapterFramesVision: ProbeMinimal,
 }
 
 // ProbeKind reports how an adapter can be probed.
@@ -143,6 +153,7 @@ func ProbeKind(adapter string) string {
 var adapterCapability = map[string]string{
 	AdapterChatVision:          Vision,
 	AdapterChatVideo:           VideoUnderstanding,
+	AdapterFramesVision:        VideoUnderstanding,
 	AdapterChatImageOutput:     ImageGeneration,
 	AdapterChatAudioInput:      SpeechToText,
 	AdapterImages:              ImageGeneration,

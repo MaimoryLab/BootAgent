@@ -238,6 +238,12 @@ export interface InstalledMultimodal {
     "model": string;
     "adapter": string;
     "agents": string[] | null;
+
+    /**
+     * GuidePath is set when this variant is also the guide for Agents
+     * without Skills.
+     */
+    "guidePath"?: string;
 }
 
 export interface MCPAgentApplyResult {
@@ -405,6 +411,18 @@ export interface MultimodalDetection {
      * hand, the route it is probed on, and how that probe is sent.
      */
     "manual": MultimodalManualRoute[] | null;
+
+    /**
+     * Fallback lists the Targets with no configurable environment: their key
+     * goes to BootAgent's private fallback file, which the install says.
+     */
+    "fallback": string[] | null;
+
+    /**
+     * FFmpeg says ffmpeg is on BootAgent's PATH. Video understanding needs it
+     * where the Agent runs, which may differ, so this is a hint only.
+     */
+    "ffmpeg": boolean;
 }
 
 /**
@@ -416,11 +434,23 @@ export interface MultimodalInstallRequest {
     "model": string;
     "capability": string;
     "agents": string[] | null;
+
+    /**
+     * Guide also writes the Skill to ~/.bootagent/multimodal/<capability>/
+     * for Agents without a Skills directory, which are pointed at it by a
+     * prompt. Their key goes to the fallback file.
+     */
+    "guide": boolean;
 }
 
 export interface MultimodalInstallResult {
     "skillId": string;
     "results": MultimodalAgentResult[] | null;
+
+    /**
+     * GuidePath is the guide directory when one was written.
+     */
+    "guidePath"?: string;
 }
 
 export interface MultimodalManualRoute {
@@ -458,6 +488,12 @@ export interface MultimodalProvider {
      * Unsupported lists capabilities this Provider documents no API for.
      */
     "unsupported": string[] | null;
+
+    /**
+     * KeyFile is the private fallback file an install for an Agent without a
+     * configurable environment writes the key into.
+     */
+    "keyFile": string;
 
     /**
      * Listed is false when /models could not be read. Message and ErrorCode

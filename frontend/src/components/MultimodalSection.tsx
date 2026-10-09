@@ -268,8 +268,13 @@ export function MultimodalSection({ agentLabels = {}, onSkillsChanged }: Multimo
               </header>
               {card.variants.map((variant) => (
                 <p className="multimodal-installed-line" key={`${variant.providerId}-${variant.model}`}>
-                  {t("{model}（{provider}）已安装到 {agents}", { model: variant.model, provider: providerName(variant.providerId), agents: variant.agents.map(nameOf).join(separator) })}
+                  {variant.agents.length
+                    ? t("{model}（{provider}）已安装到 {agents}", { model: variant.model, provider: providerName(variant.providerId), agents: variant.agents.map(nameOf).join(separator) })
+                    : t("{model}（{provider}）", { model: variant.model, provider: providerName(variant.providerId) })}
                 </p>
+              ))}
+              {card.variants.filter((variant) => variant.guidePath).map((variant) => (
+                <GuidePrompt key={variant.guidePath} path={variant.guidePath ?? ""} capability={card.capability} />
               ))}
               <ExamplePrompts capability={card.capability} />
             </article>
@@ -333,6 +338,9 @@ export function MultimodalSection({ agentLabels = {}, onSkillsChanged }: Multimo
                           {installedHere ? t("重新安装") : t("安装")}
                         </button>
                       ) : null}
+                      {chosen.capability.adapter === "frames-chat-vision" && detection && !detection.ffmpeg ? (
+                        <p className="multimodal-provider-note">{t("视频理解要先用 ffmpeg 抽帧。BootAgent 没有在 PATH 上找到 ffmpeg；请在 Agent 运行的环境里安装它。")}</p>
+                      ) : null}
                       {verdict ? <Verdict verdict={verdict} /> : null}
                       {state?.error ? <p className="multimodal-error" role="alert">{state.error}</p> : null}
                     </li>
@@ -383,6 +391,7 @@ export function MultimodalSection({ agentLabels = {}, onSkillsChanged }: Multimo
         <InstallDialog
           target={installTarget}
           targets={detection.targets}
+          fallback={detection.fallback}
           current={detection.installed.filter((item) => item.capability === installTarget.capability)}
           providerName={providerName}
           nameOf={nameOf}
@@ -430,6 +439,42 @@ function Verdict({ verdict }: { verdict: ReturnType<typeof describeProbe> }) {
   );
 }
 
+/**
+ * For Agents without Skills: the guide's path and a prompt that points the
+ * Agent at it, in both languages, with copy buttons.
+ */
+function GuidePrompt({ path, capability }: { path: string; capability: MultimodalCapabilityId }) {
+  const { t } = useI18n();
+  const [copied, setCopied] = useState("");
+  const example = EXAMPLE_PROMPTS[capability]?.[0];
+  const prompts = [
+    { lang: "zh-CN", text: `先读 ${path}/SKILL.md，按里面的说明完成：${example?.zh ?? ""}` },
+    { lang: "en", text: `First read ${path}/SKILL.md and follow it to do this: ${example?.en ?? ""}` },
+  ];
+  const copy = (text: string) => {
+    void copyToClipboard(text).then((ok) => {
+      if (!ok) return;
+      setCopied(text);
+      window.setTimeout(() => setCopied((current) => (current === text ? "" : current)), 1500);
+    });
+  };
+  return (
+    <div className="multimodal-prompts multimodal-guide">
+      <span className="multimodal-prompts-title">{t("其他 Agent：说明文件在 {path}", { path })}</span>
+      <ul>
+        {prompts.map((item) => (
+          <li key={item.lang}>
+            <span lang={item.lang}>{item.text}</span>
+            <button className="icon-button" type="button" onClick={() => copy(item.text)} title={t("复制提示词")} aria-label={t("复制提示词")}>
+              {copied === item.text ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function ExamplePrompts({ capability }: { capability: MultimodalCapabilityId }) {
   const { t } = useI18n();
   const [copied, setCopied] = useState("");
@@ -465,6 +510,8 @@ function ExamplePrompts({ capability }: { capability: MultimodalCapabilityId }) 
 interface InstallDialogProps {
   target: InstallTarget;
   targets: string[];
+  /** Targets whose key goes to the private fallback file. */
+  fallback: string[];
   /** What is installed for this capability now, from any Provider. */
   current: InstalledMultimodal[];
   providerName: (id: string) => string;
@@ -473,9 +520,10 @@ interface InstallDialogProps {
   onCancel: () => void;
 }
 
-function InstallDialog({ target, targets, current, providerName, nameOf, onDone, onCancel }: InstallDialogProps) {
+function InstallDialog({ target, targets, fallback, current, providerName, nameOf, onDone, onCancel }: InstallDialogProps) {
   const { t, locale } = useI18n();
   const [agents, setAgents] = useState<string[]>(targets);
+  const [guide, setGuide] = useState(false);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<MultimodalInstallResult | null>(null);
   const [error, setError] = useState("");
@@ -486,7 +534,7 @@ function InstallDialog({ target, targets, current, providerName, nameOf, onDone,
   const install = () => {
     setBusy(true);
     setError("");
-    void api.installMultimodal({ provider: target.provider.id, model: target.model, capability: target.capability, agents })
+    void api.installMultimodal({ provider: target.provider.id, model: target.model, capability: target.capability, agents, guide })
       .then(setResult)
       .catch((reason: unknown) => setError(describeError(reason, t("安装失败")).message))
       .finally(() => setBusy(false));
@@ -501,7 +549,7 @@ function InstallDialog({ target, targets, current, providerName, nameOf, onDone,
           <ul className="multimodal-results">
             {result.results.map((item) => (
               <li key={item.agent} className={item.installed && item.envWritten ? "is-ok" : "is-failed"}>
-                <strong>{nameOf(item.agent)}</strong>
+                <strong>{item.agent === "guide" ? t("其他 Agent（说明文件）") : nameOf(item.agent)}</strong>
                 <span>{item.installed && item.envWritten ? t("已安装") : item.error || t("安装失败")}</span>
               </li>
             ))}
@@ -509,6 +557,7 @@ function InstallDialog({ target, targets, current, providerName, nameOf, onDone,
           {result.results.some((item) => item.installed) ? (
             <>
               <p className="multimodal-note">{t("正在运行的 Agent 需要重启，才能读到新写入的环境变量。")}</p>
+              {result.guidePath ? <GuidePrompt path={result.guidePath} capability={target.capability} /> : null}
               <ExamplePrompts capability={target.capability} />
             </>
           ) : null}
@@ -525,6 +574,10 @@ function InstallDialog({ target, targets, current, providerName, nameOf, onDone,
                 {nameOf(agent)}
               </label>
             ))}
+            <label>
+              <input type="checkbox" checked={guide} onChange={(event) => setGuide(event.target.checked)} />
+              {t("其他 Agent（生成说明文件）")}
+            </label>
           </fieldset>
           {replacing.length ? (
             <p className="multimodal-note">{t("将替换这些 Agent 当前使用的 {models}。", { models: replacing.map((item) => `${item.model}（${providerName(item.providerId)}）`).join(separator) })}</p>
@@ -533,13 +586,16 @@ function InstallDialog({ target, targets, current, providerName, nameOf, onDone,
             <div className="model-check-body">
               <strong>{t("API Key 对 Agent 可见")}</strong>
               <span>{t("安装会把 {provider} 的 API Key 写进所选 Agent 自己的配置文件，变量名是 {name}。Agent 运行的任何命令都能读到它，Agent 使用的模型也可能看到。", { provider: providerName(target.provider.id), name: target.provider.keyEnv })}</span>
+              {guide || agents.some((agent) => fallback.includes(agent)) ? (
+                <span>{t("{agents}没有可配置的环境变量，Key 会写进 BootAgent 的私有文件 {path}，由 Skill 的脚本读取。", { agents: [...agents.filter((agent) => fallback.includes(agent)).map(nameOf), ...(guide ? [t("其他 Agent（生成说明文件）")] : [])].join(separator), path: target.provider.keyFile })}</span>
+              ) : null}
               <span>{t("Skill 的脚本需要 Node.js 18 或更高版本。之后每次调用都由 Agent 发起，按模型服务的价格计费；生成类 Skill 会要求 Agent 先征得你的同意。")}</span>
             </div>
           </div>
           {error ? <p className="multimodal-error" role="alert">{error}</p> : null}
           <footer>
             <button className="button button-secondary" type="button" onClick={onCancel}>{t("取消")}</button>
-            <button className="button button-primary" type="button" disabled={busy || !agents.length} onClick={install}>{busy ? t("正在安装") : t("安装")}</button>
+            <button className="button button-primary" type="button" disabled={busy || (!agents.length && !guide)} onClick={install}>{busy ? t("正在安装") : t("安装")}</button>
           </footer>
         </>
       )}

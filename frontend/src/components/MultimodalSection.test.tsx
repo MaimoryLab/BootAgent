@@ -26,12 +26,13 @@ import { I18nProvider, sourceTranslate } from "../i18n";
 import { describeProbe, groupByCapability, groupInstalled, installLabel, MultimodalSection } from "./MultimodalSection";
 import { EXAMPLE_PROMPTS } from "./multimodalPrompts";
 
-const GENERATABLE = ["openai-chat-vision", "openai-images", "openai-audio-transcriptions", "openai-audio-speech"];
+const GENERATABLE = ["openai-chat-vision", "openai-images", "openai-audio-transcriptions", "openai-audio-speech", "frames-chat-vision"];
 
 const gateway: MultimodalProvider = {
   id: "novita",
   name: "Novita",
   keyEnv: "BOOTAGENT_NOVITA_API_KEY",
+  keyFile: "/Users/me/.bootagent/skill-env/novita.env",
   unsupported: [],
   listed: true,
   models: [
@@ -59,6 +60,8 @@ function detection(partial: Partial<MultimodalDetection> = {}): MultimodalDetect
       { capability: "image-generation", adapter: "openai-images", probe: "confirm" },
       { capability: "speech-to-text", adapter: "openai-audio-transcriptions", probe: "minimal" },
     ],
+    fallback: [],
+    ffmpeg: true,
     ...partial,
   };
 }
@@ -205,7 +208,7 @@ describe("MultimodalSection", () => {
     fireEvent.click(within(dialog).getByLabelText("Codex"));
     fireEvent.click(within(dialog).getByLabelText("Codex"));
     fireEvent.click(within(dialog).getByRole("button", { name: "安装" }));
-    await waitFor(() => expect(installMultimodal).toHaveBeenCalledWith({ provider: "novita", model: "qwen/qwen3-vl-8b", capability: "vision", agents: ["claude-code", "codex"] }));
+    await waitFor(() => expect(installMultimodal).toHaveBeenCalledWith({ provider: "novita", model: "qwen/qwen3-vl-8b", capability: "vision", agents: ["claude-code", "codex"], guide: false }));
     expect(await within(dialog).findByText("已安装")).toBeTruthy();
     expect(within(dialog).getByText(/did not write is installed here/)).toBeTruthy();
     expect(within(dialog).getByText(/需要重启/)).toBeTruthy();
@@ -266,6 +269,30 @@ describe("MultimodalSection", () => {
     expect(within(row).getByRole("button", { name: /^安装$/ })).toBeTruthy();
   });
 
+  it("writes a guide for other Agents and names the fallback file", async () => {
+    detectMultimodal.mockResolvedValue(detection({ targets: ["claude-code", "codex", "opencode"], fallback: ["opencode"] }));
+    installMultimodal.mockResolvedValue({ skillId: "bootagent-vision", guidePath: "/Users/me/.bootagent/multimodal/vision", results: [{ agent: "guide", installed: true, envWritten: true }] });
+    renderSection();
+    fireEvent.click(await screen.findByRole("button", { name: /^安装$/ }));
+    const dialog = screen.getByRole("dialog");
+    // OpenCode is preselected and has no configurable environment.
+    expect(within(dialog).getByText(/私有文件 \/Users\/me\/\.bootagent\/skill-env\/novita\.env/)).toBeTruthy();
+    for (const name of ["Claude Code", "Codex", "opencode"]) fireEvent.click(within(dialog).getByLabelText(name));
+    fireEvent.click(within(dialog).getByLabelText("其他 Agent（生成说明文件）"));
+    fireEvent.click(within(dialog).getByRole("button", { name: "安装" }));
+    await waitFor(() => expect(installMultimodal).toHaveBeenCalledWith({ provider: "novita", model: "qwen/qwen3-vl-8b", capability: "vision", agents: [], guide: true }));
+    expect(await within(dialog).findByText("其他 Agent（说明文件）")).toBeTruthy();
+    expect(within(dialog).getByText("其他 Agent：说明文件在 /Users/me/.bootagent/multimodal/vision")).toBeTruthy();
+    fireEvent.click(within(dialog).getAllByRole("button", { name: "复制提示词" })[0]);
+    expect(copyToClipboard).toHaveBeenCalledWith(expect.stringContaining("先读 /Users/me/.bootagent/multimodal/vision/SKILL.md"));
+  });
+
+  it("warns when ffmpeg is missing for video by frames", async () => {
+    detectMultimodal.mockResolvedValue(detection({ ffmpeg: false, providers: [{ ...gateway, models: [{ id: "qwen/qwen3-vl-8b", capabilities: [{ id: "video-understanding", source: "declared", adapter: "frames-chat-vision", supported: true, installable: true, probe: "minimal" }] }] }] }));
+    renderSection();
+    expect(await screen.findByText(/没有在 PATH 上找到 ffmpeg/)).toBeTruthy();
+  });
+
   it("points to the Providers page when no key is saved", async () => {
     detectMultimodal.mockResolvedValue(detection({ providers: [] }));
     renderSection();
@@ -273,7 +300,7 @@ describe("MultimodalSection", () => {
   });
 
   it("reports a failed listing without hiding the Provider", async () => {
-    detectMultimodal.mockResolvedValue(detection({ providers: [{ id: "deepseek", name: "DeepSeek", keyEnv: "BOOTAGENT_DEEPSEEK_API_KEY", unsupported: [], listed: false, message: "API key was rejected (401).", errorCode: "API_KEY_REJECTED", models: [] }] }));
+    detectMultimodal.mockResolvedValue(detection({ providers: [{ id: "deepseek", name: "DeepSeek", keyEnv: "BOOTAGENT_DEEPSEEK_API_KEY", keyFile: "/Users/me/.bootagent/skill-env/deepseek.env", unsupported: [], listed: false, message: "API key was rejected (401).", errorCode: "API_KEY_REJECTED", models: [] }] }));
     renderSection();
     expect(await screen.findByText(/无法读取模型列表/)).toBeTruthy();
   });

@@ -38,11 +38,12 @@ const IDPrefix = "bootagent-"
 // run.mjs implements exactly these; anything else is refused instead of
 // producing a Skill whose script cannot run it.
 var supported = map[string][]string{
-	modality.Vision:          {modality.AdapterChatVision},
-	modality.ImageGeneration: {modality.AdapterImages},
-	modality.SpeechToText:    {modality.AdapterAudioTranscriptions},
-	modality.TextToSpeech:    {modality.AdapterAudioSpeech, modality.AdapterNovitaAudio},
-	modality.VideoGeneration: {modality.AdapterNovitaAsync},
+	modality.Vision:             {modality.AdapterChatVision},
+	modality.ImageGeneration:    {modality.AdapterImages},
+	modality.SpeechToText:       {modality.AdapterAudioTranscriptions},
+	modality.TextToSpeech:       {modality.AdapterAudioSpeech, modality.AdapterNovitaAudio},
+	modality.VideoGeneration:    {modality.AdapterNovitaAsync},
+	modality.VideoUnderstanding: {modality.AdapterFramesVision},
 }
 
 // Supports reports whether a capability over an adapter can be generated.
@@ -205,27 +206,30 @@ type skillText struct {
 }
 
 var titles = map[string]string{
-	modality.Vision:          "Image understanding",
-	modality.ImageGeneration: "Image generation",
-	modality.SpeechToText:    "Speech to text",
-	modality.TextToSpeech:    "Text to speech",
-	modality.VideoGeneration: "Video generation",
+	modality.Vision:             "Image understanding",
+	modality.ImageGeneration:    "Image generation",
+	modality.SpeechToText:       "Speech to text",
+	modality.TextToSpeech:       "Text to speech",
+	modality.VideoGeneration:    "Video generation",
+	modality.VideoUnderstanding: "Video understanding",
 }
 
 var descriptions = map[string]string{
-	modality.Vision:          "Look at local image files (screenshots, photos, diagrams) and answer questions about them through %s on %s. Use when the user asks about an image and you cannot see images yourself.",
-	modality.ImageGeneration: "Generate images from a text description through %s on %s and save them as files. Use when the user asks you to create an image. Each run is billed: confirm with the user first.",
-	modality.SpeechToText:    "Transcribe a local audio file to text through %s on %s. Use when the user asks for the text of a recording.",
-	modality.TextToSpeech:    "Turn text into a spoken audio file through %s on %s. Use when the user asks for audio of some text. Each run is billed: confirm with the user first.",
-	modality.VideoGeneration: "Generate a short video from a text description through %s on %s and save it as a file. Use when the user asks you to create a video. Each run is billed by the second and cannot be cancelled: confirm with the user first.",
+	modality.Vision:             "Look at local image files (screenshots, photos, diagrams) and answer questions about them through %s on %s. Use when the user asks about an image and you cannot see images yourself.",
+	modality.ImageGeneration:    "Generate images from a text description through %s on %s and save them as files. Use when the user asks you to create an image. Each run is billed: confirm with the user first.",
+	modality.SpeechToText:       "Transcribe a local audio file to text through %s on %s. Use when the user asks for the text of a recording.",
+	modality.TextToSpeech:       "Turn text into a spoken audio file through %s on %s. Use when the user asks for audio of some text. Each run is billed: confirm with the user first.",
+	modality.VideoGeneration:    "Generate a short video from a text description through %s on %s and save it as a file. Use when the user asks you to create a video. Each run is billed by the second and cannot be cancelled: confirm with the user first.",
+	modality.VideoUnderstanding: "Answer questions about a local video file by sampling frames with ffmpeg and sending them to %s on %s. Use when the user asks what happens in a video, or to find a moment in a screen recording.",
 }
 
 var costRules = map[string]string{
-	modality.Vision:          "Each run is a billed request to the user's Provider. Run it when the user asks about specific images; do not run it speculatively over many files without asking.",
-	modality.ImageGeneration: "Every run costs money. Before each run, tell the user what you are about to generate and how many images, and wait for them to agree.",
-	modality.SpeechToText:    "Each run is billed by the length of the audio. Run it when the user asks for a transcript; ask first before transcribing long or many recordings.",
-	modality.TextToSpeech:    "Every run costs money, billed by the length of the text. Before each run, tell the user what text you are about to speak and wait for them to agree.",
-	modality.VideoGeneration: "Every run costs money, billed by the second of video, and a submitted run cannot be cancelled. Before each run, tell the user the prompt, the duration and the resolution or aspect ratio you will use, and wait for them to agree. Never retry a failed or timed-out run on your own: a timed-out run may still finish and be billed.",
+	modality.Vision:             "Each run is a billed request to the user's Provider. Run it when the user asks about specific images; do not run it speculatively over many files without asking.",
+	modality.ImageGeneration:    "Every run costs money. Before each run, tell the user what you are about to generate and how many images, and wait for them to agree.",
+	modality.SpeechToText:       "Each run is billed by the length of the audio. Run it when the user asks for a transcript; ask first before transcribing long or many recordings.",
+	modality.TextToSpeech:       "Every run costs money, billed by the length of the text. Before each run, tell the user what text you are about to speak and wait for them to agree.",
+	modality.VideoGeneration:    "Every run costs money, billed by the second of video, and a submitted run cannot be cancelled. Before each run, tell the user the prompt, the duration and the resolution or aspect ratio you will use, and wait for them to agree. Never retry a failed or timed-out run on your own: a timed-out run may still finish and be billed.",
+	modality.VideoUnderstanding: "Each run is a billed request carrying every sampled frame as an image, so it costs about as much as that many image questions. Run it when the user asks about a specific video; ask before raising --frames or running it over many files.",
 }
 
 // Render writes the Skill tree into dir, which must exist and be empty. The

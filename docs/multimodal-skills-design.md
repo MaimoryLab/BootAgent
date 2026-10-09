@@ -1,6 +1,6 @@
 # Multimodal Skills: Design
 
-Status: In progress. Phases 1 to 3 are implemented: detection; generation and install for Claude Code and Codex; native speech and async video on the routes the vendors document. Branch `codex/multimodal-skills`.
+Status: Phases 1 to 4 are implemented, with one open decision (Hermes, under Open questions). Branch `codex/multimodal-skills`.
 
 ## Goal
 
@@ -170,9 +170,16 @@ probe passes, and each gets a probe once its format is verified (Phase 3).
 | Capability | Adapter | Installable from a declaration |
 | --- | --- | --- |
 | Image understanding | `openai-chat-vision` | Yes |
-| Video understanding (native) | `openai-chat-video` | Yes |
+| Video understanding (native) | `openai-chat-video` | No, probe first; no probe exists yet |
+| Video understanding (frames) | `frames-chat-vision` | Follows the model's image-understanding evidence |
 | Image generation via chat output | `openai-chat-image-output` | No, probe first. JieKou.AI's `gemini-*-image` and `gpt-image-*`, whose `endpoints` is empty |
 | Speech-to-text via chat audio input | `openai-chat-audio-input` | No, probe first. `*-omni-*`, `gemini-*`, `mimo-v2.6-*` |
+
+Native video was first listed as installable from a declaration. Phase 4 found
+that vendors disagree on the content part: Moonshot accepts video only as a
+file uploaded to its own storage (`"video_url": {"url": "ms://<file id>"}`),
+not as a data URL. So native video now installs only after a probe, which none
+has yet, and video understanding is reached by frame sampling instead.
 
 ### ID rules
 
@@ -257,7 +264,7 @@ refused / key / transient / network classification from
 | Image generation | One image from `/images/generations`, no size sent | One image; the button says so and a dialog asks first, and the backend refuses the probe without that confirmation |
 | Text-to-speech (native) | The text `ok` to `POST <native base>/v3/<model>` with a documented system voice; the verdict is read from `base_resp.status_code` too | Minimal |
 | Video generation | Not probed | A probe is a full billed generation that cannot be cancelled reliably, so this capability is catalog-only |
-| Video understanding | Native video models: catalog-only. Frame sampling: inherits the image-understanding verdict | None |
+| Video understanding | Native video: no probe yet, so not installable. Frame sampling: the image-understanding probe, recorded as image understanding | Minimal |
 
 Implementation notes:
 
@@ -352,6 +359,17 @@ or a colon cannot break the frontmatter.
 | Speech-to-text | `transcribe --audio <path> [--language] [--prompt]` | The transcript on stdout |
 | Text-to-speech | `speak --text <text> [--voice] [--format] [--out]` (native route: also `--speed`) | The saved file path on stdout |
 | Video generation | `video --prompt <text> [options the model documents] [--out]`, and `video-result --task <id>` | The saved file path on stdout; `task: <id>` on stderr |
+| Video understanding | `describe-video --video <path> [--prompt] [--frames 1-16] [--max-tokens]` | The answer on stdout |
+
+`describe-video` reads the duration from ffmpeg's own output, so it needs no
+ffprobe, samples frames evenly at the middle of each slice, scales them to at
+most 1024 px wide, and sends them in order to the chat vision route with a note
+of their timestamps. ffmpeg runs with an argv array, a timeout and an
+environment of `PATH` alone, so it never sees the key; the frames go to a
+temporary directory that is removed afterwards. Without ffmpeg on `PATH` the
+script exits 3. Any model with image understanding gets this capability with
+that evidence; the Skills page warns when BootAgent itself finds no ffmpeg,
+which is only a hint, since the Agent may run elsewhere.
 
 Every Skill also has `check`, which confirms the key is available without
 sending a request. Exit codes: 0 success, 2 bad arguments or input, 3 setup
@@ -409,8 +427,8 @@ secret and stay in `config.json`.
 | --- | --- | --- |
 | Claude Code | `env` in `~/.claude/settings.json` | Already a secret file under ADR-008; the Bash tool inherits `env`. |
 | Codex | `[shell_environment_policy.set]` in `~/.codex/config.toml` | `set` is applied after Codex's default `KEY`/`SECRET`/`TOKEN` exclusion, so the variable survives it. The table is merged with the user's own entries and placed after the user's tables; inline-table and dotted-key spellings of it are refused rather than duplicated. Every writer of `config.toml` (Profile, MCP, Skill) writes it as a secret whenever the old or the new content holds a `BOOTAGENT_*` key, since the backup it takes is of the old content. |
-| OpenCode | To be confirmed | How its shell tool receives configured environment variables is not yet checked. |
-| Hermes | To be confirmed | Same as OpenCode. |
+| OpenCode | The fallback file | Its config documents `{env:VAR}` substitution into config values and an `environment` key for formatters only, nothing that reaches the shell tool. |
+| Hermes | The fallback file, once offered | Its README and `.env.example` say nothing about what its terminal tool inherits; under the SSH backend the Agent cannot read `.env`. Not offered yet (Open questions). |
 
 Fallback for an Agent with no configurable environment: a private
 `~/.bootagent/skill-env/<provider>.env`, the same pattern ADR-008 uses for
@@ -453,9 +471,9 @@ The Skills page gets a Multimodal capabilities section:
    declared by the Provider, ID rule, catalog, or probed.
 2. Per capability, a model choice and, where the probe table allows, a
    Probe button.
-3. Target Agents: those with `skills_path` in `agents.lock.json` and a native
-   writer for the variable. In Phase 2 that is Claude Code and Codex; OpenCode
-   and Hermes follow in Phase 4.
+3. Target Agents: those with `skills_path` in `agents.lock.json`: Claude Code,
+   Codex and OpenCode. Hermes is held back (Open questions). The confirmation
+   names the fallback file when a chosen Agent reads it.
 4. Install: a confirmation names the variable, states that the Agent and its
    model can read it, and notes the Node 18 requirement. Then the tree is
    generated, stored and published, the variables are written, and the result is
@@ -474,10 +492,20 @@ also runs the reconcile, so no separate multimodal uninstall exists.
 ### Agents without Skills
 
 Kilo CLI, Aider, OpenClaw, Kimi Code, pi, dsh and the desktop apps have no Skills
-directory. BootAgent writes the same tree to `~/.bootagent/multimodal/<capability>/`
-and the variables to the fallback env file, and shows a prompt such as
-"Read ~/.bootagent/multimodal/vision/SKILL.md and use it to …". It does not edit
+directory. The install dialog's "Other Agents (write a guide)" option writes the
+same tree to `~/.bootagent/multimodal/<capability>/` and the key to the fallback
+env file, and shows a prompt in both languages such as "First read
+/Users/me/.bootagent/multimodal/vision/SKILL.md and follow it to do this: …",
+with the absolute path, since not every Agent expands `~`. It does not edit
 those Agents' instruction files.
+
+The guide is not a registry target, because it is not an Agent's Skills
+directory and would fail the eligibility checks the uninstall and apply paths
+make. It is found again by its hash: a guide directory whose tree is a stored
+generated variant counts as installed, keeps its Provider's key file in the
+reconcile, is re-rendered when the Provider's endpoint changes, blocks deleting
+the Provider, and is removed with the Skill. A folder there that BootAgent did
+not write is left alone, as in an Agent's Skills directory.
 
 ## Security and privacy
 
@@ -519,7 +547,8 @@ those Agents' instruction files.
 3. Native speech and async video on the routes Novita, PPIO and JieKou.AI
    document; catalog image models on the images route. PPIO video is not
    implemented (no documented route).
-4. Video understanding; OpenCode, Hermes and the guide for Agents without Skills.
+4. Video understanding by frame sampling; OpenCode on the fallback file; the
+   guide for Agents without Skills. Hermes is held back pending a decision.
 
 ## Open questions
 
@@ -530,7 +559,8 @@ those Agents' instruction files.
   tools.
 - Hermes is installed by its official script, so Node may be absent. If so, should
   `SKILL.md` point at BootAgent's managed Node runtime by absolute path, or should
-  the Skill not be offered to Hermes?
+  the Skill not be offered to Hermes? Until this is decided, Hermes is not an
+  install target (`pendingSkillTargets` in `internal/app/multimodal_install.go`).
 - Whether the UI shows a price per call. The catalog has no pricing today; v1 shows
   a generic cost note only.
 
@@ -542,3 +572,5 @@ those Agents' instruction files.
 - [PPIO: task result](https://ppio.com/docs/models/reference-get-async-task-result), [MiniMax Speech 2.8 Turbo](https://ppio.com/docs/models/reference-minimax-speech-2.8-turbo)
 - [JieKou.AI: task result](https://docs.jiekou.ai/docs/models/reference-get-async-task-result), [Wan 2.7 text-to-video](https://docs.jiekou.ai/docs/models/reference-wan2.7-t2v), [Kling v3.0 4K text-to-video](https://docs.jiekou.ai/docs/models/reference-kling-v3.0-4k-t2v), [GPT Image](https://docs.jiekou.ai/docs/models/reference-gpt-image), [Gemini](https://docs.jiekou.ai/docs/providers/gemini), [MiniMax Speech 2.8 Turbo](https://docs.jiekou.ai/docs/models/reference-minimax-speech-2.8-turbo)
 - [Codex: configuration reference](https://developers.openai.com/codex/config-reference)
+- [OpenCode: configuration](https://opencode.ai/docs/config/)
+- [Hermes Agent: README](https://github.com/NousResearch/hermes-agent), [.env.example](https://github.com/NousResearch/hermes-agent/blob/main/.env.example)

@@ -37,6 +37,10 @@ var goldenSpecs = map[string]Spec{
 		Capability: modality.TextToSpeech, Adapter: modality.AdapterNovitaAudio,
 		ProviderID: "ppio", ProviderName: "PPIO", Model: "minimax-speech-2.8-turbo", BaseURL: "https://api.ppio.com/openai", NativeBaseURL: "https://api.ppio.com",
 	},
+	modality.VideoUnderstanding: {
+		Capability: modality.VideoUnderstanding, Adapter: modality.AdapterFramesVision,
+		ProviderID: "novita", ProviderName: "Novita", Model: "qwen/qwen3-vl-8b", BaseURL: "https://api.novita.ai/openai",
+	},
 	modality.VideoGeneration: {
 		Capability: modality.VideoGeneration, Adapter: modality.AdapterNovitaAsync,
 		ProviderID: "jiekou", ProviderName: "JieKou.AI", Model: "wan2.7-t2v", BaseURL: "https://api.highwayapi.ai/openai", NativeBaseURL: "https://api.highwayapi.ai",
