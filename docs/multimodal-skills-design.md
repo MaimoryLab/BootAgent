@@ -1,6 +1,6 @@
 # Multimodal Skills: Design
 
-Status: Phases 1 to 4 are implemented, with one open decision (Hermes, under Open questions). Branch `codex/multimodal-skills`.
+Status: Phases 1 to 4 are implemented. Branch `codex/multimodal-skills`.
 
 ## Goal
 
@@ -428,7 +428,7 @@ secret and stay in `config.json`.
 | Claude Code | `env` in `~/.claude/settings.json` | Already a secret file under ADR-008; the Bash tool inherits `env`. |
 | Codex | `[shell_environment_policy.set]` in `~/.codex/config.toml` | `set` is applied after Codex's default `KEY`/`SECRET`/`TOKEN` exclusion, so the variable survives it. The table is merged with the user's own entries and placed after the user's tables; inline-table and dotted-key spellings of it are refused rather than duplicated. Every writer of `config.toml` (Profile, MCP, Skill) writes it as a secret whenever the old or the new content holds a `BOOTAGENT_*` key, since the backup it takes is of the old content. |
 | OpenCode | The fallback file | Its config documents `{env:VAR}` substitution into config values and an `environment` key for formatters only, nothing that reaches the shell tool. |
-| Hermes | The fallback file, once offered | Its README and `.env.example` say nothing about what its terminal tool inherits; under the SSH backend the Agent cannot read `.env`. Not offered yet (Open questions). |
+| Hermes | Not offered | Its README and `.env.example` say nothing about what its terminal tool inherits; under the SSH backend the Agent cannot read `.env`. See Hermes below. |
 
 Fallback for an Agent with no configurable environment: a private
 `~/.bootagent/skill-env/<provider>.env`, the same pattern ADR-008 uses for
@@ -472,8 +472,8 @@ The Skills page gets a Multimodal capabilities section:
 2. Per capability, a model choice and, where the probe table allows, a
    Probe button.
 3. Target Agents: those with `skills_path` in `agents.lock.json`: Claude Code,
-   Codex and OpenCode. Hermes is held back (Open questions). The confirmation
-   names the fallback file when a chosen Agent reads it.
+   Codex and OpenCode. Hermes is not offered (see Hermes below). The
+   confirmation names the fallback file when a chosen Agent reads it.
 4. Install: a confirmation names the variable, states that the Agent and its
    model can read it, and notes the Node 18 requirement. Then the tree is
    generated, stored and published, the variables are written, and the result is
@@ -488,6 +488,19 @@ English, each with a copy button, for example "Look at ./screenshot.png and find
 the error message in the UI" for image understanding. Uninstall reuses the
 existing Skill uninstall (`SkillService.Uninstall`), which keeps a backup and now
 also runs the reconcile, so no separate multimodal uninstall exists.
+
+### Hermes
+
+Decided on 2026-10-09: the multimodal Skill is not offered to Hermes as an
+install target. Hermes is installed by its official script, so Node may be
+absent from its PATH. Pointing `SKILL.md` at BootAgent's managed Node by absolute
+path was considered and not taken: that path is versioned
+(`~/.bootagent/runtimes/node/v<version>/…`), exists only when the user installed
+Node through BootAgent, and moves when the lock file bumps Node, so every Hermes
+Skill would need re-rendering on each upgrade. Neither the path nor the key file
+exists when Hermes runs commands on a remote backend (SSH, Docker) either.
+Hermes users can still use the guide below. `pendingSkillTargets` in
+`internal/app/multimodal_install.go` holds the exclusion.
 
 ### Agents without Skills
 
@@ -548,7 +561,7 @@ not write is left alone, as in an Agent's Skills directory.
    document; catalog image models on the images route. PPIO video is not
    implemented (no documented route).
 4. Video understanding by frame sampling; OpenCode on the fallback file; the
-   guide for Agents without Skills. Hermes is held back pending a decision.
+   guide for Agents without Skills. Hermes is not offered (see Hermes).
 
 ## Open questions
 
@@ -557,10 +570,6 @@ not write is left alone, as in an Agent's Skills directory.
   route, and PPIO and Novita video generation, need documenting by the vendors.
 - How OpenCode and Hermes pass configured environment variables to their shell
   tools.
-- Hermes is installed by its official script, so Node may be absent. If so, should
-  `SKILL.md` point at BootAgent's managed Node runtime by absolute path, or should
-  the Skill not be offered to Hermes? Until this is decided, Hermes is not an
-  install target (`pendingSkillTargets` in `internal/app/multimodal_install.go`).
 - Whether the UI shows a price per call. The catalog has no pricing today; v1 shows
   a generic cost note only.
 

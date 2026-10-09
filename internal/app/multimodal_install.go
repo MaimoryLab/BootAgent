@@ -72,10 +72,11 @@ type InstalledMultimodal struct {
 // variables (ADR-011). Other Agents get the private fallback file.
 var nativeSkillEnvAdapters = map[string]bool{"claude-code": true, "codex": true}
 
-// pendingSkillTargets are Agents with a Skills directory that are not offered
-// yet. Hermes is installed by its official script, so Node may be absent
-// where it runs; whether its Skill should run BootAgent's managed Node by
-// absolute path is an open decision (design doc, Open questions).
+// pendingSkillTargets are Agents with a Skills directory that are not offered.
+// Hermes is installed by its official script, so Node may be absent where it
+// runs, and BootAgent's managed Node sits at a versioned path that moves on
+// every upgrade and does not exist on Hermes's remote backends. Decided not to
+// offer it (design doc, Hermes); Hermes users can use the guide.
 var pendingSkillTargets = map[string]bool{"hermes": true}
 
 // multimodalInstallTargets are the Agents a multimodal Skill can be installed
