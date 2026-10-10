@@ -158,6 +158,13 @@ func (u *UseCases) InstallMultimodal(ctx context.Context, request MultimodalInst
 
 	u.writeMu.Lock()
 	defer u.writeMu.Unlock()
+	current, err := u.providers.Get(target.ID)
+	if err != nil {
+		return result, err
+	}
+	if provider.Fingerprint(current) != provider.Fingerprint(target) || current.Name != target.Name {
+		return result, oneerrors.New(oneerrors.InvalidRequest, "The Provider changed while its model was being checked; retry the installation", oneerrors.WithRetryable(true))
+	}
 	targets, _, err := u.multimodalInstallTargets()
 	if err != nil {
 		return result, err
@@ -457,15 +464,28 @@ var fallbackEnvFile = regexp.MustCompile(`^([a-z0-9][a-z0-9-]{0,63})\.env$`)
 // Codex get them in their own configuration; any other Agent a generated Skill
 // is published to reads the private fallback file. It returns failures by
 // Agent and never fails the caller's own change. Callers hold writeMu.
-func (u *UseCases) reconcileSkillEnvLocked(ctx context.Context) map[string]string {
+func (u *UseCases) reconcileSkillEnvLocked(ctx context.Context, providerIDs ...string) map[string]string {
 	failures := map[string]string{}
+	selectedProvider := func(providerID string) bool {
+		return len(providerIDs) == 0 || slices.Contains(providerIDs, providerID)
+	}
+	loadFailure := func(message string) map[string]string {
+		if len(providerIDs) == 0 {
+			failures[GuideTarget] = message
+			return failures
+		}
+		for _, providerID := range providerIDs {
+			failures[providerID] = message
+		}
+		return failures
+	}
 	registry, err := u.skillStore().Load()
 	if err != nil {
-		return failures
+		return loadFailure("Cannot read the Skill Registry")
 	}
 	manifest, err := catalog.LoadEmbedded()
 	if err != nil {
-		return failures
+		return loadFailure("Cannot read the Agent catalog")
 	}
 	keys := map[string]string{}
 	keyFor := func(providerID string) string {
@@ -483,10 +503,57 @@ func (u *UseCases) reconcileSkillEnvLocked(ctx context.Context) map[string]strin
 	// desired[agent][variable] = key; fallback[provider] = agents that need it.
 	desired := map[string]map[string]string{}
 	fallback := map[string][]string{}
-	for _, variant := range u.generatedVariants(registry) {
+	blockedNative := map[string]map[string]bool{}
+	blockedFallback := map[string]bool{}
+	selectedAgents := map[string]bool{}
+	variants := u.generatedVariants(registry)
+	for _, variant := range variants {
+		if slices.Contains(providerIDs, variant.config.ProviderID) {
+			for _, agentID := range variant.targets {
+				selectedAgents[agentID] = true
+			}
+		}
+	}
+	rules, err := modality.Load()
+	if err != nil {
+		return loadFailure("Cannot read modality routes")
+	}
+	for _, variant := range variants {
+		entry, entryErr := u.providers.Get(variant.config.ProviderID)
+		// An endpoint refresh may fail for a user-edited tree. Never hand the
+		// new endpoint's key to a variant that still sends to the old one. Native
+		// adapters send to native_base_url, regardless of the OpenAI base snapshot.
+		matches := entryErr == nil && provider.OpenAIBaseURL(entry.BaseURL) == variant.config.BaseURL
+		if modality.IsNative(variant.config.Adapter) {
+			matches = entryErr == nil && rules.NativeBaseURL(entry.ID) == variant.config.NativeBaseURL
+		}
+		if !matches {
+			if variant.guide {
+				blockedFallback[variant.config.ProviderID] = true
+				if selectedProvider(variant.config.ProviderID) {
+					failures[GuideTarget] = "Skill still uses a previous Provider endpoint; reinstall it before updating its key"
+				}
+			}
+			for _, agentID := range variant.targets {
+				if selectedProvider(variant.config.ProviderID) {
+					failures[agentID] = "Skill still uses a previous Provider endpoint; reinstall it before updating its key"
+				}
+				if nativeSkillEnvAdapters[manifest.Agents[agentID].ConfigAdapter] {
+					if blockedNative[agentID] == nil {
+						blockedNative[agentID] = map[string]bool{}
+					}
+					blockedNative[agentID][variant.config.KeyEnv] = true
+				} else {
+					blockedFallback[variant.config.ProviderID] = true
+				}
+			}
+			continue
+		}
 		if variant.guide {
 			if keyFor(variant.config.ProviderID) == "" {
-				failures[GuideTarget] = "Provider " + variant.config.ProviderID + " has no saved API key"
+				if selectedProvider(variant.config.ProviderID) {
+					failures[GuideTarget] = "Provider " + variant.config.ProviderID + " has no saved API key"
+				}
 			} else {
 				fallback[variant.config.ProviderID] = append(fallback[variant.config.ProviderID], GuideTarget)
 			}
@@ -498,7 +565,9 @@ func (u *UseCases) reconcileSkillEnvLocked(ctx context.Context) map[string]strin
 			}
 			key := keyFor(variant.config.ProviderID)
 			if key == "" {
-				failures[agentID] = "Provider " + variant.config.ProviderID + " has no saved API key"
+				if selectedProvider(variant.config.ProviderID) {
+					failures[agentID] = "Provider " + variant.config.ProviderID + " has no saved API key"
+				}
 				continue
 			}
 			if nativeSkillEnvAdapters[agent.ConfigAdapter] {
@@ -511,8 +580,24 @@ func (u *UseCases) reconcileSkillEnvLocked(ctx context.Context) map[string]strin
 			}
 		}
 	}
+	for agentID, variables := range blockedNative {
+		for variable := range variables {
+			delete(desired[agentID], variable)
+		}
+	}
+	for providerID := range blockedFallback {
+		if selectedProvider(providerID) {
+			for _, agentID := range fallback[providerID] {
+				failures[agentID] = "Another Skill using this key still points at a previous Provider endpoint"
+			}
+		}
+		delete(fallback, providerID)
+	}
 	writer := configWriter.NewWriter(u.status.Home, u.status.Platform.OS, u.filesystem)
 	for _, agentID := range slices.Sorted(maps.Keys(manifest.Agents)) {
+		if len(providerIDs) > 0 && !selectedAgents[agentID] {
+			continue
+		}
 		agent := manifest.Agents[agentID]
 		if !nativeSkillEnvAdapters[agent.ConfigAdapter] {
 			continue
@@ -533,6 +618,9 @@ func (u *UseCases) reconcileSkillEnvLocked(ctx context.Context) map[string]strin
 		}
 	}
 	for providerID, agents := range fallback {
+		if len(providerIDs) > 0 && !slices.Contains(providerIDs, providerID) {
+			continue
+		}
 		path := configWriter.SkillEnvFilePath(u.status.Home, providerID)
 		if err := writer.WriteSkillEnvFile(ctx, path, configWriter.SkillEnvName(providerID), keyFor(providerID)); err != nil {
 			for _, agentID := range agents {
@@ -547,10 +635,17 @@ func (u *UseCases) reconcileSkillEnvLocked(ctx context.Context) map[string]strin
 			if match == nil || !entry.Type().IsRegular() {
 				continue
 			}
+			if len(providerIDs) > 0 && !slices.Contains(providerIDs, match[1]) {
+				continue
+			}
 			if _, needed := fallback[match[1]]; !needed {
-				_ = configWriter.RemoveSkillEnvFile(filepath.Join(directory, entry.Name()))
+				if err := configWriter.RemoveSkillEnvFile(filepath.Join(directory, entry.Name())); err != nil {
+					failures[match[1]] = oneerrors.As(err).Message
+				}
 			}
 		}
+	} else if !os.IsNotExist(err) {
+		return loadFailure("Cannot inspect the Skill environment directory")
 	}
 	return failures
 }
@@ -616,6 +711,9 @@ func (u *UseCases) refreshGeneratedSkillsLocked(ctx context.Context, target prov
 		if err != nil {
 			for _, agentID := range variant.targets {
 				failures[agentID] = oneerrors.As(err).Message
+			}
+			if variant.guide {
+				failures[GuideTarget] = oneerrors.As(err).Message
 			}
 			continue
 		}

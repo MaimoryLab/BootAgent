@@ -203,6 +203,7 @@ func (u *UseCases) SaveProvider(ctx context.Context, entry provider.Entry, creat
 	// Nothing an Agent config carries has changed, so there is nothing to rewrite.
 	if before.BaseFor(provider.ProtocolAnthropic) == saved.BaseFor(provider.ProtocolAnthropic) &&
 		before.BaseURL == saved.BaseURL && before.APIKey == saved.APIKey {
+		u.reapplyGeneratedSkillsLocked(ctx, saved, &result)
 		return result, nil
 	}
 	result.Reapplied, result.Failures, err = u.reapplyProviderLocked(ctx, saved)
@@ -218,16 +219,26 @@ func (u *UseCases) SaveProvider(ctx context.Context, entry provider.Entry, creat
 // in every Agent they are published to. Agents rewritten this way join
 // Reapplied; failures join Failures, keyed by Agent like the rest.
 func (u *UseCases) reapplyGeneratedSkillsLocked(ctx context.Context, saved provider.Entry, result *SaveProviderResult) {
+	if _, err := u.skillStore().Load(); err != nil {
+		if result.Failures == nil {
+			result.Failures = map[string]string{}
+		}
+		result.Failures[saved.ID] = "Cannot read the Skill Registry"
+		return
+	}
 	using := u.generatedSkillsUsing(saved.ID)
 	if len(using) == 0 {
 		return
 	}
 	failures := u.refreshGeneratedSkillsLocked(ctx, saved)
-	for agentID, failure := range u.reconcileSkillEnvLocked(ctx) {
+	for agentID, failure := range u.reconcileSkillEnvLocked(ctx, saved.ID) {
 		failures[agentID] = failure
 	}
 	touched := map[string]bool{}
 	for _, variant := range using {
+		if variant.guide {
+			touched[GuideTarget] = true
+		}
 		for _, agentID := range variant.targets {
 			touched[agentID] = true
 		}
@@ -244,7 +255,56 @@ func (u *UseCases) reapplyGeneratedSkillsLocked(ctx context.Context, saved provi
 			result.Reapplied = append(result.Reapplied, agentID)
 		}
 	}
+	if failure, failed := failures[saved.ID]; failed {
+		if result.Failures == nil {
+			result.Failures = map[string]string{}
+		}
+		result.Failures[saved.ID] = failure
+	}
 	sort.Strings(result.Reapplied)
+}
+
+// saveProviderKeyLocked covers credential updates accepted by Profile, Agent
+// activation and install calls, which do not go through the Provider editor.
+// Callers hold writeMu. A failed refresh is explicit; the saved Provider remains
+// authoritative and obsolete Skills never receive its new credential.
+func (u *UseCases) saveProviderKeyLocked(ctx context.Context, providerID, key string) error {
+	if providerID == "custom" || key == "" {
+		return nil
+	}
+	before, err := u.providers.Get(providerID)
+	if err != nil {
+		return err
+	}
+	if err := u.providers.SaveKey(ctx, providerID, key); err != nil {
+		return err
+	}
+	// An unchanged credential does not make a corrupt, unrelated Skill Registry
+	// a new prerequisite for applying an otherwise valid Profile or Agent config.
+	// With a readable Registry we still refresh, allowing same-key repair retries.
+	if before.APIKey == key {
+		if _, err := u.skillStore().Load(); err != nil {
+			return nil
+		}
+	}
+	saved, err := u.providers.Get(providerID)
+	if err != nil {
+		return err
+	}
+	result := SaveProviderResult{}
+	u.reapplyGeneratedSkillsLocked(ctx, saved, &result)
+	return generatedSkillRefreshError(result.Failures)
+}
+
+func generatedSkillRefreshError(failures map[string]string) error {
+	if len(failures) == 0 {
+		return nil
+	}
+	var messages []string
+	for _, target := range slices.Sorted(maps.Keys(failures)) {
+		messages = append(messages, target+": "+failures[target])
+	}
+	return oneerrors.New(oneerrors.ConfigWriteFailed, "Provider saved, but generated Skills could not be updated: "+strings.Join(messages, "; "))
 }
 
 // reapplyProviderLocked rewrites each configured Agent that points at this

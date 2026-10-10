@@ -629,7 +629,7 @@ func (u *UseCases) SaveProfile(ctx context.Context, options SaveProfileOptions) 
 		providerKey = target.APIKey
 	}
 	if strings.TrimSpace(providerKey) != "" {
-		if err := u.providers.SaveKey(ctx, options.Provider, providerKey); err != nil {
+		if err := u.saveProviderKeyLocked(ctx, options.Provider, providerKey); err != nil {
 			return SaveProfileResult{}, err
 		}
 	}
