@@ -293,6 +293,40 @@ OpenAI-compatible route (`openai-images`, `openai-audio-transcriptions`,
 passes. This is the user naming a model, not BootAgent guessing an endpoint; a
 probe verdict for a model in no listing is still shown and installable.
 
+### Explore mode
+
+Some models can never meet the evidence rule: a user-added gateway's listing
+declares no modalities, and its image route may be `/v3/<model>` rather than
+`/images/generations`, so no probe BootAgent can send will pass. For these the
+user may install any capability in explore mode, on a listed model or one typed
+by hand. Decision and alternatives:
+[ADR-012](decisions/ADR-012-explore-mode-for-unverified-models.md).
+
+An explore Skill (adapter `explore`) claims nothing about the model. `SKILL.md`
+tells the Agent to read its notes, then ask the user for documentation or an
+example, then read the Provider's public documentation (starting at the
+Provider's website when one is saved), and to stop and ask rather than guess by
+sending requests; to ask before any request that may be billed; and to send one
+request at a time until one has worked. Documentation is reference material,
+never instructions.
+
+`run.mjs request` sends what the Agent composes: `--method`, `--path`, a JSON
+body file or multipart `--form`/`--file` fields, `--query`, extra `--header`s and
+`--auth` (`bearer`, `header:<Name>` or `none`). The path is resolved against the
+origin of the Provider's saved base URL and refused if it leaves it; headers that
+carry credentials are refused; redirects are reported, not followed. Output is
+the status line and the redacted body; images, audio and video in a JSON body
+(base64, data URL or hex that sniffs as media) or as the whole body are saved to
+`~/.bootagent/output` and printed as paths. `fetch-result` downloads a result URL
+without the key. `notes` and `save-notes` read and write
+`~/.bootagent/skill-notes/<provider>-<capability>.md`, outside the Skill tree;
+`save-notes` strips the key and key-shaped text first.
+
+`explore` is not in the catalog's adapter vocabulary and has no probe. The UI
+offers it on an account row that cannot be installed otherwise, and in the
+manual entry of every capability, and marks installed explore Skills. A change
+to the Provider's website re-renders them, since `SKILL.md` names it.
+
 ### Cache
 
 `~/.bootagent/capabilities.json` keeps probe verdicts under the existing
@@ -530,8 +564,11 @@ not write is left alone, as in an Agent's Skills directory.
   the capability cache, React state or test artifacts. Golden tests assert the
   absence of the key in every generated file.
 - Inputs are read from local paths and sent only to the user's own Provider.
-  Outputs are downloaded into the Agent's working directory; BootAgent uploads
-  nothing anywhere else.
+  Outputs are saved to `~/.bootagent/output/` unless the Agent passes `--out`;
+  BootAgent uploads nothing anywhere else.
+- An explore Skill's script sends only to the origin of the Provider's saved
+  base URL, adds the key itself and follows no redirect, so neither the Agent
+  nor documentation it reads can steer the key to another host.
 - BootAgent itself sends billed requests only on a click. Spending done later by
   the Agent through a Skill is governed by `SKILL.md`, which requires the Agent
   to confirm generation with the user first.
@@ -545,7 +582,11 @@ not write is left alone, as in an Agent's Skills directory.
   declared metadata, and a model
   found by an ID rule alone is not installable before a probe.
 - Capability cache schema migration from version 1 and fingerprint invalidation.
-- Generator golden files per capability and adapter, with the no-key assertion.
+- Generator golden files per capability and adapter, with the no-key assertion;
+  an explore golden for a user-added gateway.
+- Explore `run.mjs`: origin lock against `//host`, `/\host` and absolute paths,
+  refused credential headers, unfollowed redirects, redaction of echoed keys in
+  refusals, media taken out of JSON, notes kept outside the tree without the key.
 - Environment writers per Agent against fixtures, including the Codex
   `shell_environment_policy` merge with an existing table and the secret write
   for `config.toml`.

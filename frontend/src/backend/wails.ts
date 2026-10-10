@@ -367,6 +367,7 @@ export const wailsApi = {
       manual: detection?.manual ?? [],
       fallback: detection?.fallback ?? [],
       ffmpeg: detection?.ffmpeg ?? false,
+      notesDir: detection?.notesDir ?? "",
     })) as Promise<MultimodalDetection>,
   // Sends a live (billed) request; only called from a button the user presses.
   // `confirmed` is set only after the user agreed to a probe that produces

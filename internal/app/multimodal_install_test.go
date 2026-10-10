@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -601,5 +602,48 @@ func TestVideoByFramesInstallsOnTheImageVerdict(t *testing.T) {
 	cfg, err := skillgen.ReadConfig(filepath.Join(home, ".codex", "skills", "bootagent-video-understanding"))
 	if err != nil || cfg.Adapter != modality.AdapterFramesVision || cfg.Model != "moonshotai/kimi-k3" {
 		t.Fatalf("config = %#v, %v", cfg, err)
+	}
+}
+
+// Explore mode claims nothing about the model, so it installs what the
+// evidence rule refuses: a name guess, or a model the listing never had.
+func TestExploreInstallsWithoutEvidenceAndFollowsTheProvider(t *testing.T) {
+	gateway := &multimodalGateway{listing: gatewayListing}
+	core, home := multimodalInstallCore(t, gateway)
+	for _, target := range [][2]string{{"moonshotai/kimi-k3", modality.Vision}, {"gpt-image-2-text-to-image", modality.ImageGeneration}} {
+		result, err := core.InstallMultimodal(context.Background(), MultimodalInstallRequest{Provider: "gw", Model: target[0], Capability: target[1], Agents: []string{"claude-code"}, Explore: true})
+		if err != nil || len(result.Results) != 1 || !result.Results[0].Installed || !result.Results[0].EnvWritten {
+			t.Fatalf("explore %v: %#v, %v", target, result, err)
+		}
+	}
+	if posts := gateway.billed(); len(posts) != 0 {
+		t.Fatalf("explore install sent billed requests: %v", posts)
+	}
+	tree := filepath.Join(home, ".claude", "skills", "bootagent-image-generation")
+	cfg, err := skillgen.ReadConfig(tree)
+	if err != nil || cfg.Adapter != modality.AdapterExplore || cfg.BaseURL != "https://gw.example/v1" || cfg.NotesFile != "~/.bootagent/skill-notes/gw-image-generation.md" {
+		t.Fatalf("config = %#v, %v", cfg, err)
+	}
+	if claudeEnv(t, home)["BOOTAGENT_GW_API_KEY"] != multimodalKey {
+		t.Fatal("explore Skill got no key variable")
+	}
+	detection, err := core.DetectMultimodal(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if detection.NotesDir != filepath.Join(home, ".bootagent", "skill-notes") || !slices.Contains(detection.Generatable, modality.AdapterExplore) {
+		t.Fatalf("notesDir = %q, generatable = %v", detection.NotesDir, detection.Generatable)
+	}
+	// Changing only the website re-renders the Skill: it is where the Agent
+	// is told to look for documentation.
+	if _, err := core.SaveProvider(context.Background(), provider.Entry{ID: "gw", Name: "Gateway", Home: "https://docs.gw.example", BaseURL: "https://gw.example/v1"}, false, true); err != nil {
+		t.Fatal(err)
+	}
+	if cfg, err := skillgen.ReadConfig(tree); err != nil || cfg.ProviderHome != "https://docs.gw.example" {
+		t.Fatalf("after the website changed: %#v, %v", cfg, err)
+	}
+	// The evidence rule still holds without explore.
+	if _, err := core.InstallMultimodal(context.Background(), MultimodalInstallRequest{Provider: "gw", Model: "gpt-image-2-text-to-image", Capability: modality.ImageGeneration, Agents: []string{"codex"}}); err == nil {
+		t.Fatal("a model with no evidence was installed without explore")
 	}
 }

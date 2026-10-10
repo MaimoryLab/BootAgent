@@ -138,6 +138,8 @@ export type MultimodalDetection = {
   fallback: string[];
   /** ffmpeg is on BootAgent's PATH; a hint for video understanding. */
   ffmpeg: boolean;
+  /** Where explore Skills record what they learn, one <provider>-<capability>.md each. */
+  notesDir: string;
 };
 export type MultimodalInstallRequest = Omit<AppModels.MultimodalInstallRequest, "capability"> & { capability: MultimodalCapabilityId };
 export type MultimodalInstallResult = Omit<AppModels.MultimodalInstallResult, "results"> & { results: AppModels.MultimodalAgentResult[] };

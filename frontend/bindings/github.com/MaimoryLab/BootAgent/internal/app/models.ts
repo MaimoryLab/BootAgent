@@ -423,6 +423,12 @@ export interface MultimodalDetection {
      * where the Agent runs, which may differ, so this is a hint only.
      */
     "ffmpeg": boolean;
+
+    /**
+     * NotesDir is where explore Skills keep what they learn, one
+     * <provider>-<capability>.md per Skill; the install confirmation names it.
+     */
+    "notesDir": string;
 }
 
 /**
@@ -441,6 +447,14 @@ export interface MultimodalInstallRequest {
      * prompt. Their key goes to the fallback file.
      */
     "guide": boolean;
+
+    /**
+     * Explore installs without knowing how the model is called: the Skill tells
+     * the Agent to work the request out with the user or from the Provider's
+     * documentation, and sends only to the Provider's own origin. The user
+     * opts into it, so it needs no evidence for the capability.
+     */
+    "explore"?: boolean;
 }
 
 export interface MultimodalInstallResult {

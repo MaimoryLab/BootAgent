@@ -31,6 +31,11 @@ type MultimodalInstallRequest struct {
 	// for Agents without a Skills directory, which are pointed at it by a
 	// prompt. Their key goes to the fallback file.
 	Guide bool `json:"guide"`
+	// Explore installs without knowing how the model is called: the Skill tells
+	// the Agent to work the request out with the user or from the Provider's
+	// documentation, and sends only to the Provider's own origin. The user
+	// opts into it, so it needs no evidence for the capability.
+	Explore bool `json:"explore,omitempty"`
 }
 
 // GuideTarget names the guide in per-target results. It is not an Agent ID
@@ -109,7 +114,8 @@ func (u *UseCases) guideDir(capability string) string {
 // "generated", publishes it to each Agent and writes the key variable there.
 // It sends no billed request: the evidence it installs on is the free model
 // listing, or a probe the user already ran. A capability found only by an ID
-// rule, or on an unverified adapter without a passing probe, is refused.
+// rule, or on an unverified adapter without a passing probe, is refused unless
+// the user chose explore mode, which claims nothing about the model.
 func (u *UseCases) InstallMultimodal(ctx context.Context, request MultimodalInstallRequest) (MultimodalInstallResult, error) {
 	if u == nil || u.provider == nil {
 		return MultimodalInstallResult{}, oneerrors.New(oneerrors.InternalError, "Multimodal install is not configured", oneerrors.WithStatus(501))
@@ -138,22 +144,30 @@ func (u *UseCases) InstallMultimodal(ctx context.Context, request MultimodalInst
 	if err != nil {
 		return result, err
 	}
-	found, err := u.resolveForInstall(ctx, rules, target, model, capability)
-	if err != nil {
-		return result, err
-	}
-	if !found.Installable {
-		return result, oneerrors.New(oneerrors.InvalidRequest, "This model's "+capability+" is not confirmed yet; run the check first")
-	}
-	if !skillgen.Supports(capability, found.Adapter) {
-		return result, oneerrors.New(oneerrors.InvalidRequest, "A Skill for this route cannot be generated yet")
-	}
-	spec := skillgen.Spec{
-		Capability: capability, Adapter: found.Adapter, ProviderID: target.ID, ProviderName: target.Name,
-		Model: model, BaseURL: target.BaseURL, NativeBaseURL: rules.NativeBaseURL(target.ID),
-	}
-	if generation, ok := rules.Generation(target.ID, model); ok && generation.Adapter == found.Adapter {
-		spec.Options = generation.Options
+	var spec skillgen.Spec
+	if request.Explore {
+		spec = skillgen.Spec{
+			Capability: capability, Adapter: modality.AdapterExplore, ProviderID: target.ID, ProviderName: target.Name,
+			Model: model, BaseURL: target.BaseURL, ProviderHome: target.Home,
+		}
+	} else {
+		found, err := u.resolveForInstall(ctx, rules, target, model, capability)
+		if err != nil {
+			return result, err
+		}
+		if !found.Installable {
+			return result, oneerrors.New(oneerrors.InvalidRequest, "This model's "+capability+" is not confirmed yet; run the check first, or install it in explore mode")
+		}
+		if !skillgen.Supports(capability, found.Adapter) {
+			return result, oneerrors.New(oneerrors.InvalidRequest, "A Skill for this route cannot be generated yet")
+		}
+		spec = skillgen.Spec{
+			Capability: capability, Adapter: found.Adapter, ProviderID: target.ID, ProviderName: target.Name,
+			Model: model, BaseURL: target.BaseURL, NativeBaseURL: rules.NativeBaseURL(target.ID),
+		}
+		if generation, ok := rules.Generation(target.ID, model); ok && generation.Adapter == found.Adapter {
+			spec.Options = generation.Options
+		}
 	}
 
 	u.writeMu.Lock()
@@ -699,13 +713,18 @@ func (u *UseCases) generatedSkillsUsing(providerID string) []generatedVariant {
 func (u *UseCases) refreshGeneratedSkillsLocked(ctx context.Context, target provider.Entry) map[string]string {
 	failures := map[string]string{}
 	for _, variant := range u.generatedSkillsUsing(target.ID) {
-		if provider.OpenAIBaseURL(target.BaseURL) == variant.config.BaseURL && target.Name == variant.config.ProviderName {
-			continue
-		}
 		spec := skillgen.Spec{
 			Capability: variant.config.Capability, Adapter: variant.config.Adapter,
 			ProviderID: target.ID, ProviderName: target.Name, Model: variant.config.Model,
 			BaseURL: target.BaseURL, NativeBaseURL: variant.config.NativeBaseURL, Options: variant.config.Options,
+		}
+		if variant.config.Adapter == modality.AdapterExplore {
+			// The website is where the Agent is told to look for documentation.
+			spec.ProviderHome = target.Home
+		}
+		if fresh, err := skillgen.NewConfig(spec); err == nil && fresh.BaseURL == variant.config.BaseURL &&
+			fresh.ProviderName == variant.config.ProviderName && fresh.ProviderHome == variant.config.ProviderHome {
+			continue
 		}
 		published, err := u.publishGeneratedLocked(ctx, spec, variant.targets, variant.guide)
 		if err != nil {

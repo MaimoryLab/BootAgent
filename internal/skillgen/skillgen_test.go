@@ -46,6 +46,11 @@ var goldenSpecs = map[string]Spec{
 		ProviderID: "jiekou", ProviderName: "JieKou.AI", Model: "wan2.7-t2v", BaseURL: "https://api.highwayapi.ai/openai", NativeBaseURL: "https://api.highwayapi.ai",
 		Options: []string{"duration", "size", "negative_prompt"},
 	},
+	// A user-added gateway whose image route BootAgent does not know.
+	"explore-image-generation": {
+		Capability: modality.ImageGeneration, Adapter: modality.AdapterExplore,
+		ProviderID: "paigod", ProviderName: "PG", Model: "gpt-image-2-text-to-image", BaseURL: "https://apiproxy.example/v1", ProviderHome: "https://docs.apiproxy.example",
+	},
 }
 
 func renderTo(t *testing.T, spec Spec) string {

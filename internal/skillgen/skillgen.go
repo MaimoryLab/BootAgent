@@ -36,14 +36,15 @@ const IDPrefix = "bootagent-"
 
 // supported lists the capability and adapter pairs this version can render.
 // run.mjs implements exactly these; anything else is refused instead of
-// producing a Skill whose script cannot run it.
+// producing a Skill whose script cannot run it. Explore serves every
+// capability: its script sends what the Agent composes.
 var supported = map[string][]string{
-	modality.Vision:             {modality.AdapterChatVision},
-	modality.ImageGeneration:    {modality.AdapterImages},
-	modality.SpeechToText:       {modality.AdapterAudioTranscriptions},
-	modality.TextToSpeech:       {modality.AdapterAudioSpeech, modality.AdapterNovitaAudio},
-	modality.VideoGeneration:    {modality.AdapterNovitaAsync},
-	modality.VideoUnderstanding: {modality.AdapterFramesVision},
+	modality.Vision:             {modality.AdapterChatVision, modality.AdapterExplore},
+	modality.ImageGeneration:    {modality.AdapterImages, modality.AdapterExplore},
+	modality.SpeechToText:       {modality.AdapterAudioTranscriptions, modality.AdapterExplore},
+	modality.TextToSpeech:       {modality.AdapterAudioSpeech, modality.AdapterNovitaAudio, modality.AdapterExplore},
+	modality.VideoGeneration:    {modality.AdapterNovitaAsync, modality.AdapterExplore},
+	modality.VideoUnderstanding: {modality.AdapterFramesVision, modality.AdapterExplore},
 }
 
 // Supports reports whether a capability over an adapter can be generated.
@@ -99,6 +100,9 @@ type Spec struct {
 	// Options are the request fields beyond the prompt the model documents,
 	// from the catalog. Only async generation uses them.
 	Options []string
+	// ProviderHome is the Provider's website, where an explore Skill tells the
+	// Agent to start looking for documentation. Ignored by other adapters.
+	ProviderHome string
 }
 
 // Config is config.json. Nothing in it is secret.
@@ -122,6 +126,11 @@ type Config struct {
 	KeyEnv    string `json:"key_env"`
 	KeyFile   string `json:"key_file"`
 	OutputDir string `json:"output_dir"`
+	// ProviderHome and NotesFile are set for explore only. NotesFile is where
+	// the Agent records the request it worked out; it lives outside the Skill
+	// tree, so writing it never makes the managed tree look edited.
+	ProviderHome string `json:"provider_home,omitempty"`
+	NotesFile    string `json:"notes_file,omitempty"`
 }
 
 var (
@@ -175,6 +184,18 @@ func NewConfig(spec Spec) (Config, error) {
 			}
 		}
 	}
+	home, notes := "", ""
+	if spec.Adapter == modality.AdapterExplore {
+		if home = strings.TrimSpace(spec.ProviderHome); home != "" {
+			parsed, err := url.Parse(home)
+			if err != nil || (parsed.Scheme != "https" && parsed.Scheme != "http") || parsed.Host == "" || parsed.User != nil || strings.ContainsAny(home, "\r\n\x00 ") {
+				// A home that cannot be a plain link is left out rather than
+				// handed to the Agent as a place to read instructions from.
+				home = ""
+			}
+		}
+		notes = NotesFile(spec.ProviderID, spec.Capability)
+	}
 	return Config{
 		SchemaVersion: ConfigSchemaVersion,
 		Generator:     "bootagent",
@@ -189,7 +210,18 @@ func NewConfig(spec Spec) (Config, error) {
 		KeyEnv:        config.SkillEnvName(spec.ProviderID),
 		KeyFile:       "~/.bootagent/skill-env/" + spec.ProviderID + ".env",
 		OutputDir:     "~/.bootagent/output",
+		ProviderHome:  home,
+		NotesFile:     notes,
 	}, nil
+}
+
+// NotesDir holds what explore Skills learn, one file per Provider and
+// capability. "~" is expanded by the script, like the key file.
+const NotesDir = "~/.bootagent/skill-notes"
+
+// NotesFile is the notes file of an explore Skill.
+func NotesFile(providerID, capability string) string {
+	return NotesDir + "/" + providerID + "-" + capability + ".md"
 }
 
 type skillText struct {
@@ -203,6 +235,13 @@ type skillText struct {
 	CostRule     string
 	Adapter      string
 	Options      []string
+	// Explore only.
+	Capability   string
+	Use          string
+	Origin       string
+	BaseURL      string
+	ProviderHome string
+	NotesFile    string
 }
 
 var titles = map[string]string{
@@ -222,6 +261,18 @@ var descriptions = map[string]string{
 	modality.VideoGeneration:    "Generate a short video from a text description through %s on %s and save it as a file. Use when the user asks you to create a video. Each run is billed by the second and cannot be cancelled: confirm with the user first.",
 	modality.VideoUnderstanding: "Answer questions about a local video file by sampling frames with ffmpeg and sending them to %s on %s. Use when the user asks what happens in a video, or to find a moment in a screen recording.",
 }
+
+// exploreUses says, per capability, what an explore Skill is for.
+var exploreUses = map[string]string{
+	modality.Vision:             "answer questions about local image files",
+	modality.ImageGeneration:    "generate images from a text description",
+	modality.SpeechToText:       "transcribe a local audio file to text",
+	modality.TextToSpeech:       "turn text into a spoken audio file",
+	modality.VideoGeneration:    "generate a short video from a text description",
+	modality.VideoUnderstanding: "answer questions about a local video file",
+}
+
+const exploreDescription = "Use %s on %s to %s. BootAgent could not confirm how this model is called, so work the request out with the user or from the Provider's documentation before the first run, then send it through this Skill's script, which adds the API key. Ask the user before any request that may be billed."
 
 var costRules = map[string]string{
 	modality.Vision:             "Each run is a billed request to the user's Provider. Run it when the user asks about specific images; do not run it speculatively over many files without asking.",
@@ -272,12 +323,22 @@ func Files(cfg Config) (map[string][]byte, error) {
 		Adapter:      cfg.Adapter,
 		Options:      cfg.Options,
 	}
-	parsed, err := template.New("skill").Funcs(template.FuncMap{"yamlString": yamlString, "has": slices.Contains[[]string, string]}).ParseFS(templates, "templates/common.md.tmpl", "templates/"+cfg.Capability+".md.tmpl")
+	name := cfg.Capability + ".md.tmpl"
+	if cfg.Adapter == modality.AdapterExplore {
+		// One template for every capability: the Agent works out the request,
+		// so there is no per-capability command to document.
+		name = "explore.md.tmpl"
+		text.Title += " (explore mode)"
+		text.Description = fmt.Sprintf(exploreDescription, cfg.Model, cfg.ProviderName, exploreUses[cfg.Capability])
+		text.Capability, text.Use, text.BaseURL = cfg.Capability, exploreUses[cfg.Capability], cfg.BaseURL
+		text.Origin, text.ProviderHome, text.NotesFile = originOf(cfg.BaseURL), cfg.ProviderHome, cfg.NotesFile
+	}
+	parsed, err := template.New("skill").Funcs(template.FuncMap{"yamlString": yamlString, "has": slices.Contains[[]string, string]}).ParseFS(templates, "templates/common.md.tmpl", "templates/"+name)
 	if err != nil {
 		return nil, err
 	}
 	var skill bytes.Buffer
-	if err := parsed.ExecuteTemplate(&skill, cfg.Capability+".md.tmpl", text); err != nil {
+	if err := parsed.ExecuteTemplate(&skill, name, text); err != nil {
 		return nil, err
 	}
 	configJSON, err := json.MarshalIndent(cfg, "", "  ")
@@ -315,6 +376,15 @@ func ReadConfig(dir string) (Config, error) {
 	}
 	cfg.KeyEnv = config.SkillEnvName(cfg.ProviderID)
 	return cfg, nil
+}
+
+// originOf is the scheme and host an explore Skill's requests are locked to.
+func originOf(base string) string {
+	parsed, err := url.Parse(base)
+	if err != nil {
+		return base
+	}
+	return parsed.Scheme + "://" + parsed.Host
 }
 
 // yamlString renders a YAML double-quoted scalar. JSON string syntax is a

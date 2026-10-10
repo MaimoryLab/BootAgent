@@ -1,4 +1,4 @@
-import { Activity, Check, Copy, Download, Images, RefreshCw, Trash2, X } from "lucide-react";
+import { Activity, Check, Compass, Copy, Download, Images, RefreshCw, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState, type KeyboardEvent } from "react";
 import { Link } from "react-router-dom";
 
@@ -200,9 +200,22 @@ export function groupInstalled(installed: InstalledMultimodal[]): Array<{ skillI
 // `key` is where the result is shown: an account's row, or a tab's manual entry.
 type ProbeState = { model: string; checking: boolean; result?: MultimodalProbe; error?: string };
 type ProbeTarget = { key: string; provider: MultimodalProvider; capability: MultimodalCapabilityId; model: string; adapter: string; kind: MultimodalProbeKind };
-type InstallTarget = { provider: MultimodalProvider; capability: MultimodalCapabilityId; model: string };
+// explore: the user chose to install without BootAgent knowing how the model
+// is called; the Skill has the Agent work it out (see the explore adapter).
+type InstallTarget = { provider: MultimodalProvider; capability: MultimodalCapabilityId; model: string; explore?: boolean };
+
+const EXPLORE = "explore";
 
 const rowKey = (provider: string, capability: string) => `${provider}::${capability}`;
+
+/** The scheme and host an explore Skill's requests are locked to. */
+export function originOf(base: string | undefined): string {
+  try {
+    return base ? new URL(base).origin : "";
+  } catch {
+    return "";
+  }
+}
 const manualKey = (capability: string) => `manual::${capability}`;
 
 interface MultimodalSectionProps {
@@ -308,6 +321,7 @@ export function MultimodalSection({ agentLabels = {}, providers: statusProviders
     const manualProvider = accounts.find((entry) => entry.id === manualState?.provider) ?? accounts[0];
     const manualProbe = probes[manualKey(capability)];
     const example = MANUAL_EXAMPLES[capability];
+    const canExplore = generatable.includes(EXPLORE);
     const chosenFor = (entry: MultimodalProvider, options: CapabilityOption[]) => options.find((option) => option.model === selected[rowKey(entry.id, capability)]) ?? options[0];
     // Said once for the tab, not on every account that samples frames.
     const needsFFmpeg = Boolean(detection && !detection.ffmpeg) && offering.some(({ provider: entry, options }) => chosenFor(entry, options).capability.adapter === "frames-chat-vision");
@@ -327,6 +341,7 @@ export function MultimodalSection({ agentLabels = {}, providers: statusProviders
                 {variant.agents.length
                   ? t("{model}（{provider}）已安装到 {agents}", { model: variant.model, provider: providerName(variant.providerId), agents: variant.agents.map(nameOf).join(separator) })
                   : t("{model}（{provider}）", { model: variant.model, provider: providerName(variant.providerId) })}
+                {variant.adapter === EXPLORE ? <> <ExploreBadge /></> : null}
               </p>
             ))}
             {card.variants.filter((variant) => variant.guidePath).map((variant) => (
@@ -365,6 +380,7 @@ export function MultimodalSection({ agentLabels = {}, providers: statusProviders
                     {installedHere
                       ? <span className="status-badge status-success">{t("已安装到 {agents}", { agents: installedHere.agents.map(nameOf).join(separator) })}</span>
                       : <span className={`status-badge status-${install.tone}`}>{install.text}</span>}
+                    {installedHere?.adapter === EXPLORE ? <ExploreBadge /> : null}
                     <span className="multimodal-account-actions">
                       {chosen.capability.probe ? (
                         <ProbeButton
@@ -377,8 +393,10 @@ export function MultimodalSection({ agentLabels = {}, providers: statusProviders
                       {install.ready ? (
                         <button className="button button-primary model-check-button" type="button" onClick={() => setInstallTarget({ provider: entry, capability, model: chosen.model })}>
                           <Download size={14} aria-hidden="true" />
-                          {installedHere ? t("重新安装") : t("安装")}
+                          {installedHere && installedHere.adapter !== EXPLORE ? t("重新安装") : t("安装")}
                         </button>
+                      ) : canExplore ? (
+                        <ExploreButton reinstall={installedHere?.adapter === EXPLORE} onClick={() => setInstallTarget({ provider: entry, capability, model: chosen.model, explore: true })} />
                       ) : null}
                     </span>
                   </div>
@@ -402,12 +420,15 @@ export function MultimodalSection({ agentLabels = {}, providers: statusProviders
           <p className="multimodal-provider-note">{t("{providers}：该模型服务目前没有可核实的公开接口，暂不支持{capability}。", { providers: unsupported.map((entry) => entry.name || entry.id).join(separator), capability: capabilityName })}</p>
         ) : null}
 
-        {manualRoute && manualProvider ? (
+        {manualProvider && (manualRoute || canExplore) ? (
           <details className="multimodal-manual" key={capability}>
             <summary>{t("手动填写模型 ID")}</summary>
-            <p>{example
-              ? t("如果你知道能做{capability}的模型 ID（例如 {example}），可以填写后实测，通过后即可安装。", { capability: capabilityName, example })
-              : t("如果你知道能做{capability}的模型 ID，可以填写后实测，通过后即可安装。", { capability: capabilityName })}</p>
+            <p>{!manualRoute
+              ? t("{capability}没有 BootAgent 能实测的标准接口。填写模型 ID 后可以用探索模式安装，由 Agent 查文档或问你调用方式。", { capability: capabilityName })
+              : example
+                ? t("如果你知道能做{capability}的模型 ID（例如 {example}），可以填写后实测，通过后即可安装。", { capability: capabilityName, example })
+                : t("如果你知道能做{capability}的模型 ID，可以填写后实测，通过后即可安装。", { capability: capabilityName })}
+              {manualRoute && canExplore ? ` ${t("标准接口不适用时，也可以用探索模式安装。")}` : ""}</p>
             <div className="multimodal-manual-row">
               {accounts.length > 1 ? (
                 <select aria-label={t("模型服务")} value={manualProvider.id} onChange={(event) => setManual((all) => ({ ...all, [capability]: { provider: event.target.value, model: all[capability]?.model ?? "" } }))}>
@@ -415,13 +436,18 @@ export function MultimodalSection({ agentLabels = {}, providers: statusProviders
                 </select>
               ) : null}
               <input aria-label={t("模型 ID")} placeholder={t("模型 ID")} value={manualState?.model ?? ""} onChange={(event) => setManual((all) => ({ ...all, [capability]: { provider: manualProvider.id, model: event.target.value } }))} />
-              <ProbeButton
-                checking={manualProbe?.checking}
-                disabled={!manualState?.model.trim()}
-                kind={manualRoute.probe}
-                capability={capabilityName}
-                onClick={() => probe({ key: manualKey(capability), provider: manualProvider, capability, model: (manualState?.model ?? "").trim(), adapter: manualRoute.adapter, kind: manualRoute.probe })}
-              />
+              {manualRoute ? (
+                <ProbeButton
+                  checking={manualProbe?.checking}
+                  disabled={!manualState?.model.trim()}
+                  kind={manualRoute.probe}
+                  capability={capabilityName}
+                  onClick={() => probe({ key: manualKey(capability), provider: manualProvider, capability, model: (manualState?.model ?? "").trim(), adapter: manualRoute.adapter, kind: manualRoute.probe })}
+                />
+              ) : null}
+              {canExplore ? (
+                <ExploreButton disabled={!manualState?.model.trim()} onClick={() => setInstallTarget({ provider: manualProvider, capability, model: (manualState?.model ?? "").trim(), explore: true })} />
+              ) : null}
             </div>
             {manualProbe?.result ? <Verdict verdict={describeProbe(manualProbe.result, t)} /> : null}
             {manualProbe?.error ? <p className="multimodal-error" role="alert">{manualProbe.error}</p> : null}
@@ -504,6 +530,8 @@ export function MultimodalSection({ agentLabels = {}, providers: statusProviders
           targets={detection.targets}
           fallback={detection.fallback}
           current={detection.installed.filter((item) => item.capability === installTarget.capability)}
+          origin={originOf(statusProviders?.[installTarget.provider.id]?.base_url)}
+          notesPath={detection.notesDir ? `${detection.notesDir}/${installTarget.provider.id}-${installTarget.capability}.md` : ""}
           providerName={providerName}
           nameOf={nameOf}
           onDone={() => { setInstallTarget(null); onSkillsChanged?.(); void detect(); }}
@@ -536,6 +564,21 @@ function ProbeButton({ checking, disabled, kind, capability, onClick }: { checki
       {checking ? t("正在实测") : t("实测")}
     </button>
   );
+}
+
+function ExploreButton({ disabled, reinstall, onClick }: { disabled?: boolean; reinstall?: boolean; onClick: () => void }) {
+  const { t } = useI18n();
+  return (
+    <button className="button button-secondary model-check-button" type="button" disabled={disabled} onClick={onClick} title={t("BootAgent 不知道这个模型怎么调用。安装后，Agent 会先问你或查文档弄清调用方式，再通过 Skill 的脚本发请求。")}>
+      <Compass size={14} aria-hidden="true" />
+      {reinstall ? t("重新安装（探索模式）") : t("探索模式安装")}
+    </button>
+  );
+}
+
+function ExploreBadge() {
+  const { t } = useI18n();
+  return <span className="status-badge status-warning" title={t("调用方式未经验证")}>{t("探索模式")}</span>;
 }
 
 function Verdict({ verdict }: { verdict: ReturnType<typeof describeProbe> }) {
@@ -625,13 +668,16 @@ interface InstallDialogProps {
   fallback: string[];
   /** What is installed for this capability now, from any Provider. */
   current: InstalledMultimodal[];
+  /** Explore only: the host its requests are locked to, and its notes file. */
+  origin: string;
+  notesPath: string;
   providerName: (id: string) => string;
   nameOf: (agentId: string) => string;
   onDone: () => void;
   onCancel: () => void;
 }
 
-function InstallDialog({ target, targets, fallback, current, providerName, nameOf, onDone, onCancel }: InstallDialogProps) {
+function InstallDialog({ target, targets, fallback, current, origin, notesPath, providerName, nameOf, onDone, onCancel }: InstallDialogProps) {
   const { t, locale } = useI18n();
   const [agents, setAgents] = useState<string[]>(targets);
   const [guide, setGuide] = useState(false);
@@ -645,13 +691,13 @@ function InstallDialog({ target, targets, fallback, current, providerName, nameO
   const install = () => {
     setBusy(true);
     setError("");
-    void api.installMultimodal({ provider: target.provider.id, model: target.model, capability: target.capability, agents, guide })
+    void api.installMultimodal({ provider: target.provider.id, model: target.model, capability: target.capability, agents, guide, ...(target.explore ? { explore: true } : {}) })
       .then(setResult)
       .catch((reason: unknown) => setError(describeError(reason, t("安装失败")).message))
       .finally(() => setBusy(false));
   };
 
-  const title = t("安装{capability} Skill", { capability });
+  const title = target.explore ? t("以探索模式安装{capability} Skill", { capability }) : t("安装{capability} Skill", { capability });
   const close = () => {
     if (!busy) (result ? onDone : onCancel)();
   };
@@ -695,6 +741,18 @@ function InstallDialog({ target, targets, fallback, current, providerName, nameO
           </fieldset>
           {replacing.length ? (
             <p className="multimodal-note">{t("将替换这些 Agent 当前使用的 {models}。", { models: replacing.map((item) => `${item.model}（${providerName(item.providerId)}）`).join(separator) })}</p>
+          ) : null}
+          {target.explore ? (
+            <div className="model-check-notice multimodal-key-notice" role="note">
+              <div className="model-check-body">
+                <strong>{t("调用方式未经验证")}</strong>
+                <span>{t("BootAgent 不知道「{model}」怎么调用。Agent 第一次使用时会先问你要文档或调用示例，没有的话再查模型服务的公开文档，仍不确定就停下来问你，不会靠反复试错。", { model: target.model })}</span>
+                <span>{origin
+                  ? t("Skill 的脚本只把请求发往 {host}，并由脚本加上 API Key，Agent 不需要接触 Key。", { host: origin })
+                  : t("Skill 的脚本只把请求发往这个模型服务自己的地址，并由脚本加上 API Key，Agent 不需要接触 Key。")}</span>
+                <span>{t("任何可能计费的请求都要先征得你同意。找到可用方式后，Agent 会把它记在 {path}，下次直接用。", { path: notesPath || "~/.bootagent/skill-notes" })}</span>
+              </div>
+            </div>
           ) : null}
           <div className="model-check-notice multimodal-key-notice" role="note">
             <div className="model-check-body">
