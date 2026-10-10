@@ -13,7 +13,7 @@ When the user asks for the text of an audio recording: transcribing a voice note
 
 ## Command
 
-Run the script in this Skill's directory (the directory containing this `SKILL.md`):
+Run the script from the user's working directory, using the absolute path to this Skill:
 
 ```bash
 node <this Skill's directory>/scripts/run.mjs transcribe --audio <path> [--language <code>] [--prompt "<context>"]

@@ -9,5 +9,5 @@
   "base_url": "http://127.0.0.1:8000/v1",
   "key_env": "BOOTAGENT_LOCAL_API_KEY",
   "key_file": "~/.bootagent/skill-env/local.env",
-  "output_dir": "bootagent-output"
+  "output_dir": "~/.bootagent/output"
 }

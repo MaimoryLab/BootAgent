@@ -9,5 +9,5 @@
   "base_url": "https://api.novita.ai/openai/v1",
   "key_env": "BOOTAGENT_NOVITA_API_KEY",
   "key_file": "~/.bootagent/skill-env/novita.env",
-  "output_dir": "bootagent-output"
+  "output_dir": "~/.bootagent/output"
 }

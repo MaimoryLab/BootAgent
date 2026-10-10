@@ -164,13 +164,13 @@ func TestScriptGeneratesVideoAndDownloadsWithoutTheKey(t *testing.T) {
 		t.Fatalf("run = %#v", run)
 	}
 	saved := strings.TrimSpace(run.stdout)
-	if !strings.HasPrefix(saved, filepath.Join(work, "bootagent-output")) || !strings.HasSuffix(saved, ".mp4") {
+	if !strings.HasPrefix(saved, filepath.Join(home, ".bootagent", "output")+string(os.PathSeparator)) || !strings.HasSuffix(saved, ".mp4") {
 		t.Fatalf("saved = %q", saved)
 	}
 	if data, _ := os.ReadFile(saved); string(data) != "fake mp4 bytes" {
 		t.Fatalf("video = %q", data)
 	}
-	if matches, _ := filepath.Glob(filepath.Join(work, "bootagent-output", "*.part")); len(matches) != 0 {
+	if matches, _ := filepath.Glob(filepath.Join(home, ".bootagent", "output", ".bootagent-output-*")); len(matches) != 0 {
 		t.Fatalf("partial files left: %v", matches)
 	}
 	body, _ := fake.body("/v3/async/wan2.7-t2v")

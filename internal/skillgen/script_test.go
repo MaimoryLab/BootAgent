@@ -175,8 +175,8 @@ func TestScriptGeneratesImagesAndDownloadsWithoutTheKey(t *testing.T) {
 		t.Fatalf("saved = %q", paths)
 	}
 	for _, path := range paths {
-		if !strings.HasPrefix(path, filepath.Join(work, "bootagent-output")) {
-			t.Fatalf("%s is outside the working directory's output folder", path)
+		if !strings.HasPrefix(path, filepath.Join(home, ".bootagent", "output")+string(os.PathSeparator)) {
+			t.Fatalf("%s is outside the user's output folder", path)
 		}
 		if _, err := os.Stat(path); err != nil {
 			t.Fatal(err)

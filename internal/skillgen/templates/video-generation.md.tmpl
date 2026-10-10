@@ -5,7 +5,7 @@ When the user asks you to create a short video clip from a description. Video is
 
 ## Command
 
-Run the script in this Skill's directory (the directory containing this `SKILL.md`):
+Run the script from the user's working directory, using the absolute path to this Skill:
 
 ```bash
 node <this Skill's directory>/scripts/run.mjs video --prompt "<description>"{{if has .Options "duration"}} [--duration <seconds>]{{end}}{{if has .Options "size"}} [--size <W*H>]{{end}}{{if has .Options "aspect_ratio"}} [--aspect-ratio 16:9|9:16|1:1]{{end}}{{if has .Options "negative_prompt"}} [--negative-prompt "<text>"]{{end}}{{if has .Options "sound"}} [--sound true|false]{{end}} [--out <directory>]
@@ -27,7 +27,7 @@ node <this Skill's directory>/scripts/run.mjs video --prompt "<description>"{{if
 {{- if has .Options "sound"}}
 - `--sound`: `true` to generate audio with the video.
 {{- end}}
-- `--out`: directory for the file. Default `bootagent-output` in the current directory.
+- `--out`: directory for the file. Default `~/.bootagent/output`, outside the Skill directory.
 - `--timeout`: seconds to wait for the result. Default 600.
 
 The script submits the task, prints `task: <id>` to stderr, waits for it, downloads the video before the Provider's link expires, and prints the saved file path to stdout. If it times out (exit code 7), the task may still finish: fetch it later with

@@ -9,5 +9,5 @@
   "base_url": "https://gw.example/v1",
   "key_env": "BOOTAGENT_MY_GATEWAY_API_KEY",
   "key_file": "~/.bootagent/skill-env/my-gateway.env",
-  "output_dir": "bootagent-output"
+  "output_dir": "~/.bootagent/output"
 }

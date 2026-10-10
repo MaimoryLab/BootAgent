@@ -9,7 +9,7 @@ When the user asks about the contents of a local video file: what happens in a s
 
 ## Command
 
-Run the script in this Skill's directory (the directory containing this `SKILL.md`):
+Run the script from the user's working directory, using the absolute path to this Skill:
 
 ```bash
 node <this Skill's directory>/scripts/run.mjs describe-video --video <path> [--prompt "<question>"] [--frames <1-16>] [--max-tokens <n>]

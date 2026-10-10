@@ -382,8 +382,10 @@ retried; a refused or failed task is final, since retrying spends money. A
 timeout prints the task ID so `video-result` can collect it later without
 submitting again, and `SKILL.md` tells the Agent never to retry on its own.
 Results are streamed to disk as they download, without the key, and a partial
-file is removed on failure. Outputs default to `bootagent-output/` in the
-working directory and never overwrite an existing file. Result URLs are
+file is removed on failure. Outputs default to `~/.bootagent/output/`, outside
+the installed Skill tree, and never overwrite an existing file, including when
+downloads run concurrently. Run scripts from the user's working directory so
+relative input paths refer to their files. Result URLs are
 downloaded without the key, because they may be on another host.
 
 `config.json` is non-secret: Provider ID, adapter, model, base URLs and the

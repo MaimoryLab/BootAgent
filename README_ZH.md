@@ -62,6 +62,7 @@ BootAgent 是一个本地桌面工作台，用来统一管理 AI 编程 Agent。
 
 - 在本机维护 Skill 管理库，扫描支持的 Agent 已有的 Skill，并选择每个 Skill 要同步到哪些 Agent。
 - 查看已保存 API Key 的 Provider 中哪些模型能理解图片、视频或音频，或能生成图片，以及每项结论的来源（Provider 声明、按模型名推断或实测）。列出模型不收费；实测是一次真实请求，只在你点击时发出，图片生成实测会先确认。
+- 生成的图片、音频和视频默认保存到 `~/.bootagent/output/`，位于已安装的 Skill 目录之外，且不会覆盖已有文件。可用 `--out` 指定其他位置。
 - 把多模态 Skill（图片理解、图片生成、语音识别、语音合成、视频生成、视频理解）安装到 Claude Code、Codex 或 OpenCode，并提供可复制的示例提示词。没有 Skills 目录的 Agent 会在 `~/.bootagent/multimodal/` 下得到同样的文件，并附一段指向它的提示词。视频理解用 ffmpeg 抽帧，需要 ffmpeg 在 `PATH` 上。内置 Provider 会补充其文档中列出的模型：Novita、PPIO 和 JieKou.AI 的 MiniMax Speech，JieKou.AI 的 GPT Image 与异步文生视频。视频生成从不实测，因为一次实测就是一次完整的计费生成。Skill 脚本需要 Node.js 18 或更高版本。BootAgent 会把 Provider 的 Key 以 `BOOTAGENT_<PROVIDER>_API_KEY` 写进 Agent 自己的配置；没有可配置环境变量的 Agent 则写进 `~/.bootagent/skill-env/` 下的私有文件。因此 Agent 及其模型能读到它，安装确认里会说明。卸载最后一个用到该 Provider 的 Skill 时，这个变量会被移除。
 - 从已初始化的 Claude Code、Codex、OpenCode、Kilo CLI 和 Hermes 中发现 MCP 服务器。
 - 使用本机用户级 Registry 保存 MCP 服务器，明确选择同步目标，并在确认后再应用改动。

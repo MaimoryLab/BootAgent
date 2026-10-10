@@ -13,7 +13,7 @@ When the user asks you to turn text into spoken audio: reading out a summary, pr
 
 ## Command
 
-Run the script in this Skill's directory (the directory containing this `SKILL.md`):
+Run the script from the user's working directory, using the absolute path to this Skill:
 
 ```bash
 node <this Skill's directory>/scripts/run.mjs speak --text "<text>" [--voice <voice ID>] [--format mp3|wav|flac|pcm] [--speed <0.5-2>] [--out <file or directory>]
@@ -23,7 +23,7 @@ node <this Skill's directory>/scripts/run.mjs speak --text "<text>" [--voice <vo
 - `--voice`: a MiniMax system voice ID. Default `English_Graceful_Lady`; others include `English_Insightful_Speaker`, `English_Persuasive_Man`, `Chinese (Mandarin)_Lyrical_Voice` and `Japanese_Whisper_Belle`. Quote IDs that contain spaces.
 - `--format`: audio format. Default `mp3`.
 - `--speed`: speaking speed from 0.5 to 2. Default 1.
-- `--out`: a file path, or a directory. Default `bootagent-output` in the current directory.
+- `--out`: a file path, or a directory. Default `~/.bootagent/output`, outside the Skill directory.
 - `--timeout`: seconds to wait. Default 120.
 
 The saved file path is printed to stdout. Existing files are never overwritten.

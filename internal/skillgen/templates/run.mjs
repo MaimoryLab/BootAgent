@@ -7,10 +7,12 @@
 // config.json, or from BootAgent's private fallback file; it is never printed.
 
 import { execFile } from "node:child_process";
-import { accessSync, constants, createWriteStream, existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { accessSync, constants, createWriteStream, existsSync, linkSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { basename, delimiter, dirname, extname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { Readable } from "node:stream";
+import { pipeline } from "node:stream/promises";
 
 const EXIT = { ok: 0, internal: 1, usage: 2, setup: 3, refused: 4, key: 5, unavailable: 6, pending: 7 };
 const MiB = 1024 * 1024;
@@ -148,21 +150,40 @@ function stamp() {
   return new Date().toISOString().replace(/[-:]/g, "").replace(/\..+$/, "").replace("T", "-");
 }
 
-function freePath(path) {
-  if (!existsSync(path)) return path;
+// Linking a completed temporary file publishes it atomically and refuses an
+// existing destination. Concurrent runs retry with a suffix instead of
+// checking first and then accidentally replacing another run's output.
+function publishOutput(partial, path) {
   const extension = extname(path);
   const stem = path.slice(0, path.length - extension.length);
-  for (let counter = 2; ; counter++) {
-    const candidate = `${stem}-${counter}${extension}`;
-    if (!existsSync(candidate)) return candidate;
+  for (let counter = 1; ; counter++) {
+    const candidate = counter === 1 ? path : `${stem}-${counter}${extension}`;
+    try {
+      linkSync(partial, candidate);
+      return candidate;
+    } catch (error) {
+      if (error?.code !== "EEXIST") {
+        fail(EXIT.unavailable, `Cannot save the result without overwriting an existing file (${error?.code ?? "filesystem error"}). Choose an output directory on a filesystem that supports hard links.`);
+      }
+    }
   }
 }
 
 function writeOutput(path, data) {
-  const target = freePath(resolve(path));
+  const target = resolve(path);
   mkdirSync(dirname(target), { recursive: true });
-  writeFileSync(target, data);
-  return target;
+  const work = mkdtempSync(join(dirname(target), ".bootagent-output-"));
+  try {
+    const partial = join(work, "result.part");
+    writeFileSync(partial, data, { mode: 0o600, flag: "wx" });
+    return publishOutput(partial, target);
+  } finally {
+    rmSync(work, { recursive: true, force: true });
+  }
+}
+
+function outputDirectory(config, options) {
+  return resolve(options.out || expandHome(config.output_dir || "~/.bootagent/output"));
 }
 
 function detail(text) {
@@ -258,7 +279,7 @@ async function describe(config, key, options, timeoutMs) {
   const text = body?.choices?.[0]?.message?.content;
   const answer = Array.isArray(text) ? text.map((part) => part?.text ?? "").join("") : text;
   if (typeof answer !== "string") fail(EXIT.unavailable, "The provider returned no text.");
-  process.stdout.write(answer.trim() + "\n");
+  process.stdout.write(redact(answer.trim()) + "\n");
 }
 
 async function generate(config, key, options, timeoutMs) {
@@ -274,7 +295,7 @@ async function generate(config, key, options, timeoutMs) {
   const body = await json(response);
   const items = Array.isArray(body?.data) ? body.data : [];
   if (!items.length) fail(EXIT.unavailable, "The provider returned no image.");
-  const directory = resolve(options.out || config.output_dir || "bootagent-output");
+  const directory = outputDirectory(config, options);
   const base = `image-${stamp()}`;
   const saved = [];
   for (const [index, item] of items.entries()) {
@@ -300,7 +321,7 @@ async function transcribe(config, key, options, timeoutMs) {
   const response = await call(config, key, "/audio/transcriptions", { method: "POST", body: form }, timeoutMs);
   const body = await json(response);
   if (typeof body?.text !== "string") fail(EXIT.unavailable, "The provider returned no transcript.");
-  process.stdout.write(body.text.trim() + "\n");
+  process.stdout.write(redact(body.text.trim()) + "\n");
 }
 
 const SPEECH_FORMATS = ["mp3", "wav", "opus", "aac", "flac", "pcm"];
@@ -320,7 +341,7 @@ async function speak(config, key, options, timeoutMs) {
   if (data.length > LIMITS.speech) fail(EXIT.unavailable, "The audio is larger than expected and was not saved.");
   const target = options.out && extname(options.out)
     ? options.out
-    : join(options.out || config.output_dir || "bootagent-output", `speech-${stamp()}.${format}`);
+    : join(outputDirectory(config, options), `speech-${stamp()}.${format}`);
   process.stdout.write(writeOutput(target, data) + "\n");
 }
 
@@ -363,7 +384,7 @@ async function speakNative(config, key, options, timeoutMs) {
   if (data.length > LIMITS.speech) fail(EXIT.unavailable, "The audio is larger than expected and was not saved.");
   const target = options.out && extname(options.out)
     ? options.out
-    : join(options.out || config.output_dir || "bootagent-output", `speech-${stamp()}.${format}`);
+    : join(outputDirectory(config, options), `speech-${stamp()}.${format}`);
   process.stdout.write(writeOutput(target, data) + "\n");
 }
 
@@ -394,7 +415,7 @@ async function generateVideo(config, key, options, timeoutMs) {
   const body = await json(response);
   const task = body?.task_id;
   if (typeof task !== "string" || !task) fail(EXIT.unavailable, "The provider returned no task id.");
-  process.stderr.write(`task: ${task}\n`);
+  process.stderr.write(redact(`task: ${task}\n`));
   await finishVideo(config, key, task, options, deadline);
 }
 
@@ -422,7 +443,7 @@ async function finishVideo(config, key, task, options, deadline) {
     if (status === "TASK_STATUS_SUCCEED") {
       const videos = Array.isArray(body?.videos) ? body.videos.filter((item) => typeof item?.video_url === "string") : [];
       if (!videos.length) fail(EXIT.unavailable, `Task ${task} finished without a video.`);
-      const directory = resolve(options.out || config.output_dir || "bootagent-output");
+      const directory = outputDirectory(config, options);
       const saved = [];
       for (const [index, item] of videos.entries()) {
         const extension = item.video_type === "gif" ? "gif" : "mp4";
@@ -459,26 +480,26 @@ async function downloadTo(url, path, timeoutMs) {
     fail(EXIT.unavailable, "Cannot download the result from the provider.");
   }
   if (!response.ok || !response.body) fail(EXIT.unavailable, `Cannot download the result (HTTP ${response.status}).`);
-  const target = freePath(resolve(path));
+  const target = resolve(path);
   mkdirSync(dirname(target), { recursive: true });
-  const partial = `${target}.part`;
-  const out = createWriteStream(partial);
+  const work = mkdtempSync(join(dirname(target), ".bootagent-output-"));
+  const partial = join(work, "result.part");
   let size = 0;
   try {
-    for await (const chunk of response.body) {
-      size += chunk.length;
-      if (size > LIMITS.video) throw new Failure(EXIT.unavailable, "The result is larger than expected and was not saved.");
-      if (!out.write(chunk)) await new Promise((done) => out.once("drain", done));
-    }
-    await new Promise((done, failed) => out.end((error) => (error ? failed(error) : done())));
-    renameSync(partial, target);
+    await pipeline(Readable.fromWeb(response.body), async function* (chunks) {
+      for await (const chunk of chunks) {
+        size += chunk.length;
+        if (size > LIMITS.video) throw new Failure(EXIT.unavailable, "The result is larger than expected and was not saved.");
+        yield chunk;
+      }
+    }, createWriteStream(partial, { mode: 0o600, flags: "wx" }));
+    return publishOutput(partial, target);
   } catch (error) {
-    out.destroy();
-    rmSync(partial, { force: true });
     if (error instanceof Failure) throw error;
     fail(EXIT.unavailable, "The download was interrupted.");
+  } finally {
+    rmSync(work, { recursive: true, force: true });
   }
-  return target;
 }
 
 // Each capability and adapter this script implements: the subcommand, its
@@ -559,7 +580,7 @@ async function describeVideo(config, key, options, timeoutMs) {
     const text = body?.choices?.[0]?.message?.content;
     const answer = Array.isArray(text) ? text.map((part) => part?.text ?? "").join("") : text;
     if (typeof answer !== "string") fail(EXIT.unavailable, "The provider returned no text.");
-    process.stdout.write(answer.trim() + "\n");
+    process.stdout.write(redact(answer.trim()) + "\n");
   } finally {
     rmSync(work, { recursive: true, force: true });
   }
@@ -605,10 +626,10 @@ async function main() {
 }
 
 main().then(
-  () => process.exit(EXIT.ok),
+  () => { process.exitCode = EXIT.ok; },
   (error) => {
     const code = error instanceof Failure ? error.code : EXIT.internal;
     process.stderr.write(redact(error instanceof Failure ? error.message : `Unexpected error: ${error?.message ?? error}`) + "\n");
-    process.exit(code);
+    process.exitCode = code;
   },
 );

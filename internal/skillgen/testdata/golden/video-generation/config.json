@@ -15,5 +15,5 @@
   ],
   "key_env": "BOOTAGENT_JIEKOU_API_KEY",
   "key_file": "~/.bootagent/skill-env/jiekou.env",
-  "output_dir": "bootagent-output"
+  "output_dir": "~/.bootagent/output"
 }

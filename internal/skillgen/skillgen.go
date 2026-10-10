@@ -188,7 +188,7 @@ func NewConfig(spec Spec) (Config, error) {
 		Options:       options,
 		KeyEnv:        config.SkillEnvName(spec.ProviderID),
 		KeyFile:       "~/.bootagent/skill-env/" + spec.ProviderID + ".env",
-		OutputDir:     "bootagent-output",
+		OutputDir:     "~/.bootagent/output",
 	}, nil
 }
 
