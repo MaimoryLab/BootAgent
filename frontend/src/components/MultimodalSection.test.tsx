@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { MultimodalDetection, MultimodalProvider } from "../types/api";
+import type { MultimodalDetection, MultimodalProvider, StatusResponse } from "../types/api";
 
 const detectMultimodal = vi.fn<() => Promise<MultimodalDetection>>();
 const probeMultimodal = vi.fn();
@@ -23,7 +23,7 @@ vi.mock("../backend/api", () => ({
 vi.mock("../utils/clipboard", () => ({ copyToClipboard: (text: string) => copyToClipboard(text) }));
 
 import { I18nProvider, sourceTranslate } from "../i18n";
-import { describeProbe, groupByCapability, groupInstalled, installLabel, MultimodalSection } from "./MultimodalSection";
+import { accountsFor, describeProbe, groupByCapability, groupInstalled, installLabel, MultimodalSection, orderAccounts } from "./MultimodalSection";
 import { EXAMPLE_PROMPTS } from "./multimodalPrompts";
 
 const GENERATABLE = ["openai-chat-vision", "openai-images", "openai-audio-transcriptions", "openai-audio-speech", "frames-chat-vision"];
@@ -68,10 +68,14 @@ function detection(partial: Partial<MultimodalDetection> = {}): MultimodalDetect
 
 const labels = { "claude-code": "Claude Code", codex: "Codex" };
 
-function renderSection(onSkillsChanged = vi.fn()) {
-  render(<MemoryRouter><I18nProvider><MultimodalSection agentLabels={labels} onSkillsChanged={onSkillsChanged} /></I18nProvider></MemoryRouter>);
+function renderSection(onSkillsChanged = vi.fn(), providers?: StatusResponse["providers"]) {
+  render(<MemoryRouter><I18nProvider><MultimodalSection agentLabels={labels} providers={providers} onSkillsChanged={onSkillsChanged} /></I18nProvider></MemoryRouter>);
   return onSkillsChanged;
 }
+
+const builtIn = (name: string, order: number) => ({ name, home: "https://example.com", base_url: "https://example.com/v1", order, has_key: true });
+const custom = (name: string, created: string) => ({ name, home: "", base_url: "https://gateway.example/v1", custom: true, has_key: true, created_at: created });
+const visionOnly = (id: string, name: string): MultimodalProvider => ({ ...gateway, id, name, models: [gateway.models[1]] });
 
 beforeEach(() => {
   for (const mock of [detectMultimodal, probeMultimodal, installMultimodal, uninstallSkill, copyToClipboard]) mock.mockClear();
@@ -84,6 +88,33 @@ describe("groupByCapability", () => {
     const groups = groupByCapability(gateway);
     expect(groups.map((group) => group.id)).toEqual(["vision", "video-understanding"]);
     expect(groups[0].options.map((option) => option.model)).toEqual(["qwen/qwen3-vl-8b", "moonshotai/kimi-k3"]);
+  });
+});
+
+describe("orderAccounts", () => {
+  it("lists the accounts the user added first, newest first, then built-ins in catalog order", () => {
+    const ordered = orderAccounts(
+      [visionOnly("ppio", "PPIO"), visionOnly("novita", "Novita"), visionOnly("old", "Old gateway"), visionOnly("new", "New gateway"), visionOnly("unknown", "Unknown")],
+      { novita: builtIn("Novita", 3), ppio: builtIn("PPIO", 2), old: custom("Old gateway", "2026-01-01T00:00:00Z"), new: custom("New gateway", "2026-09-01T00:00:00Z") },
+    );
+    expect(ordered.map((entry) => entry.id)).toEqual(["new", "old", "ppio", "novita", "unknown"]);
+  });
+
+  it("leaves out BootAgent's protocol converters", () => {
+    const ordered = orderAccounts(
+      [visionOnly("bootagent-converter-chat", "BootAgent Converter chat"), visionOnly("ppio", "PPIO")],
+      { "bootagent-converter-chat": custom("BootAgent Converter chat", "2026-10-01T00:00:00Z"), ppio: builtIn("PPIO", 2) },
+    );
+    expect(ordered.map((entry) => entry.id)).toEqual(["ppio"]);
+  });
+
+  it("keeps the backend order without status records", () => {
+    expect(orderAccounts([visionOnly("ppio", "PPIO"), visionOnly("mine", "Mine")]).map((entry) => entry.id)).toEqual(["ppio", "mine"]);
+  });
+
+  it("only lists accounts with a model for the capability", () => {
+    expect(accountsFor([gateway, { ...gateway, id: "empty", models: [] }], "vision").map((account) => account.provider.id)).toEqual(["novita"]);
+    expect(accountsFor([gateway], "image-generation")).toEqual([]);
   });
 });
 
@@ -164,7 +195,7 @@ describe("MultimodalSection", () => {
     detectMultimodal.mockResolvedValue(detection());
     probeMultimodal.mockResolvedValue({ providerId: "novita", model: "moonshotai/kimi-k3", capability: "vision", adapter: "openai-chat-vision", status: "available" });
     renderSection();
-    fireEvent.change(await screen.findByLabelText("图片理解"), { target: { value: "moonshotai/kimi-k3" } });
+    fireEvent.change(await screen.findByLabelText("Novita 的图片理解模型"), { target: { value: "moonshotai/kimi-k3" } });
     expect(screen.getByText("实测通过后可安装")).toBeTruthy();
     // No install button while the evidence is only a guess.
     expect(screen.queryByRole("button", { name: /^安装$/ })).toBeNull();
@@ -178,8 +209,10 @@ describe("MultimodalSection", () => {
     detectMultimodal.mockResolvedValue(detection());
     probeMultimodal.mockResolvedValue({ providerId: "novita", model: "gpt-image-1", capability: "image-generation", adapter: "openai-images", status: "available" });
     renderSection();
-    await screen.findByText("Novita");
-    fireEvent.change(screen.getByLabelText("能力"), { target: { value: "image-generation" } });
+    fireEvent.click(await screen.findByRole("tab", { name: /^图片生成/ }));
+    expect(screen.getByText("还没有已保存 API Key 的模型服务能做图片生成。")).toBeTruthy();
+    // One account: nothing to choose between.
+    expect(screen.queryByLabelText("模型服务")).toBeNull();
     fireEvent.change(screen.getByLabelText("模型 ID"), { target: { value: "gpt-image-1" } });
     const manualProbe = within(screen.getByText("手动填写模型 ID").closest("details") as HTMLElement).getByRole("button", { name: /^实测$/ });
     expect(manualProbe.getAttribute("title")).toContain("发送前会先确认");
@@ -248,12 +281,13 @@ describe("MultimodalSection", () => {
     await waitFor(() => expect(installMultimodal).toHaveBeenCalledWith({ provider: "novita", model: "qwen/qwen3-vl-8b", capability: "vision", agents: [], guide: true }));
   });
 
-  it.each(["network", "key", "transient"])("shows a manual model's %s result despite an existing capability row", async (reason) => {
+  it.each(["network", "key", "transient"])("shows a manual model's %s result beside an account row for the capability", async (reason) => {
     detectMultimodal.mockResolvedValue(detection({ providers: [{ ...gateway, models: [{ id: "known-whisper", capabilities: [{ id: "speech-to-text", source: "catalog", adapter: "openai-audio-transcriptions", supported: true, installable: true, probe: "minimal" }] }] }] }));
     probeMultimodal.mockResolvedValue({ providerId: "novita", model: "my-whisper", capability: "speech-to-text", adapter: "openai-audio-transcriptions", status: reason === "key" ? "unavailable" : "unverified", reason });
     renderSection();
-    await screen.findByText("Novita");
-    fireEvent.change(screen.getByLabelText("能力"), { target: { value: "speech-to-text" } });
+    // The only capability on offer is the one opened by default.
+    expect(await screen.findByRole("tab", { name: /^语音识别/, selected: true })).toBeTruthy();
+    expect(screen.getByText("known-whisper")).toBeTruthy();
     fireEvent.change(screen.getByLabelText("模型 ID"), { target: { value: "my-whisper" } });
     const manual = screen.getByText("手动填写模型 ID").closest("details") as HTMLElement;
     fireEvent.click(within(manual).getByRole("button", { name: /^实测$/ }));
@@ -264,8 +298,7 @@ describe("MultimodalSection", () => {
     detectMultimodal.mockResolvedValue(detection({ providers: [{ ...gateway, models: [] }] }));
     probeMultimodal.mockRejectedValue(new Error("manual request failed"));
     renderSection();
-    await screen.findByText("Novita");
-    fireEvent.change(screen.getByLabelText("能力"), { target: { value: "speech-to-text" } });
+    fireEvent.click(await screen.findByRole("tab", { name: /^语音识别/ }));
     fireEvent.change(screen.getByLabelText("模型 ID"), { target: { value: "my-whisper" } });
     const manual = screen.getByText("手动填写模型 ID").closest("details") as HTMLElement;
     fireEvent.click(within(manual).getByRole("button", { name: /^实测$/ }));
@@ -303,7 +336,8 @@ describe("MultimodalSection", () => {
   it("says which capabilities a Provider documents no API for", async () => {
     detectMultimodal.mockResolvedValue(detection({ providers: [{ ...gateway, unsupported: ["video-generation"] }] }));
     renderSection();
-    expect(await screen.findByText("视频生成：该模型服务目前没有可核实的公开接口，暂不支持。")).toBeTruthy();
+    fireEvent.click(await screen.findByRole("tab", { name: /^视频生成/ }));
+    expect(screen.getByText("Novita：该模型服务目前没有可核实的公开接口，暂不支持视频生成。")).toBeTruthy();
   });
 
   it("offers install without a probe for a catalog video model", async () => {
@@ -312,9 +346,9 @@ describe("MultimodalSection", () => {
       providers: [{ ...gateway, models: [{ id: "wan2.7-t2v", capabilities: [{ id: "video-generation", source: "catalog", adapter: "novita-async", supported: true, installable: true, probe: "", recommended: true }] }] }],
     }));
     renderSection();
-    expect(await screen.findByLabelText("视频生成")).toBeTruthy();
+    expect(await screen.findByRole("tab", { name: /^视频生成/, selected: true })).toBeTruthy();
     expect(screen.getByText("内置目录")).toBeTruthy();
-    const row = screen.getByLabelText("视频生成").closest("li") as HTMLElement;
+    const row = screen.getByText("wan2.7-t2v").closest("li") as HTMLElement;
     expect(within(row).queryByRole("button", { name: /^实测$/ })).toBeNull();
     expect(within(row).getByRole("button", { name: /^安装$/ })).toBeTruthy();
   });
@@ -337,10 +371,11 @@ describe("MultimodalSection", () => {
     expect(copyToClipboard).toHaveBeenCalledWith(expect.stringContaining("先读 /Users/me/.bootagent/multimodal/vision/SKILL.md"));
   });
 
-  it("warns when ffmpeg is missing for video by frames", async () => {
-    detectMultimodal.mockResolvedValue(detection({ ffmpeg: false, providers: [{ ...gateway, models: [{ id: "qwen/qwen3-vl-8b", capabilities: [{ id: "video-understanding", source: "declared", adapter: "frames-chat-vision", supported: true, installable: true, probe: "minimal" }] }] }] }));
+  it("warns once per tab when ffmpeg is missing for video by frames", async () => {
+    const frames: MultimodalProvider = { ...gateway, models: [{ id: "qwen/qwen3-vl-8b", capabilities: [{ id: "video-understanding", source: "declared", adapter: "frames-chat-vision", supported: true, installable: true, probe: "minimal" }] }] };
+    detectMultimodal.mockResolvedValue(detection({ ffmpeg: false, providers: [frames, { ...frames, id: "ppio", name: "PPIO" }] }));
     renderSection();
-    expect(await screen.findByText(/没有在 PATH 上找到 ffmpeg/)).toBeTruthy();
+    expect(await screen.findAllByText(/没有在 PATH 上找到 ffmpeg/)).toHaveLength(1);
   });
 
   it("points to the Providers page when no key is saved", async () => {
@@ -349,9 +384,67 @@ describe("MultimodalSection", () => {
     expect(await screen.findByText("去添加模型服务")).toBeTruthy();
   });
 
+  it("puts generation first and opens the first capability an account can provide", async () => {
+    detectMultimodal.mockResolvedValue(detection());
+    renderSection();
+    const tabs = await screen.findAllByRole("tab");
+    expect(tabs.map((tab) => tab.textContent)).toEqual(["图片生成", "视频生成", "图片理解1", "视频理解1", "语音合成", "语音识别"]);
+    expect(screen.getByRole("tab", { name: /^图片理解/ })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tabpanel")).toHaveAttribute("aria-labelledby", "multimodal-tab-vision");
+  });
+
+  it("opens image generation by default when an account can do it", async () => {
+    const images = { id: "gpt-image-1", capabilities: [{ id: "image-generation" as const, source: "probe" as const, adapter: "openai-images", supported: true, installable: true, probe: "confirm" as const }] };
+    detectMultimodal.mockResolvedValue(detection({ providers: [{ ...gateway, models: [...gateway.models, images] }] }));
+    renderSection();
+    expect(await screen.findByRole("tab", { name: /^图片生成/, selected: true })).toBeTruthy();
+    expect(screen.getByText("gpt-image-1")).toBeTruthy();
+    expect(screen.queryByText("还没有已保存 API Key 的模型服务能做图片生成。")).toBeNull();
+  });
+
+  it("switches capability by click and arrow keys", async () => {
+    detectMultimodal.mockResolvedValue(detection());
+    renderSection();
+    const vision = await screen.findByRole("tab", { name: /^图片理解/ });
+    fireEvent.keyDown(vision, { key: "ArrowRight" });
+    expect(screen.getByRole("tab", { name: /^视频理解/ })).toHaveAttribute("aria-selected", "true");
+    expect(document.activeElement).toBe(screen.getByRole("tab", { name: /^视频理解/ }));
+    fireEvent.keyDown(document.activeElement as HTMLElement, { key: "Home" });
+    expect(screen.getByRole("tab", { name: /^图片生成/ })).toHaveAttribute("aria-selected", "true");
+    fireEvent.click(screen.getByRole("tab", { name: /^图片理解/ }));
+    expect(screen.getByText("qwen/qwen3-vl-8b", { selector: "option" })).toBeTruthy();
+  });
+
+  it("lists the account the user added before built-in ones and marks it", async () => {
+    detectMultimodal.mockResolvedValue(detection({ providers: [visionOnly("ppio", "PPIO"), visionOnly("mine", "我的网关")] }));
+    renderSection(vi.fn(), { ppio: builtIn("PPIO", 2), mine: custom("我的网关", "2026-09-01T00:00:00Z") });
+    await screen.findByRole("tab", { name: /^图片理解2/ });
+    const accounts = screen.getByRole("tabpanel").querySelectorAll(".multimodal-account");
+    expect([...accounts].map((item) => item.querySelector("strong")?.textContent)).toEqual(["我的网关", "PPIO"]);
+    expect(within(accounts[0] as HTMLElement).getByText("用户添加")).toBeTruthy();
+    expect(within(accounts[1] as HTMLElement).queryByText("用户添加")).toBeNull();
+  });
+
+  it("names the accounts that have no model for the open capability", async () => {
+    detectMultimodal.mockResolvedValue(detection({ providers: [gateway, { ...gateway, id: "ppio", name: "PPIO", models: [] }] }));
+    renderSection();
+    expect(await screen.findByText("PPIO 的模型列表里没有能做图片理解的模型。")).toBeTruthy();
+    // With two accounts, the manual entry asks which one to probe on.
+    fireEvent.click(screen.getByRole("tab", { name: /^图片生成/ }));
+    expect(screen.getByLabelText("模型服务")).toBeTruthy();
+  });
+
+  it("marks the tab of an installed capability", async () => {
+    detectMultimodal.mockResolvedValue(detection({ installed: [
+      { skillId: "bootagent-vision", capability: "vision", providerId: "novita", model: "qwen/qwen3-vl-8b", adapter: "openai-chat-vision", agents: ["codex"] },
+    ] }));
+    renderSection();
+    expect(await screen.findByRole("tab", { name: /^图片理解已安装/ })).toBeTruthy();
+  });
+
   it("reports a failed listing without hiding the Provider", async () => {
     detectMultimodal.mockResolvedValue(detection({ providers: [{ id: "deepseek", name: "DeepSeek", keyEnv: "BOOTAGENT_DEEPSEEK_API_KEY", keyFile: "/Users/me/.bootagent/skill-env/deepseek.env", unsupported: [], listed: false, message: "API key was rejected (401).", errorCode: "API_KEY_REJECTED", models: [] }] }));
     renderSection();
-    expect(await screen.findByText(/无法读取模型列表/)).toBeTruthy();
+    expect(await screen.findByText("DeepSeek：无法读取模型列表：API key was rejected (401).")).toBeTruthy();
   });
 });

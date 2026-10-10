@@ -3944,21 +3944,22 @@
   .marketplace-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: 108px; }
 }
 
-/* Multimodal capabilities on the Skills page: one block per keyed Provider,
-   one row per capability. */
+/* Multimodal capabilities page: one tab per capability, one row per account
+   (a Provider with a saved key) that can provide it. */
 .multimodal-section .section-heading h2 { display: flex; align-items: center; gap: 6px; }
-.multimodal-provider { display: grid; gap: 8px; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius-panel); }
-.multimodal-provider > header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; font-size: 13px; }
-.multimodal-provider-note { color: var(--text-secondary); font-size: 12px; overflow-wrap: anywhere; }
-.multimodal-capabilities { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
-.multimodal-capabilities > li { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px; }
-.multimodal-capability-name { min-width: 88px; font-weight: 600; }
-.multimodal-capabilities select { min-width: 0; max-width: 320px; min-height: 28px; padding: 0 8px; border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--window-bg); color: var(--text-primary); font: inherit; font-size: 12px; }
-.multimodal-verdict { flex-basis: 100%; margin: 0; }
+.multimodal-tabs { margin-bottom: 0; }
+.multimodal-tab-installed { display: inline-flex; color: var(--green); }
+.multimodal-panel { display: grid; gap: 10px; }
+.multimodal-accounts { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+.multimodal-account { display: grid; gap: 8px; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius-panel); font-size: 13px; }
+.multimodal-account-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.multimodal-account-actions { display: inline-flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }
+.multimodal-model { font-size: 12px; overflow-wrap: anywhere; }
+.multimodal-provider-note { margin: 0; color: var(--text-secondary); font-size: 12px; overflow-wrap: anywhere; }
+.multimodal-account select { min-width: 0; max-width: 320px; min-height: 28px; padding: 0 8px; border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--window-bg); color: var(--text-primary); font: inherit; font-size: 12px; }
+.multimodal-verdict { margin: 0; }
 .multimodal-empty { margin: 0; color: var(--text-secondary); font-size: 13px; }
 .multimodal-error { margin: 0; color: var(--red); font-size: 13px; }
-.multimodal-installed { display: grid; gap: 8px; }
-.multimodal-installed h3 { margin: 0; font-size: 13px; font-weight: 650; }
 .multimodal-installed-card { display: grid; gap: 6px; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius-panel); background: var(--surface-subtle); }
 .multimodal-installed-card > header { display: flex; align-items: center; gap: 10px; font-size: 13px; }
 .multimodal-installed-card > header code { color: var(--text-secondary); font-size: 12px; }
