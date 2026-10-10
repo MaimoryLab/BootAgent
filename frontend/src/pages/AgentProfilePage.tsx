@@ -1,5 +1,5 @@
 import { Check, Pencil, Plus, Save, X } from "lucide-react";
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import { api, describeFailure } from "../backend/api";
@@ -84,6 +84,14 @@ export function AgentProfilePage() {
   const [checked, setChecked] = useState<ProfileModelCheck | null>(null);
   const [checking, setChecking] = useState(false);
   const [lastEdit, setLastEdit] = useState<ModelEdit | null>(null);
+  const checkGeneration = useRef(0);
+  const statusRef = useRef(status);
+  statusRef.current = status;
+  useEffect(() => {
+    setChecked(null);
+    setChecking(false);
+    return () => { checkGeneration.current += 1; };
+  }, [agentId]);
 
   const profiles = useMemo(() => {
     if (!status) return [];
@@ -157,7 +165,12 @@ export function AgentProfilePage() {
    * the Profile showed nothing at all. Nothing is sent to the model: that is
    * what 检测模型 is for.
    */
-  const persistProfile = async (request: SaveRequest) => {
+  const persistProfile = async (request: SaveRequest, invalidateCheck = true) => {
+    if (invalidateCheck) {
+      checkGeneration.current += 1;
+      setChecking(false);
+    }
+    if (checked?.profileId === request.id) setChecked(null);
     const before = status.profiles.find((profile) => profile.id === request.id);
     const result = await api.saveProfile(request);
     const failures = Object.entries(result.failures ?? {});
@@ -167,8 +180,6 @@ export function AgentProfilePage() {
         message: failures[0][1] ?? "",
       }));
     }
-    // A result for this Profile describes the model it held before this save.
-    if (checked?.profileId === request.id) setChecked(null);
     const edit = before && before.provider === request.provider && before.model && before.model !== request.model
       ? { profileId: request.id, previousModel: before.model, request }
       : null;
@@ -182,6 +193,8 @@ export function AgentProfilePage() {
   // 检测模型 once more if they want the old one confirmed.
   const revertModel = async () => {
     if (!checked?.previousModel || lastEdit?.profileId !== checked.profileId) return;
+    const current = statusRef.current?.profiles.find((profile) => profile.id === checked.profileId);
+    if (current?.model !== checked.model || current.provider !== lastEdit.request.provider) return;
     const request = { ...lastEdit.request, model: checked.previousModel };
     setBusy(true);
     setFailure("");
@@ -261,7 +274,7 @@ export function AgentProfilePage() {
    * write a Profile per letter typed. Everything else about the Profile is passed
    * through unchanged, so this cannot quietly reset a field the editor owns.
    */
-  const commitModel = async (profile: ProfileSummary, next: string): Promise<CommitOutcome> => {
+  const commitModel = async (profile: ProfileSummary, next: string, invalidateCheck = true): Promise<CommitOutcome> => {
     const model = next.trim();
     setModelDraft(null);
     if (!model || model === (profile.model || "")) return { kind: "unchanged" };
@@ -279,7 +292,7 @@ export function AgentProfilePage() {
         context1M: Boolean(profile.context1M),
         configMode: "provider",
         protocol: profile.protocol || (app ? desktopProtocol(app) : catalog?.protocol || ""),
-      });
+      }, invalidateCheck);
       await refreshStatus();
       return { kind: "saved", model, edit };
     } catch (error) {
@@ -297,18 +310,22 @@ export function AgentProfilePage() {
    */
   const checkModel = async () => {
     if (!selected || checking || busy || savingModel) return;
+    const generation = ++checkGeneration.current;
     setChecking(true);
     setFailure("");
     try {
-      const flushed: CommitOutcome = modelDraft !== null ? await commitModel(selected, modelDraft) : { kind: "unchanged" };
-      if (flushed.kind === "failed") return;
+      // This save belongs to the check; other saves and leaving the page
+      // invalidate its generation, including while this flush is awaiting.
+      const flushed: CommitOutcome = modelDraft !== null ? await commitModel(selected, modelDraft, false) : { kind: "unchanged" };
+      if (flushed.kind === "failed" || checkGeneration.current !== generation) return;
       const check = await api.checkProfileModel(selected.id, [app?.id || owner]);
+      if (checkGeneration.current !== generation) return;
       const edit = flushed.kind === "saved" ? flushed.edit : lastEdit;
       setChecked({ ...check, previousModel: edit?.profileId === selected.id && edit.request.model === check.model ? edit.previousModel : undefined });
     } catch (error) {
-      setFailure(describeFailure(error, t("无法检测模型"), t).message);
+      if (checkGeneration.current === generation) setFailure(describeFailure(error, t("无法检测模型"), t).message);
     } finally {
-      setChecking(false);
+      if (checkGeneration.current === generation) setChecking(false);
     }
   };
 

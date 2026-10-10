@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -67,7 +67,7 @@ function statusWith(profiles: ProfileSummary[]): StatusResponse {
 
 function renderPage(profiles: ProfileSummary[]) {
   mockState = { status: statusWith(profiles), statusState: "success" };
-  render(
+  return render(
     <MemoryRouter initialEntries={["/agents/codex"]}>
       <Routes>
         <Route path="/agents/:agentId" element={<AgentProfilePage />} />
@@ -210,7 +210,10 @@ describe("AgentProfilePage", () => {
   // to, checked for this Agent only.
   it("checks on request after an inline edit and switches back", async () => {
     const save = vi.spyOn(api, "saveProfile")
-      .mockResolvedValueOnce({ ...saved({ model: "claude-opus-5-5" }), reapplied: ["codex"] })
+      .mockImplementationOnce(async () => {
+        mockState.status!.profiles = [profile({ model: "claude-opus-5-5" })];
+        return { ...saved({ model: "claude-opus-5-5" }), reapplied: ["codex"] };
+      })
       .mockResolvedValueOnce({ ...saved(), reapplied: ["codex"] });
     const check = vi.spyOn(api, "checkProfileModel").mockResolvedValue(refusedCheck);
     renderPage([profile()]);
@@ -338,6 +341,58 @@ describe("AgentProfilePage", () => {
 
     finishSave({ ...saved({ model: "deepseek/deepseek-r1" }), reapplied: ["codex"] });
     await waitFor(() => expect(button).not.toBeDisabled());
+  });
+
+  it.each(["result", "error"])("discards a late model check %s after another Profile save", async (outcome) => {
+    let finish: (value: unknown) => void = () => undefined;
+    let reject: (error: Error) => void = () => undefined;
+    vi.spyOn(api, "checkProfileModel").mockImplementation(() => new Promise((resolve, fail) => { finish = resolve; reject = fail; }) as never);
+    vi.spyOn(api, "saveProfile").mockImplementation((request) => {
+      mockState.status!.profiles = [profile({ model: request.model })];
+      return Promise.resolve(saved({ model: request.model })) as never;
+    });
+    renderPage([profile({ model: "model-B" })]);
+    fireEvent.click(screen.getByRole("button", { name: "检测模型" }));
+    fireEvent.click(screen.getByRole("button", { name: "编辑 团队 PPIO" }));
+    fireEvent.change(screen.getByLabelText("模型"), { target: { value: "model-C" } });
+    fireEvent.click(screen.getByRole("button", { name: "保存配置模版" }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "保存配置模版" })).toBeNull());
+    await act(async () => {
+      if (outcome === "result") finish({ profileId: "team-ppio", model: "model-B", status: "unavailable", reason: "refused", agents: ["codex"] });
+      else reject(new Error("late check failure"));
+    });
+    expect(screen.queryByText("模型「model-B」不可用")).toBeNull();
+    expect(screen.queryByText("late check failure")).toBeNull();
+    expect(screen.getByRole("button", { name: "检测模型" })).not.toBeDisabled();
+  });
+
+  it("does not start a model check after leaving while its inline save is pending", async () => {
+    let finish: (value: SaveProfileResult) => void = () => undefined;
+    vi.spyOn(api, "saveProfile").mockImplementation(() => new Promise((resolve) => { finish = resolve; }) as never);
+    const check = vi.spyOn(api, "checkProfileModel");
+    const page = renderPage([profile()]);
+    await waitFor(() => expect(screen.getByLabelText("模型")).toHaveAttribute("placeholder", "搜索模型"));
+    fireEvent.change(screen.getByLabelText("模型"), { target: { value: "model-B" } });
+    fireEvent.click(screen.getByRole("button", { name: "检测模型" }));
+    page.unmount();
+    await act(async () => finish(saved({ model: "model-B" })));
+    expect(check).not.toHaveBeenCalled();
+  });
+
+  it("does not revert a Profile changed outside this editor after the check", async () => {
+    const save = vi.spyOn(api, "saveProfile").mockImplementation((request) => {
+      mockState.status!.profiles = [profile({ model: request.model })];
+      return Promise.resolve(saved({ model: request.model })) as never;
+    });
+    vi.spyOn(api, "checkProfileModel").mockResolvedValue(refusedCheck);
+    renderPage([profile()]);
+    await waitFor(() => expect(screen.getByLabelText("模型")).toHaveAttribute("placeholder", "搜索模型"));
+    fireEvent.change(screen.getByLabelText("模型"), { target: { value: "claude-opus-5-5" } });
+    fireEvent.click(screen.getByRole("button", { name: "检测模型" }));
+    await screen.findByRole("alert");
+    mockState.status!.profiles = [profile({ model: "model-C" })];
+    fireEvent.click(screen.getByRole("button", { name: "改回 deepseek/deepseek-v3" }));
+    expect(save).toHaveBeenCalledOnce();
   });
 
   it("does not write when the model is unchanged or blank", async () => {

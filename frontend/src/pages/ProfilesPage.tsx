@@ -66,6 +66,9 @@ export function ProfilesPage() {
   const [checked, setChecked] = useState<ProfileModelCheck | null>(null);
   const [checkingId, setCheckingId] = useState("");
   const [lastEdit, setLastEdit] = useState<ModelEdit | null>(null);
+  const checkGeneration = useRef(0);
+  const statusRef = useRef(status);
+  statusRef.current = status;
   const editorRef = useRef<HTMLFormElement>(null);
   const editing = editor ? editor.originalId || "new" : "";
 
@@ -74,6 +77,7 @@ export function ProfilesPage() {
   useEffect(() => {
     if (editing) editorRef.current?.scrollIntoView?.({ block: "start" });
   }, [editing]);
+  useEffect(() => () => { checkGeneration.current += 1; }, []);
 
   if (!status) {
     return (
@@ -172,10 +176,11 @@ export function ProfilesPage() {
   // the Agent's own config file moves with it. Shared by the editor's save and
   // the check result's "switch back", which is the same save with the old model.
   const persist = async (request: SaveRequest) => {
+    checkGeneration.current += 1;
+    setCheckingId("");
+    if (checked?.profileId === request.id) setChecked(null);
     const before = status.profiles.find((profile) => profile.id === request.id);
     const result = await api.saveProfile(request);
-    // A result for this Profile describes the model it held before this save.
-    if (checked?.profileId === request.id) setChecked(null);
     setLastEdit(before && before.provider === request.provider && before.model && before.model !== request.model
       ? { profileId: request.id, previousModel: before.model, request }
       : null);
@@ -222,16 +227,18 @@ export function ProfilesPage() {
   };
 
   const checkModel = async (profileId: string) => {
+    const generation = ++checkGeneration.current;
     setCheckingId(profileId);
     setFailure("");
     try {
       const check = await api.checkProfileModel(profileId);
+      if (checkGeneration.current !== generation) return;
       const edit = lastEdit?.profileId === profileId && lastEdit.request.model === check.model ? lastEdit : null;
       setChecked({ ...check, previousModel: edit?.previousModel });
     } catch (error) {
-      setFailure(describeFailure(error, t("无法检测模型"), t).message);
+      if (checkGeneration.current === generation) setFailure(describeFailure(error, t("无法检测模型"), t).message);
     } finally {
-      setCheckingId("");
+      if (checkGeneration.current === generation) setCheckingId("");
     }
   };
 
@@ -239,6 +246,8 @@ export function ProfilesPage() {
   // 检测模型 once more if they want the old one confirmed.
   const revertModel = async () => {
     if (!checked?.previousModel || lastEdit?.profileId !== checked.profileId) return;
+    const current = statusRef.current?.profiles.find((profile) => profile.id === checked.profileId);
+    if (current?.model !== checked.model || current.provider !== lastEdit.request.provider) return;
     const request = { ...lastEdit.request, model: checked.previousModel };
     setBusy(true);
     setFailure("");

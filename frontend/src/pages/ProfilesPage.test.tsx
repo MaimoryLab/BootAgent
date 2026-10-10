@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -315,7 +315,10 @@ describe("ProfilesPage", () => {
   // Profile with only the model changed.
   it("names a refused model and switches back to the one the edit replaced", async () => {
     const save = vi.spyOn(api, "saveProfile")
-      .mockResolvedValueOnce({ profile: profile({ model: "claude-opus-5-5" }), reapplied: ["codex"], failures: null })
+      .mockImplementationOnce(async () => {
+        mockState.status!.profiles = [profile({ model: "claude-opus-5-5" })];
+        return { profile: profile({ model: "claude-opus-5-5" }), reapplied: ["codex"], failures: null };
+      })
       .mockResolvedValueOnce({ profile: profile(), reapplied: ["codex"], failures: null });
     vi.spyOn(api, "checkProfileModel").mockResolvedValue({
       profileId: "team-ppio", model: "claude-opus-5-5", status: "unavailable", reason: "refused", protocol: "responses", httpStatus: 404,
@@ -401,6 +404,49 @@ describe("ProfilesPage", () => {
     await screen.findByRole("alert");
     expect(screen.queryByRole("button", { name: /改回/ })).toBeNull();
     expect(screen.getByRole("button", { name: "检查模型服务的 API Key" })).toBeTruthy();
+  });
+
+  it.each(["result", "error"])("discards a late model check %s after another save", async (outcome) => {
+    let finish: (value: unknown) => void = () => undefined;
+    let reject: (error: Error) => void = () => undefined;
+    vi.spyOn(api, "checkProfileModel").mockImplementation(() => new Promise((resolve, fail) => { finish = resolve; reject = fail; }) as never);
+    vi.spyOn(api, "saveProfile").mockImplementation((request) => {
+      mockState.status!.profiles = [profile({ model: request.model })];
+      return Promise.resolve(saved({ model: request.model })) as never;
+    });
+    vi.spyOn(api, "models").mockResolvedValue({ ok: true, reachable: true, status: 200, error_code: "", retryable: false, models: [], message: "" });
+    renderPage([profile({ model: "model-B" })]);
+    fireEvent.click(screen.getByRole("button", { name: "检测 团队 PPIO 的模型" }));
+    fireEvent.click(screen.getByRole("button", { name: "编辑 团队 PPIO" }));
+    fireEvent.change(screen.getByLabelText("模型"), { target: { value: "model-C" } });
+    fireEvent.click(screen.getByRole("button", { name: "保存配置模版" }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "保存配置模版" })).toBeNull());
+    await act(async () => {
+      if (outcome === "result") finish({ profileId: "team-ppio", model: "model-B", status: "unavailable", reason: "refused", agents: ["codex"] });
+      else reject(new Error("late check failure"));
+    });
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.queryByText("late check failure")).toBeNull();
+    expect(screen.getByRole("button", { name: "检测 团队 PPIO 的模型" })).not.toBeDisabled();
+  });
+
+  it("does not revert a Profile changed outside this editor after the check", async () => {
+    const save = vi.spyOn(api, "saveProfile").mockImplementation((request) => {
+      mockState.status!.profiles = [profile({ model: request.model })];
+      return Promise.resolve(saved({ model: request.model })) as never;
+    });
+    vi.spyOn(api, "checkProfileModel").mockResolvedValue({ profileId: "team-ppio", model: "model-B", status: "unavailable", reason: "refused", agents: ["codex"] });
+    vi.spyOn(api, "models").mockResolvedValue({ ok: true, reachable: true, status: 200, error_code: "", retryable: false, models: [], message: "" });
+    renderPage([profile()]);
+    fireEvent.click(screen.getByRole("button", { name: "编辑 团队 PPIO" }));
+    fireEvent.change(screen.getByLabelText("模型"), { target: { value: "model-B" } });
+    fireEvent.click(screen.getByRole("button", { name: "保存配置模版" }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "保存配置模版" })).toBeNull());
+    fireEvent.click(screen.getByRole("button", { name: "检测 团队 PPIO 的模型" }));
+    await screen.findByRole("alert");
+    mockState.status!.profiles = [profile({ model: "model-C" })];
+    fireEvent.click(screen.getByRole("button", { name: "改回 deepseek/deepseek-v3" }));
+    expect(save).toHaveBeenCalledOnce();
   });
 
   it("saves a Profile whose name was left blank", async () => {
