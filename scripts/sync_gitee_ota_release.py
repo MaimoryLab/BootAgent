@@ -70,21 +70,27 @@ def with_retry(description: str, action):
     raise AssertionError("unreachable")
 
 
-def request_json(request: urllib.request.Request, timeout: float = 60) -> dict[str, object]:
+def read_json(request: urllib.request.Request, timeout: float = 60) -> object:
+    # get_method(), not .method: Request only sets .method when one is passed.
+    method = request.get_method()
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:
             payload = response.read()
     except urllib.error.HTTPError as error:
         body = error.read().decode("utf-8", errors="replace")
         raise RequestFailed(
-            f"{request.method} {request.full_url} failed ({error.code}): {body[:500]}", error.code
+            f"{method} {request.full_url} failed ({error.code}): {body[:500]}", error.code
         ) from error
     except (OSError, urllib.error.URLError) as error:
         # A dropped connection has no status; it is the transient case retry exists for.
-        raise RequestFailed(f"{request.method} {request.full_url} failed: {error}", None) from error
-    result = json.loads(payload) if payload else {}
+        raise RequestFailed(f"{method} {request.full_url} failed: {error}", None) from error
+    return json.loads(payload) if payload else {}
+
+
+def request_json(request: urllib.request.Request, timeout: float = 60) -> dict[str, object]:
+    result = read_json(request, timeout)
     if not isinstance(result, dict):
-        raise RuntimeError(f"{request.method} {request.full_url} returned a non-object response")
+        raise RuntimeError(f"{request.get_method()} {request.full_url} returned a non-object response")
     return result
 
 
@@ -102,12 +108,18 @@ def gitee_release(owner: str, repo: str, tag: str, token: str) -> dict[str, obje
     url = f"{GITEE_API}/repos/{owner}/{repo}/releases/tags/{urllib.parse.quote(tag)}"
     request = urllib.request.Request(url, headers={"Authorization": f"token {token}", "Accept": "application/json"})
     try:
-        return with_retry("read Gitee release", lambda: request_json(request))
+        result = with_retry("read Gitee release", lambda: read_json(request))
     except RequestFailed as error:
-        # No release for this tag yet, which is the normal first-sync case.
         if error.status == 404:
             return None
         raise
+    # Gitee answers a tag with no release as HTTP 200 and a literal `null`, not a
+    # 404: that is the normal first-sync case for a new version.
+    if result is None:
+        return None
+    if not isinstance(result, dict):
+        raise RuntimeError(f"GET {url} returned a non-object response")
+    return result
 
 
 def create_gitee_release(

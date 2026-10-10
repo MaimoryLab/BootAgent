@@ -1,13 +1,25 @@
+import io
 import unittest
+import urllib.error
+import urllib.request
 from unittest import mock
 
 from scripts.sync_gitee_ota_release import (
     ATTEMPTS,
     RequestFailed,
+    gitee_release,
+    request_json,
     selected_assets,
     wanted_asset,
     with_retry,
 )
+
+
+def respond(payload: bytes):
+    """Stand in for urlopen, answering every request with HTTP 200 and payload."""
+    response = mock.MagicMock()
+    response.__enter__.return_value.read.return_value = payload
+    return mock.patch("scripts.sync_gitee_ota_release.urllib.request.urlopen", return_value=response)
 
 
 class SyncGiteeOTAReleaseTests(unittest.TestCase):
@@ -85,6 +97,30 @@ class RetryTests(unittest.TestCase):
         with mock.patch("scripts.sync_gitee_ota_release.time.sleep"):
             self.assertEqual(with_retry("download", action), "done")
         self.assertEqual(len(attempts), 2)
+
+
+class GiteeReleaseTests(unittest.TestCase):
+    def test_a_tag_without_a_release_reads_as_missing(self) -> None:
+        """Gitee answers HTTP 200 with `null` here, observed for v0.8.6 before its first sync."""
+        with respond(b"null"):
+            self.assertIsNone(gitee_release("maimory", "BootAgent", "v0.8.6", "token"))
+
+    def test_a_404_reads_as_missing(self) -> None:
+        error = urllib.error.HTTPError("https://gitee.com", 404, "Not Found", {}, io.BytesIO(b"{}"))
+        with mock.patch("scripts.sync_gitee_ota_release.urllib.request.urlopen", side_effect=error):
+            self.assertIsNone(gitee_release("maimory", "BootAgent", "v0.8.6", "token"))
+
+    def test_an_existing_release_is_returned(self) -> None:
+        with respond(b'{"id": 1132764, "tag_name": "v0.8.5", "assets": []}'):
+            release = gitee_release("maimory", "BootAgent", "v0.8.5", "token")
+        self.assertEqual(release["id"], 1132764)
+
+    def test_a_non_object_response_is_reported_not_crashed_on(self) -> None:
+        """The message must name the request; Request has no .method unless one was passed."""
+        request = urllib.request.Request("https://gitee.com/api/v5/x")
+        with respond(b"[]"):
+            with self.assertRaisesRegex(RuntimeError, r"^GET https://gitee\.com/api/v5/x returned a non-object"):
+                request_json(request)
 
 
 if __name__ == "__main__":
