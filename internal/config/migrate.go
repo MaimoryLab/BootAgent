@@ -1,6 +1,7 @@
 package config
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -41,6 +42,9 @@ func MigrateLegacyAgentConfigs(ctx context.Context, home string, filesystem secu
 			failures = append(failures, fmt.Errorf("read %s: %w", migration.path, err))
 			continue
 		}
+		if !mentionsOneAgent(data) {
+			continue
+		}
 		updated, changed, err := migration.migrate(stripBOM(data))
 		if err != nil {
 			// Collected rather than returned: these files belong to different
@@ -61,6 +65,16 @@ func MigrateLegacyAgentConfigs(ctx context.Context, home string, filesystem secu
 		return errors.Join(failures...)
 	}
 	return nil
+}
+
+// mentionsOneAgent reports whether a config could hold anything to migrate.
+// Every migration renames an identifier OneAgent wrote, so a file that never
+// mentions it is left unparsed. This matters because these files belong to their
+// Agents, not to BootAgent: OpenClaw's openclaw.json is JSON5, which hujson
+// rejects, and parsing it anyway surfaced a migration failure on every launch for
+// a file there was nothing to do with.
+func mentionsOneAgent(data []byte) bool {
+	return bytes.Contains(bytes.ToLower(data), []byte("oneagent"))
 }
 
 // utf8BOM is the byte order mark Windows editors prepend when saving as UTF-8.
