@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -236,11 +236,61 @@ describe("MultimodalSection", () => {
     await waitFor(() => expect(changed).toHaveBeenCalled());
   });
 
-  it("offers no install when no Agent can take the Skill", async () => {
+  it("allows guide-only installation when no Agent can take the Skill", async () => {
     detectMultimodal.mockResolvedValue(detection({ targets: [] }));
+    installMultimodal.mockResolvedValue({ skillId: "bootagent-vision", results: [{ agent: "guide", installed: true, envWritten: true }] });
     renderSection();
-    const button = await screen.findByRole("button", { name: /^安装$/ });
-    expect((button as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(await screen.findByRole("button", { name: /^安装$/ }));
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByRole("button", { name: "安装" })).toBeDisabled();
+    fireEvent.click(within(dialog).getByLabelText("其他 Agent（生成说明文件）"));
+    fireEvent.click(within(dialog).getByRole("button", { name: "安装" }));
+    await waitFor(() => expect(installMultimodal).toHaveBeenCalledWith({ provider: "novita", model: "qwen/qwen3-vl-8b", capability: "vision", agents: [], guide: true }));
+  });
+
+  it.each(["network", "key", "transient"])("shows a manual model's %s result despite an existing capability row", async (reason) => {
+    detectMultimodal.mockResolvedValue(detection({ providers: [{ ...gateway, models: [{ id: "known-whisper", capabilities: [{ id: "speech-to-text", source: "catalog", adapter: "openai-audio-transcriptions", supported: true, installable: true, probe: "minimal" }] }] }] }));
+    probeMultimodal.mockResolvedValue({ providerId: "novita", model: "my-whisper", capability: "speech-to-text", adapter: "openai-audio-transcriptions", status: reason === "key" ? "unavailable" : "unverified", reason });
+    renderSection();
+    await screen.findByText("Novita");
+    fireEvent.change(screen.getByLabelText("能力"), { target: { value: "speech-to-text" } });
+    fireEvent.change(screen.getByLabelText("模型 ID"), { target: { value: "my-whisper" } });
+    const manual = screen.getByText("手动填写模型 ID").closest("details") as HTMLElement;
+    fireEvent.click(within(manual).getByRole("button", { name: /^实测$/ }));
+    expect(await within(manual).findByText(reason === "key" ? "「my-whisper」不支持语音识别" : "无法验证「my-whisper」的语音识别")).toBeTruthy();
+  });
+
+  it("shows a rejected manual probe even when no capability row exists", async () => {
+    detectMultimodal.mockResolvedValue(detection({ providers: [{ ...gateway, models: [] }] }));
+    probeMultimodal.mockRejectedValue(new Error("manual request failed"));
+    renderSection();
+    await screen.findByText("Novita");
+    fireEvent.change(screen.getByLabelText("能力"), { target: { value: "speech-to-text" } });
+    fireEvent.change(screen.getByLabelText("模型 ID"), { target: { value: "my-whisper" } });
+    const manual = screen.getByText("手动填写模型 ID").closest("details") as HTMLElement;
+    fireEvent.click(within(manual).getByRole("button", { name: /^实测$/ }));
+    expect(await within(manual).findByRole("alert")).toHaveTextContent("manual request failed");
+  });
+
+  it("keeps the install dialog open through cancel, close and Esc while installing", async () => {
+    let finish: (value: unknown) => void = () => undefined;
+    detectMultimodal.mockResolvedValue(detection());
+    installMultimodal.mockImplementation(() => new Promise((resolve) => { finish = resolve; }));
+    const changed = renderSection();
+    fireEvent.click(await screen.findByRole("button", { name: /^安装$/ }));
+    const dialog = screen.getByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "安装" }));
+    expect(within(dialog).getByRole("button", { name: "取消" })).toBeDisabled();
+    expect(within(dialog).getByTitle("关闭")).toBeDisabled();
+    fireEvent.click(within(dialog).getByRole("button", { name: "取消" }));
+    fireEvent.click(within(dialog).getByTitle("关闭"));
+    fireEvent(dialog, new Event("cancel", { bubbles: true, cancelable: true }));
+    expect(screen.getByRole("dialog")).toBe(dialog);
+    await act(async () => finish({ skillId: "bootagent-vision", results: [{ agent: "codex", installed: true, envWritten: true }] }));
+    expect(within(dialog).getByText("已安装")).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole("button", { name: "完成" }));
+    await waitFor(() => expect(detectMultimodal).toHaveBeenCalledTimes(2));
+    expect(changed).toHaveBeenCalledOnce();
   });
 
   it("offers no probe for a capability with no live check", async () => {

@@ -159,7 +159,7 @@ export function groupInstalled(installed: InstalledMultimodal[]): Array<{ skillI
     .map(([skillId, variants]) => ({ skillId, capability, variants, agents: [...new Set(variants.flatMap((variant) => variant.agents))].sort() })));
 }
 
-type ProbeState = { checking: boolean; result?: MultimodalProbe; error?: string };
+type ProbeState = { model: string; checking: boolean; result?: MultimodalProbe; error?: string };
 type ProbeTarget = { provider: MultimodalProvider; capability: MultimodalCapabilityId; model: string; adapter: string; kind: MultimodalProbeKind };
 type InstallTarget = { provider: MultimodalProvider; capability: MultimodalCapabilityId; model: string };
 
@@ -205,17 +205,17 @@ export function MultimodalSection({ agentLabels = {}, onSkillsChanged }: Multimo
 
   const runProbe = (target: ProbeTarget, confirmed: boolean) => {
     const key = rowKey(target.provider.id, target.capability);
-    setProbes((current) => ({ ...current, [key]: { checking: true } }));
+    setProbes((current) => ({ ...current, [key]: { model: target.model, checking: true } }));
     void api.probeMultimodal(target.provider.id, target.model, target.capability, target.adapter, confirmed)
       .then((result) => {
-        setProbes((current) => ({ ...current, [key]: { checking: false, result } }));
+        setProbes((current) => ({ ...current, [key]: { model: target.model, checking: false, result } }));
         // Show the probed model in its row; a conclusive verdict is cached by
         // the backend and outranks every other source once re-read.
         setSelected((current) => ({ ...current, [key]: target.model }));
         return detect();
       })
       .catch((reason: unknown) => {
-        setProbes((current) => ({ ...current, [key]: { checking: false, error: describeError(reason, t("无法向模型服务发送验证请求。")).message } }));
+        setProbes((current) => ({ ...current, [key]: { model: target.model, checking: false, error: describeError(reason, t("无法向模型服务发送验证请求。")).message } }));
       });
   };
   const probe = (target: ProbeTarget) => (target.kind === "confirm" ? setConfirmProbe(target) : runProbe(target, false));
@@ -292,6 +292,10 @@ export function MultimodalSection({ agentLabels = {}, onSkillsChanged }: Multimo
         const manualState = manual[entry.id];
         const manualRoutes = detection?.manual ?? [];
         const manualRoute = manualRoutes.find((route) => route.capability === (manualState?.capability ?? manualRoutes[0]?.capability));
+        const manualProbeState = manualRoute ? probes[rowKey(entry.id, manualRoute.capability)] : undefined;
+        const manualGroup = groups.find((group) => group.id === manualRoute?.capability);
+        const manualChosen = manualGroup?.options.find((option) => option.model === selected[rowKey(entry.id, manualRoute?.capability ?? "")]) ?? manualGroup?.options[0];
+        const manualResultInRow = manualChosen?.model === manualProbeState?.model;
         return (
           <div className="multimodal-provider" key={entry.id}>
             <header>
@@ -333,7 +337,7 @@ export function MultimodalSection({ agentLabels = {}, onSkillsChanged }: Multimo
                         />
                       ) : null}
                       {install.ready ? (
-                        <button className="button button-primary model-check-button" type="button" disabled={!detection?.targets.length} title={detection?.targets.length ? undefined : t("没有找到可以安装 Skill 的 Agent")} onClick={() => setInstallTarget({ provider: entry, capability: group.id, model: chosen.model })}>
+                        <button className="button button-primary model-check-button" type="button" onClick={() => setInstallTarget({ provider: entry, capability: group.id, model: chosen.model })}>
                           <Download size={14} aria-hidden="true" />
                           {installedHere ? t("重新安装") : t("安装")}
                         </button>
@@ -342,7 +346,7 @@ export function MultimodalSection({ agentLabels = {}, onSkillsChanged }: Multimo
                         <p className="multimodal-provider-note">{t("视频理解要先用 ffmpeg 抽帧。BootAgent 没有在 PATH 上找到 ffmpeg；请在 Agent 运行的环境里安装它。")}</p>
                       ) : null}
                       {verdict ? <Verdict verdict={verdict} /> : null}
-                      {state?.error ? <p className="multimodal-error" role="alert">{state.error}</p> : null}
+                      {state?.error && state.model === chosen.model ? <p className="multimodal-error" role="alert">{state.error}</p> : null}
                     </li>
                   );
                 })}
@@ -367,9 +371,10 @@ export function MultimodalSection({ agentLabels = {}, onSkillsChanged }: Multimo
                     />
                   ) : null}
                 </div>
-                {manualRoute && probes[rowKey(entry.id, manualRoute.capability)]?.result && !groups.some((group) => group.id === manualRoute.capability)
-                  ? <Verdict verdict={describeProbe(probes[rowKey(entry.id, manualRoute.capability)]!.result!, t)} />
+                {manualProbeState?.result && !manualResultInRow
+                  ? <Verdict verdict={describeProbe(manualProbeState.result, t)} />
                   : null}
+                {manualProbeState?.error && !manualResultInRow ? <p className="multimodal-error" role="alert">{manualProbeState.error}</p> : null}
               </details>
             ) : null}
           </div>
@@ -541,9 +546,12 @@ function InstallDialog({ target, targets, fallback, current, providerName, nameO
   };
 
   const title = t("安装{capability} Skill", { capability });
+  const close = () => {
+    if (!busy) (result ? onDone : onCancel)();
+  };
   return (
-    <ModalDialog className="mcp-modal multimodal-modal" label={title} onDismiss={result ? onDone : onCancel}>
-      <header><h2>{title}</h2><button className="icon-button" type="button" onClick={result ? onDone : onCancel} title={t("关闭")}><X size={18} /></button></header>
+    <ModalDialog className="mcp-modal multimodal-modal" label={title} onDismiss={close}>
+      <header><h2>{title}</h2><button className="icon-button" type="button" disabled={busy} onClick={close} title={t("关闭")}><X size={18} /></button></header>
       {result ? (
         <>
           <ul className="multimodal-results">
@@ -566,7 +574,7 @@ function InstallDialog({ target, targets, fallback, current, providerName, nameO
       ) : (
         <>
           <p>{t("用「{model}」（{provider}）为 Agent 提供{capability}。", { model: target.model, provider: providerName(target.provider.id), capability })}</p>
-          <fieldset className="multimodal-agents">
+          <fieldset className="multimodal-agents" disabled={busy}>
             <legend>{t("安装到")}</legend>
             {targets.map((agent) => (
               <label key={agent}>
@@ -594,7 +602,7 @@ function InstallDialog({ target, targets, fallback, current, providerName, nameO
           </div>
           {error ? <p className="multimodal-error" role="alert">{error}</p> : null}
           <footer>
-            <button className="button button-secondary" type="button" onClick={onCancel}>{t("取消")}</button>
+            <button className="button button-secondary" type="button" disabled={busy} onClick={close}>{t("取消")}</button>
             <button className="button button-primary" type="button" disabled={busy || (!agents.length && !guide)} onClick={install}>{busy ? t("正在安装") : t("安装")}</button>
           </footer>
         </>
