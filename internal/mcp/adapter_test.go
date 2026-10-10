@@ -145,3 +145,22 @@ func parseJSONBytes(data []byte, section string) (Observed, error) {
 func parseHUJSON(data []byte) (hujson.Value, error) { return hujson.Parse(data) }
 
 func writeTestFile(path string, data []byte) error { return os.WriteFile(path, data, 0o600) }
+
+// A Skill key in [shell_environment_policy.set] (ADR-011) makes config.toml a
+// secret. An MCP change without secrets of its own must still write it as one
+// and must carry the key through.
+func TestCodexMCPApplyKeepsSkillKeyAndReportsSecret(t *testing.T) {
+	a := NewCodexAdapter()
+	current := []byte("[mcp_servers.x]\ncommand = \"echo\"\n\n[shell_environment_policy.set]\nBOOTAGENT_NOVITA_API_KEY = \"sk-novita\"\n")
+	out, secret, err := a.Apply(context.Background(), "config.toml", current, map[string]*Spec{"x": {Type: "stdio", Command: "printf"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !secret || !strings.Contains(string(out), `BOOTAGENT_NOVITA_API_KEY = "sk-novita"`) {
+		t.Fatalf("secret = %v, output = %s", secret, out)
+	}
+	_, secret, err = a.Apply(context.Background(), "config.toml", []byte("[mcp_servers.x]\ncommand = \"echo\"\n"), map[string]*Spec{"x": {Type: "stdio", Command: "printf"}})
+	if err != nil || secret {
+		t.Fatalf("a config without keys became secret: %v %v", secret, err)
+	}
+}

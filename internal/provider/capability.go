@@ -15,7 +15,12 @@ import (
 	"github.com/MaimoryLab/BootAgent/internal/securefs"
 )
 
-const capabilitySchemaVersion = 1
+// capabilitySchemaVersion 2 added per-model modality verdicts. Version 1 files
+// are read as version 2 with no modalities: discarding them would throw away
+// protocol verdicts and make the next activation spend a billed probe.
+const capabilitySchemaVersion = 2
+
+const legacyCapabilitySchemaVersion = 1
 
 // ProtocolCapability is one probe verdict. ErrorCode is kept alongside Supported
 // because routing has to tell "this endpoint refuses this protocol" apart from "the
@@ -35,6 +40,22 @@ type ProtocolCapability struct {
 type ModelCapabilities struct {
 	ProbedAt  time.Time                     `json:"probed_at"`
 	Protocols map[string]ProtocolCapability `json:"protocols"`
+	// Modalities holds probe verdicts for multimodal capabilities, keyed by
+	// capability ID. Only probe verdicts are cached: catalog matches and
+	// declared metadata are recomputed on every read.
+	Modalities map[string]ModalityVerdict `json:"modalities,omitempty"`
+}
+
+// ModalityVerdict is the outcome of one capability probe the user asked for.
+// Only conclusive answers are stored -- the Provider accepted the request, or
+// refused this model -- because a busy endpoint or a rejected key says nothing
+// about what the model can do.
+type ModalityVerdict struct {
+	Supported bool      `json:"supported"`
+	Source    string    `json:"source"`
+	Adapter   string    `json:"adapter"`
+	ProbedAt  time.Time `json:"probed_at"`
+	Status    int       `json:"status,omitempty"`
 }
 
 // ProviderCapabilities groups every probed model for one Provider. Fingerprint binds
@@ -114,12 +135,70 @@ func (s CapabilityStore) Save(ctx context.Context, entry Entry, model string, ve
 	}
 	existing, ok := current.Models[model]
 	if !ok || existing.Protocols == nil {
-		existing = ModelCapabilities{Protocols: map[string]ProtocolCapability{}}
+		existing.Protocols = map[string]ProtocolCapability{}
 	}
 	for protocolID, verdict := range verdicts {
 		existing.Protocols[protocolID] = verdict
 	}
 	existing.ProbedAt = time.Now().UTC()
+	current.Models[model] = existing
+	file.Providers[entry.ID] = current
+	return s.write(ctx, file)
+}
+
+// Modalities returns every cached modality verdict for one Provider, keyed by
+// model and then capability. A stale fingerprint is a miss, like Get.
+func (s CapabilityStore) Modalities(entry Entry) map[string]map[string]ModalityVerdict {
+	result := map[string]map[string]ModalityVerdict{}
+	file, err := s.load()
+	if err != nil {
+		return result
+	}
+	saved, ok := file.Providers[entry.ID]
+	if !ok || saved.Fingerprint != Fingerprint(entry) {
+		return result
+	}
+	for model, record := range saved.Models {
+		if len(record.Modalities) == 0 {
+			continue
+		}
+		verdicts := make(map[string]ModalityVerdict, len(record.Modalities))
+		for capability, verdict := range record.Modalities {
+			verdicts[capability] = verdict
+		}
+		result[model] = verdicts
+	}
+	return result
+}
+
+// SaveModality records one capability probe verdict for a model. Protocol
+// verdicts and other capabilities of the same model are kept.
+func (s CapabilityStore) SaveModality(ctx context.Context, entry Entry, model, capability string, verdict ModalityVerdict) error {
+	model = strings.TrimSpace(model)
+	capability = strings.TrimSpace(capability)
+	if model == "" || capability == "" {
+		return oneerrors.New(oneerrors.InvalidRequest, "A capability verdict must name the model and capability it was measured with")
+	}
+	file, err := s.load()
+	if err != nil {
+		file = newCapabilityFile()
+	}
+	fingerprint := Fingerprint(entry)
+	current, ok := file.Providers[entry.ID]
+	if !ok || current.Fingerprint != fingerprint || current.Models == nil {
+		current = ProviderCapabilities{Fingerprint: fingerprint, Models: map[string]ModelCapabilities{}}
+	}
+	existing := current.Models[model]
+	if existing.Protocols == nil {
+		existing.Protocols = map[string]ProtocolCapability{}
+	}
+	if existing.Modalities == nil {
+		existing.Modalities = map[string]ModalityVerdict{}
+	}
+	if verdict.ProbedAt.IsZero() {
+		verdict.ProbedAt = time.Now().UTC()
+	}
+	existing.Modalities[capability] = verdict
 	current.Models[model] = existing
 	file.Providers[entry.ID] = current
 	return s.write(ctx, file)
@@ -163,7 +242,16 @@ func (s CapabilityStore) load() (capabilityFile, error) {
 		return newCapabilityFile(), err
 	}
 	file := newCapabilityFile()
-	if err := json.Unmarshal(data, &file); err != nil || file.SchemaVersion != capabilitySchemaVersion || file.Providers == nil {
+	if err := json.Unmarshal(data, &file); err != nil || file.Providers == nil {
+		return newCapabilityFile(), errors.New("cached Provider capabilities are unusable")
+	}
+	switch file.SchemaVersion {
+	case capabilitySchemaVersion:
+	case legacyCapabilitySchemaVersion:
+		// Same shape minus modalities, which unmarshal as nil. The next write
+		// stamps the current version.
+		file.SchemaVersion = capabilitySchemaVersion
+	default:
 		return newCapabilityFile(), errors.New("cached Provider capabilities are unusable")
 	}
 	return file, nil

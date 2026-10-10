@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "generator": "bootagent",
+  "capability": "video-generation",
+  "adapter": "novita-async",
+  "provider_id": "jiekou",
+  "provider_name": "JieKou.AI",
+  "model": "wan2.7-t2v",
+  "base_url": "https://api.highwayapi.ai/openai/v1",
+  "native_base_url": "https://api.highwayapi.ai",
+  "options": [
+    "duration",
+    "size",
+    "negative_prompt"
+  ],
+  "key_env": "BOOTAGENT_JIEKOU_API_KEY",
+  "key_file": "~/.bootagent/skill-env/jiekou.env",
+  "output_dir": "~/.bootagent/output"
+}

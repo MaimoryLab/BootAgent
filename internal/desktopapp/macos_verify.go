@@ -39,6 +39,12 @@ func verifyDSHMacOSApp(ctx context.Context, options Options, appPath string) err
 	return verifyMacOSIdentity(ctx, options, appPath, DSHDesktopBundleID, DSHDesktopTeamID, "")
 }
 
+// verifyKimiCodeMacOSApp pins Moonshot's Developer ID team and the bundle
+// identifier, and requires notarization, like ZCode.
+func verifyKimiCodeMacOSApp(ctx context.Context, options Options, appPath string) error {
+	return verifyMacOSIdentity(ctx, options, appPath, KimiCodeDesktopBundleID, KimiCodeDesktopTeamID, "")
+}
+
 func verifyMacOSIdentity(ctx context.Context, options Options, appPath, bundleID, teamID, authority string) error {
 	result, err := run(options, ctx, []string{"/usr/bin/codesign", "--verify", "--deep", "--strict", "--verbose=2", appPath}, installTimeout)
 	if err != nil {

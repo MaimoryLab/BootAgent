@@ -1,9 +1,13 @@
 package provider
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"image/png"
 	"io"
 	"net/http"
 	"net/url"
@@ -272,5 +276,281 @@ func TestListModelsMapsBodyReadCancellationToTimeout(t *testing.T) {
 	result, err := client.ListModels(context.Background(), "ppio", "key", "")
 	if err != nil || result.ErrorCode == nil || *result.ErrorCode != oneerrors.Timeout || result.Reachable {
 		t.Fatalf("body cancellation result = %#v, err=%v", result, err)
+	}
+}
+
+// The provider's explanation is what makes a refused probe actionable, but it is
+// untrusted text bound for the UI: it is extracted from every error shape
+// gateways use, an HTML error page is dropped as saying nothing, control
+// characters cannot reach the screen, the key is scrubbed, and length is bounded.
+func TestUpstreamDetailExtractsCleansAndBounds(t *testing.T) {
+	long := strings.Repeat("x", maxDetailRunes+50)
+	for _, test := range []struct {
+		name, body, want string
+	}{
+		{"anthropic nested", `{"type":"error","error":{"type":"not_found_error","message":"model: m does not exist"}}`, "model: m does not exist"},
+		{"flat string error", `{"error":"model not found"}`, "model not found"},
+		{"top-level message", `{"message":"quota exceeded"}`, "quota exceeded"},
+		{"fastapi detail", `{"detail":"Not Found"}`, "Not Found"},
+		{"plain text", "upstream says no\n", "upstream says no"},
+		{"html page", "<html><body>502 Bad Gateway</body></html>", ""},
+		{"control characters", "{\"error\":{\"message\":\"bad\\u001b[31m model\\u0007\"}}", "bad [31m model"},
+		{"key echoed back", `{"error":{"message":"key sk-live-123 is not allowed"}}`, "key [redacted] is not allowed"},
+		{"bounded", `{"error":{"message":"` + long + `"}}`, strings.Repeat("x", maxDetailRunes) + "…"},
+		{"empty", ``, ""},
+	} {
+		if got := upstreamDetail([]byte(test.body), "sk-live-123"); got != test.want {
+			t.Errorf("%s: upstreamDetail = %q, want %q", test.name, got, test.want)
+		}
+	}
+}
+
+func TestListModelsKeepsDeclaredModalities(t *testing.T) {
+	client := NewClient(fakeDoer(func(*http.Request) (*http.Response, error) {
+		return fakeResponse(http.StatusOK, `{"data":[
+			{"id":"vision-a","input_modalities":["text","Image"],"output_modalities":["text"]},
+			{"id":"silent","input_modalities":[],"output_modalities":null},
+			{"id":"bare"},
+			{"id":"odd","input_modalities":"image"},
+			"plain"
+		]}`), nil
+	}))
+	result, err := client.ListModels(context.Background(), "custom", "key", "https://proxy.test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(result.Models, []string{"vision-a", "silent", "bare", "odd", "plain"}) {
+		t.Fatalf("models = %v", result.Models)
+	}
+	if len(result.Entries) != len(result.Models) {
+		t.Fatalf("entries = %#v", result.Entries)
+	}
+	if got := result.Entries[0]; !got.Declared() || !reflect.DeepEqual(got.InputModalities, []string{"text", "image"}) {
+		t.Fatalf("declared entry = %#v", got)
+	}
+	// An explicitly empty list is a declaration of "nothing"; an absent field
+	// says nothing at all, and neither does a value of the wrong shape.
+	if !result.Entries[1].Declared() {
+		t.Fatalf("empty list should count as declared: %#v", result.Entries[1])
+	}
+	for _, index := range []int{2, 3, 4} {
+		if result.Entries[index].Declared() {
+			t.Fatalf("entry %d should not be declared: %#v", index, result.Entries[index])
+		}
+	}
+}
+
+func TestProbeVisionSendsOneImageWithOneToken(t *testing.T) {
+	var seen *http.Request
+	var body map[string]any
+	client := NewClient(fakeDoer(func(request *http.Request) (*http.Response, error) {
+		seen = request
+		if err := json.NewDecoder(request.Body).Decode(&body); err != nil {
+			t.Fatal(err)
+		}
+		return fakeResponse(http.StatusOK, `{}`), nil
+	}))
+	result, err := client.ProbeVision(context.Background(), "key", "vision-a", "https://proxy.test/openai")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.OK || seen.URL.String() != "https://proxy.test/openai/v1/chat/completions" {
+		t.Fatalf("result = %#v, url = %v", result, seen.URL)
+	}
+	if body["max_tokens"] != float64(1) || body["model"] != "vision-a" {
+		t.Fatalf("body = %#v", body)
+	}
+	encoded, _ := json.Marshal(body["messages"])
+	if !strings.Contains(string(encoded), `"type":"image_url"`) || !strings.Contains(string(encoded), "data:image/png;base64,") {
+		t.Fatalf("messages = %s", encoded)
+	}
+}
+
+func TestProbeVisionClassifiesRefusalAndScrubsKey(t *testing.T) {
+	client := NewClient(fakeDoer(func(*http.Request) (*http.Response, error) {
+		return fakeResponse(http.StatusBadRequest, `{"error":{"message":"model text-only does not support image input (key sk-secret)"}}`), nil
+	}))
+	result, err := client.ProbeVision(context.Background(), "sk-secret", "text-only", "https://proxy.test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.OK || !result.Reachable || result.Status != http.StatusBadRequest {
+		t.Fatalf("result = %#v", result)
+	}
+	if strings.Contains(result.Detail, "sk-secret") || !strings.Contains(result.Detail, "does not support image input") {
+		t.Fatalf("detail = %q", result.Detail)
+	}
+	if _, err := client.ProbeVision(context.Background(), "", "m", "https://proxy.test"); err == nil {
+		t.Fatal("missing key accepted")
+	}
+	if _, err := client.ProbeVision(context.Background(), "k", " ", "https://proxy.test"); err == nil {
+		t.Fatal("missing model accepted")
+	}
+}
+
+func TestProbePNGDecodes(t *testing.T) {
+	data, err := base64.StdEncoding.DecodeString(probePNG)
+	if err != nil {
+		t.Fatal(err)
+	}
+	config, err := png.DecodeConfig(bytes.NewReader(data))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if config.Width < 10 || config.Height < 10 {
+		t.Fatalf("probe image is %dx%d; some endpoints refuse images under 10px a side", config.Width, config.Height)
+	}
+}
+
+func TestProbeTranscriptionSendsSilentWAV(t *testing.T) {
+	var seen *http.Request
+	var model string
+	var audio []byte
+	client := NewClient(fakeDoer(func(request *http.Request) (*http.Response, error) {
+		seen = request
+		if err := request.ParseMultipartForm(1 << 20); err != nil {
+			t.Fatal(err)
+		}
+		model = request.FormValue("model")
+		file, _, err := request.FormFile("file")
+		if err != nil {
+			t.Fatal(err)
+		}
+		audio, _ = io.ReadAll(file)
+		return fakeResponse(http.StatusOK, `{"text":""}`), nil
+	}))
+	result, err := client.ProbeTranscription(context.Background(), "key", "whisper-1", "https://proxy.test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.OK || seen.URL.Path != "/v1/audio/transcriptions" || model != "whisper-1" {
+		t.Fatalf("result = %#v, path = %s, model = %q", result, seen.URL.Path, model)
+	}
+	if len(audio) != 44+16000 || string(audio[0:4]) != "RIFF" || string(audio[8:12]) != "WAVE" {
+		t.Fatalf("probe audio is not half a second of 16 kHz WAV: %d bytes", len(audio))
+	}
+}
+
+func TestProbeSpeechAndImagesSendMinimalBodies(t *testing.T) {
+	bodies := map[string]map[string]any{}
+	client := NewClient(fakeDoer(func(request *http.Request) (*http.Response, error) {
+		var body map[string]any
+		if err := json.NewDecoder(request.Body).Decode(&body); err != nil {
+			t.Fatal(err)
+		}
+		bodies[request.URL.Path] = body
+		return fakeResponse(http.StatusOK, `{}`), nil
+	}))
+	if result, err := client.ProbeSpeech(context.Background(), "key", "tts-1", "https://proxy.test"); err != nil || !result.OK {
+		t.Fatalf("speech = %#v, %v", result, err)
+	}
+	if result, err := client.ProbeImageGeneration(context.Background(), "key", "gpt-image-1", "https://proxy.test"); err != nil || !result.OK {
+		t.Fatalf("image = %#v, %v", result, err)
+	}
+	speech := bodies["/v1/audio/speech"]
+	if speech["input"] != "ok" || speech["model"] != "tts-1" || speech["voice"] == nil {
+		t.Fatalf("speech body = %#v", speech)
+	}
+	image := bodies["/v1/images/generations"]
+	if image["n"] != float64(1) || image["model"] != "gpt-image-1" {
+		t.Fatalf("image body = %#v", image)
+	}
+	// Valid sizes differ by model; sending one could fail the probe for a
+	// reason unrelated to the endpoint.
+	if _, ok := image["size"]; ok {
+		t.Fatalf("image probe sent a size: %#v", image)
+	}
+	for _, probe := range []func(context.Context, string, string, string) (ProbeResult, error){client.ProbeSpeech, client.ProbeImageGeneration, client.ProbeTranscription} {
+		if _, err := probe(context.Background(), "", "m", "https://proxy.test"); err == nil {
+			t.Fatal("probe without a key accepted")
+		}
+		if _, err := probe(context.Background(), "k", "", "https://proxy.test"); err == nil {
+			t.Fatal("probe without a model accepted")
+		}
+	}
+}
+
+func TestSlowProbesOutlastTheChatTimeout(t *testing.T) {
+	client := NewClient(fakeDoer(func(request *http.Request) (*http.Response, error) {
+		deadline, ok := request.Context().Deadline()
+		if !ok || time.Until(deadline) < 2*defaultTimeout {
+			t.Errorf("%s deadline = %v away, want well over the %v chat timeout", request.URL.Path, time.Until(deadline), defaultTimeout)
+		}
+		return fakeResponse(http.StatusOK, `{}`), nil
+	}))
+	_, _ = client.ProbeImageGeneration(context.Background(), "k", "m", "https://proxy.test")
+	_, _ = client.ProbeSpeech(context.Background(), "k", "m", "https://proxy.test")
+}
+
+func TestProbeNativeSpeechReadsTheVerdictInTheBody(t *testing.T) {
+	var seen *http.Request
+	var body map[string]any
+	answer := `{"data":{"audio":"4944"},"base_resp":{"status_code":0,"status_msg":"success"}}`
+	client := NewClient(fakeDoer(func(request *http.Request) (*http.Response, error) {
+		seen = request
+		_ = json.NewDecoder(request.Body).Decode(&body)
+		return fakeResponse(http.StatusOK, answer), nil
+	}))
+	result, err := client.ProbeNativeSpeech(context.Background(), "sk-native", "minimax-speech-2.8-turbo", "https://api.novita.ai")
+	if err != nil || !result.OK {
+		t.Fatalf("result = %#v, %v", result, err)
+	}
+	if seen.URL.String() != "https://api.novita.ai/v3/minimax-speech-2.8-turbo" || body["text"] != "ok" {
+		t.Fatalf("url = %v, body = %#v", seen.URL, body)
+	}
+	if voice := body["voice_setting"].(map[string]any)["voice_id"]; voice != NativeSpeechVoice {
+		t.Fatalf("voice = %v", voice)
+	}
+	for code, want := range map[int]string{1004: oneerrors.APIKeyRejected, 1002: oneerrors.ProviderUnreachable, 2013: oneerrors.ProviderUnreachable} {
+		answer = fmt.Sprintf(`{"base_resp":{"status_code":%d,"status_msg":"refused for this voice"}}`, code)
+		result, err := client.ProbeNativeSpeech(context.Background(), "sk-native", "minimax-speech-2.8-turbo", "https://api.novita.ai")
+		if err != nil || result.OK || result.ErrorCode == nil || *result.ErrorCode != want {
+			t.Fatalf("code %d: result = %#v, %v", code, result, err)
+		}
+		if result.Detail != "refused for this voice" {
+			t.Fatalf("detail = %q", result.Detail)
+		}
+	}
+	answer = `{"base_resp":{"status_code":1002,"status_msg":"rate limit"}}`
+	// The app reads 408, 429 and 5xx as transient from the status alone.
+	if result, _ := client.ProbeNativeSpeech(context.Background(), "sk-native", "m", "https://api.novita.ai"); result.Status != http.StatusTooManyRequests || !result.Reachable {
+		t.Fatalf("rate limit should map to 429: %#v", result)
+	}
+	for _, model := range []string{"", "../x", "m?x=1", "a/b"} {
+		if _, err := client.ProbeNativeSpeech(context.Background(), "sk-native", model, "https://api.novita.ai"); err == nil {
+			t.Fatalf("model %q accepted as a path segment", model)
+		}
+	}
+}
+
+func TestNativeSpeechProbeRequiresACompleteSuccessResponse(t *testing.T) {
+	for name, body := range map[string]string{
+		"HTML":          "<html>service unavailable</html>",
+		"truncated":     `{"data":{"audio":"4944"},"base_resp":`,
+		"no verdict":    `{"data":{"audio":"4944"}}`,
+		"no status":     `{"data":{"audio":"4944"},"base_resp":{}}`,
+		"no audio":      `{"base_resp":{"status_code":0}}`,
+		"invalid audio": `{"data":{"audio":"not hex"},"base_resp":{"status_code":0}}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			client := NewClient(fakeDoer(func(*http.Request) (*http.Response, error) { return fakeResponse(http.StatusOK, body), nil }))
+			result, err := client.ProbeNativeSpeech(context.Background(), "key", "minimax-speech-2.8-turbo", "https://api.novita.ai")
+			if err != nil || result.OK || result.Status != http.StatusBadGateway {
+				t.Fatalf("invalid success body should be transient, got %#v, %v", result, err)
+			}
+		})
+	}
+	client := NewClient(fakeDoer(func(*http.Request) (*http.Response, error) {
+		return &http.Response{StatusCode: http.StatusOK, Body: failingBody{err: io.ErrUnexpectedEOF}}, nil
+	}))
+	if result, err := client.ProbeNativeSpeech(context.Background(), "key", "m", "https://api.novita.ai"); err != nil || result.OK || result.Reachable {
+		t.Fatalf("body read failure should be unverified, got %#v, %v", result, err)
+	}
+	client = NewClient(fakeDoer(func(*http.Request) (*http.Response, error) {
+		return fakeResponse(http.StatusOK, `{"data":{"audio":"4944"},"base_resp":{"status_code":0}}`), nil
+	}))
+	client.maxBody = 20
+	if result, err := client.ProbeNativeSpeech(context.Background(), "key", "m", "https://api.novita.ai"); err != nil || result.OK || result.Status != http.StatusBadGateway {
+		t.Fatalf("oversized body should be unverified, got %#v, %v", result, err)
 	}
 }

@@ -12,6 +12,9 @@ import * as install$0 from "../install/models.js";
 import * as mcp$0 from "../mcp/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import * as modality$0 from "../modality/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import * as platform$0 from "../platform/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
@@ -224,6 +227,25 @@ export interface InstallRuntimeResult {
     "runtimes": RuntimeStatus[] | null;
 }
 
+/**
+ * InstalledMultimodal is one generated Skill variant that is published to at
+ * least one Agent.
+ */
+export interface InstalledMultimodal {
+    "skillId": string;
+    "capability": string;
+    "providerId": string;
+    "model": string;
+    "adapter": string;
+    "agents": string[] | null;
+
+    /**
+     * GuidePath is set when this variant is also the guide for Agents
+     * without Skills.
+     */
+    "guidePath"?: string;
+}
+
 export interface MCPAgentApplyResult {
     "agent": string;
     "config_updated": boolean;
@@ -344,6 +366,197 @@ export interface MarketplaceSourceStatus {
     "next_offset": number;
     "fetched_at"?: string;
     "error"?: string;
+}
+
+export interface MultimodalAgentResult {
+    "agent": string;
+
+    /**
+     * Installed: the Skill tree is in the Agent's Skills directory.
+     */
+    "installed": boolean;
+
+    /**
+     * EnvWritten: the key variable is in the Agent's own configuration.
+     */
+    "envWritten": boolean;
+    "error"?: string;
+}
+
+/**
+ * MultimodalDetection lists, for every Provider with a saved key, the models
+ * that offer a multimodal capability and where each finding came from.
+ */
+export interface MultimodalDetection {
+    "providers": MultimodalProvider[] | null;
+
+    /**
+     * Installed are the generated Skills published to at least one Agent.
+     */
+    "installed": InstalledMultimodal[] | null;
+
+    /**
+     * Targets are the Agents a multimodal Skill can be installed into now.
+     */
+    "targets": string[] | null;
+
+    /**
+     * Generatable lists the adapters a Skill can be generated for in this
+     * version; a capability on any other adapter is shown but not offered.
+     */
+    "generatable": string[] | null;
+
+    /**
+     * Manual lists the capabilities a user can reach with a model ID typed by
+     * hand, the route it is probed on, and how that probe is sent.
+     */
+    "manual": MultimodalManualRoute[] | null;
+
+    /**
+     * Fallback lists the Targets with no configurable environment: their key
+     * goes to BootAgent's private fallback file, which the install says.
+     */
+    "fallback": string[] | null;
+
+    /**
+     * FFmpeg says ffmpeg is on BootAgent's PATH. Video understanding needs it
+     * where the Agent runs, which may differ, so this is a hint only.
+     */
+    "ffmpeg": boolean;
+}
+
+/**
+ * MultimodalInstallRequest installs the Skill for one capability, bound to one
+ * Provider and model, into the named Agents.
+ */
+export interface MultimodalInstallRequest {
+    "provider": string;
+    "model": string;
+    "capability": string;
+    "agents": string[] | null;
+
+    /**
+     * Guide also writes the Skill to ~/.bootagent/multimodal/<capability>/
+     * for Agents without a Skills directory, which are pointed at it by a
+     * prompt. Their key goes to the fallback file.
+     */
+    "guide": boolean;
+}
+
+export interface MultimodalInstallResult {
+    "skillId": string;
+    "results": MultimodalAgentResult[] | null;
+
+    /**
+     * GuidePath is the guide directory when one was written.
+     */
+    "guidePath"?: string;
+}
+
+export interface MultimodalManualRoute {
+    "capability": string;
+    "adapter": string;
+    "probe": string;
+}
+
+/**
+ * MultimodalProbe is the verdict of one capability probe. Status and Reason
+ * use the Profile model check's vocabulary; see ProfileModelCheck.
+ */
+export interface MultimodalProbe {
+    "providerId": string;
+    "model": string;
+    "capability": string;
+    "adapter": string;
+    "status": string;
+    "reason"?: string;
+    "httpStatus"?: number;
+    "detail"?: string;
+}
+
+export interface MultimodalProvider {
+    "id": string;
+    "name": string;
+
+    /**
+     * KeyEnv is the variable an install writes this Provider's key into, so
+     * the install confirmation can name it.
+     */
+    "keyEnv": string;
+
+    /**
+     * Unsupported lists capabilities this Provider documents no API for.
+     */
+    "unsupported": string[] | null;
+
+    /**
+     * KeyFile is the private fallback file an install for an Agent without a
+     * configurable environment writes the key into.
+     */
+    "keyFile": string;
+
+    /**
+     * Listed is false when /models could not be read. Message and ErrorCode
+     * then say why; catalog generation models are still listed, since they do
+     * not come from /models.
+     */
+    "listed": boolean;
+    "message"?: string;
+    "errorCode"?: string;
+    "models": modality$0.Model[] | null;
+}
+
+/**
+ * ProfileModelCheck is the verdict of a live request to a Profile's model,
+ * sent only when the user asks for it.
+ * 
+ * A model the provider lists can still be refused when an Agent calls it --
+ * not served over that Agent's protocol, or not granted to the key -- and a
+ * Profile edit rewrites every Agent bound to it at once. The check lets the
+ * user find that out before an Agent fails. It is not run on save or apply:
+ * each check is a billed completion request, so it is the user's to send.
+ */
+export interface ProfileModelCheck {
+    "profileId": string;
+    "model": string;
+
+    /**
+     * Status is "available" when every checked Agent's protocol answered,
+     * "unavailable" when the provider answered and refused, and "unverified"
+     * when no verdict could be had at all. The last is not a claim that the
+     * model is broken, and the UI must not word it as one.
+     */
+    "status": string;
+
+    /**
+     * Reason is the cause the remedy follows from:
+     *   refused   the provider refused this model on this protocol
+     *   key       the provider rejected the API key
+     *   transient the provider answered but was busy or failing (408, 429, 5xx)
+     *   network   the provider could not be reached
+     *   no_key    no API key is saved for the Provider
+     *   error     the request could not be made (an endpoint misconfiguration)
+     * Empty when Status is "available".
+     */
+    "reason"?: string;
+    "protocol"?: string;
+
+    /**
+     * HTTPStatus is the status the provider answered with, 0 when it did not.
+     */
+    "httpStatus"?: number;
+
+    /**
+     * Detail is the provider's own explanation, cleaned and bounded.
+     */
+    "detail"?: string;
+
+    /**
+     * Agents are the Agents the verdict is about: on a failure, those whose
+     * requests to this model would fail; when available, those checked. Empty
+     * for a Profile nothing follows yet.
+     */
+    "agents": string[] | null;
 }
 
 /**

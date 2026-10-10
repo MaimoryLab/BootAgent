@@ -7,12 +7,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
 	"sort"
 	"strings"
 
+	"github.com/MaimoryLab/BootAgent/internal/catalog"
+	configWriter "github.com/MaimoryLab/BootAgent/internal/config"
 	"github.com/MaimoryLab/BootAgent/internal/mcp"
 	profileStore "github.com/MaimoryLab/BootAgent/internal/profile"
 	"github.com/MaimoryLab/BootAgent/internal/provider"
@@ -275,6 +278,43 @@ func (u *UseCases) ImportTransferV2WithOptions(ctx context.Context, data []byte,
 		return err
 	}
 	created := make([]string, 0)
+	var generatedSnapshots []transferFileSnapshot
+	snapshotPaths := map[string]bool{}
+	snapshotGenerated := func(providerID string) error {
+		manifest, err := catalog.LoadEmbedded()
+		if err != nil {
+			return err
+		}
+		var paths []string
+		for _, variant := range u.generatedSkillsUsing(providerID) {
+			// Keep rollback limited to generated trees and credential files this
+			// Provider can change; never snapshot an entire Agent home.
+			paths = append(paths, filepath.Join(store.SkillsRoot(), variant.id))
+			if variant.guide {
+				paths = append(paths, u.guideDir(variant.config.Capability))
+			}
+			for _, agentID := range variant.targets {
+				agent := manifest.Agents[agentID]
+				paths = append(paths, filepath.Join(skillPath(u.status.Home, u.status.Platform.OS, agent), variant.id))
+				if nativeSkillEnvAdapters[agent.ConfigAdapter] {
+					paths = append(paths, configPath(u.status.Home, u.status.Platform.OS, agent))
+				}
+			}
+			paths = append(paths, configWriter.SkillEnvFilePath(u.status.Home, providerID))
+		}
+		for _, path := range paths {
+			if path == "" || snapshotPaths[path] {
+				continue
+			}
+			snapshot, err := snapshotTree(path)
+			if err != nil {
+				return err
+			}
+			generatedSnapshots = append(generatedSnapshots, snapshot)
+			snapshotPaths[path] = true
+		}
+		return nil
+	}
 	rollback := func() error {
 		for _, p := range created {
 			if err := os.RemoveAll(p); err != nil {
@@ -282,6 +322,11 @@ func (u *UseCases) ImportTransferV2WithOptions(ctx context.Context, data []byte,
 			}
 		}
 		rollbackCtx := context.Background()
+		for _, snapshot := range generatedSnapshots {
+			if err := snapshot.restore(); err != nil {
+				return err
+			}
+		}
 		if err := store.Save(rollbackCtx, rollbackRegistry); err != nil {
 			return err
 		}
@@ -303,6 +348,7 @@ func (u *UseCases) ImportTransferV2WithOptions(ctx context.Context, data []byte,
 		return cause
 	}
 	configRaw := pkg.Files["config.json"]
+	changedProviders := map[string]provider.Entry{}
 	if len(configRaw) == 0 {
 		legacy := map[string]json.RawMessage{}
 		if raw := pkg.Files["providers.json"]; len(raw) > 0 {
@@ -329,13 +375,19 @@ func (u *UseCases) ImportTransferV2WithOptions(ctx context.Context, data []byte,
 				return fail(errors.New("invalid providers section"))
 			}
 			for _, entry := range providers.Providers {
+				entry.ID = strings.TrimSpace(entry.ID)
+				if err := snapshotGenerated(entry.ID); err != nil {
+					return fail(err)
+				}
 				existing, _ := u.providers.Get(entry.ID)
 				if entry.APIKey == "" {
 					entry.APIKey = existing.APIKey
 				}
-				if _, e := u.providers.Save(ctx, entry); e != nil {
+				saved, e := u.providers.Save(ctx, entry)
+				if e != nil {
 					return fail(e)
 				}
+				changedProviders[saved.ID] = saved
 			}
 		}
 		var profiles []ProfileSummary
@@ -427,6 +479,15 @@ func (u *UseCases) ImportTransferV2WithOptions(ctx context.Context, data []byte,
 	}
 	if err := store.Save(ctx, before); err != nil {
 		return fail(err)
+	}
+	// All package sections are valid before any installed Skill is refreshed.
+	// A partial refresh is rolled back along with the imported Provider records.
+	for _, providerID := range slices.Sorted(maps.Keys(changedProviders)) {
+		result := SaveProviderResult{}
+		u.reapplyGeneratedSkillsLocked(ctx, changedProviders[providerID], &result)
+		if err := generatedSkillRefreshError(result.Failures); err != nil {
+			return fail(err)
+		}
 	}
 	return nil
 }

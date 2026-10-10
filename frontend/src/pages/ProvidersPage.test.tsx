@@ -145,6 +145,25 @@ describe("ProvidersPage", () => {
     await waitFor(() => expect(save).toHaveBeenCalledWith(expect.objectContaining({ id: "ppio", name: "PPIO Cloud", api_key: "sk-saved" })));
   });
 
+  // The editor is a page of its own. The list used to stay rendered below the
+  // form, which read as the previous page appended to this one.
+  it("shows only the editor while a Provider is being edited", async () => {
+    const entry = {
+      id: "ppio", name: "PPIO", home: "", base_url: "https://api.ppio.com/openai",
+      anthropic_base_url: "", api_key: "sk-saved", built_in: true,
+    };
+    vi.spyOn(api, "getProvider").mockResolvedValue(entry);
+    renderPage({ codex: "ppio" });
+    expect(screen.getByTestId("provider-ppio")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "编辑 PPIO" }));
+    await waitFor(() => expect(screen.getByLabelText("API Key")).toHaveValue("sk-saved"));
+    expect(screen.queryByTestId("provider-ppio")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "取消" }));
+    expect(screen.getByTestId("provider-ppio")).toBeTruthy();
+  });
+
   it("opens the requested Provider editor", async () => {
     const entry = {
       id: "ppio", name: "PPIO", home: "https://ppio.com/", base_url: "https://api.ppio.com/openai",

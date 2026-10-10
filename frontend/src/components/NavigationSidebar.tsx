@@ -1,4 +1,4 @@
-import { FolderCog, Gauge, Layers3, Network, Radio, Settings, ShoppingBag, Sparkles } from "lucide-react";
+import { FolderCog, Gauge, Images, Layers3, Network, Radio, Settings, ShoppingBag, Sparkles } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
 import { type TranslationKey, useI18n } from "../i18n";
@@ -15,6 +15,7 @@ const navItems: Array<{ to: string; label: TranslationKey; icon: typeof Gauge }>
   { to: "/marketplace", label: "工具市场", icon: ShoppingBag },
   { to: "/mcp", label: "MCP 服务器", icon: Network },
   { to: "/skills", label: "Skills", icon: Sparkles },
+  { to: "/multimodal", label: "多模态能力", icon: Images },
   { to: "/conversion", label: "API 协议适配", icon: Radio },
 ];
 

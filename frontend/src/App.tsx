@@ -10,6 +10,7 @@ import { EnvironmentOverviewPage } from "./pages/EnvironmentOverviewPage";
 import { ConversionPage } from "./pages/ConversionPage";
 import { ModelSelectionPage } from "./pages/ModelSelectionPage";
 import { MCPPage } from "./pages/MCPPage";
+import { MultimodalPage } from "./pages/MultimodalPage";
 import { ProfilesPage } from "./pages/ProfilesPage";
 import { ProfileSelectionPage } from "./pages/ProfileSelectionPage";
 import { ProviderKeyPage } from "./pages/ProviderKeyPage";
@@ -104,6 +105,7 @@ function WorkspaceRoutes() {
         <Route path="/profiles" element={<ProfilesPage />} />
         <Route path="/mcp" element={<MCPPage />} />
         <Route path="/skills" element={<SkillsPage />} />
+        <Route path="/multimodal" element={<MultimodalPage />} />
         <Route path="/conversion" element={<ConversionPage />} />
         <Route path="/marketplace" element={<MarketplacePage />} />
         <Route path="/marketplace/recommendations/:historyId" element={<MarketplaceRecommendationDetailPage />} />

@@ -275,6 +275,54 @@ func TestConfigureDesktopAgentAcceptsAnyProfileWithAnAPIMode(t *testing.T) {
 	}
 }
 
+// Kimi Code Desktop shares the CLI's ~/.kimi-code/config.toml, so a Profile
+// applied to it is the CLI Agent's activation: the same file, the same binding,
+// and an Anthropic Profile is refused because the CLI writer speaks OpenAI.
+func TestConfigureKimiCodeDesktopWritesTheSharedCLIConfig(t *testing.T) {
+	home := t.TempDir()
+	core := activationCore(t, home, provider.NewClient(nil), "macos")
+	if _, err := core.SaveProfile(context.Background(), SaveProfileOptions{
+		ID: "kimi", Label: "Kimi", Provider: "ppio", APIKey: "kimi-secret",
+		Model: "model-a", ConfigMode: "provider", Protocol: "openai",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	result, err := core.ConfigureDesktopAgent(context.Background(), desktopapp.KimiCodeDesktopID, "kimi")
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(home, ".kimi-code", "config.toml")
+	if result.Config != path || result.ProfileAgentID != "kimi-code" {
+		t.Fatalf("configure result = %#v", result)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"kimi-secret", `type = "openai"`, `default_model = "bootagent/model-a"`} {
+		if !strings.Contains(string(data), want) {
+			t.Fatalf("shared config missing %q: %s", want, data)
+		}
+	}
+	binding, err := core.profiles.ReadAgentBinding("kimi-code")
+	if err != nil || binding == nil || binding.ProfileRef != "kimi" {
+		t.Fatalf("CLI binding = %#v, err=%v", binding, err)
+	}
+	status, err := core.DesktopAgentStatus(context.Background(), desktopapp.KimiCodeDesktopID)
+	if err != nil || status.ConfigPath != path || status.ConfigSharedWith != "Kimi Code" || status.Protocol != provider.ProtocolOpenAI || status.ProfileID == nil || *status.ProfileID != "kimi" {
+		t.Fatalf("desktop status = %#v, err=%v", status, err)
+	}
+
+	if _, err := core.SaveProfile(context.Background(), SaveProfileOptions{
+		ID: "kimi-anthropic", Label: "Kimi", Provider: "ppio", Model: "model-a", ConfigMode: "provider", Protocol: "anthropic",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := core.ConfigureDesktopAgent(context.Background(), desktopapp.KimiCodeDesktopID, "kimi-anthropic"); err == nil {
+		t.Fatal("an Anthropic Profile was applied to the OpenAI-only shared config")
+	}
+}
+
 func TestConfigureWorkBuddyWritesModelsJSONFromProvider(t *testing.T) {
 	home := t.TempDir()
 	core := NewUseCases(StatusOptions{Home: home, Platform: platform.For("macos", "arm64")})

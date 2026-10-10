@@ -204,7 +204,10 @@ func (w Writer) WriteCodex(ctx context.Context, path, providerName, baseURL, api
 	if err := w.writeCodexAuth(ctx, filepath.Join(filepath.Dir(path), "auth.json"), apiKey); err != nil {
 		return err
 	}
-	return w.write(ctx, path, []byte(content), false)
+	// A Skill key in [shell_environment_policy.set] (ADR-011) makes the file a
+	// secret, and the backup this write takes is of the old content.
+	secret := CodexConfigHoldsSkillKey(existing) || CodexConfigHoldsSkillKey(content)
+	return w.write(ctx, path, []byte(content), secret)
 }
 
 // writeCodexAuth merges the key into auth.json, keeping any other login
@@ -1073,6 +1076,10 @@ type managedTOMLShape struct {
 	// {parent, child}.
 	ownedKeys   []string
 	ownedTables [][2]string
+	// appendManaged puts the managed block after the user's tables instead of
+	// before them. A managed block of top-level keys must come first; a
+	// managed sub-table reads better last, next to nothing it interrupts.
+	appendManaged bool
 }
 
 func mergeManagedTOML(existing, managed, path string, shape managedTOMLShape) (string, error) {
@@ -1126,8 +1133,12 @@ func mergeManagedTOML(existing, managed, path string, shape managedTOMLShape) (s
 			return "", configError("Unsupported TOML key syntax for %s in %s", key, path)
 		}
 	}
+	order := []string{strings.TrimSpace(strings.Join(topLevel, "\n")), strings.TrimSpace(managed), strings.TrimSpace(strings.Join(tables, "\n"))}
+	if shape.appendManaged {
+		order[1], order[2] = order[2], order[1]
+	}
 	sections := make([]string, 0, 3)
-	for _, section := range []string{strings.TrimSpace(strings.Join(topLevel, "\n")), strings.TrimSpace(managed), strings.TrimSpace(strings.Join(tables, "\n"))} {
+	for _, section := range order {
 		if section != "" {
 			sections = append(sections, section)
 		}

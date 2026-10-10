@@ -109,4 +109,17 @@ describe("Skills marketplace discovery", () => {
     expect(screen.getByRole("link", { name: "Discover in Marketplace" }).getAttribute("href")).toBe("/marketplace?category=agent-enhance");
     expect(screen.getByRole("link", { name: "Or discover one in Marketplace" }).getAttribute("href")).toBe("/marketplace?category=agent-enhance");
   });
+
+  it("links to the multimodal page instead of listing it below the Skill library", () => {
+    render(
+      <I18nProvider>
+        <MemoryRouter>
+          <SkillsPage />
+        </MemoryRouter>
+      </I18nProvider>,
+    );
+
+    expect(screen.getByRole("link", { name: "Multimodal capabilities" }).getAttribute("href")).toBe("/multimodal");
+    expect(screen.queryByRole("heading", { name: "Multimodal capabilities" })).toBeNull();
+  });
 });

@@ -2,6 +2,7 @@ import type * as AppModels from "../../bindings/github.com/MaimoryLab/BootAgent/
 import type * as BindingModels from "../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/models.js";
 import type * as CatalogModels from "../../bindings/github.com/MaimoryLab/BootAgent/internal/catalog/models.js";
 import type * as MCPModels from "../../bindings/github.com/MaimoryLab/BootAgent/internal/mcp/models.js";
+import type * as ModalityModels from "../../bindings/github.com/MaimoryLab/BootAgent/internal/modality/models.js";
 import type * as PlatformModels from "../../bindings/github.com/MaimoryLab/BootAgent/internal/platform/models.js";
 import type * as ProviderModels from "../../bindings/github.com/MaimoryLab/BootAgent/internal/provider/models.js";
 import type * as TransferModels from "../../bindings/github.com/MaimoryLab/BootAgent/internal/transfer/models.js";
@@ -89,6 +90,61 @@ export type ProfileSummary = Omit<AppModels.ProfileSummary, "protocol" | "create
   createdAt?: string;
   reasoningEffort?: string;
   context1M?: boolean;
+};
+// The verdict of a live request to a Profile's model, sent only when the user
+// asks for it. The strings are narrowed here because the UI picks its wording
+// and remedy by them: "unverified" must never be worded as "the model is broken".
+export type ProfileModelCheckStatus = "available" | "unavailable" | "unverified";
+export type ProfileModelCheckReason = "refused" | "key" | "transient" | "network" | "no_key" | "error";
+export type ProfileModelCheck = Omit<AppModels.ProfileModelCheck, "status" | "reason" | "agents"> & {
+  status: ProfileModelCheckStatus;
+  reason?: ProfileModelCheckReason;
+  agents: string[];
+  // Filled in by the page, not the backend: the model this Profile held before
+  // an edit made on that page, offered as the way back from a failed check.
+  previousModel?: string;
+};
+// Multimodal detection. The strings are narrowed because the UI words each
+// source and probe kind differently; "id-rule" in particular must never read
+// as a confirmed capability.
+export type MultimodalCapabilityId = "vision" | "image-generation" | "speech-to-text" | "text-to-speech" | "video-generation" | "video-understanding";
+export type MultimodalSource = "probe" | "declared" | "catalog" | "id-rule";
+export type MultimodalProbeKind = "" | "minimal" | "confirm";
+export type MultimodalCapability = Omit<ModalityModels.Capability, "id" | "source" | "probe"> & {
+  id: MultimodalCapabilityId;
+  source: MultimodalSource;
+  probe: MultimodalProbeKind;
+};
+export type MultimodalModel = Omit<ModalityModels.Model, "capabilities"> & { capabilities: MultimodalCapability[] };
+export type MultimodalProvider = Omit<AppModels.MultimodalProvider, "models" | "unsupported"> & {
+  models: MultimodalModel[];
+  unsupported: MultimodalCapabilityId[];
+};
+export type InstalledMultimodal = Omit<AppModels.InstalledMultimodal, "capability" | "agents"> & {
+  capability: MultimodalCapabilityId;
+  agents: string[];
+};
+export type MultimodalManualRoute = Omit<AppModels.MultimodalManualRoute, "capability" | "probe"> & {
+  capability: MultimodalCapabilityId;
+  probe: MultimodalProbeKind;
+};
+export type MultimodalDetection = {
+  providers: MultimodalProvider[];
+  installed: InstalledMultimodal[];
+  targets: string[];
+  generatable: string[];
+  manual: MultimodalManualRoute[];
+  /** Targets whose key goes to the private fallback file. */
+  fallback: string[];
+  /** ffmpeg is on BootAgent's PATH; a hint for video understanding. */
+  ffmpeg: boolean;
+};
+export type MultimodalInstallRequest = Omit<AppModels.MultimodalInstallRequest, "capability"> & { capability: MultimodalCapabilityId };
+export type MultimodalInstallResult = Omit<AppModels.MultimodalInstallResult, "results"> & { results: AppModels.MultimodalAgentResult[] };
+export type MultimodalProbe = Omit<AppModels.MultimodalProbe, "status" | "reason" | "capability"> & {
+  capability: MultimodalCapabilityId;
+  status: ProfileModelCheckStatus;
+  reason?: ProfileModelCheckReason;
 };
 // Mirrors SaveProviderResult: saving a Profile can rewrite the Agents bound to
 // it, so the outcome per Agent travels with the saved record.

@@ -70,7 +70,9 @@ func (u *UseCases) UpdateAgent(ctx context.Context, agentID string, listeners ..
 		}
 		args = append(args, "--registry="+registry)
 	}
-	result, err := runtime.Run(ctx, args, install.NPMEnvironment(runtime, npm, registry), install.DefaultCommandTimeout)
+	environment := install.NPMEnvironment(runtime, npm, registry)
+	runContext := process.WithActivityPaths(ctx, install.NPMActivityPaths(runtime, npm, agent.Package.Name, environment)...)
+	result, err := runtime.Run(runContext, args, environment, install.DefaultCommandTimeout)
 	if err != nil {
 		return AgentUpdateResult{}, oneerrors.New(oneerrors.InternalError, "Unable to update "+agent.Name, oneerrors.WithStatus(500), oneerrors.WithRetryable(true), oneerrors.WithCause(err))
 	}

@@ -6,6 +6,7 @@ import * as ConversionService from "./conversionservice.js";
 import * as DesktopAgentService from "./desktopagentservice.js";
 import * as MCPService from "./mcpservice.js";
 import * as MarketplaceService from "./marketplaceservice.js";
+import * as MultimodalService from "./multimodalservice.js";
 import * as ProfileService from "./profileservice.js";
 import * as ProviderService from "./providerservice.js";
 import * as RuntimeService from "./runtimeservice.js";
@@ -20,6 +21,7 @@ export {
     DesktopAgentService,
     MCPService,
     MarketplaceService,
+    MultimodalService,
     ProfileService,
     ProviderService,
     RuntimeService,
@@ -34,6 +36,7 @@ export type {
     ActivateRequest,
     ActivateResponse,
     AgentInstallResult,
+    CheckProfileModelRequest,
     DesktopAgentProfileRequest,
     DesktopAgentRequest,
     InstallRequest,
@@ -48,6 +51,7 @@ export type {
     MarketplaceProxyResponse,
     ModelsRequest,
     ModelsResponse,
+    MultimodalProbeRequest,
     OpenExternalRequest,
     OpenRegistrationRequest,
     OpenRegistrationResponse,

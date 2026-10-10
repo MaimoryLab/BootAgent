@@ -143,7 +143,10 @@ export function DesktopAppSection({ app: desktopApp, onChanged, onSetup, onConfi
       {desktopApp.inspectionUnavailable ? (
         <div className="notice notice-warning desktop-app-notice">
           <TriangleAlert size={15} aria-hidden="true" />
-          {desktopApp.installed ? t("已检测到应用，但版本信息不可用") : t("应用状态检测不可用")}
+          <span>
+            <span>{desktopApp.installed ? t("已检测到应用，但版本信息不可用") : t("应用状态检测不可用")}</span>
+            {desktopApp.installed ? <> <span>{t("可继续尝试启动；版本检测与模型 API 兼容性无关。")}</span></> : null}
+          </span>
         </div>
       ) : null}
       <div className={`desktop-app-row${desktopApp.installed ? "" : " is-uninstalled"}`}>

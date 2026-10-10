@@ -159,6 +159,7 @@ func InstallAgent(ctx context.Context, runtime Runtime, agent catalog.Agent, opt
 	manager := packageInfo.Manager
 	packageName := packageInfo.Name
 	var argv []string
+	var activity []string
 	environment := map[string]string{}
 	switch manager {
 	case "npm":
@@ -189,6 +190,7 @@ func InstallAgent(ctx context.Context, runtime Runtime, agent catalog.Agent, opt
 			argv = append(argv, "--registry="+registry)
 		}
 		argv = append(argv, spec)
+		activity = NPMActivityPaths(runtime, npm, packageName, environment)
 	case "uv":
 		uv, ok := runtime.Runner.LookPath("uv")
 		if !ok || uv == "" {
@@ -208,7 +210,7 @@ func InstallAgent(ctx context.Context, runtime Runtime, agent catalog.Agent, opt
 	default:
 		return Result{}, prerequisiteError(fmt.Sprintf("No allowlisted package manager for %s", agent.Name))
 	}
-	commandResult, runErr := runtime.command(ctx, argv, environment, runtime.timeout(options.Timeout))
+	commandResult, runErr := runtime.command(process.WithActivityPaths(ctx, activity...), argv, environment, runtime.timeout(options.Timeout))
 	if runErr != nil {
 		if isContextError(runErr) {
 			return Result{}, oneerrors.New(oneerrors.Timeout, fmt.Sprintf("Installing %s timed out", agent.Name), oneerrors.WithRetryable(true), oneerrors.WithCause(runErr))

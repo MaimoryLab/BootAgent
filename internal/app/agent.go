@@ -98,7 +98,7 @@ func (u *UseCases) activateAgentLocked(ctx context.Context, options ActivateAgen
 	if apiKey == "" {
 		return ActivateAgentResult{}, oneerrors.New(oneerrors.InvalidRequest, "API key is required")
 	}
-	if err := u.providers.SaveKey(ctx, providerID, apiKey); err != nil {
+	if err := u.saveProviderKeyLocked(ctx, providerID, apiKey); err != nil {
 		return ActivateAgentResult{}, err
 	}
 

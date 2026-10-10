@@ -27,6 +27,11 @@ const (
 	maxMetadataBytes      = 64 << 10
 )
 
+// ImportSourceGenerated marks a variant BootAgent rendered itself (a
+// multimodal Skill), as opposed to one imported from an Agent, a folder or a
+// ZIP. Only the generator writes it; the import path still refuses it.
+const ImportSourceGenerated = "generated"
+
 type Registry struct {
 	SchemaVersion int             `json:"schema_version"`
 	Skills        map[string]Fact `json:"skills"`

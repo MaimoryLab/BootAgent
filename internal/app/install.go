@@ -211,7 +211,7 @@ func (u *UseCases) prepareInstallCredentials(ctx context.Context, options Instal
 	if options.APIKey == "" {
 		return "", "", oneerrors.New(oneerrors.InvalidRequest, "API key is required")
 	}
-	if err := u.providers.SaveKey(ctx, options.Provider, options.APIKey); err != nil {
+	if err := u.saveProviderKeyLocked(ctx, options.Provider, options.APIKey); err != nil {
 		return "", "", err
 	}
 	target, err := u.providers.Resolve(options.Provider, options.APIBaseURL)

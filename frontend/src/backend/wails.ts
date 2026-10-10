@@ -5,6 +5,7 @@ import * as ConversionService from "../../bindings/github.com/MaimoryLab/BootAge
 import * as DesktopAgentService from "../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/desktopagentservice.js";
 import * as MarketplaceService from "../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/marketplaceservice.js";
 import * as MCPService from "../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/mcpservice.js";
+import * as MultimodalService from "../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/multimodalservice.js";
 import * as ProfileService from "../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/profileservice.js";
 import * as ProviderService from "../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/providerservice.js";
 import * as RuntimeService from "../../bindings/github.com/MaimoryLab/BootAgent/internal/binding/runtimeservice.js";
@@ -37,8 +38,14 @@ import type {
   MCPServerDetail,
   MCPServerSummary,
   ModelsResponse,
+  MultimodalCapabilityId,
+  MultimodalDetection,
+  MultimodalInstallRequest,
+  MultimodalInstallResult,
+  MultimodalProbe,
   OpenRegistrationResponse,
   ProbeResponse,
+  ProfileModelCheck,
   ProfileSummary,
   ProviderEntry,
   ProviderId,
@@ -337,4 +344,40 @@ export const wailsApi = {
       config_mode: input.configMode,
       protocol: input.protocol ?? "",
     })) as CancellableRequest<SaveProfileResult>,
+  // Sends a live (billed) request to the Profile's model; only called from a
+  // button the user presses. `agents` narrows the check to the Agent a page is
+  // configuring; omitted means every Agent bound to the Profile.
+  checkProfileModel: (profileId: string, agents?: string[]): Promise<ProfileModelCheck> =>
+    call(() => ProfileService.CheckModel({ profile_id: profileId, agents: agents?.length ? agents : null }))
+      .then((check) => {
+        if (!check) throw new Error("Model check returned no result");
+        return { ...check, agents: check.agents ?? [] };
+      }) as Promise<ProfileModelCheck>,
+  // Lists each keyed Provider's models: an unbilled GET, safe to call on open.
+  detectMultimodal: (): Promise<MultimodalDetection> =>
+    call(() => MultimodalService.Detect()).then((detection) => ({
+      providers: (detection?.providers ?? []).map((entry) => ({
+        ...entry,
+        unsupported: entry.unsupported ?? [],
+        models: (entry.models ?? []).map((model) => ({ ...model, capabilities: model.capabilities ?? [] })),
+      })),
+      installed: (detection?.installed ?? []).map((entry) => ({ ...entry, agents: entry.agents ?? [] })),
+      targets: detection?.targets ?? [],
+      generatable: detection?.generatable ?? [],
+      manual: detection?.manual ?? [],
+      fallback: detection?.fallback ?? [],
+      ffmpeg: detection?.ffmpeg ?? false,
+    })) as Promise<MultimodalDetection>,
+  // Sends a live (billed) request; only called from a button the user presses.
+  // `confirmed` is set only after the user agreed to a probe that produces
+  // billed output (one image). `adapter` picks the route for a hand-entered
+  // model; empty is the capability's chat route.
+  probeMultimodal: (provider: string, model: string, capability: MultimodalCapabilityId, adapter = "", confirmed = false): Promise<MultimodalProbe> =>
+    call(() => MultimodalService.Probe({ provider, model, capability, adapter, confirmed })).then((check) => {
+      if (!check) throw new Error("Multimodal probe returned no result");
+      return check;
+    }) as Promise<MultimodalProbe>,
+  // Sends no billed request: it installs on evidence already gathered.
+  installMultimodal: (request: MultimodalInstallRequest): Promise<MultimodalInstallResult> =>
+    call(() => MultimodalService.Install(request)).then((result) => ({ ...result, results: result?.results ?? [] })) as Promise<MultimodalInstallResult>,
 };

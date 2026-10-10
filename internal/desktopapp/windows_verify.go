@@ -48,6 +48,13 @@ func verifyZCodeWindowsInstaller(ctx context.Context, options Options, installer
 	return verifyWindowsInstallerPublisher(ctx, options, installerPath, []string{"北京智谱华章科技股份有限公司"})
 }
 
+// verifyKimiCodeWindowsInstaller pins the publisher read out of the vendor's
+// published installer; see KimiCodeDesktopWindowsPublisher for why it differs
+// from the macOS team.
+func verifyKimiCodeWindowsInstaller(ctx context.Context, options Options, installerPath string) error {
+	return verifyWindowsInstallerPublisher(ctx, options, installerPath, []string{KimiCodeDesktopWindowsPublisher})
+}
+
 func verifyWindowsInstallerPublisher(ctx context.Context, options Options, installerPath string, allowed []string) error {
 	if strings.TrimSpace(installerPath) == "" {
 		return errors.New("Windows installer path is empty")

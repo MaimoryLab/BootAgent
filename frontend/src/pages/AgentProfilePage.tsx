@@ -1,8 +1,9 @@
 import { Check, Pencil, Plus, Save, X } from "lucide-react";
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import { api, describeFailure } from "../backend/api";
+import { ModelCheckButton, ModelCheckNotice } from "../components/ModelCheckNotice";
 import { PageScaffold } from "../components/PageScaffold";
 import { ProviderModelPicker } from "../components/ProviderModelPicker";
 import { ProviderSegment } from "../components/ProviderSegment";
@@ -13,7 +14,25 @@ import { confirmAction } from "../state/confirmDelete";
 import { byProfileCreatedAt, byProviderCreatedAt, preferProviderWithKey } from "../state/ranking";
 import { converterProfileName, isConverterID } from "../state/conversion";
 import { useWizard } from "../state/WizardContext";
-import type { DesktopAgentProfileAssessment, ProfileSummary, ProtocolId, ProviderId } from "../types/api";
+import type { DesktopAgentProfileAssessment, ProfileModelCheck, ProfileSummary, ProtocolId, ProviderId } from "../types/api";
+
+type SaveRequest = Parameters<typeof api.saveProfile>[0];
+
+// The last model edit saved from this page, so a check that then fails can
+// offer the model the Profile held before it. Only an edit on the same
+// Provider qualifies: a model ID is not portable between Providers.
+interface ModelEdit {
+  profileId: string;
+  previousModel: string;
+  request: SaveRequest;
+}
+
+// What flushing an inline model edit did, which Apply and 检测模型 act on: a
+// failed save must stop them, and a saved one supplies the model to use.
+type CommitOutcome =
+  | { kind: "unchanged" }
+  | { kind: "failed" }
+  | { kind: "saved"; model: string; edit: ModelEdit | null };
 
 interface ProfileDraft {
   id: string;
@@ -42,7 +61,7 @@ function draftFrom(profile: ProfileSummary): ProfileDraft {
 export function AgentProfilePage() {
   const { agentId = "" } = useParams();
   const navigate = useNavigate();
-  const { t } = useI18n();
+  const { locale, t } = useI18n();
   const { state, refreshStatus } = useWizard();
   const status = state.status;
   const app = status ? desktopApps(status).find((candidate) => candidate.id === agentId) || null : null;
@@ -61,6 +80,18 @@ export function AgentProfilePage() {
   const [savingModel, setSavingModel] = useState(false);
   const [assessment, setAssessment] = useState<DesktopAgentProfileAssessment | null>(null);
   const [assessing, setAssessing] = useState(false);
+  // A check runs only when the user presses 检测模型: it is a billed request.
+  const [checked, setChecked] = useState<ProfileModelCheck | null>(null);
+  const [checking, setChecking] = useState(false);
+  const [lastEdit, setLastEdit] = useState<ModelEdit | null>(null);
+  const checkGeneration = useRef(0);
+  const statusRef = useRef(status);
+  statusRef.current = status;
+  useEffect(() => {
+    setChecked(null);
+    setChecking(false);
+    return () => { checkGeneration.current += 1; };
+  }, [agentId]);
 
   const profiles = useMemo(() => {
     if (!status) return [];
@@ -122,6 +153,62 @@ export function AgentProfilePage() {
     !requiresConversion || assessment?.compatibility === "convertible"
   ));
 
+  const separator = locale === "en" ? ", " : "、";
+  const nameOf = (id: string) =>
+    status.catalog.find((item) => item.id === id)?.name
+      || desktopApps(status).find((candidate) => candidate.id === id)?.name
+      || id;
+
+  /**
+   * Saves a Profile and reports the Agents the save could not rewrite. Those
+   * used to be dropped here, so an inline model change that broke an Agent on
+   * the Profile showed nothing at all. Nothing is sent to the model: that is
+   * what 检测模型 is for.
+   */
+  const persistProfile = async (request: SaveRequest, invalidateCheck = true) => {
+    if (invalidateCheck) {
+      checkGeneration.current += 1;
+      setChecking(false);
+    }
+    if (checked?.profileId === request.id) setChecked(null);
+    const before = status.profiles.find((profile) => profile.id === request.id);
+    const result = await api.saveProfile(request);
+    const failures = Object.entries(result.failures ?? {});
+    if (failures.length) {
+      setFailure(t("{agents} 重新应用失败：{message}", {
+        agents: failures.map(([id]) => nameOf(id)).join(separator),
+        message: failures[0][1] ?? "",
+      }));
+    }
+    const edit = before && before.provider === request.provider && before.model && before.model !== request.model
+      ? { profileId: request.id, previousModel: before.model, request }
+      : null;
+    setLastEdit(edit);
+    // Returned as well as stored: 检测模型 reads it right after a flush, before
+    // React has rendered the state update.
+    return { result, edit };
+  };
+
+  // Saves the model back without checking it again; the user can press
+  // 检测模型 once more if they want the old one confirmed.
+  const revertModel = async () => {
+    if (!checked?.previousModel || lastEdit?.profileId !== checked.profileId) return;
+    const current = statusRef.current?.profiles.find((profile) => profile.id === checked.profileId);
+    if (current?.model !== checked.model || current.provider !== lastEdit.request.provider) return;
+    const request = { ...lastEdit.request, model: checked.previousModel };
+    setBusy(true);
+    setFailure("");
+    try {
+      await persistProfile(request);
+      setChecked(null);
+      await refreshStatus();
+    } catch (error) {
+      setFailure(describeFailure(error, t("无法保存配置模版"), t).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const openCreate = () => {
     const usable = byProviderCreatedAt(status.providers).filter(([, meta]) =>
       protocol === "anthropic" ? meta.anthropic_base_url : meta.base_url,
@@ -157,7 +244,7 @@ export function AgentProfilePage() {
     setBusy(true);
     setFailure("");
     try {
-      const saved = await api.saveProfile({
+      const { result: saved } = await persistProfile({
         id: draft.id.trim().toLowerCase(),
         label: draft.label.trim(),
         provider: draft.provider,
@@ -187,14 +274,14 @@ export function AgentProfilePage() {
    * write a Profile per letter typed. Everything else about the Profile is passed
    * through unchanged, so this cannot quietly reset a field the editor owns.
    */
-  const commitModel = async (profile: ProfileSummary, next: string) => {
+  const commitModel = async (profile: ProfileSummary, next: string, invalidateCheck = true): Promise<CommitOutcome> => {
     const model = next.trim();
     setModelDraft(null);
-    if (!model || model === (profile.model || "")) return;
+    if (!model || model === (profile.model || "")) return { kind: "unchanged" };
     setSavingModel(true);
     setFailure("");
     try {
-      await api.saveProfile({
+      const { edit } = await persistProfile({
         id: profile.id,
         label: profile.label,
         provider: profile.provider,
@@ -205,22 +292,63 @@ export function AgentProfilePage() {
         context1M: Boolean(profile.context1M),
         configMode: "provider",
         protocol: profile.protocol || (app ? desktopProtocol(app) : catalog?.protocol || ""),
-      });
+      }, invalidateCheck);
       await refreshStatus();
+      return { kind: "saved", model, edit };
     } catch (error) {
       setFailure(describeFailure(error, t("无法保存配置模版"), t).message);
+      return { kind: "failed" };
     } finally {
       setSavingModel(false);
     }
   };
 
+  /**
+   * Checks the selected Profile's model for this Agent, on the user's request.
+   * An uncommitted inline edit is saved first, so the check covers the model on
+   * screen rather than the one stored before it.
+   */
+  const checkModel = async () => {
+    if (!selected || checking || busy || savingModel) return;
+    const generation = ++checkGeneration.current;
+    setChecking(true);
+    setFailure("");
+    try {
+      // This save belongs to the check; other saves and leaving the page
+      // invalidate its generation, including while this flush is awaiting.
+      const flushed: CommitOutcome = modelDraft !== null ? await commitModel(selected, modelDraft, false) : { kind: "unchanged" };
+      if (flushed.kind === "failed" || checkGeneration.current !== generation) return;
+      const check = await api.checkProfileModel(selected.id, [app?.id || owner]);
+      if (checkGeneration.current !== generation) return;
+      const edit = flushed.kind === "saved" ? flushed.edit : lastEdit;
+      setChecked({ ...check, previousModel: edit?.profileId === selected.id && edit.request.model === check.model ? edit.previousModel : undefined });
+    } catch (error) {
+      if (checkGeneration.current === generation) setFailure(describeFailure(error, t("无法检测模型"), t).message);
+    } finally {
+      if (checkGeneration.current === generation) setChecking(false);
+    }
+  };
+
   const apply = async () => {
-    if (!selected || !canApply) return;
-    // An uncommitted inline model edit is flushed first, so clicking 应用 straight
-    // after typing applies what is on screen rather than the older stored model.
-    if (modelDraft !== null) await commitModel(selected, modelDraft);
+    if (!selected || !canApply || busy || savingModel || checking) return;
+    // Busy before anything is awaited: setting it only after the flush below
+    // left 应用 enabled while the save was in flight, so a second click started
+    // a second Apply.
     setBusy(true);
     setFailure("");
+    // An uncommitted inline model edit is flushed first, so clicking 应用 straight
+    // after typing applies what is on screen rather than the older stored model.
+    const flushed: CommitOutcome = modelDraft !== null ? await commitModel(selected, modelDraft) : { kind: "unchanged" };
+    if (flushed.kind === "failed") {
+      // The Profile still holds the old model; applying now would apply that
+      // while the field showed the new one. The save's error is already shown.
+      setBusy(false);
+      return;
+    }
+    // The model the flush saved, not selected.model: that is the value from
+    // before the click, and activating with it would write the old model back
+    // over the Agents the flush had just moved to the new one.
+    const model = flushed.kind === "saved" ? flushed.model : selected.model || "";
     try {
       if (app) {
         if (requiresConversion) {
@@ -242,21 +370,22 @@ export function AgentProfilePage() {
           provider: selected.provider,
           apiBaseUrl: "",
           apiKey: "",
-          model: selected.model || "",
+          model,
           profileId: selected.id,
         });
       }
       await refreshStatus();
-      // Straight back to the overview, which is where the result is visible: the
-      // Agent's row now names this Profile. Staying here left the user on a
-      // screen whose job was done, with a success notice as the only feedback and
-      // a second click needed to see the effect. `replace` so Back does not
-      // return to a selection that has already been applied.
-      navigate("/overview", { replace: true });
     } catch (error) {
       setFailure(describeFailure(error, t("应用配置模版失败"), t).message);
       setBusy(false);
+      return;
     }
+    // Straight back to the overview, which is where the result is visible: the
+    // Agent's row now names this Profile. Staying here left the user on a
+    // screen whose job was done, with a success notice as the only feedback and
+    // a second click needed to see the effect. `replace` so Back does not
+    // return to a selection that has already been applied.
+    navigate("/overview", { replace: true });
   };
 
   return (
@@ -266,7 +395,7 @@ export function AgentProfilePage() {
       onBack={() => navigate("/overview")}
       primaryLabel={busy ? t("应用中") : requiresConversion ? t("启用协议适配并应用") : t("应用")}
       onPrimary={() => void apply()}
-      primaryDisabled={!canApply || busy}
+      primaryDisabled={!canApply || busy || savingModel || checking}
       footerNote={selected ? displayProfileName(selected) : t("选择一个配置模版")}
       // Stays secondary: this footer already has a primary ("应用"), and two
       // blue buttons side by side would compete for the same attention.
@@ -277,6 +406,19 @@ export function AgentProfilePage() {
       )}
     >
       {failure ? <div className="notice notice-error">{failure}</div> : null}
+      {checked && !draft ? (
+        <ModelCheckNotice
+          check={checked}
+          providerId={profiles.find((profile) => profile.id === checked.profileId)?.provider || ""}
+          nameOf={nameOf}
+          returnTo={`/agents/${encodeURIComponent(agentId)}`}
+          profileName={checked.profileId === selected?.id ? undefined : profiles.find((profile) => profile.id === checked.profileId)?.label}
+          busy={busy || savingModel || checking}
+          onRevert={() => void revertModel()}
+          onRecheck={checked.profileId === selected?.id ? () => void checkModel() : undefined}
+          onDismiss={() => setChecked(null)}
+        />
+      ) : null}
       {requiresConversion ? (
         <div className={`notice ${assessment?.compatibility === "unusable" ? "notice-error" : "notice-info"}`} role="status">
           {assessing
@@ -367,7 +509,9 @@ export function AgentProfilePage() {
         </form>
       ) : null}
 
-      {profiles.length ? (
+      {/* The editor is a page of its own; the list returns when it closes.
+          Rendering it below the form read as the previous page appended. */}
+      {draft ? null : profiles.length ? (
         <>
         <div className="profile-list desktop-profile-list">
           {profiles.map((profile) => {
@@ -394,7 +538,17 @@ export function AgentProfilePage() {
         </div>
         {selected && !isConverterID(selected.id) ? (
           <section className="profile-model-panel">
-            <header><strong>{t("编辑 {name}", { name: displayProfileName(selected) })}</strong>{savingModel ? <small>{t("正在保存模型")}</small> : null}</header>
+            <header>
+              <strong>{t("编辑 {name}", { name: displayProfileName(selected) })}</strong>
+              <span className="profile-model-panel-actions">
+                {savingModel ? <small>{t("正在保存模型")}</small> : null}
+                <ModelCheckButton
+                  checking={checking}
+                  disabled={busy || savingModel || !(modelDraft ?? selected.model ?? "").trim()}
+                  onCheck={() => void checkModel()}
+                />
+              </span>
+            </header>
             <ProviderModelPicker
               key={`${selected.id}:${selected.model ?? ""}`}
               provider={selected.provider}

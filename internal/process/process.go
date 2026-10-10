@@ -319,6 +319,23 @@ type OSRunner struct {
 	// negative value disables stall detection. Tests set it so they can assert
 	// the behaviour without waiting minutes.
 	StallTimeout time.Duration
+	// PipeDrainDelay overrides DefaultPipeDrainDelay. Zero means the default.
+	PipeDrainDelay time.Duration
+}
+
+// DefaultPipeDrainDelay is how long Run keeps reading a command's output after
+// the command itself has exited. Output still in flight arrives in
+// milliseconds; anything later is a process the command left behind holding
+// the pipes, and waiting for it would tie the result to that process. It has to
+// stay well under DefaultStallTimeout, or a finished command would still be
+// reported as stalled.
+const DefaultPipeDrainDelay = 5 * time.Second
+
+func (r OSRunner) pipeDrainDelay() time.Duration {
+	if r.PipeDrainDelay > 0 {
+		return r.PipeDrainDelay
+	}
+	return DefaultPipeDrainDelay
 }
 
 func Current() OSRunner {
@@ -508,13 +525,35 @@ func (r OSRunner) runWithOutput(ctx context.Context, argv []string, overrides ma
 	activity.touch()
 	command.Stdout = &streamWriter{stream: "stdout", buffer: stdout, listener: listener, mu: &streamLock, activity: activity}
 	command.Stderr = &streamWriter{stream: "stderr", buffer: stderr, listener: listener, mu: &streamLock, activity: activity}
-	stalled := watchForStall(runContext, activity, r.stallTimeout(), stopForStall)
-	err := command.Run()
+	tree := newProcessTree(command)
+	defer tree.release()
+	// Wait otherwise reads the pipes until every holder closes them. A process
+	// the command started and left running inherits the pipes, so a command
+	// that had already exited 0 would keep Run waiting on that process, and a
+	// long enough wait reached the stall watchdog, which then reported the
+	// finished command as stalled.
+	command.WaitDelay = r.pipeDrainDelay()
+	stalled := watchForStall(runContext, activity, r.stallTimeout(), stopForStall, activityPaths(ctx))
+	err := command.Start()
+	if err == nil {
+		tree.attach()
+		err = command.Wait()
+	}
 	stalled.stop()
 	result.Stdout = stdout.String()
 	result.Stderr = stderr.String()
 	if command.ProcessState != nil {
 		result.ExitCode = command.ProcessState.ExitCode()
+	}
+	// A command that exited 0 before anything cancelled it succeeded, whatever
+	// the watchdog did while its leftover pipes drained: exec does not call
+	// Cancel once it has seen the exit, so nothing was killed and nothing is
+	// lost. Checked before the stall, which would otherwise call a finished
+	// npm update stalled -- the reported failure -- whenever the drain delay
+	// happened to straddle the stall timeout. Err is nil or ErrWaitDelay only
+	// when Cancel did not run, so a command that was stopped never reaches this.
+	if command.ProcessState != nil && command.ProcessState.Success() && (err == nil || errors.Is(err, exec.ErrWaitDelay)) {
+		return result, nil
 	}
 	// Reported ahead of the generic "killed" error, because the caller cannot
 	// otherwise distinguish a stall from a user cancellation: both arrive as a
@@ -579,8 +618,9 @@ func (w *stallWatch) tripped() bool {
 }
 
 // watchForStall cancels a command that has produced nothing for timeout. A
-// zero or negative timeout disables the watchdog.
-func watchForStall(ctx context.Context, activity *activityClock, timeout time.Duration, cancel context.CancelFunc) *stallWatch {
+// zero or negative timeout disables the watchdog. Growth under paths counts as
+// activity too, for commands that work in silence; see WithActivityPaths.
+func watchForStall(ctx context.Context, activity *activityClock, timeout time.Duration, cancel context.CancelFunc, paths []string) *stallWatch {
 	watch := &stallWatch{done: make(chan struct{}), fired: make(chan struct{})}
 	if timeout <= 0 {
 		return watch
@@ -589,6 +629,12 @@ func watchForStall(ctx context.Context, activity *activityClock, timeout time.Du
 	go func() {
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
+		// The baseline is what was on disk before the command started, so files
+		// a previous install left behind are not mistaken for progress.
+		var last pathSignature
+		if len(paths) > 0 {
+			last = samplePaths(paths, watch.done)
+		}
 		for {
 			select {
 			case <-watch.done:
@@ -596,6 +642,12 @@ func watchForStall(ctx context.Context, activity *activityClock, timeout time.Du
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
+				if len(paths) > 0 {
+					if current := samplePaths(paths, watch.done); current != last {
+						last = current
+						activity.touch()
+					}
+				}
 				if activity.idle() < timeout {
 					continue
 				}

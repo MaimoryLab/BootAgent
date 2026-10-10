@@ -625,6 +625,20 @@
       "source": "unknown",
       "supported": false,
       "version": null
+    },
+    {
+      "configPath": "${HOME}/.kimi-code/config.toml",
+      "configSharedWith": "Kimi Code",
+      "home": "https://www.kimi.com/code",
+      "id": "kimi-code-desktop",
+      "installed": false,
+      "name": "Kimi Code Desktop",
+      "profileAgentId": "kimi-code",
+      "profileId": null,
+      "protocol": "openai",
+      "source": "unknown",
+      "supported": false,
+      "version": null
     }
   ]
 }

@@ -72,6 +72,16 @@ export function ProvidersPage({ create = false }: { create?: boolean }) {
   const returnTo = requestedReturn?.startsWith("/") && !requestedReturn.startsWith("//") ? requestedReturn : "/providers";
   const openedProvider = useRef("");
   const prefilled = useRef(false);
+  const editorRef = useRef<HTMLFormElement>(null);
+  const editorOpen = Boolean(editor);
+
+  // The editor takes the page over, so it opens at the top. Clicking 编辑 on a
+  // card further down the list otherwise left the form above the fold. Keyed on
+  // the editor opening, not on its contents: the ID field changes with every
+  // keystroke and must not scroll the page each time.
+  useEffect(() => {
+    if (editorOpen) editorRef.current?.scrollIntoView?.({ block: "start" });
+  }, [editorOpen]);
   const nameOf = (agentId: string) =>
     status?.catalog.find((item) => item.id === agentId)?.name || agentId;
 
@@ -273,7 +283,7 @@ export function ProvidersPage({ create = false }: { create?: boolean }) {
     >
 
       {editor ? (
-        <form className="provider-editor" onSubmit={(event) => void save(event)}>
+        <form className="provider-editor" ref={editorRef} onSubmit={(event) => void save(event)}>
           <header>
             <strong>{creating ? t("新增模型服务") : t("编辑 {name}", { name: editor.name || editor.id })}</strong>
             <button className="icon-button" type="button" onClick={closeEditor} aria-label={t("关闭编辑")} title={t("关闭编辑")}>
@@ -380,9 +390,12 @@ export function ProvidersPage({ create = false }: { create?: boolean }) {
       ) : null}
 
       {failure ? <p className="agent-manage-error">{failure}</p> : null}
-      {applied ? <div className="agent-manage-applied"><strong>{t("应用完成")}</strong><span>{applied}</span></div> : null}
+      {/* The editor is a page of its own: the list, and the notice about what
+          the last save did to it, return when the editor closes. Rendering them
+          below the form read as the previous page appended to this one. */}
+      {applied && !editor ? <div className="agent-manage-applied"><strong>{t("应用完成")}</strong><span>{applied}</span></div> : null}
 
-      {!create ? <div className="provider-list">
+      {!create && !editor ? <div className="provider-list">
         {byProviderCreatedAt(Object.fromEntries(Object.entries(status.providers).filter(([providerId]) => !isConverterID(providerId)))).map(([providerId, meta]) => {
           const users = Object.entries(status.agents)
             .filter(([, agent]) => agent.provider === providerId)

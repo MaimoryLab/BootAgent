@@ -85,6 +85,9 @@ type UseCases struct {
 	conversion     *convertproxy.Server
 	conversionMu   sync.Mutex
 	capabilities   provider.CapabilityStore
+	// capabilityMu serializes capability-cache writes from multimodal probes,
+	// which run outside writeMu so a slow probe never blocks an install.
+	capabilityMu sync.Mutex
 }
 
 // DraftState combines the independent MCP and Skills drafts for the native
@@ -626,7 +629,7 @@ func (u *UseCases) SaveProfile(ctx context.Context, options SaveProfileOptions) 
 		providerKey = target.APIKey
 	}
 	if strings.TrimSpace(providerKey) != "" {
-		if err := u.providers.SaveKey(ctx, options.Provider, providerKey); err != nil {
+		if err := u.saveProviderKeyLocked(ctx, options.Provider, providerKey); err != nil {
 			return SaveProfileResult{}, err
 		}
 	}

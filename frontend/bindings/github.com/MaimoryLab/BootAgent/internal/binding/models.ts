@@ -34,6 +34,15 @@ export interface AgentInstallResult {
     "retryable": boolean;
 }
 
+export interface CheckProfileModelRequest {
+    "profile_id": string;
+
+    /**
+     * Agents narrows the check; empty means every Agent bound to the Profile.
+     */
+    "agents": string[] | null;
+}
+
 export interface DesktopAgentProfileRequest {
     "agent_id": string;
     "profile_id": string;
@@ -152,6 +161,24 @@ export interface ModelsResponse {
     "model"?: string;
     "auto_selected_model"?: boolean;
     "models": string[] | null;
+}
+
+export interface MultimodalProbeRequest {
+    "provider": string;
+    "model": string;
+    "capability": string;
+
+    /**
+     * Adapter picks the route; empty is the capability's chat route. A model
+     * the user typed by hand is probed on its manual route.
+     */
+    "adapter": string;
+
+    /**
+     * Confirmed must be set for a probe that produces billed output (one
+     * image); the UI sets it only after asking the user.
+     */
+    "confirmed": boolean;
 }
 
 /**

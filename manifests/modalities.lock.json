@@ -1,0 +1,154 @@
+{
+  "schema_version": 1,
+  "id_rules": [
+    {"pattern": "^gpt-image-", "capabilities": ["image-generation"]},
+    {"pattern": "^gemini-.*-image", "capabilities": ["vision", "image-generation"]},
+    {"pattern": "^ming-image-", "capabilities": ["image-generation"]},
+    {"pattern": "(^|-)omni(-|$)", "exclude": "captioner", "capabilities": ["vision", "speech-to-text"]},
+    {"pattern": "^gemini-", "exclude": "-image", "capabilities": ["vision", "video-understanding", "speech-to-text"]},
+    {"pattern": "^claude-", "capabilities": ["vision"]},
+    {"pattern": "^(gpt-4o|gpt-4\\.1|gpt-5|gpt-6|o3)", "exclude": "^gpt-oss", "capabilities": ["vision"]},
+    {"pattern": "^grok-(4|code)", "capabilities": ["vision"]},
+    {"pattern": "^kimi-k(2\\.[5-9]|3)", "capabilities": ["vision", "video-understanding"]},
+    {"pattern": "^deepseek-(v4\\.[1-9]-flash|v4-flash-vision)", "capabilities": ["vision"]},
+    {"pattern": "(^|-)ocr(-|$)", "capabilities": ["vision"]},
+    {"pattern": "(^|-)vl(-|$)", "capabilities": ["vision"]},
+    {"pattern": "^glm-[\\d.]+v", "capabilities": ["vision"]},
+    {"pattern": "^gemma-[34]-", "capabilities": ["vision"]},
+    {"pattern": "^llama-4-", "capabilities": ["vision"]},
+    {"pattern": "^minimax-m3", "capabilities": ["vision", "video-understanding"]},
+    {"pattern": "^qwen3\\.(5|6|8)-(\\d+b|flash|max|plus)", "capabilities": ["vision", "video-understanding"]},
+    {"pattern": "^mimo-v2\\.(5$|6-)", "capabilities": ["vision", "video-understanding"]}
+  ],
+  "providers": {
+    "novita": {
+      "native_base_url": "https://api.novita.ai",
+      "generation": [
+        {
+          "id": "ming-image-0.1-design",
+          "capabilities": [
+            "image-generation"
+          ],
+          "adapter": "openai-images",
+          "recommended": true
+        },
+        {
+          "id": "minimax-speech-2.8-turbo",
+          "capabilities": [
+            "text-to-speech"
+          ],
+          "adapter": "novita-audio",
+          "recommended": true
+        },
+        {
+          "id": "minimax-speech-2.8-hd",
+          "capabilities": [
+            "text-to-speech"
+          ],
+          "adapter": "novita-audio"
+        }
+      ],
+      "unsupported": [
+        "video-generation"
+      ]
+    },
+    "ppio": {
+      "native_base_url": "https://api.ppio.com",
+      "generation": [
+        {
+          "id": "minimax-speech-2.8-turbo",
+          "capabilities": [
+            "text-to-speech"
+          ],
+          "adapter": "novita-audio",
+          "recommended": true
+        },
+        {
+          "id": "minimax-speech-2.8-hd",
+          "capabilities": [
+            "text-to-speech"
+          ],
+          "adapter": "novita-audio"
+        }
+      ],
+      "unsupported": [
+        "video-generation"
+      ]
+    },
+    "jiekou": {
+      "native_base_url": "https://api.highwayapi.ai",
+      "generation": [
+        {
+          "id": "gpt-image-2.5-flare-oai",
+          "capabilities": [
+            "image-generation"
+          ],
+          "adapter": "openai-images",
+          "recommended": true
+        },
+        {
+          "id": "gpt-image-2.5-sunburst-oai",
+          "capabilities": [
+            "image-generation"
+          ],
+          "adapter": "openai-images"
+        },
+        {
+          "id": "gpt-image-2",
+          "capabilities": [
+            "image-generation"
+          ],
+          "adapter": "openai-images"
+        },
+        {
+          "id": "gpt-image-2-oai",
+          "capabilities": [
+            "image-generation"
+          ],
+          "adapter": "openai-images"
+        },
+        {
+          "id": "wan2.7-t2v",
+          "capabilities": [
+            "video-generation"
+          ],
+          "adapter": "novita-async",
+          "options": [
+            "duration",
+            "size",
+            "negative_prompt"
+          ],
+          "recommended": true
+        },
+        {
+          "id": "kling-v3.0-4k-t2v",
+          "capabilities": [
+            "video-generation"
+          ],
+          "adapter": "novita-async",
+          "options": [
+            "duration",
+            "aspect_ratio",
+            "negative_prompt",
+            "sound"
+          ]
+        },
+        {
+          "id": "minimax-speech-2.8-turbo",
+          "capabilities": [
+            "text-to-speech"
+          ],
+          "adapter": "novita-audio",
+          "recommended": true
+        },
+        {
+          "id": "minimax-speech-2.8-hd",
+          "capabilities": [
+            "text-to-speech"
+          ],
+          "adapter": "novita-audio"
+        }
+      ]
+    }
+  }
+}

@@ -18,6 +18,9 @@ func NewCodexAdapter() Adapter {
 
 func applyCodex(ctx context.Context, _ string, current []byte, changes map[string]*Spec) ([]byte, bool, error) {
 	text := string(current)
+	// A Skill key in [shell_environment_policy.set] (ADR-011) makes config.toml
+	// a secret whatever the MCP change itself carries.
+	secret := hasSecrets(changes) || config.CodexConfigHoldsSkillKey(text)
 	for id, spec := range changes {
 		if err := ctx.Err(); err != nil {
 			return nil, false, err
@@ -28,7 +31,7 @@ func applyCodex(ctx context.Context, _ string, current []byte, changes map[strin
 			return nil, false, err
 		}
 	}
-	return []byte(text), hasSecrets(changes), nil
+	return []byte(text), secret, nil
 }
 
 func patchCodexServer(text, id string, spec *Spec) (string, error) {

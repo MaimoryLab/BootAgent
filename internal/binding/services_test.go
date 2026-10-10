@@ -51,7 +51,7 @@ func TestServiceMethodAllowlist(t *testing.T) {
 		{&StatusService{}, []string{"GetStatus"}},
 		{&ProviderService{}, []string{"DeleteProvider", "GetProvider", "ListModels", "OpenGitHub", "OpenHelp", "OpenRegistration", "Probe", "SaveProvider"}},
 		{&AgentService{}, []string{"Activate", "Install", "Launch", "MigrateConversations", "PreviewUninstall", "Uninstall", "Update"}},
-		{&ProfileService{}, []string{"DeleteProfile", "ListProfiles", "SaveProfile"}},
+		{&ProfileService{}, []string{"CheckModel", "DeleteProfile", "ListProfiles", "SaveProfile"}},
 		{&RuntimeService{}, []string{"GetSettings", "InstallRuntime", "ListRuntimes", "SaveSettings"}},
 		{&DesktopAgentService{}, []string{"AssessProfile", "Configure", "ConfigureWithConversion", "GetStatus", "Install", "Open"}},
 		{&TransferService{}, []string{"ExportV2", "PreviewV2", "ApplyV2", "ApplyV2WithOptions", "Read", "ReadBytes", "Write", "WriteBytes"}},
@@ -59,6 +59,7 @@ func TestServiceMethodAllowlist(t *testing.T) {
 		{&ConversionService{}, []string{"Get", "RegenerateKey", "Save"}},
 		{&MarketplaceService{}, []string{"Catalog", "ClearRecommendationHistory", "DeleteRecommendationHistory", "DiscoverSources", "FetchMCPServerDetail", "FetchMCPServerReadme", "FetchMCPServersDirectoryDetail", "FetchMCPServersDirectoryReadme", "FetchShowcase", "FetchSkillDetail", "FetchSkillFile", "ListRecommendationHistory", "OpenExternal", "Recommend", "RecommendationAgents", "SaveRecommendationHistory"}},
 		{&UpdateService{}, []string{"Check", "DownloadAndInstall", "Restart", "Version"}},
+		{&MultimodalService{}, []string{"Detect", "Install", "Probe"}},
 	}
 	for _, test := range tests {
 		typeOf := reflect.TypeOf(test.service)

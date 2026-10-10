@@ -1,0 +1,25 @@
+{{template "header" .}}
+## When to use
+
+When the user asks about the contents of a local video file: what happens in a screen recording, where an error appears, what a clip shows. It samples still frames, so it sees what is on screen but not the audio.
+
+## Requirements
+
+`ffmpeg` must be on `PATH` where you run commands. If it is missing the script exits with code 3; tell the user to install ffmpeg (for example `brew install ffmpeg` on macOS) and try again.
+
+## Command
+
+Run the script from the user's working directory, using the absolute path to this Skill:
+
+```bash
+node <this Skill's directory>/scripts/run.mjs describe-video --video <path> [--prompt "<question>"] [--frames <1-16>] [--max-tokens <n>]
+```
+
+- `--video`: a local video file ffmpeg can read (mp4, mov, webm and similar).
+- `--prompt`: what to ask about the video. Put the user's actual question here. Default: "Describe what happens in this video."
+- `--frames`: how many frames to sample, spread evenly over the video. Default 8. More frames see more but cost more.
+- `--max-tokens`: the longest answer to allow. Default 1024.
+- `--timeout`: seconds to wait. Default 300.
+
+The answer is printed to stdout as plain text. The frames are written to a temporary directory and removed afterwards.
+{{template "footer" .}}

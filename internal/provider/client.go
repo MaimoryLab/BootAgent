@@ -3,12 +3,16 @@ package provider
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 
@@ -48,6 +52,9 @@ type ProbeResult struct {
 	ErrorCode *string `json:"error_code"`
 	Retryable bool    `json:"retryable"`
 	Protocol  *string `json:"protocol"`
+	// Detail is the provider's own explanation of a refused request, cleaned
+	// and bounded. Empty on success and on transport failures.
+	Detail string `json:"detail,omitempty"`
 }
 
 type ModelsResult struct {
@@ -59,6 +66,25 @@ type ModelsResult struct {
 	Retryable bool     `json:"retryable"`
 	Protocol  *string  `json:"protocol"`
 	Models    []string `json:"models"`
+	// Entries carries what each listed model declares about itself, in the same
+	// order as Models. Most callers only need the IDs; multimodal detection reads
+	// the modality lists.
+	Entries []ModelEntry `json:"entries,omitempty"`
+}
+
+// ModelEntry is one /models item. The modality lists are nil when the
+// Provider did not send the field at all, and empty when it sent an empty
+// list: only the second is a declaration.
+type ModelEntry struct {
+	ID               string   `json:"id"`
+	InputModalities  []string `json:"input_modalities"`
+	OutputModalities []string `json:"output_modalities"`
+}
+
+// Declared reports whether the Provider said anything about this model's
+// modalities.
+func (e ModelEntry) Declared() bool {
+	return e.InputModalities != nil || e.OutputModalities != nil
 }
 
 func (c *Client) Probe(ctx context.Context, protocol, providerID, apiKey, model, customBase string) (ProbeResult, error) {
@@ -76,7 +102,267 @@ func (c *Client) Probe(ctx context.Context, protocol, providerID, apiKey, model,
 	if err != nil {
 		return ProbeResult{}, err
 	}
-	response, cancelRequest, err := c.do(request)
+	return c.sendProbe(request, protocol, apiKey, requestModel, 0), nil
+}
+
+// probePNG is a 32x32 opaque grey PNG. Some vision endpoints refuse images
+// smaller than 10 pixels a side, so the design's 8x8 would fail on them for a
+// reason that says nothing about the model; 32x32 is still a few tokens.
+const probePNG = "iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAAAAABWESUoAAAAFklEQVR42mNoIAAYRhWMKhhVMFIVAABCAAAfN5c2AAAAAABJRU5ErkJggg=="
+
+// ProbeVision sends one Chat Completions request carrying a small image, with
+// max_tokens 1. It is a billed request, so only a user's click may send it.
+// The answer is classified exactly like a protocol probe: a model that cannot
+// take images is refused with a 4xx, which reads as "refused", not as a key or
+// network problem.
+func (c *Client) ProbeVision(ctx context.Context, apiKey, model, customBase string) (ProbeResult, error) {
+	if apiKey == "" {
+		return ProbeResult{}, oneerrors.New(oneerrors.InvalidRequest, "API key is required")
+	}
+	if strings.TrimSpace(model) == "" {
+		return ProbeResult{}, oneerrors.New(oneerrors.InvalidRequest, "A model is required")
+	}
+	base, err := ProviderBase("custom", customBase)
+	if err != nil {
+		return ProbeResult{}, err
+	}
+	payload, err := json.Marshal(map[string]any{
+		"model": model,
+		"messages": []map[string]any{{
+			"role": "user",
+			"content": []map[string]any{
+				{"type": "text", "text": "ok"},
+				{"type": "image_url", "image_url": map[string]string{"url": "data:image/png;base64," + probePNG}},
+			},
+		}},
+		"max_tokens": 1,
+	})
+	if err != nil {
+		return ProbeResult{}, oneerrors.New(oneerrors.InternalError, "Unable to build Provider request", oneerrors.WithCause(err))
+	}
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, OpenAIBaseURL(base)+"/chat/completions", bytes.NewReader(payload))
+	if err != nil {
+		return ProbeResult{}, oneerrors.New(oneerrors.InvalidRequest, "Provider endpoint is invalid", oneerrors.WithCause(err))
+	}
+	request.Header.Set("Authorization", "Bearer "+apiKey)
+	request.Header.Set("Content-Type", "application/json")
+	return c.sendProbe(request, ProtocolOpenAI, apiKey, model, 0), nil
+}
+
+// Probe timeouts for the generation and audio routes. A chat probe answers in
+// seconds; producing one image can take a minute.
+const (
+	audioProbeTimeout = 60 * time.Second
+	imageProbeTimeout = 180 * time.Second
+)
+
+// ProbeTranscription sends half a second of silent WAV to
+// /audio/transcriptions. Billed by audio length, so it costs next to nothing,
+// but it is still a billed request: only a user's click may send it.
+func (c *Client) ProbeTranscription(ctx context.Context, apiKey, model, customBase string) (ProbeResult, error) {
+	base, err := probeTarget(apiKey, model, customBase)
+	if err != nil {
+		return ProbeResult{}, err
+	}
+	var body bytes.Buffer
+	form := multipart.NewWriter(&body)
+	if err := form.WriteField("model", model); err != nil {
+		return ProbeResult{}, probeBuildError(err)
+	}
+	part, err := form.CreateFormFile("file", "probe.wav")
+	if err != nil {
+		return ProbeResult{}, probeBuildError(err)
+	}
+	if _, err := part.Write(silentWAV()); err != nil {
+		return ProbeResult{}, probeBuildError(err)
+	}
+	if err := form.Close(); err != nil {
+		return ProbeResult{}, probeBuildError(err)
+	}
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, OpenAIBaseURL(base)+"/audio/transcriptions", &body)
+	if err != nil {
+		return ProbeResult{}, oneerrors.New(oneerrors.InvalidRequest, "Provider endpoint is invalid", oneerrors.WithCause(err))
+	}
+	request.Header.Set("Authorization", "Bearer "+apiKey)
+	request.Header.Set("Content-Type", form.FormDataContentType())
+	return c.sendProbe(request, ProtocolOpenAI, apiKey, model, audioProbeTimeout), nil
+}
+
+// ProbeSpeech asks /audio/speech to say "ok". The voice is OpenAI's default;
+// a gateway whose model wants another voice refuses, and its message says so.
+func (c *Client) ProbeSpeech(ctx context.Context, apiKey, model, customBase string) (ProbeResult, error) {
+	return c.postJSONProbe(ctx, apiKey, model, customBase, "/audio/speech", map[string]any{
+		"model": model, "input": "ok", "voice": "alloy",
+	}, audioProbeTimeout)
+}
+
+// ProbeImageGeneration asks /images/generations for one image. That is a
+// billed image, so the UI asks the user before calling it. No size is sent:
+// the valid sizes differ by model, and a size the model rejects would fail the
+// probe for a reason that says nothing about the endpoint.
+func (c *Client) ProbeImageGeneration(ctx context.Context, apiKey, model, customBase string) (ProbeResult, error) {
+	return c.postJSONProbe(ctx, apiKey, model, customBase, "/images/generations", map[string]any{
+		"model": model, "prompt": "a plain grey square", "n": 1,
+	}, imageProbeTimeout)
+}
+
+func (c *Client) postJSONProbe(ctx context.Context, apiKey, model, customBase, path string, body map[string]any, timeout time.Duration) (ProbeResult, error) {
+	base, err := probeTarget(apiKey, model, customBase)
+	if err != nil {
+		return ProbeResult{}, err
+	}
+	payload, err := json.Marshal(body)
+	if err != nil {
+		return ProbeResult{}, probeBuildError(err)
+	}
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, OpenAIBaseURL(base)+path, bytes.NewReader(payload))
+	if err != nil {
+		return ProbeResult{}, oneerrors.New(oneerrors.InvalidRequest, "Provider endpoint is invalid", oneerrors.WithCause(err))
+	}
+	request.Header.Set("Authorization", "Bearer "+apiKey)
+	request.Header.Set("Content-Type", "application/json")
+	return c.sendProbe(request, ProtocolOpenAI, apiKey, model, timeout), nil
+}
+
+// nativeModelPattern bounds a model ID used as a path segment on a native
+// route, so a hand-edited ID cannot add path or query parts.
+var nativeModelPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$`)
+
+// NativeSpeechVoice is the system voice the native speech probe asks for.
+// It is one of the system voices Novita, PPIO and JieKou.AI document for
+// MiniMax Speech 2.8.
+const NativeSpeechVoice = "English_Graceful_Lady"
+
+// ProbeNativeSpeech asks a native MiniMax-style speech route
+// (POST <native base>/v3/<model>) to say "ok". These routes answer HTTP 200
+// for some refusals and put the verdict in base_resp.status_code, so the body
+// is read on success too and mapped onto the HTTP classification: 1004 is a
+// rejected key, 1002 and 1039 are rate limits, 1000 and 1001 are the
+// provider's own failures, anything else is a refusal.
+func (c *Client) ProbeNativeSpeech(ctx context.Context, apiKey, model, nativeBase string) (ProbeResult, error) {
+	if apiKey == "" {
+		return ProbeResult{}, oneerrors.New(oneerrors.InvalidRequest, "API key is required")
+	}
+	if !nativeModelPattern.MatchString(model) {
+		return ProbeResult{}, oneerrors.New(oneerrors.InvalidRequest, "A valid model is required")
+	}
+	base, err := ValidateBaseURL(strings.TrimSpace(nativeBase))
+	if err != nil {
+		return ProbeResult{}, err
+	}
+	payload, err := json.Marshal(map[string]any{
+		"text":          "ok",
+		"voice_setting": map[string]string{"voice_id": NativeSpeechVoice},
+		"audio_setting": map[string]string{"format": "mp3"},
+	})
+	if err != nil {
+		return ProbeResult{}, probeBuildError(err)
+	}
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, base+"/v3/"+model, bytes.NewReader(payload))
+	if err != nil {
+		return ProbeResult{}, oneerrors.New(oneerrors.InvalidRequest, "Provider endpoint is invalid", oneerrors.WithCause(err))
+	}
+	request.Header.Set("Authorization", "Bearer "+apiKey)
+	request.Header.Set("Content-Type", "application/json")
+	response, cancelRequest, err := c.doWithin(request, audioProbeTimeout)
+	defer cancelRequest()
+	if err != nil || response == nil {
+		if response != nil && response.Body != nil {
+			_ = response.Body.Close()
+		}
+		if err == nil {
+			err = errors.New("Provider transport returned no response")
+		}
+		result := transportResult(err)
+		result.Protocol = new(ProtocolOpenAI)
+		return result, nil
+	}
+	defer response.Body.Close()
+	body, tooLarge, readErr := c.readBody(response.Body)
+	if readErr != nil {
+		result := transportResult(readErr)
+		result.Protocol = new(ProtocolOpenAI)
+		return result, nil
+	}
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		result := classifyHTTPProbe(response.StatusCode, string(body), ProtocolOpenAI, model)
+		result.Detail = upstreamDetail(body, apiKey)
+		return result, nil
+	}
+	var parsed struct {
+		Data struct {
+			Audio string `json:"audio"`
+		} `json:"data"`
+		BaseResp *struct {
+			StatusCode *int   `json:"status_code"`
+			StatusMsg  string `json:"status_msg"`
+		} `json:"base_resp"`
+	}
+	invalidResponse := func() (ProbeResult, error) {
+		return classifyHTTPProbe(http.StatusBadGateway, "", ProtocolOpenAI, model), nil
+	}
+	if tooLarge || json.Unmarshal(body, &parsed) != nil || parsed.BaseResp == nil || parsed.BaseResp.StatusCode == nil {
+		return invalidResponse()
+	}
+	if *parsed.BaseResp.StatusCode == 0 {
+		if audio, err := hex.DecodeString(parsed.Data.Audio); err != nil || len(audio) == 0 {
+			return invalidResponse()
+		}
+		return ProbeResult{OK: true, Reachable: true, Status: response.StatusCode, Message: "Speech route accepted the request.", Protocol: new(ProtocolOpenAI)}, nil
+	}
+	status := http.StatusBadRequest
+	switch *parsed.BaseResp.StatusCode {
+	case 1004:
+		status = http.StatusUnauthorized
+	case 1002, 1039:
+		status = http.StatusTooManyRequests
+	case 1000, 1001:
+		status = http.StatusServiceUnavailable
+	}
+	result := classifyHTTPProbe(status, "", ProtocolOpenAI, model)
+	result.Detail = upstreamDetail([]byte(parsed.BaseResp.StatusMsg), apiKey)
+	return result, nil
+}
+
+func probeTarget(apiKey, model, customBase string) (string, error) {
+	if apiKey == "" {
+		return "", oneerrors.New(oneerrors.InvalidRequest, "API key is required")
+	}
+	if strings.TrimSpace(model) == "" {
+		return "", oneerrors.New(oneerrors.InvalidRequest, "A model is required")
+	}
+	return ProviderBase("custom", customBase)
+}
+
+func probeBuildError(err error) error {
+	return oneerrors.New(oneerrors.InternalError, "Unable to build Provider request", oneerrors.WithCause(err))
+}
+
+// silentWAV is half a second of 16 kHz mono 16-bit silence.
+func silentWAV() []byte {
+	const rate, samples = 16000, 8000
+	data := samples * 2
+	out := make([]byte, 44+data)
+	copy(out[0:], "RIFF")
+	binary.LittleEndian.PutUint32(out[4:], uint32(36+data))
+	copy(out[8:], "WAVEfmt ")
+	binary.LittleEndian.PutUint32(out[16:], 16)
+	binary.LittleEndian.PutUint16(out[20:], 1)
+	binary.LittleEndian.PutUint16(out[22:], 1)
+	binary.LittleEndian.PutUint32(out[24:], rate)
+	binary.LittleEndian.PutUint32(out[28:], rate*2)
+	binary.LittleEndian.PutUint16(out[32:], 2)
+	binary.LittleEndian.PutUint16(out[34:], 16)
+	copy(out[36:], "data")
+	binary.LittleEndian.PutUint32(out[40:], uint32(data))
+	return out
+}
+
+// sendProbe runs one probe request and classifies the answer. It never
+// returns an error: every outcome, transport failures included, is a verdict.
+// A zero timeout uses the client's own.
+func (c *Client) sendProbe(request *http.Request, protocol, apiKey, requestModel string, timeout time.Duration) ProbeResult {
+	response, cancelRequest, err := c.doWithin(request, timeout)
 	defer cancelRequest()
 	if err != nil {
 		if response != nil && response.Body != nil {
@@ -84,12 +370,12 @@ func (c *Client) Probe(ctx context.Context, protocol, providerID, apiKey, model,
 		}
 		result := transportResult(err)
 		result.Protocol = new(protocol)
-		return result, nil
+		return result
 	}
 	if response == nil {
 		result := transportResult(errors.New("Provider transport returned no response"))
 		result.Protocol = new(protocol)
-		return result, nil
+		return result
 	}
 	defer response.Body.Close()
 	if response.StatusCode >= 200 && response.StatusCode < 300 {
@@ -107,10 +393,61 @@ func (c *Client) Probe(ctx context.Context, protocol, providerID, apiKey, model,
 			Message:   fmt.Sprintf("%s connection test passed.", ProtocolLabel(protocol)),
 			Retryable: false,
 			Protocol:  new(protocol),
-		}, nil
+		}
 	}
 	body, _, _ := c.readBody(response.Body)
-	return classifyHTTPProbe(response.StatusCode, string(body), protocol, requestModel), nil
+	result := classifyHTTPProbe(response.StatusCode, string(body), protocol, requestModel)
+	result.Detail = upstreamDetail(body, apiKey)
+	return result
+}
+
+// maxDetailRunes bounds the provider's own explanation carried back to the UI:
+// enough for "model X does not exist or you do not have access", not a page.
+const maxDetailRunes = 300
+
+// upstreamDetail is the provider's explanation of a refused request, which is
+// the part of a failure the user can act on. "HTTP 404" does not say whether
+// the model, the key, or the endpoint was refused; the provider's message
+// usually does.
+//
+// The key is scrubbed even though the body comes from the provider, because
+// some gateways echo the request back into the error.
+func upstreamDetail(body []byte, apiKey string) string {
+	text := ""
+	var parsed struct {
+		Error   json.RawMessage `json:"error"`
+		Message string          `json:"message"`
+		Detail  string          `json:"detail"`
+	}
+	if json.Unmarshal(body, &parsed) == nil {
+		var nested struct {
+			Message string `json:"message"`
+		}
+		var flat string
+		switch {
+		case json.Unmarshal(parsed.Error, &nested) == nil && nested.Message != "":
+			text = nested.Message
+		case json.Unmarshal(parsed.Error, &flat) == nil && flat != "":
+			text = flat
+		case parsed.Message != "":
+			text = parsed.Message
+		case parsed.Detail != "":
+			text = parsed.Detail
+		}
+	}
+	if text == "" && !bytes.HasPrefix(bytes.TrimSpace(body), []byte("<")) {
+		// Plain text, but not an HTML error page, which says nothing useful.
+		text = string(body)
+	}
+	if strings.TrimSpace(apiKey) != "" {
+		text = strings.ReplaceAll(text, apiKey, "[redacted]")
+	}
+	text = strings.Join(strings.FieldsFunc(text, func(r rune) bool { return r < 0x20 || r == 0x7f }), " ")
+	text = strings.Join(strings.Fields(text), " ")
+	if runes := []rune(text); len(runes) > maxDetailRunes {
+		text = string(runes[:maxDetailRunes]) + "…"
+	}
+	return text
 }
 
 func (c *Client) ListModels(ctx context.Context, providerID, apiKey, customBase string) (ModelsResult, error) {
@@ -159,8 +496,12 @@ func (c *Client) ListModels(ctx context.Context, providerID, apiKey, customBase 
 			Models:    []string{},
 		}, nil
 	}
-	models := modelIDs(raw)
-	result := ModelsResult{Reachable: true, Status: response.StatusCode, Models: models}
+	entries := modelEntries(raw)
+	models := make([]string, len(entries))
+	for index, entry := range entries {
+		models[index] = entry.ID
+	}
+	result := ModelsResult{Reachable: true, Status: response.StatusCode, Models: models, Entries: entries}
 	if len(models) > 0 {
 		result.OK = true
 		result.Message = fmt.Sprintf("Found %d models.", len(models))
@@ -245,7 +586,13 @@ func protocolRequest(ctx context.Context, protocol, providerID, customBase, apiK
 }
 
 func (c *Client) do(request *http.Request) (*http.Response, context.CancelFunc, error) {
-	timeout := c.timeout
+	return c.doWithin(request, 0)
+}
+
+func (c *Client) doWithin(request *http.Request, timeout time.Duration) (*http.Response, context.CancelFunc, error) {
+	if timeout <= 0 {
+		timeout = c.timeout
+	}
 	if timeout <= 0 {
 		timeout = defaultTimeout
 	}
@@ -375,27 +722,51 @@ func modelsFailure(message string) ModelsResult {
 	}
 }
 
-func modelIDs(raw any) []string {
+func modelEntries(raw any) []ModelEntry {
 	data := raw
 	if object, ok := raw.(map[string]any); ok {
 		data = object["data"]
 	}
 	items, ok := data.([]any)
 	if !ok {
-		return []string{}
+		return []ModelEntry{}
 	}
-	models := make([]string, 0, len(items))
+	entries := make([]ModelEntry, 0, len(items))
 	for _, item := range items {
 		switch value := item.(type) {
 		case string:
-			models = append(models, value)
+			entries = append(entries, ModelEntry{ID: value})
 		case map[string]any:
 			if id, ok := value["id"]; ok && id != nil {
-				models = append(models, fmt.Sprint(id))
+				entries = append(entries, ModelEntry{
+					ID:               fmt.Sprint(id),
+					InputModalities:  modalityList(value, "input_modalities"),
+					OutputModalities: modalityList(value, "output_modalities"),
+				})
 			}
 		}
 	}
-	return models
+	return entries
+}
+
+// modalityList keeps the absent/empty distinction ModelEntry documents, and
+// drops anything that is not a string: the listing is third-party data.
+func modalityList(item map[string]any, key string) []string {
+	raw, ok := item[key]
+	if !ok || raw == nil {
+		return nil
+	}
+	values, ok := raw.([]any)
+	if !ok {
+		return nil
+	}
+	list := make([]string, 0, len(values))
+	for _, value := range values {
+		if text, ok := value.(string); ok {
+			list = append(list, strings.ToLower(strings.TrimSpace(text)))
+		}
+	}
+	return list
 }
 
 func unsupportedProtocol(status int, body string) bool {
