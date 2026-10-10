@@ -62,6 +62,7 @@ function detection(partial: Partial<MultimodalDetection> = {}): MultimodalDetect
     ],
     fallback: [],
     ffmpeg: true,
+    notesDir: "/Users/me/.bootagent/skill-notes",
     ...partial,
   };
 }
@@ -440,6 +441,61 @@ describe("MultimodalSection", () => {
     ] }));
     renderSection();
     expect(await screen.findByRole("tab", { name: /^图片理解已安装/ })).toBeTruthy();
+  });
+
+  it("offers explore mode for a model BootAgent cannot install, and says what it means", async () => {
+    detectMultimodal.mockResolvedValue(detection({ generatable: [...GENERATABLE, "explore"] }));
+    installMultimodal.mockResolvedValue({ skillId: "bootagent-vision", results: [{ agent: "codex", installed: true, envWritten: true }] });
+    renderSection(vi.fn(), { novita: builtIn("Novita", 3) });
+    // An installable model gets the plain install, not explore.
+    const row = (await screen.findByLabelText("Novita 的图片理解模型")).closest("li") as HTMLElement;
+    expect(within(row).getByRole("button", { name: /^安装$/ })).toBeTruthy();
+    expect(within(row).queryByRole("button", { name: "探索模式安装" })).toBeNull();
+    fireEvent.change(screen.getByLabelText("Novita 的图片理解模型"), { target: { value: "moonshotai/kimi-k3" } });
+    expect(within(row).queryByRole("button", { name: /^安装$/ })).toBeNull();
+    fireEvent.click(within(row).getByRole("button", { name: "探索模式安装" }));
+    const dialog = screen.getByRole("dialog", { name: "以探索模式安装图片理解 Skill" });
+    expect(within(dialog).getByText("调用方式未经验证")).toBeTruthy();
+    expect(within(dialog).getByText(/Skill 的脚本只把请求发往 https:\/\/example\.com，/)).toBeTruthy();
+    expect(within(dialog).getByText(/\/Users\/me\/\.bootagent\/skill-notes\/novita-vision\.md/)).toBeTruthy();
+    // The key notice still applies.
+    expect(within(dialog).getByText("API Key 对 Agent 可见")).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole("button", { name: "安装" }));
+    await waitFor(() => expect(installMultimodal).toHaveBeenCalledWith({ provider: "novita", model: "moonshotai/kimi-k3", capability: "vision", agents: ["claude-code", "codex"], guide: false, explore: true }));
+  });
+
+  it("installs a hand-entered model in explore mode where there is no probe", async () => {
+    detectMultimodal.mockResolvedValue(detection({ generatable: [...GENERATABLE, "explore"] }));
+    renderSection();
+    fireEvent.click(await screen.findByRole("tab", { name: /^视频生成/ }));
+    const manual = screen.getByText("手动填写模型 ID").closest("details") as HTMLElement;
+    expect(within(manual).getByText(/没有 BootAgent 能实测的标准接口/)).toBeTruthy();
+    expect(within(manual).queryByRole("button", { name: /^实测$/ })).toBeNull();
+    const explore = within(manual).getByRole("button", { name: "探索模式安装" });
+    expect(explore).toBeDisabled();
+    fireEvent.change(within(manual).getByLabelText("模型 ID"), { target: { value: " my-video-model " } });
+    fireEvent.click(explore);
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "安装" }));
+    await waitFor(() => expect(installMultimodal).toHaveBeenCalledWith(expect.objectContaining({ model: "my-video-model", capability: "video-generation", explore: true })));
+  });
+
+  it("offers no explore mode when this version cannot generate it", async () => {
+    detectMultimodal.mockResolvedValue(detection());
+    renderSection();
+    fireEvent.click(await screen.findByRole("tab", { name: /^视频生成/ }));
+    expect(screen.queryByText("手动填写模型 ID")).toBeNull();
+    expect(screen.queryByRole("button", { name: "探索模式安装" })).toBeNull();
+  });
+
+  it("marks a Skill installed in explore mode", async () => {
+    detectMultimodal.mockResolvedValue(detection({
+      generatable: [...GENERATABLE, "explore"],
+      installed: [{ skillId: "bootagent-vision", capability: "vision", providerId: "novita", model: "moonshotai/kimi-k3", adapter: "explore", agents: ["codex"] }],
+    }));
+    renderSection();
+    fireEvent.change(await screen.findByLabelText("Novita 的图片理解模型"), { target: { value: "moonshotai/kimi-k3" } });
+    expect(screen.getAllByText("探索模式").length).toBe(2);
+    expect(screen.getByRole("button", { name: "重新安装（探索模式）" })).toBeTruthy();
   });
 
   it("reports a failed listing without hiding the Provider", async () => {

@@ -58,6 +58,13 @@ const (
 	// (/v3/video/create) was documented when this design began and is not any
 	// more; no catalog entry may name it until it can be verified again.
 	AdapterPPIOVideo = "ppio-video"
+	// AdapterExplore is not a calling convention: it says BootAgent does not
+	// know how the model is called. The Skill tells the Agent to work the
+	// request out with the user or from the Provider's documentation, and its
+	// script sends only the requests the Agent composes, to the Provider's own
+	// origin, adding the key itself. Only the user opts into it, so it is not in
+	// Adapters: the catalog may never name it, and nothing is probed over it.
+	AdapterExplore = "explore"
 )
 
 // nativeAdapters reach the Provider's host root rather than its OpenAI base,

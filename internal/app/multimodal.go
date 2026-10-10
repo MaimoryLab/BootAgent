@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
@@ -34,6 +35,9 @@ type MultimodalDetection struct {
 	// FFmpeg says ffmpeg is on BootAgent's PATH. Video understanding needs it
 	// where the Agent runs, which may differ, so this is a hint only.
 	FFmpeg bool `json:"ffmpeg"`
+	// NotesDir is where explore Skills keep what they learn, one
+	// <provider>-<capability>.md per Skill; the install confirmation names it.
+	NotesDir string `json:"notesDir"`
 }
 
 type MultimodalManualRoute struct {
@@ -152,6 +156,7 @@ func (u *UseCases) DetectMultimodal(ctx context.Context) (MultimodalDetection, e
 	return MultimodalDetection{
 		Providers: results, Installed: u.installedMultimodal(), Targets: installTargets,
 		Generatable: skillgen.SupportedAdapters(), Manual: manual, Fallback: fallback, FFmpeg: u.commandOnPath("ffmpeg"),
+		NotesDir: filepath.Join(u.status.Home, ".bootagent", "skill-notes"),
 	}, nil
 }
 

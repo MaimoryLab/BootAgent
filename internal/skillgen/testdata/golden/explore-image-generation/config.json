@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "generator": "bootagent",
+  "capability": "image-generation",
+  "adapter": "explore",
+  "provider_id": "paigod",
+  "provider_name": "PG",
+  "model": "gpt-image-2-text-to-image",
+  "base_url": "https://apiproxy.example/v1",
+  "key_env": "BOOTAGENT_PAIGOD_API_KEY",
+  "key_file": "~/.bootagent/skill-env/paigod.env",
+  "output_dir": "~/.bootagent/output",
+  "provider_home": "https://docs.apiproxy.example",
+  "notes_file": "~/.bootagent/skill-notes/paigod-image-generation.md"
+}

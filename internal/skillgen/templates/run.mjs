@@ -7,7 +7,7 @@
 // config.json, or from BootAgent's private fallback file; it is never printed.
 
 import { execFile } from "node:child_process";
-import { accessSync, constants, createWriteStream, existsSync, linkSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { accessSync, constants, createWriteStream, existsSync, linkSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { basename, delimiter, dirname, extname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -16,7 +16,7 @@ import { pipeline } from "node:stream/promises";
 
 const EXIT = { ok: 0, internal: 1, usage: 2, setup: 3, refused: 4, key: 5, unavailable: 6, pending: 7 };
 const MiB = 1024 * 1024;
-const LIMITS = { image: 20 * MiB, audio: 25 * MiB, download: 50 * MiB, speech: 50 * MiB, video: 2048 * MiB };
+const LIMITS = { image: 20 * MiB, audio: 25 * MiB, download: 50 * MiB, speech: 50 * MiB, video: 2048 * MiB, response: 100 * MiB };
 
 class Failure extends Error {
   constructor(code, message) {
@@ -102,6 +102,9 @@ function loadKey(config) {
   return key;
 }
 
+// Flags that may be given more than once collect into a list.
+const REPEATED = new Set(["image", "form", "file", "query", "header"]);
+
 function parseArgs(argv) {
   const options = { _: [] };
   for (let index = 0; index < argv.length; index++) {
@@ -118,7 +121,7 @@ function parseArgs(argv) {
     const value = argv[index + 1];
     if (value === undefined || value.startsWith("--")) fail(EXIT.usage, `--${name} needs a value.`);
     index++;
-    if (name === "image") (options.image ??= []).push(value);
+    if (REPEATED.has(name)) (options[name] ??= []).push(value);
     else options[name] = value;
   }
   return options;
@@ -480,16 +483,20 @@ async function downloadTo(url, path, timeoutMs) {
     fail(EXIT.unavailable, "Cannot download the result from the provider.");
   }
   if (!response.ok || !response.body) fail(EXIT.unavailable, `Cannot download the result (HTTP ${response.status}).`);
+  return saveStream(response.body, path, LIMITS.video);
+}
+
+async function saveStream(body, path, limit) {
   const target = resolve(path);
   mkdirSync(dirname(target), { recursive: true });
   const work = mkdtempSync(join(dirname(target), ".bootagent-output-"));
   const partial = join(work, "result.part");
   let size = 0;
   try {
-    await pipeline(Readable.fromWeb(response.body), async function* (chunks) {
+    await pipeline(Readable.fromWeb(body), async function* (chunks) {
       for await (const chunk of chunks) {
         size += chunk.length;
-        if (size > LIMITS.video) throw new Failure(EXIT.unavailable, "The result is larger than expected and was not saved.");
+        if (size > limit) throw new Failure(EXIT.unavailable, "The result is larger than expected and was not saved.");
         yield chunk;
       }
     }, createWriteStream(partial, { mode: 0o600, flags: "wx" }));
@@ -586,6 +593,274 @@ async function describeVideo(config, key, options, timeoutMs) {
   }
 }
 
+// Explore mode. BootAgent does not know how the model is called, so the Agent
+// composes the request. The script still owns the key: it adds it in the way
+// --auth names, sends only to the origin of the Provider's base URL, and never
+// follows a redirect with it.
+
+const EXPLORE_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE"];
+const EXPLORE_FLAGS = ["_", "method", "path", "json", "form", "file", "query", "header", "auth", "out", "timeout"];
+// Headers that carry credentials. The key goes only where --auth puts it.
+const CREDENTIAL_HEADERS = new Set(["authorization", "proxy-authorization", "cookie", "x-api-key", "api-key", "host"]);
+const TEXT_LIMIT = 64 * 1024;
+const NOTES_LIMIT = 64 * 1024;
+const MEDIA_EXTENSIONS = {
+  "image/png": ".png", "image/jpeg": ".jpg", "image/webp": ".webp", "image/gif": ".gif",
+  "audio/mpeg": ".mp3", "audio/mp3": ".mp3", "audio/wav": ".wav", "audio/x-wav": ".wav", "audio/wave": ".wav",
+  "audio/flac": ".flac", "audio/ogg": ".ogg", "audio/opus": ".opus", "audio/aac": ".aac",
+  "video/mp4": ".mp4", "video/webm": ".webm", "application/pdf": ".pdf",
+};
+
+function pair(value, flag) {
+  const eq = value.indexOf("=");
+  if (eq < 1) fail(EXIT.usage, `--${flag} must be name=value.`);
+  return [value.slice(0, eq), value.slice(eq + 1)];
+}
+
+function providerOrigin(config) {
+  return new URL(config.base_url).origin;
+}
+
+function exploreURL(config, options) {
+  const origin = providerOrigin(config);
+  const path = options.path ?? "";
+  // A leading "//" or "/\\" would name another host; the origin check below
+  // catches anything else that resolves away from the Provider.
+  if (!/^\/(?![/\\])/.test(path) || /[\s\\]/.test(path)) fail(EXIT.usage, `Give the --path on ${origin}, starting with a single /.`);
+  let url;
+  try {
+    url = new URL(path, origin + "/");
+  } catch {
+    fail(EXIT.usage, `--path is not a valid path: ${path}`);
+  }
+  if (url.origin !== origin) fail(EXIT.usage, `--path must stay on ${origin}.`);
+  url.hash = "";
+  for (const value of options.query ?? []) {
+    const [name, item] = pair(value, "query");
+    url.searchParams.append(name, item);
+  }
+  return url;
+}
+
+function exploreAuth(spec, key) {
+  const value = spec ?? "bearer";
+  if (value === "bearer") return { name: "authorization", headers: { Authorization: `Bearer ${key}` } };
+  if (value === "none") return { name: "", headers: {} };
+  const match = /^header:([A-Za-z0-9-]{1,64})$/.exec(value);
+  if (!match || ["cookie", "host", "proxy-authorization"].includes(match[1].toLowerCase())) fail(EXIT.usage, "--auth must be bearer, none or header:<Name>.");
+  return { name: match[1].toLowerCase(), headers: { [match[1]]: key } };
+}
+
+function exploreBody(options, headers, method) {
+  const form = options.form ?? [];
+  const files = options.file ?? [];
+  if (options.json !== undefined && (form.length || files.length)) fail(EXIT.usage, "Use --json or --form and --file, not both.");
+  let body;
+  if (options.json !== undefined) {
+    const data = readInput(options.json, LIMITS.download, "JSON body");
+    try {
+      JSON.parse(data.toString("utf8"));
+    } catch {
+      fail(EXIT.usage, `${options.json} is not valid JSON.`);
+    }
+    if (!Object.keys(headers).some((name) => name.toLowerCase() === "content-type")) headers["Content-Type"] = "application/json";
+    body = data;
+  } else if (form.length || files.length) {
+    body = new FormData();
+    for (const value of form) body.append(...pair(value, "form"));
+    for (const value of files) {
+      const [name, path] = pair(value, "file");
+      body.append(name, new Blob([readInput(path, LIMITS.download, "File")]), basename(path));
+    }
+  }
+  if (body !== undefined && method === "GET") fail(EXIT.usage, "A GET request cannot have a body.");
+  return body;
+}
+
+function sniffExtension(data) {
+  const head = data.subarray(0, 12);
+  const text = (from, to) => head.subarray(from, to).toString("latin1");
+  if (head.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return ".png";
+  if (head[0] === 0xff && head[1] === 0xd8) return ".jpg";
+  if (text(0, 4) === "RIFF" && text(8, 12) === "WEBP") return ".webp";
+  if (text(0, 4) === "RIFF" && text(8, 12) === "WAVE") return ".wav";
+  if (text(0, 3) === "GIF") return ".gif";
+  if (text(0, 3) === "ID3" || (head[0] === 0xff && (head[1] & 0xe0) === 0xe0)) return ".mp3";
+  if (text(4, 8) === "ftyp") return ".mp4";
+  if (text(0, 4) === "fLaC") return ".flac";
+  if (text(0, 4) === "OggS") return ".ogg";
+  if (head.subarray(0, 4).equals(Buffer.from([0x1a, 0x45, 0xdf, 0xa3]))) return ".webm";
+  return "";
+}
+
+// Media inside a JSON response (base64, a data URL or hex) is saved as a file
+// and replaced by its path, so the Agent never reads megabytes of encoded
+// data. Only data that sniffs as media is taken; any other long string stays.
+function extractMedia(value, save) {
+  if (typeof value === "string") {
+    if (value.length < 1024) return value;
+    const dataURL = /^data:([a-z]+\/[a-z0-9.+-]+)?(?:;[^,;]*)*;base64,/i.exec(value);
+    const candidates = [];
+    if (dataURL) candidates.push([Buffer.from(value.slice(dataURL[0].length), "base64"), dataURL[1] ? MEDIA_EXTENSIONS[dataURL[1].toLowerCase()] : ""]);
+    else {
+      if (/^[0-9a-fA-F]+$/.test(value) && value.length % 2 === 0) candidates.push([Buffer.from(value, "hex"), ""]);
+      if (/^[A-Za-z0-9+/\s]+={0,2}$/.test(value)) candidates.push([Buffer.from(value, "base64"), ""]);
+    }
+    for (const [data, declared] of candidates) {
+      const extension = declared || sniffExtension(data);
+      if (data.length && extension) return `[saved to ${save(data, extension)}]`;
+    }
+    return value;
+  }
+  if (Array.isArray(value)) return value.map((item) => extractMedia(item, save));
+  if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).map(([name, item]) => [name, extractMedia(item, save)]));
+  return value;
+}
+
+async function readLimited(response, limit) {
+  if (!response.body) return Buffer.alloc(0);
+  const chunks = [];
+  let size = 0;
+  for await (const chunk of Readable.fromWeb(response.body)) {
+    size += chunk.length;
+    if (size > limit) fail(EXIT.unavailable, "The response is larger than expected and was not read.");
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks);
+}
+
+function printText(text) {
+  const clean = redact(text);
+  const shown = clean.length > TEXT_LIMIT ? `${clean.slice(0, TEXT_LIMIT)}\n… ${clean.length - TEXT_LIMIT} more characters not shown` : clean;
+  process.stdout.write(shown.replace(/\n?$/, "\n"));
+}
+
+async function exploreRequest(config, key, options, timeoutMs) {
+  for (const flag of Object.keys(options)) {
+    if (!EXPLORE_FLAGS.includes(flag)) fail(EXIT.usage, `Unknown option --${flag}.`);
+  }
+  const method = (options.method ?? "POST").toUpperCase();
+  if (!EXPLORE_METHODS.includes(method)) fail(EXIT.usage, `--method must be one of ${EXPLORE_METHODS.join(", ")}.`);
+  const url = exploreURL(config, options);
+  const auth = exploreAuth(options.auth, key);
+  const headers = {};
+  for (const value of options.header ?? []) {
+    const [name, item] = pair(value, "header");
+    const lower = name.toLowerCase();
+    if (!/^[A-Za-z0-9-]{1,64}$/.test(name) || CREDENTIAL_HEADERS.has(lower) || lower === auth.name) {
+      fail(EXIT.usage, `--header ${name} is not allowed. The key is sent with --auth.`);
+    }
+    headers[name] = item;
+  }
+  const body = exploreBody(options, headers, method);
+  let response;
+  try {
+    // No redirect is followed: it could carry the key to another host.
+    response = await fetch(url, { method, headers: { ...headers, ...auth.headers }, body, redirect: "manual", signal: AbortSignal.timeout(timeoutMs) });
+  } catch (error) {
+    if (error?.name === "TimeoutError" || error?.name === "AbortError") fail(EXIT.unavailable, `The provider did not answer within ${Math.round(timeoutMs / 1000)} s.`);
+    fail(EXIT.unavailable, `Cannot reach the provider: ${redact(error?.cause?.code ?? error?.message ?? error)}`);
+  }
+  const type = (response.headers.get("content-type") ?? "").toLowerCase();
+  process.stdout.write(`HTTP ${response.status} ${type || "(no content type)"}\n`);
+  if (response.status >= 300 && response.status < 400) {
+    const location = response.headers.get("location");
+    if (location) process.stdout.write(redact(`Location: ${location}`) + "\n");
+    fail(EXIT.refused, "The provider answered with a redirect, which is not followed. If it points at a result file, download it with fetch-result.");
+  }
+  const directory = outputDirectory(config, options);
+  const textual = !type || /json|^text\/|xml|javascript|x-www-form-urlencoded/.test(type);
+  if (!textual && response.ok) {
+    const saved = await saveStream(response.body, join(directory, `response-${stamp()}${MEDIA_EXTENSIONS[type.split(";")[0].trim()] ?? ".bin"}`), LIMITS.video);
+    process.stdout.write(`[saved to ${saved}]\n`);
+  } else {
+    const data = await readLimited(response, LIMITS.response);
+    let parsed;
+    try {
+      parsed = JSON.parse(data.toString("utf8"));
+    } catch {
+      parsed = undefined;
+    }
+    if (parsed !== undefined) {
+      let count = 0;
+      const save = (bytes, extension) => writeOutput(join(directory, `response-${stamp()}-${++count}${extension}`), bytes);
+      printText(JSON.stringify(response.ok ? extractMedia(parsed, save) : parsed, null, 2));
+    } else if (data.includes(0)) {
+      if (response.ok) process.stdout.write(`[saved to ${writeOutput(join(directory, `response-${stamp()}${sniffExtension(data) || ".bin"}`), data)}]\n`);
+    } else {
+      printText(data.toString("utf8"));
+    }
+  }
+  if (response.ok) return;
+  if (response.status === 401 || response.status === 403) fail(EXIT.key, `The provider rejected the key or the way it was sent (HTTP ${response.status}). Check --auth against the documentation before asking the user about the key.`);
+  if (response.status === 408 || response.status === 429 || response.status >= 500) fail(EXIT.unavailable, `The provider is busy or failing (HTTP ${response.status}).`);
+  fail(EXIT.refused, `The provider refused the request (HTTP ${response.status}).`);
+}
+
+// Result URLs are usually pre-signed on another host, so the key is never sent.
+async function fetchResult(config, key, options, timeoutMs) {
+  if (!options.url) fail(EXIT.usage, "Give the --url to download.");
+  let url;
+  try {
+    url = new URL(options.url);
+  } catch {
+    fail(EXIT.usage, "--url is not a valid URL.");
+  }
+  if (url.username || url.password) fail(EXIT.usage, "--url must not carry credentials.");
+  if (url.protocol !== "https:" && url.origin !== providerOrigin(config)) fail(EXIT.usage, "--url must use https.");
+  let response;
+  try {
+    response = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
+  } catch {
+    fail(EXIT.unavailable, "Cannot download the result.");
+  }
+  if (!response.ok || !response.body) fail(EXIT.unavailable, `Cannot download the result (HTTP ${response.status}).`);
+  const type = (response.headers.get("content-type") ?? "").toLowerCase();
+  const fromPath = extname(url.pathname).toLowerCase();
+  const extension = /^\.[a-z0-9]{1,5}$/.test(fromPath) ? fromPath : MEDIA_EXTENSIONS[type.split(";")[0].trim()] ?? ".bin";
+  process.stdout.write(await saveStream(response.body, join(outputDirectory(config, options), `result-${stamp()}${extension}`), LIMITS.video) + "\n");
+}
+
+// The notes live outside the Skill tree, so recording them never makes the
+// managed tree look edited, and they survive a reinstall.
+function notesPath(config) {
+  if (typeof config.notes_file !== "string" || !config.notes_file) fail(EXIT.setup, "config.json has no notes_file. Reinstall the Skill from BootAgent.");
+  return resolve(expandHome(config.notes_file));
+}
+
+async function showNotes(config) {
+  const path = notesPath(config);
+  if (!existsSync(path)) {
+    process.stdout.write("No notes yet. Work the request out with the user before the first run.\n");
+    return;
+  }
+  printText(readFileSync(path, "utf8"));
+}
+
+async function saveNotes(config, key, options) {
+  if (!options.from) fail(EXIT.usage, "Give the file holding the notes with --from.");
+  const text = readInput(options.from, NOTES_LIMIT, "Notes").toString("utf8");
+  if (text.includes("\0")) fail(EXIT.usage, "The notes must be text.");
+  // A key that slipped into the notes is removed rather than stored.
+  const clean = redact(text).replace(/\bsk-[A-Za-z0-9_-]{16,}/g, "[redacted]");
+  const path = notesPath(config);
+  mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
+  const temporary = `${path}.${process.pid}.tmp`;
+  writeFileSync(temporary, clean.replace(/\n?$/, "\n"), { mode: 0o600 });
+  renameSync(temporary, path);
+  process.stdout.write(`Saved notes to ${path}\n`);
+}
+
+// Explore serves every capability, so it is looked up by adapter alone. Its
+// helpers need no key, but read it when present so their output is redacted.
+const EXPLORE = {
+  name: "request",
+  run: exploreRequest,
+  timeout: 300,
+  extra: { "fetch-result": fetchResult, notes: showNotes, "save-notes": saveNotes },
+  keyless: ["fetch-result", "notes", "save-notes"],
+};
+
 const COMMANDS = {
   "vision/openai-chat-vision": { name: "describe", run: describe, timeout: 120 },
   "image-generation/openai-images": { name: "generate", run: generate, timeout: 300 },
@@ -602,13 +877,14 @@ async function main() {
     fail(EXIT.setup, `Node.js 18 or later is required; this is ${process.versions.node}.`);
   }
   const config = loadConfig();
-  const command = COMMANDS[`${config.capability}/${config.adapter}`];
+  const command = config.adapter === "explore" ? EXPLORE : COMMANDS[`${config.capability}/${config.adapter}`];
   if (!command) {
     fail(EXIT.setup, `This version of the script cannot run ${config.capability} over ${config.adapter}. Reinstall the Skill from BootAgent.`);
   }
   const [subcommand, ...rest] = process.argv.slice(2);
   if (!subcommand || subcommand === "--help" || subcommand === "help") {
-    process.stdout.write(`Usage: node scripts/run.mjs ${command.name} [options]\n       node scripts/run.mjs check\nSee SKILL.md for the options and exit codes.\n`);
+    const extra = Object.keys(command.extra ?? {}).map((name) => `       node scripts/run.mjs ${name} [options]\n`).join("");
+    process.stdout.write(`Usage: node scripts/run.mjs ${command.name} [options]\n${extra}       node scripts/run.mjs check\nSee SKILL.md for the options and exit codes.\n`);
     return;
   }
   if (subcommand === "check") {
@@ -621,7 +897,14 @@ async function main() {
   const options = parseArgs(rest);
   if (options._.length) fail(EXIT.usage, `Unexpected argument: ${options._[0]}`);
   const timeout = positiveInt(options.timeout, "timeout", command.timeout, 7200) * 1000;
-  const key = loadKey(config);
+  let key = "";
+  if (command.keyless?.includes(subcommand)) {
+    try {
+      key = loadKey(config);
+    } catch {
+      key = "";
+    }
+  } else key = loadKey(config);
   await run(config, key, options, timeout);
 }
 
