@@ -8,7 +8,8 @@ import { useWizard } from "../state/WizardContext";
 /**
  * Multimodal capabilities get their own page: below a long Skill library the
  * section was out of sight. The Skills it installs still show up, and can be
- * retargeted, on the Skills page.
+ * retargeted, on the Skills page. The status's Provider records order the
+ * accounts within each capability, the ones the user added first.
  */
 export function MultimodalPage() {
   const { t } = useI18n();
@@ -19,7 +20,7 @@ export function MultimodalPage() {
   );
   return (
     <PageScaffold title={t("多模态能力")} bodyClassName="multimodal-page">
-      <MultimodalSection agentLabels={agentLabels} />
+      <MultimodalSection agentLabels={agentLabels} providers={state.status?.providers} />
     </PageScaffold>
   );
 }

@@ -1,10 +1,12 @@
 import { Activity, Check, Copy, Download, Images, RefreshCw, Trash2, X } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type KeyboardEvent } from "react";
 import { Link } from "react-router-dom";
 
 import { api, describeError } from "../backend/api";
 import type { Translate, TranslationKey } from "../i18n";
 import { useI18n } from "../i18n";
+import { isConverterID } from "../state/conversion";
+import { byProviderCreatedAt } from "../state/ranking";
 import type {
   InstalledMultimodal,
   MultimodalCapability,
@@ -15,18 +17,21 @@ import type {
   MultimodalProbeKind,
   MultimodalProvider,
   MultimodalSource,
+  StatusResponse,
 } from "../types/api";
 import { copyToClipboard } from "../utils/clipboard";
 import { ModalDialog } from "./ModalDialog";
 import { EXAMPLE_PROMPTS } from "./multimodalPrompts";
 
-const CAPABILITY_ORDER: MultimodalCapabilityId[] = [
-  "vision",
+// Also the tab order. Generation leads: it is what users come to this page
+// for, while understanding is something most chat models already do.
+export const CAPABILITY_ORDER: MultimodalCapabilityId[] = [
   "image-generation",
-  "speech-to-text",
-  "text-to-speech",
   "video-generation",
+  "vision",
   "video-understanding",
+  "text-to-speech",
+  "speech-to-text",
 ];
 
 export const CAPABILITY_LABELS: Record<MultimodalCapabilityId, TranslationKey> = {
@@ -36,6 +41,14 @@ export const CAPABILITY_LABELS: Record<MultimodalCapabilityId, TranslationKey> =
   "text-to-speech": "语音合成",
   "video-generation": "视频生成",
   "video-understanding": "视频理解",
+};
+
+// Shown in the manual entry hint: model IDs a user is likely to know.
+const MANUAL_EXAMPLES: Partial<Record<MultimodalCapabilityId, string>> = {
+  vision: "gpt-4o-mini",
+  "image-generation": "gpt-image-1",
+  "speech-to-text": "whisper-1",
+  "text-to-speech": "tts-1",
 };
 
 // Strongest evidence first. An ID rule is a guess from the name, so it sorts
@@ -78,6 +91,31 @@ export function groupByCapability(entry: MultimodalProvider): CapabilityGroup[] 
       return evidence || left.model.localeCompare(right.model);
     }),
   }));
+}
+
+/**
+ * Orders the keyed Providers the way the Providers page lists accounts: the
+ * ones the user added first, newest first, then built-ins in catalog order.
+ * The backend lists built-ins first; a Provider the status does not know keeps
+ * its place after the known ones.
+ */
+export function orderAccounts(providers: MultimodalProvider[], status?: StatusResponse["providers"]): MultimodalProvider[] {
+  const rank = new Map(byProviderCreatedAt(status ?? {}).map(([id], index) => [id, index]));
+  return providers
+    // BootAgent's own protocol converters hold a key but are not accounts;
+    // the Providers page hides them too.
+    .filter((entry) => !isConverterID(entry.id))
+    .map((entry, index) => ({ entry, index }))
+    .sort((left, right) => (rank.get(left.entry.id) ?? rank.size + left.index) - (rank.get(right.entry.id) ?? rank.size + right.index))
+    .map(({ entry }) => entry);
+}
+
+/** One capability's accounts: every keyed Provider with a model for it, in account order. */
+export function accountsFor(providers: MultimodalProvider[], capability: MultimodalCapabilityId): Array<{ provider: MultimodalProvider; options: CapabilityOption[] }> {
+  return providers.flatMap((provider) => {
+    const group = groupByCapability(provider).find((item) => item.id === capability);
+    return group ? [{ provider, options: group.options }] : [];
+  });
 }
 
 export function sourceLabel(capability: MultimodalCapability, t: Translate): string {
@@ -159,36 +197,43 @@ export function groupInstalled(installed: InstalledMultimodal[]): Array<{ skillI
     .map(([skillId, variants]) => ({ skillId, capability, variants, agents: [...new Set(variants.flatMap((variant) => variant.agents))].sort() })));
 }
 
+// `key` is where the result is shown: an account's row, or a tab's manual entry.
 type ProbeState = { model: string; checking: boolean; result?: MultimodalProbe; error?: string };
-type ProbeTarget = { provider: MultimodalProvider; capability: MultimodalCapabilityId; model: string; adapter: string; kind: MultimodalProbeKind };
+type ProbeTarget = { key: string; provider: MultimodalProvider; capability: MultimodalCapabilityId; model: string; adapter: string; kind: MultimodalProbeKind };
 type InstallTarget = { provider: MultimodalProvider; capability: MultimodalCapabilityId; model: string };
 
 const rowKey = (provider: string, capability: string) => `${provider}::${capability}`;
+const manualKey = (capability: string) => `manual::${capability}`;
 
 interface MultimodalSectionProps {
   /** Agent ID to display name. */
   agentLabels?: Record<string, string>;
+  /** The status's Provider records: account order and which ones the user added. */
+  providers?: StatusResponse["providers"];
   /** Called after an install or uninstall changed the Skill library. */
   onSkillsChanged?: () => void;
 }
 
 /**
- * The Skills page's Multimodal capabilities section. Opening it lists models,
- * which is free; nothing billed is sent until the user presses a check button,
- * and a check that produces billed output asks first.
+ * The Multimodal page. Each Provider with a saved key is an account; one tab
+ * per capability lists the accounts that can provide it, the ones the user
+ * added first. Opening it lists models, which is free; nothing billed is sent
+ * until the user presses a check button, and a check that produces billed
+ * output asks first.
  */
-export function MultimodalSection({ agentLabels = {}, onSkillsChanged }: MultimodalSectionProps) {
+export function MultimodalSection({ agentLabels = {}, providers: statusProviders, onSkillsChanged }: MultimodalSectionProps) {
   const { t, locale } = useI18n();
   const [detection, setDetection] = useState<MultimodalDetection | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [active, setActive] = useState<MultimodalCapabilityId | null>(null);
   const [selected, setSelected] = useState<Record<string, string>>({});
   const [probes, setProbes] = useState<Record<string, ProbeState>>({});
   const [confirmProbe, setConfirmProbe] = useState<ProbeTarget | null>(null);
   const [installTarget, setInstallTarget] = useState<InstallTarget | null>(null);
   const [uninstallTarget, setUninstallTarget] = useState<{ skillId: string; capability: MultimodalCapabilityId; agents: string[] } | null>(null);
   const [uninstalling, setUninstalling] = useState(false);
-  const [manual, setManual] = useState<Record<string, { capability: MultimodalCapabilityId; model: string }>>({});
+  const [manual, setManual] = useState<Partial<Record<MultimodalCapabilityId, { provider: string; model: string }>>>({});
   const nameOf = (agentId: string) => agentLabels[agentId] ?? agentId;
   const separator = locale === "en" ? ", " : "、";
 
@@ -204,18 +249,17 @@ export function MultimodalSection({ agentLabels = {}, onSkillsChanged }: Multimo
   useEffect(() => { void detect(); }, [detect]);
 
   const runProbe = (target: ProbeTarget, confirmed: boolean) => {
-    const key = rowKey(target.provider.id, target.capability);
-    setProbes((current) => ({ ...current, [key]: { model: target.model, checking: true } }));
+    setProbes((current) => ({ ...current, [target.key]: { model: target.model, checking: true } }));
     void api.probeMultimodal(target.provider.id, target.model, target.capability, target.adapter, confirmed)
       .then((result) => {
-        setProbes((current) => ({ ...current, [key]: { model: target.model, checking: false, result } }));
-        // Show the probed model in its row; a conclusive verdict is cached by
-        // the backend and outranks every other source once re-read.
-        setSelected((current) => ({ ...current, [key]: target.model }));
+        setProbes((current) => ({ ...current, [target.key]: { model: target.model, checking: false, result } }));
+        // Show the probed model in its account's row; a conclusive verdict is
+        // cached by the backend and outranks every other source once re-read.
+        setSelected((current) => ({ ...current, [rowKey(target.provider.id, target.capability)]: target.model }));
         return detect();
       })
       .catch((reason: unknown) => {
-        setProbes((current) => ({ ...current, [key]: { model: target.model, checking: false, error: describeError(reason, t("无法向模型服务发送验证请求。")).message } }));
+        setProbes((current) => ({ ...current, [target.key]: { model: target.model, checking: false, error: describeError(reason, t("无法向模型服务发送验证请求。")).message } }));
       });
   };
   const probe = (target: ProbeTarget) => (target.kind === "confirm" ? setConfirmProbe(target) : runProbe(target, false));
@@ -234,18 +278,166 @@ export function MultimodalSection({ agentLabels = {}, onSkillsChanged }: Multimo
       .finally(() => setUninstalling(false));
   };
 
-  const providers = useMemo(() => detection?.providers ?? [], [detection]);
-  const groupsByProvider = useMemo(() => new Map(providers.map((entry) => [entry.id, groupByCapability(entry)])), [providers]);
-  const providerName = (id: string) => providers.find((entry) => entry.id === id)?.name || id;
-  const generatable = detection?.generatable ?? [];
+  const accounts = useMemo(() => orderAccounts(detection?.providers ?? [], statusProviders), [detection, statusProviders]);
+  const byCapability = useMemo(() => new Map(CAPABILITY_ORDER.map((id) => [id, accountsFor(accounts, id)])), [accounts]);
   const installedCards = useMemo(() => groupInstalled(detection?.installed ?? []), [detection]);
+  const providerName = (id: string) => accounts.find((entry) => entry.id === id)?.name || statusProviders?.[id]?.name || id;
+  const generatable = detection?.generatable ?? [];
+  // Until the user picks a tab: the first capability something can be done with.
+  const current = active
+    ?? CAPABILITY_ORDER.find((id) => byCapability.get(id)?.length || installedCards.some((card) => card.capability === id))
+    ?? CAPABILITY_ORDER[0];
 
+  const onTabKey = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+    event.preventDefault();
+    const last = CAPABILITY_ORDER.length - 1;
+    const next = CAPABILITY_ORDER[event.key === "Home" ? 0 : event.key === "End" ? last : (index + (event.key === "ArrowRight" ? 1 : -1) + CAPABILITY_ORDER.length) % CAPABILITY_ORDER.length];
+    setActive(next);
+    document.getElementById(`multimodal-tab-${next}`)?.focus();
+  };
+
+  const renderPanel = (capability: MultimodalCapabilityId) => {
+    const capabilityName = t(CAPABILITY_LABELS[capability]);
+    const offering = byCapability.get(capability) ?? [];
+    const card = installedCards.find((item) => item.capability === capability);
+    const unsupported = accounts.filter((entry) => entry.unsupported.includes(capability));
+    const without = accounts.filter((entry) => entry.listed && !entry.unsupported.includes(capability) && !offering.some((account) => account.provider.id === entry.id));
+    const manualRoute = (detection?.manual ?? []).find((route) => route.capability === capability);
+    const manualState = manual[capability];
+    const manualProvider = accounts.find((entry) => entry.id === manualState?.provider) ?? accounts[0];
+    const manualProbe = probes[manualKey(capability)];
+    const example = MANUAL_EXAMPLES[capability];
+    const chosenFor = (entry: MultimodalProvider, options: CapabilityOption[]) => options.find((option) => option.model === selected[rowKey(entry.id, capability)]) ?? options[0];
+    // Said once for the tab, not on every account that samples frames.
+    const needsFFmpeg = Boolean(detection && !detection.ffmpeg) && offering.some(({ provider: entry, options }) => chosenFor(entry, options).capability.adapter === "frames-chat-vision");
+    return (
+      <>
+        {card ? (
+          <article className="multimodal-installed-card">
+            <header>
+              <strong>{t("已安装")}</strong>
+              <code>{card.skillId}</code>
+              <button className="icon-button row-action is-danger" type="button" title={t("卸载")} aria-label={t("卸载 {name}", { name: card.skillId })} onClick={() => setUninstallTarget({ skillId: card.skillId, capability: card.capability, agents: card.agents })}>
+                <Trash2 size={16} aria-hidden="true" />
+              </button>
+            </header>
+            {card.variants.map((variant) => (
+              <p className="multimodal-installed-line" key={`${variant.providerId}-${variant.model}`}>
+                {variant.agents.length
+                  ? t("{model}（{provider}）已安装到 {agents}", { model: variant.model, provider: providerName(variant.providerId), agents: variant.agents.map(nameOf).join(separator) })
+                  : t("{model}（{provider}）", { model: variant.model, provider: providerName(variant.providerId) })}
+              </p>
+            ))}
+            {card.variants.filter((variant) => variant.guidePath).map((variant) => (
+              <GuidePrompt key={variant.guidePath} path={variant.guidePath ?? ""} capability={card.capability} />
+            ))}
+            <ExamplePrompts capability={card.capability} />
+          </article>
+        ) : null}
+
+        {offering.length ? (
+          <ul className="multimodal-accounts">
+            {offering.map(({ provider: entry, options }) => {
+              const key = rowKey(entry.id, capability);
+              const chosen = chosenFor(entry, options);
+              const install = installLabel(chosen.capability, generatable, t);
+              const installedHere = (detection?.installed ?? []).find((item) => item.providerId === entry.id && item.capability === capability && item.model === chosen.model);
+              const state = probes[key];
+              const verdict = state?.result && state.result.model === chosen.model ? describeProbe(state.result, t) : null;
+              const selectID = `multimodal-${entry.id}-${capability}`;
+              return (
+                <li className="multimodal-account" key={entry.id}>
+                  <header className="provider-title">
+                    <strong>{entry.name || entry.id}</strong>
+                    {statusProviders?.[entry.id]?.custom ? <small>{t("用户添加")}</small> : null}
+                  </header>
+                  <div className="multimodal-account-row">
+                    {options.length > 1 ? (
+                      <>
+                        <label className="visually-hidden" htmlFor={selectID}>{t("{provider} 的{capability}模型", { provider: entry.name || entry.id, capability: capabilityName })}</label>
+                        <select id={selectID} value={chosen.model} onChange={(event) => setSelected((current) => ({ ...current, [key]: event.target.value }))}>
+                          {options.map((option) => <option key={option.model} value={option.model}>{option.model}</option>)}
+                        </select>
+                      </>
+                    ) : <code className="multimodal-model">{chosen.model}</code>}
+                    <span className="status-badge status-neutral">{sourceLabel(chosen.capability, t)}</span>
+                    {installedHere
+                      ? <span className="status-badge status-success">{t("已安装到 {agents}", { agents: installedHere.agents.map(nameOf).join(separator) })}</span>
+                      : <span className={`status-badge status-${install.tone}`}>{install.text}</span>}
+                    <span className="multimodal-account-actions">
+                      {chosen.capability.probe ? (
+                        <ProbeButton
+                          checking={state?.checking}
+                          kind={chosen.capability.probe}
+                          capability={capabilityName}
+                          onClick={() => probe({ key, provider: entry, capability, model: chosen.model, adapter: chosen.capability.adapter, kind: chosen.capability.probe })}
+                        />
+                      ) : null}
+                      {install.ready ? (
+                        <button className="button button-primary model-check-button" type="button" onClick={() => setInstallTarget({ provider: entry, capability, model: chosen.model })}>
+                          <Download size={14} aria-hidden="true" />
+                          {installedHere ? t("重新安装") : t("安装")}
+                        </button>
+                      ) : null}
+                    </span>
+                  </div>
+                  {verdict ? <Verdict verdict={verdict} /> : null}
+                  {state?.error && state.model === chosen.model ? <p className="multimodal-error" role="alert">{state.error}</p> : null}
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <p className="multimodal-empty">{t("还没有已保存 API Key 的模型服务能做{capability}。", { capability: capabilityName })}</p>
+        )}
+
+        {needsFFmpeg ? (
+          <p className="multimodal-provider-note">{t("视频理解要先用 ffmpeg 抽帧。BootAgent 没有在 PATH 上找到 ffmpeg；请在 Agent 运行的环境里安装它。")}</p>
+        ) : null}
+        {offering.length && without.length ? (
+          <p className="multimodal-provider-note">{t("{providers} 的模型列表里没有能做{capability}的模型。", { providers: without.map((entry) => entry.name || entry.id).join(separator), capability: capabilityName })}</p>
+        ) : null}
+        {unsupported.length ? (
+          <p className="multimodal-provider-note">{t("{providers}：该模型服务目前没有可核实的公开接口，暂不支持{capability}。", { providers: unsupported.map((entry) => entry.name || entry.id).join(separator), capability: capabilityName })}</p>
+        ) : null}
+
+        {manualRoute && manualProvider ? (
+          <details className="multimodal-manual" key={capability}>
+            <summary>{t("手动填写模型 ID")}</summary>
+            <p>{example
+              ? t("如果你知道能做{capability}的模型 ID（例如 {example}），可以填写后实测，通过后即可安装。", { capability: capabilityName, example })
+              : t("如果你知道能做{capability}的模型 ID，可以填写后实测，通过后即可安装。", { capability: capabilityName })}</p>
+            <div className="multimodal-manual-row">
+              {accounts.length > 1 ? (
+                <select aria-label={t("模型服务")} value={manualProvider.id} onChange={(event) => setManual((all) => ({ ...all, [capability]: { provider: event.target.value, model: all[capability]?.model ?? "" } }))}>
+                  {accounts.map((entry) => <option key={entry.id} value={entry.id}>{entry.name || entry.id}</option>)}
+                </select>
+              ) : null}
+              <input aria-label={t("模型 ID")} placeholder={t("模型 ID")} value={manualState?.model ?? ""} onChange={(event) => setManual((all) => ({ ...all, [capability]: { provider: manualProvider.id, model: event.target.value } }))} />
+              <ProbeButton
+                checking={manualProbe?.checking}
+                disabled={!manualState?.model.trim()}
+                kind={manualRoute.probe}
+                capability={capabilityName}
+                onClick={() => probe({ key: manualKey(capability), provider: manualProvider, capability, model: (manualState?.model ?? "").trim(), adapter: manualRoute.adapter, kind: manualRoute.probe })}
+              />
+            </div>
+            {manualProbe?.result ? <Verdict verdict={describeProbe(manualProbe.result, t)} /> : null}
+            {manualProbe?.error ? <p className="multimodal-error" role="alert">{manualProbe.error}</p> : null}
+          </details>
+        ) : null}
+      </>
+    );
+  };
+
+  const unlisted = accounts.filter((entry) => !entry.listed);
   return (
     <section className="content-section multimodal-section" aria-labelledby="multimodal-heading">
       <div className="section-heading">
         <div>
           <h2 id="multimodal-heading"><Images size={18} aria-hidden="true" /> {t("多模态能力")}</h2>
-          <p>{t("用已保存 API Key 的模型服务查找能处理图片、音频和视频的模型。列出模型不收费；点击实测会发出真实请求。")}</p>
+          <p>{t("按能力查看已保存 API Key 的模型服务能做什么。列出模型不收费；点击实测会发出真实请求。")}</p>
         </div>
         <button className="button button-secondary" type="button" onClick={() => void detect()} disabled={loading}>
           <RefreshCw size={16} aria-hidden="true" />
@@ -253,133 +445,47 @@ export function MultimodalSection({ agentLabels = {}, onSkillsChanged }: Multimo
         </button>
       </div>
       {error ? <p className="multimodal-error" role="alert">{error}</p> : null}
+      {unlisted.map((entry) => (
+        <p className="multimodal-provider-note" key={entry.id}>{t("{provider}：无法读取模型列表：{message}", { provider: entry.name || entry.id, message: entry.message || entry.errorCode || "" })}</p>
+      ))}
 
-      {installedCards.length ? (
-        <div className="multimodal-installed">
-          <h3>{t("已安装的多模态 Skill")}</h3>
-          {installedCards.map((card) => (
-            <article className="multimodal-installed-card" key={card.skillId}>
-              <header>
-                <strong>{t(CAPABILITY_LABELS[card.capability])}</strong>
-                <code>{card.skillId}</code>
-                <button className="icon-button row-action is-danger" type="button" title={t("卸载")} aria-label={t("卸载 {name}", { name: card.skillId })} onClick={() => setUninstallTarget({ skillId: card.skillId, capability: card.capability, agents: card.agents })}>
-                  <Trash2 size={16} aria-hidden="true" />
-                </button>
-              </header>
-              {card.variants.map((variant) => (
-                <p className="multimodal-installed-line" key={`${variant.providerId}-${variant.model}`}>
-                  {variant.agents.length
-                    ? t("{model}（{provider}）已安装到 {agents}", { model: variant.model, provider: providerName(variant.providerId), agents: variant.agents.map(nameOf).join(separator) })
-                    : t("{model}（{provider}）", { model: variant.model, provider: providerName(variant.providerId) })}
-                </p>
-              ))}
-              {card.variants.filter((variant) => variant.guidePath).map((variant) => (
-                <GuidePrompt key={variant.guidePath} path={variant.guidePath ?? ""} capability={card.capability} />
-              ))}
-              <ExamplePrompts capability={card.capability} />
-            </article>
-          ))}
-        </div>
-      ) : null}
-
-      {detection && !providers.length ? (
+      {detection && !accounts.length ? (
         <p className="multimodal-empty">
           {t("还没有保存 API Key 的模型服务。")} <Link to="/providers">{t("去添加模型服务")}</Link>
         </p>
       ) : null}
-      {providers.map((entry) => {
-        const groups = groupsByProvider.get(entry.id) ?? [];
-        const manualState = manual[entry.id];
-        const manualRoutes = detection?.manual ?? [];
-        const manualRoute = manualRoutes.find((route) => route.capability === (manualState?.capability ?? manualRoutes[0]?.capability));
-        const manualProbeState = manualRoute ? probes[rowKey(entry.id, manualRoute.capability)] : undefined;
-        const manualGroup = groups.find((group) => group.id === manualRoute?.capability);
-        const manualChosen = manualGroup?.options.find((option) => option.model === selected[rowKey(entry.id, manualRoute?.capability ?? "")]) ?? manualGroup?.options[0];
-        const manualResultInRow = manualChosen?.model === manualProbeState?.model;
-        return (
-          <div className="multimodal-provider" key={entry.id}>
-            <header>
-              <strong>{entry.name || entry.id}</strong>
-              {!entry.listed ? <span className="multimodal-provider-note">{t("无法读取模型列表：{message}", { message: entry.message || entry.errorCode || "" })}</span> : null}
-            </header>
-            {entry.unsupported.length ? (
-              <p className="multimodal-provider-note">{t("{capabilities}：该模型服务目前没有可核实的公开接口，暂不支持。", { capabilities: entry.unsupported.map((id) => t(CAPABILITY_LABELS[id])).join(separator) })}</p>
-            ) : null}
-            {!groups.length ? (
-              <p className="multimodal-empty">{entry.listed ? t("没有找到多模态模型。") : t("可以稍后重新检测。")}</p>
-            ) : (
-              <ul className="multimodal-capabilities">
-                {groups.map((group) => {
-                  const key = rowKey(entry.id, group.id);
-                  const chosen = group.options.find((option) => option.model === selected[key]) ?? group.options[0];
-                  const install = installLabel(chosen.capability, generatable, t);
-                  const installedHere = (detection?.installed ?? []).find((item) => item.providerId === entry.id && item.capability === group.id && item.model === chosen.model);
-                  const state = probes[key];
-                  const verdict = state?.result && state.result.model === chosen.model ? describeProbe(state.result, t) : null;
-                  const selectID = `multimodal-${entry.id}-${group.id}`;
-                  const capabilityName = t(CAPABILITY_LABELS[group.id]);
-                  return (
-                    <li key={group.id}>
-                      <label className="multimodal-capability-name" htmlFor={selectID}>{capabilityName}</label>
-                      <select id={selectID} value={chosen.model} onChange={(event) => setSelected((current) => ({ ...current, [key]: event.target.value }))}>
-                        {group.options.map((option) => <option key={option.model} value={option.model}>{option.model}</option>)}
-                      </select>
-                      <span className="status-badge status-neutral">{sourceLabel(chosen.capability, t)}</span>
-                      {installedHere
-                        ? <span className="status-badge status-success">{t("已安装到 {agents}", { agents: installedHere.agents.map(nameOf).join(separator) })}</span>
-                        : <span className={`status-badge status-${install.tone}`}>{install.text}</span>}
-                      {chosen.capability.probe ? (
-                        <ProbeButton
-                          checking={state?.checking}
-                          kind={chosen.capability.probe}
-                          capability={capabilityName}
-                          onClick={() => probe({ provider: entry, capability: group.id, model: chosen.model, adapter: chosen.capability.adapter, kind: chosen.capability.probe })}
-                        />
-                      ) : null}
-                      {install.ready ? (
-                        <button className="button button-primary model-check-button" type="button" onClick={() => setInstallTarget({ provider: entry, capability: group.id, model: chosen.model })}>
-                          <Download size={14} aria-hidden="true" />
-                          {installedHere ? t("重新安装") : t("安装")}
-                        </button>
-                      ) : null}
-                      {chosen.capability.adapter === "frames-chat-vision" && detection && !detection.ffmpeg ? (
-                        <p className="multimodal-provider-note">{t("视频理解要先用 ffmpeg 抽帧。BootAgent 没有在 PATH 上找到 ffmpeg；请在 Agent 运行的环境里安装它。")}</p>
-                      ) : null}
-                      {verdict ? <Verdict verdict={verdict} /> : null}
-                      {state?.error && state.model === chosen.model ? <p className="multimodal-error" role="alert">{state.error}</p> : null}
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-            {manualRoutes.length ? (
-              <details className="multimodal-manual">
-                <summary>{t("手动填写模型 ID")}</summary>
-                <p>{t("模型列表里没有专用的图片生成、语音识别或语音合成模型。如果你知道模型 ID（例如 gpt-image-1、whisper-1、tts-1），可以填写后实测，通过后即可安装。")}</p>
-                <div className="multimodal-manual-row">
-                  <select aria-label={t("能力")} value={manualRoute?.capability ?? ""} onChange={(event) => setManual((current) => ({ ...current, [entry.id]: { capability: event.target.value as MultimodalCapabilityId, model: current[entry.id]?.model ?? "" } }))}>
-                    {manualRoutes.map((route) => <option key={route.capability} value={route.capability}>{t(CAPABILITY_LABELS[route.capability])}</option>)}
-                  </select>
-                  <input aria-label={t("模型 ID")} placeholder={t("模型 ID")} value={manualState?.model ?? ""} onChange={(event) => setManual((current) => ({ ...current, [entry.id]: { capability: manualRoute?.capability ?? "vision", model: event.target.value } }))} />
-                  {manualRoute ? (
-                    <ProbeButton
-                      checking={probes[rowKey(entry.id, manualRoute.capability)]?.checking}
-                      disabled={!manualState?.model.trim()}
-                      kind={manualRoute.probe}
-                      capability={t(CAPABILITY_LABELS[manualRoute.capability])}
-                      onClick={() => probe({ provider: entry, capability: manualRoute.capability, model: (manualState?.model ?? "").trim(), adapter: manualRoute.adapter, kind: manualRoute.probe })}
-                    />
-                  ) : null}
-                </div>
-                {manualProbeState?.result && !manualResultInRow
-                  ? <Verdict verdict={describeProbe(manualProbeState.result, t)} />
-                  : null}
-                {manualProbeState?.error && !manualResultInRow ? <p className="multimodal-error" role="alert">{manualProbeState.error}</p> : null}
-              </details>
-            ) : null}
+
+      {detection && (accounts.length || installedCards.length) ? (
+        <>
+          <div className="marketplace-tabs multimodal-tabs" role="tablist" aria-label={t("多模态能力分类")}>
+            {CAPABILITY_ORDER.map((id, index) => {
+              const count = byCapability.get(id)?.length ?? 0;
+              const installed = installedCards.some((card) => card.capability === id);
+              return (
+                <button
+                  key={id}
+                  role="tab"
+                  type="button"
+                  id={`multimodal-tab-${id}`}
+                  aria-controls="multimodal-panel"
+                  aria-selected={current === id}
+                  tabIndex={current === id ? 0 : -1}
+                  className={`marketplace-tab${current === id ? " is-active" : ""}`}
+                  onClick={() => setActive(id)}
+                  onKeyDown={(event) => onTabKey(event, index)}
+                >
+                  {t(CAPABILITY_LABELS[id])}
+                  {installed ? <span className="multimodal-tab-installed" title={t("已安装")}><Check size={12} aria-hidden="true" /><span className="visually-hidden">{t("已安装")}</span></span> : null}
+                  {count ? <span className="marketplace-tab-count" title={t("{count} 个账号可用", { count })}>{count}</span> : null}
+                </button>
+              );
+            })}
           </div>
-        );
-      })}
+          <div className="multimodal-panel" id="multimodal-panel" role="tabpanel" aria-labelledby={`multimodal-tab-${current}`}>
+            {renderPanel(current)}
+          </div>
+        </>
+      ) : null}
 
       {confirmProbe ? (
         <ModalDialog className="mcp-modal multimodal-modal" label={t("确认实测")} onDismiss={() => setConfirmProbe(null)}>
