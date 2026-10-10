@@ -32,8 +32,9 @@ describe("AgentIcon", () => {
     // chatgpt-desktop is a desktop Agent rather than a CLI, and it reuses the
     // OpenAI mark because it is OpenAI's own product sharing Codex's config.
     // dsh-desktop reuses the DeepSeek mark for the same reason: it is
-    // DeepSeek's own desktop shell around the dsh CLI.
-    expect(assetIds.sort()).toEqual(["chatgpt-desktop", "claude-code", "claude-desktop", "codex", "dsh", "dsh-desktop", "hermes", "kilo-cli", "kimi-code", "openclaw", "opencode", "pi"]);
+    // DeepSeek's own desktop shell around the dsh CLI. kimi-code-desktop reuses the
+    // Kimi mark for the same reason: it is Moonshot's own app over the kimi-code CLI's config.
+    expect(assetIds.sort()).toEqual(["chatgpt-desktop", "claude-code", "claude-desktop", "codex", "dsh", "dsh-desktop", "hermes", "kilo-cli", "kimi-code", "kimi-code-desktop", "openclaw", "opencode", "pi"]);
     for (const id of assetIds) {
       const rights = agentMarkRights(id);
       expect(agentMarkKind(id)).toBe("asset");
@@ -124,6 +125,7 @@ describe("AgentIcon", () => {
       "kilo-cli": "0 0 24 24",
       hermes: "0 0 24 24",
       "kimi-code": "0 0 24 24",
+      "kimi-code-desktop": "0 0 24 24",
       pi: "0 0 24 24",
       openclaw: "0 0 120 120",
     };
@@ -208,7 +210,7 @@ describe("AgentIcon", () => {
   // Every Agent the app can show needs a mark it was actually given, so a new one
   // does not quietly land on the unknown-Agent fallback.
   it("registers a mark for every Agent and desktop Agent", () => {
-    for (const id of [...ALL, "chatgpt-desktop", "claude-desktop", "dsh-desktop", "workbuddy"]) {
+    for (const id of [...ALL, "chatgpt-desktop", "claude-desktop", "dsh-desktop", "kimi-code-desktop", "workbuddy"]) {
       expect(agentMarkKind(id), `${id} has no registered mark`).not.toBe("fallback");
     }
   });

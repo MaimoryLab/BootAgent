@@ -143,6 +143,22 @@ var implementations = []implementation{
 		install: installZCode,
 		open:    openZCode,
 	},
+	{
+		// Shares ~/.kimi-code/config.toml with the Kimi Code CLI, as ChatGPT
+		// Desktop shares Codex's: a Profile applied here is applied to the CLI
+		// Agent, whose writer owns that file.
+		Definition: Definition{
+			ID:                  KimiCodeDesktopID,
+			Name:                KimiCodeDesktopName,
+			ProfileAgentID:      KimiCodeAgentID,
+			SharedConfigAgentID: KimiCodeAgentID,
+			ConfigAdapter:       KimiCodeAgentID,
+			Home:                KimiCodeDesktopHome,
+		},
+		inspect: inspectKimiCode,
+		install: installKimiCode,
+		open:    openKimiCode,
+	},
 }
 
 func Definitions() []Definition {

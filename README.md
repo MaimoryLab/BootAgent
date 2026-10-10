@@ -100,9 +100,11 @@ BootAgent supports detection, configuration, launch, or installation guidance ac
 | Codex · Claude Code · OpenCode | DeepSeek Harness · Claude Desktop |
 | Kilo CLI · Aider · OpenClaw | ChatGPT Desktop · WorkBuddy |
 | Hermes Agent · Kimi Code · Pi | WorkBuddy AI · ZCode |
-| DeepSeek Harness (local web app) | |
+| DeepSeek Harness (local web app) | Kimi Code Desktop |
 
 Claude Desktop can be detected and launched on macOS and Windows, but it must be installed by the user from the [official download page](https://claude.com/download). BootAgent writes compatible configuration and does not download or proxy Claude Desktop.
+
+Kimi Code Desktop is installed automatically on macOS and Windows. Before running the installer, BootAgent checks the download's digest and the app's signature: the Developer ID team on macOS, and the Authenticode publisher on Windows. It shares `~/.kimi-code/config.toml` with the Kimi Code CLI, so both Agents read the same configuration.
 
 DeepSeek Harness can use its shipped DeepSeek route or a configured compatible Provider. It opens a local web app after installation; its own onboarding commands remain the source of truth.
 

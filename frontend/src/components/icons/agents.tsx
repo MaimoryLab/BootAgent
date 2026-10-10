@@ -194,6 +194,16 @@ const MARKS: Record<string, Mark> = {
     source: assetRightsManifest.assets["kimi-code"].source,
     rights: assetRightsManifest.assets["kimi-code"],
   },
+  // Kimi Code Desktop is Moonshot's own app over the same ~/.kimi-code/config.toml
+  // the kimi-code CLI reads, so it carries the same Kimi product mark. Keyed by
+  // desktop Agent id because the desktop card looks itself up by id, as with
+  // dsh-desktop above -- without this entry the card fell back to the generic Bot glyph.
+  "kimi-code-desktop": {
+    kind: "asset",
+    markup: kimiCodeMark,
+    source: assetRightsManifest.assets["kimi-code"].source,
+    rights: assetRightsManifest.assets["kimi-code"],
+  },
 };
 
 /** One-line positioning shown on hover; never a restatement of the name. */

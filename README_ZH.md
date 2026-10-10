@@ -98,9 +98,11 @@ BootAgent 会根据每个 Agent 的官方约定提供检测、配置、启动、
 | Codex · Claude Code · OpenCode | DeepSeek Harness · Claude Desktop |
 | Kilo CLI · Aider · OpenClaw | ChatGPT Desktop · WorkBuddy |
 | Hermes Agent · Kimi Code · Pi | WorkBuddy AI · ZCode |
-| DeepSeek Harness（本地 Web 应用） | |
+| DeepSeek Harness（本地 Web 应用） | Kimi Code Desktop |
 
 Claude Desktop 可以在 macOS 和 Windows 上被检测和启动，但需要用户从[官方下载页面](https://claude.com/download)自行安装。BootAgent 只写入兼容配置，不下载也不代理 Claude Desktop。
+
+Kimi Code Desktop 在 macOS 和 Windows 上由 BootAgent 自动安装。运行安装程序前，BootAgent 会校验下载文件的摘要以及应用签名：macOS 校验 Developer ID 团队，Windows 校验 Authenticode 发布者。它与 Kimi Code CLI 共享 `~/.kimi-code/config.toml`，两个 Agent 读取的是同一份配置。
 
 DeepSeek Harness 可以使用自带的 DeepSeek 官方线路，也可以使用已配置的兼容 Provider。安装后它会打开本地 Web 应用，具体引导命令以其官方文档为准。
 
