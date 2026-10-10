@@ -215,7 +215,7 @@ func inspectWorkBuddyWindows(ctx context.Context, edition workBuddyEdition, opti
 		}
 		if !info.IsDir() {
 			status.Installed, status.Path = true, candidate
-			status.Version = workBuddyWindowsVersion(ctx, options, candidate)
+			status.Version = windowsProductVersion(ctx, options, candidate)
 			return status, nil
 		}
 	}
@@ -274,16 +274,6 @@ func workBuddyWindowsCandidates(edition workBuddyEdition, options Options) []str
 		result = append(result, filepath.Join(programFiles, folder, edition.executableName))
 	}
 	return result
-}
-
-func workBuddyWindowsVersion(ctx context.Context, options Options, path string) *string {
-	const script = `[Console]::OutputEncoding = [Text.Encoding]::UTF8
-(Get-Item -LiteralPath $env:BOOTAGENT_VERSION_PATH).VersionInfo.ProductVersion`
-	result, err := runWithEnvironment(options, ctx, []string{"powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script}, map[string]string{"BOOTAGENT_VERSION_PATH": path}, inspectTimeout)
-	if err != nil || result.ExitCode != 0 {
-		return nil
-	}
-	return nonEmptyPointer(strings.TrimSpace(result.Stdout))
 }
 
 // workBuddyStartAppsQuery matches on the Start menu display name, which carries

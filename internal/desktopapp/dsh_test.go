@@ -330,9 +330,56 @@ func TestInspectDSHWindowsLooksInThePerUserProgramsDirectory(t *testing.T) {
 	if err := os.WriteFile(exe, []byte("MZ"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	status = Inspect(context.Background(), DSHDesktopID, Options{Home: home, Platform: platform.For("windows", "x64")})
+	status = Inspect(context.Background(), DSHDesktopID, Options{Home: home, Platform: platform.For("windows", "x64"), Runner: &scriptedRunner{}})
 	if !status.Installed || status.Path != exe {
 		t.Fatalf("Inspect() after install = %#v", status)
+	}
+}
+
+// The app replaces itself through electron-updater, so the version reported is
+// the installed exe's ProductVersion, read the way a real 0.1.7-rc.2 install
+// reports it: PowerShell's UTF-8 output with a BOM and a trailing newline.
+func TestInspectDSHWindowsReportsTheInstalledProductVersion(t *testing.T) {
+	home := t.TempDir()
+	exe := filepath.Join(home, "AppData", "Local", "Programs", "DeepSeek Harness", dshDesktopExeName)
+	if err := os.MkdirAll(filepath.Dir(exe), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(exe, []byte("MZ"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	runner := &scriptedRunner{results: []process.Result{{ExitCode: 0, Stdout: "\ufeff0.1.7-rc.2\r\n"}}}
+	status := Inspect(context.Background(), DSHDesktopID, Options{Home: home, Platform: platform.For("windows", "x64"), Runner: runner})
+	if !status.Installed || status.Path != exe {
+		t.Fatalf("Inspect() = %#v", status)
+	}
+	if status.Version == nil || *status.Version != "0.1.7-rc.2" {
+		t.Fatalf("Inspect().Version = %v, want 0.1.7-rc.2", status.Version)
+	}
+	if len(runner.calls) != 1 {
+		t.Fatalf("runner calls = %#v, want one version query", runner.calls)
+	}
+	if argv := runner.calls[0]; len(argv) != 5 || argv[0] != "powershell.exe" || strings.Contains(argv[4], exe) {
+		t.Fatalf("version query argv = %#v; the path must not be interpolated into the script", argv)
+	}
+	if got := runner.environments[0]["BOOTAGENT_VERSION_PATH"]; got != exe {
+		t.Fatalf("BOOTAGENT_VERSION_PATH = %q, want %q", got, exe)
+	}
+}
+
+func TestInspectDSHWindowsLeavesVersionUnsetWhenTheQueryFails(t *testing.T) {
+	home := t.TempDir()
+	exe := filepath.Join(home, "AppData", "Local", "Programs", "DeepSeek Harness", dshDesktopExeName)
+	if err := os.MkdirAll(filepath.Dir(exe), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(exe, []byte("MZ"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	runner := &scriptedRunner{results: []process.Result{{ExitCode: 1, Stderr: "Get-Item : access denied"}}}
+	status := Inspect(context.Background(), DSHDesktopID, Options{Home: home, Platform: platform.For("windows", "x64"), Runner: runner})
+	if !status.Installed || status.Version != nil || status.InspectionUnavailable != nil {
+		t.Fatalf("Inspect() = %#v, want installed with no version", status)
 	}
 }
 
