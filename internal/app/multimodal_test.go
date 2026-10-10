@@ -50,6 +50,9 @@ func (g *multimodalGateway) Do(request *http.Request) (*http.Response, error) {
 		status = http.StatusOK
 	}
 	if status == http.StatusOK {
+		if strings.HasPrefix(request.URL.Path, "/v3/") {
+			return appProviderResponse(status, `{"data":{"audio":"4944"},"base_resp":{"status_code":0}}`), nil
+		}
 		return appProviderResponse(status, `{}`), nil
 	}
 	return appProviderResponse(status, `{"error":{"message":"model `+body.Model+` does not support image input, key `+multimodalKey+`"}}`), nil

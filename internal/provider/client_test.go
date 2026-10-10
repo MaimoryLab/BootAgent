@@ -522,3 +522,35 @@ func TestProbeNativeSpeechReadsTheVerdictInTheBody(t *testing.T) {
 		}
 	}
 }
+
+func TestNativeSpeechProbeRequiresACompleteSuccessResponse(t *testing.T) {
+	for name, body := range map[string]string{
+		"HTML":          "<html>service unavailable</html>",
+		"truncated":     `{"data":{"audio":"4944"},"base_resp":`,
+		"no verdict":    `{"data":{"audio":"4944"}}`,
+		"no status":     `{"data":{"audio":"4944"},"base_resp":{}}`,
+		"no audio":      `{"base_resp":{"status_code":0}}`,
+		"invalid audio": `{"data":{"audio":"not hex"},"base_resp":{"status_code":0}}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			client := NewClient(fakeDoer(func(*http.Request) (*http.Response, error) { return fakeResponse(http.StatusOK, body), nil }))
+			result, err := client.ProbeNativeSpeech(context.Background(), "key", "minimax-speech-2.8-turbo", "https://api.novita.ai")
+			if err != nil || result.OK || result.Status != http.StatusBadGateway {
+				t.Fatalf("invalid success body should be transient, got %#v, %v", result, err)
+			}
+		})
+	}
+	client := NewClient(fakeDoer(func(*http.Request) (*http.Response, error) {
+		return &http.Response{StatusCode: http.StatusOK, Body: failingBody{err: io.ErrUnexpectedEOF}}, nil
+	}))
+	if result, err := client.ProbeNativeSpeech(context.Background(), "key", "m", "https://api.novita.ai"); err != nil || result.OK || result.Reachable {
+		t.Fatalf("body read failure should be unverified, got %#v, %v", result, err)
+	}
+	client = NewClient(fakeDoer(func(*http.Request) (*http.Response, error) {
+		return fakeResponse(http.StatusOK, `{"data":{"audio":"4944"},"base_resp":{"status_code":0}}`), nil
+	}))
+	client.maxBody = 20
+	if result, err := client.ProbeNativeSpeech(context.Background(), "key", "m", "https://api.novita.ai"); err != nil || result.OK || result.Status != http.StatusBadGateway {
+		t.Fatalf("oversized body should be unverified, got %#v, %v", result, err)
+	}
+}

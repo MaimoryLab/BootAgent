@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -277,24 +278,40 @@ func (c *Client) ProbeNativeSpeech(ctx context.Context, apiKey, model, nativeBas
 		return result, nil
 	}
 	defer response.Body.Close()
-	body, _, _ := c.readBody(response.Body)
+	body, tooLarge, readErr := c.readBody(response.Body)
+	if readErr != nil {
+		result := transportResult(readErr)
+		result.Protocol = new(ProtocolOpenAI)
+		return result, nil
+	}
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
 		result := classifyHTTPProbe(response.StatusCode, string(body), ProtocolOpenAI, model)
 		result.Detail = upstreamDetail(body, apiKey)
 		return result, nil
 	}
 	var parsed struct {
+		Data struct {
+			Audio string `json:"audio"`
+		} `json:"data"`
 		BaseResp *struct {
-			StatusCode int    `json:"status_code"`
+			StatusCode *int   `json:"status_code"`
 			StatusMsg  string `json:"status_msg"`
 		} `json:"base_resp"`
 	}
-	_ = json.Unmarshal(body, &parsed)
-	if parsed.BaseResp == nil || parsed.BaseResp.StatusCode == 0 {
+	invalidResponse := func() (ProbeResult, error) {
+		return classifyHTTPProbe(http.StatusBadGateway, "", ProtocolOpenAI, model), nil
+	}
+	if tooLarge || json.Unmarshal(body, &parsed) != nil || parsed.BaseResp == nil || parsed.BaseResp.StatusCode == nil {
+		return invalidResponse()
+	}
+	if *parsed.BaseResp.StatusCode == 0 {
+		if audio, err := hex.DecodeString(parsed.Data.Audio); err != nil || len(audio) == 0 {
+			return invalidResponse()
+		}
 		return ProbeResult{OK: true, Reachable: true, Status: response.StatusCode, Message: "Speech route accepted the request.", Protocol: new(ProtocolOpenAI)}, nil
 	}
 	status := http.StatusBadRequest
-	switch parsed.BaseResp.StatusCode {
+	switch *parsed.BaseResp.StatusCode {
 	case 1004:
 		status = http.StatusUnauthorized
 	case 1002, 1039:
