@@ -360,6 +360,7 @@ func (s *ProviderService) Probe(ctx context.Context, request ProbeRequest) (Prob
 	// same model, so repeating it there would suggest they could differ.
 	response.Model = result.Model
 	response.AutoSelectedModel = result.AutoSelectedModel
+	response.Convertible = result.Convertible
 	response.Protocols = make(map[string]ProbeResponse, len(result.Protocols))
 	for protocolID, protocolResult := range result.Protocols {
 		response.Protocols[protocolID] = probeResponse(protocolResult)
@@ -566,6 +567,35 @@ func (s *AgentService) Activate(ctx context.Context, request ActivateRequest) (A
 	}, nil
 }
 
+// ActivateWithConversion points an Agent at the local adapter, which forwards
+// to the named Chat Completions Profile. It sends billed check requests, so the
+// UI calls it only from a button.
+func (s *AgentService) ActivateWithConversion(ctx context.Context, request AgentConversionRequest) (AgentConversionResponse, error) {
+	if err := contextError(ctx); err != nil {
+		return AgentConversionResponse{}, err
+	}
+	if s == nil || s.core == nil {
+		return AgentConversionResponse{}, notReady("Agent activation is not configured")
+	}
+	result, err := s.core.ConfigureAgentWithConversion(ctx, request.AgentID, request.ProfileID)
+	if err != nil {
+		return AgentConversionResponse{}, err
+	}
+	return AgentConversionResponse{
+		ActivateResponse: ActivateResponse{
+			OK:       true,
+			Agent:    result.AgentID,
+			Config:   result.Config,
+			Provider: result.Provider,
+			Model:    result.Model,
+			Restart:  result.Restart,
+			Next:     result.Next,
+		},
+		UpstreamVerified: result.UpstreamVerified,
+		EndToEndVerified: result.EndToEndVerified,
+	}, nil
+}
+
 // Launch opens a terminal window running one Agent with its BootAgent
 // configuration already sourced.
 func (s *AgentService) Launch(ctx context.Context, request LaunchRequest) (LaunchResponse, error) {
@@ -730,6 +760,9 @@ type ProbeResponse struct {
 	// about the user's key, and the UI has to be able to say which it is.
 	Model             string `json:"model,omitempty"`
 	AutoSelectedModel bool   `json:"auto_selected_model,omitempty"`
+	// Convertible names the protocols that failed but that compatibility mode
+	// can serve over Chat Completions. Top-level only, like Model.
+	Convertible []string `json:"convertible,omitempty"`
 }
 
 type ModelsResponse struct {
@@ -777,6 +810,11 @@ type InstallResponse struct {
 	Probes  map[string]ProbeResponse `json:"probes"`
 }
 
+type AgentConversionRequest struct {
+	AgentID   string `json:"agent_id"`
+	ProfileID string `json:"profile_id"`
+}
+
 type ActivateRequest struct {
 	AgentID    string `json:"agent_id"`
 	Provider   string `json:"provider"`
@@ -794,6 +832,12 @@ type ActivateResponse struct {
 	Model    string `json:"model"`
 	Restart  string `json:"restart"`
 	Next     string `json:"next"`
+}
+
+type AgentConversionResponse struct {
+	ActivateResponse
+	UpstreamVerified bool `json:"upstreamVerified"`
+	EndToEndVerified bool `json:"endToEndVerified"`
 }
 
 type LaunchRequest struct {

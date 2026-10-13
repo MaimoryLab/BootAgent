@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/MaimoryLab/BootAgent/internal/catalog"
+	oneerrors "github.com/MaimoryLab/BootAgent/internal/errors"
 	"github.com/MaimoryLab/BootAgent/internal/platform"
 	"github.com/MaimoryLab/BootAgent/internal/process"
 )
@@ -292,6 +293,17 @@ func TestLaunchAgentRejectsQuotedWindowsDirectory(t *testing.T) {
 	core := launchCore(t, "windows", runner)
 	if _, err := core.LaunchAgent(context.Background(), "codex", `C:\bad" & whoami`); err == nil {
 		t.Fatal("quoted Windows directory was accepted")
+	}
+}
+
+// The interface names the field the user filled only when the code says which
+// field it was; INVALID_REQUEST left it passing English prose through.
+func TestLaunchAgentReportsAMissingDirectoryByItsOwnCode(t *testing.T) {
+	core := launchCore(t, "linux", &launchRunner{paths: map[string]string{"x-terminal-emulator": "/usr/bin/x-terminal-emulator"}})
+	_, err := core.LaunchAgent(context.Background(), "codex", t.TempDir()+"/missing")
+	var failure *oneerrors.BootAgentError
+	if !errors.As(err, &failure) || failure.Code != oneerrors.LaunchDirectoryInvalid {
+		t.Fatalf("error = %#v, want %s", err, oneerrors.LaunchDirectoryInvalid)
 	}
 }
 

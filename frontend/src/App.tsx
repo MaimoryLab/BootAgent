@@ -23,6 +23,7 @@ import { MarketplaceRecommendationDetailPage } from "./pages/MarketplaceRecommen
 import { SkillsPage } from "./pages/SkillsPage";
 import { TransferPage } from "./pages/TransferPage";
 import { I18nProvider, useI18n } from "./i18n";
+import { FeedbackProvider } from "./state/FeedbackContext";
 import { TaskCenterProvider, useTaskCenter } from "./state/TaskCenterContext";
 import { ThemeProvider } from "./state/ThemeContext";
 import { WizardProvider, useWizard } from "./state/WizardContext";
@@ -125,9 +126,11 @@ export default function App() {
       <I18nProvider>
         <TaskCenterProvider>
           <AppUpdater />
-          <WizardProvider>
-            <WorkspaceRoutes />
-          </WizardProvider>
+          <FeedbackProvider>
+            <WizardProvider>
+              <WorkspaceRoutes />
+            </WizardProvider>
+          </FeedbackProvider>
         </TaskCenterProvider>
       </I18nProvider>
     </ThemeProvider>

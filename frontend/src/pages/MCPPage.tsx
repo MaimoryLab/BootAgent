@@ -12,6 +12,8 @@ import { ManagementSearch } from "../components/ManagementSearch";
 import { ModalDialog } from "../components/ModalDialog";
 import { PageScaffold } from "../components/PageScaffold";
 import { SelectField } from "../components/SelectField";
+import { applyReceipt } from "../state/applyReceipt";
+import { useFeedback } from "../state/FeedbackContext";
 import { useWizard } from "../state/WizardContext";
 
 const emptySpec: MCPSpec = { type: "stdio", command: "", args: [], env: {} };
@@ -97,8 +99,13 @@ export function filterMCPRows(rows: MCPServerSummary[], query: string): MCPServe
 export function MCPPage() {
   const { t, locale } = useI18n();
   const { state } = useWizard();
+  const feedback = useFeedback();
   const [rows, setRows] = useState<MCPServerSummary[]>([]);
   const [scanning, setScanning] = useState(false);
+  // A failed read is not an empty registry: the empty state must not invite
+  // the user to register a first server they may already have.
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [applying, setApplying] = useState(false);
   const [draft, setDraft] = useState<Record<string, MCPSpec>>({});
   const [editing, setEditing] = useState<string | null>(null);
   const [form, setForm] = useState<MCPSpec>(emptySpec);
@@ -118,11 +125,17 @@ export function MCPPage() {
 
   const refresh = () => {
     setScanning(true);
-    void api.scanMCP().then((result) => { setRows(result.servers ?? []); setEligibleAgents(result.eligible_agents ?? []); }).finally(() => setScanning(false));
+    void api.scanMCP()
+      .then((result) => { setRows(result.servers ?? []); setEligibleAgents(result.eligible_agents ?? []); setLoadFailed(false); })
+      .catch((error: unknown) => { setLoadFailed(true); feedback.failure(error, t("无法扫描 MCP 配置"), { key: "mcp:scan", action: { label: t("重试"), run: refresh } }); })
+      .finally(() => setScanning(false));
   };
   useEffect(() => {
-    void api.listMCP().then(setRows);
+    // The scan reads the same registry and reports a failure for both.
+    void api.listMCP().then(setRows).catch(() => undefined);
     refresh();
+    // Runs once on mount; refresh only closes over setters and stable context.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   useEffect(() => { void api.setMCPDraftState(dirty, locale); }, [dirty, locale]);
 
@@ -134,7 +147,9 @@ export function MCPPage() {
       const detail = await api.getMCP(row.id, agentsFor(row)[0] ?? "");
       const spec = detail.variants?.[0]?.spec ?? emptySpec;
       setEditing(row.id); setForm(spec); setCommandLine(spec.type === "stdio" ? formatStdioCommandLine(spec) : ""); setAdvancedJSON(JSON.stringify(spec, null, 2));
-    } catch { /* normalized bridge error is surfaced by the page-level shell */ }
+    } catch (error) {
+      feedback.failure(error, t("无法读取「{name}」", { name: row.id }), { key: "mcp:edit" });
+    }
   };
   const saveDraft = () => {
     const command = form.type === "stdio" ? parseStdioCommandLine(commandLine) : { command: form.command ?? "", args: form.args ?? [] };
@@ -146,10 +161,25 @@ export function MCPPage() {
     setEditing(null);
   };
   const apply = async () => {
-    const ids = new Set([...Object.keys(draft), ...Object.keys(targets), ...Object.keys(deleted)]);
-    const changes = await Promise.all([...ids].map(async (id) => ({ id, spec: deleted[id] ? undefined : draft[id] ?? (await api.getMCP(id, "")).variants?.[0]?.spec ?? emptySpec, delete: Boolean(deleted[id]), agents: targets[id] ?? agentsFor(rows.find((row) => row.id === id)!) })));
-    const result = await api.applyMCP({ changes });
-    if ((result.results ?? []).every((item) => item.registry_updated)) { setDraft({}); setTargets({}); setDeleted({}); }
+    if (applying) return;
+    setApplying(true);
+    try {
+      const ids = new Set([...Object.keys(draft), ...Object.keys(targets), ...Object.keys(deleted)]);
+      const changes = await Promise.all([...ids].map(async (id) => ({ id, spec: deleted[id] ? undefined : draft[id] ?? (await api.getMCP(id, "")).variants?.[0]?.spec ?? emptySpec, delete: Boolean(deleted[id]), agents: targets[id] ?? agentsFor(rows.find((row) => row.id === id)!) })));
+      const result = await api.applyMCP({ changes });
+      if ((result.results ?? []).every((item) => item.registry_updated)) { setDraft({}); setTargets({}); setDeleted({}); }
+      feedback.show(applyReceipt({
+        key: "mcp:apply",
+        results: result.results,
+        success: { message: t("已同步 {count} 个 MCP 服务器", { count: changes.length }) },
+        failure: (count) => t("{count} 项未能应用", { count }),
+        nameOf: (agent) => agentLabels[agent] ?? agent,
+      }));
+    } catch (error) {
+      feedback.failure(error, t("无法应用 MCP 更改"), { key: "mcp:apply" });
+    } finally {
+      setApplying(false);
+    }
     refresh();
   };
   const visibleRows = useMemo(() => filterMCPRows(rows.slice().sort((a, b) => a.id.localeCompare(b.id)), query), [rows, query]);
@@ -195,13 +225,13 @@ export function MCPPage() {
     } catch { /* leave invalid text visible for correction */ }
   };
 
-  return <PageScaffold title={t("MCP 服务器")} bodyClassName="mcp-page" secondaryAction={<div className="management-footer-actions"><Link className="button button-secondary" to="/marketplace?category=mcp-server"><ShoppingBag size={16} />{t("去市场发现")}</Link><button className="button button-secondary" onClick={refresh} disabled={scanning} title={t("重新扫描")}><RefreshCw size={16} />{t("重新扫描")}</button><button className="button button-secondary" onClick={openNew}><Plus size={16} />{t("新增")}</button></div>} primaryLabel={dirtyCount ? t("应用更改（{count}）", { count: dirtyCount }) : t("应用更改")} onPrimary={() => void apply()} primaryDisabled={!dirty}>
+  return <PageScaffold title={t("MCP 服务器")} bodyClassName="mcp-page" secondaryAction={<div className="management-footer-actions"><Link className="button button-secondary" to="/marketplace?category=mcp-server"><ShoppingBag size={16} />{t("去市场发现")}</Link><button className="button button-secondary" onClick={refresh} disabled={scanning} title={t("重新扫描")}><RefreshCw size={16} />{t("重新扫描")}</button><button className="button button-secondary" onClick={openNew}><Plus size={16} />{t("新增")}</button></div>} primaryLabel={dirtyCount ? t("应用更改（{count}）", { count: dirtyCount }) : t("应用更改")} onPrimary={() => void apply()} primaryDisabled={!dirty} primaryBusy={applying}>
     <section className="content-section mcp-page">
       <div className="section-heading"><div><h2>{t("MCP Registry")}</h2><p>{t("配置只在点击应用更改后写入 Agent")}</p></div></div>
       {scanning ? <div className="mcp-scan-status"><span className="spinner" />{t("正在后台扫描")}</div> : null}
       {rows.length ? <div className="management-toolbar"><ManagementSearch value={query} onValueChange={setQuery} placeholder={t("搜索 MCP 服务器")} /><AgentSummaryBar agents={eligibleAgents} counts={summaryCounts} total={summaryRows.length} onToggleAll={bulkToggle} labels={agentLabels} /></div> : null}
-      {!rows.length ? <EmptyState icon={Server} title={t("尚未发现 MCP 服务器")} hint={t("点击新增来登记第一个 MCP 服务器")} action={<Link className="list-empty-link" to="/marketplace?category=mcp-server">{t("或者去工具市场发现")}</Link>} /> : !visibleRows.length ? <EmptyState icon={Server} title={t("没有匹配的 MCP 服务器")} hint={t("换一个关键词，或清空搜索")} /> : <div className="mcp-table-wrap"><table className="mcp-table"><thead><tr><th>{t("服务器")}</th><th>{t("传输")}</th><th>{t("同步目标")}</th><th>{t("状态")}</th><th /></tr></thead><tbody>{visibleRows.map((row) => { const isDeleted = Boolean(deleted[row.id]); return <tr key={row.id} className={isDeleted ? "mcp-row-deleted" : undefined}><td><strong>{row.id}</strong></td><td>{row.type}</td><td><AgentTargetGroup agents={eligibleAgents} selected={selectedFor(row)} disabled={isDeleted} labels={agentLabels} onToggle={(agent, checked) => setTargets((all) => { const current = new Set(all[row.id] ?? agentsFor(row)); checked ? current.add(agent) : current.delete(agent); return { ...all, [row.id]: [...current] }; })} /></td><td><span className={isDeleted ? "status-badge status-warning" : row.conflict ? "status-badge status-warning" : mcpRowPending(row.id, draft, targets) ? "status-badge status-info" : "status-badge status-success"}>{isDeleted ? t("待删除") : row.conflict ? t("冲突") : mcpRowPending(row.id, draft, targets) ? t("待应用") : t("已同步")}</span>{row.has_secrets ? <small className="mcp-secret-note">{t("包含秘密字段")}</small> : null}</td><td className="mcp-row-actions"><button className="icon-button row-action" disabled={isDeleted} onClick={() => void openEdit(row)} title={t("编辑")}><Edit3 size={16} /></button><button className={`icon-button row-action${isDeleted ? " is-restore" : " is-danger"}`} onClick={() => setDeleted((all) => ({ ...all, [row.id]: !isDeleted }))} title={isDeleted ? t("恢复") : t("删除")}>{isDeleted ? <RotateCcw size={16} /> : <Trash2 size={16} />}</button></td></tr>; })}</tbody></table></div>}
+      {!rows.length && loadFailed ? <EmptyState icon={Server} title={t("没能读取 MCP 服务器")} hint={t("点击重新扫描再试一次")} /> : !rows.length ? <EmptyState icon={Server} title={t("尚未发现 MCP 服务器")} hint={t("点击新增来登记第一个 MCP 服务器")} action={<Link className="list-empty-link" to="/marketplace?category=mcp-server">{t("或者去工具市场发现")}</Link>} /> : !visibleRows.length ? <EmptyState icon={Server} title={t("没有匹配的 MCP 服务器")} hint={t("换一个关键词，或清空搜索")} /> : <div className="mcp-table-wrap"><table className="mcp-table"><thead><tr><th>{t("服务器")}</th><th>{t("传输")}</th><th>{t("同步目标")}</th><th>{t("状态")}</th><th /></tr></thead><tbody>{visibleRows.map((row) => { const isDeleted = Boolean(deleted[row.id]); return <tr key={row.id} className={isDeleted ? "mcp-row-deleted" : undefined}><td><strong>{row.id}</strong></td><td>{row.type}</td><td><AgentTargetGroup agents={eligibleAgents} selected={selectedFor(row)} disabled={isDeleted} labels={agentLabels} onToggle={(agent, checked) => setTargets((all) => { const current = new Set(all[row.id] ?? agentsFor(row)); checked ? current.add(agent) : current.delete(agent); return { ...all, [row.id]: [...current] }; })} /></td><td><span className={isDeleted ? "status-badge status-warning" : row.conflict ? "status-badge status-warning" : mcpRowPending(row.id, draft, targets) ? "status-badge status-info" : "status-badge status-success"}>{isDeleted ? t("待删除") : row.conflict ? t("冲突") : mcpRowPending(row.id, draft, targets) ? t("待应用") : t("已同步")}</span>{row.has_secrets ? <small className="mcp-secret-note">{t("包含秘密字段")}</small> : null}</td><td className="mcp-row-actions"><button className="icon-button row-action" disabled={isDeleted} onClick={() => void openEdit(row)} title={t("编辑")}><Edit3 size={16} /></button><button className={`icon-button row-action${isDeleted ? " is-restore" : " is-danger"}`} onClick={() => setDeleted((all) => ({ ...all, [row.id]: !isDeleted }))} title={isDeleted ? t("恢复") : t("删除")}>{isDeleted ? <RotateCcw size={16} /> : <Trash2 size={16} />}</button></td></tr>; })}</tbody></table></div>}
     </section>
-    {editing !== null ? <ModalDialog className="mcp-modal" label={editing ? t("编辑 MCP 服务器") : t("新增 MCP 服务器")} onDismiss={() => setEditing(null)}><header><h2>{editing ? t("编辑 MCP 服务器") : t("新增 MCP 服务器")}</h2><button className="icon-button" onClick={() => setEditing(null)} title={t("关闭")}><X size={18} /></button></header><label>{t("服务器 ID")}<input value={editing} onChange={(event) => setEditing(event.target.value)} disabled={Boolean(draft[editing])} /></label><div className="mcp-transport-field"><span>{t("传输")}</span><SelectField value={form.type ?? "stdio"} options={[{ value: "stdio", label: "stdio" }, { value: "http", label: "http" }, { value: "sse", label: "sse" }]} onChange={(type) => { const next = changeMCPTransport(form, type); setForm(next); setCommandLine(type === "stdio" ? formatStdioCommandLine(next) : ""); setAdvancedJSON(JSON.stringify(next, null, 2)); }} label={t("传输")} /></div>{form.type === "stdio" ? <label>{t("命令")}<input value={commandLine} onChange={(event) => updateCommandLine(event.target.value)} autoComplete="off" autoCapitalize="none" autoCorrect="off" spellCheck={false} /></label> : <label>{t("URL")}<input value={form.url ?? ""} onChange={(event) => { const next = { ...form, url: event.target.value }; setForm(next); setAdvancedJSON(JSON.stringify(next, null, 2)); }} autoComplete="off" autoCapitalize="none" autoCorrect="off" spellCheck={false} /></label>}<label>{t("高级 JSON")}<textarea value={advancedJSON} onChange={(event) => updateAdvancedJSON(event.target.value)} onBlur={finishAdvancedJSON} rows={10} /></label><footer><button className="button" onClick={() => setEditing(null)}><X size={16} />{t("取消")}</button><button className="button button-primary" onClick={saveDraft}><Save size={16} />{t("保存草稿")}</button></footer></ModalDialog> : null}
+    {editing !== null ? <ModalDialog className="mcp-modal" label={editing ? t("编辑 MCP 服务器") : t("新增 MCP 服务器")} onDismiss={() => setEditing(null)}><header><h2>{editing ? t("编辑 MCP 服务器") : t("新增 MCP 服务器")}</h2><button className="icon-button" onClick={() => setEditing(null)} title={t("关闭")}><X size={18} /></button></header><label>{t("服务器 ID")}<input value={editing} onChange={(event) => setEditing(event.target.value)} disabled={Boolean(draft[editing])} /></label><div className="mcp-transport-field"><span>{t("传输")}</span><SelectField value={form.type ?? "stdio"} options={[{ value: "stdio", label: "stdio" }, { value: "http", label: "http" }, { value: "sse", label: "sse" }]} onChange={(type) => { const next = changeMCPTransport(form, type); setForm(next); setCommandLine(type === "stdio" ? formatStdioCommandLine(next) : ""); setAdvancedJSON(JSON.stringify(next, null, 2)); }} label={t("传输")} /></div>{form.type === "stdio" ? <label>{t("命令")}<input value={commandLine} onChange={(event) => updateCommandLine(event.target.value)} autoComplete="off" autoCapitalize="none" autoCorrect="off" spellCheck={false} /></label> : <label>{t("URL")}<input value={form.url ?? ""} onChange={(event) => { const next = { ...form, url: event.target.value }; setForm(next); setAdvancedJSON(JSON.stringify(next, null, 2)); }} autoComplete="off" autoCapitalize="none" autoCorrect="off" spellCheck={false} /></label>}<label>{t("高级 JSON")}<textarea value={advancedJSON} onChange={(event) => updateAdvancedJSON(event.target.value)} onBlur={finishAdvancedJSON} rows={10} /></label><footer><button className="button" onClick={() => setEditing(null)}><X size={16} />{t("取消")}</button><button className="button button-primary" onClick={saveDraft} disabled={!isMCPDraftComplete(editing, form, commandLine)}><Save size={16} />{t("保存草稿")}</button></footer></ModalDialog> : null}
   </PageScaffold>;
 }

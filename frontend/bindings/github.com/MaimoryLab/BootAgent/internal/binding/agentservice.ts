@@ -17,6 +17,15 @@ export function Activate(request: $models.ActivateRequest): $CancellablePromise<
     return $Call.ByID(1566640042, request);
 }
 
+/**
+ * ActivateWithConversion points an Agent at the local adapter, which forwards
+ * to the named Chat Completions Profile. It sends billed check requests, so the
+ * UI calls it only from a button.
+ */
+export function ActivateWithConversion(request: $models.AgentConversionRequest): $CancellablePromise<$models.AgentConversionResponse> {
+    return $Call.ByID(3840302198, request);
+}
+
 export function Install(request: $models.InstallRequest): $CancellablePromise<$models.InstallResponse> {
     return $Call.ByID(1289781782, request);
 }

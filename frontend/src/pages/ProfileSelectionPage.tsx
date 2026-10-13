@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 
 import { PageScaffold } from "../components/PageScaffold";
 import { useI18n } from "../i18n";
-import { converterProfileName } from "../state/conversion";
+import { converterProfileName, isConverterID, providerDisplayName } from "../state/conversion";
 import { useWizard } from "../state/WizardContext";
 import { desktopProtocol, profileAgentIdForDesktop, selectedDesktopApp } from "../state/desktopSetup";
 import { byProfileCreatedAt } from "../state/ranking";
@@ -24,7 +24,9 @@ export function ProfileSelectionPage() {
     ? desktopProtocol(desktop)
     : state.status?.catalog.find((agent) => agent.id === agentId)?.protocol;
   const profiles = useMemo(
-    () => byProfileCreatedAt(state.status?.profiles.filter((profile) => profile.protocol === protocol && profile.model?.trim()) ?? []),
+    // A converter Profile is another Agent's compatibility-mode route: reusing
+    // it would send this Agent's requests down that Agent's route.
+    () => byProfileCreatedAt(state.status?.profiles.filter((profile) => profile.protocol === protocol && profile.model?.trim() && !isConverterID(profile.id)) ?? []),
     [protocol, state.status?.profiles],
   );
   const selected = profiles.find((profile) => profile.id === selectedId);
@@ -76,7 +78,7 @@ export function ProfileSelectionPage() {
                 <span className="profile-title"><strong>{displayName}</strong><small>{profile.id}</small></span>
                 {active ? <Check size={16} aria-hidden="true" /> : null}
               </label>
-              <p>{status.providers[profile.provider]?.name || profile.provider} · {profile.model}</p>
+              <p>{providerDisplayName(status.providers, profile.provider, t)} · {profile.model}</p>
             </article>
           );
         })}

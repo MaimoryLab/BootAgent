@@ -231,6 +231,10 @@ export const wailsApi = {
       model: input.model,
       profile_id: input.profileId ?? "",
     })) as Promise<ActivateAgentResponse>,
+  // Billed: checks the upstream and the local adapter before writing, so call it
+  // only from a button.
+  activateAgentWithConversion: (agentId: string, profileId: string): CancellableRequest<import("../types/api").AgentConversionResponse> =>
+    call(() => AgentService.ActivateWithConversion({ agent_id: agentId, profile_id: profileId })) as CancellableRequest<import("../types/api").AgentConversionResponse>,
   launchAgent: (agentId: string, workingDirectory = ""): Promise<LaunchAgentResponse> =>
     call(() => AgentService.Launch({ agent_id: agentId, working_directory: workingDirectory })) as Promise<LaunchAgentResponse>,
   migrateConversations: (): Promise<import("../types/api").ConversationMigrationResult> =>

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 
 import type { Translate } from "../i18n";
 import { useI18n } from "../i18n";
+import { canConvertProtocol } from "../state/conversion";
 import type { ProfileModelCheck } from "../types/api";
 
 const protocolLabels: Record<string, string> = {
@@ -62,8 +63,10 @@ export function describeModelCheck(check: ProfileModelCheck, t: Translate, nameO
     reason,
     agents: agents ? t("受影响的 Agent：{agents}", { agents }) : "",
     detail: check.detail ? t("模型服务返回：{detail}", { detail: check.detail }) : "",
-    hint: check.reason === "refused" && check.protocol === "responses"
-      ? t("Codex 使用 Responses API。请选择支持 Responses 的模型；如果模型服务仅支持 Chat Completions，可使用 API 协议适配，并应用适配器生成的 Codex 配置模版。")
+    // Claude Code and Codex each speak a format of their own, and compatibility
+    // mode is what lets a Chat Completions-only service serve them.
+    hint: check.reason === "refused" && canConvertProtocol(check.protocol)
+      ? t("这个模型服务可能不支持该 Agent 的请求格式，可以换一个模型，或用兼容模式在本机转换")
       : "",
   };
 }
@@ -115,6 +118,9 @@ interface ModelCheckNoticeProps {
   /** Saves the Profile back to check.previousModel. Omitted where no save path exists. */
   onRevert?: () => void;
   onRecheck?: () => void;
+  /** Switches the affected Agents to compatibility mode in place. Omitted
+   *  where none of them can use it, which leaves the hint as the only remedy. */
+  onUseConversion?: () => void;
   onDismiss: () => void;
 }
 
@@ -125,7 +131,7 @@ interface ModelCheckNoticeProps {
  * is offered follows from why the check failed -- going back to the old model
  * cannot fix a rejected key.
  */
-export function ModelCheckNotice({ check, providerId, nameOf, returnTo, profileName, busy, onRevert, onRecheck, onDismiss }: ModelCheckNoticeProps) {
+export function ModelCheckNotice({ check, providerId, nameOf, returnTo, profileName, busy, onRevert, onRecheck, onUseConversion, onDismiss }: ModelCheckNoticeProps) {
   const { t, locale } = useI18n();
   const navigate = useNavigate();
   const parts = describeModelCheck(check, t, nameOf, locale === "en" ? ", " : "、");
@@ -148,9 +154,9 @@ export function ModelCheckNotice({ check, providerId, nameOf, returnTo, profileN
           {parts.hint ? <span>{parts.hint}</span> : null}
         </div>
         <div className="model-check-actions">
-          {parts.hint ? (
-            <button className="button button-secondary" type="button" disabled={busy} onClick={() => navigate("/conversion")}>
-              {t("打开 API 协议适配")}
+          {parts.hint && onUseConversion ? (
+            <button className="button button-secondary" type="button" disabled={busy} onClick={onUseConversion}>
+              {t("使用兼容模式")}
             </button>
           ) : null}
           {canRevert ? (

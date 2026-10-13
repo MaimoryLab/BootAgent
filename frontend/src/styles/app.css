@@ -153,10 +153,11 @@
   max-width: 160px;
 }
 
-/* A column, not a plain block, because AppWindow may put the legacy-migration
-   notice above the routed page. As a block it stacked the two at their own
-   heights -- the page still claiming the full window -- so their sum overflowed
-   the clipped bottom of .app-window and cut the footer off. */
+/* A column, not a plain block, so anything placed above the routed page takes
+   its height from the page rather than adding to it. The legacy-migration
+   notice used to sit there (it is a receipt now); as a block the two stacked at
+   their own heights -- the page still claiming the full window -- so their sum
+   overflowed the clipped bottom of .app-window and cut the footer off. */
 .app-main {
   min-width: 0;
   min-height: 0;
@@ -175,6 +176,111 @@
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) var(--footer-height);
 }
+
+/* Explicit cells. The feedback overlay shares the body's cell rather than
+   taking a row of its own; left to auto-placement it would push the body and
+   footer down a row, or into a second column. */
+.page-scaffold > .page-header { grid-row: 1; }
+.page-scaffold > .page-body { grid-row: 2; grid-column: 1; }
+.page-scaffold > .page-footer { grid-row: 3; }
+
+/* Receipts for finished operations (docs/ui-interaction-plan.md §3.3): top
+   right of the page body, over the content and never part of its layout. */
+.feedback-viewport {
+  grid-row: 2;
+  grid-column: 1;
+  z-index: 15;
+  align-self: start;
+  justify-self: end;
+  width: min(420px, calc(100% - 32px));
+  margin: 12px 42px 0 0;
+  pointer-events: none;
+}
+
+.feedback-toast {
+  --feedback-tone: var(--info);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--feedback-tone);
+  border-radius: var(--radius-control);
+  background: var(--window-bg);
+  color: var(--text-primary);
+  pointer-events: auto;
+  animation: feedback-enter 160ms ease-out;
+}
+
+.feedback-toast.is-success { --feedback-tone: var(--green); }
+.feedback-toast.is-failure { --feedback-tone: var(--red); }
+.feedback-toast.is-warning { --feedback-tone: var(--orange); }
+
+.feedback-toast-line {
+  min-height: 40px;
+  padding: 6px 6px 6px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.feedback-toast-line > svg { flex: none; color: var(--feedback-tone); }
+.feedback-toast-message { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+
+.feedback-toast-link {
+  flex: none;
+  padding: 4px 2px;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.feedback-toast-link:hover { text-decoration: underline; }
+
+.feedback-toast-close {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-control);
+  display: inline-grid;
+  place-items: center;
+  color: var(--text-secondary);
+  background: transparent;
+  cursor: pointer;
+}
+
+.feedback-toast-close:hover { color: var(--text-primary); }
+
+.feedback-toast-detail {
+  margin: 0;
+  padding: 0 12px 10px 38px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+@keyframes feedback-enter {
+  from { opacity: 0; transform: translateY(-4px); }
+}
+
+/* Both faces of an ActionButton share one cell, so the button is as wide as
+   the longer label from the first render and the swap never resizes it. */
+.action-button-faces { display: inline-grid; }
+
+.action-button-face {
+  grid-area: 1 / 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.action-button-face.is-inactive { visibility: hidden; }
 
 .page-header {
   padding: 26px 42px 18px;
@@ -923,6 +1029,16 @@
   gap: 14px;
 }
 
+/* The compatibility mode offer: one sentence, then the two ways forward. The
+   actions wrap under the sentence on a narrow window instead of squeezing it. */
+.conversion-offer {
+  margin: 14px 0 0;
+  flex-wrap: wrap;
+  justify-content: space-between;
+}
+.conversion-offer > span { flex: 1 1 260px; min-width: 0; }
+.conversion-offer-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
 .inline-status {
   min-height: 38px;
   display: inline-flex;
@@ -1292,6 +1408,7 @@
   .page-body { padding: 20px 30px 28px; }
   .management-page { padding-top: 46px; }
   .page-footer { padding: 0 30px; }
+  .feedback-viewport { margin-right: 30px; }
   .summary-item:nth-child(3) { border-left: 0; border-top: 1px solid var(--border); }
   .summary-item:nth-child(4) { border-top: 1px solid var(--border); }
 }
@@ -1313,6 +1430,11 @@
   .setup-stepper { margin-top: 14px; }
   .page-body { padding-top: 16px; padding-bottom: 20px; }
   .management-page { padding-top: 42px; }
+}
+
+/* A narrow window has no room for a 420px corner card: span the body instead. */
+@media (max-width: 560px) {
+  .feedback-viewport { width: auto; justify-self: stretch; margin: 12px 16px 0; }
 }
 
 /* Deferrable news sits beside the title rather than in a banner of its own:
@@ -1470,6 +1592,7 @@
 }
 
 .agent-manage-note.is-error { color: var(--red); }
+.agent-manage-note.is-warning { color: var(--orange); }
 
 /* Placed by the row's own two-column grid (summary | actions). An explicit
    `grid-column: 3` here belonged to the earlier five-column card and would put
@@ -1825,16 +1948,11 @@
   border: 0;
 }
 
-/* Keep the shared config note beside the actions in the card's lower row. */
-.desktop-app-note {
-  grid-area: note;
-  align-self: end;
-  min-width: 0;
-  margin: 0;
-  color: var(--text-tertiary);
-  font-size: 11px;
-  overflow-wrap: anywhere;
-}
+/* The details fold sits beside the actions in the card's lower row, where
+   the config path used to be printed. */
+.desktop-app-row > .desktop-app-details { grid-area: note; }
+/* Outside a row grid the fold just follows the content. */
+.runtime-details { grid-area: auto; }
 
 /* Detail page */
 .detail-head {
@@ -1896,27 +2014,6 @@
    flex-shrink was carrying its weight. */
 .agent-manage-actions { flex-shrink: 0; }
 
-.agent-manage-error {
-  margin: 12px 0;
-  padding: 8px 11px;
-  border-radius: var(--radius-control);
-  background: var(--red-soft);
-  color: var(--red);
-  font-size: 13px;
-}
-
-.agent-manage-applied {
-  padding: 10px 12px;
-  display: grid;
-  gap: 5px;
-  border-radius: var(--radius-control);
-  background: var(--green-soft);
-  color: var(--green);
-  font-size: 13px;
-}
-
-.agent-manage-applied strong { font-size: 13px; }
-
 /* Orange, not red: the save succeeded. What is reported is the model failing a
    live request afterwards, which the user may knowingly accept. */
 .model-check-notice {
@@ -1970,16 +2067,6 @@
   padding: 0 9px;
   gap: 5px;
   font-size: 12px;
-}
-
-.agent-manage-applied pre {
-  margin: 0;
-  padding: 7px 9px;
-  overflow-x: auto;
-  border-radius: 5px;
-  background: var(--overlay-panel);
-  color: var(--text-primary);
-  font-size: 11px;
 }
 
 /* Provider and template management use the same quiet editor rhythm. */
@@ -2322,30 +2409,6 @@
 }
 
 .provider-key-state.has-key { color: var(--green); }
-
-/* The migration notice sits above .page-scaffold as its flex sibling, so its
-   height is taken out of the page's. It carries a backend error containing a
-   filesystem path and a parser message, which on a narrow window wrapped to
-   several lines and pushed the footer -- and the buttons in it -- past the
-   bottom edge. .page-scaffold already uses `flex: 1` for this reason, but
-   `flex` alone cannot help: it also sets `min-height: 0`, so the scaffold
-   keeps yielding space to a sibling that has no bound of its own.
-
-   The cap is what makes the page's floor real, and `overflow: auto` keeps the
-   whole message reachable rather than clipping it. `overflow-wrap: anywhere`
-   is for the path: `C:\Users\...\openclaw.json` has no spaces to break at, so
-   without it a long one forces the line wider than the column. */
-.app-migration-notice {
-  flex: 0 0 auto;
-  max-height: 5.5em;
-  overflow: auto;
-  overflow-wrap: anywhere;
-  scrollbar-gutter: stable;
-  margin: 14px 42px 0;
-  color: var(--text-tertiary);
-  font-size: 11px;
-  line-height: 1.6;
-}
 
 .profile-key {
   display: inline-flex;
@@ -2973,7 +3036,7 @@
   .desktop-app-summary { grid-template-columns: minmax(0, 1fr); }
   .desktop-app-meta { justify-content: flex-start; }
   .desktop-app-actions { justify-content: flex-start; flex-wrap: wrap; }
-  .desktop-app-note { grid-column: 1 / -1; }
+  .desktop-app-row > .desktop-app-details { grid-column: 1 / -1; }
 }
 
 /* ── Marketplace ────────────────────────────────────────────────────────── */
@@ -3989,3 +4052,22 @@
 .multimodal-results li { display: flex; gap: 10px; }
 .multimodal-results li.is-ok span { color: var(--green); }
 .multimodal-results li.is-failed span { color: var(--red); overflow-wrap: anywhere; }
+
+/* A failure marker in an Agent row reopens its receipt, so it is a button that
+   keeps the pill's shape. */
+button.agent-manage-state {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+/* One line under a model field for its listing's status, always present so a
+   result arriving does not move the field or what follows it. */
+.model-list-status {
+  min-height: 18px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.model-list-status.is-ok { color: var(--green); }
+.model-list-status.is-warning { color: var(--orange); }

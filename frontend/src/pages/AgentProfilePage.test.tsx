@@ -1,9 +1,11 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { api } from "../backend/api";
+import { FeedbackViewport } from "../components/FeedbackViewport";
+import { FeedbackProvider } from "../state/FeedbackContext";
 import type { ProfileSummary, SaveProfileResult, StatusResponse } from "../types/api";
 import { AgentProfilePage } from "./AgentProfilePage";
 
@@ -68,13 +70,22 @@ function statusWith(profiles: ProfileSummary[]): StatusResponse {
 function renderPage(profiles: ProfileSummary[]) {
   mockState = { status: statusWith(profiles), statusState: "success" };
   return render(
-    <MemoryRouter initialEntries={["/agents/codex"]}>
-      <Routes>
-        <Route path="/agents/:agentId" element={<AgentProfilePage />} />
-        <Route path="/overview" element={<h1>overview</h1>} />
-      </Routes>
-    </MemoryRouter>,
+    <FeedbackProvider>
+      <MemoryRouter initialEntries={["/agents/codex"]}>
+        <Routes>
+          <Route path="/agents/:agentId" element={<AgentProfilePage />} />
+          <Route path="/overview" element={<h1>overview</h1>} />
+        </Routes>
+      </MemoryRouter>
+    </FeedbackProvider>,
   );
+}
+
+/** The receipt on screen, with 详情 open. */
+async function failureReceipt() {
+  const receipt = await screen.findByRole("alert");
+  fireEvent.click(within(receipt).getByRole("button", { name: "详情" }));
+  return receipt;
 }
 
 function renderClaudeDesktopPage(profiles: ProfileSummary[]) {
@@ -119,7 +130,56 @@ const availableCheck = {
   profileId: "team-ppio", model: "deepseek/deepseek-v3", status: "available" as const, protocol: "responses", agents: ["codex"],
 };
 
+/** The page inside the app's feedback layer, with the overview showing receipts. */
+function renderWithReceipts(path: string, status: StatusResponse) {
+  mockState = { status, statusState: "success" };
+  render(
+    <FeedbackProvider>
+      <MemoryRouter initialEntries={[path]}>
+        <Routes>
+          <Route path="/agents/:agentId" element={<AgentProfilePage />} />
+          <Route path="/overview" element={<><h1>overview</h1><FeedbackViewport /></>} />
+        </Routes>
+      </MemoryRouter>
+    </FeedbackProvider>,
+  );
+}
+
 describe("AgentProfilePage", () => {
+  // The overview row changing was the only sign the apply worked; the receipt
+  // outlives this page and says it in words.
+  it("names the applied Profile on the overview it returns to", async () => {
+    vi.spyOn(api, "activateAgent").mockResolvedValue({
+      ok: true, agent: "codex", config: "/c", provider: "ppio",
+      model: "deepseek/deepseek-v3", restart: "", next: "",
+    });
+    renderWithReceipts("/agents/codex", statusWith([profile()]));
+    fireEvent.click(screen.getByRole("button", { name: "应用" }));
+    await screen.findByRole("heading", { name: "overview" });
+    expect(screen.getByText("Codex 已改用「团队 PPIO」")).toBeTruthy();
+  });
+
+  // The backend reports that a desktop app reads its settings at startup; that
+  // used to be dropped, so the running app looked switched when it was not.
+  it("keeps a restart reminder after applying to a desktop app", async () => {
+    const status = statusWith([profile({ id: "desk", label: "桌面", protocol: "anthropic", model: "claude-sonnet-5-5" })]);
+    status.desktopAgents = [{
+      id: "claude-desktop", name: "Claude Desktop", installed: true, supported: true,
+      version: "1.0.0", source: "application", protocol: "anthropic", profileAgentId: "claude-desktop", profileId: null,
+    }];
+    status.providers = { ppio: { name: "PPIO", home: "", base_url: "https://api.ppio.com/openai", anthropic_base_url: "https://api.ppio.com/anthropic", has_key: true } };
+    const configure = vi.spyOn(api, "configureDesktopAgent").mockResolvedValue({
+      agent: "claude-desktop", profileId: "desk", profileAgentId: "claude-desktop",
+      message: "Claude Desktop model applied", restart: "Restart Claude Desktop",
+    });
+    renderWithReceipts("/agents/claude-desktop", status);
+    fireEvent.click(screen.getByRole("button", { name: "应用" }));
+    await waitFor(() => expect(configure).toHaveBeenCalledWith("claude-desktop", "desk"));
+    await screen.findByRole("heading", { name: "overview" });
+    // A warning, so it waits to be closed rather than retiring itself.
+    expect(screen.getByRole("alert")).toHaveTextContent("已应用，重启 Claude Desktop 后生效");
+  });
+
   // Requirement: after applying, land where the result is visible instead of
   // staying on a screen whose job is done.
   it("returns to the overview after a successful apply", async () => {
@@ -140,7 +200,9 @@ describe("AgentProfilePage", () => {
     );
     renderPage([profile()]);
     fireEvent.click(screen.getByRole("button", { name: "应用" }));
-    expect(await screen.findByText("Endpoint refused the key")).toBeTruthy();
+    const receipt = await failureReceipt();
+    expect(receipt).toHaveTextContent("应用配置模版失败");
+    expect(receipt).toHaveTextContent("Endpoint refused the key");
     // Not navigated away: the user needs to see the error next to the choice.
     expect(screen.queryByRole("heading", { name: "overview" })).toBeNull();
   });
@@ -267,6 +329,21 @@ describe("AgentProfilePage", () => {
 
   // Both inline save paths dropped result.failures, so an Agent that could not
   // be rewritten went unreported here.
+  // The model belongs to the Profile, so an edit made for this Agent also
+  // moves every other Agent on it. That used to happen with nothing said.
+  it("names the other Agents an inline model edit moved", async () => {
+    vi.spyOn(api, "saveProfile").mockResolvedValue({ ...saved({ model: "deepseek/deepseek-r1" }), reapplied: ["codex", "opencode"] });
+    renderPage([profile()]);
+    await waitFor(() => expect(screen.getByLabelText("模型")).toHaveAttribute("placeholder", "搜索模型"));
+    const field = screen.getByLabelText("模型");
+    await userEvent.clear(field);
+    await userEvent.type(field, "deepseek/deepseek-r1");
+    await userEvent.tab();
+    const receipt = (await screen.findByText("已保存，2 个 Agent 已更新")).closest(".feedback-toast") as HTMLElement;
+    fireEvent.click(within(receipt).getByRole("button", { name: "详情" }));
+    expect(receipt).toHaveTextContent("Codex、opencode");
+  });
+
   it("reports an Agent an inline model edit could not rewrite", async () => {
     vi.spyOn(api, "saveProfile").mockResolvedValue({ ...saved({ model: "deepseek/deepseek-r1" }), failures: { codex: "写入失败" } });
     renderPage([profile()]);
@@ -275,7 +352,9 @@ describe("AgentProfilePage", () => {
     await userEvent.clear(field);
     await userEvent.type(field, "deepseek/deepseek-r1");
     await userEvent.tab();
-    expect(await screen.findByText(/Codex.*重新应用失败.*写入失败/)).toBeTruthy();
+    const receipt = await failureReceipt();
+    expect(receipt).toHaveTextContent("已保存，1 个 Agent 未能更新");
+    expect(receipt).toHaveTextContent("Codex: 写入失败");
   });
 
   // Apply right after typing: the flush saves the new model, and the Apply has
@@ -312,7 +391,10 @@ describe("AgentProfilePage", () => {
     fireEvent.click(screen.getByRole("button", { name: "应用" }));
 
     // CONFIG_WRITE_FAILED is shown as its localized copy, not the raw message.
-    expect(await screen.findByText("无法写入配置文件")).toBeTruthy();
+    const receipt = await failureReceipt();
+    expect(receipt).toHaveTextContent("无法保存配置模版");
+    expect(receipt).toHaveTextContent("无法写入配置文件");
+    expect(receipt).not.toHaveTextContent("disk full");
     expect(activate).not.toHaveBeenCalled();
     expect(screen.queryByRole("heading", { name: "overview" })).toBeNull();
   });
@@ -433,15 +515,26 @@ describe("AgentProfilePage", () => {
     expect(await screen.findByLabelText("思考深度")).toBeTruthy();
   });
 
-  it("shows generated adapter Profiles with a Chinese user-facing name", () => {
-    renderPage([profile({
-      id: "bootagent-converter-responses",
-      label: "BootAgent Converter responses",
-    })]);
+  // An Agent in compatibility mode is shown on the Profile its requests go
+  // to; the adapter's own Profile is an implementation detail.
+  it("preselects the model service a compatibility-mode Agent really uses", () => {
+    const status = statusWith([
+      profile({ id: "bootagent-converter-for-codex", label: "BootAgent codex", provider: "bootagent-converter-for-codex", model: "gpt-5.6-sol" }),
+      profile({ id: "team-ppio", label: "团队 PPIO", protocol: "responses" }),
+      profile({ id: "chat-only", label: "Chat only", protocol: "openai" }),
+    ]);
+    status.agents.codex = { ...status.agents.codex, profileId: "bootagent-converter-for-codex" };
+    status.conversionRoutes = { codex: "chat-only" };
+    mockState = { status, statusState: "success" };
+    render(
+      <MemoryRouter initialEntries={["/agents/codex"]}>
+        <Routes><Route path="/agents/:agentId" element={<AgentProfilePage />} /></Routes>
+      </MemoryRouter>,
+    );
 
-    expect(screen.getAllByText("协议适配（Codex）")).toHaveLength(2);
-    expect(screen.queryByText("BootAgent Converter responses")).toBeNull();
-    expect(screen.getByRole("radio", { name: "选择 协议适配（Codex）" })).toBeTruthy();
+    expect(screen.queryByText("BootAgent codex")).toBeNull();
+    expect(screen.getByRole("radio", { name: "选择 Chat only" })).toBeChecked();
+    expect(screen.getByText("Codex 正在通过兼容模式使用这个配置模版，使用期间需要保持 BootAgent 运行")).toBeTruthy();
   });
 
   it("offers one-confirmation protocol adaptation for a Chat Completions Profile", async () => {
@@ -458,10 +551,69 @@ describe("AgentProfilePage", () => {
       id: "chat-profile", label: "Chat Profile", provider: "chat-only", model: "model-a", protocol: "openai",
     })]);
 
-    expect(await screen.findByText("该模型服务不能直接使用 Claude Desktop 所需的 Anthropic Messages。BootAgent 可以在本机转换请求格式。")).toBeTruthy();
-    const apply = screen.getByRole("button", { name: "启用协议适配并应用" });
+    expect(await screen.findByText("Claude Desktop 不能直接使用这个模型服务，应用时会开启兼容模式在本机转换，使用期间需要保持 BootAgent 运行")).toBeTruthy();
+    const apply = screen.getByRole("button", { name: "用兼容模式应用" });
     await userEvent.click(apply);
     await waitFor(() => expect(configure).toHaveBeenCalledWith("claude-desktop", "chat-profile"));
+    expect(await screen.findByRole("heading", { name: "overview" })).toBeTruthy();
+  });
+
+  // A command-line Agent used to have no route to the adapter at all: a Chat
+  // Completions Profile was never listed for Codex, and pointing Codex at the
+  // adapter meant picking a hidden converter Profile by hand.
+  it("lists a Chat Completions Profile for Codex and applies it through compatibility mode", async () => {
+    const assess = vi.spyOn(api, "assessDesktopAgentProfile");
+    const activate = vi.spyOn(api, "activateAgent");
+    const convert = vi.spyOn(api, "activateAgentWithConversion").mockResolvedValue({
+      ok: true, agent: "codex", config: "/c", provider: "bootagent-converter-responses", model: "gpt-5.6-sol",
+      restart: "", next: "", upstreamVerified: true, endToEndVerified: true,
+    });
+    renderPage([profile({ id: "chat-only", label: "Chat only", protocol: "openai" })]);
+
+    await userEvent.click(screen.getByRole("radio", { name: "选择 Chat only" }));
+    expect(screen.getByText("Codex 不能直接使用这个配置模版，应用时会开启兼容模式在本机转换，使用期间需要保持 BootAgent 运行")).toBeTruthy();
+    // Nothing billed is sent on selection: the check belongs to the button.
+    expect(assess).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole("button", { name: "用兼容模式应用" }));
+    await waitFor(() => expect(convert).toHaveBeenCalledWith("codex", "chat-only"));
+    expect(activate).not.toHaveBeenCalled();
+    expect(await screen.findByRole("heading", { name: "overview" })).toBeTruthy();
+  });
+
+  it("does not offer Chat Completions Profiles to an Agent that already speaks it", () => {
+    const status = statusWith([
+      profile({ id: "chat-only", label: "Chat only", protocol: "openai" }),
+      profile({ id: "responses-only", label: "Responses only", protocol: "responses" }),
+    ]);
+    status.catalog = [{ ...status.catalog[0], id: "opencode", name: "OpenCode", protocol: "openai" }];
+    status.agents = { opencode: { ...status.agents.codex, profileId: null } };
+    mockState = { status, statusState: "success" };
+    render(
+      <MemoryRouter initialEntries={["/agents/opencode"]}>
+        <Routes><Route path="/agents/:agentId" element={<AgentProfilePage />} /></Routes>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole("radio", { name: "选择 Chat only" })).toBeTruthy();
+    expect(screen.queryByRole("radio", { name: "选择 Responses only" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "用兼容模式应用" })).toBeNull();
+  });
+
+  it("turns a refused check into compatibility mode on the same Provider and model", async () => {
+    vi.mocked(api.checkProfileModel).mockResolvedValue(refusedCheck);
+    const saveProfile = vi.spyOn(api, "saveProfile").mockResolvedValue(saved({ id: "team-ppio-compat", protocol: "openai" }));
+    const convert = vi.spyOn(api, "activateAgentWithConversion").mockResolvedValue({
+      ok: true, agent: "codex", config: "/c", provider: "bootagent-converter-responses", model: "gpt-5.6-sol",
+      restart: "", next: "", upstreamVerified: true, endToEndVerified: true,
+    });
+    renderPage([profile()]);
+
+    await userEvent.click(screen.getByRole("button", { name: /检测模型/ }));
+    await userEvent.click(await screen.findByRole("button", { name: "使用兼容模式" }));
+    await waitFor(() => expect(convert).toHaveBeenCalledWith("codex", "team-ppio-compat"));
+    expect(saveProfile).toHaveBeenCalledWith(expect.objectContaining({
+      id: "team-ppio-compat", provider: "ppio", model: "deepseek/deepseek-v3", protocol: "openai",
+    }));
     expect(await screen.findByRole("heading", { name: "overview" })).toBeTruthy();
   });
 });

@@ -1,4 +1,5 @@
 import type { Translate } from "../i18n";
+import type { ModelsResponse } from "../types/api";
 
 /**
  * Localised copy for backend failures.
@@ -92,11 +93,11 @@ export function failureCopyFor(code: string | null | undefined, status: number |
     case "CONFIG_WRITE_FAILED":
       return { message: t("无法写入配置文件"), hint: t("确认配置文件没有被其他程序占用，以及你对它有写入权限") };
     case "CONVERSION_PORT_UNAVAILABLE":
-      return { message: t("本地协议适配端口不可用"), hint: t("关闭占用该端口的程序，或在高级设置中更换端口") };
+      return { message: t("兼容模式需要的本机端口被占用"), hint: t("关闭占用端口的程序，或在兼容模式的高级设置里换一个端口") };
     case "CONVERSION_VERIFICATION_FAILED":
-      return { message: t("协议适配端到端验证失败"), hint: t("检查上游配置模板、模型服务余额和网络后重试") };
+      return { message: t("兼容模式没有通过测试"), hint: t("检查所选模型服务的余额和网络后重试") };
     case "CONVERSION_ROLLBACK_FAILED":
-      return { message: t("协议适配失败且未能完整恢复原配置"), hint: t("保留 BootAgent 运行并检查 Claude Desktop 与协议适配设置") };
+      return { message: t("兼容模式开启失败，原来的设置未能完整恢复"), hint: t("请保持 BootAgent 运行，并到兼容模式页面检查") };
     case "UPDATE_LOCATION_BLOCKED":
       // Withheld at check time on purpose: the swap runs after the app exits, so
       // this is the last moment anything can tell the user.
@@ -121,6 +122,12 @@ export function failureCopyFor(code: string | null | undefined, status: number |
       return { message: t("npm 权限不足"), hint: t("检查全局 npm 目录权限，或修复 Node/npm 的用户权限") };
     case "AGENT_NPM_EXECUTION_FAILED":
       return { message: t("npm 执行失败"), hint: t("检查 npm 环境后重试") };
+    case "LAUNCH_DIRECTORY_INVALID":
+      return { message: t("启动目录不存在"), hint: t("换一个已有的文件夹，或用目录旁的按钮选择") };
+    case "TERMINAL_NOT_FOUND":
+      return { message: t("找不到可用的终端"), hint: t("安装一个终端程序，或在设置中选择已安装的终端") };
+    case "TERMINAL_LAUNCH_FAILED":
+      return { message: t("终端没有打开"), hint: t("稍后重试，或在设置中换一个终端") };
     default:
       return null;
   }
@@ -142,3 +149,23 @@ export function failureCopyFor(code: string | null | undefined, status: number |
  */
 export const runtimeDownloadHint = (t: Translate): string =>
   t("官方源和镜像都已尝试过，切换下载源不会改变结果。请检查网络连接后重试");
+
+/**
+ * What a model listing found, in the interface's words.
+ *
+ * The backend's sentences are English ("Found 3 models.", "No model IDs
+ * returned; enter model ID manually.") and were shown as they came, with one
+ * regex translating the first. The facts are all in the structured fields, so
+ * the sentence is built from those instead.
+ */
+export function modelListMessage(result: Pick<ModelsResponse, "ok" | "models" | "error_code" | "status">, t: Translate): { ok: boolean; message: string } {
+  const count = result.models?.length ?? 0;
+  if (result.ok) {
+    return count
+      ? { ok: true, message: t("找到 {count} 个模型", { count }) }
+      : { ok: false, message: t("没有返回模型，请手动输入模型 ID") };
+  }
+  const copy = failureCopyFor(result.error_code, result.status, t);
+  if (!copy) return { ok: false, message: t("无法获取模型列表，请手动输入模型 ID") };
+  return { ok: false, message: copy.hint ? t("{message}。{hint}", { message: copy.message, hint: copy.hint }) : copy.message };
+}

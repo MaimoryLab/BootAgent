@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { api, describeFailure } from "../backend/api";
+import { modelListMessage } from "../backend/failureCopy";
 import { ModelPicker } from "../components/ModelPicker";
 import { PageScaffold } from "../components/PageScaffold";
 import { useI18n } from "../i18n";
@@ -14,7 +15,6 @@ export function ModelSelectionPage() {
   const { state, dispatch } = useWizard();
   const requested = useRef(false);
 
-  const modelMessage = state.modelsMessage.replace(/^Found (\d+) models\.$/, (_, count: string) => t("找到 {count} 个模型", { count }));
 
   const loadModels = useCallback(async () => {
     dispatch({ type: "MODELS_LOADING" });
@@ -25,7 +25,9 @@ export function ModelSelectionPage() {
         // The backend resolves the empty request key from the selected Provider.
         apiKey: "",
       });
-      dispatch({ type: "MODELS_RESULT", result });
+      // The backend's sentence is English; the one shown is built from the
+      // structured fields.
+      dispatch({ type: "MODELS_RESULT", result: { ...result, message: modelListMessage(result, t).message } });
     } catch (error) {
       dispatch({ type: "MODELS_FAILED", message: describeFailure(error, t("无法获取模型列表"), t).message });
     }
@@ -55,8 +57,8 @@ export function ModelSelectionPage() {
       }
     >
       {state.modelsState === "loading" ? <div className="loading-block"><span className="spinner" />{t("正在读取模型列表")}</div> : null}
-      {modelMessage && state.modelsState !== "loading" ? (
-        <div className={`notice ${state.modelsState === "success" ? "notice-success" : "notice-warning"}`}>{modelMessage}</div>
+      {state.modelsMessage && state.modelsState !== "loading" ? (
+        <div className={`notice ${state.modelsState === "success" && state.models.length ? "notice-success" : "notice-warning"}`}>{state.modelsMessage}</div>
       ) : null}
       <ModelPicker models={state.models} value={state.model} onChange={(value) => dispatch({ type: "SET_MODEL", value })} />
     </PageScaffold>

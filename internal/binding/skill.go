@@ -69,7 +69,11 @@ func (s *SkillService) PreviewImport(ctx context.Context, request app.SkillImpor
 		return app.SkillImportPreview{}, err
 	}
 	if path == "" {
-		return app.SkillImportPreview{}, errors.New("Skill import source selection cancelled")
+		// Closing the picker is the user's own choice, not a failure. An error
+		// here reached the renderer as an unknown bridge failure it could not
+		// tell apart from a real one; an empty preview with no token is the
+		// documented "nothing chosen".
+		return app.SkillImportPreview{}, nil
 	}
 	return s.core.PreviewSkillImport(ctx, request, path)
 }

@@ -53,7 +53,7 @@ describe("RuntimeSection", () => {
         <RuntimeSection runtimes={[runtime({ installed: true, version: "24.18.1", managed: true })]} onInstalled={vi.fn()} />
       </TaskCenterProvider>,
     );
-    fireEvent.click(screen.getByRole("button", { name: "运行时" }));
+    fireEvent.click(screen.getByRole("button", { name: "运行环境" }));
     expect(screen.getByText("Node.js")).toBeTruthy();
     expect(screen.getByText("版本 24.18.1")).toBeTruthy();
     expect(screen.getByText("已安装")).toBeTruthy();
@@ -68,7 +68,7 @@ describe("RuntimeSection", () => {
         <RuntimeSection runtimes={[runtime()]} onInstalled={onInstalled} />
       </TaskCenterProvider>,
     );
-    fireEvent.click(screen.getByRole("button", { name: "运行时" }));
+    fireEvent.click(screen.getByRole("button", { name: "运行环境" }));
     expect(screen.getByText("未安装")).toBeTruthy();
 
     await userEvent.click(screen.getByRole("button", { name: "安装" }));
@@ -86,7 +86,7 @@ describe("RuntimeSection", () => {
         <RuntimeSection runtimes={[runtime()]} onInstalled={onInstalled} />
       </TaskCenterProvider>,
     );
-    fireEvent.click(screen.getByRole("button", { name: "运行时" }));
+    fireEvent.click(screen.getByRole("button", { name: "运行环境" }));
 
     await userEvent.click(screen.getByRole("button", { name: "安装" }));
     await waitFor(() => expect(screen.getByText("校验和不匹配")).toBeTruthy());
@@ -108,12 +108,17 @@ describe("RuntimeSection", () => {
         <RuntimeSection runtimes={[runtime()]} onInstalled={vi.fn()} />
       </TaskCenterProvider>,
     );
-    const trigger = screen.getByRole("button", { name: "运行时" });
+    const trigger = screen.getByRole("button", { name: "运行环境" });
     expect(trigger).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryByText("Node.js")).toBeNull();
 
     await userEvent.click(trigger);
     expect(screen.getByText("Node.js")).toBeTruthy();
+    // The install folder is behind the details fold, not in the sentence.
+    expect(screen.getByText("会装在 BootAgent 自己的目录里，不需要管理员权限。")).toBeTruthy();
+    expect(screen.queryByText(/PATH/)).toBeNull();
+    expect(screen.getByText("官方下载")).toBeTruthy();
+    expect(screen.getByText("https://nodejs.org/dist/").closest("details")?.open).toBe(false);
   });
 });
 

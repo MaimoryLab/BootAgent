@@ -6,7 +6,7 @@ import { DesktopAppSection } from "../components/DesktopAppSection";
 import { PageScaffold } from "../components/PageScaffold";
 import { RuntimeSection } from "../components/RuntimeSection";
 import { useI18n } from "../i18n";
-import { converterProfileName } from "../state/conversion";
+import { conversionDisplay, providerDisplayName } from "../state/conversion";
 import { desktopApps, profileAgentIdForDesktop } from "../state/desktopSetup";
 import { useWizard } from "../state/WizardContext";
 import type { AgentStatus } from "../types/api";
@@ -84,11 +84,13 @@ export function EnvironmentOverviewPage() {
             {installedDesktopApplications.map((app) => {
               const binding = status.agents[profileAgentIdForDesktop(app)];
               const profileID = app.profileId || binding?.profileId;
-              const profile = profileID ? status.profiles.find((item) => item.id === profileID) : undefined;
+              // In compatibility mode the row names the model service behind
+              // the adapter, which is what this app actually uses.
+              const { profile } = conversionDisplay(status, app.id, profileID ? status.profiles.find((item) => item.id === profileID) : undefined, t);
               const providerName = profile
-                ? status.providers[profile.provider]?.name || profile.provider
+                ? providerDisplayName(status.providers, profile.provider, t)
                 : binding?.provider
-                  ? status.providers[binding.provider]?.name || binding.provider
+                  ? providerDisplayName(status.providers, binding.provider, t)
                   : undefined;
               const model = profile?.model || binding?.model || undefined;
               return (
@@ -128,14 +130,14 @@ export function EnvironmentOverviewPage() {
             {installed.map((item) => {
               const agent = status.agents[item.id];
               if (!agent) return null;
-              const profile = profileForAgent(item.id, agent);
+              const { profile, name } = conversionDisplay(status, item.id, profileForAgent(item.id, agent), t);
               return <AgentManageRow
                 key={item.id}
                 agentId={item.id}
                 catalog={item}
                 status={agent}
                 providers={status.providers}
-                profileName={profile ? converterProfileName(profile.id, profile.label || profile.id, t) : ""}
+                profileName={name}
                 profile={profile}
                 defaultDirectory={status.paths.launch_directory}
                 onChanged={refreshStatus}

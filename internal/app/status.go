@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -256,6 +257,10 @@ type StatusResponse struct {
 	Environment      any                  `json:"environment"`
 	EnvironmentError *string              `json:"environmentError"`
 	DesktopAgents    []DesktopAgentStatus `json:"desktopAgents"`
+	// ConversionRoutes maps each Agent using compatibility mode to the Chat
+	// Completions Profile its requests actually go to, so a page can name the
+	// real model service instead of the adapter.
+	ConversionRoutes map[string]string `json:"conversionRoutes"`
 }
 
 type Capabilities struct {
@@ -452,7 +457,40 @@ func (u *UseCases) GetStatus(ctx context.Context) (StatusResponse, error) {
 		FirstRun:         !fileExists(filepath.Join(options.Home, ".bootagent")),
 		MigrationNotice:  u.migrationNotice,
 		DesktopAgents:    desktopAgents,
+		ConversionRoutes: u.conversionRoutes(ctx, statuses, desktopAgents),
 	}, nil
+}
+
+// conversionRoutes is, for every Agent pointed at the adapter, the Profile its
+// requests are forwarded to: its own route, or the shared target for an Agent
+// still on the shared converter entries.
+func (u *UseCases) conversionRoutes(ctx context.Context, agents map[string]AgentStatus, desktop []DesktopAgentStatus) map[string]string {
+	routes := map[string]string{}
+	c, err := u.Conversion(ctx)
+	if err != nil {
+		return routes
+	}
+	add := func(agentID string, profileID *string) {
+		if profileID == nil || !isConverterID(*profileID) {
+			return
+		}
+		if owner, ok := routeAgent(*profileID); ok {
+			if target := c.Routes[owner]; target != "" {
+				routes[agentID] = target
+			}
+			return
+		}
+		if c.TargetProfile != "" {
+			routes[agentID] = c.TargetProfile
+		}
+	}
+	for agentID, status := range agents {
+		add(agentID, status.ProfileID)
+	}
+	for _, app := range desktop {
+		add(app.ID, app.ProfileID)
+	}
+	return routes
 }
 
 func currentDirectory() string {
@@ -734,6 +772,28 @@ func (u *UseCases) DeleteProfile(ctx context.Context, id string) error {
 	for agentID, binding := range bindings {
 		if binding.ProfileRef == id {
 			users = append(users, agentID)
+		}
+	}
+	// An Agent in compatibility mode is bound to its converter Profile, but its
+	// requests go to the route's target: deleting that would break it as
+	// surely as deleting the Profile it is bound to.
+	if conversion, err := u.Conversion(ctx); err == nil {
+		for agentID, target := range conversion.Routes {
+			if target != id || slices.Contains(users, agentID) {
+				continue
+			}
+			if binding, err := u.profiles.ReadAgentBinding(agentID); err == nil && binding != nil && binding.ProfileRef == converterRouteID(agentID) {
+				users = append(users, agentID)
+			}
+		}
+		if conversion.TargetProfile == id {
+			for agentID, binding := range bindings {
+				if !slices.Contains(users, agentID) && isConverterID(binding.ProfileRef) {
+					if _, routed := routeAgent(binding.ProfileRef); !routed {
+						users = append(users, agentID)
+					}
+				}
+			}
 		}
 	}
 	if len(users) > 0 {

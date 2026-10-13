@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { sourceTranslate } from "../i18n";
-import { failureCopyFor, isHTTPStatus, runtimeDownloadHint } from "./failureCopy";
+import { failureCopyFor, isHTTPStatus, modelListMessage, runtimeDownloadHint } from "./failureCopy";
 
 // sourceTranslate returns the Chinese keys, which is what the source language is.
 const t = sourceTranslate;
@@ -73,6 +73,9 @@ describe("failureCopyFor", () => {
       "UPDATE_LOCATION_BLOCKED",
       "UPDATE_STALLED",
       "UPDATE_INTERRUPTED",
+      "LAUNCH_DIRECTORY_INVALID",
+      "TERMINAL_NOT_FOUND",
+      "TERMINAL_LAUNCH_FAILED",
     ]) {
       const copy = failureCopyFor(code, 0, t);
       expect(copy, code).not.toBeNull();
@@ -82,7 +85,7 @@ describe("failureCopyFor", () => {
 
   it("distinguishes protocol adapter startup, verification, and rollback failures", () => {
     expect(failureCopyFor("CONVERSION_PORT_UNAVAILABLE", 409, t)?.message).toContain("端口");
-    expect(failureCopyFor("CONVERSION_VERIFICATION_FAILED", 502, t)?.message).toContain("验证");
+    expect(failureCopyFor("CONVERSION_VERIFICATION_FAILED", 502, t)?.message).toContain("测试");
     expect(failureCopyFor("CONVERSION_ROLLBACK_FAILED", 500, t)?.message).toContain("恢复");
   });
 
@@ -157,5 +160,28 @@ describe("runtimeDownloadHint", () => {
     const hint = runtimeDownloadHint(t);
     expect(hint).toContain("都已尝试过");
     expect(hint).toContain("不会改变结果");
+  });
+});
+
+describe("modelListMessage", () => {
+  // The backend's sentences are English; the facts are in the fields.
+  const listing = (over: Partial<Parameters<typeof modelListMessage>[0]>) =>
+    modelListMessage({ ok: true, models: [], error_code: null, status: 200, ...over }, t);
+
+  it("counts what was found", () => {
+    expect(listing({ models: ["a", "b"] })).toEqual({ ok: true, message: "找到 2 个模型" });
+  });
+
+  it("asks for a model by hand when the list came back empty", () => {
+    expect(listing({})).toEqual({ ok: false, message: "没有返回模型，请手动输入模型 ID" });
+  });
+
+  it("explains a failure with its copy and remedy", () => {
+    expect(listing({ ok: false, error_code: "MODELS_UNSUPPORTED", status: 404 }).message)
+      .toBe("无法获取模型列表。这个端点不提供模型列表，可以直接手动输入模型 ID");
+  });
+
+  it("never falls back to the backend sentence", () => {
+    expect(listing({ ok: false, error_code: "INTERNAL_ERROR", status: 0 }).message).toBe("无法获取模型列表，请手动输入模型 ID");
   });
 });

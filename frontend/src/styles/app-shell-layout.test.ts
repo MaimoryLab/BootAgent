@@ -80,3 +80,28 @@ describe("the window shell with a notice above the page", () => {
     expect(rules.get("grid-template-rows")).toBe("auto minmax(0, 1fr) var(--footer-height)");
   });
 });
+
+describe("the feedback overlay", () => {
+  // The overlay exists so a result never moves the page. It does that by
+  // sharing the body's grid cell; both need an explicit cell, because
+  // auto-placement would give the second item in row 2 a column of its own.
+  // Media blocks are removed first: they only adjust margins, and the helper
+  // would otherwise read their rule as the overlay's whole declaration.
+  const css = () => sheet("app.css").replace(/@media[^{]*\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}/g, " ");
+
+  it("shares the page body's cell instead of taking a row", () => {
+    const body = declarations(css(), ".page-scaffold > .page-body");
+    const overlay = declarations(css(), ".feedback-viewport");
+    expect([body.get("grid-row"), body.get("grid-column")]).toEqual(["2", "1"]);
+    expect([overlay.get("grid-row"), overlay.get("grid-column")]).toEqual(["2", "1"]);
+    expect(declarations(css(), ".page-scaffold > .page-footer").get("grid-row")).toBe("3");
+  });
+
+  it("sits in the top right corner and lets clicks through around the card", () => {
+    const overlay = declarations(css(), ".feedback-viewport");
+    expect(overlay.get("align-self")).toBe("start");
+    expect(overlay.get("justify-self")).toBe("end");
+    expect(overlay.get("pointer-events")).toBe("none");
+    expect(declarations(css(), ".feedback-toast").get("pointer-events")).toBe("auto");
+  });
+});

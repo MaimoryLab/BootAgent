@@ -7,6 +7,7 @@ import type {
   StatusResponse,
   InstallOutput,
 } from "../types/api";
+import { userProviders } from "./conversion";
 import { byProviderCreatedAt, preferProviderWithKey } from "./ranking";
 
 export type AsyncState = "idle" | "loading" | "success" | "error";
@@ -39,6 +40,12 @@ export interface WizardState {
    *  it that way sent the user backwards out of the model step. Cleared only
    *  when the key or the Provider changes. */
   keyVerified: boolean;
+  /** The user accepted compatibility mode after a connection test showed the
+   *  Agent's own format fails but Chat Completions works. Activation then saves
+   *  a Chat Completions Profile and points the Agent at the local adapter.
+   *  Cleared whenever the Agent, Provider, key or probe model changes, because
+   *  the verdict it rests on no longer holds. */
+  conversion: boolean;
   models: string[];
   modelsState: AsyncState;
   modelsMessage: string;
@@ -72,6 +79,7 @@ export const initialWizardState: WizardState = {
   connection: null,
   connectionState: "idle",
   keyVerified: false,
+  conversion: false,
   models: [],
   modelsState: "idle",
   modelsMessage: "",
@@ -93,7 +101,7 @@ export const initialWizardState: WizardState = {
  * preferProviderWithKey for why this stopped being implicit.
  */
 function latestProvider(status: StatusResponse | null, protocol?: string): ProviderId {
-  const candidates = byProviderCreatedAt(status?.providers ?? {}).filter(([, provider]) =>
+  const candidates = byProviderCreatedAt(userProviders(status?.providers ?? {})).filter(([, provider]) =>
     !protocol || (protocol === "anthropic" ? provider.anthropic_base_url : provider.base_url),
   );
   return preferProviderWithKey(candidates)?.[0] || "jiekou";
@@ -114,6 +122,7 @@ export type WizardAction =
   | { type: "SELECT_AGENT"; agentId: string }
   | { type: "SET_PROVIDER"; value: ProviderId }
   | { type: "SET_PROBE_MODEL"; value: string }
+  | { type: "SET_CONVERSION"; value: boolean }
   | { type: "SET_PROFILE_ID"; value: string }
   | { type: "SET_PROFILE_LABEL"; value: string }
   | { type: "SELECT_PROFILE"; provider: ProviderId; profileId: string; profileLabel: string; model: string; keyVerified: boolean }
@@ -232,6 +241,7 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
             connection: null,
             connectionState: "idle" as const,
             keyVerified: false,
+            conversion: false,
             models: [],
             modelsState: "idle" as const,
             modelsMessage: "",
@@ -244,7 +254,7 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
     case "SET_PROFILE_LABEL":
       return { ...state, profileLabel: action.value };
     case "START_NEW_PROFILE":
-      return { ...state, profileId: "", profileLabel: "", model: providerDefaultModel(state.status, state.provider), reusedProfile: false, keyVerified: false, connection: null, connectionState: "idle", models: [], modelsState: "idle", modelsMessage: "" };
+      return { ...state, profileId: "", profileLabel: "", model: providerDefaultModel(state.status, state.provider), reusedProfile: false, keyVerified: false, conversion: false, connection: null, connectionState: "idle", models: [], modelsState: "idle", modelsMessage: "" };
     case "SET_PROFILE_STEP_SKIPPED":
       return { ...state, profileStepSkipped: action.value };
     case "SELECT_PROFILE":
@@ -257,6 +267,9 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
         profileStepSkipped: false,
         model: action.model,
         keyVerified: action.keyVerified,
+        // A saved Profile is used as it is; compatibility mode is a choice made
+        // while creating one.
+        conversion: false,
         connection: null,
         connectionState: action.keyVerified ? "success" : "idle",
       };
@@ -291,6 +304,7 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
         connection: null,
         connectionState: "idle",
         keyVerified: false,
+        conversion: false,
         models: [],
         modelsState: "idle",
         modelsMessage: "",
@@ -306,7 +320,12 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
         connection: null,
         connectionState: "idle",
         keyVerified: false,
+        conversion: false,
       };
+    case "SET_CONVERSION":
+      // Accepting rests on a test in which Chat Completions answered with this
+      // key, which is as much proof of the key as a native success.
+      return { ...state, conversion: action.value, keyVerified: state.keyVerified || action.value };
     case "SET_HAS_API_KEY":
       // Any edit of the key invalidates the previous probe verdict. The reducer
       // only sees the non-empty boolean (the secret itself stays in a ref), so
@@ -318,9 +337,10 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
         connection: null,
         connectionState: "idle",
         keyVerified: false,
+        conversion: false,
       };
     case "CONNECTION_LOADING":
-      return { ...state, connectionState: "loading", connection: null };
+      return { ...state, connectionState: "loading", connection: null, conversion: false };
     case "CONNECTION_RESULT":
       return {
         ...state,

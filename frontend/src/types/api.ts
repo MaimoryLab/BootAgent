@@ -65,6 +65,7 @@ export type SettingsPatch = AppModels.SettingsPatch;
 export type TerminalOption = AppModels.TerminalOption;
 export type ConversionConfig = AppModels.ConversionConfig;
 export type ActivateAgentResponse = BindingModels.ActivateResponse;
+export type AgentConversionResponse = BindingModels.AgentConversionResponse;
 export type LaunchAgentResponse = BindingModels.LaunchResponse;
 export type AgentUninstallResult = AppModels.AgentUninstallResult;
 export type AgentUpdateResult = AppModels.AgentUpdateResult;
@@ -154,8 +155,11 @@ export type SaveProfileResult = Omit<AppModels.SaveProfileResult, "profile"> & {
 
 export type StatusResponse = Omit<
   AppModels.StatusResponse,
-  "platform" | "capabilities" | "agents" | "catalog" | "groups" | "providers" | "mirrors" | "paths" | "backups" | "profiles" | "runtimes" | "desktopAgents"
+  "platform" | "capabilities" | "agents" | "catalog" | "groups" | "providers" | "mirrors" | "paths" | "backups" | "profiles" | "runtimes" | "desktopAgents" | "conversionRoutes"
 > & {
+  /** Agent id -> the Chat Completions Profile its compatibility-mode requests
+   *  actually go to. Absent from older fixtures, so optional. */
+  conversionRoutes?: Record<string, string> | null;
 	migrationNotice?: string;
   platform: Omit<PlatformModels.Info, "os"> & { os: PlatformId };
   capabilities: Omit<AppModels.Capabilities, "canInstall" | "missingRuntime" | "supportedAgentIds"> & {
@@ -176,9 +180,11 @@ export type StatusResponse = Omit<
   desktopAgents: DesktopAgentStatus[];
 };
 
-export type ProbeResponse = Omit<BindingModels.ProbeResponse, "protocol" | "protocols"> & {
+export type ProbeResponse = Omit<BindingModels.ProbeResponse, "protocol" | "protocols" | "convertible"> & {
   protocol?: ProtocolId;
   protocols?: Partial<Record<ProtocolId, ProbeResponse>>;
+  /** Protocols that failed but compatibility mode can serve over Chat Completions. */
+  convertible?: ProtocolId[] | null;
 };
 
 export type ModelsResponse = Omit<BindingModels.ModelsResponse, "models" | "protocol" | "protocols"> & ProbeResponse & {

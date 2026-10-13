@@ -10,7 +10,6 @@ import (
 	"log/slog"
 	"os"
 	"runtime"
-	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -206,10 +205,12 @@ func configureSystemTray(appInstance *application.App, core *app.UseCases, windo
 		menu := appInstance.Menu.New()
 		menu.Add("显示 BootAgent").OnClick(func(*application.Context) { tray.ShowWindow() })
 		menu.AddSeparator()
+		// Only on and off: each Agent in compatibility mode has its own model,
+		// chosen on that Agent's page, so there is no single target to pick here.
 		enabled := config.Enabled
-		toggleLabel := "启动 API 转换"
+		toggleLabel := "开启兼容模式"
 		if enabled {
-			toggleLabel = "停止 API 转换"
+			toggleLabel = "停止兼容模式"
 		}
 		menu.AddCheckbox(toggleLabel, enabled).OnClick(func(*application.Context) {
 			if _, err := core.SetConversionEnabled(context.Background(), !enabled); err != nil {
@@ -217,26 +218,6 @@ func configureSystemTray(appInstance *application.App, core *app.UseCases, windo
 			}
 			refresh()
 		})
-		profilesMenu := menu.AddSubmenu("转换目标 Profile")
-		profiles, err := core.ListProfiles(context.Background())
-		if err == nil {
-			for _, profile := range profiles {
-				if profile.Protocol != "openai" || strings.HasPrefix(profile.ID, "bootagent-converter-") || strings.HasPrefix(profile.ID, "bootagent_converter_") {
-					continue
-				}
-				label := profile.Label
-				if label == "" {
-					label = profile.ID
-				}
-				profileID := profile.ID
-				profilesMenu.AddRadio(label, profileID == config.TargetProfile).OnClick(func(*application.Context) {
-					if _, err := core.SetConversionTargetProfile(context.Background(), profileID); err != nil {
-						slog.Warn("conversion tray profile switch failed", "error", err)
-					}
-					refresh()
-				})
-			}
-		}
 		menu.AddSeparator()
 		menu.Add("退出 BootAgent").OnClick(func(*application.Context) {
 			quitting.Store(true)

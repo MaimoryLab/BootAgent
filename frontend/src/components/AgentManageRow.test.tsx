@@ -4,11 +4,17 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { BootAgentApiError } from "../backend/errors";
+import { FeedbackProvider } from "../state/FeedbackContext";
+import { TaskCenterProvider } from "../state/TaskCenterContext";
 import type { AgentCatalogItem, AgentStatus } from "../types/api";
 import { AgentManageRow, compareVersions, isBehind, targetSummary, updateOffer } from "./AgentManageRow";
+import { FeedbackViewport } from "./FeedbackViewport";
 
 const bridge = vi.hoisted(() => ({
+  // TaskCenterProvider subscribes to install output when it mounts.
+  onInstallOutput: () => () => {},
   launchAgent: vi.fn(),
+  getSettings: vi.fn(),
   updateAgent: vi.fn(),
   uninstallAgent: vi.fn(),
   question: vi.fn(),
@@ -27,6 +33,8 @@ vi.mock("../backend/api", async () => {
 
 beforeEach(() => {
   bridge.launchAgent.mockReset();
+  bridge.getSettings.mockReset();
+  bridge.getSettings.mockResolvedValue({ terminal_app: "", terminals: [] });
   bridge.updateAgent.mockReset();
   bridge.uninstallAgent.mockReset();
   bridge.question.mockReset();
@@ -77,6 +85,7 @@ function agentStatus(over: Partial<AgentStatus> = {}): AgentStatus {
 function renderRow(over: Partial<AgentStatus> = {}, profileName = "团队 PPIO", catalogOver: Partial<AgentCatalogItem> = {}, onChanged = vi.fn()) {
   render(
     <MemoryRouter>
+      <FeedbackProvider>
       <AgentManageRow
         agentId="codex"
         catalog={{ ...catalogAgent, ...catalogOver }}
@@ -88,6 +97,8 @@ function renderRow(over: Partial<AgentStatus> = {}, profileName = "团队 PPIO",
         defaultDirectory="/tmp"
         onChanged={onChanged}
       />
+      <FeedbackViewport />
+      </FeedbackProvider>
     </MemoryRouter>,
   );
 }
@@ -180,7 +191,20 @@ describe("AgentManageRow", () => {
     // 2.1.217 and the row read "可更新", inviting a downgrade.
     renderRow({ version: "2.1.220", lockedVersion: "2.1.217" });
     expect(screen.queryByText(/→/)).toBeNull();
-    expect(screen.getByText(/锁定 2\.1\.217/)).toBeTruthy();
+    expect(screen.queryByText(/锁定/)).toBeNull();
+    expect(screen.getByText("2.1.220")).toBeTruthy();
+    // The locked version is a detail, worded as a recommendation.
+    const recommended = screen.getByText("2.1.217");
+    expect(recommended.closest("details")?.open).toBe(false);
+    expect(recommended.previousElementSibling?.textContent).toBe("推荐版本");
+  });
+
+  it("keeps the endpoint and package in the closed details, and says drift in the row", () => {
+    renderRow({ detected: { baseUrl: "https://moved.example/v1", model: "m", managedByBootAgent: false, unreadable: null } });
+    expect(screen.getByText("设置已在 BootAgent 之外被修改")).toBeTruthy();
+    const endpoint = screen.getByText("https://api.ppio.com/openai");
+    expect(endpoint.closest("details")?.open).toBe(false);
+    expect(screen.getByText("实际使用的接口地址是 https://moved.example/v1").closest("details")).toBe(endpoint.closest("details"));
   });
 
   it("orders versions numerically, not as strings", () => {
@@ -247,12 +271,90 @@ describe("AgentManageRow", () => {
     expect(bridge.launchAgent).not.toHaveBeenCalled();
   });
 
-  it("reports a launch failure in the row instead of failing silently", async () => {
+  it("confirms a launch on the button once the terminal has opened", async () => {
+    renderRow();
+    await userEvent.click(screen.getByRole("button", { name: "启动" }));
+    // The dialog is still open: nothing has launched, so nothing is confirmed.
+    expect(screen.queryByRole("button", { name: "已打开" })).toBeNull();
+    await userEvent.click(screen.getByRole("dialog").querySelector("button[type=submit]") as HTMLElement);
+    expect(await screen.findByRole("button", { name: "已打开" })).toBeTruthy();
+  });
+
+  it("claims nothing when the directory dialog is cancelled", async () => {
+    renderRow();
+    await userEvent.click(screen.getByRole("button", { name: "启动" }));
+    await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "取消" }));
+    expect(await screen.findByRole("button", { name: "启动" })).toBeEnabled();
+    expect(bridge.launchAgent).not.toHaveBeenCalled();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("reports a launch failure as a receipt and keeps a marker that reopens it", async () => {
     bridge.launchAgent.mockRejectedValue(new BootAgentApiError("没有可用的终端", "PREREQUISITE_MISSING", false, 500));
     renderRow();
     await userEvent.click(screen.getByRole("button", { name: /启动/ }));
     await userEvent.click(screen.getByRole("dialog").querySelector("button[type=submit]") as HTMLElement);
-    expect(await screen.findByText("没有可用的终端")).toBeTruthy();
+    const receipt = await screen.findByRole("alert");
+    expect(receipt).toHaveTextContent("无法启动 Codex");
+    // The reason is one click away, not a truncated line under the name.
+    await userEvent.click(within(receipt).getByRole("button", { name: "详情" }));
+    expect(within(receipt).getByText(/没有可用的终端/)).toBeTruthy();
+    expect(document.querySelector(".agent-manage-note.is-error")).toBeNull();
+
+    await userEvent.click(within(receipt).getByRole("button", { name: "关闭" }));
+    expect(screen.queryByRole("alert")).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "启动失败" }));
+    expect(screen.getByRole("alert")).toHaveTextContent("无法启动 Codex");
+  });
+
+  it("says which terminal opened when the one chosen in settings is missing", async () => {
+    bridge.launchAgent.mockResolvedValue({ ok: true, agent: "codex", command: "codex", terminal: "terminal" });
+    bridge.getSettings.mockResolvedValue({
+      terminal_app: "iterm",
+      terminals: [{ id: "terminal", name: "Terminal", installed: true }, { id: "iterm", name: "iTerm2", installed: false }],
+    });
+    renderRow();
+    await userEvent.click(screen.getByRole("button", { name: "启动" }));
+    await userEvent.click(screen.getByRole("dialog").querySelector("button[type=submit]") as HTMLElement);
+    const receipt = await screen.findByRole("alert");
+    expect(receipt).toHaveTextContent("已改用 Terminal 打开");
+    await userEvent.click(within(receipt).getByRole("button", { name: "详情" }));
+    expect(receipt).toHaveTextContent("iTerm2 未安装");
+  });
+
+  it("marks a failed update in the row and reopens its reason from the marker", async () => {
+    bridge.updateAgent.mockRejectedValue(new BootAgentApiError("npm exited 1", "AGENT_NPM_EXECUTION_FAILED", true, 500));
+    render(
+      <MemoryRouter>
+        <TaskCenterProvider>
+          <FeedbackProvider>
+            <AgentManageRow agentId="codex" catalog={catalogAgent} status={agentStatus()} providers={{}} profileName="团队 PPIO" />
+            <FeedbackViewport />
+          </FeedbackProvider>
+        </TaskCenterProvider>
+      </MemoryRouter>,
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Codex 更多操作" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "更新" }));
+    const marker = await screen.findByRole("button", { name: "更新失败" });
+    // The outcome is in the Task Center; the row only marks it.
+    expect(screen.queryByRole("alert")).toBeNull();
+    await userEvent.click(marker);
+    const receipt = screen.getByRole("alert");
+    expect(receipt).toHaveTextContent("无法更新 Codex");
+    await userEvent.click(within(receipt).getByRole("button", { name: "详情" }));
+    expect(receipt).toHaveTextContent("npm 执行失败");
+  });
+
+  it("says nothing about the terminal when the chosen one opened", async () => {
+    bridge.launchAgent.mockResolvedValue({ ok: true, agent: "codex", command: "codex", terminal: "iterm" });
+    bridge.getSettings.mockResolvedValue({ terminal_app: "iterm", terminals: [] });
+    renderRow();
+    await userEvent.click(screen.getByRole("button", { name: "启动" }));
+    await userEvent.click(screen.getByRole("dialog").querySelector("button[type=submit]") as HTMLElement);
+    await screen.findByRole("button", { name: "已打开" });
+    await waitFor(() => expect(bridge.getSettings).toHaveBeenCalled());
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 });
 
@@ -278,7 +380,8 @@ describe("targetSummary", () => {
     );
     expect(summary.text).toContain("https://api.other-vendor.com/v1");
     expect(summary.text).toContain("gpt-5-mini");
-    expect(summary.note).toContain("非 BootAgent 写入");
+    expect(summary.note).toBe("这份设置不是 BootAgent 写入的");
+    expect(summary.alert).toBe("正在使用 BootAgent 之外的设置");
   });
 
   it("says the file changed under us when the two sources disagree", () => {
@@ -292,6 +395,9 @@ describe("targetSummary", () => {
     );
     expect(summary.text).toContain("PPIO");
     expect(summary.note).toContain("https://moved.example/v1");
+    // The row says it in plain words; the endpoint is for the details.
+    expect(summary.alert).toBe("设置已在 BootAgent 之外被修改");
+    expect(summary.alert).not.toContain("https://");
   });
 
   it("stays quiet when the record and the file agree", () => {
@@ -308,6 +414,7 @@ describe("targetSummary", () => {
     );
     expect(summary.text).toBe("PPIO · deepseek/deepseek-v3");
     expect(summary.note).toBe("");
+    expect(summary.alert).toBe("");
   });
 
   it("shows an unreadable config as such rather than guessing", () => {
@@ -428,7 +535,7 @@ describe("the update affordance in the row", () => {
 
     expect(bridge.question).toHaveBeenCalledWith(expect.objectContaining({
       Title: "卸载 Agent",
-      Message: expect.stringMatching(/配置模版.*模型服务.*配置文件.*对话数据.*保留/),
+      Message: expect.stringMatching(/只移除程序.*设置和对话都会保留/),
     }));
     await waitFor(() => expect(bridge.uninstallAgent).toHaveBeenCalledWith("codex"));
     await waitFor(() => expect(onChanged).toHaveBeenCalledOnce());

@@ -1,15 +1,16 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { api } from "../backend/api";
 import { BootAgentApiError } from "../backend/errors";
+import { FeedbackProvider } from "../state/FeedbackContext";
 import { ThemeProvider } from "../state/ThemeContext";
 import { SettingsPage } from "./SettingsPage";
 
 const show = () =>
-  render(<ThemeProvider><MemoryRouter initialEntries={["/settings"]}><Routes><Route path="/settings" element={<SettingsPage />} /><Route path="/settings/transfer" element={<h1>transfer child</h1>} /></Routes></MemoryRouter></ThemeProvider>);
+  render(<ThemeProvider><FeedbackProvider><MemoryRouter initialEntries={["/settings"]}><Routes><Route path="/settings" element={<SettingsPage />} /><Route path="/settings/transfer" element={<h1>transfer child</h1>} /></Routes></MemoryRouter></FeedbackProvider></ThemeProvider>);
 
 describe("SettingsPage", () => {
   afterEach(() => vi.restoreAllMocks());
@@ -24,7 +25,7 @@ describe("SettingsPage", () => {
       terminal_app: "",
       terminals: [],
     });
-    render(<ThemeProvider><MemoryRouter initialEntries={["/settings"]}><Routes><Route path="/settings" element={<SettingsPage />} /><Route path="/settings/transfer" element={<h1>transfer child</h1>} /></Routes></MemoryRouter></ThemeProvider>);
+    render(<ThemeProvider><FeedbackProvider><MemoryRouter initialEntries={["/settings"]}><Routes><Route path="/settings" element={<SettingsPage />} /><Route path="/settings/transfer" element={<h1>transfer child</h1>} /></Routes></MemoryRouter></FeedbackProvider></ThemeProvider>);
     expect(screen.getByRole("combobox", { name: "外观" })).toBeTruthy();
     expect(screen.getByRole("combobox", { name: "语言" })).toBeTruthy();
     expect(await screen.findByRole("switch", { name: "优先使用国内镜像" })).toBeTruthy();
@@ -49,7 +50,11 @@ describe("SettingsPage", () => {
     );
     show();
     fireEvent.click(screen.getByRole("button", { name: /帮助文档/ }));
-    await waitFor(() => expect(screen.getByText("Unable to open the help site")).toBeTruthy());
+    // A receipt, with the reason behind 详情.
+    const receipt = await screen.findByRole("alert");
+    expect(receipt).toHaveTextContent("无法打开帮助文档");
+    fireEvent.click(within(receipt).getByRole("button", { name: "详情" }));
+    expect(within(receipt).getByText("Unable to open the help site")).toBeTruthy();
   });
 
   it("loads and saves per-target backup retention", async () => {

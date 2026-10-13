@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"slices"
 	"strings"
 	"time"
 
@@ -127,12 +128,21 @@ type managedFileSnapshot struct {
 	secret bool
 }
 
-func (u *UseCases) conversionStatePaths() ([]managedFileSnapshot, error) {
+// conversionStatePaths is compatibility mode's own state: its settings, the
+// Provider store, and the converter Profiles -- the shared ones and the route
+// of each Agent named.
+func (u *UseCases) conversionStatePaths(agents ...string) ([]managedFileSnapshot, error) {
 	paths := []managedFileSnapshot{
 		{path: u.conversionPath()},
 		{path: u.providers.Path(), secret: true},
 	}
-	for _, id := range []string{converterPrefix + "anthropic", converterPrefix + "responses", converterPrefix + "chat"} {
+	ids := []string{converterPrefix + "anthropic", converterPrefix + "responses", converterPrefix + "chat"}
+	for _, agentID := range agents {
+		if id := converterRouteID(agentID); !slices.Contains(ids, id) {
+			ids = append(ids, id)
+		}
+	}
+	for _, id := range ids {
 		profilePath, err := u.profiles.ProfilePath(id)
 		if err != nil {
 			return nil, err
@@ -146,8 +156,8 @@ func (u *UseCases) conversionStatePaths() ([]managedFileSnapshot, error) {
 	return paths, nil
 }
 
-func (u *UseCases) conversionTransactionPaths() ([]managedFileSnapshot, error) {
-	paths, err := u.conversionStatePaths()
+func (u *UseCases) conversionTransactionPaths(agents ...string) ([]managedFileSnapshot, error) {
+	paths, err := u.conversionStatePaths(append(agents, desktopapp.ClaudeDesktopID)...)
 	if err != nil {
 		return nil, err
 	}
@@ -266,7 +276,7 @@ func (u *UseCases) ConfigureDesktopAgentWithConversion(ctx context.Context, agen
 	if err != nil {
 		return result, err
 	}
-	paths, err := u.conversionTransactionPaths()
+	paths, err := u.conversionSnapshotPaths(previous, agentID)
 	if err != nil {
 		return result, err
 	}
@@ -282,14 +292,10 @@ func (u *UseCases) ConfigureDesktopAgentWithConversion(ctx context.Context, agen
 		err = u.rollbackConversionFailure(ctx, err, previous, snapshots)
 	}()
 
-	config := previous
-	config.Enabled = true
-	config.TargetProfile = profileID
-	config, err = u.saveConversion(ctx, config)
+	config, key, err := u.ensureConversionRoute(ctx, agentID, profileID)
 	if err != nil {
 		return result, err
 	}
-	key := u.conversionAPIKey()
 	result.Compatibility = DesktopProfileConvertible
 	result.UpstreamVerified = assessment.UpstreamVerified
 	result.ConversionRunning = config.Enabled
@@ -297,7 +303,7 @@ func (u *UseCases) ConfigureDesktopAgentWithConversion(ctx context.Context, agen
 		return result, oneerrors.New(oneerrors.ConversionVerificationFailed, "Local protocol adaptation verification failed", oneerrors.WithStatus(502), oneerrors.WithRetryable(true), oneerrors.WithCause(err))
 	}
 	result.LocalAuthVerified, result.EndToEndVerified = true, true
-	result.DesktopAgentProfileResult, err = u.ConfigureDesktopAgent(ctx, agentID, converterPrefix+"anthropic")
+	result.DesktopAgentProfileResult, err = u.ConfigureDesktopAgent(ctx, agentID, converterRouteID(agentID))
 	if err != nil {
 		return result, err
 	}

@@ -35,6 +35,8 @@ export {
 export type {
     ActivateRequest,
     ActivateResponse,
+    AgentConversionRequest,
+    AgentConversionResponse,
     AgentInstallResult,
     CheckProfileModelRequest,
     DesktopAgentProfileRequest,

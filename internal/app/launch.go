@@ -70,11 +70,11 @@ func (u *UseCases) LaunchAgent(ctx context.Context, agentID string, directories 
 	}
 	if workingDirectory != "" {
 		if u.status.Platform.OS == "windows" && strings.ContainsAny(workingDirectory, "\"\r\n") {
-			return LaunchAgentResult{}, oneerrors.New(oneerrors.InvalidRequest, "Invalid launch directory")
+			return LaunchAgentResult{}, oneerrors.New(oneerrors.LaunchDirectoryInvalid, "Invalid launch directory")
 		}
 		info, err := os.Stat(workingDirectory)
 		if err != nil || !info.IsDir() {
-			return LaunchAgentResult{}, oneerrors.New(oneerrors.InvalidRequest, fmt.Sprintf("Invalid launch directory: %s", workingDirectory))
+			return LaunchAgentResult{}, oneerrors.New(oneerrors.LaunchDirectoryInvalid, fmt.Sprintf("Invalid launch directory: %s", workingDirectory))
 		}
 		line = launchInDirectory(u.status.Platform.OS, workingDirectory, line)
 	}
@@ -102,7 +102,7 @@ func (u *UseCases) LaunchAgent(ctx context.Context, agentID string, directories 
 	// not see them.
 	if err := launcher.Start(argv, u.installRuntime(nil).Env); err != nil {
 		return LaunchAgentResult{}, oneerrors.New(
-			oneerrors.InternalError,
+			oneerrors.TerminalLaunchFailed,
 			"Cannot open a terminal window for "+agent.Name,
 			oneerrors.WithStatus(500), oneerrors.WithRetryable(true), oneerrors.WithCause(err),
 		)

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { ModelsResponse, ProbeResponse, StatusResponse } from "../types/api";
-import { initialWizardState, wizardNeedsModel, wizardReducer, type WizardState } from "./wizardReducer";
+import { initialWizardState, wizardNeedsModel, wizardReducer, type WizardAction, type WizardState } from "./wizardReducer";
 
 const status = {
   apiVersion: 1,
@@ -394,6 +394,27 @@ describe("provider default model", () => {
     const loaded = wizardReducer(initialWizardState, { type: "STATUS_LOADED", status: withDefaults });
     const editing = wizardReducer({ ...loaded, model: "half-typed" }, { type: "STATUS_LOADED", status: withDefaults });
     expect(editing.model).toBe("half-typed");
+  });
+});
+
+describe("compatibility mode choice", () => {
+  const chosen = { ...initialWizardState, provider: "ppio", selectedAgentIds: ["codex"], conversion: true, keyVerified: true };
+
+  it("counts as a verified key, since Chat Completions answered with it", () => {
+    const next = wizardReducer({ ...initialWizardState, keyVerified: false }, { type: "SET_CONVERSION", value: true });
+    expect(next.conversion).toBe(true);
+    expect(next.keyVerified).toBe(true);
+  });
+
+  it.each<WizardAction>([
+    { type: "SET_PROVIDER", value: "jiekou" },
+    { type: "SET_PROBE_MODEL", value: "other-model" },
+    { type: "SET_HAS_API_KEY", value: true },
+    { type: "SELECT_AGENT", agentId: "claude-code" },
+    { type: "START_NEW_PROFILE" },
+    { type: "CONNECTION_LOADING" },
+  ])("is cleared by $type, whose verdict it rested on", (action) => {
+    expect(wizardReducer(chosen, action).conversion).toBe(false);
   });
 });
 

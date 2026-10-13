@@ -1,9 +1,14 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { BootAgentApiError } from "../backend/errors";
 import type { DesktopAgentActionResult, DesktopAgentStatus } from "../types/api";
+import { FeedbackProvider } from "../state/FeedbackContext";
 import { TaskCenterProvider } from "../state/TaskCenterContext";
+import { ACTION_DONE_MS } from "./ActionButton";
 import { DesktopAppSection } from "./DesktopAppSection";
+import { FeedbackViewport } from "./FeedbackViewport";
+import { TaskCenter } from "./TaskCenter";
 
 const bridge = vi.hoisted(() => ({
   onInstallOutput: () => () => {},
@@ -58,12 +63,18 @@ describe("DesktopAppSection", () => {
     );
 
     expect(screen.getByRole("heading", { name: "桌面 Agent" })).toBeTruthy();
-    const configNote = screen.getByText("与 Example CLI 共用配置文件 /home/u/.example/config.toml；安装和启动不会改动配置");
-    expect(configNote.closest(".desktop-app-row")).toBeTruthy();
+    // The settings file is a detail: in the row's closed fold, not its text.
+    const configPath = screen.getByText("/home/u/.example/config.toml");
+    expect(configPath.closest("details")?.open).toBe(false);
+    expect(configPath.closest(".desktop-app-row")).toBeTruthy();
+    expect(screen.getByText("和 Example CLI 用同一份设置，安装和启动不会改动它").closest("details")).toBe(configPath.closest("details"));
     fireEvent.click(screen.getByRole("button", { name: "安装" }));
     await waitFor(() => expect(onChanged).toHaveBeenCalledTimes(1));
     expect(bridge.installDesktopAgent).toHaveBeenCalledWith("chatgpt-desktop");
-    expect(screen.getByText("Example Desktop 安装完成")).toBeTruthy();
+    // The outcome belongs to the Task Center, not to a notice inside the card
+    // that pushed the rows below it down.
+    expect(screen.queryByText("Example Desktop 安装完成")).toBeNull();
+    expect(document.querySelector(".desktop-app-section .notice-success")).toBeNull();
   });
 
   it("offers conversation migration in the action menu for installed ChatGPT Desktop", () => {
@@ -150,16 +161,15 @@ describe("DesktopAppSection", () => {
     fireEvent.click(screen.getByRole("button", { name: "启动" }));
     await waitFor(() => expect(bridge.openDesktopAgent).toHaveBeenCalledTimes(1));
     expect(bridge.openDesktopAgent).toHaveBeenCalledWith("chatgpt-desktop");
-    expect(screen.getByText("Example Desktop 已打开")).toBeTruthy();
+    // Confirmed on the button itself rather than in a notice above the card.
+    expect(await screen.findByRole("button", { name: "已打开" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "更新" })).toBeNull();
     // The version is a token now, so its heading lives in title= rather than
     // beside the value. Assert the labelled element, not the concatenation.
     expect(screen.getByTitle("版本").textContent).toBe("26.727.51351");
   });
 
-  it("retires the launch notice on its own", async () => {
-    // It used to stay until the user launched again or navigated away, which
-    // unmounted the row -- so on the page where you launch from, it never left.
+  it("returns the launch button to its label after confirming", async () => {
     vi.useFakeTimers();
     try {
       bridge.openDesktopAgent.mockResolvedValue(undefined);
@@ -169,56 +179,42 @@ describe("DesktopAppSection", () => {
         </TaskCenterProvider>,
       );
 
-      fireEvent.click(screen.getByRole("button", { name: "启动" }));
-      await vi.waitFor(() => expect(screen.queryByText("Example Desktop 已打开")).toBeTruthy());
-      // Still there a moment later: it is readable, not a flash.
-      await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
-      expect(screen.queryByText("Example Desktop 已打开")).toBeTruthy();
-
-      await act(async () => { await vi.advanceTimersByTimeAsync(3000); });
-      expect(screen.queryByText("Example Desktop 已打开")).toBeNull();
+      const button = screen.getByRole("button", { name: "启动" });
+      fireEvent.click(button);
+      await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+      expect(button).toHaveAccessibleName("已打开");
+      await act(async () => { await vi.advanceTimersByTimeAsync(ACTION_DONE_MS); });
+      expect(button).toHaveAccessibleName("启动");
     } finally {
       vi.useRealTimers();
     }
   });
 
-  it("restarts the countdown when the app is launched again", async () => {
-    // The second launch repeats the same message. If the reset to "" did not
-    // land between the two, the effect would not re-run and the notice would
-    // still vanish on the first launch's schedule.
-    vi.useFakeTimers();
-    try {
-      bridge.openDesktopAgent.mockResolvedValue(undefined);
-      render(
-        <TaskCenterProvider>
+  it("reports an open failure as a receipt and keeps a marker that reopens it", async () => {
+    bridge.openDesktopAgent.mockRejectedValue(new BootAgentApiError("Cannot open Example Desktop", "INTERNAL_ERROR", true, 500));
+    const { container } = render(
+      <TaskCenterProvider>
+        <FeedbackProvider>
           <DesktopAppSection app={app({ installed: true })} onChanged={vi.fn()} />
-        </TaskCenterProvider>,
-      );
+          <FeedbackViewport />
+        </FeedbackProvider>
+      </TaskCenterProvider>,
+    );
 
-      // Settle the launch before reading the clock: the notice is set after an
-      // awaited call, so advancing first would arm the timer mid-advance and
-      // measure from the wrong instant.
-      const launch = async () => {
-        fireEvent.click(screen.getByRole("button", { name: "启动" }));
-        await act(async () => { await vi.advanceTimersByTimeAsync(0); });
-      };
+    fireEvent.click(screen.getByRole("button", { name: "启动" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("无法打开 Example Desktop");
+    // Nothing was written into the card.
+    expect(container.querySelector(".desktop-app-section .notice-error")).toBeNull();
 
-      await launch();
-      expect(screen.queryByText("Example Desktop 已打开")).toBeTruthy();
-      await act(async () => { await vi.advanceTimersByTimeAsync(3000); });
+    fireEvent.click(screen.getByRole("button", { name: "关闭" }));
+    expect(screen.queryByRole("alert")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "启动失败" }));
+    expect(screen.getByRole("alert")).toHaveTextContent("无法打开 Example Desktop");
 
-      await launch();
-      expect(bridge.openDesktopAgent).toHaveBeenCalledTimes(2);
-      // 3s of the first window had already elapsed; the notice outliving another
-      // 2s proves the clock restarted rather than carried over.
-      await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
-      expect(screen.queryByText("Example Desktop 已打开")).toBeTruthy();
-
-      await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
-      expect(screen.queryByText("Example Desktop 已打开")).toBeNull();
-    } finally {
-      vi.useRealTimers();
-    }
+    // The next open that succeeds clears the marker.
+    bridge.openDesktopAgent.mockResolvedValue(undefined);
+    fireEvent.click(screen.getByRole("button", { name: "启动" }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "启动失败" })).toBeNull());
   });
 
   it("keeps the bar and reports the outcome across a navigation mid-download", async () => {
@@ -234,6 +230,7 @@ describe("DesktopAppSection", () => {
 
     const view = render(
       <TaskCenterProvider>
+        <TaskCenter />
         <DesktopAppSection app={app()} onChanged={onChanged} />
       </TaskCenterProvider>,
     );
@@ -244,6 +241,7 @@ describe("DesktopAppSection", () => {
     // Leaving the page unmounts the row while the install keeps running.
     view.rerender(
       <TaskCenterProvider>
+        <TaskCenter />
         <div>另一个页面</div>
       </TaskCenterProvider>,
     );
@@ -252,6 +250,7 @@ describe("DesktopAppSection", () => {
     // Coming back must show the bar again, without starting a second install.
     view.rerender(
       <TaskCenterProvider>
+        <TaskCenter />
         <DesktopAppSection app={app()} onChanged={onChanged} />
       </TaskCenterProvider>,
     );
@@ -259,8 +258,9 @@ describe("DesktopAppSection", () => {
     expect(bridge.installDesktopAgent).toHaveBeenCalledTimes(1);
 
     await act(async () => { complete(action(installed)); });
-    // The verdict was recorded in the provider, so it survives the round trip.
-    await waitFor(() => expect(screen.getByText("Example Desktop 安装完成")).toBeTruthy());
+    // The verdict was recorded in the provider, so it survives the round trip
+    // and is reported where install outcomes live: the Task Center.
+    await waitFor(() => expect(screen.getByText(/Example Desktop 安装完成/)).toBeTruthy());
     expect(screen.queryByRole("progressbar", { name: "下载进度" })).toBeNull();
   });
 
@@ -271,8 +271,8 @@ describe("DesktopAppSection", () => {
       </TaskCenterProvider>,
     );
 
-    expect(screen.getByText("应用状态检测不可用")).toBeTruthy();
-    expect(screen.queryByText("已检测到应用，但版本信息不可用")).toBeNull();
+    expect(screen.getByText("暂时无法检查这个应用是否已安装。")).toBeTruthy();
+    expect(screen.queryByText("读不到这个应用的版本，不影响启动和使用。")).toBeNull();
   });
 
   it("can omit an uninstalled app from the overview", () => {
@@ -293,8 +293,7 @@ describe("DesktopAppSection", () => {
       </TaskCenterProvider>,
     );
 
-    expect(screen.getByText("已检测到应用，但版本信息不可用")).toBeTruthy();
-    expect(screen.getByText("可继续尝试启动；版本检测与模型 API 兼容性无关。")).toBeTruthy();
+    expect(screen.getByText("读不到这个应用的版本，不影响启动和使用。")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "启动" }));
     await waitFor(() => expect(bridge.openDesktopAgent).toHaveBeenCalledWith("chatgpt-desktop"));
   });

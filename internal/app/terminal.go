@@ -221,7 +221,7 @@ func resolveTerminal(osID, requested string, look CommandLookup, exists pathExis
 		}
 	}
 	return terminalDefinition{}, oneerrors.New(
-		oneerrors.PrerequisiteMissing,
+		oneerrors.TerminalNotFound,
 		"No terminal emulator was found; install one of x-terminal-emulator, gnome-terminal, konsole, xfce4-terminal or xterm",
 	)
 }

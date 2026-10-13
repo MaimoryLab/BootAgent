@@ -31,7 +31,9 @@ export function ReviewPage() {
   // no separate field.
   const targetID = desktop ? profileAgentIdForDesktop(desktop) : state.selectedAgentIds[0] ?? "agent";
   const targetName = desktop?.name || selectedCatalog[0]?.name || state.selectedAgentIds[0] || "";
-  const defaultId = `${targetID}-${state.provider}`.replace(/[^a-z0-9_-]/gi, "-").toLowerCase();
+  // A compatibility-mode Profile speaks Chat Completions, not the Agent's own
+  // format, so it gets an ID of its own instead of overwriting a native one.
+  const defaultId = `${targetID}-${state.provider}${state.conversion ? "-compat" : ""}`.replace(/[^a-z0-9_-]/gi, "-").toLowerCase();
   const defaultLabel = `${targetName} · ${providerName}`;
   const profileLabel = state.profileLabel || defaultLabel;
 
@@ -80,6 +82,7 @@ export function ReviewPage() {
             // wizard forgot to collect, and the user would go looking for it.
             : <ReviewRow label={t("模型")} value={t("由 Agent 自行选择")} />}
           <ReviewRow label="Base URL" value={state.status?.providers[state.provider]?.base_url || ""} />
+          {state.conversion ? <ReviewRow label={t("连接方式")} value={t("兼容模式，在本机转换")} /> : null}
         </ReviewGroup>
 
         <ReviewGroup title={t("本地写入")}>

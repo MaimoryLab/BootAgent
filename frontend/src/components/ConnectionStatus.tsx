@@ -48,7 +48,9 @@ export function ConnectionStatus({ state, result }: { state: AsyncState; result:
       <div className="inline-status status-success" role="status">
         <CheckCircle2 size={17} />
         <span>
-          {result.message}
+          {/* Not result.message: the backend writes "<protocol> connection test
+              passed." in English, and which protocols passed is listed below. */}
+          {t("连接正常")}
           {breakdown}
         </span>
       </div>

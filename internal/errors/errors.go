@@ -44,6 +44,16 @@ const (
 	// dropped and could not be resumed. Retryable, and resumption means a retry
 	// usually starts from where this one stopped.
 	UpdateInterrupted = "UPDATE_INTERRUPTED"
+	// LaunchDirectoryInvalid marks a launch directory that does not exist, is
+	// not a directory, or cannot be passed to the platform shell. Separate from
+	// InvalidRequest so the interface can name the field the user just filled.
+	LaunchDirectoryInvalid = "LAUNCH_DIRECTORY_INVALID"
+	// TerminalNotFound marks a launch with no terminal emulator to open. A
+	// PrerequisiteMissing message here was English prose the interface could
+	// only pass through.
+	TerminalNotFound = "TERMINAL_NOT_FOUND"
+	// TerminalLaunchFailed marks a terminal that was found but did not start.
+	TerminalLaunchFailed = "TERMINAL_LAUNCH_FAILED"
 )
 
 // ExitCodes preserves the numeric codes included in existing error payloads.
@@ -77,6 +87,11 @@ var ExitCodes = map[string]int{
 	// the codes exist to separate the copy, not the exit contract.
 	UpdateStalled:     8,
 	UpdateInterrupted: 8,
+	// The classes these refined: a bad argument, a missing prerequisite, and
+	// an environment failure. The numeric contract does not change.
+	LaunchDirectoryInvalid: 2,
+	TerminalNotFound:       3,
+	TerminalLaunchFailed:   10,
 }
 
 // BootAgentError is safe to serialize across the Wails bridge. Message must

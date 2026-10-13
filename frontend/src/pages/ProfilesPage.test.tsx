@@ -1,8 +1,9 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { api } from "../backend/api";
+import { FeedbackProvider } from "../state/FeedbackContext";
 import type { SaveProfileResult, ProfileSummary, StatusResponse } from "../types/api";
 import { ProfilesPage } from "./ProfilesPage";
 
@@ -95,14 +96,23 @@ function renderPage(profiles: ProfileSummary[]) {
   mockState = { status: statusWith(profiles), statusState: "success" };
   dispatch.mockClear();
   render(
-    <MemoryRouter initialEntries={["/profiles"]}>
-      <Routes>
-        <Route path="/profiles" element={<ProfilesPage />} />
-        <Route path="/setup/agents" element={<h1>onboarding</h1>} />
-        <Route path="/overview" element={<h1>overview</h1>} />
-      </Routes>
-    </MemoryRouter>,
+    <FeedbackProvider>
+      <MemoryRouter initialEntries={["/profiles"]}>
+        <Routes>
+          <Route path="/profiles" element={<ProfilesPage />} />
+          <Route path="/setup/agents" element={<h1>onboarding</h1>} />
+          <Route path="/overview" element={<h1>overview</h1>} />
+        </Routes>
+      </MemoryRouter>
+    </FeedbackProvider>,
   );
+}
+
+/** Opens the open receipt's 详情 and returns the receipt. */
+function receiptWithDetail() {
+  const receipt = screen.getByRole("alert");
+  fireEvent.click(within(receipt).getByRole("button", { name: "详情" }));
+  return receipt;
 }
 
 describe("ProfilesPage", () => {
@@ -188,7 +198,9 @@ describe("ProfilesPage", () => {
   it("explains why an in-use Profile cannot be deleted", () => {
     renderPage([profile()]);
     fireEvent.click(screen.getByRole("button", { name: "删除 团队 PPIO" }));
-    expect(screen.getByText(/配置模版正在被.*使用，无法删除/)).toBeTruthy();
+    const receipt = receiptWithDetail();
+    expect(receipt).toHaveTextContent("「团队 PPIO」正在使用，无法删除");
+    expect(receipt).toHaveTextContent(/使用它的 Agent：.*Codex/);
   });
 
   it("creates a Profile inline without entering onboarding", async () => {
@@ -264,7 +276,11 @@ describe("ProfilesPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "编辑 团队 PPIO" }));
     fireEvent.click(screen.getByRole("button", { name: "保存配置模版" }));
 
-    await waitFor(() => expect(screen.getByText(/已重新应用到.*Codex/)).toBeTruthy());
+    // A success, so a polite receipt rather than an alert; the Agents it
+    // rewrote are behind 详情.
+    const receipt = (await screen.findByText("已保存，1 个 Agent 已更新")).closest(".feedback-toast") as HTMLElement;
+    fireEvent.click(within(receipt).getByRole("button", { name: "详情" }));
+    expect(receipt).toHaveTextContent("Codex");
   });
 
   it("reports a Profile edit whose reapply failed", async () => {
@@ -275,7 +291,8 @@ describe("ProfilesPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "编辑 团队 PPIO" }));
     fireEvent.click(screen.getByRole("button", { name: "保存配置模版" }));
 
-    await waitFor(() => expect(screen.getByText(/Codex.*重新应用失败.*写入失败/)).toBeTruthy());
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("已保存，1 个 Agent 未能更新"));
+    expect(receiptWithDetail()).toHaveTextContent("Codex: 写入失败");
   });
 
   // The editor is a page of its own. The list used to stay rendered below the

@@ -2,7 +2,7 @@ import { KeyRound, Layers, Pencil, Plus, Save, Trash2, X } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { api, describeFailure } from "../backend/api";
+import { api } from "../backend/api";
 import { CardUsers } from "../components/CardUsers";
 import { ModelCheckButton, ModelCheckNotice } from "../components/ModelCheckNotice";
 import { PageScaffold } from "../components/PageScaffold";
@@ -10,7 +10,10 @@ import { ProviderModelPicker } from "../components/ProviderModelPicker";
 import { ProviderSegment } from "../components/ProviderSegment";
 import { SelectField } from "../components/SelectField";
 import { useI18n } from "../i18n";
+import { applyConversion, confirmConversion, conversionTargets } from "../state/applyConversion";
 import { confirmDelete } from "../state/confirmDelete";
+import { useFeedback } from "../state/FeedbackContext";
+import { saveReceipt } from "../state/saveReceipt";
 import { byProviderCreatedAt, preferProviderWithKey } from "../state/ranking";
 import { isConverterID } from "../state/conversion";
 import { useWizard } from "../state/WizardContext";
@@ -60,8 +63,8 @@ export function ProfilesPage() {
   const status = state.status;
   const [editor, setEditor] = useState<ProfileDraft | null>(null);
   const [busy, setBusy] = useState(false);
-  const [failure, setFailure] = useState("");
-  const [applied, setApplied] = useState("");
+  const feedback = useFeedback();
+  const separator = locale === "en" ? ", " : "、";
   // A check runs only when the user presses 检测模型: it is a billed request.
   const [checked, setChecked] = useState<ProfileModelCheck | null>(null);
   const [checkingId, setCheckingId] = useState("");
@@ -121,8 +124,6 @@ export function ProfilesPage() {
 
   const openCreate = () => {
     const [provider = "ppio", providerMeta] = preferProviderWithKey(byProviderCreatedAt(Object.fromEntries(Object.entries(status.providers).filter(([providerId]) => !isConverterID(providerId))))) || [];
-    setFailure("");
-    setApplied("");
     setEditor({
       id: suggestProfileID(provider),
       label: suggestProfileLabel(provider),
@@ -184,18 +185,7 @@ export function ProfilesPage() {
     setLastEdit(before && before.provider === request.provider && before.model && before.model !== request.model
       ? { profileId: request.id, previousModel: before.model, request }
       : null);
-    const reapplied = result.reapplied ?? [];
-    const failures = Object.entries(result.failures ?? {});
-    if (failures.length) {
-      setFailure(t("{agents} 重新应用失败：{message}", {
-        agents: failures.map(([agentId]) => nameOf(agentId)).join(locale === "en" ? ", " : "、"),
-        message: failures[0][1] ?? "",
-      }));
-    } else if (reapplied.length) {
-      setApplied(t("已重新应用到 {agents}", {
-        agents: reapplied.map(nameOf).join(locale === "en" ? ", " : "、"),
-      }));
-    }
+    feedback.show(saveReceipt({ key: `profile:${request.id}`, name: request.label || request.id, result, nameOf, t, separator }));
     await refreshStatus();
   };
 
@@ -203,8 +193,6 @@ export function ProfilesPage() {
     event.preventDefault();
     if (!editor || !canSave) return;
     setBusy(true);
-    setFailure("");
-    setApplied("");
     try {
       await persist({
         id: editor.id.trim().toLowerCase(),
@@ -220,7 +208,8 @@ export function ProfilesPage() {
       });
       setEditor(null);
     } catch (error) {
-      setFailure(describeFailure(error, t("无法保存配置模版"), t).message);
+      // The editor stays open with what was typed, so the save can be retried.
+      feedback.failure(error, t("无法保存配置模版"), { key: `profile:${editor.id.trim().toLowerCase()}` });
     } finally {
       setBusy(false);
     }
@@ -229,14 +218,13 @@ export function ProfilesPage() {
   const checkModel = async (profileId: string) => {
     const generation = ++checkGeneration.current;
     setCheckingId(profileId);
-    setFailure("");
     try {
       const check = await api.checkProfileModel(profileId);
       if (checkGeneration.current !== generation) return;
       const edit = lastEdit?.profileId === profileId && lastEdit.request.model === check.model ? lastEdit : null;
       setChecked({ ...check, previousModel: edit?.previousModel });
     } catch (error) {
-      if (checkGeneration.current === generation) setFailure(describeFailure(error, t("无法检测模型"), t).message);
+      if (checkGeneration.current === generation) feedback.failure(error, t("无法检测模型"), { key: `check:${profileId}` });
     } finally {
       if (checkGeneration.current === generation) setCheckingId("");
     }
@@ -250,23 +238,45 @@ export function ProfilesPage() {
     if (current?.model !== checked.model || current.provider !== lastEdit.request.provider) return;
     const request = { ...lastEdit.request, model: checked.previousModel };
     setBusy(true);
-    setFailure("");
-    setApplied("");
     try {
       await persist(request);
       setChecked(null);
     } catch (error) {
-      setFailure(describeFailure(error, t("无法保存配置模版"), t).message);
+      feedback.failure(error, t("无法保存配置模版"), { key: `profile:${request.id}` });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /**
+   * The remedy a failed check offers here: every Agent the check covered that
+   * compatibility mode can serve is switched to it, forwarding to this
+   * Profile's Provider and model.
+   */
+  const useConversion = async (check: ProfileModelCheck) => {
+    const source = status.profiles.find((profile) => profile.id === check.profileId);
+    const targets = conversionTargets(status, check.agents);
+    if (!source || !targets.length || busy) return;
+    const names = targets.map(nameOf);
+    if (!await confirmConversion(t)) return;
+    setBusy(true);
+    const key = `conversion:${check.profileId}`;
+    try {
+      await applyConversion(status, targets, source, t);
+      setChecked(null);
+      feedback.show({ key, tone: "success", message: t("{agent} 已改用兼容模式", { agent: names.join(separator) }) });
+      await refreshStatus();
+    } catch (error) {
+      feedback.failure(error, t("无法开启兼容模式"), { key });
     } finally {
       setBusy(false);
     }
   };
 
   const remove = async (profile: ProfileSummary, users: typeof configurableAgents) => {
+    const key = `profile:${profile.id}`;
     if (users.length) {
-      setFailure(t("配置模版正在被 {agents} 使用，无法删除", {
-        agents: users.map((agent) => agent.name).join(locale === "en" ? ", " : "、"),
-      }));
+      feedback.show({ key, tone: "warning", message: t("「{name}」正在使用，无法删除", { name: profile.label }), detail: t("使用它的 Agent：{agents}", { agents: users.map((agent) => agent.name).join(separator) }) });
       return;
     }
     // Asked after the in-use check, so a Profile that cannot be deleted anyway
@@ -278,13 +288,13 @@ export function ProfilesPage() {
       cancelLabel: t("取消"),
     })) return;
     setBusy(true);
-    setFailure("");
     try {
       await api.deleteProfile(profile.id);
       if (editor?.originalId === profile.id) setEditor(null);
+      feedback.show({ key, tone: "success", message: t("已删除「{name}」", { name: profile.label }) });
       await refreshStatus();
     } catch (error) {
-      setFailure(describeFailure(error, t("无法删除配置模版"), t).message);
+      feedback.failure(error, t("无法删除配置模版"), { key });
     } finally {
       setBusy(false);
     }
@@ -429,11 +439,6 @@ export function ProfilesPage() {
         </form>
       ) : null}
 
-      {failure ? <p className="agent-manage-error">{failure}</p> : null}
-      {/* The editor is a page of its own: the list, and notices about what
-          happened to it, return when the editor closes. Rendering them below
-          the form read as the previous page appended to this one. */}
-      {applied && !editor ? <div className="agent-manage-applied"><strong>{t("应用完成")}</strong><span>{applied}</span></div> : null}
       {checked && !editor ? (
         <ModelCheckNotice
           check={checked}
@@ -444,6 +449,7 @@ export function ProfilesPage() {
           busy={busy || Boolean(checkingId)}
           onRevert={() => void revertModel()}
           onRecheck={() => void checkModel(checked.profileId)}
+          onUseConversion={conversionTargets(status, checked.agents).length ? () => void useConversion(checked) : undefined}
           onDismiss={() => setChecked(null)}
         />
       ) : null}
@@ -469,7 +475,7 @@ export function ProfilesPage() {
                       <KeyRound size={12} aria-hidden="true" />
                       {status.providers[profile.provider]?.has_key ? t("模型服务已有 Key") : t("模型服务缺少 Key")}
                     </span>
-                    <button className="icon-button" type="button" onClick={() => { setEditor(editDraft(profile, protocolOf(profile))); setFailure(""); setApplied(""); }} aria-label={t("编辑 {name}", { name: profile.label })} title={t("编辑")}>
+                    <button className="icon-button" type="button" onClick={() => { setEditor(editDraft(profile, protocolOf(profile))); }} aria-label={t("编辑 {name}", { name: profile.label })} title={t("编辑")}>
                       <Pencil size={14} />
                     </button>
                     {/* disabled while busy: without it a double-click sent two

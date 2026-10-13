@@ -3,6 +3,8 @@ import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { api } from "../backend/api";
+import { BootAgentApiError } from "../backend/errors";
+import { FeedbackProvider } from "../state/FeedbackContext";
 import { initialWizardState, wizardReducer, type WizardAction, type WizardState } from "../state/wizardReducer";
 import type { StatusResponse } from "../types/api";
 import { ProviderKeyPage } from "./ProviderKeyPage";
@@ -44,6 +46,59 @@ vi.mock("../state/WizardContext", () => ({
 
 describe("ProviderKeyPage", () => {
   afterEach(() => vi.restoreAllMocks());
+
+  // A Chat Completions-only service used to leave Codex users with a failure
+  // that pointed at "another API type" the wizard has no control for, and a
+  // Continue button that installed an Agent which then failed on first use.
+  it("offers compatibility mode when Codex's format fails but Chat Completions works", async () => {
+    const codexStatus = {
+      ...status,
+      catalog: [{ id: "codex", name: "Codex", protocol: "responses", configMode: "auto", selectsModel: true }],
+    } as unknown as StatusResponse;
+    state = { ...baseState, status: codexStatus, statusState: "success", setupKind: "cli", selectedAgentIds: ["codex"] };
+    keyRef.current = "";
+    vi.spyOn(api, "probe").mockResolvedValue({
+      ok: false, reachable: true, status: 404, message: "Model does not support OpenAI Responses.",
+      error_code: "PROTOCOL_UNSUPPORTED", retryable: false, convertible: ["responses"],
+    });
+    const page = render(<MemoryRouter><ProviderKeyPage /></MemoryRouter>);
+
+    fireEvent.click(screen.getByRole("button", { name: "测试连接" }));
+    await waitFor(() => expect(state.connectionState).toBe("error"));
+    page.rerender(<MemoryRouter><ProviderKeyPage /></MemoryRouter>);
+
+    expect(screen.getByText("Codex 不能直接使用这个模型服务，BootAgent 可以在本机转换后使用")).toBeTruthy();
+    // The plain failure, which tells the user to switch API type, is replaced.
+    expect(screen.queryByText("这个模型不支持所选的 API 类型")).toBeNull();
+    expect(screen.getByRole("button", { name: "继续选择模型" })).toBeDisabled();
+
+    fireEvent.click(screen.getByRole("button", { name: "使用兼容模式" }));
+    page.rerender(<MemoryRouter><ProviderKeyPage /></MemoryRouter>);
+    expect(state.conversion).toBe(true);
+    expect(screen.getByText("已选择兼容模式，使用 Codex 时需要保持 BootAgent 运行")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "继续选择模型" })).toBeEnabled();
+  });
+
+  it("keeps the plain failure when compatibility mode cannot help", async () => {
+    const codexStatus = {
+      ...status,
+      catalog: [{ id: "codex", name: "Codex", protocol: "responses", configMode: "auto", selectsModel: true }],
+    } as unknown as StatusResponse;
+    state = { ...baseState, status: codexStatus, statusState: "success", setupKind: "cli", selectedAgentIds: ["codex"] };
+    keyRef.current = "";
+    vi.spyOn(api, "probe").mockResolvedValue({
+      ok: false, reachable: true, status: 401, message: "API key was rejected (401).",
+      error_code: "API_KEY_REJECTED", retryable: true, convertible: null,
+    });
+    const page = render(<MemoryRouter><ProviderKeyPage /></MemoryRouter>);
+
+    fireEvent.click(screen.getByRole("button", { name: "测试连接" }));
+    await waitFor(() => expect(state.connectionState).toBe("error"));
+    page.rerender(<MemoryRouter><ProviderKeyPage /></MemoryRouter>);
+
+    expect(screen.queryByRole("button", { name: "使用兼容模式" })).toBeNull();
+    expect(screen.getByRole("button", { name: "继续选择模型" })).toBeEnabled();
+  });
 
   it("uses a custom model name for the connection test", async () => {
     state = { ...baseState, status, statusState: "success", hasApiKey: false };
@@ -172,6 +227,17 @@ describe("ProviderKeyPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "继续选择模型" }));
     await waitFor(() => expect(save).toHaveBeenCalledWith(expect.objectContaining({ api_key: "sk-rotated" })));
+  });
+
+  it("reports a failed key save as a receipt and stays on the page", async () => {
+    state = { ...baseState, status, statusState: "success", hasApiKey: true };
+    keyRef.current = "sk-rotated";
+    vi.spyOn(api, "saveProvider").mockRejectedValue(new BootAgentApiError("disk full", "CONFIG_WRITE_FAILED", false, 500));
+    render(<FeedbackProvider><MemoryRouter><ProviderKeyPage /></MemoryRouter></FeedbackProvider>);
+
+    fireEvent.click(screen.getByRole("button", { name: "继续选择模型" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("无法保存模型服务");
+    expect(document.querySelector(".provider-form p")).toBeNull();
   });
 
   it("continues without a save when nothing was typed", async () => {
