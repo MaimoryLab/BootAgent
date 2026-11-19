@@ -23,6 +23,10 @@ BootAgent is a local desktop workspace for AI coding Agents. It helps you detect
 already on your machine, connect a Provider, configure an Agent, and get to a first
 successful request without editing several tool-specific files by hand.
 
+<p align="center">
+  <img src="docs/assets/screenshots/overview.jpg" alt="BootAgent Environment overview: agents, providers and skills on one screen" width="900">
+</p>
+
 ## Start here
 
 | You want to... | Start with... |
