@@ -35,9 +35,10 @@ const (
 	WorkBuddyIntlName           = "WorkBuddy AI"
 	WorkBuddyIntlBundleID       = "com.workbuddy.workbuddy-ai"
 	WorkBuddyIntlUpdateEndpoint = "https://www.codebuddy.ai/v2/update"
-	// The international artifacts are served straight from the vendor's COS
-	// bucket rather than from a branded download host.
-	WorkBuddyIntlDownloadHost = "codebuddy-1328495429.cos.accelerate.myqcloud.com"
+	// The vendor's own download host, mirroring the Chinese edition's. Until the
+	// 5.11 line the international packages came straight from a COS bucket
+	// instead; the update endpoint no longer returns that host.
+	WorkBuddyIntlDownloadHost = "download.codebuddy.ai"
 	// WorkBuddyIntlConfigDir is the directory the shipped build actually reads.
 	// The vendor's English documentation says ~/.codebuddy, which is wrong: the
 	// resolver takes `config.customUserDataDir` from cli/product.json, and the

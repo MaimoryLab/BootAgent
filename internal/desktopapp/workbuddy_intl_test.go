@@ -134,6 +134,23 @@ func TestWorkBuddyEditionsUseTheirOwnEndpointsAndRejectTheOtherHost(t *testing.T
 	}
 }
 
+// The body is what the international endpoint returned on 2026-11-19. The test
+// above builds its URL from the constant, so it kept passing after the vendor
+// moved its packages to another host and every install began to fail.
+func TestWorkBuddyIntlAcceptsTheHostItsEndpointReturns(t *testing.T) {
+	const packageURL = "https://download.codebuddy.ai/workbuddy/saas/darwin-arm64/WorkBuddy-darwin-arm64-5.11.4.44121853-0026dff0.zip"
+	feed := WorkBuddyIntlUpdateEndpoint + "?platform=workbuddy-darwin-arm64"
+	downloader := &routeDownloader{routes: map[string][]byte{
+		feed: []byte(`{"version":"5.11.4.44121853","productVersion":"5.11.4.44121853","url":"` + packageURL + `"}`),
+	}}
+	update, err := fetchWorkBuddyUpdate(context.Background(), workBuddyIntl, Options{
+		Platform: platform.For("macos", "arm64"), Downloader: downloader,
+	})
+	if err != nil || update.URL != packageURL {
+		t.Fatalf("fetchWorkBuddyUpdate = %#v, %v", update, err)
+	}
+}
+
 // The config path is the one fact the vendor's own English documentation gets
 // wrong: it says ~/.codebuddy, but the shipped build resolves the directory from
 // config.customUserDataDir in its cli/product.json, which is ".workbuddy-ai".
