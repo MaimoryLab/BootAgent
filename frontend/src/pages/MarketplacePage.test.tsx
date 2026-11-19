@@ -1,6 +1,6 @@
-import { render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 // Block the real Wails runtime: importing it registers a module-level timer in
@@ -67,6 +67,35 @@ afterEach(() => {
   vi.restoreAllMocks();
   sessionStorage.clear();
 });
+
+function LocationProbe() {
+  const location = useLocation();
+  return <output data-testid="location">{`${location.pathname}${location.search}`}</output>;
+}
+
+// Stands in for the detail page, which goes back to the recorded returnTo.
+function DetailBackProbe() {
+  const navigate = useNavigate();
+  const { returnTo } = useLocation().state as { returnTo: string };
+  return <button type="button" onClick={() => navigate(returnTo)}>Back</button>;
+}
+
+function renderMarketplaceRoutes() {
+  render(
+    <I18nProvider>
+      <MemoryRouter initialEntries={["/marketplace"]}>
+        <LocationProbe />
+        <Routes>
+          <Route path="/marketplace" element={<MarketplacePage />} />
+          <Route path="/marketplace/:id" element={<DetailBackProbe />} />
+        </Routes>
+      </MemoryRouter>
+    </I18nProvider>,
+  );
+}
+
+const currentLocation = () => screen.getByTestId("location").textContent;
+const searchBox = () => screen.getByRole<HTMLInputElement>("textbox", { name: "Search Marketplace" });
 
 describe("filterMarketplaceItems", () => {
   it("returns all items when category is 'all' and query is empty", () => {
@@ -206,6 +235,34 @@ describe("MarketplacePage category URL", () => {
       returnTo: "/marketplace?q=ultracode&category=plugin&kind=skill",
       scrollTop: 0,
     });
+  });
+
+  it("keeps search text typed just before opening a card when going back", () => {
+    renderMarketplaceRoutes();
+
+    // No timer runs between the two events, so the 180ms debounce is pending.
+    fireEvent.change(searchBox(), { target: { value: "ultracode" } });
+    expect(currentLocation()).toBe("/marketplace");
+    fireEvent.click(screen.getByRole("link", { name: "Ultracode Skill" }));
+
+    expect(currentLocation()).toBe("/marketplace/skill-a");
+    expect(readMarketplaceQuerySession()?.returnTo).toBe("/marketplace?q=ultracode");
+
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    expect(currentLocation()).toBe("/marketplace?q=ultracode");
+    expect(searchBox().value).toBe("ultracode");
+  });
+
+  it("keeps both the pending search text and a filter changed in the same moment", async () => {
+    renderMarketplaceRoutes();
+    fireEvent.click(screen.getByRole("button", { name: "Tool type" }));
+
+    fireEvent.change(searchBox(), { target: { value: "ultracode" } });
+    fireEvent.click(screen.getByLabelText("Skill"));
+    expect(currentLocation()).toBe("/marketplace?q=ultracode&kind=skill");
+
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 250)); });
+    expect(currentLocation()).toBe("/marketplace?q=ultracode&kind=skill");
   });
 
   it("does not expose filter values or top-level resource categories without tool supply", async () => {
