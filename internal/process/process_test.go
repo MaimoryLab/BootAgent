@@ -44,6 +44,11 @@ func TestProcessHelper(_ *testing.T) {
 		os.Stdout.Write(value)
 		os.Exit(0)
 	}
+	if os.Getenv("TEST_PROCESS_CWD") == "1" {
+		directory, _ := os.Getwd()
+		os.Stdout.WriteString(directory)
+		os.Exit(0)
+	}
 	if os.Getenv("TEST_PROCESS_WAIT") == "1" {
 		if os.Getenv("TEST_PROCESS_READY") == "1" {
 			os.Stdout.WriteString("ready")
@@ -149,6 +154,34 @@ func TestOSRunnerAcceptsPrivateStdin(t *testing.T) {
 	}, helperTimeout, "private recommendation need")
 	if err != nil || result.Stdout != "private recommendation need" {
 		t.Fatalf("private input result = %#v, err=%v", result, err)
+	}
+}
+
+// A command that writes relative paths has to start where the caller means it
+// to, and not every command has a flag for that.
+func TestOSRunnerStartsInTheContextWorkingDirectory(t *testing.T) {
+	runner := helperRunner(t)
+	// Resolved, because the child reports the real path and a temporary
+	// directory is reached through a symlink on macOS.
+	directory, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	argv := []string{os.Args[0], "-test.run=TestProcessHelper"}
+	overrides := map[string]string{"TEST_PROCESS_CWD": "1"}
+	result, err := runner.Run(WithWorkingDirectory(context.Background(), directory), argv, overrides, helperTimeout)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := filepath.EvalSymlinks(result.Stdout); got != directory {
+		t.Fatalf("command started in %q, want %q", result.Stdout, directory)
+	}
+	inherited, err := runner.Run(context.Background(), argv, overrides, helperTimeout)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if own, _ := os.Getwd(); inherited.Stdout != own {
+		t.Fatalf("command without a working directory started in %q, want %q", inherited.Stdout, own)
 	}
 }
 

@@ -612,6 +612,30 @@ func (s *AgentService) Launch(ctx context.Context, request LaunchRequest) (Launc
 	return LaunchResponse{OK: true, Agent: result.Agent, Command: result.Command, Terminal: result.Terminal}, nil
 }
 
+// FirstTaskAgents lists the installed Agents RunFirstTask can drive unattended.
+func (s *AgentService) FirstTaskAgents(ctx context.Context) ([]app.FirstTaskAgent, error) {
+	if err := contextError(ctx); err != nil {
+		return nil, err
+	}
+	if s == nil || s.core == nil {
+		return nil, notReady("First task is not configured")
+	}
+	return s.core.FirstTaskAgents(ctx)
+}
+
+// RunFirstTask has an Agent write a small page in a temporary directory of its
+// own. It is a billed request to the Agent's model, so the UI calls it only from
+// a button the user pressed.
+func (s *AgentService) RunFirstTask(ctx context.Context, request app.FirstTaskRequest) (app.FirstTaskResult, error) {
+	if err := contextError(ctx); err != nil {
+		return app.FirstTaskResult{}, err
+	}
+	if s == nil || s.core == nil {
+		return app.FirstTaskResult{}, notReady("First task is not configured")
+	}
+	return s.core.RunFirstTask(ctx, request)
+}
+
 type ProfileService struct {
 	core *app.UseCases
 }

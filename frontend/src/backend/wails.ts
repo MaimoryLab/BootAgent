@@ -237,6 +237,10 @@ export const wailsApi = {
     call(() => AgentService.ActivateWithConversion({ agent_id: agentId, profile_id: profileId })) as CancellableRequest<import("../types/api").AgentConversionResponse>,
   launchAgent: (agentId: string, workingDirectory = ""): Promise<LaunchAgentResponse> =>
     call(() => AgentService.Launch({ agent_id: agentId, working_directory: workingDirectory })) as Promise<LaunchAgentResponse>,
+  firstTaskAgents: (): Promise<import("../types/api").FirstTaskAgent[]> =>
+    call(() => AgentService.FirstTaskAgents()).then((agents) => agents ?? []),
+  runFirstTask: (agentId: string, locale: string): CancellableRequest<import("../types/api").FirstTaskResult> =>
+    call(() => AgentService.RunFirstTask({ agent_id: agentId, locale })) as CancellableRequest<import("../types/api").FirstTaskResult>,
   migrateConversations: (): Promise<import("../types/api").ConversationMigrationResult> =>
     call(() => AgentService.MigrateConversations()) as Promise<import("../types/api").ConversationMigrationResult>,
   uninstallAgent: (agentId: string, allowCrossEnvironment = false, installationId = "", installationIds: string[] = [], removeUserData = false): CancellableRequest<AgentUninstallResult> =>

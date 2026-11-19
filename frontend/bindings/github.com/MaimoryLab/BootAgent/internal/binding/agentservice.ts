@@ -26,6 +26,13 @@ export function ActivateWithConversion(request: $models.AgentConversionRequest):
     return $Call.ByID(3840302198, request);
 }
 
+/**
+ * FirstTaskAgents lists the installed Agents RunFirstTask can drive unattended.
+ */
+export function FirstTaskAgents(): $CancellablePromise<app$0.FirstTaskAgent[] | null> {
+    return $Call.ByID(1312481620);
+}
+
 export function Install(request: $models.InstallRequest): $CancellablePromise<$models.InstallResponse> {
     return $Call.ByID(1289781782, request);
 }
@@ -44,6 +51,15 @@ export function MigrateConversations(): $CancellablePromise<app$0.ConversationMi
 
 export function PreviewUninstall(request: $models.UpdateRequest): $CancellablePromise<app$0.AgentUninstallPreview> {
     return $Call.ByID(224864709, request);
+}
+
+/**
+ * RunFirstTask has an Agent write a small page in a temporary directory of its
+ * own. It is a billed request to the Agent's model, so the UI calls it only from
+ * a button the user pressed.
+ */
+export function RunFirstTask(request: app$0.FirstTaskRequest): $CancellablePromise<app$0.FirstTaskResult> {
+    return $Call.ByID(1393373323, request);
 }
 
 export function Uninstall(request: $models.UpdateRequest): $CancellablePromise<app$0.AgentUninstallResult> {
