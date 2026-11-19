@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -24,12 +25,20 @@ const (
 	// read from the installed bundle rather than from documentation.
 	ZCodeMacTeamID = "8A5X4JJ39T"
 	ZCodeHome      = "https://zcode.z.ai/"
-	// ZCodeUpdateHost serves both the update feed and the artifacts. The feed URL
-	// is not guessed: it is what the installed app's own
-	// Contents/Resources/app-update.yml points at, so the endpoint carries the
-	// vendor's authority rather than ours.
+	// ZCodeUpdateHost serves the artifacts, and is the only host a package may be
+	// downloaded from.
 	ZCodeUpdateHost = "cdn-zcode.z.ai"
-	ZCodeFeedBase   = "https://" + ZCodeUpdateHost + "/zcode/electron/releases/update/"
+	// ZCodeFeedURL is the vendor's release service, which answers with the
+	// electron-updater manifest of the current release for a platform. It is not
+	// guessed: it is the endpoint the app's own updater builds (its
+	// ManifestUpdateProvider, in app.asar's out/main). The bundled
+	// Contents/Resources/app-update.yml is a build placeholder that names
+	// localhost, and the static per-platform manifests the CDN used to carry under
+	// releases/update/ have been removed.
+	ZCodeFeedURL = "https://zcode.z.ai/api/v1/releases/electron/manifest"
+	// zcodeStableChannel is the service's value for the stable channel; "3" is
+	// preview.
+	zcodeStableChannel = "1"
 )
 
 // zcodeFeed is the electron-updater manifest. Only the fields BootAgent acts on
@@ -52,7 +61,7 @@ type zcodeFeedFile struct {
 
 // inspectZCode reports whether ZCode is installed.
 func inspectZCode(ctx context.Context, options Options) Status {
-	status := baseZCodeStatus(options.Platform.OS)
+	status := baseZCodeStatus(options.Platform.OS, options.Platform.Arch)
 	if err := contextError(ctx); err != nil {
 		message := err.Error()
 		status.InspectionUnavailable = &message
@@ -80,8 +89,11 @@ func inspectZCode(ctx context.Context, options Options) Status {
 // baseZCodeStatus marks the platforms ZCode ships for. The vendor's feed also
 // carries linux builds, but BootAgent installs only where it can verify the
 // package: macOS through codesign and Windows through Authenticode.
-func baseZCodeStatus(osID string) Status {
+func baseZCodeStatus(osID, arch string) Status {
 	status := Status{ID: ZCodeID, Name: ZCodeName, Source: SourceUnknown}
+	if zcodeReleasePlatform(osID, arch) == "" {
+		return status
+	}
 	switch osID {
 	case "macos":
 		status.Supported, status.Source = true, SourceMacOSZIP
@@ -92,7 +104,7 @@ func baseZCodeStatus(osID string) Status {
 }
 
 func inspectZCodeMacOS(ctx context.Context, options Options) (Status, error) {
-	status := baseZCodeStatus("macos")
+	status := baseZCodeStatus("macos", options.Platform.Arch)
 	roots := options.SearchRoots
 	if len(roots) == 0 {
 		roots = []string{"/Applications"}
@@ -134,7 +146,7 @@ func inspectZCodeMacOS(ctx context.Context, options Options) (Status, error) {
 }
 
 func inspectZCodeWindows(options Options) (Status, error) {
-	status := baseZCodeStatus("windows")
+	status := baseZCodeStatus("windows", options.Platform.Arch)
 	for _, candidate := range zcodeWindowsCandidates(options) {
 		info, err := os.Stat(candidate)
 		if os.IsNotExist(err) {
@@ -178,30 +190,43 @@ func zcodeWindowsCandidates(options Options) []string {
 	return append(candidates, filepath.Join("C:\\", "Program Files", "ZCode", "ZCode.exe"))
 }
 
-// zcodeFeedURL names the electron-updater manifest for a platform and
-// architecture. The layout is the vendor's: macOS keeps both architectures under
-// latest-mac.yml, Windows under latest.yml.
-func zcodeFeedURL(osID, arch string) (string, error) {
+// zcodeReleasePlatform names a build the way the vendor's release service does,
+// or "" when the vendor publishes none BootAgent can install. It decides both
+// what Status.Supported reports and which manifest the install reads, so the UI
+// cannot offer an install the lookup then refuses.
+func zcodeReleasePlatform(osID, arch string) string {
+	var cpu string
 	switch strings.ToLower(strings.TrimSpace(arch)) {
 	case "arm64", "aarch64":
-		arch = "arm64"
+		cpu = "aarch64"
 	case "x64", "amd64", "x86_64":
-		arch = "x64"
+		cpu = "x86_64"
 	default:
-		return "", fmt.Errorf("%s has no package for %s/%s", ZCodeName, osID, arch)
+		return ""
 	}
 	switch osID {
 	case "macos":
-		return ZCodeFeedBase + "mac/" + arch + "/latest-mac.yml", nil
+		return "darwin-" + cpu
 	case "windows":
-		return ZCodeFeedBase + "win/" + arch + "/latest.yml", nil
+		return "windows-" + cpu
 	}
-	return "", fmt.Errorf("%s has no package for %s/%s", ZCodeName, osID, arch)
+	return ""
 }
 
-// fetchZCodeFeed reads the update manifest. The feed is the rolling pointer to
-// the current release, so it is requested with no-cache: the vendor serves it
-// with a year-long max-age, which would otherwise let an intermediary pin
+// zcodeFeedURL names the stable-channel manifest for a platform and
+// architecture. The app also sends a device identifier and, when signed in, a
+// token; both are optional to the service and BootAgent sends neither.
+func zcodeFeedURL(osID, arch string) (string, error) {
+	platform := zcodeReleasePlatform(osID, arch)
+	if platform == "" {
+		return "", fmt.Errorf("%s has no package for %s/%s", ZCodeName, osID, arch)
+	}
+	query := url.Values{"platform": {platform}, "channel": {zcodeStableChannel}}
+	return ZCodeFeedURL + "?" + query.Encode(), nil
+}
+
+// fetchZCodeFeed reads the update manifest. It is the rolling pointer to the
+// current release, so it is requested with no-cache: a cached answer would pin
 // BootAgent to a stale version.
 func fetchZCodeFeed(ctx context.Context, options Options, osID, arch string) (zcodeFeed, error) {
 	endpoint, err := zcodeFeedURL(osID, arch)
@@ -215,6 +240,7 @@ func fetchZCodeFeed(ctx context.Context, options Options, osID, arch string) (zc
 		return zcodeFeed{}, err
 	}
 	request.Header.Set("Cache-Control", "no-cache")
+	request.Header.Set("Accept", "application/x-yaml, text/yaml")
 	client := options.Downloader
 	if client == nil {
 		client = http.DefaultClient
@@ -230,6 +256,11 @@ func fetchZCodeFeed(ctx context.Context, options Options, osID, arch string) (zc
 	var feed zcodeFeed
 	if err := yaml.NewDecoder(io.LimitReader(response.Body, 1<<20)).Decode(&feed); err != nil {
 		return zcodeFeed{}, fmt.Errorf("decode %s update response: %w", ZCodeName, err)
+	}
+	// The service reports a request it cannot satisfy as HTTP 200 with a JSON
+	// error object, which is valid YAML and decodes into an empty manifest.
+	if strings.TrimSpace(feed.Version) == "" {
+		return zcodeFeed{}, fmt.Errorf("%s update service returned no release for %s/%s", ZCodeName, osID, arch)
 	}
 	return feed, nil
 }
@@ -307,6 +338,9 @@ func installZCode(ctx context.Context, options Options) (ActionResult, error) {
 	status := inspectZCode(ctx, options)
 	if status.Installed {
 		return ActionResult{Status: "already-installed", Message: ZCodeName + " is already installed", App: status}, nil
+	}
+	if !status.Supported {
+		return ActionResult{}, fmt.Errorf("%s is not supported on %s/%s", ZCodeName, options.Platform.OS, options.Platform.Arch)
 	}
 	switch options.Platform.OS {
 	case "macos":
@@ -405,7 +439,7 @@ func installZCodeMacOS(ctx context.Context, options Options) (ActionResult, erro
 			lastErr = commandFailure("copy "+ZCodeName+" app", copied)
 			continue
 		}
-		installed := baseZCodeStatus("macos")
+		installed := baseZCodeStatus("macos", options.Platform.Arch)
 		installed.Installed, installed.Path = true, destination
 		installed.Version = metadata.version
 		if installed.Version == nil {
@@ -460,7 +494,7 @@ func installZCodeWindows(ctx context.Context, options Options) (ActionResult, er
 		return ActionResult{}, fmt.Errorf("start %s installer: %w", ZCodeName, err)
 	}
 	keep = true
-	status := baseZCodeStatus("windows")
+	status := baseZCodeStatus("windows", options.Platform.Arch)
 	status.Version = nonEmptyPointer(feed.Version)
 	return ActionResult{Status: "installer-started", Message: "The downloaded " + ZCodeName + " installer was started", RefreshNeeded: true, App: status}, nil
 }
