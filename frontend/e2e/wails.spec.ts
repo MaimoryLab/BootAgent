@@ -1,6 +1,17 @@
 import { expect, test, type Locator } from "@playwright/test";
 
-// Every test addresses a route directly. "/" is a decision, not a page: on a
+// The one test that lands on "/", and it has to run first: a first run is a home
+// nothing has written to yet, which stops being true as soon as any test saves.
+test("a first run opens the wizard with an Agent already chosen", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "选择 Agent", level: 1 })).toBeVisible();
+  await expect(page.getByRole("group", { name: "本机环境" })).toContainText("macOS");
+  // exact, because "选择 WorkBuddy AI" is the row below it.
+  await expect(page.getByLabel("选择 WorkBuddy", { exact: true })).toBeChecked();
+  await expect(page.getByRole("button", { name: "继续" })).toBeEnabled();
+});
+
+// Every other test addresses a route directly. "/" is a decision, not a page: on a
 // home without ~/.bootagent it opens onboarding, so landing there would make
 // these tests depend on whichever one ran first and wrote state.
 // selectOption is gone from these tests: the pickers are custom listboxes now,
