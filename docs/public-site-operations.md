@@ -29,18 +29,23 @@ must not influence Agent rank, compatibility conclusions, default selection, or 
 tests. That boundary belongs to this repository; the site only displays the result.
 
 **Those fields are not read by the application, and that is enforced by omission.**
-`relationship`, `disclosure`, `referral_url`, `order`, and `protocols` have no counterpart
-in `providerFileEntry` (`internal/catalog/providers.go`), so `json.Unmarshal` discards
-them. Filling in `referral_url` therefore changes nothing in the desktop app or the CLI —
-it is published for the site to render, and the "get a key" button will keep opening
-`key_management_url` (falling back to `home`) regardless. Routing users through a referral
-link would be a product decision requiring the field to be parsed and given an explicit
-precedence, not a matter of setting a value here.
+`relationship`, `disclosure`, and `referral_url` have no counterpart in `providerFileEntry`
+(`internal/catalog/providers.go`), so `json.Unmarshal` discards them. Filling in
+`referral_url` therefore changes nothing in the desktop app or the CLI — it is published
+for the site to render, and the "get a key" button will keep opening `key_management_url`
+(falling back to `home`) regardless. Routing users through a referral link would be a
+product decision requiring the field to be parsed and given an explicit precedence, not a
+matter of setting a value here.
 
-The reverse also holds: `key_management_url` and `default_model` are read by the app. They
-are not disclosure fields and are not subject to the paragraph above; `default_model` is
-the model pre-filled for a user who has not chosen one, so changing it changes what gets
-written into a real Agent configuration.
+The reverse also holds: `key_management_url`, `default_model`, `order`, and `protocols` are
+read by the app. They are not disclosure fields and are not subject to the paragraph above;
+`default_model` is the model pre-filled for a user who has not chosen one, so changing it
+changes what gets written into a real Agent configuration. `order` is the display order of
+the built-in Providers. `protocols` records how far each protocol has been confirmed on a
+Provider's endpoint: when the protocol an Agent needs is anything other than
+`implementation-supported` while `openai` is, the setup wizard offers compatibility mode
+before any request is sent. It only ever adds that optional hint; it never hides a Provider,
+and connection tests still decide what actually works.
 
 **Changing a lock file does not change the site.** The site vendors `agents.lock.json`
 and `providers.lock.json` into its own `data/` directory, refreshed from release tags

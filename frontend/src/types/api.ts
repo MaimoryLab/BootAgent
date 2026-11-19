@@ -31,6 +31,14 @@ export type TransferV2Preview = TransferModels.Preview;
 export type MarketplaceDynamicResult = AppModels.MarketplaceDynamicResult;
 export type MarketplaceSourceStatus = AppModels.MarketplaceSourceStatus;
 
+/** How far a protocol has been confirmed on a built-in Provider's endpoint, as
+ *  providers.lock.json records it. Only the first means it was verified. */
+export type ProtocolSupport = "implementation-supported" | "route-present-unverified" | "release-candidate-required" | "not-supported";
+export type ProviderMeta = Omit<CatalogModels.Provider, "protocols"> & {
+  /** Absent for a custom Provider, whose endpoint nothing is known about. */
+  protocols?: Partial<Record<ProtocolId, ProtocolSupport>> | null;
+};
+
 export const PROTOCOL_LABELS: Record<ProtocolId, string> = {
   openai: "OpenAI Chat Completions",
   anthropic: "Anthropic Messages",
@@ -172,7 +180,7 @@ export type StatusResponse = Omit<
   agents: Record<string, AgentStatus>;
   catalog: AgentCatalogItem[];
   groups: Array<Omit<CatalogModels.Group, "id"> & { id: AgentGroupId }>;
-  providers: Record<string, CatalogModels.Provider>;
+  providers: Record<string, ProviderMeta>;
   mirrors: CatalogModels.Mirror[];
   paths: Record<string, string>;
   backups: Record<string, boolean>;

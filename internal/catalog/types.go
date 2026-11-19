@@ -115,10 +115,14 @@ type Provider struct {
 	DefaultModel     string `json:"default_model,omitempty"`
 	// Display precedence among built-in Providers, ascending. Absent for a
 	// custom Provider, which the frontend sorts by creation time instead.
-	Order     int    `json:"order,omitempty"`
-	Custom    bool   `json:"custom,omitempty"`
-	HasKey    bool   `json:"has_key,omitempty"`
-	CreatedAt string `json:"created_at,omitempty"`
+	Order int `json:"order,omitempty"`
+	// Protocol ID -> confirmed support level on a built-in Provider's endpoint,
+	// from providers.lock.json. Absent for a custom Provider, whose endpoint
+	// nothing is known about.
+	Protocols map[string]string `json:"protocols,omitempty"`
+	Custom    bool              `json:"custom,omitempty"`
+	HasKey    bool              `json:"has_key,omitempty"`
+	CreatedAt string            `json:"created_at,omitempty"`
 	// Unexported, and cleared again by PublicProviders: which model we probe
 	// with is an internal implementation detail, not a recommendation.
 	fallbackModel string

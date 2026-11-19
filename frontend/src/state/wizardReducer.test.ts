@@ -398,12 +398,41 @@ describe("provider default model", () => {
 });
 
 describe("compatibility mode choice", () => {
-  const chosen = { ...initialWizardState, provider: "ppio", selectedAgentIds: ["codex"], conversion: true, keyVerified: true };
+  // Made after a connection test failed and found Chat Completions working.
+  const chosen = { ...initialWizardState, provider: "ppio", selectedAgentIds: ["codex"], connectionState: "error" as const, conversion: true, keyVerified: true };
+  // Made from the Provider's protocol table, with no test run.
+  const untested = { ...initialWizardState, provider: "ppio", selectedAgentIds: ["codex"], conversion: true };
 
   it("counts as a verified key, since Chat Completions answered with it", () => {
-    const next = wizardReducer({ ...initialWizardState, keyVerified: false }, { type: "SET_CONVERSION", value: true });
+    const next = wizardReducer({ ...initialWizardState, connectionState: "error", keyVerified: false }, { type: "SET_CONVERSION", value: true });
     expect(next.conversion).toBe(true);
     expect(next.keyVerified).toBe(true);
+  });
+
+  it("does not count as a verified key when no test backs it", () => {
+    const next = wizardReducer({ ...initialWizardState, keyVerified: false }, { type: "SET_CONVERSION", value: true });
+    expect(next.conversion).toBe(true);
+    expect(next.keyVerified).toBe(false);
+  });
+
+  // Typing the key and picking a test model happen on the same step as the
+  // choice, and the key is cleared again when Continue saves it. None of them
+  // contradicts a choice that no test verdict produced.
+  it.each<WizardAction>([
+    { type: "SET_PROBE_MODEL", value: "other-model" },
+    { type: "SET_HAS_API_KEY", value: true },
+    { type: "SET_HAS_API_KEY", value: false },
+  ])("survives $type when it was made without a test", (action) => {
+    expect(wizardReducer(untested, action).conversion).toBe(true);
+  });
+
+  it.each<WizardAction>([
+    { type: "SET_PROVIDER", value: "jiekou" },
+    { type: "SELECT_AGENT", agentId: "claude-code" },
+    { type: "START_NEW_PROFILE" },
+    { type: "CONNECTION_LOADING" },
+  ])("is cleared by $type even when it was made without a test", (action) => {
+    expect(wizardReducer(untested, action).conversion).toBe(false);
   });
 
   it.each<WizardAction>([

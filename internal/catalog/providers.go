@@ -40,6 +40,23 @@ type providerFileEntry struct {
 	// already existed for the site's explorer; parsing it makes one manifest
 	// answer the ordering question everywhere instead of two places drifting.
 	Order int `json:"order"`
+	// Protocol ID -> how far support for it has been confirmed on this
+	// Provider's endpoint. Read so the wizard can say, before any request is
+	// sent, that an Agent's protocol is unconfirmed here. It is the only
+	// site-facing field with a technical meaning; the commercial ones beside
+	// it in the manifest stay unparsed.
+	Protocols map[string]string `json:"protocols"`
+}
+
+// ProtocolSupportConfirmed is the one level that means a protocol was verified
+// against a built-in Provider. Every other level is some form of "not yet".
+const ProtocolSupportConfirmed = "implementation-supported"
+
+var protocolSupportLevels = map[string]bool{
+	ProtocolSupportConfirmed:     true,
+	"route-present-unverified":   true,
+	"release-candidate-required": true,
+	"not-supported":              true,
 }
 
 type providerFile struct {
@@ -86,6 +103,7 @@ func ParseProviders(data []byte) (ProviderManifest, error) {
 			AnthropicBaseURL: entry.AnthropicBaseURL,
 			DefaultModel:     entry.DefaultModel,
 			Order:            entry.Order,
+			Protocols:        maps.Clone(entry.Protocols),
 			fallbackModel:    entry.FallbackProbeModel,
 		}
 	}
@@ -136,6 +154,13 @@ func validateProviders(source providerFile) error {
 		if entry.Order <= 0 {
 			return invalidProvider(id, "order must be positive")
 		}
+		// A misspelt level would read as "unconfirmed" and put a compatibility
+		// mode hint in front of a Provider that does not need one.
+		for protocol, level := range entry.Protocols {
+			if !protocolSupportLevels[level] {
+				return invalidProvider(id, "unknown support level for "+protocol)
+			}
+		}
 	}
 	return nil
 }
@@ -147,7 +172,10 @@ func invalidProvider(providerID, message string) error {
 func cloneProviderManifest(source ProviderManifest) ProviderManifest {
 	result := source
 	result.Providers = make(map[string]Provider, len(source.Providers))
-	maps.Copy(result.Providers, source.Providers)
+	for id, provider := range source.Providers {
+		provider.Protocols = maps.Clone(provider.Protocols)
+		result.Providers[id] = provider
+	}
 	return result
 }
 
