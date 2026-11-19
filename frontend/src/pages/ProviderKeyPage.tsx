@@ -27,6 +27,7 @@ export function ProviderKeyPage() {
   const apiBaseUrl = providerMeta?.base_url || "";
   const providerHasKey = Boolean(providerMeta?.has_key);
   const builtInProvider = Boolean(providerMeta && !providerMeta.custom);
+  const hasKeyPage = Boolean(providerMeta?.key_management_url || providerMeta?.home);
   const canProbe = providerHasKey;
   const desktop = state.setupKind === "desktop" && state.status
     ? selectedDesktopApp(state.status, state.selectedAgentIds)
@@ -163,7 +164,18 @@ export function ProviderKeyPage() {
 
       <div className="provider-form">
         {!providerHasKey && builtInProvider ? (
-          <SecureKeyField value="" onChange={secret.setApiKey} resetKey={state.provider} />
+          <>
+            <SecureKeyField value="" onChange={secret.setApiKey} resetKey={state.provider} />
+            {/* Only for someone without a key yet: they are the one who may not
+                know what is being asked for, or that the Provider is who bills. */}
+            <ul className="key-explainer" aria-label={t("关于 API Key")}>
+              <li>{t("API Key 是 {provider} 发给你的访问凭证，Agent 用它调用模型", { provider: providerMeta?.name ?? "" })}</li>
+              {hasKeyPage ? (
+                <li>{t("还没有的话，点「获取 API Key」打开 {provider} 的官方页面，在那里注册并创建", { provider: providerMeta?.name ?? "" })}</li>
+              ) : null}
+              <li>{t("连通测试和 Agent 的每次调用都是真实请求，由 {provider} 按它的价格计费；BootAgent 不收费，也不预估费用", { provider: providerMeta?.name ?? "" })}</li>
+            </ul>
+          </>
         ) : !providerHasKey ? (
           <div className="notice notice-warning">
             <span>{t("这个模型服务还没有 Key，先到模型服务页面填写")}</span>
@@ -178,7 +190,7 @@ export function ProviderKeyPage() {
             <strong>{providerMeta?.name}</strong>
             <span>{providerMeta?.base_url}</span>
           </div>
-          {providerMeta?.key_management_url || providerMeta?.home ? (
+          {hasKeyPage ? (
             <button className="button button-secondary" type="button" onClick={() => void openRegistration()}>
               <ExternalLink size={15} />
               {t("获取 API Key")}

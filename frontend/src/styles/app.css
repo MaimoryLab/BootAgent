@@ -972,6 +972,18 @@
 .provider-identity-row strong { font-size: 16px; }
 .provider-identity-row span { overflow: hidden; color: var(--text-secondary); font-size: 13px; text-overflow: ellipsis; }
 
+/* Sits directly under the key field it explains, closer than the form's own
+   gap would put it. */
+.key-explainer {
+  margin: -8px 0 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 4px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
 .secure-field {
   min-height: 44px;
   padding: 0 10px;
