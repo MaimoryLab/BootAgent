@@ -240,8 +240,13 @@ func (s *RuntimeService) GetSettings(ctx context.Context) (app.Settings, error) 
 	if err != nil || s.autostart.IsEnabled == nil {
 		return settings, err
 	}
-	settings.Autostart, err = s.autostart.IsEnabled()
-	return settings, err
+	// The login item is a separate system from the settings file, and a server
+	// build has none, so its probe always fails. The stored value stands in then;
+	// SaveSettings still reports the failure when the user tries to change it.
+	if enabled, probeErr := s.autostart.IsEnabled(); probeErr == nil {
+		settings.Autostart = enabled
+	}
+	return settings, nil
 }
 
 // SaveSettings persists the download preferences and returns what was stored.
