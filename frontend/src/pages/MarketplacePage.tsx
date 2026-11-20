@@ -407,7 +407,13 @@ export function KindBadge({ item }: { item: MarketplaceItem }) {
   return <span className="marketplace-kind-group" title={kinds.join(", ")} aria-label={kinds.join(", ")}><MarketplaceKindBadge kind={kinds[0]} />{kinds.length > 1 ? <span className="marketplace-kind-more">+{kinds.length - 1}</span> : null}</span>;
 }
 
-function VirtualMarketplaceGrid({ items, onCopied }: { items: MarketplaceItem[]; onCopied: (item: MarketplaceItem) => void }) {
+type MarketplaceCardProps = {
+  onCopied: (item: MarketplaceItem) => void;
+  // Returns the list's query string after committing any debounced search text.
+  currentSearch: () => string;
+};
+
+function VirtualMarketplaceGrid({ items, onCopied, currentSearch }: { items: MarketplaceItem[] } & MarketplaceCardProps) {
   const [scrollTop, setScrollTop] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(() => window.innerHeight);
   const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth);
@@ -436,7 +442,7 @@ function VirtualMarketplaceGrid({ items, onCopied }: { items: MarketplaceItem[];
   // as if it had added results when the unfiltered virtual list was already
   // showing only its viewport. Small result sets remain fully accessible.
   if (items.length <= 24) {
-    return <ul className="marketplace-grid" aria-label="工具列表">{items.map((item) => <li key={item.id}><MarketplaceItemCard item={item} onCopied={onCopied} /></li>)}</ul>;
+    return <ul className="marketplace-grid" aria-label="工具列表">{items.map((item) => <li key={item.id}><MarketplaceItemCard item={item} onCopied={onCopied} currentSearch={currentSearch} /></li>)}</ul>;
   }
   const rowCount = Math.ceil(items.length / columns);
   const topRow = Math.max(0, Math.floor(scrollTop / rowHeight) - overscan);
@@ -447,7 +453,7 @@ function VirtualMarketplaceGrid({ items, onCopied }: { items: MarketplaceItem[];
   return <>
     <div style={{ height: topRow * rowHeight }} aria-hidden="true" />
     <ul className="marketplace-grid" aria-label="工具列表">
-      {items.slice(start, end).map((item) => <li key={item.id}><MarketplaceItemCard item={item} onCopied={onCopied} /></li>)}
+      {items.slice(start, end).map((item) => <li key={item.id}><MarketplaceItemCard item={item} onCopied={onCopied} currentSearch={currentSearch} /></li>)}
     </ul>
     <div style={{ height: Math.max(0, (rowCount - endRow) * rowHeight + (endRow < rowCount ? gridGap : 0)) }} aria-hidden="true" />
   </>;
@@ -481,13 +487,13 @@ function CardIcon({ item }: { item: MarketplaceItem }) {
   return <ItemIcon name={item.icon} color={item.iconColor} />;
 }
 
-function MarketplaceItemCard({ item, onCopied }: { item: MarketplaceItem; onCopied: (item: MarketplaceItem) => void }) {
+function MarketplaceItemCard({ item, onCopied, currentSearch }: { item: MarketplaceItem } & MarketplaceCardProps) {
   const { t, locale } = useI18n();
   const navigate = useNavigate();
   const location = useLocation();
-  const returnTo = `${location.pathname}${location.search}`;
   const openDetail = () => {
     recordMarketplaceEvent("item_open", item.source);
+    const returnTo = `${location.pathname}${currentSearch()}`;
     const container = document.querySelector<HTMLElement>(".page-body.marketplace-page");
     saveMarketplaceQuerySession({ returnTo, scrollTop: container?.scrollTop ?? 0 });
     navigate(`/marketplace/${encodeURIComponent(item.id)}`, { state: { returnTo, item } });
@@ -617,8 +623,15 @@ export function MarketplacePage() {
   const [recommendationOpen, setRecommendationOpen] = useState(false);
   const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const queryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const searchParamsRef = useRef(searchParams);
-  searchParamsRef.current = searchParams;
+  const pendingQuery = useRef<string | null>(null);
+  // A URL write is visible here before its render, so two writes in a row
+  // build on each other instead of on the same stale render.
+  const latestParams = useRef(searchParams);
+  const renderedParams = useRef(searchParams);
+  if (renderedParams.current !== searchParams) {
+    renderedParams.current = searchParams;
+    latestParams.current = searchParams;
+  }
 
   useEffect(() => {
     const session = readMarketplaceQuerySession();
@@ -673,41 +686,66 @@ export function MarketplacePage() {
 
   // Empty type tabs are hidden until a trusted adapter supplies an item.
   const visibleCategories = CATEGORIES.filter(({ id }) => id === "all" || (counts[id] ?? 0) > 0);
+  const commitParams = (next: URLSearchParams, options?: { replace?: boolean }) => {
+    latestParams.current = next;
+    setSearchParams(next, options);
+  };
+
+  // Folds the debounced search text into the latest params and cancels its
+  // timer. The caller must commit the result.
+  const paramsWithPendingQuery = () => {
+    const next = new URLSearchParams(latestParams.current);
+    const pending = pendingQuery.current;
+    if (pending === null) return next;
+    if (queryTimer.current) clearTimeout(queryTimer.current);
+    queryTimer.current = null;
+    pendingQuery.current = null;
+    if (pending.trim()) next.set("q", pending);
+    else next.delete("q");
+    return next;
+  };
+
+  const flushQuery = () => {
+    if (pendingQuery.current !== null) commitParams(paramsWithPendingQuery(), { replace: true });
+    return latestParams.current;
+  };
+
+  // Opening a card inside the debounce window would otherwise unmount the page
+  // with the search text still uncommitted, and Back would return without it.
+  const flushedSearch = () => {
+    const search = flushQuery().toString();
+    return search ? `?${search}` : "";
+  };
+
   const selectCategory = (category: MarketplaceCategory | "all") => {
-    const next = new URLSearchParams(searchParams);
+    const next = new URLSearchParams(latestParams.current);
     if (category === "all") next.delete("category");
     else next.set("category", category);
     next.delete("q");
-    setSearchParams(next, { replace: true });
+    commitParams(next, { replace: true });
   };
 
   const updateQuery = (value: string) => {
     if (queryTimer.current) clearTimeout(queryTimer.current);
-    queryTimer.current = setTimeout(() => {
-      const next = new URLSearchParams(searchParamsRef.current);
-      if (value.trim()) next.set("q", value);
-      else next.delete("q");
-      setSearchParams(next, { replace: true });
-      queryTimer.current = null;
-    }, 180);
+    pendingQuery.current = value;
+    queryTimer.current = setTimeout(() => commitParams(paramsWithPendingQuery(), { replace: true }), 180);
   };
 
   const updateFilters = (nextFilters: FilterState) => {
     recordMarketplaceEvent("filter_change");
-    const next = serializeMarketplaceFilters(searchParams, nextFilters);
-    setSearchParams(next, { replace: true });
+    commitParams(serializeMarketplaceFilters(paramsWithPendingQuery(), nextFilters), { replace: true });
   };
 
   const historyOpen = searchParams.get("recommendationHistory") === "1";
   const openHistory = () => {
-    const next = new URLSearchParams(searchParams);
+    const next = new URLSearchParams(flushQuery());
     next.set("recommendationHistory", "1");
-    setSearchParams(next);
+    commitParams(next);
   };
   const closeHistory = () => {
-    const next = new URLSearchParams(searchParams);
+    const next = paramsWithPendingQuery();
     next.delete("recommendationHistory");
-    setSearchParams(next, { replace: true });
+    commitParams(next, { replace: true });
   };
 
   return (
@@ -800,7 +838,7 @@ export function MarketplacePage() {
               }
             />
           ) : (
-            <VirtualMarketplaceGrid items={visible} onCopied={handleCopied} />
+            <VirtualMarketplaceGrid items={visible} onCopied={handleCopied} currentSearch={flushedSearch} />
           )}
         </div>
       </div>
