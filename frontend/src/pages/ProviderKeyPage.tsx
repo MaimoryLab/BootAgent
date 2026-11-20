@@ -10,7 +10,7 @@ import { ProviderSegment } from "../components/ProviderSegment";
 import { SecureKeyField } from "../components/SecureKeyField";
 import { useI18n } from "../i18n";
 import { useFeedback } from "../state/FeedbackContext";
-import { probeOffersConversion } from "../state/conversion";
+import { probeOffersConversion, providerSuggestsConversion } from "../state/conversion";
 import { desktopProtocol, profileAgentIdForDesktop, selectedDesktopApp } from "../state/desktopSetup";
 import { useWizard } from "../state/WizardContext";
 import { wizardNeedsModel } from "../state/wizardReducer";
@@ -27,6 +27,7 @@ export function ProviderKeyPage() {
   const apiBaseUrl = providerMeta?.base_url || "";
   const providerHasKey = Boolean(providerMeta?.has_key);
   const builtInProvider = Boolean(providerMeta && !providerMeta.custom);
+  const hasKeyPage = Boolean(providerMeta?.key_management_url || providerMeta?.home);
   const canProbe = providerHasKey;
   const desktop = state.setupKind === "desktop" && state.status
     ? selectedDesktopApp(state.status, state.selectedAgentIds)
@@ -51,10 +52,14 @@ export function ProviderKeyPage() {
   // Other desktop apps share another Agent's settings and stay as they are.
   const conversionProtocol = protocols.length === 1 && (!desktop || desktop.id === "claude-desktop") ? protocols[0] : undefined;
   const conversionOffered = state.connectionState === "error" && probeOffersConversion(state.connection, conversionProtocol);
+  // Read from the Provider's protocol table, with no request sent. It speaks
+  // only until a connection test has: a test's verdict replaces the guess.
+  const conversionSuggested = state.connectionState === "idle" && providerSuggestsConversion(providerMeta, conversionProtocol);
   const agentName = desktop?.name || state.status?.catalog.find((item) => item.id === state.selectedAgentIds[0])?.name || "";
   // A new key is persisted before continuing; probing remains optional. A test
   // that found compatibility mode would help is the exception: continuing past
-  // it unanswered installs an Agent that fails on its first request.
+  // it unanswered installs an Agent that fails on its first request. The
+  // untested suggestion is not: nothing has shown the Provider cannot serve it.
   const canContinue = (canProbe || (builtInProvider && state.hasApiKey)) && (!conversionOffered || state.conversion);
 
   const endpoint = useMemo(() => {
@@ -163,7 +168,18 @@ export function ProviderKeyPage() {
 
       <div className="provider-form">
         {!providerHasKey && builtInProvider ? (
-          <SecureKeyField value="" onChange={secret.setApiKey} resetKey={state.provider} />
+          <>
+            <SecureKeyField value="" onChange={secret.setApiKey} resetKey={state.provider} />
+            {/* Only for someone without a key yet: they are the one who may not
+                know what is being asked for, or that the Provider is who bills. */}
+            <ul className="key-explainer" aria-label={t("关于 API Key")}>
+              <li>{t("API Key 是 {provider} 发给你的访问凭证，Agent 用它调用模型", { provider: providerMeta?.name ?? "" })}</li>
+              {hasKeyPage ? (
+                <li>{t("还没有的话，点「获取 API Key」打开 {provider} 的官方页面，在那里注册并创建", { provider: providerMeta?.name ?? "" })}</li>
+              ) : null}
+              <li>{t("连通测试和 Agent 的每次调用都是真实请求，由 {provider} 按它的价格计费；BootAgent 不收费，也不预估费用", { provider: providerMeta?.name ?? "" })}</li>
+            </ul>
+          </>
         ) : !providerHasKey ? (
           <div className="notice notice-warning">
             <span>{t("这个模型服务还没有 Key，先到模型服务页面填写")}</span>
@@ -178,7 +194,7 @@ export function ProviderKeyPage() {
             <strong>{providerMeta?.name}</strong>
             <span>{providerMeta?.base_url}</span>
           </div>
-          {providerMeta?.key_management_url || providerMeta?.home ? (
+          {hasKeyPage ? (
             <button className="button button-secondary" type="button" onClick={() => void openRegistration()}>
               <ExternalLink size={15} />
               {t("获取 API Key")}
@@ -213,6 +229,23 @@ export function ProviderKeyPage() {
               beside the one choice that fixes it. */}
           {conversionOffered ? null : <ConnectionStatus state={state.connectionState} result={state.connection} />}
         </div>
+        {conversionSuggested && !state.conversion ? (
+          <div className="notice notice-info conversion-offer">
+            <span>
+              {t("尚未确认 {provider} 支持 {agent} 的请求格式（{protocol}），可以改用兼容模式，由 BootAgent 在本机转换", {
+                provider: providerMeta?.name ?? "",
+                agent: agentName,
+                protocol: conversionProtocol ? PROTOCOL_LABELS[conversionProtocol] : "",
+              })}
+            </span>
+            <div className="conversion-offer-actions">
+              <button className="button button-secondary" type="button" onClick={() => dispatch({ type: "SET_CONVERSION", value: true })}>
+                <ArrowLeftRight size={15} aria-hidden="true" />
+                {t("使用兼容模式")}
+              </button>
+            </div>
+          </div>
+        ) : null}
         {conversionOffered && !state.conversion ? (
           <div className="notice notice-warning conversion-offer" role="alert">
             <span>{t("{agent} 不能直接使用这个模型服务，BootAgent 可以在本机转换后使用", { agent: agentName })}</span>

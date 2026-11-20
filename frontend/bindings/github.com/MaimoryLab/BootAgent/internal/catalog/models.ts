@@ -122,6 +122,13 @@ export interface Provider {
      * custom Provider, which the frontend sorts by creation time instead.
      */
     "order"?: number;
+
+    /**
+     * Protocol ID -> confirmed support level on a built-in Provider's endpoint,
+     * from providers.lock.json. Absent for a custom Provider, whose endpoint
+     * nothing is known about.
+     */
+    "protocols"?: { [_ in string]?: string } | null;
     "custom"?: boolean;
     "has_key"?: boolean;
     "created_at"?: string;

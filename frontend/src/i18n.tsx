@@ -507,6 +507,12 @@ const english = {
   // the user may not have yet. "Register and get a key" promised the sign-up
   // flow; this wording covers both arriving signed in and having to sign up.
   "获取 API Key": "Get an API key",
+  "关于 API Key": "About API keys",
+  "API Key 是 {provider} 发给你的访问凭证，Agent 用它调用模型": "An API key is the credential {provider} issues to you. Agents use it to call models",
+  "还没有的话，点「获取 API Key」打开 {provider} 的官方页面，在那里注册并创建": "If you do not have one, \"Get an API key\" opens {provider}'s own page, where you sign up and create it",
+  // States who bills and stops there. An amount, or a word like "cheap", would
+  // be a promise about a price only the Provider sets.
+  "连通测试和 Agent 的每次调用都是真实请求，由 {provider} 按它的价格计费；BootAgent 不收费，也不预估费用": "Connection tests and every call an Agent makes are real requests, billed by {provider} at its prices. BootAgent charges nothing and does not estimate the cost",
   "自定义模型名称（可选）": "Custom model name (optional)",
   // The connection step's model field. It only decides what the probe requests --
   // the configured model is chosen on the next step -- and saying so plainly is
@@ -1029,6 +1035,7 @@ const english = {
   "Claude Code 看到的模型名": "Model name Claude Code sees",
   "Codex 看到的模型名": "Model name Codex sees",
   "{agents} 已改用兼容模式": "{agents} now use compatibility mode",
+  "尚未确认 {provider} 支持 {agent} 的请求格式（{protocol}），可以改用兼容模式，由 BootAgent 在本机转换": "{provider} isn't confirmed to support {agent}'s request format ({protocol}); compatibility mode lets BootAgent convert it on this computer",
   "{agent} 不能直接使用这个模型服务，BootAgent 可以在本机转换后使用": "{agent} can't use this model service directly, but BootAgent can convert its requests on this computer",
   "{agent} 不能直接使用这个模型服务，应用时会开启兼容模式在本机转换，使用期间需要保持 BootAgent 运行": "{agent} can't use this model service directly, so applying turns on compatibility mode, which needs BootAgent to keep running",
   "{agent} 不能直接使用这个配置模版，应用时会开启兼容模式在本机转换，使用期间需要保持 BootAgent 运行": "{agent} can't use this profile directly, so applying turns on compatibility mode, which needs BootAgent to keep running",
@@ -1095,6 +1102,13 @@ const english = {
   "生成的文件": "Files written",
   "检查模型服务": "Check the provider",
   "查看运行记录": "View the run record",
+  "本机环境": "This computer",
+  "系统": "System",
+  "已安装的 Agent": "Agents installed",
+  "{count} 个": "{count}",
+  "还没有": "None yet",
+  "未安装，当前选择需要": "Not installed, and this choice needs it",
+  "未安装，当前选择用不到": "Not installed, and this choice does not need it",
 } as const;
 
 export type Locale = "zh-CN" | "en";

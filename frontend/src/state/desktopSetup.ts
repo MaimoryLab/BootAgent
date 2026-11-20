@@ -15,6 +15,22 @@ export function selectedDesktopApp(status: StatusResponse, selectedAgentIds: str
   return desktopApps(status).find((app) => app.id === selected);
 }
 
+const FIRST_RUN_DESKTOP_AGENT = "workbuddy";
+
+/**
+ * The desktop Agent a first run arrives on, or "" for none.
+ *
+ * Only a machine that has never been set up gets one: someone returning to the
+ * wizard came to add a particular Agent, and a pre-ticked row would be a choice
+ * made for them. A platform the app does not run on gets none either, because
+ * its row is disabled and could not be un-ticked by picking another.
+ */
+export function firstRunDesktopAgent(status: StatusResponse | null): string {
+  if (!status?.firstRun) return "";
+  const app = desktopApps(status).find((item) => item.id === FIRST_RUN_DESKTOP_AGENT);
+  return app?.supported ? app.id : "";
+}
+
 export function desktopProtocol(app: DesktopAgentStatus): string {
   return app.protocol?.trim() || "";
 }

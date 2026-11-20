@@ -1,6 +1,9 @@
 package catalog
 
-import "sort"
+import (
+	"maps"
+	"sort"
+)
 
 const (
 	ProtocolOpenAI    = "openai"
@@ -107,12 +110,19 @@ func ProviderOrder(providerID string) int {
 	return providerDefinitions[providerID].Order
 }
 
+// ProviderProtocols is a built-in Provider's protocol support table, copied so
+// a caller cannot edit the catalog. Nil for a Provider that is not built in.
+func ProviderProtocols(providerID string) map[string]string {
+	return maps.Clone(providerDefinitions[providerID].Protocols)
+}
+
 func PublicProviders() map[string]Provider {
 	result := make(map[string]Provider, len(providerDefinitions))
 	for id, provider := range providerDefinitions {
 		// fallbackModel is unexported and therefore cannot leak through JSON,
 		// but clear it here as an additional boundary for non-JSON callers.
 		provider.fallbackModel = ""
+		provider.Protocols = maps.Clone(provider.Protocols)
 		result[id] = provider
 	}
 	return result
@@ -124,6 +134,7 @@ func ProviderByID(providerID string) (Provider, bool) {
 		return Provider{}, false
 	}
 	provider.fallbackModel = ""
+	provider.Protocols = maps.Clone(provider.Protocols)
 	return provider, true
 }
 

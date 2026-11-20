@@ -37,6 +37,38 @@ describe("wizardReducer", () => {
     expect(initialWizardState.setupKind).toBe("desktop");
   });
 
+  describe("the Agent a first run arrives on", () => {
+    const workbuddy = {
+      id: "workbuddy", name: "WorkBuddy", installed: false, supported: true,
+      version: null, source: "unknown", protocol: "openai", profileAgentId: "workbuddy", profileId: null,
+    } satisfies NonNullable<StatusResponse["desktopAgents"]>[number];
+    const firstRun = { ...status, firstRun: true, desktopAgents: [workbuddy] } satisfies StatusResponse;
+
+    it("is WorkBuddy, so a new user can continue without knowing the list", () => {
+      const loaded = wizardReducer(initialWizardState, { type: "STATUS_LOADED", status: firstRun });
+      expect(loaded.selectedAgentIds).toEqual(["workbuddy"]);
+      // Returning to the desktop tab from the CLI one is the same arrival.
+      const cli = wizardReducer(loaded, { type: "START_SETUP" });
+      expect(cli.selectedAgentIds).toEqual([]);
+      expect(wizardReducer(cli, { type: "START_DESKTOP_SETUP" }).selectedAgentIds).toEqual(["workbuddy"]);
+    });
+
+    it("can be changed, and a status refresh does not change it back", () => {
+      let state = wizardReducer(initialWizardState, { type: "STATUS_LOADED", status: firstRun });
+      state = wizardReducer(state, { type: "SELECT_AGENT", agentId: "zcode" });
+      state = wizardReducer(state, { type: "STATUS_LOADED", status: { ...firstRun } });
+      expect(state.selectedAgentIds).toEqual(["zcode"]);
+    });
+
+    it("is nothing once the machine has been set up, or where WorkBuddy cannot run", () => {
+      const returning = wizardReducer(initialWizardState, { type: "STATUS_LOADED", status: { ...firstRun, firstRun: false } });
+      expect(returning.selectedAgentIds).toEqual([]);
+      const unsupported = { ...firstRun, desktopAgents: [{ ...workbuddy, supported: false }] };
+      expect(wizardReducer(initialWizardState, { type: "STATUS_LOADED", status: unsupported }).selectedAgentIds).toEqual([]);
+      expect(wizardReducer(initialWizardState, { type: "STATUS_LOADED", status: { ...firstRun, desktopAgents: [] } }).selectedAgentIds).toEqual([]);
+    });
+  });
+
   it("loads status and reports status errors", () => {
     let state = wizardReducer(initialWizardState, { type: "STATUS_LOADING" });
     expect(state.statusState).toBe("loading");
@@ -398,12 +430,41 @@ describe("provider default model", () => {
 });
 
 describe("compatibility mode choice", () => {
-  const chosen = { ...initialWizardState, provider: "ppio", selectedAgentIds: ["codex"], conversion: true, keyVerified: true };
+  // Made after a connection test failed and found Chat Completions working.
+  const chosen = { ...initialWizardState, provider: "ppio", selectedAgentIds: ["codex"], connectionState: "error" as const, conversion: true, keyVerified: true };
+  // Made from the Provider's protocol table, with no test run.
+  const untested = { ...initialWizardState, provider: "ppio", selectedAgentIds: ["codex"], conversion: true };
 
   it("counts as a verified key, since Chat Completions answered with it", () => {
-    const next = wizardReducer({ ...initialWizardState, keyVerified: false }, { type: "SET_CONVERSION", value: true });
+    const next = wizardReducer({ ...initialWizardState, connectionState: "error", keyVerified: false }, { type: "SET_CONVERSION", value: true });
     expect(next.conversion).toBe(true);
     expect(next.keyVerified).toBe(true);
+  });
+
+  it("does not count as a verified key when no test backs it", () => {
+    const next = wizardReducer({ ...initialWizardState, keyVerified: false }, { type: "SET_CONVERSION", value: true });
+    expect(next.conversion).toBe(true);
+    expect(next.keyVerified).toBe(false);
+  });
+
+  // Typing the key and picking a test model happen on the same step as the
+  // choice, and the key is cleared again when Continue saves it. None of them
+  // contradicts a choice that no test verdict produced.
+  it.each<WizardAction>([
+    { type: "SET_PROBE_MODEL", value: "other-model" },
+    { type: "SET_HAS_API_KEY", value: true },
+    { type: "SET_HAS_API_KEY", value: false },
+  ])("survives $type when it was made without a test", (action) => {
+    expect(wizardReducer(untested, action).conversion).toBe(true);
+  });
+
+  it.each<WizardAction>([
+    { type: "SET_PROVIDER", value: "jiekou" },
+    { type: "SELECT_AGENT", agentId: "claude-code" },
+    { type: "START_NEW_PROFILE" },
+    { type: "CONNECTION_LOADING" },
+  ])("is cleared by $type even when it was made without a test", (action) => {
+    expect(wizardReducer(untested, action).conversion).toBe(false);
   });
 
   it.each<WizardAction>([

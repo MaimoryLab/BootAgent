@@ -1,6 +1,17 @@
 import { expect, test, type Locator } from "@playwright/test";
 
-// Every test addresses a route directly. "/" is a decision, not a page: on a
+// The one test that lands on "/", and it has to run first: a first run is a home
+// nothing has written to yet, which stops being true as soon as any test saves.
+test("a first run opens the wizard with an Agent already chosen", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "选择 Agent", level: 1 })).toBeVisible();
+  await expect(page.getByRole("group", { name: "本机环境" })).toContainText("macOS");
+  // exact, because "选择 WorkBuddy AI" is the row below it.
+  await expect(page.getByLabel("选择 WorkBuddy", { exact: true })).toBeChecked();
+  await expect(page.getByRole("button", { name: "继续" })).toBeEnabled();
+});
+
+// Every other test addresses a route directly. "/" is a decision, not a page: on a
 // home without ~/.bootagent it opens onboarding, so landing there would make
 // these tests depend on whichever one ran first and wrote state.
 // selectOption is gone from these tests: the pickers are custom listboxes now,
@@ -78,6 +89,36 @@ test("transfer lists stay bounded and can be searched", async ({ page }) => {
 test("a machine with no BootAgent state opens onboarding from the landing route", async ({ page }) => {
   await page.goto("/#/");
   await expect(page.getByRole("heading", { name: "选择 Agent", level: 1 })).toBeVisible();
+});
+
+// A first-time user is not required to test the connection, so the step itself
+// has to say when the Agent's format is unconfirmed on the chosen service. This
+// runs against the real status binding: the protocol table comes from
+// providers.lock.json through Go, which a unit-test fixture cannot show.
+test("the Provider step suggests compatibility mode without a connection test", async ({ page }) => {
+  await page.goto("/#/");
+  await expect(page.getByRole("heading", { name: "选择 Agent", level: 1 })).toBeVisible();
+  await page.getByRole("tab", { name: "命令行 Agent" }).click();
+  await page.getByLabel("选择 Codex").check();
+  await page.getByRole("button", { name: "继续" }).click();
+
+  await expect(page.getByRole("heading", { name: "连接模型服务" })).toBeVisible();
+  // JieKou.AI ships first and has not confirmed OpenAI Responses.
+  await expect(page.getByRole("combobox", { name: "模型服务" })).toHaveText("JieKou.AI");
+  const suggestion = page.getByText("尚未确认 JieKou.AI 支持 Codex 的请求格式（OpenAI Responses），可以改用兼容模式，由 BootAgent 在本机转换");
+  await expect(suggestion).toBeVisible();
+
+  await page.getByRole("button", { name: "使用兼容模式" }).click();
+  await expect(page.getByText("已选择兼容模式，使用 Codex 时需要保持 BootAgent 运行")).toBeVisible();
+  await page.getByRole("button", { name: "不用兼容模式" }).click();
+  await expect(suggestion).toBeVisible();
+
+  // DeepSeek has confirmed it, so there is nothing to suggest.
+  await page.getByRole("combobox", { name: "模型服务" }).click();
+  await page.getByRole("option", { name: "DeepSeek" }).click();
+  await expect(page.getByRole("combobox", { name: "模型服务" })).toHaveText("DeepSeek");
+  await expect(page.getByText(/尚未确认/)).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "使用兼容模式" })).toHaveCount(0);
 });
 
 test("onboarding installs one Agent end to end and writes its Profile", async ({ page }) => {

@@ -59,6 +59,18 @@ export function probeOffersConversion(result: ProbeResponse | null, protocol: st
 }
 
 /**
+ * Whether a built-in Provider's protocol table says, before any request is
+ * sent, that `protocol` is not confirmed there while Chat Completions is: the
+ * case compatibility mode exists for. Unconfirmed is not unsupported, so this
+ * is a suggestion and never a verdict. A custom Provider has no table.
+ */
+export function providerSuggestsConversion(provider: StatusResponse["providers"][string] | undefined, protocol: string | null | undefined): boolean {
+  const support = provider?.protocols;
+  if (!support || !canConvertProtocol(protocol)) return false;
+  return support.openai === "implementation-supported" && support[protocol] !== "implementation-supported";
+}
+
+/**
  * A Provider's name as the user should read it. The adapter's own Providers
  * carry internal names ("BootAgent Converter anthropic"); an Agent pointed at
  * one is using compatibility mode, which is what it says instead.
