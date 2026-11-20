@@ -518,6 +518,7 @@ func (r OSRunner) runWithOutput(ctx context.Context, argv []string, overrides ma
 	}
 	HideWindow(command)
 	command.Env = mergeEnvironment(r.Env, overrides)
+	command.Dir = WorkingDirectory(ctx)
 	stdout := &boundedBuffer{limit: MaxOutputBytes}
 	stderr := &boundedBuffer{limit: MaxOutputBytes}
 	var streamLock sync.Mutex

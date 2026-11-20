@@ -226,6 +226,29 @@ export interface DetectedConfig {
     "unreadable": string | null;
 }
 
+export interface FirstTaskAgent {
+    "id": string;
+    "name": string;
+}
+
+export interface FirstTaskRequest {
+    "agent_id": string;
+    "locale": string;
+}
+
+/**
+ * FirstTaskResult describes a run that started. OK is false when the Agent
+ * failed or wrote nothing, and Directory is empty then: an empty directory is
+ * removed rather than reported.
+ */
+export interface FirstTaskResult {
+    "agent_id": string;
+    "ok": boolean;
+    "directory": string;
+    "files": string[] | null;
+    "log": string;
+}
+
 /**
  * InstallRuntimeResult reports what the bootstrap did. PathUpdated is separate
  * from Installed because an already-downloaded runtime may still need its

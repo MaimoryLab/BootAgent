@@ -6,6 +6,7 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -100,6 +101,20 @@ func (r *e2eRunner) Run(_ context.Context, argv []string, _ map[string]string, _
 		if version != "" {
 			result.Stdout = command + " " + version + "\n"
 		}
+	}
+	return result, nil
+}
+
+// RunPrivateInput plays an Agent given a task on stdin. The first task is the
+// only caller that sets a working directory, and what it checks afterwards is
+// that a page exists there.
+func (r *e2eRunner) RunPrivateInput(ctx context.Context, argv []string, _ map[string]string, _ time.Duration, _ string) (process.Result, error) {
+	result := process.Result{Args: append([]string(nil), argv...), ExitCode: 0}
+	if directory := process.WorkingDirectory(ctx); directory != "" {
+		if err := os.WriteFile(filepath.Join(directory, "index.html"), []byte("<!doctype html><title>BootAgent e2e</title>"), 0o600); err != nil {
+			return result, err
+		}
+		result.Stdout = "Created index.html\n"
 	}
 	return result, nil
 }

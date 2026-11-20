@@ -163,6 +163,16 @@ test("onboarding installs one Agent end to end and writes its Profile", async ({
   await page.getByRole("button", { name: "开始安装" }).click();
 
   await expect(page.getByRole("heading", { name: "安装完成" })).toBeVisible({ timeout: 60_000 });
+
+  // The Agent just installed is offered one small task. The test build's runner
+  // plays the Agent, so what this covers is the path from the button to the
+  // page it names: the binding, the temporary directory and the file listing.
+  await expect(page.getByRole("heading", { name: "跑一个小任务试试" })).toBeVisible();
+  await page.getByRole("button", { name: "开始", exact: true }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Codex 写好了" })).toBeVisible();
+  await expect(page.getByRole("list", { name: "生成的文件" })).toHaveText("index.html");
+  await expect(page.locator(".first-task-output code")).toContainText("bootagent-first-task-");
+
   await page.getByRole("button", { name: "进入总览" }).click();
 
   await expect(page.getByRole("heading", { name: "环境总览" })).toBeVisible();

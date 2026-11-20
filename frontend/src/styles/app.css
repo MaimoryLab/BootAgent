@@ -1419,6 +1419,44 @@
   color: var(--text-tertiary);
 }
 
+.first-task-section {
+  width: 100%;
+  margin-top: 22px;
+  display: grid;
+  gap: 10px;
+}
+
+.first-task-section h2 { margin: 0; font-size: 13px; font-weight: 650; }
+.first-task-section > p { margin: 0; color: var(--text-secondary); font-size: 12px; line-height: 1.55; }
+.first-task-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.first-task-actions:empty { display: none; }
+
+.first-task-output {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+/* A path has no spaces to wrap at, and it is the one thing here the user has
+   to be able to read in full. */
+.first-task-output code {
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface-subtle);
+  font: 11px/1.5 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  overflow-wrap: anywhere;
+}
+
+.first-task-output ul {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding-left: 18px;
+  color: var(--text-secondary);
+  font: 11px/1.6 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
 .loading-block {
   min-height: 80px;
   display: flex;
