@@ -5,6 +5,7 @@ package binding
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/url"
 	"strings"
 	"time"
@@ -157,6 +158,16 @@ func (s *DesktopAgentService) Open(ctx context.Context, request DesktopAgentRequ
 	return s.core.OpenDesktopAgent(ctx, request.AgentID)
 }
 
+// settleConversion runs once an Agent has been given an ordinary Profile, the
+// one way an Agent leaves compatibility mode. A failure is logged rather than
+// returned: the Agent was configured, and all that is left behind is an
+// adapter with nothing pointed at it.
+func settleConversion(ctx context.Context, core *app.UseCases) {
+	if err := core.SettleConversion(context.WithoutCancel(ctx)); err != nil {
+		slog.Warn("compatibility mode could not be settled", "error", err)
+	}
+}
+
 // Configure applies a saved Profile to the selected desktop Agent. The profile
 // ID is the only user-supplied value; secrets stay in the Go profile store.
 func (s *DesktopAgentService) Configure(ctx context.Context, request DesktopAgentProfileRequest) (app.DesktopAgentProfileResult, error) {
@@ -166,7 +177,12 @@ func (s *DesktopAgentService) Configure(ctx context.Context, request DesktopAgen
 	if s == nil || s.core == nil {
 		return app.DesktopAgentProfileResult{}, notReady("Desktop agent service is not configured")
 	}
-	return s.core.ConfigureDesktopAgent(ctx, request.AgentID, request.ProfileID)
+	result, err := s.core.ConfigureDesktopAgent(ctx, request.AgentID, request.ProfileID)
+	if err != nil {
+		return result, err
+	}
+	settleConversion(ctx, s.core)
+	return result, nil
 }
 
 // AssessProfile verifies whether a saved Profile can be used directly or
@@ -561,6 +577,7 @@ func (s *AgentService) Activate(ctx context.Context, request ActivateRequest) (A
 	if err != nil {
 		return ActivateResponse{}, err
 	}
+	settleConversion(ctx, s.core)
 	return ActivateResponse{
 		OK:       true,
 		Agent:    result.AgentID,

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -392,6 +393,36 @@ func TestAgentServiceActivatesThroughGoUseCase(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(home, ".codex", "config.toml")); err != nil {
 		t.Fatalf("Go activation did not write Codex config: %v", err)
+	}
+}
+
+// Applying an ordinary Profile is how an Agent leaves compatibility mode, so
+// that is the moment the adapter is checked for anyone still using it.
+func TestAgentServiceActivateStopsAnAdapterNoAgentUses(t *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	listen := listener.Addr().String()
+	_ = listener.Close()
+	core := app.NewUseCases(app.StatusOptions{
+		Home:     t.TempDir(),
+		Platform: platform.For("linux", "amd64"),
+		Lookup:   func(string) (string, bool) { return "", false },
+	})
+	t.Cleanup(func() { _ = core.CloseConversion() })
+	if _, err := core.SaveConversion(context.Background(), app.ConversionConfig{Enabled: true, Listen: listen}); err != nil {
+		t.Fatal(err)
+	}
+	service := &AgentService{core: core}
+	if _, err := service.Activate(context.Background(), ActivateRequest{
+		AgentID: "codex", Provider: "ppio", APIKey: "binding-secret", Model: "model-a",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	conversion, err := core.Conversion(context.Background())
+	if err != nil || conversion.Enabled {
+		t.Fatalf("compatibility mode after the only Agent took an ordinary Profile: %#v, err=%v", conversion, err)
 	}
 }
 

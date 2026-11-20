@@ -1,4 +1,4 @@
-import { FolderCog, Gauge, Images, Layers3, Network, Radio, Settings, ShoppingBag, Sparkles } from "lucide-react";
+import { FolderCog, Gauge, Images, Layers3, Network, Settings, ShoppingBag, Sparkles } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
 import { type TranslationKey, useI18n } from "../i18n";
@@ -8,6 +8,8 @@ import { TaskCenter } from "./TaskCenter";
 // Only real destinations belong here. /setup/* are wizard steps behind
 // SetupGuard: listing them made the sidebar look broken, because clicking one
 // without a selected Agent bounced straight back to the first step.
+// Compatibility mode is not one either: it is switched on from an Agent and
+// its few settings live in 设置.
 const navItems: Array<{ to: string; label: TranslationKey; icon: typeof Gauge }> = [
   { to: "/overview", label: "环境总览", icon: Gauge },
   { to: "/providers", label: "模型服务", icon: Layers3 },
@@ -16,7 +18,6 @@ const navItems: Array<{ to: string; label: TranslationKey; icon: typeof Gauge }>
   { to: "/mcp", label: "MCP 服务器", icon: Network },
   { to: "/skills", label: "Skills", icon: Sparkles },
   { to: "/multimodal", label: "多模态能力", icon: Images },
-  { to: "/conversion", label: "兼容模式", icon: Radio },
 ];
 
 export function NavigationSidebar() {

@@ -93,11 +93,11 @@ export function failureCopyFor(code: string | null | undefined, status: number |
     case "CONFIG_WRITE_FAILED":
       return { message: t("无法写入配置文件"), hint: t("确认配置文件没有被其他程序占用，以及你对它有写入权限") };
     case "CONVERSION_PORT_UNAVAILABLE":
-      return { message: t("兼容模式需要的本机端口被占用"), hint: t("关闭占用端口的程序，或在兼容模式的高级设置里换一个端口") };
+      return { message: t("兼容模式需要的本机端口被占用"), hint: t("关闭占用端口的程序，或在「设置」的兼容模式里换一个端口") };
     case "CONVERSION_VERIFICATION_FAILED":
       return { message: t("兼容模式没有通过测试"), hint: t("检查所选模型服务的余额和网络后重试") };
     case "CONVERSION_ROLLBACK_FAILED":
-      return { message: t("兼容模式开启失败，原来的设置未能完整恢复"), hint: t("请保持 BootAgent 运行，并到兼容模式页面检查") };
+      return { message: t("兼容模式开启失败，原来的设置未能完整恢复"), hint: t("请保持 BootAgent 运行，并在「设置」里查看兼容模式") };
     case "UPDATE_LOCATION_BLOCKED":
       // Withheld at check time on purpose: the swap runs after the app exits, so
       // this is the last moment anything can tell the user.

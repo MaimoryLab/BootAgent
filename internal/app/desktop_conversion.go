@@ -213,14 +213,15 @@ func (u *UseCases) restoreManagedFiles(ctx context.Context, snapshots []managedF
 	return result
 }
 
+// restoreConversionRuntime puts the listener back to what the restored
+// settings say. A running adapter is handed its settings again rather than
+// stopped first: stopping would cut the answers other Agents are receiving,
+// for a change that failed and was none of their business.
 func (u *UseCases) restoreConversionRuntime(previous ConversionConfig) error {
-	if err := u.conversion.SetConfig(convertproxy.Config{Enabled: false}); err != nil {
-		return err
-	}
 	if previous.Enabled {
 		return u.startSavedConversion()
 	}
-	return nil
+	return u.conversion.SetConfig(convertproxy.Config{Enabled: false})
 }
 
 func (u *UseCases) rollbackConversionFailure(ctx context.Context, cause error, previous ConversionConfig, snapshots []managedFileSnapshot) error {

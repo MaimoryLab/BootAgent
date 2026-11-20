@@ -33,6 +33,42 @@ export async function confirmConversion(t: Translate): Promise<boolean> {
   });
 }
 
+let autostartOffered = false;
+
+/**
+ * Asks, once per session, whether BootAgent should start with the system. An
+ * Agent in compatibility mode only works while BootAgent runs, so the moment
+ * one is switched to it is when this matters. Never asked when BootAgent
+ * already starts with the system, and never in the way of the result: callers
+ * do not wait for it.
+ */
+export async function offerAutostart(t: Translate, reportFailure: (error: unknown) => void): Promise<void> {
+  if (autostartOffered) return;
+  autostartOffered = true;
+  try {
+    if ((await api.getSettings()).autostart) return;
+  } catch {
+    // Unreadable settings are not worth a question about them.
+    return;
+  }
+  if (!await confirmAction({
+    title: t("开机自启动"),
+    message: t("兼容模式需要 BootAgent 保持运行。要让 BootAgent 随系统启动吗？"),
+    confirmLabel: t("开机自启动"),
+    cancelLabel: t("暂不启用"),
+  })) return;
+  try {
+    await api.saveSettings({ autostart: true });
+  } catch (error) {
+    reportFailure(error);
+  }
+}
+
+/** Lets a test ask again. */
+export function resetAutostartOffer(): void {
+  autostartOffered = false;
+}
+
 /**
  * The Chat Completions Profile compatibility mode forwards to for `source`:
  * the source itself when it already is one, an existing Profile with the same

@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 )
 
 func TestAnthropicRequest(t *testing.T) {
@@ -263,5 +264,124 @@ func TestResolveRoutesEachLocalKeyToItsOwnTarget(t *testing.T) {
 	proxy.handle(recorder, request)
 	if recorder.Code != http.StatusUnauthorized || len(got) != 2 {
 		t.Fatalf("unknown key status = %d, upstream requests = %d", recorder.Code, len(got))
+	}
+}
+
+// heldUpstream answers a streaming request with one chunk and then keeps the
+// response open until release is closed: an Agent in the middle of an answer.
+func heldUpstream(t *testing.T) (upstream *httptest.Server, started chan struct{}, release chan struct{}) {
+	t.Helper()
+	started, release = make(chan struct{}, 1), make(chan struct{})
+	upstream = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		_, _ = io.WriteString(w, "data: {\"choices\":[{\"delta\":{\"content\":\"first\"}}]}\n\n")
+		w.(http.Flusher).Flush()
+		started <- struct{}{}
+		select {
+		case <-release:
+			_, _ = io.WriteString(w, "data: [DONE]\n\n")
+		case <-r.Context().Done():
+		}
+	}))
+	// Cut first: a test that fails with the response still held would otherwise
+	// hang here instead of reporting.
+	t.Cleanup(func() {
+		upstream.CloseClientConnections()
+		upstream.Close()
+	})
+	return upstream, started, release
+}
+
+// openStream starts a streaming request through the adapter and reports how it
+// ended: the whole body, or the error that cut it short.
+func openStream(address string) chan error {
+	done := make(chan error, 1)
+	go func() {
+		response, err := http.Post("http://"+address+"/v1/chat/completions", "application/json", strings.NewReader(`{"model":"client","stream":true,"messages":[]}`))
+		if err != nil {
+			done <- err
+			return
+		}
+		defer response.Body.Close()
+		body, err := io.ReadAll(response.Body)
+		if err == nil && !strings.Contains(string(body), "[DONE]") {
+			err = io.ErrUnexpectedEOF
+		}
+		done <- err
+	}()
+	return done
+}
+
+// A new alias or a new route keeps the address, and must not wait on -- or
+// cut -- an answer another Agent is still receiving.
+func TestSetConfigKeepsAnOpenResponseWhenTheAddressIsUnchanged(t *testing.T) {
+	upstream, started, release := heldUpstream(t)
+	address := reserveAddress(t)
+	server := New(nil)
+	defer server.Close()
+	config := Config{Enabled: true, Listen: address, TargetBaseURL: upstream.URL, Models: []string{"before"}}
+	if err := server.SetConfig(config); err != nil {
+		t.Fatal(err)
+	}
+	stream := openStream(address)
+	<-started
+
+	config.Models = []string{"after"}
+	changed := make(chan error, 1)
+	go func() { changed <- server.SetConfig(config) }()
+	select {
+	case err := <-changed:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("a change that keeps the address waited on an open response")
+	}
+	models, err := http.Get("http://" + address + "/v1/models")
+	if err != nil {
+		t.Fatal(err)
+	}
+	listed, _ := io.ReadAll(models.Body)
+	_ = models.Body.Close()
+	if !strings.Contains(string(listed), `"after"`) {
+		t.Fatalf("the new settings did not take effect: %s", listed)
+	}
+	close(release)
+	if err := <-stream; err != nil {
+		t.Fatalf("the open response was cut: %v", err)
+	}
+}
+
+// Stopping is the user's decision. An answer still streaming gets a moment to
+// finish and is then closed; it used to fail the stop and leave the listener
+// gone with the settings still saying it ran.
+func TestSetConfigStopsWhileAResponseIsStillOpen(t *testing.T) {
+	grace := shutdownGrace
+	shutdownGrace = 50 * time.Millisecond
+	defer func() { shutdownGrace = grace }()
+	upstream, started, _ := heldUpstream(t)
+	address := reserveAddress(t)
+	server := New(nil)
+	defer server.Close()
+	config := Config{Enabled: true, Listen: address, TargetBaseURL: upstream.URL}
+	if err := server.SetConfig(config); err != nil {
+		t.Fatal(err)
+	}
+	stream := openStream(address)
+	<-started
+
+	if err := server.SetConfig(Config{Enabled: false}); err != nil {
+		t.Fatalf("stopping with an open response failed: %v", err)
+	}
+	select {
+	case err := <-stream:
+		if err == nil {
+			t.Fatal("the response outlived the adapter it came through")
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("the open response was not closed")
+	}
+	if err := server.SetConfig(config); err != nil {
+		t.Fatalf("the adapter could not start again on its address: %v", err)
 	}
 }

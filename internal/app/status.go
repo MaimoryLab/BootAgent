@@ -672,6 +672,19 @@ func (u *UseCases) SaveProfile(ctx context.Context, options SaveProfileOptions) 
 		}
 	}
 	before := u.profileByID(options.ID)
+	// Compatibility mode converts into Chat Completions and nothing else. An
+	// Agent forwarded to this Profile would have every request refused if the
+	// Profile stopped speaking it, with nothing on its own page to say why.
+	if before.Protocol == provider.ProtocolOpenAI && options.Protocol != provider.ProtocolOpenAI {
+		bindings, err := u.catalogAgentBindings(true)
+		if err != nil {
+			return SaveProfileResult{}, err
+		}
+		if users := u.conversionTargetUsers(ctx, options.ID, bindings); len(users) > 0 {
+			sort.Strings(users)
+			return SaveProfileResult{}, oneerrors.New(oneerrors.InvalidRequest, fmt.Sprintf("Profile %s is used through compatibility mode by Agent(s): %s, and must stay a Chat Completions Profile", options.ID, strings.Join(users, ", ")))
+		}
+	}
 	stored, err := u.profiles.Save(ctx, profileStore.SaveRequest{
 		ID:       options.ID,
 		Label:    options.Label,
@@ -777,23 +790,9 @@ func (u *UseCases) DeleteProfile(ctx context.Context, id string) error {
 	// An Agent in compatibility mode is bound to its converter Profile, but its
 	// requests go to the route's target: deleting that would break it as
 	// surely as deleting the Profile it is bound to.
-	if conversion, err := u.Conversion(ctx); err == nil {
-		for agentID, target := range conversion.Routes {
-			if target != id || slices.Contains(users, agentID) {
-				continue
-			}
-			if binding, err := u.profiles.ReadAgentBinding(agentID); err == nil && binding != nil && binding.ProfileRef == converterRouteID(agentID) {
-				users = append(users, agentID)
-			}
-		}
-		if conversion.TargetProfile == id {
-			for agentID, binding := range bindings {
-				if !slices.Contains(users, agentID) && isConverterID(binding.ProfileRef) {
-					if _, routed := routeAgent(binding.ProfileRef); !routed {
-						users = append(users, agentID)
-					}
-				}
-			}
+	for _, agentID := range u.conversionTargetUsers(ctx, id, bindings) {
+		if !slices.Contains(users, agentID) {
+			users = append(users, agentID)
 		}
 	}
 	if len(users) > 0 {
