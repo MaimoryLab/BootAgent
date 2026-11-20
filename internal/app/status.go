@@ -454,7 +454,7 @@ func (u *UseCases) GetStatus(ctx context.Context) (StatusResponse, error) {
 		Runtimes:         runtimes,
 		Environment:      environment,
 		EnvironmentError: environmentError,
-		FirstRun:         !fileExists(filepath.Join(options.Home, ".bootagent")),
+		FirstRun:         firstRun(options.Home),
 		MigrationNotice:  u.migrationNotice,
 		DesktopAgents:    desktopAgents,
 		ConversionRoutes: u.conversionRoutes(ctx, statuses, desktopAgents),
@@ -898,6 +898,24 @@ func configPath(home, osID string, agent catalog.Agent) string {
 		relative = agent.WindowsConfigPath
 	}
 	return filepath.Join(home, filepath.FromSlash(relative))
+}
+
+// firstRun reports that nothing of the user's is stored in ~/.bootagent yet.
+//
+// The directory existing is not the test. BootAgent writes there before the
+// user has done anything: the real runner logs every probe it runs, including
+// the ones a status read itself makes, and the marketplace keeps a cache.
+func firstRun(home string) bool {
+	entries, err := os.ReadDir(filepath.Join(home, ".bootagent"))
+	if err != nil {
+		return os.IsNotExist(err)
+	}
+	for _, entry := range entries {
+		if name := entry.Name(); name != "logs" && name != "cache" {
+			return false
+		}
+	}
+	return true
 }
 
 func fileExists(path string) bool {
