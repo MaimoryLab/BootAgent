@@ -443,4 +443,46 @@ describe("ProviderKeyPage", () => {
 
     expect(screen.queryByRole("button", { name: "获取 API Key" })).toBeNull();
   });
+
+  describe("what a key is, for someone who has never had one", () => {
+    const withoutKey = (provider: Record<string, unknown> = {}) => ({
+      ...baseState,
+      status: {
+        ...status,
+        providers: { ppio: { ...status.providers.ppio, has_key: false, key_management_url: "https://ppio.com/settings/key-management", ...provider } },
+      } as unknown as StatusResponse,
+      statusState: "success" as const,
+    });
+    const explainer = () => screen.queryByRole("list", { name: "关于 API Key" });
+
+    it("says what it is, where it comes from and who charges for it", () => {
+      state = withoutKey();
+      render(<MemoryRouter><ProviderKeyPage /></MemoryRouter>);
+
+      const lines = [...(explainer()?.children ?? [])].map((line) => line.textContent);
+      expect(lines).toEqual([
+        "API Key 是 PPIO 发给你的访问凭证，Agent 用它调用模型",
+        "还没有的话，点「获取 API Key」打开 PPIO 的官方页面，在那里注册并创建",
+        // No amount and no promise: the price is the Provider's to state.
+        "连通测试和 Agent 的每次调用都是真实请求，由 PPIO 按它的价格计费；BootAgent 不收费，也不预估费用",
+      ]);
+    });
+
+    // The second line names a button. Without a published page there is no
+    // button, and the sentence would send the user looking for one.
+    it("does not point at a button that is not there", () => {
+      state = withoutKey({ key_management_url: "", home: "" });
+      render(<MemoryRouter><ProviderKeyPage /></MemoryRouter>);
+
+      expect(explainer()?.children).toHaveLength(2);
+      expect(explainer()?.textContent).not.toContain("获取 API Key");
+    });
+
+    it("stays out of the way once a key is saved", () => {
+      state = { ...baseState, status, statusState: "success", hasApiKey: true };
+      render(<MemoryRouter><ProviderKeyPage /></MemoryRouter>);
+
+      expect(explainer()).toBeNull();
+    });
+  });
 });

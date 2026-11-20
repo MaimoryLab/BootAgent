@@ -507,6 +507,12 @@ const english = {
   // the user may not have yet. "Register and get a key" promised the sign-up
   // flow; this wording covers both arriving signed in and having to sign up.
   "获取 API Key": "Get an API key",
+  "关于 API Key": "About API keys",
+  "API Key 是 {provider} 发给你的访问凭证，Agent 用它调用模型": "An API key is the credential {provider} issues to you. Agents use it to call models",
+  "还没有的话，点「获取 API Key」打开 {provider} 的官方页面，在那里注册并创建": "If you do not have one, \"Get an API key\" opens {provider}'s own page, where you sign up and create it",
+  // States who bills and stops there. An amount, or a word like "cheap", would
+  // be a promise about a price only the Provider sets.
+  "连通测试和 Agent 的每次调用都是真实请求，由 {provider} 按它的价格计费；BootAgent 不收费，也不预估费用": "Connection tests and every call an Agent makes are real requests, billed by {provider} at its prices. BootAgent charges nothing and does not estimate the cost",
   "自定义模型名称（可选）": "Custom model name (optional)",
   // The connection step's model field. It only decides what the probe requests --
   // the configured model is chosen on the next step -- and saying so plainly is
