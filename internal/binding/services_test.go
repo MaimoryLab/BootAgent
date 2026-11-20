@@ -122,6 +122,33 @@ func TestRuntimeServiceAppliesAutostartCallbacks(t *testing.T) {
 	}
 }
 
+// A server build has no login items, so its probe always fails. That must not
+// take the backup and terminal settings down with it: they come from a file the
+// probe has nothing to do with.
+func TestGetSettingsSurvivesAFailingAutostartProbe(t *testing.T) {
+	core := providerCore(t, nil)
+	retention, stored := 7, true
+	if _, err := core.UpdateSettings(context.Background(), app.SettingsPatch{BackupRetention: &retention, Autostart: &stored}); err != nil {
+		t.Fatal(err)
+	}
+	service := &RuntimeService{
+		core: core,
+		autostart: AutostartCallbacks{
+			IsEnabled: func() (bool, error) { return false, errors.New("autostart is not supported on this platform") },
+		},
+	}
+	got, err := service.GetSettings(context.Background())
+	if err != nil {
+		t.Fatalf("GetSettings failed with the probe: %v", err)
+	}
+	if got.BackupRetention != retention {
+		t.Fatalf("BackupRetention = %d, want %d", got.BackupRetention, retention)
+	}
+	if !got.Autostart {
+		t.Fatal("Autostart did not fall back to the stored value")
+	}
+}
+
 func TestOpenRegistrationUsesConfiguredProviderURL(t *testing.T) {
 	var opened string
 	service := NewProviderService(providerCore(t, nil), func(value string) error {

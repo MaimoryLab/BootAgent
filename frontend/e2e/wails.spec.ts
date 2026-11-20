@@ -30,6 +30,15 @@ test("language selection switches to English and persists", async ({ page }) => 
   await expect(page.getByRole("combobox", { name: "Language" })).toHaveText("English");
 });
 
+// This build has no login items, so its autostart probe fails on every read.
+// The field stays disabled until the settings have loaded, which makes it the
+// check that the probe did not fail the whole read.
+test("settings load in a build that cannot probe autostart", async ({ page }) => {
+  await page.goto("/#/settings");
+  await expect(page.getByRole("spinbutton", { name: "备份历史版本数" })).toBeEnabled();
+  await expect(page.getByRole("spinbutton", { name: "备份历史版本数" })).toHaveValue("3");
+});
+
 // The task centre is position: fixed at the viewport's lower-left corner, so it
 // takes no space in the sidebar's flex column. When the sidebar did not reserve
 // room for it, the rows margin-top: auto pushes to the bottom ended up
