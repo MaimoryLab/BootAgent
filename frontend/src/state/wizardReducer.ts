@@ -8,6 +8,7 @@ import type {
   InstallOutput,
 } from "../types/api";
 import { userProviders } from "./conversion";
+import { firstRunDesktopAgent } from "./desktopSetup";
 import { byProviderCreatedAt, preferProviderWithKey } from "./ranking";
 
 export type AsyncState = "idle" | "loading" | "success" | "error";
@@ -114,6 +115,11 @@ function providerDefaultModel(status: StatusResponse | null, provider: ProviderI
   return status?.providers[provider]?.default_model || "";
 }
 
+function arrivalSelection(status: StatusResponse | null): string[] {
+  const agent = firstRunDesktopAgent(status);
+  return agent ? [agent] : [];
+}
+
 export type WizardAction =
   | { type: "STATUS_LOADING" }
   | { type: "STATUS_LOADED"; status: StatusResponse }
@@ -206,6 +212,11 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
           ? {
               provider: latestProvider(action.status),
               ...(state.model ? {} : { model: providerDefaultModel(action.status, latestProvider(action.status)) }),
+              // Seeded here for the same reason: the list this picks from only
+              // exists once the status has arrived.
+              ...(state.setupKind === "desktop" && !state.selectedAgentIds.length
+                ? { selectedAgentIds: arrivalSelection(action.status) }
+                : {}),
             }
           : {}),
       };
@@ -220,6 +231,7 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
           statusState: state.statusState,
           statusError: state.statusError,
           setupKind: "desktop",
+          selectedAgentIds: arrivalSelection(state.status),
           provider,
           model: providerDefaultModel(state.status, provider),
         };

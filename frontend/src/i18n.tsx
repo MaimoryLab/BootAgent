@@ -1089,6 +1089,13 @@ const english = {
   "在 Agent 的配置页选择配置模版时会自动开启": "Turns on by itself when you choose a profile on an Agent's page",
   "开启后这些 Agent 才能使用": "These Agents work once it is on",
   "更换": "Change",
+  "本机环境": "This computer",
+  "系统": "System",
+  "已安装的 Agent": "Agents installed",
+  "{count} 个": "{count}",
+  "还没有": "None yet",
+  "未安装，当前选择需要": "Not installed, and this choice needs it",
+  "未安装，当前选择用不到": "Not installed, and this choice does not need it",
 } as const;
 
 export type Locale = "zh-CN" | "en";
