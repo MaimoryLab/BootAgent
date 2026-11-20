@@ -80,6 +80,36 @@ test("a machine with no BootAgent state opens onboarding from the landing route"
   await expect(page.getByRole("heading", { name: "选择 Agent", level: 1 })).toBeVisible();
 });
 
+// A first-time user is not required to test the connection, so the step itself
+// has to say when the Agent's format is unconfirmed on the chosen service. This
+// runs against the real status binding: the protocol table comes from
+// providers.lock.json through Go, which a unit-test fixture cannot show.
+test("the Provider step suggests compatibility mode without a connection test", async ({ page }) => {
+  await page.goto("/#/");
+  await expect(page.getByRole("heading", { name: "选择 Agent", level: 1 })).toBeVisible();
+  await page.getByRole("tab", { name: "命令行 Agent" }).click();
+  await page.getByLabel("选择 Codex").check();
+  await page.getByRole("button", { name: "继续" }).click();
+
+  await expect(page.getByRole("heading", { name: "连接模型服务" })).toBeVisible();
+  // JieKou.AI ships first and has not confirmed OpenAI Responses.
+  await expect(page.getByRole("combobox", { name: "模型服务" })).toHaveText("JieKou.AI");
+  const suggestion = page.getByText("尚未确认 JieKou.AI 支持 Codex 的请求格式（OpenAI Responses），可以改用兼容模式，由 BootAgent 在本机转换");
+  await expect(suggestion).toBeVisible();
+
+  await page.getByRole("button", { name: "使用兼容模式" }).click();
+  await expect(page.getByText("已选择兼容模式，使用 Codex 时需要保持 BootAgent 运行")).toBeVisible();
+  await page.getByRole("button", { name: "不用兼容模式" }).click();
+  await expect(suggestion).toBeVisible();
+
+  // DeepSeek has confirmed it, so there is nothing to suggest.
+  await page.getByRole("combobox", { name: "模型服务" }).click();
+  await page.getByRole("option", { name: "DeepSeek" }).click();
+  await expect(page.getByRole("combobox", { name: "模型服务" })).toHaveText("DeepSeek");
+  await expect(page.getByText(/尚未确认/)).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "使用兼容模式" })).toHaveCount(0);
+});
+
 test("onboarding installs one Agent end to end and writes its Profile", async ({ page }) => {
   const bindingMethodIDs = new Set<number>();
   page.on("request", (request) => {

@@ -347,17 +347,17 @@ func TestParseProvidersRejectsInvalidEntries(t *testing.T) {
 // at the call site: someone adding a field would not know it was load-bearing.
 // This pins it, so wiring one up has to be a deliberate edit here too.
 // The site's explorer reads fields the desktop app has no business showing:
-// sponsorship, referral links, and per-protocol support claims are editorial, and
-// projecting them would put a vendor relationship in front of a user choosing an
-// endpoint. `order` is deliberately not in that set -- it is display precedence,
-// which both surfaces need, and is asserted below.
+// sponsorship and referral links are editorial, and projecting them would put a
+// vendor relationship in front of a user choosing an endpoint. `order` and
+// `protocols` are deliberately not in that set -- display precedence and which
+// protocols were verified are what both surfaces need, and are asserted below.
 func TestSiteOnlyProviderFieldsAreNotParsed(t *testing.T) {
-	// Every field carries a value that would be obvious if it leaked.
+	// Every site-only field carries a value that would be obvious if it leaked.
 	data := `{"schema_version":1,"default_fallback_probe_model":"m","providers":{"ok":{
 		"name":"OK","home":"https://example.com","base_url":"https://api.example.com",
 		"default_model":"m","fallback_probe_model":"m",
 		"relationship":"LEAKED","disclosure":"LEAKED","referral_url":"https://leaked.example.com",
-		"order":9,"protocols":{"openai":"LEAKED"}}}}`
+		"order":9,"protocols":{"openai":"implementation-supported","responses":"route-present-unverified"}}}}`
 	manifest, err := ParseProviders([]byte(data))
 	if err != nil {
 		t.Fatal(err)
@@ -366,13 +366,67 @@ func TestSiteOnlyProviderFieldsAreNotParsed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, field := range []string{"LEAKED", "relationship", "disclosure", "referral", "protocols"} {
+	for _, field := range []string{"LEAKED", "relationship", "disclosure", "referral"} {
 		if contains(string(encoded), field) {
 			t.Fatalf("site-only field %q reached the parsed manifest: %s", field, encoded)
 		}
 	}
 	if got := manifest.Providers["ok"].Order; got != 9 {
 		t.Fatalf("Order = %d, want the manifest value 9", got)
+	}
+	want := map[string]string{"openai": "implementation-supported", "responses": "route-present-unverified"}
+	if got := manifest.Providers["ok"].Protocols; !reflect.DeepEqual(got, want) {
+		t.Fatalf("Protocols = %v, want the manifest table %v", got, want)
+	}
+}
+
+// A level outside the vocabulary is refused rather than carried through. The
+// wizard treats everything but "implementation-supported" as unconfirmed, so a
+// typo would not fail anywhere: it would show a compatibility mode hint for a
+// Provider that needs none.
+func TestParseProvidersRejectsAnUnknownProtocolSupportLevel(t *testing.T) {
+	data := `{"schema_version":1,"default_fallback_probe_model":"m","providers":{"ok":{
+		"name":"OK","home":"https://example.com","base_url":"https://api.example.com",
+		"default_model":"m","fallback_probe_model":"m","order":1,
+		"protocols":{"responses":"implementation_supported"}}}}`
+	if _, err := ParseProviders([]byte(data)); err == nil {
+		t.Fatal("ParseProviders accepted a support level outside the vocabulary")
+	}
+}
+
+// The table reaches the frontend through the public projection, which is how
+// the wizard knows an Agent's protocol is unconfirmed without sending a request.
+// Read from the manifest rather than pinned per vendor: which Providers have
+// confirmed Responses will change, and what must hold is that the projection
+// says what the manifest says.
+func TestPublicProjectionCarriesTheProtocolSupportTable(t *testing.T) {
+	manifest, err := LoadEmbeddedProviders()
+	if err != nil {
+		t.Fatal(err)
+	}
+	public := PublicProviders()
+	for id, provider := range manifest.Providers {
+		if len(provider.Protocols) == 0 {
+			t.Fatalf("built-in Provider %q declares no protocol support", id)
+		}
+		if got := public[id].Protocols; !reflect.DeepEqual(got, provider.Protocols) {
+			t.Fatalf("PublicProviders()[%q].Protocols = %v, want %v", id, got, provider.Protocols)
+		}
+		if got := ProviderProtocols(id); !reflect.DeepEqual(got, provider.Protocols) {
+			t.Fatalf("ProviderProtocols(%q) = %v, want %v", id, got, provider.Protocols)
+		}
+	}
+	if got := ProviderProtocols("not-a-built-in-provider"); got != nil {
+		t.Fatalf("ProviderProtocols for an unknown Provider = %v, want nil", got)
+	}
+
+	// A caller editing its copy must not change what the next caller reads.
+	for id := range manifest.Providers {
+		ProviderProtocols(id)[ProtocolResponses] = "edited"
+		PublicProviders()[id].Protocols[ProtocolResponses] = "edited"
+		if got, want := ProviderProtocols(id)[ProtocolResponses], manifest.Providers[id].Protocols[ProtocolResponses]; got != want {
+			t.Fatalf("catalog table for %q was edited through a copy: %q, want %q", id, got, want)
+		}
 	}
 }
 

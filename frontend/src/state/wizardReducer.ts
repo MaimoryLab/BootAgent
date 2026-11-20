@@ -179,6 +179,15 @@ function appendActivationOutput(log: string, output: InstallOutput): string {
   return `${log}${output.kind === "command" && log && !log.endsWith("\n") ? "\n" : ""}${text}`;
 }
 
+/**
+ * A compatibility mode choice made from the Provider's protocol table, before
+ * any connection test. It rests on no test verdict, so the edits that discard a
+ * verdict leave it standing; one made after a failed test is discarded with it.
+ */
+function untestedConversion(state: WizardState): boolean {
+  return state.conversion && state.connectionState === "idle";
+}
+
 export function wizardReducer(state: WizardState, action: WizardAction): WizardState {
   switch (action.type) {
     case "STATUS_LOADING":
@@ -320,12 +329,13 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
         connection: null,
         connectionState: "idle",
         keyVerified: false,
-        conversion: false,
+        conversion: untestedConversion(state),
       };
     case "SET_CONVERSION":
-      // Accepting rests on a test in which Chat Completions answered with this
-      // key, which is as much proof of the key as a native success.
-      return { ...state, conversion: action.value, keyVerified: state.keyVerified || action.value };
+      // Accepting after a failed test rests on Chat Completions having answered
+      // with this key, which is as much proof of the key as a native success.
+      // Accepting the untested suggestion proves nothing about the key.
+      return { ...state, conversion: action.value, keyVerified: state.keyVerified || (action.value && state.connectionState === "error") };
     case "SET_HAS_API_KEY":
       // Any edit of the key invalidates the previous probe verdict. The reducer
       // only sees the non-empty boolean (the secret itself stays in a ref), so
@@ -337,7 +347,10 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
         connection: null,
         connectionState: "idle",
         keyVerified: false,
-        conversion: false,
+        // Typing the key, and clearing it once it is saved on Continue, both
+        // land here: dropping an untested choice would install the Agent
+        // without the compatibility mode the user had just picked.
+        conversion: untestedConversion(state),
       };
     case "CONNECTION_LOADING":
       return { ...state, connectionState: "loading", connection: null, conversion: false };

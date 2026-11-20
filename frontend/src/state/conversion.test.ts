@@ -1,8 +1,12 @@
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
 import { describe, expect, it } from "vitest";
 
 import { sourceTranslate, translate } from "../i18n";
 import type { ProbeResponse, StatusResponse } from "../types/api";
-import { agentsUsingConversion, conversionDisplay, converterProfileName, probeOffersConversion, userProviders } from "./conversion";
+import { agentsUsingConversion, conversionDisplay, converterProfileName, probeOffersConversion, providerSuggestsConversion, userProviders } from "./conversion";
 
 describe("converterProfileName", () => {
   it("names every generated adapter Profile by the Agent that uses it", () => {
@@ -38,6 +42,59 @@ describe("probeOffersConversion", () => {
     expect(probeOffersConversion(failed(["openai"]), "openai")).toBe(false);
     expect(probeOffersConversion({ ...failed(["responses"]), ok: true }, "responses")).toBe(false);
     expect(probeOffersConversion(null, "responses")).toBe(false);
+  });
+});
+
+describe("providerSuggestsConversion", () => {
+  type Provider = StatusResponse["providers"][string];
+  const provider = (protocols: Provider["protocols"]): Provider => ({ name: "P", home: "", base_url: "https://api.example.test", protocols });
+  const confirmed = "implementation-supported";
+
+  it("suggests it when the Agent's format is unconfirmed but Chat Completions is confirmed", () => {
+    for (const level of ["route-present-unverified", "release-candidate-required", "not-supported"] as const) {
+      expect(providerSuggestsConversion(provider({ openai: confirmed, responses: level }), "responses")).toBe(true);
+      expect(providerSuggestsConversion(provider({ openai: confirmed, anthropic: level }), "anthropic")).toBe(true);
+    }
+    // A protocol the table does not mention has not been confirmed either.
+    expect(providerSuggestsConversion(provider({ openai: confirmed }), "responses")).toBe(true);
+  });
+
+  it("stays quiet when the Agent's format is confirmed", () => {
+    expect(providerSuggestsConversion(provider({ openai: confirmed, responses: confirmed }), "responses")).toBe(false);
+    expect(providerSuggestsConversion(provider({ openai: confirmed, anthropic: confirmed }), "anthropic")).toBe(false);
+  });
+
+  it("stays quiet when Chat Completions, which it converts to, is not confirmed", () => {
+    expect(providerSuggestsConversion(provider({ openai: "route-present-unverified", responses: "route-present-unverified" }), "responses")).toBe(false);
+  });
+
+  it("stays quiet for an Agent that already speaks Chat Completions", () => {
+    expect(providerSuggestsConversion(provider({ openai: confirmed }), "openai")).toBe(false);
+    expect(providerSuggestsConversion(provider({ openai: confirmed }), undefined)).toBe(false);
+  });
+
+  it("stays quiet for a Provider with no table, such as a custom one", () => {
+    expect(providerSuggestsConversion(provider(undefined), "responses")).toBe(false);
+    expect(providerSuggestsConversion(provider(null), "responses")).toBe(false);
+    expect(providerSuggestsConversion(undefined, "responses")).toBe(false);
+  });
+
+  // The fixtures above are invented. This reads the table that ships, so the
+  // pairing a first-time user actually meets is what is asserted: the default
+  // Provider with Codex gets the suggestion, a Provider that has confirmed
+  // Responses does not.
+  it("agrees with the shipped protocol table", () => {
+    const manifestPath = join(dirname(fileURLToPath(import.meta.url)), "../../../manifests/providers.lock.json");
+    const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as { providers: Record<string, Provider & { order: number }> };
+    const suggested = (id: string, protocol: string) => providerSuggestsConversion(manifest.providers[id], protocol);
+    const first = Object.entries(manifest.providers).sort(([, a], [, b]) => a.order - b.order)[0][0];
+
+    expect(first).toBe("jiekou");
+    expect(suggested("jiekou", "responses")).toBe(true);
+    expect(suggested("deepseek", "responses")).toBe(false);
+    // Claude Code's format is confirmed on both, so neither gets a suggestion.
+    expect(suggested("jiekou", "anthropic")).toBe(false);
+    expect(suggested("deepseek", "anthropic")).toBe(false);
   });
 });
 

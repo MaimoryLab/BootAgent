@@ -10,7 +10,7 @@ import { ProviderSegment } from "../components/ProviderSegment";
 import { SecureKeyField } from "../components/SecureKeyField";
 import { useI18n } from "../i18n";
 import { useFeedback } from "../state/FeedbackContext";
-import { probeOffersConversion } from "../state/conversion";
+import { probeOffersConversion, providerSuggestsConversion } from "../state/conversion";
 import { desktopProtocol, profileAgentIdForDesktop, selectedDesktopApp } from "../state/desktopSetup";
 import { useWizard } from "../state/WizardContext";
 import { wizardNeedsModel } from "../state/wizardReducer";
@@ -51,10 +51,14 @@ export function ProviderKeyPage() {
   // Other desktop apps share another Agent's settings and stay as they are.
   const conversionProtocol = protocols.length === 1 && (!desktop || desktop.id === "claude-desktop") ? protocols[0] : undefined;
   const conversionOffered = state.connectionState === "error" && probeOffersConversion(state.connection, conversionProtocol);
+  // Read from the Provider's protocol table, with no request sent. It speaks
+  // only until a connection test has: a test's verdict replaces the guess.
+  const conversionSuggested = state.connectionState === "idle" && providerSuggestsConversion(providerMeta, conversionProtocol);
   const agentName = desktop?.name || state.status?.catalog.find((item) => item.id === state.selectedAgentIds[0])?.name || "";
   // A new key is persisted before continuing; probing remains optional. A test
   // that found compatibility mode would help is the exception: continuing past
-  // it unanswered installs an Agent that fails on its first request.
+  // it unanswered installs an Agent that fails on its first request. The
+  // untested suggestion is not: nothing has shown the Provider cannot serve it.
   const canContinue = (canProbe || (builtInProvider && state.hasApiKey)) && (!conversionOffered || state.conversion);
 
   const endpoint = useMemo(() => {
@@ -213,6 +217,23 @@ export function ProviderKeyPage() {
               beside the one choice that fixes it. */}
           {conversionOffered ? null : <ConnectionStatus state={state.connectionState} result={state.connection} />}
         </div>
+        {conversionSuggested && !state.conversion ? (
+          <div className="notice notice-info conversion-offer">
+            <span>
+              {t("尚未确认 {provider} 支持 {agent} 的请求格式（{protocol}），可以改用兼容模式，由 BootAgent 在本机转换", {
+                provider: providerMeta?.name ?? "",
+                agent: agentName,
+                protocol: conversionProtocol ? PROTOCOL_LABELS[conversionProtocol] : "",
+              })}
+            </span>
+            <div className="conversion-offer-actions">
+              <button className="button button-secondary" type="button" onClick={() => dispatch({ type: "SET_CONVERSION", value: true })}>
+                <ArrowLeftRight size={15} aria-hidden="true" />
+                {t("使用兼容模式")}
+              </button>
+            </div>
+          </div>
+        ) : null}
         {conversionOffered && !state.conversion ? (
           <div className="notice notice-warning conversion-offer" role="alert">
             <span>{t("{agent} 不能直接使用这个模型服务，BootAgent 可以在本机转换后使用", { agent: agentName })}</span>

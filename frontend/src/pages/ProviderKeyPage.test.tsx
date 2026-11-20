@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { api } from "../backend/api";
@@ -28,6 +28,28 @@ const status = {
   providers: { ppio: { name: "PPIO", home: "", base_url: "https://api.ppio.com/openai", has_key: true } },
   catalog: [],
 } as unknown as StatusResponse;
+
+// Built-in Providers as the protocol table describes them: Chat Completions is
+// confirmed on both, OpenAI Responses (what Codex speaks) only on the second.
+const tabledStatus = {
+  providers: {
+    jiekou: {
+      name: "JieKou.AI", home: "", base_url: "https://api.jiekou.test/openai", has_key: true,
+      protocols: { openai: "implementation-supported", anthropic: "implementation-supported", responses: "route-present-unverified" },
+    },
+    deepseek: {
+      name: "DeepSeek", home: "", base_url: "https://api.deepseek.test", has_key: true,
+      protocols: { openai: "implementation-supported", anthropic: "implementation-supported", responses: "implementation-supported" },
+    },
+  },
+  catalog: [{ id: "codex", name: "Codex", protocol: "responses", configMode: "auto", selectsModel: true }],
+} as unknown as StatusResponse;
+
+const codexOn = (provider: string, patch: Partial<WizardState> = {}): WizardState => ({
+  ...initialWizardState, status: tabledStatus, statusState: "success", setupKind: "cli", selectedAgentIds: ["codex"], provider, ...patch,
+});
+
+const SUGGESTION = "尚未确认 JieKou.AI 支持 Codex 的请求格式（OpenAI Responses），可以改用兼容模式，由 BootAgent 在本机转换";
 
 /** Pins the selected Provider to the one this fixture defines. Inheriting the
  *  wizard's initial Provider instead coupled these cases to whichever Provider
@@ -98,6 +120,149 @@ describe("ProviderKeyPage", () => {
 
     expect(screen.queryByRole("button", { name: "使用兼容模式" })).toBeNull();
     expect(screen.getByRole("button", { name: "继续选择模型" })).toBeEnabled();
+  });
+
+  // The connection test is optional, so a first-time user who skipped it got no
+  // word about compatibility mode and installed a Codex that failed on its first
+  // request. The protocol table answers the same question without a request.
+  it("suggests compatibility mode from the protocol table, without a connection test", () => {
+    state = codexOn("jiekou");
+    keyRef.current = "";
+    const probe = vi.spyOn(api, "probe");
+    const models = vi.spyOn(api, "models").mockResolvedValue({ ok: true, reachable: true, status: 200, message: "", error_code: null, retryable: false, models: [] });
+    const page = render(<MemoryRouter><ProviderKeyPage /></MemoryRouter>);
+
+    expect(screen.getByText(SUGGESTION)).toBeTruthy();
+    // "Not confirmed" is all the table can say; it has not shown a failure.
+    expect(screen.queryByText(/不能直接使用/)).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "使用兼容模式" }));
+    page.rerender(<MemoryRouter><ProviderKeyPage /></MemoryRouter>);
+    expect(state.conversion).toBe(true);
+    expect(screen.getByText("已选择兼容模式，使用 Codex 时需要保持 BootAgent 运行")).toBeTruthy();
+    expect(screen.queryByText(SUGGESTION)).toBeNull();
+    expect(screen.getByRole("button", { name: "继续选择模型" })).toBeEnabled();
+
+    // Billed requests start from a button the user pressed, never from a guess.
+    expect(probe).not.toHaveBeenCalled();
+    // Listing models is the page's existing unbilled lookup, not a probe.
+    expect(models.mock.calls.length).toBeLessThanOrEqual(1);
+  });
+
+  it("lets the user continue without taking the untested suggestion", async () => {
+    state = codexOn("jiekou");
+    keyRef.current = "";
+    const probe = vi.spyOn(api, "probe");
+    vi.spyOn(api, "models").mockResolvedValue({ ok: true, reachable: true, status: 200, message: "", error_code: null, retryable: false, models: [] });
+    render(
+      <MemoryRouter initialEntries={["/setup/provider"]}>
+        <Routes>
+          <Route path="/setup/provider" element={<ProviderKeyPage />} />
+          <Route path="/setup/model" element={<h1>model step</h1>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText(SUGGESTION)).toBeTruthy();
+    const next = screen.getByRole("button", { name: "继续选择模型" });
+    expect(next).toBeEnabled();
+    fireEvent.click(next);
+
+    expect(await screen.findByRole("heading", { name: "model step" })).toBeTruthy();
+    expect(state.conversion).toBe(false);
+    expect(probe).not.toHaveBeenCalled();
+  });
+
+  it("makes no suggestion when the Provider has confirmed the Agent's format", () => {
+    state = codexOn("deepseek");
+    keyRef.current = "";
+    vi.spyOn(api, "models").mockResolvedValue({ ok: true, reachable: true, status: 200, message: "", error_code: null, retryable: false, models: [] });
+    render(<MemoryRouter><ProviderKeyPage /></MemoryRouter>);
+
+    expect(screen.queryByText(/尚未确认/)).toBeNull();
+    expect(screen.queryByRole("button", { name: "使用兼容模式" })).toBeNull();
+    expect(screen.getByRole("button", { name: "继续选择模型" })).toBeEnabled();
+  });
+
+  it("makes no suggestion for a custom Provider, which has no protocol table", () => {
+    const custom = {
+      ...tabledStatus,
+      providers: { mine: { name: "Mine", home: "", base_url: "https://api.mine.test/v1", has_key: true, custom: true } },
+    } as unknown as StatusResponse;
+    state = codexOn("mine", { status: custom });
+    keyRef.current = "";
+    vi.spyOn(api, "models").mockResolvedValue({ ok: true, reachable: true, status: 200, message: "", error_code: null, retryable: false, models: [] });
+    render(<MemoryRouter><ProviderKeyPage /></MemoryRouter>);
+
+    expect(screen.queryByText(/尚未确认/)).toBeNull();
+    expect(screen.queryByRole("button", { name: "使用兼容模式" })).toBeNull();
+  });
+
+  // Only the untested suggestion is optional. Once a test has shown the Agent's
+  // format failing while Chat Completions works, the choice is required again.
+  it("requires the choice once a connection test has actually failed", async () => {
+    state = codexOn("jiekou");
+    keyRef.current = "";
+    vi.spyOn(api, "models").mockResolvedValue({ ok: true, reachable: true, status: 200, message: "", error_code: null, retryable: false, models: [] });
+    vi.spyOn(api, "probe").mockResolvedValue({
+      ok: false, reachable: true, status: 404, message: "Model does not support OpenAI Responses.",
+      error_code: "PROTOCOL_UNSUPPORTED", retryable: false, convertible: ["responses"],
+    });
+    const page = render(<MemoryRouter><ProviderKeyPage /></MemoryRouter>);
+    expect(screen.getByRole("button", { name: "继续选择模型" })).toBeEnabled();
+
+    fireEvent.click(screen.getByRole("button", { name: "测试连接" }));
+    await waitFor(() => expect(state.connectionState).toBe("error"));
+    page.rerender(<MemoryRouter><ProviderKeyPage /></MemoryRouter>);
+
+    expect(screen.queryByText(SUGGESTION)).toBeNull();
+    expect(screen.getByRole("alert")).toHaveTextContent("Codex 不能直接使用这个模型服务，BootAgent 可以在本机转换后使用");
+    expect(screen.getAllByRole("button", { name: "使用兼容模式" })).toHaveLength(1);
+    expect(screen.getByRole("button", { name: "继续选择模型" })).toBeDisabled();
+  });
+
+  it("drops the suggestion once a connection test passes", async () => {
+    state = codexOn("jiekou");
+    keyRef.current = "";
+    vi.spyOn(api, "models").mockResolvedValue({ ok: true, reachable: true, status: 200, message: "", error_code: null, retryable: false, models: [] });
+    vi.spyOn(api, "probe").mockResolvedValue({ ok: true, reachable: true, status: 200, message: "ok", error_code: null, retryable: false });
+    const page = render(<MemoryRouter><ProviderKeyPage /></MemoryRouter>);
+
+    fireEvent.click(screen.getByRole("button", { name: "测试连接" }));
+    await waitFor(() => expect(state.connectionState).toBe("success"));
+    page.rerender(<MemoryRouter><ProviderKeyPage /></MemoryRouter>);
+
+    expect(screen.queryByText(SUGGESTION)).toBeNull();
+    expect(screen.queryByRole("button", { name: "使用兼容模式" })).toBeNull();
+  });
+
+  // A first-time user has no key saved, so the key is typed on this same step
+  // and cleared again when Continue saves it. Both used to reset the choice.
+  it("keeps an untested choice while the key is typed and saved", async () => {
+    const noKey = {
+      ...tabledStatus,
+      providers: { jiekou: { ...tabledStatus.providers.jiekou, has_key: false } },
+    } as unknown as StatusResponse;
+    state = codexOn("jiekou", { status: noKey });
+    keyRef.current = "";
+    const save = vi.spyOn(api, "saveProvider").mockResolvedValue({
+      entry: { id: "jiekou", name: "JieKou.AI", home: "", base_url: "https://api.jiekou.test/openai", anthropic_base_url: "", api_key: "", built_in: true },
+      reapplied: [],
+      failures: {},
+    });
+    const page = render(<MemoryRouter><ProviderKeyPage /></MemoryRouter>);
+
+    fireEvent.click(screen.getByRole("button", { name: "使用兼容模式" }));
+    page.rerender(<MemoryRouter><ProviderKeyPage /></MemoryRouter>);
+    fireEvent.change(screen.getByLabelText("API Key"), { target: { value: "new-key" } });
+    page.rerender(<MemoryRouter><ProviderKeyPage /></MemoryRouter>);
+    expect(state.conversion).toBe(true);
+
+    fireEvent.click(screen.getByRole("button", { name: "继续选择模型" }));
+    await waitFor(() => expect(save).toHaveBeenCalledWith(expect.objectContaining({ id: "jiekou", api_key: "new-key" })));
+    await waitFor(() => expect(keyRef.current).toBe(""));
+    expect(state.conversion).toBe(true);
   });
 
   it("uses a custom model name for the connection test", async () => {

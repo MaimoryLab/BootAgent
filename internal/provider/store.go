@@ -191,6 +191,9 @@ func (s Store) Public() (map[string]catalog.Provider, error) {
 			// built-in Provider would otherwise reset its order to zero and jump
 			// it to the head of the list.
 			Order: catalog.ProviderOrder(id),
+			// Nil for a custom Provider. Re-read for a built-in one as above:
+			// the wizard reads this right after the first key is saved.
+			Protocols: catalog.ProviderProtocols(id),
 		}
 	}
 	return result, nil

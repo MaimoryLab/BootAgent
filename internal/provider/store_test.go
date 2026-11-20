@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"os"
+	"reflect"
 	"testing"
 
+	"github.com/MaimoryLab/BootAgent/internal/catalog"
 	oneerrors "github.com/MaimoryLab/BootAgent/internal/errors"
 	"github.com/MaimoryLab/BootAgent/internal/securefs"
 )
@@ -131,5 +133,47 @@ func TestCreateRefusesABuiltInProviderID(t *testing.T) {
 		ID: "ppio", Name: "PPIO", BaseURL: "https://relay.ppio.test/openai",
 	}); err != nil {
 		t.Fatalf("editing a built-in Provider was refused: %v", err)
+	}
+}
+
+// Public replaces a built-in Provider's catalog entry with the saved one, so
+// every manifest field has to be re-read there. The protocol table is read by
+// the wizard right after the first key is saved, which is exactly when a field
+// dropped by the overlay would go missing.
+func TestPublicKeepsABuiltInProvidersProtocolTableAfterAKeyIsSaved(t *testing.T) {
+	store := NewStore(t.TempDir(), securefs.New(securefs.Options{OS: "linux"}))
+	builtIn, ok := catalog.ProviderByID("ppio")
+	if !ok || len(builtIn.Protocols) == 0 {
+		t.Fatalf("fixture Provider ppio has no protocol table: %#v", builtIn)
+	}
+	before, err := store.Public()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(before["ppio"].Protocols, builtIn.Protocols) {
+		t.Fatalf("Protocols before a key is saved = %v, want %v", before["ppio"].Protocols, builtIn.Protocols)
+	}
+
+	if _, err := store.Save(context.Background(), Entry{
+		ID: "ppio", Name: builtIn.Name, Home: builtIn.Home, BaseURL: builtIn.BaseURL,
+		AnthropicBaseURL: builtIn.AnthropicBaseURL, APIKey: "sk-saved",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.Save(context.Background(), Entry{
+		ID: "acme", Name: "Acme", BaseURL: "https://api.acme.test/openai", APIKey: "sk-custom",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	after, err := store.Public()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !after["ppio"].HasKey || !reflect.DeepEqual(after["ppio"].Protocols, builtIn.Protocols) {
+		t.Fatalf("Protocols after a key is saved = %v (has key: %v), want %v", after["ppio"].Protocols, after["ppio"].HasKey, builtIn.Protocols)
+	}
+	// Nothing is known about a custom endpoint, so it carries no table.
+	if got := after["acme"].Protocols; got != nil {
+		t.Fatalf("custom Provider Protocols = %v, want none", got)
 	}
 }

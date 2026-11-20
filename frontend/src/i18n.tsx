@@ -1029,6 +1029,7 @@ const english = {
   "Claude Code 看到的模型名": "Model name Claude Code sees",
   "Codex 看到的模型名": "Model name Codex sees",
   "{agents} 已改用兼容模式": "{agents} now use compatibility mode",
+  "尚未确认 {provider} 支持 {agent} 的请求格式（{protocol}），可以改用兼容模式，由 BootAgent 在本机转换": "{provider} isn't confirmed to support {agent}'s request format ({protocol}); compatibility mode lets BootAgent convert it on this computer",
   "{agent} 不能直接使用这个模型服务，BootAgent 可以在本机转换后使用": "{agent} can't use this model service directly, but BootAgent can convert its requests on this computer",
   "{agent} 不能直接使用这个模型服务，应用时会开启兼容模式在本机转换，使用期间需要保持 BootAgent 运行": "{agent} can't use this model service directly, so applying turns on compatibility mode, which needs BootAgent to keep running",
   "{agent} 不能直接使用这个配置模版，应用时会开启兼容模式在本机转换，使用期间需要保持 BootAgent 运行": "{agent} can't use this profile directly, so applying turns on compatibility mode, which needs BootAgent to keep running",
