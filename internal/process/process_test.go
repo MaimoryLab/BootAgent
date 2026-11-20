@@ -180,7 +180,11 @@ func TestOSRunnerStartsInTheContextWorkingDirectory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if own, _ := os.Getwd(); inherited.Stdout != own {
+	// Resolved on both sides for the same reason as above: this process's own
+	// directory may be reached through a symlink the child reports the target of.
+	own, _ := os.Getwd()
+	own, _ = filepath.EvalSymlinks(own)
+	if got, _ := filepath.EvalSymlinks(inherited.Stdout); got != own {
 		t.Fatalf("command without a working directory started in %q, want %q", inherited.Stdout, own)
 	}
 }
