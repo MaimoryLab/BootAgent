@@ -50,6 +50,7 @@ export function SelectField({ value, options, onChange, label, id, className = "
   const [dropUp, setDropUp] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
+  const openedAt = useRef({ top: 0, left: 0 });
   const typeahead = useRef({ query: "", at: 0 });
 
   const selectedIndex = options.findIndex((option) => option.value === value);
@@ -76,6 +77,7 @@ export function SelectField({ value, options, onChange, label, id, className = "
     const list = listRef.current;
     if (!trigger || !list) return;
     const box = trigger.getBoundingClientRect();
+    openedAt.current = { top: box.top, left: box.left };
     // The margin covers the 5px CSS offset plus room for the shadow, and gives
     // the sidebar pickers -- which sit near the bottom edge -- a reason to flip
     // before the list is merely technically on screen with nothing to spare.
@@ -95,15 +97,22 @@ export function SelectField({ value, options, onChange, label, id, className = "
       const target = event.target as Node;
       if (!triggerRef.current?.contains(target) && !listRef.current?.contains(target)) close(false);
     };
-    // Any scroll or resize invalidates the measured position above.
-    const onReflow = () => close(false);
+    // A resize invalidates the measured position above. A scroll only does if it
+    // moved the trigger: scroll events are delivered a frame late, so one from
+    // just before the list opened arrives after it, with the trigger already
+    // where it was measured.
+    const onResize = () => close(false);
+    const onScroll = () => {
+      const box = triggerRef.current?.getBoundingClientRect();
+      if (!box || box.top !== openedAt.current.top || box.left !== openedAt.current.left) close(false);
+    };
     document.addEventListener("pointerdown", onPointerDown);
-    window.addEventListener("resize", onReflow);
-    window.addEventListener("scroll", onReflow, true);
+    window.addEventListener("resize", onResize);
+    window.addEventListener("scroll", onScroll, true);
     return () => {
       document.removeEventListener("pointerdown", onPointerDown);
-      window.removeEventListener("resize", onReflow);
-      window.removeEventListener("scroll", onReflow, true);
+      window.removeEventListener("resize", onResize);
+      window.removeEventListener("scroll", onScroll, true);
     };
   }, [open]);
 
