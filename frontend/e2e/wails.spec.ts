@@ -227,7 +227,10 @@ test("Claude Desktop adapts a Chat Completions Profile after one confirmation", 
   await page.getByRole("button", { name: "高级设置" }).click();
   await page.getByLabel("监听地址").fill("127.0.0.1:34125");
   await page.getByRole("button", { name: "保存更改" }).click();
-  await expect(page.getByRole("button", { name: "保存更改" })).toBeDisabled();
+  // Nothing uses compatibility mode yet, so once the address is saved the
+  // primary action goes back to turning it on. The save button is only disabled
+  // while the request is in flight, which a fast save finishes before this runs.
+  await expect(page.getByRole("button", { name: "开启兼容模式" })).toBeDisabled();
 
   await page.goto("/#/agents/claude-desktop");
   await page.getByLabel("选择 Claude Desktop E2E Chat").check();
