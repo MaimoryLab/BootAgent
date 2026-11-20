@@ -20,6 +20,23 @@ export interface ActivateResponse {
     "next": string;
 }
 
+export interface AgentConversionRequest {
+    "agent_id": string;
+    "profile_id": string;
+}
+
+export interface AgentConversionResponse {
+    "ok": boolean;
+    "agent": string;
+    "config": string;
+    "provider": string;
+    "model": string;
+    "restart": string;
+    "next": string;
+    "upstreamVerified": boolean;
+    "endToEndVerified": boolean;
+}
+
 export interface AgentInstallResult {
     "agent": string;
     "status": string;
@@ -160,6 +177,12 @@ export interface ModelsResponse {
      */
     "model"?: string;
     "auto_selected_model"?: boolean;
+
+    /**
+     * Convertible names the protocols that failed but that compatibility mode
+     * can serve over Chat Completions. Top-level only, like Model.
+     */
+    "convertible"?: string[] | null;
     "models": string[] | null;
 }
 
@@ -234,6 +257,12 @@ export interface ProbeResponse {
      */
     "model"?: string;
     "auto_selected_model"?: boolean;
+
+    /**
+     * Convertible names the protocols that failed but that compatibility mode
+     * can serve over Chat Completions. Top-level only, like Model.
+     */
+    "convertible"?: string[] | null;
 }
 
 export interface ProviderIDRequest {

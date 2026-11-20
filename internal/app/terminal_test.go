@@ -2,10 +2,13 @@ package app
 
 import (
 	"context"
+	"errors"
 	"os"
 	"slices"
 	"strings"
 	"testing"
+
+	oneerrors "github.com/MaimoryLab/BootAgent/internal/errors"
 )
 
 // noBundles describes a machine with no macOS application bundles present, so a
@@ -155,8 +158,10 @@ func TestAutoAlwaysResolvesOnMacOSAndWindows(t *testing.T) {
 }
 
 func TestNoTerminalAtAllStillReportsThePrerequisite(t *testing.T) {
-	if _, _, err := terminalArgv("linux", "codex", onPath(), noBundles, terminalAuto); err == nil {
-		t.Fatal("expected a prerequisite error when no emulator is installed")
+	_, _, err := terminalArgv("linux", "codex", onPath(), noBundles, terminalAuto)
+	var failure *oneerrors.BootAgentError
+	if !errors.As(err, &failure) || failure.Code != oneerrors.TerminalNotFound {
+		t.Fatalf("error = %#v, want %s", err, oneerrors.TerminalNotFound)
 	}
 }
 

@@ -1,15 +1,18 @@
 import { AppWindow, Download, History, Play, Plus, RefreshCw, SlidersHorizontal, TriangleAlert } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { api, describeFailure } from "../backend/api";
 import { useI18n } from "../i18n";
-import { converterProfileName } from "../state/conversion";
+import { converterProfileName, isConverterID } from "../state/conversion";
+import { useFeedback } from "../state/FeedbackContext";
 import { useConversationMigration } from "../hooks/useConversationMigration";
 import { taskCanceller, taskKey, useTaskCenter, useTaskRoute } from "../state/TaskCenterContext";
 import type { DesktopAgentStatus, ProfileSummary } from "../types/api";
+import { ActionButton } from "./ActionButton";
 import { DownloadProgress } from "./DownloadProgress";
 import { EditionTag } from "./EditionTag";
 import { AgentActionMenu, type AgentActionMenuItem } from "./AgentActionMenu";
+import { DetailsDisclosure } from "./DetailsDisclosure";
 import { AgentIcon } from "./icons/agents";
 
 interface DesktopAppSectionProps {
@@ -25,27 +28,23 @@ interface DesktopAppSectionProps {
   showHeading?: boolean;
 }
 
-type Action = "install" | "open";
-
-/**
- * How long "{name} 已打开" stays on screen.
- *
- * Long enough to be read, short enough that it does not become furniture. This
- * only bounds the launch confirmation: an install outcome lives in the Task
- * Center until the user dismisses it, and a failure stays until the next
- * attempt, because both carry something still worth acting on.
- */
-const LAUNCH_NOTICE_MS = 4000;
-
 export function DesktopAppSection({ app: desktopApp, onChanged, onSetup, onConfigure, profile, providerName, model, showUninstalled = true, showHeading = true }: DesktopAppSectionProps) {
   const { t } = useI18n();
-  const profileName = profile ? converterProfileName(profile.id, profile.label || profile.id, t) : desktopApp.profileId || "";
+  // The overview passes the model service behind the adapter for an app in
+  // compatibility mode; the app itself is still bound to its converter Profile.
+  const viaConversion = Boolean(profile && desktopApp.profileId && isConverterID(desktopApp.profileId) && profile.id !== desktopApp.profileId);
+  const profileName = profile
+    ? viaConversion ? t("{name}（兼容模式）", { name: profile.label || profile.id }) : converterProfileName(profile.id, profile.label || profile.id, t)
+    : desktopApp.profileId || "";
   const { startTask, finishTask, setTaskCanceller, taskFor } = useTaskCenter();
   const route = useTaskRoute();
   const migration = useConversationMigration();
-  const [pending, setPending] = useState<Action | "">("");
-  const [localNotice, setLocalNotice] = useState("");
-  const [localFailure, setLocalFailure] = useState("");
+  const feedback = useFeedback();
+  const [installing, setInstalling] = useState(false);
+  const [opening, setOpening] = useState(false);
+  // The last failure to open the app, kept so the row can still name it after
+  // its receipt is closed. Cleared by the next open that succeeds.
+  const [openFailure, setOpenFailure] = useState<unknown>(null);
 
   if (!desktopApp?.supported || (!showUninstalled && !desktopApp.installed)) return null;
 
@@ -56,22 +55,19 @@ export function DesktopAppSection({ app: desktopApp, onChanged, onSetup, onConfi
   const installTaskID = taskKey("install", desktopApp.id);
   const installTask = taskFor(installTaskID);
   const downloading = installTask?.state === "running";
-  const busy = Boolean(pending) || downloading;
-  const notice = localNotice || (installTask?.state === "success" ? installTask.message : "");
-  const failure = localFailure || (!localNotice && installTask?.state === "failure" ? installTask.message : "");
+  const busy = installing || opening || downloading;
+  const openKey = `open:${desktopApp.id}`;
+  // An install outcome lives in the Task Center; the row keeps only a marker for
+  // a failure, which reopens its reason as a receipt. Neither is written into
+  // the card, where it pushed the rows below it down.
+  const failureMarker = openFailure
+    ? { label: t("启动失败"), reopen: () => feedback.failure(openFailure, t("无法打开 {name}", { name: desktopApp.name }), { key: openKey }) }
+    : installTask?.state === "failure"
+      ? { label: t("安装失败"), reopen: () => feedback.show({ key: installTaskID, tone: "failure", message: t("无法安装 {name}", { name: desktopApp.name }), detail: installTask.message || undefined }) }
+      : null;
 
-  // Launching an app says everything it has to say the moment it appears, so it
-  // retires itself. Previously nothing cleared it: it sat there until the user
-  // launched again or navigated away, which unmounted the row.
-  useEffect(() => {
-    if (!localNotice) return;
-    const timer = setTimeout(() => setLocalNotice(""), LAUNCH_NOTICE_MS);
-    return () => clearTimeout(timer);
-  }, [localNotice]);
-
-  const run = async (action: Action) => {
-    const downloads = action === "install";
-    if (downloads && !startTask({
+  const install = async () => {
+    if (!startTask({
       id: installTaskID,
       kind: "install",
       target: desktopApp.id,
@@ -79,38 +75,43 @@ export function DesktopAppSection({ app: desktopApp, onChanged, onSetup, onConfi
       route,
       progressTarget: desktopApp.id,
     })) return;
-    setPending(action);
-    setLocalNotice("");
-    setLocalFailure("");
-    // Opening the app is not a download, so it gets no shared bar. Terminal
-    // install cards stay in the center until the user dismisses them.
+    setInstalling(true);
     try {
-      const request = action === "install" ? api.installDesktopAgent(desktopApp.id) : null;
-      if (request) setTaskCanceller(installTaskID, taskCanceller(request));
-      const result = request ? await request : null;
-      let message: string;
-      if (action === "open") {
-        await api.openDesktopAgent(desktopApp.id);
-        message = t("{name} 已打开", { name: desktopApp.name });
-      } else if (result?.status === "installed") {
-        message = t("{name} 安装完成", { name: desktopApp.name });
-      } else if (result?.status === "already-installed") {
-        message = t("{name} 已安装", { name: desktopApp.name });
-      } else {
-        message = t("官方安装器已启动");
-      }
+      const request = api.installDesktopAgent(desktopApp.id);
+      setTaskCanceller(installTaskID, taskCanceller(request));
+      const result = await request;
+      const message = result?.status === "installed"
+        ? t("{name} 安装完成", { name: desktopApp.name })
+        : result?.status === "already-installed"
+          ? t("{name} 已安装", { name: desktopApp.name })
+          : t("官方安装器已启动");
       // Recorded in the provider, so it still reaches the user if this row
       // unmounted while the install was running.
-      if (downloads) finishTask(installTaskID, { kind: "success", message });
-      else setLocalNotice(message);
+      finishTask(installTaskID, { kind: "success", message });
       await onChanged();
     } catch (error) {
-      const message = describeFailure(error, t("{name} 操作失败", { name: desktopApp.name }), t).message;
-      if (downloads) finishTask(installTaskID, { kind: "failure", message });
-      else setLocalFailure(message);
+      finishTask(installTaskID, { kind: "failure", message: describeFailure(error, t("{name} 操作失败", { name: desktopApp.name }), t).message });
     } finally {
-      setPending("");
+      setInstalling(false);
     }
+  };
+
+  // Opening the app is not a download, so it gets no task and no shared bar:
+  // the button confirms it in place, and a failure goes to a receipt.
+  const open = async () => {
+    setOpening(true);
+    try {
+      await api.openDesktopAgent(desktopApp.id);
+      setOpenFailure(null);
+    } catch (error) {
+      setOpenFailure(error);
+      throw error;
+    } finally {
+      setOpening(false);
+    }
+    // Not awaited: a slow status refresh would hold the button on its spinner
+    // after the app is already on screen.
+    void onChanged();
   };
   const menuItems: AgentActionMenuItem[] = desktopApp.installed ? [
     ...(desktopApp.id === "chatgpt-desktop" ? [{
@@ -138,15 +139,10 @@ export function DesktopAppSection({ app: desktopApp, onChanged, onSetup, onConfi
           </div>
         </div>
       ) : null}
-      {failure ? <div className="notice notice-error desktop-app-notice"><TriangleAlert size={15} aria-hidden="true" />{failure}</div> : null}
-      {notice ? <div className="notice notice-success desktop-app-notice"><AppWindow size={15} aria-hidden="true" />{notice}</div> : null}
       {desktopApp.inspectionUnavailable ? (
         <div className="notice notice-warning desktop-app-notice">
           <TriangleAlert size={15} aria-hidden="true" />
-          <span>
-            <span>{desktopApp.installed ? t("已检测到应用，但版本信息不可用") : t("应用状态检测不可用")}</span>
-            {desktopApp.installed ? <> <span>{t("可继续尝试启动；版本检测与模型 API 兼容性无关。")}</span></> : null}
-          </span>
+          <span>{desktopApp.installed ? t("读不到这个应用的版本，不影响启动和使用。") : t("暂时无法检查这个应用是否已安装。")}</span>
         </div>
       ) : null}
       <div className={`desktop-app-row${desktopApp.installed ? "" : " is-uninstalled"}`}>
@@ -155,9 +151,9 @@ export function DesktopAppSection({ app: desktopApp, onChanged, onSetup, onConfi
             <AppWindow size={28} aria-hidden="true" />
             <span>{desktopApp.manualInstall ? t("配置完成后前往官网自行安装") : t("按引导安装桌面 Agent")}</span>
             {!desktopApp.manualInstall ? (
-              <button className="button button-primary" type="button" aria-label={t("安装")} onClick={() => onSetup ? onSetup(desktopApp.id) : void run("install")} disabled={busy}>
-                {pending === "install" || downloading ? <RefreshCw size={15} className="spin" aria-hidden="true" /> : <Plus size={16} />}
-                {pending === "install" || downloading ? t("安装中") : t("安装桌面 Agent")}
+              <button className="button button-primary" type="button" aria-label={t("安装")} onClick={() => onSetup ? onSetup(desktopApp.id) : void install()} disabled={busy}>
+                {installing || downloading ? <RefreshCw size={15} className="spin" aria-hidden="true" /> : <Plus size={16} />}
+                {installing || downloading ? t("安装中") : t("安装桌面 Agent")}
               </button>
             ) : null}
           </div>
@@ -196,6 +192,11 @@ export function DesktopAppSection({ app: desktopApp, onChanged, onSetup, onConfi
                 {desktopApp.version}
               </span>
             ) : null}
+            {failureMarker ? (
+              <button className="agent-manage-state is-error" type="button" onClick={failureMarker.reopen} title={t("查看原因")}>
+                {failureMarker.label}
+              </button>
+            ) : null}
           </div>
         </div>
         <div className="desktop-app-actions">
@@ -208,25 +209,32 @@ export function DesktopAppSection({ app: desktopApp, onChanged, onSetup, onConfi
                   {t("配置")}
                 </button>
               ) : null}
-              <button className="button button-primary" type="button" onClick={() => void run("open")} disabled={busy}>
-                {pending === "open" ? <RefreshCw size={15} className="spin" aria-hidden="true" /> : <Play size={15} aria-hidden="true" />}
-                {t("启动")}
-              </button>
+              <ActionButton
+                icon={Play}
+                label={t("启动")}
+                doneLabel={t("已打开")}
+                failureMessage={t("无法打开 {name}", { name: desktopApp.name })}
+                feedbackKey={openKey}
+                onAction={open}
+                disabled={busy && !opening}
+              />
             </>
           ) : (
-            <button className="button button-primary" type="button" onClick={() => desktopApp.manualInstall ? onSetup?.(desktopApp.id) : onSetup ? onSetup(desktopApp.id) : void run("install")} disabled={busy || (desktopApp.manualInstall && !onSetup)}>
-              {desktopApp.manualInstall ? <SlidersHorizontal size={15} /> : pending === "install" || downloading ? <RefreshCw size={15} className="spin" aria-hidden="true" /> : <Download size={15} aria-hidden="true" />}
-              {desktopApp.manualInstall ? t("配置") : pending === "install" || downloading ? t("安装中") : t("安装桌面 Agent")}
+            <button className="button button-primary" type="button" onClick={() => desktopApp.manualInstall ? onSetup?.(desktopApp.id) : onSetup ? onSetup(desktopApp.id) : void install()} disabled={busy || (desktopApp.manualInstall && !onSetup)}>
+              {desktopApp.manualInstall ? <SlidersHorizontal size={15} /> : installing || downloading ? <RefreshCw size={15} className="spin" aria-hidden="true" /> : <Download size={15} aria-hidden="true" />}
+              {desktopApp.manualInstall ? t("配置") : installing || downloading ? t("安装中") : t("安装桌面 Agent")}
             </button>
           )}
         </div>
-        {desktopApp.configPath ? (
-          <p className="desktop-app-note" title={desktopApp.configPath}>
-            {desktopApp.configSharedWith
-              ? t("与 {name} 共用配置文件 {path}；安装和启动不会改动配置", { name: desktopApp.configSharedWith, path: desktopApp.configPath })
-              : t("配置文件：{path}", { path: desktopApp.configPath })}
-          </p>
-        ) : null}
+        {/* File locations are for whoever wants to look; using the app needs none of them. */}
+        <DetailsDisclosure
+          className="desktop-app-details"
+          rows={[
+            { label: t("设置文件"), value: desktopApp.configPath, code: true },
+            { label: t("共用设置"), value: desktopApp.configSharedWith ? t("和 {name} 用同一份设置，安装和启动不会改动它", { name: desktopApp.configSharedWith }) : "", wide: true },
+            { label: t("程序位置"), value: desktopApp.installed ? desktopApp.path : "", code: true },
+          ]}
+        />
         {/* No local flag in the condition: DownloadProgress reads the shared
             in-flight state itself, so navigating away and back keeps the bar. */}
         <DownloadProgress target={desktopApp.id} />

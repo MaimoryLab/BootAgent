@@ -225,3 +225,43 @@ func TestResponsesResponsePreservesReasoningAndToolCalls(t *testing.T) {
 		t.Fatalf("responses response = %s", body)
 	}
 }
+
+func TestResolveRoutesEachLocalKeyToItsOwnTarget(t *testing.T) {
+	var got []string
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		got = append(got, r.Header.Get("Authorization")+" "+string(body))
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"id":"chat","choices":[]}`)
+	}))
+	defer upstream.Close()
+	targets := map[string]Target{
+		"key-a": {BaseURL: upstream.URL, Model: "model-a", APIKey: "upstream-a"},
+		"key-b": {BaseURL: upstream.URL, Model: "model-b", APIKey: "upstream-b"},
+	}
+	proxy := &Server{client: upstream.Client(), cfg: Config{Resolve: func(key string) (Target, bool) {
+		target, ok := targets[key]
+		return target, ok
+	}}}
+	for _, test := range []struct{ header, value string }{{"Authorization", "Bearer key-a"}, {"x-api-key", "key-b"}} {
+		request := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(`{"model":"alias","messages":[]}`))
+		request.Header.Set(test.header, test.value)
+		recorder := httptest.NewRecorder()
+		proxy.handle(recorder, request)
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("%s status = %d", test.value, recorder.Code)
+		}
+	}
+	if len(got) != 2 || !strings.HasPrefix(got[0], "Bearer upstream-a ") || !strings.Contains(got[0], `"model-a"`) ||
+		!strings.HasPrefix(got[1], "Bearer upstream-b ") || !strings.Contains(got[1], `"model-b"`) {
+		t.Fatalf("upstream requests = %q", got)
+	}
+
+	request := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(`{}`))
+	request.Header.Set("Authorization", "Bearer unknown")
+	recorder := httptest.NewRecorder()
+	proxy.handle(recorder, request)
+	if recorder.Code != http.StatusUnauthorized || len(got) != 2 {
+		t.Fatalf("unknown key status = %d, upstream requests = %d", recorder.Code, len(got))
+	}
+}

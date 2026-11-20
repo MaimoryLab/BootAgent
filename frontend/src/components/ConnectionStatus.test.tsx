@@ -43,9 +43,12 @@ describe("ConnectionStatus", () => {
     expect(screen.queryByText(/BootAgent chose the model/)).toBeNull();
   });
 
-  it("reports a successful probe with the provider's own message", () => {
-    show(probe({ ok: true, status: 200, message: "连接正常", error_code: null }));
-    expect(screen.getByText("连接正常")).toBeTruthy();
+  // The backend's success sentence is English ("OpenAI Chat Completions
+  // connection test passed."), so the verdict is the interface's own words.
+  it("reports a successful probe in its own words, not the backend's", () => {
+    show(probe({ ok: true, status: 200, message: "OpenAI Chat Completions connection test passed.", error_code: null }));
+    expect(screen.getByText("Connection works")).toBeTruthy();
+    expect(screen.queryByText(/connection test passed/)).toBeNull();
   });
 
   // The backend's own sentences are English and written for a maintainer reading a

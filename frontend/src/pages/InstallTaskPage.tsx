@@ -1,6 +1,7 @@
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 
 import { DownloadProgress } from "../components/DownloadProgress";
+import { FirstTaskSection } from "../components/FirstTaskSection";
 import { LogDisclosure } from "../components/LogDisclosure";
 import { PageScaffold } from "../components/PageScaffold";
 import { useI18n } from "../i18n";
@@ -80,6 +81,10 @@ export function InstallTaskPage() {
         </section>
       ) : null}
       {task.log ? <LogDisclosure log={task.log} /> : null}
+      {/* This is the page an install ends on, so it is where the new Agent is
+          first offered something to do. The section hides itself for an Agent
+          that cannot run unattended, which covers every desktop app. */}
+      {kind === "install" && task.state === "success" ? <FirstTaskSection agentId={task.target} /> : null}
       {task.state !== "running" && task.action ? (
         <button className="button button-secondary task-action-detail" type="button" onClick={() => { void task.action?.run(); }}>
           {task.action.label}

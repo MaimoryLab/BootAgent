@@ -7,6 +7,7 @@ import { useI18n } from "../i18n";
 import { taskCanceller, taskKey, useTaskCenter, useTaskRoute } from "../state/TaskCenterContext";
 import type { RuntimeStatus } from "../types/api";
 import { AdvancedSection } from "./AdvancedSection";
+import { DetailsDisclosure } from "./DetailsDisclosure";
 import { DownloadProgress } from "./DownloadProgress";
 import { StatusBadge } from "./StatusBadge";
 
@@ -85,8 +86,8 @@ export function RuntimeSection({ runtimes, onInstalled }: RuntimeSectionProps) {
   };
 
   const summary = missing.length
-    ? t("缺少 {count} 个运行时，安装后即可自动安装对应 Agent", { count: missing.length })
-    : t("Agent 安装所需的运行时都已就绪");
+    ? t("还差 {count} 个运行环境，装好后就能安装对应的 Agent", { count: missing.length })
+    : t("安装 Agent 需要的运行环境都已就绪");
   const body = (
     <>
       {failure ? (
@@ -111,12 +112,14 @@ export function RuntimeSection({ runtimes, onInstalled }: RuntimeSectionProps) {
               </small>
             </span>
             <span className="runtime-fact">
-              <small>{t("锁定版本")}</small>
+              <small>{t("推荐版本")}</small>
               <span>{runtime.lockedVersion}</span>
             </span>
             <span className="runtime-fact">
               <small>{t("来源")}</small>
-              <span>{runtime.managed ? t("由 BootAgent 安装") : runtime.installed ? t("本机已有") : runtime.source}</span>
+              {/* A missing runtime's source is its download URL; the row says
+                  where it comes from in words, and the URL is in the details. */}
+              <span>{runtime.managed ? t("由 BootAgent 安装") : runtime.installed ? t("本机已有") : t("官方下载")}</span>
             </span>
             <StatusBadge tone={runtime.installed ? "success" : "warning"}>
               {runtime.installed ? t("已安装") : t("未安装")}
@@ -139,19 +142,20 @@ export function RuntimeSection({ runtimes, onInstalled }: RuntimeSectionProps) {
           </div>
         ))}
       </div>
-      {missing.length ? (
-        <p className="runtime-note">
-          {root
-            ? t("运行时会安装到 {dir}，并写入登录 PATH，不需要管理员权限").replace("{dir}", root)
-            : t("运行时会安装到 BootAgent 的托管目录，并写入登录 PATH，不需要管理员权限")}
-        </p>
-      ) : null}
+      {missing.length ? <p className="runtime-note">{t("会装在 BootAgent 自己的目录里，不需要管理员权限。")}</p> : null}
+      <DetailsDisclosure
+        className="runtime-details"
+        rows={[
+          { label: t("安装目录"), value: root, code: true },
+          ...missing.map((runtime) => ({ label: t("{name} 下载地址", { name: runtime.name }), value: runtime.source, code: true })),
+        ]}
+      />
     </>
   );
 
   return (
     <section className="overview-section">
-      <AdvancedSection label={t("运行时")} hint={summary}>
+      <AdvancedSection label={t("运行环境")} hint={summary}>
         {body}
       </AdvancedSection>
     </section>

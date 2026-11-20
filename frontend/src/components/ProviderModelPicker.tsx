@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { api, describeFailure } from "../backend/api";
+import { modelListMessage } from "../backend/failureCopy";
 import { useI18n } from "../i18n";
 import { ModelPicker } from "./ModelPicker";
 
@@ -47,9 +48,10 @@ export function ProviderModelPicker({ provider, protocol, hasKey, value, onChang
     setMessage("");
     void api.models({ provider, apiBaseUrl: "", apiKey: "" }).then((result) => {
       if (cancelled) return;
+      const listed = modelListMessage(result, t);
       setModels(result.models ?? []);
-      setSuccess(result.ok);
-      setMessage(result.message.replace(/^Found (\d+) models\.$/, (_, count: string) => t("找到 {count} 个模型", { count })));
+      setSuccess(listed.ok);
+      setMessage(listed.message);
     }).catch((error) => {
       if (cancelled) return;
       setModels([]);
@@ -63,12 +65,17 @@ export function ProviderModelPicker({ provider, protocol, hasKey, value, onChang
 
   return (
     <div className={`field-stack${wide ? " profile-editor-wide" : ""}`}>
-      {loading ? <div className="loading-block"><span className="spinner" />{t("正在读取模型列表")}</div> : null}
-      {message && !loading ? <div className={`notice ${success ? "notice-success" : "notice-warning"}`}>{message}</div> : null}
       {/* collapsible: every caller is a compact form where an always-open list
           pushed the footer off screen. The arrow is also the only affordance that
           said the discovered models were selectable at all. */}
       <ModelPicker models={models} value={value} onChange={onChange} onBlur={onBlur} inputId={inputId} inputLabel={inputLabel || t("模型")} required={required} collapsible preferDropUp={preferDropUp} />
+      {/* The listing's status is a line in a reserved slot under the field
+          (docs/ui-interaction-plan.md §3.5). As a loading block and then a
+          notice above it, the field itself jumped down and back while the user
+          was reaching for it. */}
+      <small className={`model-list-status${loading ? "" : success ? " is-ok" : message ? " is-warning" : ""}`} aria-live="polite">
+        {loading ? t("正在读取模型列表") : message}
+      </small>
       {hint ? <small>{hint}</small> : null}
     </div>
   );

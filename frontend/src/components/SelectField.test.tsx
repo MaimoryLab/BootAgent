@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { describe, expect, it } from "vitest";
@@ -100,6 +100,35 @@ describe("SelectField", () => {
     await userEvent.click(trigger());
     await userEvent.click(screen.getByRole("button", { name: "outside" }));
     expect(screen.queryByRole("listbox")).toBeNull();
+  });
+
+  describe("scrolling while the list is open", () => {
+    /** jsdom lays nothing out, so the trigger's position is whatever this says. */
+    function placeTriggerAt(top: number) {
+      trigger().getBoundingClientRect = () => ({ top, bottom: top + 36, left: 0, right: 200, width: 200, height: 36, x: 0, y: top, toJSON: () => ({}) });
+    }
+
+    // The list is positioned from the trigger, so a scroll that moves the
+    // trigger leaves it in the wrong place.
+    it("closes when the scroll moved the trigger", async () => {
+      render(<Harness />);
+      placeTriggerAt(100);
+      await userEvent.click(trigger());
+      placeTriggerAt(40);
+      fireEvent.scroll(document.body);
+      expect(screen.queryByRole("listbox")).toBeNull();
+    });
+
+    // Opening the list makes the browser scroll its container to show it. That
+    // scroll arrives after the list has been placed, and closing on it shut the
+    // list the moment it opened on a page that was scrolled down.
+    it("stays open when the scroll left the trigger where it was", async () => {
+      render(<Harness />);
+      placeTriggerAt(100);
+      await userEvent.click(trigger());
+      fireEvent.scroll(document.body);
+      expect(screen.getByRole("listbox")).toBeTruthy();
+    });
   });
 
   it("jumps to an option by typing its first letters", async () => {

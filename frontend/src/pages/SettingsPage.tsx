@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { api, describeFailure, failureLine } from "../backend/api";
+import { api, failureLine } from "../backend/api";
 import { OTA_PROGRESS_TARGET } from "../backend/wails";
 import { MirrorSetting } from "../components/MirrorSetting";
 import { PageScaffold } from "../components/PageScaffold";
@@ -11,6 +11,7 @@ import { SelectField } from "../components/SelectField";
 import { ThemePicker } from "../components/ThemePicker";
 import { GitHubMark } from "../components/icons/GitHubMark";
 import { useI18n } from "../i18n";
+import { useFeedback } from "../state/FeedbackContext";
 import { taskCanceller, taskKey, updateTaskRoute, useTaskCenter } from "../state/TaskCenterContext";
 import type { Settings } from "../types/api";
 
@@ -28,12 +29,11 @@ export function SettingsPage() {
   const [checking, setChecking] = useState(false);
   const [updateMessage, setUpdateMessage] = useState("");
   const [latestVersion, setLatestVersion] = useState("");
-  const [helpFailure, setHelpFailure] = useState("");
   const [settings, setSettings] = useState<Settings | null>(null);
   const [backupRetention, setBackupRetention] = useState<number | "">("");
-  const [backupFailure, setBackupFailure] = useState("");
-  const [autostartFailure, setAutostartFailure] = useState("");
-  const [terminalFailure, setTerminalFailure] = useState("");
+  // Each control shows its own saved value, so a save that worked needs no
+  // words; one that failed is reverted and explained in a receipt.
+  const feedback = useFeedback();
 
   useEffect(() => {
     // The desktop bridge normally returns a string, but a browser preview or an
@@ -54,14 +54,13 @@ export function SettingsPage() {
       if (!active) return;
       setSettings(null);
       setBackupRetention(defaultBackupRetention);
-      setBackupFailure(t("无法读取备份设置"));
+      feedback.show({ key: "settings-load", tone: "failure", message: t("无法读取设置") });
     });
     return () => { active = false; };
   }, []);
 
   const saveTerminalApp = async (next: string) => {
     if (!settings) return;
-    setTerminalFailure("");
     // Optimistic: the picker is the only writer, so showing the choice now keeps
     // the control responsive, and a failure below restores the stored value.
     const previous = settings.terminal_app;
@@ -71,7 +70,7 @@ export function SettingsPage() {
       setSettings(saved);
     } catch (error) {
       setSettings({ ...settings, terminal_app: previous });
-      setTerminalFailure(describeFailure(error, t("无法保存终端设置"), t).message);
+      feedback.failure(error, t("无法保存终端设置"), { key: "terminal-app" });
     }
   };
 
@@ -79,13 +78,14 @@ export function SettingsPage() {
     if (!settings) return;
     const nextRetention = boundedBackupRetention(backupRetention === "" ? defaultBackupRetention : backupRetention);
     setBackupRetention(nextRetention);
-    setBackupFailure("");
+    if (nextRetention === settings.backup_retention) return;
     try {
       const saved = await api.saveSettings({ backup_retention: nextRetention });
       setSettings(saved);
       setBackupRetention(saved.backup_retention ?? nextRetention);
     } catch (error) {
-      setBackupFailure(describeFailure(error, t("无法保存备份设置"), t).message);
+      setBackupRetention(settings.backup_retention ?? defaultBackupRetention);
+      feedback.failure(error, t("无法保存备份设置"), { key: "backup-retention" });
     }
   };
 
@@ -93,13 +93,12 @@ export function SettingsPage() {
     if (!settings) return;
     const previous = settings.autostart;
     setSettings({ ...settings, autostart: enabled });
-    setAutostartFailure("");
     try {
       const saved = await api.saveSettings({ autostart: enabled });
       setSettings(saved);
     } catch (error) {
       setSettings({ ...settings, autostart: previous });
-      setAutostartFailure(describeFailure(error, t("无法保存开机自启动设置"), t).message);
+      feedback.failure(error, t("无法保存开机自启动设置"), { key: "autostart" });
     }
   };
 
@@ -136,20 +135,18 @@ export function SettingsPage() {
   };
 
   const openHelp = async () => {
-    setHelpFailure("");
     try {
       await api.openHelp();
     } catch (error) {
-      setHelpFailure(describeFailure(error, t("无法打开帮助文档"), t).message);
+      feedback.failure(error, t("无法打开帮助文档"), { key: "open-help" });
     }
   };
 
   const openGitHub = async () => {
-    setHelpFailure("");
     try {
       await api.openGitHub();
     } catch (error) {
-      setHelpFailure(describeFailure(error, t("无法打开 GitHub"), t).message);
+      feedback.failure(error, t("无法打开 GitHub"), { key: "open-github" });
     }
   };
   return (
@@ -209,7 +206,6 @@ export function SettingsPage() {
             />
           </label>
         </div>
-        {autostartFailure ? <p className="settings-field-error" role="status">{autostartFailure}</p> : null}
         <div className="settings-row terminal-app-row">
           <TerminalIcon size={16} aria-hidden="true" />
           <label htmlFor="terminal-app">
@@ -233,7 +229,6 @@ export function SettingsPage() {
             ]}
           />
         </div>
-        {terminalFailure ? <p className="settings-field-error" role="status">{terminalFailure}</p> : null}
       </section>
       <section className="settings-section">
         <h2>{t("数据")}</h2>
@@ -255,7 +250,6 @@ export function SettingsPage() {
             onBlur={() => void saveBackupRetention()}
           />
         </div>
-        {backupFailure ? <p className="settings-field-error" role="status">{backupFailure}</p> : null}
         <button className="settings-link" type="button" onClick={() => navigate("/settings/transfer")}>
           <Import size={18} aria-hidden="true" />
           <span><strong>{t("导入导出")}</strong></span>
@@ -277,7 +271,6 @@ export function SettingsPage() {
           <span><strong>{t("Star 支持 BootAgent")}</strong></span>
           <ExternalLink size={15} aria-hidden="true" />
         </button>
-        {helpFailure ? <p className="agent-manage-error">{helpFailure}</p> : null}
       </section>
     </PageScaffold>
   );

@@ -2,7 +2,7 @@ import { Check, Pencil, Plus, Save, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
-import { api, describeFailure } from "../backend/api";
+import { api } from "../backend/api";
 import { ModelCheckButton, ModelCheckNotice } from "../components/ModelCheckNotice";
 import { PageScaffold } from "../components/PageScaffold";
 import { ProviderModelPicker } from "../components/ProviderModelPicker";
@@ -10,9 +10,11 @@ import { ProviderSegment } from "../components/ProviderSegment";
 import { SelectField } from "../components/SelectField";
 import { useI18n } from "../i18n";
 import { desktopApps, desktopProfileUsable, desktopProfiles, desktopProtocol, profileAgentIdForDesktop } from "../state/desktopSetup";
-import { confirmAction } from "../state/confirmDelete";
 import { byProfileCreatedAt, byProviderCreatedAt, preferProviderWithKey } from "../state/ranking";
-import { converterProfileName, isConverterID } from "../state/conversion";
+import { applyConversion, confirmConversion, conversionTargets } from "../state/applyConversion";
+import { canConvertProtocol, conversionTargetFor, converterProfileName, isConverterID, providerDisplayName } from "../state/conversion";
+import { useFeedback } from "../state/FeedbackContext";
+import { saveReceipt } from "../state/saveReceipt";
 import { useWizard } from "../state/WizardContext";
 import type { DesktopAgentProfileAssessment, ProfileModelCheck, ProfileSummary, ProtocolId, ProviderId } from "../types/api";
 
@@ -63,6 +65,9 @@ export function AgentProfilePage() {
   const navigate = useNavigate();
   const { locale, t } = useI18n();
   const { state, refreshStatus } = useWizard();
+  const feedback = useFeedback();
+  // Stable across receipts, unlike `feedback`, so an effect can depend on it.
+  const reportFailure = feedback.failure;
   const status = state.status;
   const app = status ? desktopApps(status).find((candidate) => candidate.id === agentId) || null : null;
   const owner = app ? profileAgentIdForDesktop(app) : agentId;
@@ -73,7 +78,6 @@ export function AgentProfilePage() {
   const [selectedId, setSelectedId] = useState("");
   const [draft, setDraft] = useState<ProfileDraft | null>(null);
   const [busy, setBusy] = useState(false);
-  const [failure, setFailure] = useState("");
   // The model of the selected Profile, edited in place. null means "showing what
   // is stored"; a string means the field has been touched and not yet committed.
   const [modelDraft, setModelDraft] = useState<string | null>(null);
@@ -96,23 +100,37 @@ export function AgentProfilePage() {
   const profiles = useMemo(() => {
     if (!status) return [];
     const protocol = catalog?.protocol || "";
-    const result = app ? desktopProfiles(status, app) : status.profiles.filter((profile) => profile.protocol === protocol);
-    return byProfileCreatedAt(result);
+    // A command-line Agent speaking its own format can also use a Chat
+    // Completions Profile, through compatibility mode. The adapter's own
+    // Profiles never appear: an Agent in compatibility mode is shown on the
+    // Profile its requests go to, which is the one a user would pick again.
+    const result = app
+      ? desktopProfiles(status, app)
+      : status.profiles.filter((profile) => profile.protocol === protocol || (canConvertProtocol(protocol) && profile.protocol === "openai"));
+    return byProfileCreatedAt(result.filter((profile) => !isConverterID(profile.id)));
   }, [app, catalog?.protocol, status]);
 
+  // Bound to its converter Profile, an Agent in compatibility mode is
+  // preselected on that route's target instead.
+  const boundId = app?.profileId || currentAgent?.profileId || "";
+  const conversionTarget = boundId && isConverterID(boundId) && status ? conversionTargetFor(status, app?.id || owner) : undefined;
+  const currentId = conversionTarget?.id || boundId;
   useEffect(() => {
     if (!selectedId) {
-      const current = app?.profileId || currentAgent?.profileId || "";
-      if (current && profiles.some((profile) => profile.id === current)) setSelectedId(current);
+      if (currentId && profiles.some((profile) => profile.id === currentId)) setSelectedId(currentId);
       else if (profiles[0]) setSelectedId(profiles[0].id);
     }
-  }, [app?.profileId, currentAgent?.profileId, profiles, selectedId]);
+  }, [currentId, profiles, selectedId]);
 
   const selected = profiles.find((profile) => profile.id === selectedId);
-  const requiresConversion = Boolean(app?.id === "claude-desktop" && selected?.protocol === "openai");
+  // Claude Desktop is assessed first; a command-line Agent is checked when
+  // applied, because every check is a billed request (ConfigureAgentWithConversion).
+  const desktopConversion = Boolean(app?.id === "claude-desktop" && selected?.protocol === "openai");
+  const cliConversion = Boolean(!app && canConvertProtocol(protocol) && selected?.protocol === "openai");
+  const requiresConversion = desktopConversion || cliConversion;
 
   useEffect(() => {
-    if (!app || !selected || !requiresConversion) {
+    if (!app || !selected || !desktopConversion) {
       setAssessment(null);
       setAssessing(false);
       return;
@@ -123,12 +141,12 @@ export function AgentProfilePage() {
     void api.assessDesktopAgentProfile(app.id, selected.id).then((result) => {
       if (active) setAssessment(result);
     }).catch((error) => {
-      if (active) setFailure(describeFailure(error, t("无法检查协议兼容性"), t).message);
+      if (active) reportFailure(error, t("无法确认能否使用兼容模式"), { key: `assess:${app.id}:${selected.id}` });
     }).finally(() => {
       if (active) setAssessing(false);
     });
     return () => { active = false; };
-  }, [app, requiresConversion, selected, t]);
+  }, [app, desktopConversion, reportFailure, selected, t]);
 
   if (!status) {
     return (
@@ -150,7 +168,7 @@ export function AgentProfilePage() {
   const duplicateID = Boolean(draft && !draft.originalId && status.profiles.some((profile) => profile.id === draft.id.trim().toLowerCase()));
   const canSave = Boolean(draft?.id.trim() && draft?.provider && draft?.model.trim() && !duplicateID);
   const canApply = Boolean(selected && desktopProfileUsable(status, selected, app) && (
-    !requiresConversion || assessment?.compatibility === "convertible"
+    !desktopConversion || assessment?.compatibility === "convertible"
   ));
 
   const separator = locale === "en" ? ", " : "、";
@@ -165,7 +183,7 @@ export function AgentProfilePage() {
    * the Profile showed nothing at all. Nothing is sent to the model: that is
    * what 检测模型 is for.
    */
-  const persistProfile = async (request: SaveRequest, invalidateCheck = true) => {
+  const persistProfile = async (request: SaveRequest, invalidateCheck = true, announce = true) => {
     if (invalidateCheck) {
       checkGeneration.current += 1;
       setChecking(false);
@@ -173,13 +191,12 @@ export function AgentProfilePage() {
     if (checked?.profileId === request.id) setChecked(null);
     const before = status.profiles.find((profile) => profile.id === request.id);
     const result = await api.saveProfile(request);
-    const failures = Object.entries(result.failures ?? {});
-    if (failures.length) {
-      setFailure(t("{agents} 重新应用失败：{message}", {
-        agents: failures.map(([id]) => nameOf(id)).join(separator),
-        message: failures[0][1] ?? "",
-      }));
-    }
+    // The receipt names every Agent the save rewrote, which is the only sign
+    // that a model changed here also changed it for the other Agents on this
+    // Profile. A save that is only the first half of 应用 or 检测模型 stays quiet
+    // on success: that action reports for both.
+    const receipt = saveReceipt({ key: `profile:${request.id}`, name: request.label || request.id, result, nameOf, t, separator });
+    if (announce || receipt.tone !== "success") feedback.show(receipt);
     const edit = before && before.provider === request.provider && before.model && before.model !== request.model
       ? { profileId: request.id, previousModel: before.model, request }
       : null;
@@ -197,13 +214,12 @@ export function AgentProfilePage() {
     if (current?.model !== checked.model || current.provider !== lastEdit.request.provider) return;
     const request = { ...lastEdit.request, model: checked.previousModel };
     setBusy(true);
-    setFailure("");
     try {
       await persistProfile(request);
       setChecked(null);
       await refreshStatus();
     } catch (error) {
-      setFailure(describeFailure(error, t("无法保存配置模版"), t).message);
+      feedback.failure(error, t("无法保存配置模版"), { key: `profile:${request.id}` });
     } finally {
       setBusy(false);
     }
@@ -220,7 +236,6 @@ export function AgentProfilePage() {
     let id = baseID;
     let suffix = 2;
     while (ids.has(id)) id = `${baseID}-${suffix++}`;
-    setFailure("");
     setDraft({
       id,
       label: t("{name} 配置模版", { name: targetName }),
@@ -234,7 +249,6 @@ export function AgentProfilePage() {
 
   const openEdit = (profile: ProfileSummary) => {
     if (isConverterID(profile.id)) return;
-    setFailure("");
     setDraft(draftFrom(profile));
   };
 
@@ -242,7 +256,6 @@ export function AgentProfilePage() {
     event.preventDefault();
     if (!draft || !canSave) return;
     setBusy(true);
-    setFailure("");
     try {
       const { result: saved } = await persistProfile({
         id: draft.id.trim().toLowerCase(),
@@ -260,7 +273,7 @@ export function AgentProfilePage() {
       setDraft(null);
       await refreshStatus();
     } catch (error) {
-      setFailure(describeFailure(error, t("无法保存配置模版"), t).message);
+      feedback.failure(error, t("无法保存配置模版"), { key: `profile:${draft.id.trim().toLowerCase()}` });
     } finally {
       setBusy(false);
     }
@@ -274,12 +287,11 @@ export function AgentProfilePage() {
    * write a Profile per letter typed. Everything else about the Profile is passed
    * through unchanged, so this cannot quietly reset a field the editor owns.
    */
-  const commitModel = async (profile: ProfileSummary, next: string, invalidateCheck = true): Promise<CommitOutcome> => {
+  const commitModel = async (profile: ProfileSummary, next: string, invalidateCheck = true, announce = true): Promise<CommitOutcome> => {
     const model = next.trim();
     setModelDraft(null);
     if (!model || model === (profile.model || "")) return { kind: "unchanged" };
     setSavingModel(true);
-    setFailure("");
     try {
       const { edit } = await persistProfile({
         id: profile.id,
@@ -292,11 +304,11 @@ export function AgentProfilePage() {
         context1M: Boolean(profile.context1M),
         configMode: "provider",
         protocol: profile.protocol || (app ? desktopProtocol(app) : catalog?.protocol || ""),
-      }, invalidateCheck);
+      }, invalidateCheck, announce);
       await refreshStatus();
       return { kind: "saved", model, edit };
     } catch (error) {
-      setFailure(describeFailure(error, t("无法保存配置模版"), t).message);
+      feedback.failure(error, t("无法保存配置模版"), { key: `profile:${profile.id}` });
       return { kind: "failed" };
     } finally {
       setSavingModel(false);
@@ -312,18 +324,17 @@ export function AgentProfilePage() {
     if (!selected || checking || busy || savingModel) return;
     const generation = ++checkGeneration.current;
     setChecking(true);
-    setFailure("");
     try {
       // This save belongs to the check; other saves and leaving the page
       // invalidate its generation, including while this flush is awaiting.
-      const flushed: CommitOutcome = modelDraft !== null ? await commitModel(selected, modelDraft, false) : { kind: "unchanged" };
+      const flushed: CommitOutcome = modelDraft !== null ? await commitModel(selected, modelDraft, false, false) : { kind: "unchanged" };
       if (flushed.kind === "failed" || checkGeneration.current !== generation) return;
       const check = await api.checkProfileModel(selected.id, [app?.id || owner]);
       if (checkGeneration.current !== generation) return;
       const edit = flushed.kind === "saved" ? flushed.edit : lastEdit;
       setChecked({ ...check, previousModel: edit?.profileId === selected.id && edit.request.model === check.model ? edit.previousModel : undefined });
     } catch (error) {
-      if (checkGeneration.current === generation) setFailure(describeFailure(error, t("无法检测模型"), t).message);
+      if (checkGeneration.current === generation) feedback.failure(error, t("无法检测模型"), { key: `check:${selected.id}` });
     } finally {
       if (checkGeneration.current === generation) setChecking(false);
     }
@@ -335,10 +346,9 @@ export function AgentProfilePage() {
     // left 应用 enabled while the save was in flight, so a second click started
     // a second Apply.
     setBusy(true);
-    setFailure("");
     // An uncommitted inline model edit is flushed first, so clicking 应用 straight
     // after typing applies what is on screen rather than the older stored model.
-    const flushed: CommitOutcome = modelDraft !== null ? await commitModel(selected, modelDraft) : { kind: "unchanged" };
+    const flushed: CommitOutcome = modelDraft !== null ? await commitModel(selected, modelDraft, true, false) : { kind: "unchanged" };
     if (flushed.kind === "failed") {
       // The Profile still holds the old model; applying now would apply that
       // while the field showed the new one. The save's error is already shown.
@@ -349,22 +359,20 @@ export function AgentProfilePage() {
     // before the click, and activating with it would write the old model back
     // over the Agents the flush had just moved to the new one.
     const model = flushed.kind === "saved" ? flushed.model : selected.model || "";
+    // Set by a desktop app that only reads its settings at startup. The backend
+    // says so for every managed write; dropping it left the user believing the
+    // running app had already switched.
+    let restart = "";
     try {
-      if (app) {
-        if (requiresConversion) {
-          if (!await confirmAction({
-            title: t("启用协议适配"),
-            message: t("BootAgent 将在本机启动协议适配服务，并自动把 Claude Desktop 指向该服务。是否继续？"),
-            confirmLabel: t("启用并应用"),
-            cancelLabel: t("取消"),
-          })) {
-            setBusy(false);
-            return;
-          }
-          await api.configureDesktopAgentWithConversion(app.id, selected.id);
-        } else {
-          await api.configureDesktopAgent(app.id, selected.id);
+      if (requiresConversion) {
+        if (!await confirmConversion(t)) {
+          setBusy(false);
+          return;
         }
+        if (app) restart = (await api.configureDesktopAgentWithConversion(app.id, selected.id))?.restart || "";
+        else await api.activateAgentWithConversion(owner, selected.id);
+      } else if (app) {
+        restart = (await api.configureDesktopAgent(app.id, selected.id))?.restart || "";
       } else {
         await api.activateAgent(owner, {
           provider: selected.provider,
@@ -376,15 +384,41 @@ export function AgentProfilePage() {
       }
       await refreshStatus();
     } catch (error) {
-      setFailure(describeFailure(error, t("应用配置模版失败"), t).message);
+      // Stays on this page: the choice that failed is what the user may change.
+      feedback.failure(error, t("应用配置模版失败"), { key: `apply:${agentId}` });
       setBusy(false);
       return;
     }
     // Straight back to the overview, which is where the result is visible: the
-    // Agent's row now names this Profile. Staying here left the user on a
-    // screen whose job was done, with a success notice as the only feedback and
-    // a second click needed to see the effect. `replace` so Back does not
-    // return to a selection that has already been applied.
+    // Agent's row now names this Profile. The receipt outlives this page, so
+    // the switch is also said in words rather than left for the user to spot in
+    // the row. `replace` so Back does not return to a selection that has
+    // already been applied.
+    feedback.show(restart
+      ? { key: `apply:${agentId}`, tone: "warning", message: t("已应用，重启 {name} 后生效", { name: targetName }) }
+      : { key: `apply:${agentId}`, tone: "success", message: t("{agent} 已改用「{profile}」", { agent: targetName, profile: displayProfileName(selected) }) });
+    navigate("/overview", { replace: true });
+  };
+
+  /**
+   * The remedy a failed check offers: the checked Profile's Provider and model,
+   * through compatibility mode. A Chat Completions Profile for them is reused
+   * or saved first, since that is what the adapter forwards to.
+   */
+  const useConversion = async () => {
+    const source = checked && status.profiles.find((profile) => profile.id === checked.profileId);
+    if (!source || busy) return;
+    if (!await confirmConversion(t)) return;
+    setBusy(true);
+    try {
+      await applyConversion(status, conversionTargets(status, [app?.id || owner]), source, t);
+      await refreshStatus();
+    } catch (error) {
+      feedback.failure(error, t("无法开启兼容模式"), { key: `apply:${agentId}` });
+      setBusy(false);
+      return;
+    }
+    feedback.show({ key: `apply:${agentId}`, tone: "success", message: t("{agent} 已改用兼容模式", { agent: targetName }) });
     navigate("/overview", { replace: true });
   };
 
@@ -393,7 +427,7 @@ export function AgentProfilePage() {
       title={t("选择配置模版")}
       backLabel={t("返回总览")}
       onBack={() => navigate("/overview")}
-      primaryLabel={busy ? t("应用中") : requiresConversion ? t("启用协议适配并应用") : t("应用")}
+      primaryLabel={busy ? t("应用中") : requiresConversion ? t("用兼容模式应用") : t("应用")}
       onPrimary={() => void apply()}
       primaryDisabled={!canApply || busy || savingModel || checking}
       footerNote={selected ? displayProfileName(selected) : t("选择一个配置模版")}
@@ -405,7 +439,6 @@ export function AgentProfilePage() {
         </button>
       )}
     >
-      {failure ? <div className="notice notice-error">{failure}</div> : null}
       {checked && !draft ? (
         <ModelCheckNotice
           check={checked}
@@ -416,16 +449,24 @@ export function AgentProfilePage() {
           busy={busy || savingModel || checking}
           onRevert={() => void revertModel()}
           onRecheck={checked.profileId === selected?.id ? () => void checkModel() : undefined}
+          onUseConversion={conversionTargets(status, [app?.id || owner]).length ? () => void useConversion() : undefined}
           onDismiss={() => setChecked(null)}
         />
       ) : null}
-      {requiresConversion ? (
+      {cliConversion ? (
+        <div className="notice notice-info" role="status">
+          {conversionTarget && selected?.id === conversionTarget.id
+            ? t("{agent} 正在通过兼容模式使用这个配置模版，使用期间需要保持 BootAgent 运行", { agent: targetName })
+            : t("{agent} 不能直接使用这个配置模版，应用时会开启兼容模式在本机转换，使用期间需要保持 BootAgent 运行", { agent: targetName })}
+        </div>
+      ) : null}
+      {desktopConversion ? (
         <div className={`notice ${assessment?.compatibility === "unusable" ? "notice-error" : "notice-info"}`} role="status">
           {assessing
-            ? t("正在检查模型服务的协议兼容性")
+            ? t("正在确认能否使用兼容模式")
             : assessment?.compatibility === "convertible"
-              ? t("该模型服务不能直接使用 Claude Desktop 所需的 Anthropic Messages。BootAgent 可以在本机转换请求格式。")
-              : assessment?.message || t("无法确认该配置模版可以通过协议适配使用")}
+              ? t("{agent} 不能直接使用这个模型服务，应用时会开启兼容模式在本机转换，使用期间需要保持 BootAgent 运行", { agent: targetName })
+              : assessment?.message || t("无法确认这个配置模版能否通过兼容模式使用")}
         </div>
       ) : null}
 
@@ -529,7 +570,7 @@ export function AgentProfilePage() {
                     common change -- same Profile, different model -- costs no
                     trip through the editor. The others stay one line of text;
                     a picker on every card would be a wall of inputs. */}
-                <p>{status.providers[profile.provider]?.name || profile.provider} · {profile.model || t("未指定模型")}</p>
+                <p>{providerDisplayName(status.providers, profile.provider, t)} · {profile.model || t("未指定模型")}</p>
                 {!usable ? <small className="profile-key-hint">{t("这个配置模版还缺少模型服务 Key 或模型")}</small> : null}
                 {!isConverterID(profile.id) ? <button className="icon-button" type="button" onClick={(event) => { event.stopPropagation(); openEdit(profile); }} aria-label={t("编辑 {name}", { name: profile.label })} title={t("编辑")}><Pencil size={14} /></button> : null}
               </article>

@@ -31,6 +31,14 @@ export type TransferV2Preview = TransferModels.Preview;
 export type MarketplaceDynamicResult = AppModels.MarketplaceDynamicResult;
 export type MarketplaceSourceStatus = AppModels.MarketplaceSourceStatus;
 
+/** How far a protocol has been confirmed on a built-in Provider's endpoint, as
+ *  providers.lock.json records it. Only the first means it was verified. */
+export type ProtocolSupport = "implementation-supported" | "route-present-unverified" | "release-candidate-required" | "not-supported";
+export type ProviderMeta = Omit<CatalogModels.Provider, "protocols"> & {
+  /** Absent for a custom Provider, whose endpoint nothing is known about. */
+  protocols?: Partial<Record<ProtocolId, ProtocolSupport>> | null;
+};
+
 export const PROTOCOL_LABELS: Record<ProtocolId, string> = {
   openai: "OpenAI Chat Completions",
   anthropic: "Anthropic Messages",
@@ -65,10 +73,13 @@ export type SettingsPatch = AppModels.SettingsPatch;
 export type TerminalOption = AppModels.TerminalOption;
 export type ConversionConfig = AppModels.ConversionConfig;
 export type ActivateAgentResponse = BindingModels.ActivateResponse;
+export type AgentConversionResponse = BindingModels.AgentConversionResponse;
 export type LaunchAgentResponse = BindingModels.LaunchResponse;
 export type AgentUninstallResult = AppModels.AgentUninstallResult;
 export type AgentUpdateResult = AppModels.AgentUpdateResult;
 export type ConversationMigrationResult = AppModels.ConversationMigrationResult;
+export type FirstTaskAgent = AppModels.FirstTaskAgent;
+export type FirstTaskResult = AppModels.FirstTaskResult;
 export type TaskHistoryRecord = AppModels.TaskHistoryRecord;
 export type MarketplaceRecommendationAgent = AppModels.MarketplaceRecommendationAgent;
 export type MarketplaceKnowledgeItem = AppModels.MarketplaceKnowledgeItem;
@@ -154,8 +165,11 @@ export type SaveProfileResult = Omit<AppModels.SaveProfileResult, "profile"> & {
 
 export type StatusResponse = Omit<
   AppModels.StatusResponse,
-  "platform" | "capabilities" | "agents" | "catalog" | "groups" | "providers" | "mirrors" | "paths" | "backups" | "profiles" | "runtimes" | "desktopAgents"
+  "platform" | "capabilities" | "agents" | "catalog" | "groups" | "providers" | "mirrors" | "paths" | "backups" | "profiles" | "runtimes" | "desktopAgents" | "conversionRoutes"
 > & {
+  /** Agent id -> the Chat Completions Profile its compatibility-mode requests
+   *  actually go to. Absent from older fixtures, so optional. */
+  conversionRoutes?: Record<string, string> | null;
 	migrationNotice?: string;
   platform: Omit<PlatformModels.Info, "os"> & { os: PlatformId };
   capabilities: Omit<AppModels.Capabilities, "canInstall" | "missingRuntime" | "supportedAgentIds"> & {
@@ -168,7 +182,7 @@ export type StatusResponse = Omit<
   agents: Record<string, AgentStatus>;
   catalog: AgentCatalogItem[];
   groups: Array<Omit<CatalogModels.Group, "id"> & { id: AgentGroupId }>;
-  providers: Record<string, CatalogModels.Provider>;
+  providers: Record<string, ProviderMeta>;
   mirrors: CatalogModels.Mirror[];
   paths: Record<string, string>;
   backups: Record<string, boolean>;
@@ -176,9 +190,11 @@ export type StatusResponse = Omit<
   desktopAgents: DesktopAgentStatus[];
 };
 
-export type ProbeResponse = Omit<BindingModels.ProbeResponse, "protocol" | "protocols"> & {
+export type ProbeResponse = Omit<BindingModels.ProbeResponse, "protocol" | "protocols" | "convertible"> & {
   protocol?: ProtocolId;
   protocols?: Partial<Record<ProtocolId, ProbeResponse>>;
+  /** Protocols that failed but compatibility mode can serve over Chat Completions. */
+  convertible?: ProtocolId[] | null;
 };
 
 export type ModelsResponse = Omit<BindingModels.ModelsResponse, "models" | "protocol" | "protocols"> & ProbeResponse & {

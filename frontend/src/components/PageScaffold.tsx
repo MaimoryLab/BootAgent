@@ -2,6 +2,7 @@ import { ArrowLeft, ArrowRight } from "lucide-react";
 import type { PropsWithChildren, ReactNode } from "react";
 
 import { useI18n } from "../i18n";
+import { FeedbackViewport } from "./FeedbackViewport";
 import { SetupStepper } from "./SetupStepper";
 
 interface PageScaffoldProps extends PropsWithChildren {
@@ -53,6 +54,7 @@ export function PageScaffold({
         {stepper ? <SetupStepper /> : null}
       </header>
       <div className={`page-body ${bodyClassName}`}>{children}</div>
+      <FeedbackViewport />
       <footer className="page-footer">
         <div className="page-footer-leading">
           {onBack ? (

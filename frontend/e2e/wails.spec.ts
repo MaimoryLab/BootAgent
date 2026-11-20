@@ -1,6 +1,17 @@
 import { expect, test, type Locator } from "@playwright/test";
 
-// Every test addresses a route directly. "/" is a decision, not a page: on a
+// The one test that lands on "/", and it has to run first: a first run is a home
+// nothing has written to yet, which stops being true as soon as any test saves.
+test("a first run opens the wizard with an Agent already chosen", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "选择 Agent", level: 1 })).toBeVisible();
+  await expect(page.getByRole("group", { name: "本机环境" })).toContainText("macOS");
+  // exact, because "选择 WorkBuddy AI" is the row below it.
+  await expect(page.getByLabel("选择 WorkBuddy", { exact: true })).toBeChecked();
+  await expect(page.getByRole("button", { name: "继续" })).toBeEnabled();
+});
+
+// Every other test addresses a route directly. "/" is a decision, not a page: on a
 // home without ~/.bootagent it opens onboarding, so landing there would make
 // these tests depend on whichever one ran first and wrote state.
 // selectOption is gone from these tests: the pickers are custom listboxes now,
@@ -89,6 +100,36 @@ test("a machine with no BootAgent state opens onboarding from the landing route"
   await expect(page.getByRole("heading", { name: "选择 Agent", level: 1 })).toBeVisible();
 });
 
+// A first-time user is not required to test the connection, so the step itself
+// has to say when the Agent's format is unconfirmed on the chosen service. This
+// runs against the real status binding: the protocol table comes from
+// providers.lock.json through Go, which a unit-test fixture cannot show.
+test("the Provider step suggests compatibility mode without a connection test", async ({ page }) => {
+  await page.goto("/#/");
+  await expect(page.getByRole("heading", { name: "选择 Agent", level: 1 })).toBeVisible();
+  await page.getByRole("tab", { name: "命令行 Agent" }).click();
+  await page.getByLabel("选择 Codex").check();
+  await page.getByRole("button", { name: "继续" }).click();
+
+  await expect(page.getByRole("heading", { name: "连接模型服务" })).toBeVisible();
+  // JieKou.AI ships first and has not confirmed OpenAI Responses.
+  await expect(page.getByRole("combobox", { name: "模型服务" })).toHaveText("JieKou.AI");
+  const suggestion = page.getByText("尚未确认 JieKou.AI 支持 Codex 的请求格式（OpenAI Responses），可以改用兼容模式，由 BootAgent 在本机转换");
+  await expect(suggestion).toBeVisible();
+
+  await page.getByRole("button", { name: "使用兼容模式" }).click();
+  await expect(page.getByText("已选择兼容模式，使用 Codex 时需要保持 BootAgent 运行")).toBeVisible();
+  await page.getByRole("button", { name: "不用兼容模式" }).click();
+  await expect(suggestion).toBeVisible();
+
+  // DeepSeek has confirmed it, so there is nothing to suggest.
+  await page.getByRole("combobox", { name: "模型服务" }).click();
+  await page.getByRole("option", { name: "DeepSeek" }).click();
+  await expect(page.getByRole("combobox", { name: "模型服务" })).toHaveText("DeepSeek");
+  await expect(page.getByText(/尚未确认/)).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "使用兼容模式" })).toHaveCount(0);
+});
+
 test("onboarding installs one Agent end to end and writes its Profile", async ({ page }) => {
   const bindingMethodIDs = new Set<number>();
   page.on("request", (request) => {
@@ -131,6 +172,16 @@ test("onboarding installs one Agent end to end and writes its Profile", async ({
   await page.getByRole("button", { name: "开始安装" }).click();
 
   await expect(page.getByRole("heading", { name: "安装完成" })).toBeVisible({ timeout: 60_000 });
+
+  // The Agent just installed is offered one small task. The test build's runner
+  // plays the Agent, so what this covers is the path from the button to the
+  // page it names: the binding, the temporary directory and the file listing.
+  await expect(page.getByRole("heading", { name: "跑一个小任务试试" })).toBeVisible();
+  await page.getByRole("button", { name: "开始", exact: true }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Codex 写好了" })).toBeVisible();
+  await expect(page.getByRole("list", { name: "生成的文件" })).toHaveText("index.html");
+  await expect(page.locator(".first-task-output code")).toContainText("bootagent-first-task-");
+
   await page.getByRole("button", { name: "进入总览" }).click();
 
   await expect(page.getByRole("heading", { name: "环境总览" })).toBeVisible();
@@ -219,23 +270,62 @@ test("Claude Desktop adapts a Chat Completions Profile after one confirmation", 
   await page.getByRole("textbox", { name: "模型", exact: true }).fill("bootagent-e2e-model");
   await page.getByRole("button", { name: "保存配置模版" }).click();
 
+  // Only the port: there is no single model to choose here any more. The
+  // default 8787 may be taken on the machine running the tests.
   await page.goto("/#/conversion");
-  await page.getByRole("combobox", { name: "请求最终发往" }).click();
-  await page.getByRole("option", { name: "Claude Desktop E2E Chat" }).click();
   await page.getByRole("button", { name: "高级设置" }).click();
   await page.getByLabel("监听地址").fill("127.0.0.1:34125");
-  await page.getByRole("button", { name: "保存设置" }).click();
+  await page.getByRole("button", { name: "保存更改" }).click();
+  // Nothing uses compatibility mode yet, so once the address is saved the
+  // primary action goes back to turning it on. The save button is only disabled
+  // while the request is in flight, which a fast save finishes before this runs.
+  await expect(page.getByRole("button", { name: "开启兼容模式" })).toBeDisabled();
 
   await page.goto("/#/agents/claude-desktop");
   await page.getByLabel("选择 Claude Desktop E2E Chat").check();
-  await expect(page.getByText("该模型服务不能直接使用 Claude Desktop 所需的 Anthropic Messages。BootAgent 可以在本机转换请求格式。")).toBeVisible();
-  const apply = page.getByRole("button", { name: "启用协议适配并应用" });
+  await expect(page.getByText("Claude Desktop 不能直接使用这个模型服务，应用时会开启兼容模式在本机转换，使用期间需要保持 BootAgent 运行")).toBeVisible();
+  const apply = page.getByRole("button", { name: "用兼容模式应用" });
   await expect(apply).toBeEnabled();
   page.once("dialog", (dialog) => void dialog.accept());
   await apply.click();
 
   await expect(page).toHaveURL(/#\/overview$/);
   await expect(page.getByRole("heading", { name: "环境总览" })).toBeVisible();
+});
+
+// Runs after the Claude Desktop case. Codex is pointed at a different model,
+// and Claude Desktop must keep the one it had: compatibility mode used to have
+// a single target, so the second Agent silently moved the first.
+test("Codex and Claude Desktop use different models through compatibility mode", async ({ page }) => {
+  await page.goto("/#/profiles");
+  await page.getByRole("button", { name: "新增配置模版" }).click();
+  await page.getByLabel("配置模版 ID").fill("codex-e2e-chat");
+  await page.getByLabel("名称").fill("Codex E2E Chat");
+  await page.getByRole("combobox", { name: "API 类型" }).click();
+  await page.getByRole("option", { name: "OpenAI Chat Completions" }).click();
+  await page.getByRole("textbox", { name: "模型", exact: true }).fill("codex-e2e-model");
+  await page.getByRole("button", { name: "保存配置模版" }).click();
+
+  await page.goto("/#/agents/codex");
+  await page.getByLabel("选择 Codex E2E Chat").check();
+  await expect(page.getByText("Codex 不能直接使用这个配置模版，应用时会开启兼容模式在本机转换，使用期间需要保持 BootAgent 运行")).toBeVisible();
+  const apply = page.getByRole("button", { name: "用兼容模式应用" });
+  await expect(apply).toBeEnabled();
+  page.once("dialog", (dialog) => void dialog.accept());
+  await apply.click();
+  await expect(page).toHaveURL(/#\/overview$/);
+
+  await page.goto("/#/conversion");
+  const users = page.getByRole("region", { name: "正在使用的 Agent" });
+  const row = (name: string) => users.getByRole("listitem").filter({ has: page.getByText(name, { exact: true }) });
+  await expect(row("Codex")).toContainText("codex-e2e-model");
+  await expect(row("Claude Desktop")).toContainText("bootagent-e2e-model");
+  // ChatGPT Desktop shares Codex's settings, so it follows Codex's route.
+  await expect(row("ChatGPT Desktop")).toContainText("codex-e2e-model");
+
+  // Reopening Codex shows the model it uses, not the adapter.
+  await users.getByRole("button", { name: "为 Codex 更换模型" }).click();
+  await expect(page.getByLabel("选择 Codex E2E Chat")).toBeChecked();
 });
 
 test("Skills and MCP management lead to their marketplace categories", async ({ page }) => {

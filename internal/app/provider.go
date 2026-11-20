@@ -41,6 +41,11 @@ type ProviderProbeResult struct {
 	// credential problem.
 	Model             string
 	AutoSelectedModel bool
+	// Convertible lists the protocols that failed natively but that the local
+	// adapter can serve, because Chat Completions answered for the same model.
+	// The Chat Completions probe behind it runs only after such a failure, so a
+	// working endpoint is never sent a second request.
+	Convertible []string
 }
 
 // SaveProviderResult reports which Agents were rewritten after the edit so the
@@ -95,7 +100,41 @@ func (u *UseCases) ProbeProvider(ctx context.Context, options ProviderProbeOptio
 		}
 	}
 	primary.OK = allOK
-	return ProviderProbeResult{Primary: primary, Protocols: results, Model: model, AutoSelectedModel: autoSelected}, nil
+	return ProviderProbeResult{
+		Primary:           primary,
+		Protocols:         results,
+		Model:             model,
+		AutoSelectedModel: autoSelected,
+		Convertible:       u.convertibleProtocols(ctx, protocols, results, apiKey, model, target.BaseFor),
+	}, nil
+}
+
+// convertibleProtocols asks Chat Completions about the same model once a
+// protocol the adapter converts from has failed in a way it could get around.
+// When Chat Completions was already among the probes, that result is reused
+// rather than asked a second time.
+func (u *UseCases) convertibleProtocols(ctx context.Context, protocols []string, results map[string]provider.ProbeResult, apiKey, model string, baseFor func(string) string) []string {
+	var candidates []string
+	for _, protocolID := range protocols {
+		if convertibleProtocol(protocolID) && conversionFallbackWorthTrying(results[protocolID]) {
+			candidates = append(candidates, protocolID)
+		}
+	}
+	if len(candidates) == 0 {
+		return nil
+	}
+	chat, probed := results[provider.ProtocolOpenAI]
+	if !probed {
+		verdicts, err := u.probeProtocols(ctx, []string{provider.ProtocolOpenAI}, apiKey, model, baseFor)
+		if err != nil {
+			return nil
+		}
+		chat = verdicts[provider.ProtocolOpenAI]
+	}
+	if !chat.OK {
+		return nil
+	}
+	return candidates
 }
 
 func (u *UseCases) probeProtocols(ctx context.Context, protocols []string, apiKey, model string, baseFor func(string) string) (map[string]provider.ProbeResult, error) {

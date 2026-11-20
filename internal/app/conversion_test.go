@@ -26,10 +26,26 @@ func availableConversionListen(t *testing.T) string {
 	return address
 }
 
-func TestSaveConversionGeneratesPrivateKeyAndProtocolSpecificEndpoints(t *testing.T) {
-	home := t.TempDir()
-	listen := availableConversionListen(t)
-	core := NewUseCases(StatusOptions{Home: home, Platform: platform.For("macos", "arm64")})
+// legacySharedConverter recreates the shared converter entries an older
+// release wrote, which Agents may still be pointed at.
+func legacySharedConverter(t *testing.T, core *UseCases, listen string) string {
+	t.Helper()
+	key, err := newConversionAPIKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for kind, protocol := range map[string]string{"anthropic": provider.ProtocolAnthropic, "responses": provider.ProtocolResponses, "chat": provider.ProtocolOpenAI} {
+		if err := core.saveConverterEntry(context.Background(), converterPrefix+kind, "BootAgent Converter "+kind, protocol, key, "alias", listen); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return key
+}
+
+func upstreamChatCore(t *testing.T) *UseCases {
+	t.Helper()
+	core := NewUseCases(StatusOptions{Home: t.TempDir(), Platform: platform.For("macos", "arm64")})
+	t.Cleanup(func() { _ = core.CloseConversion() })
 	if _, err := core.SaveProvider(context.Background(), provider.Entry{
 		ID: "upstream", Name: "Upstream", BaseURL: "https://upstream.example/v1", APIKey: "upstream-secret",
 	}, true, false); err != nil {
@@ -41,17 +57,30 @@ func TestSaveConversionGeneratesPrivateKeyAndProtocolSpecificEndpoints(t *testin
 	}); err != nil {
 		t.Fatal(err)
 	}
+	return core
+}
 
-	got, err := core.SaveConversion(context.Background(), ConversionConfig{
-		Enabled: true, Listen: listen, TargetProfile: "upstream-chat",
-	})
-	defer func() { _ = core.CloseConversion() }()
+// Turning compatibility mode on is no longer what creates converter entries:
+// each Agent gets its own when it is pointed at the adapter.
+func TestSaveConversionStartsTheListenerWithoutSharedEntries(t *testing.T) {
+	core := upstreamChatCore(t)
+	listen := availableConversionListen(t)
+
+	got, err := core.SaveConversion(context.Background(), ConversionConfig{Enabled: true, Listen: listen})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !got.HasAPIKey {
-		t.Fatal("enabled conversion did not report a generated key")
+	if !got.Enabled || got.HasAPIKey {
+		t.Fatalf("conversion = %#v", got)
 	}
+	if _, err := core.providers.Get(converterPrefix + "anthropic"); err == nil {
+		t.Fatal("enabling created the shared converter entries")
+	}
+	conn, err := net.Dial("tcp", listen)
+	if err != nil {
+		t.Fatalf("adapter is not listening: %v", err)
+	}
+	_ = conn.Close()
 	wire, err := json.Marshal(got)
 	if err != nil {
 		t.Fatal(err)
@@ -59,61 +88,70 @@ func TestSaveConversionGeneratesPrivateKeyAndProtocolSpecificEndpoints(t *testin
 	if strings.Contains(string(wire), `"api_key":`) || strings.Contains(string(wire), "secret") {
 		t.Fatalf("conversion DTO leaked a key: %s", wire)
 	}
+}
 
+func TestSaveConversionCarriesTheListenAddressToSharedEntries(t *testing.T) {
+	core := upstreamChatCore(t)
+	key := legacySharedConverter(t, core, availableConversionListen(t))
+	listen := availableConversionListen(t)
+
+	if _, err := core.SaveConversion(context.Background(), ConversionConfig{Enabled: true, Listen: listen, TargetProfile: "upstream-chat"}); err != nil {
+		t.Fatal(err)
+	}
 	anthropic, err := core.providers.Get(converterPrefix + "anthropic")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if anthropic.APIKey == "" || anthropic.APIKey == "upstream-secret" {
-		t.Fatal("converter key was not independently generated")
-	}
-	if anthropic.BaseURL != "http://"+listen+"/v1" || anthropic.AnthropicBaseURL != "http://"+listen {
-		t.Fatalf("anthropic converter endpoints = %#v", anthropic)
+	if anthropic.APIKey != key || anthropic.BaseURL != "http://"+listen+"/v1" || anthropic.AnthropicBaseURL != "http://"+listen {
+		t.Fatalf("anthropic converter = %#v", anthropic)
 	}
 	for _, kind := range []string{"responses", "chat"} {
 		entry, err := core.providers.Get(converterPrefix + kind)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if entry.BaseURL != "http://"+listen+"/v1" || entry.APIKey != anthropic.APIKey {
-			t.Fatalf("%s converter = %#v", kind, entry)
+		if err != nil || entry.BaseURL != "http://"+listen+"/v1" || entry.APIKey != key {
+			t.Fatalf("%s converter = %#v, err=%v", kind, entry, err)
 		}
 	}
 }
 
 func TestRegenerateConversionAPIKeyRotatesEveryConverterProvider(t *testing.T) {
-	home := t.TempDir()
+	core := upstreamChatCore(t)
 	listen := availableConversionListen(t)
-	core := NewUseCases(StatusOptions{Home: home, Platform: platform.For("macos", "arm64")})
-	defer func() { _ = core.CloseConversion() }()
-	if _, err := core.SaveProvider(context.Background(), provider.Entry{
-		ID: "upstream", Name: "Upstream", BaseURL: "https://upstream.example/v1", APIKey: "upstream-secret",
-	}, true, false); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := core.SaveProfile(context.Background(), SaveProfileOptions{
-		ID: "upstream-chat", Label: "Upstream Chat", Provider: "upstream", Model: "model-a",
-		Protocol: provider.ProtocolOpenAI, ConfigMode: "provider",
-	}); err != nil {
-		t.Fatal(err)
-	}
+	shared := legacySharedConverter(t, core, listen)
 	if _, err := core.SaveConversion(context.Background(), ConversionConfig{Enabled: true, Listen: listen, TargetProfile: "upstream-chat"}); err != nil {
 		t.Fatal(err)
 	}
-	before := core.conversionAPIKey()
+	if _, _, err := core.ensureConversionRoute(context.Background(), "codex", "upstream-chat"); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := core.ensureConversionRoute(context.Background(), "claude-code", "upstream-chat"); err != nil {
+		t.Fatal(err)
+	}
+	routeKey := func(agentID string) string {
+		entry, err := core.providers.Get(converterRouteID(agentID))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return entry.APIKey
+	}
+	codexBefore, claudeBefore := routeKey("codex"), routeKey("claude-code")
+
 	got, err := core.RegenerateConversionAPIKey(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
 	after := core.conversionAPIKey()
-	if !got.HasAPIKey || before == "" || after == "" || before == after {
-		t.Fatalf("key rotation before=%q after=%q result=%#v", before, after, got)
+	if !got.HasAPIKey || after == "" || after == shared {
+		t.Fatalf("shared key rotation before=%q after=%q result=%#v", shared, after, got)
 	}
 	for _, kind := range []string{"anthropic", "responses", "chat"} {
 		entry, err := core.providers.Get(converterPrefix + kind)
 		if err != nil || entry.APIKey != after {
 			t.Fatalf("%s converter key was not rotated", kind)
 		}
+	}
+	codexAfter, claudeAfter := routeKey("codex"), routeKey("claude-code")
+	if codexAfter == codexBefore || claudeAfter == claudeBefore || codexAfter == claudeAfter || codexAfter == after {
+		t.Fatalf("route keys were not rotated independently: codex %q→%q, claude %q→%q", codexBefore, codexAfter, claudeBefore, claudeAfter)
 	}
 }
 

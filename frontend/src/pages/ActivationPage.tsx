@@ -11,7 +11,7 @@ import { useI18n } from "../i18n";
 import { desktopProtocol, profileAgentIdForDesktop, selectedDesktopApp } from "../state/desktopSetup";
 import { installTaskRoute, taskCanceller, taskKey, useTaskCenter, useTaskRoute, type TaskCanceller } from "../state/TaskCenterContext";
 import { useWizard } from "../state/WizardContext";
-import type { AgentInstallResult, InstallRequest } from "../types/api";
+import type { AgentInstallResult, InstallRequest, InstallResponse } from "../types/api";
 
 export function ActivationPage() {
   const navigate = useNavigate();
@@ -58,12 +58,66 @@ export function ActivationPage() {
       model: state.model,
       profile_id: state.profileId,
       profile_label: state.profileLabel,
-      configure: true,
+      // In compatibility mode the Agent is pointed at the local adapter after
+      // it is installed, not at the Provider during the install.
+      configure: !state.conversion,
       install_agent: true,
       skip_test: false,
     }),
-    [state.model, state.profileId, state.profileLabel, state.provider],
+    [state.conversion, state.model, state.profileId, state.profileLabel, state.provider],
   );
+
+  /**
+   * Installs, then points each installed Agent at the local adapter, which
+   * forwards to a Chat Completions Profile on the chosen Provider. A failed
+   * adapter step fails that Agent's row and can be retried: installing again
+   * is a no-op for an Agent already there.
+   */
+  const installCliWithConversion = useCallback(async (agents: string[], register: (cancel?: TaskCanceller) => void): Promise<InstallResponse> => {
+    const installRequest = api.install(requestFor(agents));
+    register(taskCanceller(installRequest));
+    const installed = await installRequest;
+    const profileRequest = api.saveProfile({
+      id: state.profileId,
+      label: state.profileLabel,
+      provider: state.provider,
+      apiBaseUrl: "",
+      apiKey: "",
+      model: state.model,
+      configMode: "provider",
+      protocol: "openai",
+    });
+    register(taskCanceller(profileRequest));
+    const { profile } = await profileRequest;
+    const results: AgentInstallResult[] = [];
+    const next: string[] = [];
+    for (const result of installed.results) {
+      if (result.status === "failed") {
+        results.push(result);
+        continue;
+      }
+      try {
+        const request = api.activateAgentWithConversion(result.agent, profile.id);
+        register(taskCanceller(request));
+        const activated = await request;
+        results.push({ ...result, status: "configured", message: t("已通过兼容模式配置") });
+        if (activated.next) next.push(activated.next);
+      } catch (error) {
+        if (isCancellationError(error)) throw error;
+        results.push({ ...result, status: "failed", message: describeFailure(error, t("无法开启兼容模式"), t).message, retryable: true });
+      }
+    }
+    // The Profile is saved even when every Agent failed, and the callers only
+    // refresh after a success: without this it stayed invisible to the
+    // compatibility mode page the failure points the user to.
+    await refreshStatus();
+    return {
+      ...installed,
+      ok: results.every((result) => result.status !== "failed"),
+      results,
+      next: next.join("\n"),
+    };
+  }, [refreshStatus, requestFor, state.model, state.profileId, state.profileLabel, state.provider, t]);
 
   const startActivationTasks = useCallback((agentIds: string[]) => {
     const officialScriptAgents = new Set(
@@ -159,14 +213,17 @@ export function ActivationPage() {
       apiKey: "",
       model: state.model,
       configMode: "provider",
-      protocol: desktopProtocol(desktop),
+      // Compatibility mode forwards to Chat Completions, whatever the app speaks.
+      protocol: state.conversion ? "openai" : desktopProtocol(desktop),
     });
     register(taskCanceller(profileRequest));
     const { profile } = await profileRequest;
     const installRequest = desktop.installed || desktop.manualInstall ? undefined : api.installDesktopAgent(desktop.id);
     if (installRequest) register(taskCanceller(installRequest));
     const installed = installRequest ? await installRequest : undefined;
-    const configureRequest = api.configureDesktopAgent(desktop.id, profile.id);
+    const configureRequest = state.conversion
+      ? api.configureDesktopAgentWithConversion(desktop.id, profile.id)
+      : api.configureDesktopAgent(desktop.id, profile.id);
     register(taskCanceller(configureRequest));
     const configured = await configureRequest;
     return {
@@ -181,7 +238,7 @@ export function ActivationPage() {
       log: configured.message,
       next: configured.restart || "",
     };
-  }, [desktop, state.profileId, state.profileLabel, state.provider, state.model, t]);
+  }, [desktop, state.conversion, state.profileId, state.profileLabel, state.provider, state.model, t]);
 
   const activate = useCallback(async () => {
     const startedTasks = startActivationTasks(state.selectedAgentIds);
@@ -200,6 +257,8 @@ export function ActivationPage() {
       if (isDesktop) {
         response = await installDesktop((cancel) => registerActivationCanceller(startedTasks, cancel))
           .then((result) => ({ ...result, ok: true, probe: null }));
+      } else if (state.conversion) {
+        response = await installCliWithConversion(state.selectedAgentIds, (cancel) => registerActivationCanceller(startedTasks, cancel));
       } else {
         const request = api.install(requestFor(state.selectedAgentIds));
         registerActivationCanceller(startedTasks, taskCanceller(request));
@@ -227,7 +286,7 @@ export function ActivationPage() {
       finishActivationTasks(startedTasks, [], false, message);
       dispatch({ type: "ACTIVATION_FAILED", message });
     }
-  }, [dispatch, finishActivationTasks, installDesktop, isDesktop, navigate, refreshStatus, registerActivationCanceller, requestFor, startActivationTasks, state.selectedAgentIds, t]);
+  }, [dispatch, finishActivationTasks, installCliWithConversion, installDesktop, isDesktop, navigate, refreshStatus, registerActivationCanceller, requestFor, startActivationTasks, state.conversion, state.selectedAgentIds, t]);
 
   useEffect(
     () =>
@@ -302,6 +361,8 @@ export function ActivationPage() {
       if (isDesktop) {
         response = await installDesktop((cancel) => registerActivationCanceller(startedTasks, cancel))
           .then((result) => ({ ...result, ok: true, probe: null }));
+      } else if (state.conversion) {
+        response = await installCliWithConversion([agentId], (cancel) => registerActivationCanceller(startedTasks, cancel));
       } else {
         const request = api.install(requestFor([agentId]));
         registerActivationCanceller(startedTasks, taskCanceller(request));

@@ -421,7 +421,7 @@ func normalizeFixtureHome(value any, home string) any {
 	return value
 }
 
-func TestStatusReportsFirstRunUntilBootAgentDirExists(t *testing.T) {
+func TestStatusReportsFirstRunUntilBootAgentStoresSomething(t *testing.T) {
 	home := t.TempDir()
 	core := NewUseCases(StatusOptions{Home: home, Platform: platform.For("linux", "amd64"), Lookup: func(string) (string, bool) { return "", false }})
 	status, err := core.GetStatus(context.Background())
@@ -431,7 +431,13 @@ func TestStatusReportsFirstRunUntilBootAgentDirExists(t *testing.T) {
 	if !status.FirstRun {
 		t.Fatal("a home without ~/.bootagent must report firstRun")
 	}
+	if err := os.WriteFile(filepath.Join(home, ".bootagent", "settings.json"), []byte("{}"), 0o600); err == nil {
+		t.Fatal("~/.bootagent appeared without anything being stored")
+	}
 	if err := os.MkdirAll(filepath.Join(home, ".bootagent"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(home, ".bootagent", "settings.json"), []byte("{}"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	status, err = core.GetStatus(context.Background())
@@ -439,7 +445,48 @@ func TestStatusReportsFirstRunUntilBootAgentDirExists(t *testing.T) {
 		t.Fatal(err)
 	}
 	if status.FirstRun {
-		t.Fatal("firstRun must clear once ~/.bootagent exists")
+		t.Fatal("firstRun must clear once BootAgent has stored a setting")
+	}
+}
+
+// loggedStatusRunner answers every command and is wrapped in the command log,
+// the way the real runner is.
+type loggedStatusRunner struct{}
+
+func (loggedStatusRunner) LookPath(command string) (string, bool) { return "/bin/" + command, true }
+
+func (loggedStatusRunner) Run(_ context.Context, argv []string, _ map[string]string, _ time.Duration) (process.Result, error) {
+	return process.Result{Args: argv, ExitCode: 0, Stdout: "1.0.0\n"}, nil
+}
+
+// Reading status runs version probes, and the real runner records each one
+// under ~/.bootagent/logs. That directory therefore exists before a new user
+// has done anything, and treating it as "not a first run" meant the real app
+// never opened onboarding: only builds with an injected runner, which is not
+// logged, ever saw firstRun.
+func TestStatusStillReportsFirstRunAfterItsOwnCommandsWereLogged(t *testing.T) {
+	home := t.TempDir()
+	core := NewUseCases(StatusOptions{
+		Home:     home,
+		Platform: platform.For("linux", "amd64"),
+		Runner:   process.LoggingRunner{Inner: loggedStatusRunner{}, Dir: CommandLogDir(home)},
+	})
+	status, err := core.GetStatus(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if entries, _ := os.ReadDir(CommandLogDir(home)); len(entries) == 0 {
+		t.Fatal("the status read logged no command, so this test shows nothing")
+	}
+	if !status.FirstRun {
+		t.Fatal("firstRun cleared because of BootAgent's own command log")
+	}
+	// The marketplace cache is the same kind of by-product.
+	if err := os.MkdirAll(filepath.Join(home, ".bootagent", "cache", "marketplace"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if status, err = core.GetStatus(context.Background()); err != nil || !status.FirstRun {
+		t.Fatalf("firstRun = %v, err = %v; a cache directory is not something the user stored", status.FirstRun, err)
 	}
 }
 

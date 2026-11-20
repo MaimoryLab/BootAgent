@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 
 import { AgentRow } from "../components/AgentRow";
 import { EditionTag } from "../components/EditionTag";
+import { EnvironmentSummary } from "../components/EnvironmentSummary";
 import { AgentIcon } from "../components/icons/agents";
 import { PageScaffold } from "../components/PageScaffold";
 import { RuntimePrompt } from "../components/RuntimePrompt";
@@ -64,6 +65,7 @@ export function AgentSelectionPage() {
       {state.statusError ? <div className="notice notice-error">{state.statusError}</div> : null}
       {state.status ? (
         <>
+          <EnvironmentSummary status={state.status} selectedAgentIds={state.selectedAgentIds} />
           <section className="content-section">
             <div className="section-heading">
               <div>

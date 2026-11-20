@@ -2,13 +2,15 @@ import { ExternalLink, FlaskConical, KeyRound, Pencil, Plus, Save, Trash2, X } f
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
-import { api, describeFailure } from "../backend/api";
+import { api } from "../backend/api";
 import { CardUsers } from "../components/CardUsers";
 import { ConnectionStatus } from "../components/ConnectionStatus";
 import { PageScaffold } from "../components/PageScaffold";
 import { SecureKeyField } from "../components/SecureKeyField";
 import { useI18n } from "../i18n";
 import { confirmDelete } from "../state/confirmDelete";
+import { useFeedback } from "../state/FeedbackContext";
+import { saveReceipt } from "../state/saveReceipt";
 import { anthropicClientBaseURL } from "../state/providerUrl";
 import { useWizard } from "../state/WizardContext";
 import { byProviderCreatedAt } from "../state/ranking";
@@ -56,8 +58,8 @@ export function ProvidersPage({ create = false }: { create?: boolean }) {
   // button, which opens the same editor on the list route.
   const [creating, setCreating] = useState(create);
   const [busy, setBusy] = useState(false);
-  const [failure, setFailure] = useState("");
-  const [applied, setApplied] = useState("");
+  const feedback = useFeedback();
+  const separator = locale === "en" ? ", " : "、";
   // Local rather than the wizard reducer's connection state: that one belongs to
   // the setup flow, and sharing it would let a test here overwrite what the
   // wizard is showing, and the reverse.
@@ -127,14 +129,12 @@ export function ProvidersPage({ create = false }: { create?: boolean }) {
   const edit = async (providerId: string) => {
     if (isConverterID(providerId)) return;
     setBusy(true);
-    setFailure("");
-    setApplied("");
     clearProbe();
     try {
       setEditor(await api.getProvider(providerId));
       setCreating(false);
     } catch (error) {
-      setFailure(describeFailure(error, t("无法读取模型服务"), t).message);
+      feedback.failure(error, t("无法读取模型服务"), { key: `provider:${providerId}` });
     } finally {
       setBusy(false);
     }
@@ -155,7 +155,6 @@ export function ProvidersPage({ create = false }: { create?: boolean }) {
     if (!editor) return;
     setProbeState("loading");
     setProbeResult(null);
-    setFailure("");
     try {
       const result = await api.probe({
         provider: editor.id.trim(),
@@ -174,7 +173,7 @@ export function ProvidersPage({ create = false }: { create?: boolean }) {
     } catch (error) {
       setProbeResult(null);
       setProbeState("error");
-      setFailure(describeFailure(error, t("连接测试失败"), t).message);
+      feedback.failure(error, t("连接测试失败"), { key: "provider-probe" });
     }
   };
 
@@ -199,8 +198,7 @@ export function ProvidersPage({ create = false }: { create?: boolean }) {
     event.preventDefault();
     if (!editor) return;
     setBusy(true);
-    setFailure("");
-    setApplied("");
+    const key = `provider:${editor.id.trim()}`;
     try {
       // Changing an endpoint or key rewrites every Agent already using this
       // Provider, so the outcome has to be reported rather than silently applied.
@@ -212,33 +210,22 @@ export function ProvidersPage({ create = false }: { create?: boolean }) {
         anthropic_base_url: anthropicClientBaseURL(editor.anthropic_base_url || ""),
         create: creating,
       });
-      const reapplied = result.reapplied ?? [];
-      const failures = Object.entries(result.failures ?? {});
-      if (failures.length) {
-        setFailure(t("{agents} 重新应用失败：{message}", {
-          agents: failures.map(([agentId]) => nameOf(agentId)).join(locale === "en" ? ", " : "、"),
-          message: failures[0][1] ?? "",
-        }));
-      } else if (reapplied.length) {
-        setApplied(t("已重新应用到 {agents}", {
-          agents: reapplied.map(nameOf).join(locale === "en" ? ", " : "、"),
-        }));
-      }
+      feedback.show(saveReceipt({ key, name: editor.name.trim() || editor.id.trim(), result, nameOf, t, separator }));
       await refreshStatus();
       if (create) navigate(returnTo);
       else setEditor(null);
     } catch (error) {
-      setFailure(describeFailure(error, t("无法保存模型服务"), t).message);
+      // The editor stays open with what was typed, so the save can be retried.
+      feedback.failure(error, t("无法保存模型服务"), { key });
     } finally {
       setBusy(false);
     }
   };
 
   const remove = async (providerId: string, name: string, users: string[]) => {
+    const key = `provider:${providerId}`;
     if (users.length) {
-      setFailure(t("模型服务正在被 {agents} 使用，无法删除", {
-        agents: users.map(nameOf).join(locale === "en" ? ", " : "、"),
-      }));
+      feedback.show({ key, tone: "warning", message: t("「{name}」正在使用，无法删除", { name }), detail: t("使用它的 Agent：{agents}", { agents: users.map(nameOf).join(separator) }) });
       return;
     }
     // The saved API key goes with it, which is the part a user does not get back.
@@ -249,14 +236,13 @@ export function ProvidersPage({ create = false }: { create?: boolean }) {
       cancelLabel: t("取消"),
     })) return;
     setBusy(true);
-    setFailure("");
-    setApplied("");
     try {
       await api.deleteProvider(providerId);
       if (editor?.id === providerId) setEditor(null);
+      feedback.show({ key, tone: "success", message: t("已删除「{name}」", { name }) });
       await refreshStatus();
     } catch (error) {
-      setFailure(describeFailure(error, t("无法删除模型服务"), t).message);
+      feedback.failure(error, t("无法删除模型服务"), { key });
     } finally {
       setBusy(false);
     }
@@ -275,7 +261,7 @@ export function ProvidersPage({ create = false }: { create?: boolean }) {
       title={create ? t("新增模型服务") : t("模型服务")}
       bodyClassName="management-page"
       secondaryAction={!create ? (
-        <button className="button button-primary" type="button" onClick={() => { setEditor({ ...emptyProvider, id: suggestProviderID(Object.keys(status.providers)) }); setCreating(true); setFailure(""); setApplied(""); }}>
+        <button className="button button-primary" type="button" onClick={() => { setEditor({ ...emptyProvider, id: suggestProviderID(Object.keys(status.providers)) }); setCreating(true); }}>
           <Plus size={15} />
           {t("新增模型服务")}
         </button>
@@ -389,11 +375,6 @@ export function ProvidersPage({ create = false }: { create?: boolean }) {
         </form>
       ) : null}
 
-      {failure ? <p className="agent-manage-error">{failure}</p> : null}
-      {/* The editor is a page of its own: the list, and the notice about what
-          the last save did to it, return when the editor closes. Rendering them
-          below the form read as the previous page appended to this one. */}
-      {applied && !editor ? <div className="agent-manage-applied"><strong>{t("应用完成")}</strong><span>{applied}</span></div> : null}
 
       {!create && !editor ? <div className="provider-list">
         {byProviderCreatedAt(Object.fromEntries(Object.entries(status.providers).filter(([providerId]) => !isConverterID(providerId)))).map(([providerId, meta]) => {

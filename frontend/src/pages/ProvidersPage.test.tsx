@@ -1,8 +1,9 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { api } from "../backend/api";
+import { FeedbackProvider } from "../state/FeedbackContext";
 import type { StatusResponse } from "../types/api";
 import { ProvidersPage } from "./ProvidersPage";
 
@@ -77,10 +78,18 @@ function statusWith(agents: Record<string, string | null>): StatusResponse {
 function renderPage(agents: Record<string, string | null>) {
   mockState = { status: statusWith(agents), statusState: "success" };
   render(
-    <MemoryRouter>
-      <ProvidersPage />
-    </MemoryRouter>,
+    <FeedbackProvider>
+      <MemoryRouter>
+        <ProvidersPage />
+      </MemoryRouter>
+    </FeedbackProvider>,
   );
+}
+
+/** The open receipt, with its 详情 expanded. */
+function receiptWithDetail(receipt: HTMLElement) {
+  fireEvent.click(within(receipt).getByRole("button", { name: "详情" }));
+  return receipt;
 }
 
 describe("ProvidersPage", () => {
@@ -111,9 +120,11 @@ describe("ProvidersPage", () => {
     if (!mockState.status) throw new Error("missing status");
     mockState.status.providers.acme = { name: "Acme", home: "", base_url: "https://api.acme.test", custom: true };
     const remove = vi.spyOn(api, "deleteProvider");
-    render(<MemoryRouter><ProvidersPage /></MemoryRouter>);
+    render(<FeedbackProvider><MemoryRouter><ProvidersPage /></MemoryRouter></FeedbackProvider>);
     fireEvent.click(screen.getByRole("button", { name: "删除 Acme" }));
-    expect(screen.getByText(/模型服务正在被.*使用，无法删除/)).toBeTruthy();
+    const receipt = receiptWithDetail(screen.getByRole("alert"));
+    expect(receipt).toHaveTextContent("「Acme」正在使用，无法删除");
+    expect(receipt).toHaveTextContent("使用它的 Agent：codex");
     expect(remove).not.toHaveBeenCalled();
   });
 
@@ -198,7 +209,8 @@ describe("ProvidersPage", () => {
     fireEvent.change(screen.getByLabelText("API Key"), { target: { value: "sk-rotated" } });
     fireEvent.click(screen.getByRole("button", { name: /^保存$/ }));
 
-    await waitFor(() => expect(screen.getByText(/已重新应用到.*Claude Code/)).toBeTruthy());
+    const receipt = (await screen.findByText("已保存，2 个 Agent 已更新")).closest(".feedback-toast") as HTMLElement;
+    expect(receiptWithDetail(receipt)).toHaveTextContent("codex、Claude Code");
   });
 
   it("reports an Agent that could not be rewritten", async () => {
@@ -217,7 +229,8 @@ describe("ProvidersPage", () => {
     fireEvent.change(screen.getByLabelText("API Key"), { target: { value: "sk-rotated" } });
     fireEvent.click(screen.getByRole("button", { name: /^保存$/ }));
 
-    await waitFor(() => expect(screen.getByText(/Claude Code 重新应用失败：model is required/)).toBeTruthy());
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("已保存，1 个 Agent 未能更新"));
+    expect(receiptWithDetail(screen.getByRole("alert"))).toHaveTextContent("Claude Code: model is required");
   });
 
   it("adds a Provider from the management page", async () => {
@@ -285,7 +298,7 @@ describe("ProvidersPage", () => {
       apiKey: "sk-acme",
       draft: true,
     })));
-    await waitFor(() => expect(screen.getByText("连接成功")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("连接正常")).toBeTruthy());
     // The whole point of testing before saving: a key that turns out to be wrong
     // must not have been written to disk on the way.
     expect(save).not.toHaveBeenCalled();

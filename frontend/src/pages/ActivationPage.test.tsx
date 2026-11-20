@@ -134,6 +134,64 @@ describe("ActivationPage partial results", () => {
     expect(screen.queryByText("openclaw onboard")).toBeNull();
   });
 
+  it("installs without configuring, then points the Agent at the adapter in compatibility mode", async () => {
+    const install = vi.spyOn(api, "install").mockResolvedValue({
+      ok: true, results: [result("codex", { status: "skipped" })], log: "", probe: null, next: "",
+    } as never);
+    const saveProfile = vi.spyOn(api, "saveProfile").mockResolvedValue({
+      profile: { id: "codex-ppio-compat", label: "Codex · PPIO", provider: "ppio", baseUrl: null, model: "deepseek/deepseek-v3", protocol: "openai", activatedAt: null },
+      reapplied: null,
+      failures: null,
+    });
+    const activate = vi.spyOn(api, "activateAgentWithConversion").mockResolvedValue({
+      ok: true, agent: "codex", config: "/c", provider: "bootagent-converter-responses", model: "gpt-5.6-sol",
+      restart: "", next: "codex", upstreamVerified: true, endToEndVerified: true,
+    });
+    state = {
+      ...initialWizardState,
+      status,
+      statusState: "success",
+      setupKind: "cli",
+      selectedAgentIds: ["codex"],
+      provider: "ppio",
+      model: "deepseek/deepseek-v3",
+      profileId: "codex-ppio-compat",
+      profileLabel: "Codex · PPIO",
+      conversion: true,
+      activationState: "idle",
+      activationRequested: true,
+    };
+
+    render(<MemoryRouter><ActivationPage /></MemoryRouter>);
+    await waitFor(() => expect(activate).toHaveBeenCalledWith("codex", "codex-ppio-compat"));
+    expect(install).toHaveBeenCalledWith(expect.objectContaining({ agents: ["codex"], configure: false, install_agent: true }));
+    expect(saveProfile).toHaveBeenCalledWith(expect.objectContaining({ id: "codex-ppio-compat", provider: "ppio", protocol: "openai" }));
+  });
+
+  it("refreshes after a failed compatibility mode step, so the saved Profile is visible", async () => {
+    vi.spyOn(api, "install").mockResolvedValue({
+      ok: true, results: [result("codex", { status: "skipped" })], log: "", probe: null, next: "",
+    } as never);
+    vi.spyOn(api, "saveProfile").mockResolvedValue({
+      profile: { id: "codex-ppio-compat", label: "Codex · PPIO", provider: "ppio", baseUrl: null, model: "m", protocol: "openai", activatedAt: null },
+      reapplied: null,
+      failures: null,
+    });
+    const { BootAgentApiError } = await import("../backend/errors");
+    vi.spyOn(api, "activateAgentWithConversion").mockRejectedValue(
+      new BootAgentApiError("port in use", "CONVERSION_PORT_UNAVAILABLE", true, 409),
+    );
+    state = {
+      ...initialWizardState,
+      status, statusState: "success", setupKind: "cli", selectedAgentIds: ["codex"],
+      provider: "ppio", model: "m", profileId: "codex-ppio-compat", profileLabel: "Codex · PPIO",
+      conversion: true, activationState: "idle", activationRequested: true,
+    };
+
+    render(<MemoryRouter><ActivationPage /></MemoryRouter>);
+    await waitFor(() => expect(refreshStatus).toHaveBeenCalled());
+  });
+
   it("configures a manual desktop app without requesting an install", async () => {
     vi.spyOn(api, "saveProfile").mockResolvedValue({
       profile: { id: "claude-desktop-jiekou", label: "Claude Desktop", provider: "jiekou", baseUrl: null, model: "claude-sonnet-4-5", protocol: "anthropic", activatedAt: null },

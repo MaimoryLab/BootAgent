@@ -5,6 +5,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"io"
 	"maps"
@@ -16,6 +17,24 @@ import (
 	"time"
 )
 
+// Target is where one request is forwarded: a Chat Completions endpoint, the
+// model to ask it for, and the key it is asked with.
+type Target struct {
+	BaseURL         string
+	Model           string
+	ReasoningEffort string
+	APIKey          string
+}
+
+// Config is the adapter's listener and how it finds a request's Target.
+//
+// With Resolve set, the local key a request carries names its Target: each
+// Agent is given a key of its own, so two Agents can use two different model
+// services at once. Resolve runs per request, so an edit to a Provider or
+// Profile behind a route takes effect without restarting the listener.
+//
+// Without it, every request authenticated by APIKey goes to the single Target
+// the remaining fields describe.
 type Config struct {
 	Enabled               bool     `json:"enabled"`
 	Listen                string   `json:"listen"`
@@ -25,6 +44,39 @@ type Config struct {
 	TargetModel           string   `json:"target_model"`
 	TargetReasoningEffort string   `json:"target_reasoning_effort"`
 	TargetAPIKey          string   `json:"-"`
+	// Resolve maps a request's local key to its Target. False refuses the
+	// request as unauthorized: the key is unknown, or its route has no usable
+	// target any more.
+	Resolve func(localKey string) (Target, bool) `json:"-"`
+}
+
+// target is the request's destination, or false when it is not authorized.
+//
+// Anthropic clients send the key as x-api-key, OpenAI clients as a bearer
+// token; either is accepted.
+func (cfg Config) target(r *http.Request) (Target, bool) {
+	keys := []string{strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "), r.Header.Get("x-api-key")}
+	if cfg.Resolve != nil {
+		for _, key := range keys {
+			if key == "" {
+				continue
+			}
+			if target, ok := cfg.Resolve(key); ok {
+				return target, true
+			}
+		}
+		return Target{}, false
+	}
+	direct := Target{BaseURL: cfg.TargetBaseURL, Model: cfg.TargetModel, ReasoningEffort: cfg.TargetReasoningEffort, APIKey: cfg.TargetAPIKey}
+	if cfg.APIKey == "" {
+		return direct, true
+	}
+	for _, key := range keys {
+		if subtle.ConstantTimeCompare([]byte(key), []byte(cfg.APIKey)) == 1 {
+			return direct, true
+		}
+	}
+	return Target{}, false
 }
 
 type Server struct {
@@ -122,8 +174,8 @@ func (s *Server) handle(w http.ResponseWriter, r *http.Request) {
 	s.mu.RLock()
 	cfg := s.cfg
 	s.mu.RUnlock()
-	authorized := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ") == cfg.APIKey || r.Header.Get("x-api-key") == cfg.APIKey
-	if cfg.APIKey != "" && !authorized {
+	target, authorized := cfg.target(r)
+	if !authorized {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
@@ -157,7 +209,7 @@ func (s *Server) handle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if format == "chat" {
-		s.forward(w, r, body, cfg)
+		s.forwardConverted(w, r, body, target, format)
 		return
 	}
 	converted, err := ToChat(format, body)
@@ -165,24 +217,21 @@ func (s *Server) handle(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), 400)
 		return
 	}
-	s.forwardConverted(w, r, converted, cfg, format)
+	s.forwardConverted(w, r, converted, target, format)
 }
-func (s *Server) forward(w http.ResponseWriter, r *http.Request, body []byte, cfg Config) {
-	s.forwardConverted(w, r, body, cfg, "chat")
-}
-func (s *Server) forwardConverted(w http.ResponseWriter, r *http.Request, body []byte, cfg Config, format string) {
-	if cfg.TargetModel != "" {
+func (s *Server) forwardConverted(w http.ResponseWriter, r *http.Request, body []byte, target Target, format string) {
+	if target.Model != "" {
 		if format == "chat" {
-			body = withTargetModel(body, cfg.TargetModel)
+			body = withTargetModel(body, target.Model)
 		} else {
-			body = withTargetConfig(body, cfg.TargetModel, cfg.TargetReasoningEffort)
+			body = withTargetConfig(body, target.Model, target.ReasoningEffort)
 		}
 	}
-	target := strings.TrimRight(cfg.TargetBaseURL, "/") + "/chat/completions"
-	req, _ := http.NewRequestWithContext(r.Context(), http.MethodPost, target, bytes.NewReader(body))
+	endpoint := strings.TrimRight(target.BaseURL, "/") + "/chat/completions"
+	req, _ := http.NewRequestWithContext(r.Context(), http.MethodPost, endpoint, bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
-	if cfg.TargetAPIKey != "" {
-		req.Header.Set("Authorization", "Bearer "+cfg.TargetAPIKey)
+	if target.APIKey != "" {
+		req.Header.Set("Authorization", "Bearer "+target.APIKey)
 	}
 	resp, err := s.client.Do(req)
 	if err != nil {

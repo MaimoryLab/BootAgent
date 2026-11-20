@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 
 import { useI18n } from "../i18n";
 
-export function LogDisclosure({ log, open: openByParent = false, showEmpty = false }: { log: string; open?: boolean; showEmpty?: boolean }) {
+export function LogDisclosure({ log, open: openByParent = false, showEmpty = false, label }: { log: string; open?: boolean; showEmpty?: boolean; label?: string }) {
   const { t } = useI18n();
   const [open, setOpen] = useState(openByParent);
   useEffect(() => {
@@ -14,7 +14,7 @@ export function LogDisclosure({ log, open: openByParent = false, showEmpty = fal
     <section className={`log-disclosure${open ? " is-open" : ""}`}>
       <button type="button" onClick={() => setOpen((value) => !value)} aria-expanded={open}>
         <TerminalSquare size={17} />
-        {t("查看安装日志")}
+        {label ?? t("查看安装日志")}
         <ChevronDown size={17} />
       </button>
       {open ? <pre>{log}</pre> : null}

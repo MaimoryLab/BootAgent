@@ -155,7 +155,7 @@ func TestConfigureClaudeDesktopWithConversionCompletesEndToEnd(t *testing.T) {
 		t.Fatalf("Claude Desktop converter base = %#v", configured["inferenceGatewayBaseUrl"])
 	}
 	binding, err := core.profiles.ReadAgentBinding(desktopapp.ClaudeDesktopID)
-	if err != nil || binding == nil || binding.ProfileRef != converterPrefix+"anthropic" {
+	if err != nil || binding == nil || binding.ProfileRef != converterRouteID(desktopapp.ClaudeDesktopID) {
 		t.Fatalf("Claude Desktop binding = %#v, err=%v", binding, err)
 	}
 }

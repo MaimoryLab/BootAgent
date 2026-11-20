@@ -1,15 +1,19 @@
 import { Dialogs } from "@wailsio/runtime";
 import { FolderOpen, History, Play, RefreshCw, SlidersHorizontal, Trash2 } from "lucide-react";
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useRef, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 
 import { api, describeFailure } from "../backend/api";
 import { BootAgentApiError } from "../backend/errors";
 import { useConversationMigration } from "../hooks/useConversationMigration";
 import { sourceTranslate, type Translate, useI18n } from "../i18n";
+import { providerDisplayName } from "../state/conversion";
+import { useFeedback } from "../state/FeedbackContext";
 import { taskCanceller, taskKey, updateTaskRoute, useTaskCenter, useTaskRoute } from "../state/TaskCenterContext";
 import type { AgentCatalogItem, AgentStatus, ProfileSummary, StatusResponse } from "../types/api";
+import { ActionButton } from "./ActionButton";
 import { AgentActionMenu, type AgentActionMenuItem } from "./AgentActionMenu";
+import { DetailsDisclosure } from "./DetailsDisclosure";
 import { AgentIcon, agentTagline } from "./icons/agents";
 import { ModalDialog } from "./ModalDialog";
 
@@ -55,21 +59,17 @@ export function isBehind(installed: string, locked: string): boolean {
   return compareVersions(installed, locked) < 0;
 }
 
-function versionNote(status: AgentStatus, t: Translate = sourceTranslate): { text: string; behind: boolean } | null {
+function versionNote(status: AgentStatus): { text: string; behind: boolean } | null {
   if (!status.installed || !status.version) return null;
-  if (!status.lockedVersion || status.version === status.lockedVersion) {
-    // Being current is the normal case and needs no words: the bare version is
-    // enough, and five rows each saying "已是最新" is noise.
-    return { text: status.version, behind: false };
-  }
-  // Only an older local version is an update. A newer one is normal — the user
-  // upgraded the Agent themselves — and calling it "updatable" would send them
-  // to downgrade.
-  if (compareVersions(status.version, status.lockedVersion) < 0) {
-    // The arrow already says which way this goes.
+  // Only an older local version is an update; the arrow says which way it goes.
+  // A newer one is normal -- the user upgraded the Agent themselves -- and is
+  // shown as the plain version: the locked one, a term a newcomer cannot place,
+  // is in the details as the recommended version.
+  if (status.lockedVersion && compareVersions(status.version, status.lockedVersion) < 0) {
     return { text: `${status.version} → ${status.lockedVersion}`, behind: true };
   }
-  return { text: t("{version}（锁定 {lockedVersion}）", { version: status.version, lockedVersion: status.lockedVersion }), behind: false };
+  // Being current needs no words either: five rows saying "已是最新" is noise.
+  return { text: status.version, behind: false };
 }
 
 /**
@@ -79,35 +79,42 @@ function versionNote(status: AgentStatus, t: Translate = sourceTranslate): { tex
  * file as found on disk. Reporting only the first is what made a hand-written
  * configuration render as "未配置" — the file was seen but never read. Where they
  * disagree the file wins, because that is what the Agent will actually use.
+ *
+ * `alert` is the one line the row itself shows when something needs the
+ * user's attention, in plain words; `text` and `note` carry the specifics
+ * (endpoint, parse error) for the details.
  */
 export function targetSummary(
   status: AgentStatus,
   providers: Providers,
   t: Translate = sourceTranslate,
-): { text: string; note: string } {
+): { text: string; note: string; alert: string } {
   const detected = status.detected;
   if (detected?.unreadable) {
-    return { text: t("配置无法解析"), note: detected.unreadable };
+    return { text: t("配置无法解析"), note: detected.unreadable, alert: t("这个 Agent 的设置无法读取") };
   }
-  const providerName = status.provider ? providers[status.provider]?.name || status.provider : "";
+  const providerName = status.provider ? providerDisplayName(providers, status.provider, t) : "";
   // Ours, and the file agrees (or has nothing to add).
   if (status.provider && status.model) {
     const drifted =
       detected && detected.baseUrl && status.baseUrl && detected.baseUrl !== status.baseUrl;
     return {
       text: `${providerName} · ${status.model}`,
-      note: drifted ? t("配置文件当前指向 {url}", { url: detected!.baseUrl }) : "",
+      note: drifted ? t("实际使用的接口地址是 {url}", { url: detected!.baseUrl }) : "",
+      alert: drifted ? t("设置已在 BootAgent 之外被修改") : "",
     };
   }
   // No record of our own, but the file says something.
   if (detected && (detected.baseUrl || detected.model)) {
     const parts = [detected.baseUrl, detected.model].filter(Boolean);
+    const foreign = !detected.managedByBootAgent;
     return {
       text: parts.join(" · "),
-      note: detected.managedByBootAgent ? "" : t("检测到的配置，非 BootAgent 写入"),
+      note: foreign ? t("这份设置不是 BootAgent 写入的") : "",
+      alert: foreign ? t("正在使用 BootAgent 之外的设置") : "",
     };
   }
-  return { text: t("未配置"), note: "" };
+  return { text: t("未配置"), note: "", alert: "" };
 }
 
 /**
@@ -133,12 +140,19 @@ export function AgentManageRow({
   defaultDirectory?: string;
 }) {
   const { t } = useI18n();
+  const navigate = useNavigate();
+  const feedback = useFeedback();
   const { startTask, finishTask, setTaskCanceller, taskFor, isTaskRunning } = useTaskCenter();
   const route = useTaskRoute();
   const [launching, setLaunching] = useState(false);
   const [localUpdating, setLocalUpdating] = useState(false);
   const [localUninstalling, setLocalUninstalling] = useState(false);
-  const [failure, setFailure] = useState("");
+  // The last launch failure, kept so the row can still name it after its
+  // receipt is closed. Cleared by the next launch that succeeds.
+  const [launchFailure, setLaunchFailure] = useState<unknown>(null);
+  // Settles the launch button's pending action once the directory dialog
+  // answers: false when it is dismissed, the launch outcome when it is submitted.
+  const launchSettle = useRef<{ resolve: (launched: boolean) => void; reject: (error: unknown) => void } | null>(null);
   const [launchDirectory, setLaunchDirectory] = useState("");
   const [rememberDirectory, setRememberDirectory] = useState(false);
   const [installationID, setInstallationID] = useState("");
@@ -153,20 +167,29 @@ export function AgentManageRow({
   const migration = useConversationMigration();
   const updating = updateTask?.state === "running" || localUpdating;
   const uninstalling = uninstallTask?.state === "running" || localUninstalling;
-  const version = versionNote(status, t);
+  const version = versionNote(status);
+  const recommended = status.lockedVersion && status.version && status.lockedVersion !== status.version && !version?.behind ? status.lockedVersion : "";
   const target = targetSummary(status, providers, t);
   const providerId = profile?.provider || status.provider || "";
-  const providerName = providerId ? providers[providerId]?.name || providerId : "";
+  const providerName = providerId ? providerDisplayName(providers, providerId, t) : "";
   const profileLabel = profileName || status.profileId || "";
   const model = profile?.model || status.model || status.detected?.model || "";
   const baseUrl = status.baseUrl || status.detected?.baseUrl || "";
+  const agentName = catalog?.name || agentId;
+  const launchKey = `launch:${agentId}`;
   // No "not configured" state here: the Profile and Provider tokens already name
   // whichever piece is absent, so a third word for the same condition only adds
   // a term the user has to map back onto them.
-  const taskFailure = updateTask?.state === "failure"
-    ? updateTask.message || t("失败")
-    : uninstallTask?.state === "failure" ? uninstallTask.message || t("失败") : "";
-  const statusLabel = failure || taskFailure ? t("失败") : !status.installed ? t("未安装") : "";
+  //
+  // A failure is a fixed-size marker in the token strip, not a line of text
+  // under the name: the reason is in the receipt, which the marker reopens.
+  const failureMarker = launchFailure
+    ? { label: t("启动失败"), reopen: () => feedback.failure(launchFailure, t("无法启动 {name}", { name: agentName }), { key: launchKey }) }
+    : updateTask?.state === "failure"
+      ? { label: t("更新失败"), reopen: () => feedback.show({ key: updateTaskID, tone: "failure", message: t("无法更新 {name}", { name: agentName }), detail: updateTask.message || undefined }) }
+      : uninstallTask?.state === "failure"
+        ? { label: t("卸载失败"), reopen: () => feedback.show({ key: uninstallTaskID, tone: "failure", message: t("无法卸载 {name}", { name: agentName }), detail: uninstallTask.message || undefined }) }
+        : null;
 
   // installed is true only when the Agent's command resolved on the managed
   // PATH, so it is already the precise "there is something to launch" signal.
@@ -175,30 +198,67 @@ export function AgentManageRow({
   const manageable = Boolean(catalog?.packageManager && ["npm", "uv", "official-script"].includes(catalog.packageManager) && status.installed);
   const busy = launching || updating || uninstalling || migration.running || isTaskRunning(taskKey("install", agentId));
 
-  const startLaunch = async (directory: string) => {
-    setDirectoryDialog(false);
-    setLaunching(true);
-    setFailure("");
+  /**
+   * Says which terminal opened when it was not the one chosen in settings. The
+   * backend falls back rather than failing when that terminal is gone, and
+   * returns the one it used precisely so the substitution is not silent.
+   */
+  const reportTerminal = async (terminal: string) => {
+    if (!terminal) return;
     try {
-      await api.launchAgent(agentId, directory);
+      const settings = await api.getSettings();
+      const preferred = settings.terminal_app;
+      if (!preferred || preferred === terminal) return;
+      const nameOf = (id: string) => settings.terminals?.find((option) => option.id === id)?.name || id;
+      feedback.show({
+        key: "launch-terminal",
+        tone: "warning",
+        message: t("已改用 {terminal} 打开", { terminal: nameOf(terminal) }),
+        detail: t("设置里选择的 {terminal} 未安装，可以在设置中更换", { terminal: nameOf(preferred) }),
+        action: { label: t("去设置"), run: () => navigate("/settings") },
+      });
+    } catch {
+      // The launch itself succeeded; not naming the terminal is no reason to say otherwise.
+    }
+  };
+  const startLaunch = async (directory: string) => {
+    setLaunching(true);
+    try {
+      const result = await api.launchAgent(agentId, directory);
+      setLaunchFailure(null);
+      void reportTerminal(result?.terminal ?? "");
     } catch (error) {
-      setFailure(describeFailure(error, t("无法启动 Agent"), t).message);
+      setLaunchFailure(error);
+      throw error;
     } finally {
       setLaunching(false);
     }
   };
+  const settleLaunch = (outcome: { launched: boolean } | { error: unknown }) => {
+    const pending = launchSettle.current;
+    launchSettle.current = null;
+    if (!pending) return;
+    if ("error" in outcome) pending.reject(outcome.error);
+    else pending.resolve(outcome.launched);
+  };
+  const closeDirectoryDialog = () => {
+    setDirectoryDialog(false);
+    settleLaunch({ launched: false });
+  };
   // A web-app Agent serves a local page and chooses its own workspace, so asking
   // where to start it would collect an answer nothing then uses. It launches
-  // straight away instead.
-  const launch = () => {
+  // straight away instead. Otherwise the launch button stays pending until the
+  // directory dialog answers, so it confirms the launch, not the dialog.
+  const launch = async (): Promise<boolean> => {
     if (catalog?.webApp) {
-      void startLaunch("");
-      return;
+      await startLaunch("");
+      return true;
     }
     const stored = localStorage.getItem(`bootagent:launch-directory:${agentId}`);
     setLaunchDirectory(stored || defaultDirectory || "");
     setRememberDirectory(Boolean(stored));
     setDirectoryDialog(true);
+    return new Promise<boolean>((resolve, reject) => { launchSettle.current = { resolve, reject }; });
   };
   const chooseDirectory = async () => {
     try {
@@ -211,7 +271,13 @@ export function AgentManageRow({
     if (!launchDirectory.trim()) return;
     if (rememberDirectory) localStorage.setItem(`bootagent:launch-directory:${agentId}`, launchDirectory.trim());
     else localStorage.removeItem(`bootagent:launch-directory:${agentId}`);
-    await startLaunch(launchDirectory.trim());
+    setDirectoryDialog(false);
+    try {
+      await startLaunch(launchDirectory.trim());
+      settleLaunch({ launched: true });
+    } catch (error) {
+      settleLaunch({ error });
+    }
   };
   const update = async () => {
     if (!startTask({
@@ -222,7 +288,6 @@ export function AgentManageRow({
       route: updateTaskRoute(agentId),
     })) return;
     setLocalUpdating(true);
-    setFailure("");
     try {
       const request = api.updateAgent(agentId);
       setTaskCanceller(updateTaskID, taskCanceller(request));
@@ -244,7 +309,7 @@ export function AgentManageRow({
 		const confirmLabel = t("卸载 Agent");
 		const choice = await Dialogs.Question({
 			Title: confirmLabel,
-			Message: t("确定卸载「{name}」吗？只会移除 Agent 程序，配置模版、模型服务、配置文件和对话数据都会保留。", { name: catalog?.name || agentId }),
+			Message: t("卸载「{name}」？只移除程序，你的设置和对话都会保留。", { name: catalog?.name || agentId }),
 			Buttons: [{ Label: confirmLabel }, { Label: t("卸载并删除全部数据") }, { Label: t("取消"), IsCancel: true }],
 		}).catch(() => "");
 		if (![confirmLabel, t("卸载并删除全部数据")].includes(choice)) return;
@@ -252,7 +317,7 @@ export function AgentManageRow({
 		if (removeUserData) {
 			const destructiveChoice = await Dialogs.Question({
 				Title: t("确认永久删除数据"),
-				Message: t("全量清理将永久删除配置文件、凭据、会话和对话数据，删除后无法找回。请确认你已完成备份。"),
+				Message: t("会永久删除这个 Agent 的设置、登录信息和全部对话，无法找回。"),
 				Buttons: [{ Label: t("永久删除并卸载") }, { Label: t("取消"), IsCancel: true }],
 			}).catch(() => "");
 			if (destructiveChoice !== t("永久删除并卸载")) return;
@@ -266,7 +331,6 @@ export function AgentManageRow({
       cancellable: false,
     })) return;
     setLocalUninstalling(true);
-	setFailure("");
 	try {
 		const runUninstall = async (allowCrossEnvironment: boolean) => {
 				const ids = selectedIDs ?? (installations.length === 1 ? [installations[0].id] : []);
@@ -280,7 +344,7 @@ export function AgentManageRow({
 			if (!(error instanceof BootAgentApiError) || error.code !== "AGENT_NPM_ENVIRONMENT_MISMATCH") throw error;
 			const crossChoice = await Dialogs.Question({
 				Title: t("确认跨环境卸载"),
-				Message: t("当前 Agent 由另一套 Node/npm 环境管理。是否允许使用已记录的原始 npm 环境卸载？不会使用 sudo，也不会删除配置和对话数据。"),
+				Message: t("这个 Agent 是用另一套 Node.js 安装的。要用当初安装它的那一套来卸载吗？不会删除你的设置和对话。"),
 				Buttons: [{ Label: t("允许并继续") }, { Label: t("取消"), IsCancel: true }],
 			}).catch(() => "");
 			if (crossChoice !== t("允许并继续")) throw error;
@@ -335,7 +399,7 @@ export function AgentManageRow({
           </span>
           <span className="agent-manage-identity-copy">
             <strong>{catalog?.name || agentId}</strong>
-            {failure || taskFailure ? <small className="agent-manage-note is-error">{failure || taskFailure}</small> : null}
+            {target.alert ? <small className="agent-manage-note is-warning">{target.alert}</small> : null}
           </span>
         </div>
         {/* Right-aligned, in a fixed order, with the Profile and Provider slots
@@ -360,11 +424,15 @@ export function AgentManageRow({
               {version.text}
             </span>
           ) : null}
-          {statusLabel ? <span className={`agent-manage-state${failure || taskFailure ? " is-error" : ""}`}>{statusLabel}</span> : null}
+          {failureMarker ? (
+            <button className="agent-manage-state is-error" type="button" onClick={failureMarker.reopen} title={t("查看原因")}>
+              {failureMarker.label}
+            </button>
+          ) : !status.installed ? <span className="agent-manage-state">{t("未安装")}</span> : null}
         </div>
       </div>
       {directoryDialog ? (
-        <ModalDialog className="transfer-password-dialog" label={t("选择启动目录")} onDismiss={() => setDirectoryDialog(false)}>
+        <ModalDialog className="transfer-password-dialog" label={t("选择启动目录")} onDismiss={closeDirectoryDialog}>
           <form onSubmit={(event) => { event.preventDefault(); void confirmLaunch(); }}>
             <h2>{t("选择启动目录")}</h2>
             <label className="launch-directory-label" htmlFor={`launch-directory-${agentId}`}>{t("启动目录")}</label>
@@ -373,7 +441,7 @@ export function AgentManageRow({
               <button className="icon-button" type="button" onClick={() => void chooseDirectory()} title={t("选择目录")} aria-label={t("选择目录")}><FolderOpen size={18} /></button>
             </div>
             <label className="launch-remember-row"><input type="checkbox" checked={rememberDirectory} onChange={(event) => setRememberDirectory(event.target.checked)} /><span>{t("记住此 Agent 的目录")}</span></label>
-            <footer><button className="button button-secondary" type="button" onClick={() => setDirectoryDialog(false)}>{t("取消")}</button><button className="button button-primary" type="submit">{t("启动")}</button></footer>
+            <footer><button className="button button-secondary" type="button" onClick={closeDirectoryDialog}>{t("取消")}</button><button className="button button-primary" type="submit">{t("启动")}</button></footer>
           </form>
         </ModalDialog>
       ) : null}
@@ -403,58 +471,44 @@ export function AgentManageRow({
         </Link>
 
         {canLaunch ? (
-          <button
-            className="button button-primary"
-            type="button"
-            onClick={() => void launch()}
-            disabled={busy}
-            title={t("在新终端窗口中启动，并载入 BootAgent 写入的配置")}
-          >
-            {launching ? <RefreshCw size={14} className="spin" aria-hidden="true" /> : <Play size={15} aria-hidden="true" />}
-            {t("启动")}
-          </button>
+          <ActionButton
+            icon={Play}
+            label={t("启动")}
+            doneLabel={t("已打开")}
+            failureMessage={t("无法启动 {name}", { name: agentName })}
+            feedbackKey={launchKey}
+            onAction={launch}
+            disabled={busy && !launching}
+            title={t("在新的终端窗口里打开")}
+          />
         ) : null}
       </div>
-      <details className="agent-manage-details">
-        <summary>{t("详情")}</summary>
-        <div className="agent-manage-details-body">
-          {providerName ? (
-            <div><small>{t("模型服务")}</small><span>{providerName}</span></div>
-          ) : null}
-          {profileLabel ? (
-            <div><small>{t("配置模版")}</small><span>{profileLabel}</span></div>
-          ) : null}
-          {model ? (
-            <div><small>{t("模型")}</small><span className="agent-manage-detail-code">{model}</span></div>
-          ) : null}
-          {baseUrl ? (
-            <div><small>URL</small><span className="agent-manage-detail-code" title={baseUrl}>{baseUrl}</span></div>
-          ) : null}
-          {target.text && target.text !== t("未配置") ? (
-            <div><small>{t("检测状态")}</small><span>{target.text}</span></div>
-          ) : null}
-          {target.note ? (
-            <div className="agent-manage-detail-note"><small>{t("备注")}</small><span>{target.note}</span></div>
-          ) : null}
-          {catalog?.packageManager && catalog.packageName ? (
-            <div><small>npm</small><span className="agent-manage-detail-code">{catalog.packageName}</span></div>
-          ) : null}
-          {installations.length ? (
-            <div className="agent-installation-details">
-              <small>{t("检测到的安装实例")}</small>
-              <div className="agent-installation-list">
-                {installations.map((installation) => (
-                  <div className="agent-installation-item" key={installation.id}>
-                    <span>{installation.manager}</span>
-                    <code title={installation.executable}>{installation.executable}</code>
-                    <small>{installation.canUninstall ? t("可卸载") : installation.reason || t("不可卸载")}</small>
-                  </div>
-                ))}
-              </div>
+      {/* Facts a newcomer does not need to use the Agent. The Profile, Provider
+          and model are already in the row above, so they are not repeated. */}
+      <DetailsDisclosure
+        rows={[
+          { label: t("模型"), value: model, code: true },
+          { label: t("接口地址"), value: baseUrl, code: true },
+          { label: t("推荐版本"), value: recommended },
+          { label: t("说明"), value: target.note, wide: true },
+          { label: t("安装包"), value: catalog?.packageManager && catalog.packageName ? catalog.packageName : "", code: true },
+        ]}
+      >
+        {installations.length ? (
+          <div className="agent-installation-details">
+            <small>{t("安装位置")}</small>
+            <div className="agent-installation-list">
+              {installations.map((installation) => (
+                <div className="agent-installation-item" key={installation.id}>
+                  <span>{installation.manager}</span>
+                  <code title={installation.executable}>{installation.executable}</code>
+                  <small>{installation.canUninstall ? t("可卸载") : installation.reason || t("不可卸载")}</small>
+                </div>
+              ))}
             </div>
-          ) : null}
-        </div>
-      </details>
+          </div>
+        ) : null}
+      </DetailsDisclosure>
     </div>
   );
 }

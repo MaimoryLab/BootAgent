@@ -111,7 +111,19 @@ export interface ConversionConfig {
     "enabled": boolean;
     "listen": string;
     "has_api_key": boolean;
+
+    /**
+     * TargetProfile is where Agents still on the shared converter entries are
+     * forwarded. New Agents get a route of their own instead.
+     */
     "target_profile": string;
+
+    /**
+     * Routes maps an Agent to the Chat Completions Profile its requests are
+     * forwarded to. Written by ConfigureAgentWithConversion; SaveConversion
+     * keeps what is stored.
+     */
+    "routes": { [_ in string]?: string } | null;
     "anthropic_model": string;
     "responses_model": string;
     "chat_model": string;
@@ -212,6 +224,29 @@ export interface DetectedConfig {
     "model": string;
     "managedByBootAgent": boolean;
     "unreadable": string | null;
+}
+
+export interface FirstTaskAgent {
+    "id": string;
+    "name": string;
+}
+
+export interface FirstTaskRequest {
+    "agent_id": string;
+    "locale": string;
+}
+
+/**
+ * FirstTaskResult describes a run that started. OK is false when the Agent
+ * failed or wrote nothing, and Directory is empty then: an empty directory is
+ * removed rather than reported.
+ */
+export interface FirstTaskResult {
+    "agent_id": string;
+    "ok": boolean;
+    "directory": string;
+    "files": string[] | null;
+    "log": string;
 }
 
 /**
@@ -779,6 +814,13 @@ export interface StatusResponse {
     "environment": any;
     "environmentError": string | null;
     "desktopAgents": DesktopAgentStatus[] | null;
+
+    /**
+     * ConversionRoutes maps each Agent using compatibility mode to the Chat
+     * Completions Profile its requests actually go to, so a page can name the
+     * real model service instead of the adapter.
+     */
+    "conversionRoutes": { [_ in string]?: string } | null;
 }
 
 export interface TaskHistoryEvent {

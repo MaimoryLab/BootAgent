@@ -7,6 +7,8 @@ import type {
   StatusResponse,
   InstallOutput,
 } from "../types/api";
+import { userProviders } from "./conversion";
+import { firstRunDesktopAgent } from "./desktopSetup";
 import { byProviderCreatedAt, preferProviderWithKey } from "./ranking";
 
 export type AsyncState = "idle" | "loading" | "success" | "error";
@@ -39,6 +41,12 @@ export interface WizardState {
    *  it that way sent the user backwards out of the model step. Cleared only
    *  when the key or the Provider changes. */
   keyVerified: boolean;
+  /** The user accepted compatibility mode after a connection test showed the
+   *  Agent's own format fails but Chat Completions works. Activation then saves
+   *  a Chat Completions Profile and points the Agent at the local adapter.
+   *  Cleared whenever the Agent, Provider, key or probe model changes, because
+   *  the verdict it rests on no longer holds. */
+  conversion: boolean;
   models: string[];
   modelsState: AsyncState;
   modelsMessage: string;
@@ -72,6 +80,7 @@ export const initialWizardState: WizardState = {
   connection: null,
   connectionState: "idle",
   keyVerified: false,
+  conversion: false,
   models: [],
   modelsState: "idle",
   modelsMessage: "",
@@ -93,7 +102,7 @@ export const initialWizardState: WizardState = {
  * preferProviderWithKey for why this stopped being implicit.
  */
 function latestProvider(status: StatusResponse | null, protocol?: string): ProviderId {
-  const candidates = byProviderCreatedAt(status?.providers ?? {}).filter(([, provider]) =>
+  const candidates = byProviderCreatedAt(userProviders(status?.providers ?? {})).filter(([, provider]) =>
     !protocol || (protocol === "anthropic" ? provider.anthropic_base_url : provider.base_url),
   );
   return preferProviderWithKey(candidates)?.[0] || "jiekou";
@@ -106,6 +115,11 @@ function providerDefaultModel(status: StatusResponse | null, provider: ProviderI
   return status?.providers[provider]?.default_model || "";
 }
 
+function arrivalSelection(status: StatusResponse | null): string[] {
+  const agent = firstRunDesktopAgent(status);
+  return agent ? [agent] : [];
+}
+
 export type WizardAction =
   | { type: "STATUS_LOADING" }
   | { type: "STATUS_LOADED"; status: StatusResponse }
@@ -114,6 +128,7 @@ export type WizardAction =
   | { type: "SELECT_AGENT"; agentId: string }
   | { type: "SET_PROVIDER"; value: ProviderId }
   | { type: "SET_PROBE_MODEL"; value: string }
+  | { type: "SET_CONVERSION"; value: boolean }
   | { type: "SET_PROFILE_ID"; value: string }
   | { type: "SET_PROFILE_LABEL"; value: string }
   | { type: "SELECT_PROFILE"; provider: ProviderId; profileId: string; profileLabel: string; model: string; keyVerified: boolean }
@@ -170,6 +185,15 @@ function appendActivationOutput(log: string, output: InstallOutput): string {
   return `${log}${output.kind === "command" && log && !log.endsWith("\n") ? "\n" : ""}${text}`;
 }
 
+/**
+ * A compatibility mode choice made from the Provider's protocol table, before
+ * any connection test. It rests on no test verdict, so the edits that discard a
+ * verdict leave it standing; one made after a failed test is discarded with it.
+ */
+function untestedConversion(state: WizardState): boolean {
+  return state.conversion && state.connectionState === "idle";
+}
+
 export function wizardReducer(state: WizardState, action: WizardAction): WizardState {
   switch (action.type) {
     case "STATUS_LOADING":
@@ -188,6 +212,11 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
           ? {
               provider: latestProvider(action.status),
               ...(state.model ? {} : { model: providerDefaultModel(action.status, latestProvider(action.status)) }),
+              // Seeded here for the same reason: the list this picks from only
+              // exists once the status has arrived.
+              ...(state.setupKind === "desktop" && !state.selectedAgentIds.length
+                ? { selectedAgentIds: arrivalSelection(action.status) }
+                : {}),
             }
           : {}),
       };
@@ -202,6 +231,7 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
           statusState: state.statusState,
           statusError: state.statusError,
           setupKind: "desktop",
+          selectedAgentIds: arrivalSelection(state.status),
           provider,
           model: providerDefaultModel(state.status, provider),
         };
@@ -232,6 +262,7 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
             connection: null,
             connectionState: "idle" as const,
             keyVerified: false,
+            conversion: false,
             models: [],
             modelsState: "idle" as const,
             modelsMessage: "",
@@ -244,7 +275,7 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
     case "SET_PROFILE_LABEL":
       return { ...state, profileLabel: action.value };
     case "START_NEW_PROFILE":
-      return { ...state, profileId: "", profileLabel: "", model: providerDefaultModel(state.status, state.provider), reusedProfile: false, keyVerified: false, connection: null, connectionState: "idle", models: [], modelsState: "idle", modelsMessage: "" };
+      return { ...state, profileId: "", profileLabel: "", model: providerDefaultModel(state.status, state.provider), reusedProfile: false, keyVerified: false, conversion: false, connection: null, connectionState: "idle", models: [], modelsState: "idle", modelsMessage: "" };
     case "SET_PROFILE_STEP_SKIPPED":
       return { ...state, profileStepSkipped: action.value };
     case "SELECT_PROFILE":
@@ -257,6 +288,9 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
         profileStepSkipped: false,
         model: action.model,
         keyVerified: action.keyVerified,
+        // A saved Profile is used as it is; compatibility mode is a choice made
+        // while creating one.
+        conversion: false,
         connection: null,
         connectionState: action.keyVerified ? "success" : "idle",
       };
@@ -291,6 +325,7 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
         connection: null,
         connectionState: "idle",
         keyVerified: false,
+        conversion: false,
         models: [],
         modelsState: "idle",
         modelsMessage: "",
@@ -306,7 +341,13 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
         connection: null,
         connectionState: "idle",
         keyVerified: false,
+        conversion: untestedConversion(state),
       };
+    case "SET_CONVERSION":
+      // Accepting after a failed test rests on Chat Completions having answered
+      // with this key, which is as much proof of the key as a native success.
+      // Accepting the untested suggestion proves nothing about the key.
+      return { ...state, conversion: action.value, keyVerified: state.keyVerified || (action.value && state.connectionState === "error") };
     case "SET_HAS_API_KEY":
       // Any edit of the key invalidates the previous probe verdict. The reducer
       // only sees the non-empty boolean (the secret itself stays in a ref), so
@@ -318,9 +359,13 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
         connection: null,
         connectionState: "idle",
         keyVerified: false,
+        // Typing the key, and clearing it once it is saved on Continue, both
+        // land here: dropping an untested choice would install the Agent
+        // without the compatibility mode the user had just picked.
+        conversion: untestedConversion(state),
       };
     case "CONNECTION_LOADING":
-      return { ...state, connectionState: "loading", connection: null };
+      return { ...state, connectionState: "loading", connection: null, conversion: false };
     case "CONNECTION_RESULT":
       return {
         ...state,
