@@ -336,8 +336,14 @@ func TestModelCheckRunsWithTheWriteLockReleased(t *testing.T) {
 	core := gatewayCore(t, gateway)
 	var heldDuringProbe atomic.Bool
 	var probed atomic.Bool
+	// The protocols are probed concurrently, and the TryLock below takes the
+	// lock for an instant. Without this, one probe's own attempt is what another
+	// probe finds held.
+	var oneProbeAtATime sync.Mutex
 	gateway.mu.Lock()
 	gateway.onRequest = func() {
+		oneProbeAtATime.Lock()
+		defer oneProbeAtATime.Unlock()
 		probed.Store(true)
 		if !core.writeMu.TryLock() {
 			heldDuringProbe.Store(true)
