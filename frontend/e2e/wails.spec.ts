@@ -270,16 +270,24 @@ test("Claude Desktop adapts a Chat Completions Profile after one confirmation", 
   await page.getByRole("textbox", { name: "模型", exact: true }).fill("bootagent-e2e-model");
   await page.getByRole("button", { name: "保存配置模版" }).click();
 
-  // Only the port: there is no single model to choose here any more. The
+  // Compatibility mode has no page of its own: its old address lands on 设置,
+  // where the few things set by hand live. Only the port is changed here; the
   // default 8787 may be taken on the machine running the tests.
   await page.goto("/#/conversion");
-  await page.getByRole("button", { name: "高级设置" }).click();
+  await expect(page).toHaveURL(/#\/settings$/);
+  await expect(page.getByRole("link", { name: "兼容模式" })).toHaveCount(0);
+  await page.getByText("高级设置").click();
   await page.getByLabel("监听地址").fill("127.0.0.1:34125");
   await page.getByRole("button", { name: "保存更改" }).click();
-  // Nothing uses compatibility mode yet, so once the address is saved the
-  // primary action goes back to turning it on. The save button is only disabled
-  // while the request is in flight, which a fast save finishes before this runs.
-  await expect(page.getByRole("button", { name: "开启兼容模式" })).toBeDisabled();
+  // Read back from a fresh page: a receipt may be waiting behind the Profile's.
+  await expect(page.getByRole("button", { name: "保存更改" })).toBeDisabled();
+  await page.reload();
+  await page.getByText("高级设置").click();
+  await expect(page.getByLabel("监听地址")).toHaveValue("127.0.0.1:34125");
+  // Nothing uses it yet, so there is nothing to switch on by hand.
+  const compatibility = page.getByRole("switch", { name: "兼容模式" });
+  await expect(compatibility).not.toBeChecked();
+  await expect(compatibility).toBeDisabled();
 
   await page.goto("/#/agents/claude-desktop");
   await page.getByLabel("选择 Claude Desktop E2E Chat").check();
@@ -315,17 +323,45 @@ test("Codex and Claude Desktop use different models through compatibility mode",
   await apply.click();
   await expect(page).toHaveURL(/#\/overview$/);
 
-  await page.goto("/#/conversion");
-  const users = page.getByRole("region", { name: "正在使用的 Agent" });
-  const row = (name: string) => users.getByRole("listitem").filter({ has: page.getByText(name, { exact: true }) });
-  await expect(row("Codex")).toContainText("codex-e2e-model");
-  await expect(row("Claude Desktop")).toContainText("bootagent-e2e-model");
-  // ChatGPT Desktop shares Codex's settings, so it follows Codex's route.
-  await expect(row("ChatGPT Desktop")).toContainText("codex-e2e-model");
+  // 设置 says who depends on it. ChatGPT Desktop shares Codex's settings, so
+  // it follows Codex.
+  await page.goto("/#/settings");
+  await expect(page.getByRole("switch", { name: "兼容模式" })).toBeChecked();
+  const users = page.getByText(/正在使用，使用期间需要保持 BootAgent 运行$/);
+  await expect(users).toContainText("Codex");
+  await expect(users).toContainText("Claude Desktop");
+  await expect(users).toContainText("ChatGPT Desktop");
 
-  // Reopening Codex shows the model it uses, not the adapter.
-  await users.getByRole("button", { name: "为 Codex 更换模型" }).click();
+  // Each Agent's own page shows the model it uses, not the adapter.
+  // Each from the overview, as a user gets there.
+  await page.goto("/#/agents/claude-desktop");
+  await expect(page.getByLabel("选择 Claude Desktop E2E Chat")).toBeChecked();
+  await page.goto("/#/overview");
+  await page.goto("/#/agents/codex");
   await expect(page.getByLabel("选择 Codex E2E Chat")).toBeChecked();
+});
+
+// Runs after the two cases above. Compatibility mode ends where it began, on
+// the Agent: an ordinary Profile takes Codex out of it, and Claude Desktop,
+// still on its own route, keeps it running.
+test("an Agent given an ordinary Profile leaves compatibility mode", async ({ page }) => {
+  await page.goto("/#/profiles");
+  await page.getByRole("button", { name: "新增配置模版" }).click();
+  await page.getByLabel("配置模版 ID").fill("codex-e2e-native");
+  await page.getByLabel("名称").fill("Codex E2E Native");
+  await page.getByRole("combobox", { name: "API 类型" }).click();
+  await page.getByRole("option", { name: "OpenAI Responses" }).click();
+  await page.getByRole("textbox", { name: "模型", exact: true }).fill("codex-e2e-native-model");
+  await page.getByRole("button", { name: "保存配置模版" }).click();
+
+  await page.goto("/#/agents/codex");
+  await page.getByLabel("选择 Codex E2E Native").check();
+  await page.getByRole("button", { name: "应用", exact: true }).click();
+  await expect(page).toHaveURL(/#\/overview$/);
+
+  await page.goto("/#/settings");
+  await expect(page.getByRole("switch", { name: "兼容模式" })).toBeChecked();
+  await expect(page.getByText("Claude Desktop 正在使用，使用期间需要保持 BootAgent 运行", { exact: true })).toBeVisible();
 });
 
 test("Skills and MCP management lead to their marketplace categories", async ({ page }) => {

@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { api } from "../backend/api";
 import { FeedbackViewport } from "../components/FeedbackViewport";
+import { resetAutostartOffer } from "../state/applyConversion";
 import { FeedbackProvider } from "../state/FeedbackContext";
 import type { ProfileSummary, SaveProfileResult, StatusResponse } from "../types/api";
 import { AgentProfilePage } from "./AgentProfilePage";
@@ -578,6 +579,43 @@ describe("AgentProfilePage", () => {
     await waitFor(() => expect(convert).toHaveBeenCalledWith("codex", "chat-only"));
     expect(activate).not.toHaveBeenCalled();
     expect(await screen.findByRole("heading", { name: "overview" })).toBeTruthy();
+  });
+
+  // The adapter's own Providers are hidden from the picker, so one must not be
+  // the default either: the picker showed nothing while the new Profile was
+  // quietly bound to the adapter.
+  it("starts a new Profile on a model service of the user's, never the adapter's own", async () => {
+    const status = statusWith([profile({ id: "team-ppio", protocol: "responses" })]);
+    status.providers["bootagent-converter-for-codex"] = {
+      name: "BootAgent codex", home: "", base_url: "http://127.0.0.1:8787/v1", has_key: true, created_at: "2026-11-20T00:00:00Z",
+    } as StatusResponse["providers"][string];
+    mockState = { status, statusState: "success" };
+    render(
+      <MemoryRouter initialEntries={["/agents/codex"]}>
+        <Routes><Route path="/agents/:agentId" element={<AgentProfilePage />} /></Routes>
+      </MemoryRouter>,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "创建配置模版" }));
+    expect(screen.getByLabelText("配置模版 ID")).toHaveValue("codex-ppio");
+    expect(screen.getByRole("combobox", { name: "模型服务" })).toHaveTextContent("PPIO");
+  });
+
+  // Once an Agent depends on BootAgent running, starting with the system is
+  // worth one question. It used to be asked on the compatibility mode page.
+  it("asks about starting with the system after switching an Agent to compatibility mode", async () => {
+    resetAutostartOffer();
+    vi.spyOn(api, "activateAgentWithConversion").mockResolvedValue({
+      ok: true, agent: "codex", config: "/c", provider: "bootagent-converter-for-codex", model: "gpt-5.6-sol",
+      restart: "", next: "", upstreamVerified: true, endToEndVerified: true,
+    });
+    vi.spyOn(api, "getSettings").mockResolvedValue({ autostart: false } as never);
+    const save = vi.spyOn(api, "saveSettings").mockResolvedValue({ autostart: true } as never);
+    renderPage([profile({ id: "chat-only", label: "Chat only", protocol: "openai" })]);
+
+    await userEvent.click(screen.getByRole("radio", { name: "选择 Chat only" }));
+    await userEvent.click(screen.getByRole("button", { name: "用兼容模式应用" }));
+    await waitFor(() => expect(save).toHaveBeenCalledWith({ autostart: true }));
   });
 
   it("does not offer Chat Completions Profiles to an Agent that already speaks it", () => {

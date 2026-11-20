@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 
 import { api, failureLine } from "../backend/api";
 import { OTA_PROGRESS_TARGET } from "../backend/wails";
+import { CompatibilitySetting } from "../components/CompatibilitySetting";
 import { MirrorSetting } from "../components/MirrorSetting";
 import { PageScaffold } from "../components/PageScaffold";
 import { SelectField } from "../components/SelectField";
@@ -229,6 +230,10 @@ export function SettingsPage() {
             ]}
           />
         </div>
+      </section>
+      <section className="settings-section">
+        <h2>{t("兼容模式")}</h2>
+        <CompatibilitySetting />
       </section>
       <section className="settings-section">
         <h2>{t("数据")}</h2>

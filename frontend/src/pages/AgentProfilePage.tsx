@@ -11,8 +11,8 @@ import { SelectField } from "../components/SelectField";
 import { useI18n } from "../i18n";
 import { desktopApps, desktopProfileUsable, desktopProfiles, desktopProtocol, profileAgentIdForDesktop } from "../state/desktopSetup";
 import { byProfileCreatedAt, byProviderCreatedAt, preferProviderWithKey } from "../state/ranking";
-import { applyConversion, confirmConversion, conversionTargets } from "../state/applyConversion";
-import { canConvertProtocol, conversionTargetFor, converterProfileName, isConverterID, providerDisplayName } from "../state/conversion";
+import { applyConversion, confirmConversion, conversionTargets, offerAutostart } from "../state/applyConversion";
+import { canConvertProtocol, conversionTargetFor, converterProfileName, isConverterID, providerDisplayName, userProviders } from "../state/conversion";
 import { useFeedback } from "../state/FeedbackContext";
 import { saveReceipt } from "../state/saveReceipt";
 import { useWizard } from "../state/WizardContext";
@@ -225,8 +225,13 @@ export function AgentProfilePage() {
     }
   };
 
+  const autostartFailed = (error: unknown) => feedback.failure(error, t("无法保存开机自启动设置"), { key: "autostart" });
+
   const openCreate = () => {
-    const usable = byProviderCreatedAt(status.providers).filter(([, meta]) =>
+    // The adapter's own Providers are never offered (ProviderSegment hides
+    // them), so one must not be preselected either: the picker would show
+    // nothing while the draft still pointed at it.
+    const usable = byProviderCreatedAt(userProviders(status.providers)).filter(([, meta]) =>
       protocol === "anthropic" ? meta.anthropic_base_url : meta.base_url,
     );
     const provider = preferProviderWithKey(usable)?.[0] || "jiekou";
@@ -383,6 +388,7 @@ export function AgentProfilePage() {
         });
       }
       await refreshStatus();
+      if (requiresConversion) void offerAutostart(t, autostartFailed);
     } catch (error) {
       // Stays on this page: the choice that failed is what the user may change.
       feedback.failure(error, t("应用配置模版失败"), { key: `apply:${agentId}` });
@@ -413,6 +419,7 @@ export function AgentProfilePage() {
     try {
       await applyConversion(status, conversionTargets(status, [app?.id || owner]), source, t);
       await refreshStatus();
+      void offerAutostart(t, autostartFailed);
     } catch (error) {
       feedback.failure(error, t("无法开启兼容模式"), { key: `apply:${agentId}` });
       setBusy(false);

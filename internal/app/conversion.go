@@ -307,6 +307,9 @@ func (u *UseCases) ensureConversionRoute(ctx context.Context, agentID, profileID
 	if err != nil {
 		return ConversionConfig{}, "", err
 	}
+	if target := u.profileByID(profileID); target.ID == "" || target.Protocol != provider.ProtocolOpenAI {
+		return ConversionConfig{}, "", oneerrors.New(oneerrors.InvalidRequest, "Compatibility mode forwards to a Chat Completions Profile")
+	}
 	c, err := u.Conversion(ctx)
 	if err != nil {
 		return c, "", err
@@ -397,14 +400,12 @@ func (u *UseCases) saveConversion(ctx context.Context, c ConversionConfig) (Conv
 	if err := validateConversionListen(c.Listen); err != nil {
 		return c, err
 	}
+	// Routes are not checked here. A route is checked when it is set, and a
+	// request through one whose target has since gone is refused on its own
+	// (conversionTarget). Checking every route on every save let one Agent's
+	// leftover route block stopping the adapter for all of them.
 	if c.Routes == nil {
 		c.Routes = map[string]string{}
-	}
-	for agentID, profileID := range c.Routes {
-		target := u.profileByID(profileID)
-		if target.ID == "" || target.Protocol != provider.ProtocolOpenAI {
-			return c, fmt.Errorf("compatibility mode for %s must forward to a Chat Completions Profile", agentID)
-		}
 	}
 	if c.AnthropicModel == "" {
 		c.AnthropicModel = defaultAnthropicConversionModel
@@ -430,6 +431,96 @@ func (u *UseCases) saveConversion(ctx context.Context, c ConversionConfig) (Conv
 		return c, err
 	}
 	return stored, nil
+}
+
+// conversionUsers is the Agents whose own files point at the adapter, each with
+// the converter Profile it is bound to.
+func (u *UseCases) conversionUsers() (map[string]string, error) {
+	bindings, err := u.profiles.ListAgentBindings()
+	if err != nil {
+		return nil, err
+	}
+	users := map[string]string{}
+	for agentID, binding := range bindings {
+		if isConverterID(binding.ProfileRef) {
+			users[agentID] = binding.ProfileRef
+		}
+	}
+	return users, nil
+}
+
+// SettleConversion brings compatibility mode in line with the Agents that use
+// it: the route of an Agent that has moved to an ordinary Profile is dropped,
+// and the adapter stops once no Agent is pointed at it.
+//
+// Compatibility mode has no page of its own. It starts when an Agent needs it
+// and this is how it ends, so nothing is left running, or left pointing at a
+// Profile the user may now delete, after the last Agent has moved on.
+//
+// Callers must not hold conversionMu or writeMu.
+func (u *UseCases) SettleConversion(ctx context.Context) error {
+	if u == nil {
+		return nil
+	}
+	u.conversionMu.Lock()
+	defer u.conversionMu.Unlock()
+	c, err := u.Conversion(ctx)
+	if err != nil {
+		return err
+	}
+	if !c.Enabled && len(c.Routes) == 0 {
+		return nil
+	}
+	users, err := u.conversionUsers()
+	if err != nil {
+		return err
+	}
+	changed := false
+	for agentID := range c.Routes {
+		if users[agentID] != converterRouteID(agentID) {
+			delete(c.Routes, agentID)
+			changed = true
+		}
+	}
+	if c.Enabled && len(users) == 0 {
+		c.Enabled = false
+		changed = true
+	}
+	if !changed {
+		return nil
+	}
+	_, err = u.saveConversion(ctx, c)
+	return err
+}
+
+// conversionTargetUsers is the Agents whose requests compatibility mode
+// forwards to `profileID`. They are bound to a converter Profile, so the
+// bindings alone do not show that they depend on this one. Callers must hold
+// writeMu.
+func (u *UseCases) conversionTargetUsers(ctx context.Context, profileID string, bindings map[string]profileStore.AgentBinding) []string {
+	conversion, err := u.Conversion(ctx)
+	if err != nil {
+		return nil
+	}
+	var users []string
+	for agentID, target := range conversion.Routes {
+		if target != profileID {
+			continue
+		}
+		if binding, err := u.profiles.ReadAgentBinding(agentID); err == nil && binding != nil && binding.ProfileRef == converterRouteID(agentID) {
+			users = append(users, agentID)
+		}
+	}
+	if conversion.TargetProfile == profileID {
+		for agentID, binding := range bindings {
+			if !slices.Contains(users, agentID) && isConverterID(binding.ProfileRef) {
+				if _, routed := routeAgent(binding.ProfileRef); !routed {
+					users = append(users, agentID)
+				}
+			}
+		}
+	}
+	return users
 }
 
 func profileModel(profile profileStore.Profile) string {

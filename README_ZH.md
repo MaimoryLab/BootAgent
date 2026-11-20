@@ -138,7 +138,7 @@ BootAgent 不重新分发 Agent 包，也不捆绑 Node.js、Git、WebView 或 A
 | --- | --- |
 | 找不到 Agent | 刷新“环境总览”，确认命令在 `PATH` 中，或按 Agent 官方指引手动安装后再次检测。 |
 | Provider 连接检查失败 | 确认端点和模型与 Agent 使用的协议一致。对已保存的 Profile 使用“检测模型”；保存或应用 Profile 不会自动发送模型请求。 |
-| Codex 报错 `does not support endpoint: responses` | Codex 的配置使用 Responses。选择支持它的模型，或在 API 协议适配中选择可用的 Chat Completions Profile，再应用生成的 Codex Profile。模型出现在 `/models` 中并不证明它支持 Responses。 |
+| Codex 报错 `does not support endpoint: responses` | Codex 的配置使用 Responses。选择支持它的模型，或在 Codex 的配置页选一个可用的 Chat Completions 配置模版，用兼容模式应用，由 BootAgent 在本机转换。模型出现在 `/models` 中并不证明它支持 Responses。 |
 | Windows 检测到桌面应用但版本不可用 | BootAgent 会通过 Windows PackageManager 重试读取已注册应用包的元数据。如果仍无法读取，仍可尝试启动；这个提示与模型 API 兼容性无关。 |
 | 工具市场内容不完整 | 查看来源状态并点击刷新；在线来源不可用时仍会显示内置目录。 |
 | 导入提示冲突 | 查看导入预览，选择跳过或覆盖，并确认受影响的资源名称。 |

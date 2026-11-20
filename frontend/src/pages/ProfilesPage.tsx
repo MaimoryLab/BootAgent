@@ -10,7 +10,7 @@ import { ProviderModelPicker } from "../components/ProviderModelPicker";
 import { ProviderSegment } from "../components/ProviderSegment";
 import { SelectField } from "../components/SelectField";
 import { useI18n } from "../i18n";
-import { applyConversion, confirmConversion, conversionTargets } from "../state/applyConversion";
+import { applyConversion, confirmConversion, conversionTargets, offerAutostart } from "../state/applyConversion";
 import { confirmDelete } from "../state/confirmDelete";
 import { useFeedback } from "../state/FeedbackContext";
 import { saveReceipt } from "../state/saveReceipt";
@@ -266,6 +266,7 @@ export function ProfilesPage() {
       setChecked(null);
       feedback.show({ key, tone: "success", message: t("{agent} 已改用兼容模式", { agent: names.join(separator) }) });
       await refreshStatus();
+      void offerAutostart(t, (error) => feedback.failure(error, t("无法保存开机自启动设置"), { key: "autostart" }));
     } catch (error) {
       feedback.failure(error, t("无法开启兼容模式"), { key });
     } finally {

@@ -144,7 +144,7 @@ BootAgent does not redistribute Agent packages and does not bundle Node.js, Git,
 | --- | --- |
 | Agent is not listed | Refresh Environment overview, check that the command is on `PATH`, or use the Agent's documented manual install path. |
 | Provider connection check fails | Confirm the endpoint and model match the Agent's protocol. Use Check model for a saved Profile; saving or applying a Profile does not automatically send a model request. |
-| Codex reports `does not support endpoint: responses` | Codex is configured to use Responses. Select a model that supports it, or use the API protocol adapter with a working Chat Completions Profile and apply its generated Codex Profile. A model appearing in `/models` does not prove Responses support. |
+| Codex reports `does not support endpoint: responses` | Codex is configured to use Responses. Select a model that supports it, or pick a working Chat Completions Profile on Codex's page and apply it with compatibility mode, which converts the requests on this computer. A model appearing in `/models` does not prove Responses support. |
 | Windows detects a desktop app but its version is unavailable | BootAgent retries the registered package's metadata through Windows PackageManager. If the metadata remains inaccessible, launch is still available; this warning is separate from model API compatibility. |
 | Marketplace looks incomplete | Check the source status and refresh. A bundled snapshot remains available when an online source is unavailable. |
 | Import reports a conflict | Review the preview, choose skip or overwrite, and apply only after checking the affected resource names. |

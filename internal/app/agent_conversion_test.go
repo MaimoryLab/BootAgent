@@ -355,3 +355,158 @@ func TestProbeProviderReportsAProtocolCompatibilityModeCanServe(t *testing.T) {
 		})
 	}
 }
+
+// leaveCompatibilityMode applies an ordinary Profile to an Agent, which is the
+// only way an Agent leaves compatibility mode.
+func leaveCompatibilityMode(t *testing.T, core *UseCases, agentID string) {
+	t.Helper()
+	protocol, err := conversionAgentProtocol(agentID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := core.providers.Get("native-upstream"); err != nil {
+		if _, err := core.SaveProvider(context.Background(), provider.Entry{
+			ID: "native-upstream", Name: "Native upstream", BaseURL: "https://native.example/v1", AnthropicBaseURL: "https://native.example", APIKey: "native-secret",
+		}, true, false); err != nil {
+			t.Fatal(err)
+		}
+	}
+	profileID := "native-" + agentID
+	if _, err := core.SaveProfile(context.Background(), SaveProfileOptions{
+		ID: profileID, Label: profileID, Provider: "native-upstream", Model: "model-n", Protocol: protocol, ConfigMode: "provider",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := core.ActivateAgent(context.Background(), ActivateAgentOptions{
+		AgentID: agentID, Provider: "native-upstream", Model: "model-n", ProfileID: profileID,
+	}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func adapterListening(listen string) bool {
+	connection, err := net.Dial("tcp", listen)
+	if err != nil {
+		return false
+	}
+	_ = connection.Close()
+	return true
+}
+
+// Compatibility mode has no switch of its own to remember. It ends where it
+// began, on the Agent: one that moves to an ordinary Profile gives up its
+// route, and the adapter stops when the last one has.
+func TestSettleConversionDropsTheRoutesOfAgentsThatLeftAndStopsWhenNoneIsLeft(t *testing.T) {
+	upstream := chatOnlyUpstream(t)
+	core, _, listen := chatProfileCore(t, upstream.URL)
+	for _, agentID := range []string{"codex", "claude-code"} {
+		if _, err := core.ConfigureAgentWithConversion(context.Background(), agentID, "chat-upstream"); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	leaveCompatibilityMode(t, core, "codex")
+	if err := core.SettleConversion(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	conversion, err := core.Conversion(context.Background())
+	if err != nil || !conversion.Enabled || len(conversion.Routes) != 1 || conversion.Routes["claude-code"] != "chat-upstream" {
+		t.Fatalf("after Codex left: %#v, err=%v", conversion, err)
+	}
+	if !adapterListening(listen) {
+		t.Fatal("the adapter stopped while Claude Code still used it")
+	}
+
+	leaveCompatibilityMode(t, core, "claude-code")
+	if err := core.SettleConversion(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	conversion, err = core.Conversion(context.Background())
+	if err != nil || conversion.Enabled || len(conversion.Routes) != 0 {
+		t.Fatalf("after the last Agent left: %#v, err=%v", conversion, err)
+	}
+	if adapterListening(listen) {
+		t.Fatal("the adapter kept running with no Agent pointed at it")
+	}
+}
+
+// An Agent that left compatibility mode used to leave its route behind, and a
+// route whose Profile was then deleted failed every later save: the adapter
+// could not be stopped, no other Agent could be switched to it, and its keys
+// could not be regenerated.
+func TestALeftoverRouteDoesNotBlockCompatibilityModeForOtherAgents(t *testing.T) {
+	upstream := chatOnlyUpstream(t)
+	core, _, listen := chatProfileCore(t, upstream.URL)
+	if _, err := core.SaveProfile(context.Background(), SaveProfileOptions{
+		ID: "short-lived", Label: "Short-lived", Provider: "chat-upstream", Model: "model-b", Protocol: provider.ProtocolOpenAI, ConfigMode: "provider",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := core.ConfigureAgentWithConversion(context.Background(), "codex", "short-lived"); err != nil {
+		t.Fatal(err)
+	}
+	// Not settled: this is the state an earlier version left on disk.
+	leaveCompatibilityMode(t, core, "codex")
+	if err := core.DeleteProfile(context.Background(), "short-lived"); err != nil {
+		t.Fatal(err)
+	}
+	if conversion, _ := core.Conversion(context.Background()); conversion.Routes["codex"] != "short-lived" {
+		t.Fatalf("the leftover route this test is about is missing: %#v", conversion.Routes)
+	}
+
+	if _, err := core.ConfigureAgentWithConversion(context.Background(), "claude-code", "chat-upstream"); err != nil {
+		t.Fatalf("another Agent could not use compatibility mode: %v", err)
+	}
+	if _, err := core.RegenerateConversionAPIKey(context.Background()); err != nil {
+		t.Fatalf("local keys could not be regenerated: %v", err)
+	}
+	if _, err := core.SetConversionEnabled(context.Background(), false); err != nil {
+		t.Fatalf("compatibility mode could not be stopped: %v", err)
+	}
+	if adapterListening(listen) {
+		t.Fatal("the adapter kept running after it was stopped")
+	}
+	// And the next settle clears it away, without stopping what is in use.
+	if _, err := core.SetConversionEnabled(context.Background(), true); err != nil {
+		t.Fatal(err)
+	}
+	if err := core.SettleConversion(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	conversion, err := core.Conversion(context.Background())
+	if err != nil || !conversion.Enabled || len(conversion.Routes) != 1 || conversion.Routes["claude-code"] != "chat-upstream" {
+		t.Fatalf("after settling: %#v, err=%v", conversion, err)
+	}
+}
+
+// The adapter only converts into Chat Completions. Changing what the target
+// Profile speaks would have every request of the Agent behind it refused, so
+// it is refused at the edit, like deleting the Profile is.
+func TestChangingTheProtocolOfARouteTargetIsRefusedWhileAnAgentUsesIt(t *testing.T) {
+	upstream := chatOnlyUpstream(t)
+	core, _, _ := chatProfileCore(t, upstream.URL)
+	if _, err := core.ConfigureAgentWithConversion(context.Background(), "codex", "chat-upstream"); err != nil {
+		t.Fatal(err)
+	}
+	edit := SaveProfileOptions{ID: "chat-upstream", Label: "Chat upstream", Provider: "chat-upstream", Model: "model-a", Protocol: provider.ProtocolResponses, ConfigMode: "provider"}
+	if _, err := core.SaveProfile(context.Background(), edit); err == nil || !strings.Contains(err.Error(), "codex") {
+		t.Fatalf("protocol change error = %v", err)
+	}
+	if stored := core.profileByID("chat-upstream"); stored.Protocol != provider.ProtocolOpenAI {
+		t.Fatalf("the refused edit was stored: protocol = %q", stored.Protocol)
+	}
+	// Any other edit still goes through.
+	edit.Protocol, edit.Model = provider.ProtocolOpenAI, "model-b"
+	if _, err := core.SaveProfile(context.Background(), edit); err != nil {
+		t.Fatal(err)
+	}
+
+	leaveCompatibilityMode(t, core, "codex")
+	if err := core.SettleConversion(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	edit.Protocol = provider.ProtocolResponses
+	if _, err := core.SaveProfile(context.Background(), edit); err != nil {
+		t.Fatalf("the Profile could not be changed once nothing was forwarded to it: %v", err)
+	}
+}
