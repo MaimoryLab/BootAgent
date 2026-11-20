@@ -70,14 +70,28 @@ func (r *zcodeRunner) Start(argv []string, _ map[string]string) error {
 	return nil
 }
 
+// zcodeTestFeedURL is the manifest address the install asks for a platform.
+func zcodeTestFeedURL(t *testing.T, osID, arch string) string {
+	t.Helper()
+	endpoint, err := zcodeFeedURL(osID, arch)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return endpoint
+}
+
+// The addresses are spelled out rather than rebuilt from the constants: they are
+// what the vendor's release service was observed to answer, platform names and
+// stable channel value included.
 func TestZCodeFeedURLPerPlatformAndArch(t *testing.T) {
+	const service = "https://zcode.z.ai/api/v1/releases/electron/manifest"
 	tests := []struct {
 		osID, arch, want string
 	}{
-		{"macos", "arm64", ZCodeFeedBase + "mac/arm64/latest-mac.yml"},
-		{"macos", "x86_64", ZCodeFeedBase + "mac/x64/latest-mac.yml"},
-		{"windows", "x64", ZCodeFeedBase + "win/x64/latest.yml"},
-		{"windows", "aarch64", ZCodeFeedBase + "win/arm64/latest.yml"},
+		{"macos", "arm64", service + "?channel=1&platform=darwin-aarch64"},
+		{"macos", "x86_64", service + "?channel=1&platform=darwin-x86_64"},
+		{"windows", "x64", service + "?channel=1&platform=windows-x86_64"},
+		{"windows", "aarch64", service + "?channel=1&platform=windows-aarch64"},
 	}
 	for _, test := range tests {
 		got, err := zcodeFeedURL(test.osID, test.arch)
@@ -87,6 +101,75 @@ func TestZCodeFeedURLPerPlatformAndArch(t *testing.T) {
 	}
 	if _, err := zcodeFeedURL("linux", "x64"); err == nil {
 		t.Fatal("zcodeFeedURL() accepted linux, which BootAgent cannot verify")
+	}
+	// The vendor publishes no 32-bit Windows build.
+	if _, err := zcodeFeedURL("windows", "ia32"); err == nil {
+		t.Fatal("zcodeFeedURL() accepted an architecture the vendor has no build for")
+	}
+}
+
+// Supported has to follow the same table as the manifest lookup, or the UI
+// offers an install that can only fail.
+func TestZCodeIsSupportedOnlyWhereTheVendorPublishesABuild(t *testing.T) {
+	tests := []struct {
+		osID, arch string
+		supported  bool
+		source     string
+	}{
+		{"macos", "arm64", true, SourceMacOSZIP},
+		{"macos", "x64", true, SourceMacOSZIP},
+		{"windows", "x64", true, SourceWindowsInstaller},
+		{"windows", "arm64", true, SourceWindowsInstaller},
+		{"windows", "ia32", false, SourceUnknown},
+		{"macos", "ppc", false, SourceUnknown},
+		{"linux", "x64", false, SourceUnknown},
+		{"linux", "arm64", false, SourceUnknown},
+	}
+	for _, test := range tests {
+		options := Options{
+			Home: t.TempDir(), Platform: platform.Info{OS: test.osID, Arch: test.arch},
+			Runner: &zcodeRunner{t: t}, SearchRoots: []string{t.TempDir()},
+		}
+		status := inspectZCode(context.Background(), options)
+		if status.Supported != test.supported || status.Source != test.source {
+			t.Fatalf("inspectZCode(%s/%s) = supported %v, source %q", test.osID, test.arch, status.Supported, status.Source)
+		}
+		_, feedErr := zcodeFeedURL(test.osID, test.arch)
+		if (feedErr == nil) != test.supported {
+			t.Fatalf("zcodeFeedURL(%s/%s) error = %v, but supported = %v", test.osID, test.arch, feedErr, test.supported)
+		}
+		if test.supported {
+			continue
+		}
+		downloader := &routeDownloader{}
+		options.Downloader = downloader
+		if _, err := Install(context.Background(), ZCodeID, options); err == nil || !strings.Contains(err.Error(), "not supported") {
+			t.Fatalf("Install(%s/%s) error = %v", test.osID, test.arch, err)
+		}
+		if len(downloader.hits) != 0 {
+			t.Fatalf("Install(%s/%s) made requests: %#v", test.osID, test.arch, downloader.hits)
+		}
+	}
+}
+
+// The release service answers a request it cannot satisfy with HTTP 200 and a
+// JSON error object. That parses as YAML, so without a check it would surface as
+// a manifest that merely lists no package.
+func TestZCodeInstallRejectsTheServicesErrorBody(t *testing.T) {
+	feedURL := zcodeTestFeedURL(t, "macos", "arm64")
+	downloader := &routeDownloader{routes: map[string][]byte{
+		feedURL: []byte(`{"code":1000,"msg":"something went wrong","logid":"20261119102740"}`),
+	}}
+	runner := &zcodeRunner{t: t}
+	_, err := Install(context.Background(), ZCodeID, Options{
+		Home: t.TempDir(), Platform: platform.For("macos", "arm64"), Runner: runner, Downloader: downloader,
+		SearchRoots: []string{t.TempDir()}, ApplicationDirs: []string{t.TempDir()},
+	})
+	if err == nil || !strings.Contains(err.Error(), "returned no release") {
+		t.Fatalf("Install() error = %v", err)
+	}
+	if len(downloader.hits) != 1 || len(runner.calls) != 0 {
+		t.Fatalf("install went on after an error body: downloads=%#v calls=%#v", downloader.hits, runner.calls)
 	}
 }
 
@@ -148,7 +231,7 @@ func TestVerifyZCodeDigestRejectsTamperedAndTruncatedPackages(t *testing.T) {
 
 func TestZCodeMacOSInstallVerifiesDigestBundleIDAndSignature(t *testing.T) {
 	payload := []byte("ZCode macOS archive")
-	feedURL := ZCodeFeedBase + "mac/arm64/latest-mac.yml"
+	feedURL := zcodeTestFeedURL(t, "macos", "arm64")
 	zipURL := "https://" + ZCodeUpdateHost + "/zcode/electron/releases/3.7.5/macos-arm64/ZCode-3.7.5-mac-arm64.zip"
 	dmgURL := "https://" + ZCodeUpdateHost + "/zcode/electron/releases/3.7.5/macos-arm64/ZCode-3.7.5-mac-arm64.dmg"
 	feed := zcodeFeedYAML("3.7.5", zipURL, zcodeDigest(payload), int64(len(payload)), dmgURL, zcodeDigest([]byte("dmg")), 99)
@@ -183,7 +266,7 @@ func TestZCodeMacOSInstallVerifiesDigestBundleIDAndSignature(t *testing.T) {
 // A digest mismatch has to stop the install before the archive is unpacked or
 // copied, otherwise the check is decorative.
 func TestZCodeMacOSInstallStopsBeforeExtractingOnDigestMismatch(t *testing.T) {
-	feedURL := ZCodeFeedBase + "mac/arm64/latest-mac.yml"
+	feedURL := zcodeTestFeedURL(t, "macos", "arm64")
 	zipURL := "https://" + ZCodeUpdateHost + "/a/ZCode.zip"
 	feed := zcodeFeedYAML("3.7.5", zipURL, zcodeDigest([]byte("expected")), 8, zipURL+".dmg", "ZG1n", 3)
 	downloader := &routeDownloader{routes: map[string][]byte{feedURL: feed, zipURL: []byte("replaced")}}
@@ -202,7 +285,7 @@ func TestZCodeMacOSInstallStopsBeforeExtractingOnDigestMismatch(t *testing.T) {
 
 func TestZCodeWindowsInstallVerifiesAuthenticodeBeforeStarting(t *testing.T) {
 	payload := []byte("ZCode Windows installer")
-	feedURL := ZCodeFeedBase + "win/x64/latest.yml"
+	feedURL := zcodeTestFeedURL(t, "windows", "x64")
 	exeURL := "https://" + ZCodeUpdateHost + "/zcode/electron/releases/3.7.5/windows-x64/ZCode-3.7.5-win-x64.exe"
 	feed := fmt.Appendf(nil, "version: 3.7.5\nfiles:\n  - url: %s\n    sha512: %s\n    size: %d\npath: %s\n",
 		exeURL, zcodeDigest(payload), len(payload), exeURL)
@@ -230,7 +313,7 @@ func TestZCodeWindowsInstallVerifiesAuthenticodeBeforeStarting(t *testing.T) {
 // the feed proves integrity, the signature proves origin.
 func TestZCodeWindowsInstallRejectsUnexpectedPublisher(t *testing.T) {
 	payload := []byte("ZCode Windows installer")
-	feedURL := ZCodeFeedBase + "win/x64/latest.yml"
+	feedURL := zcodeTestFeedURL(t, "windows", "x64")
 	exeURL := "https://" + ZCodeUpdateHost + "/a/ZCode.exe"
 	feed := fmt.Appendf(nil, "version: 3.7.5\nfiles:\n  - url: %s\n    sha512: %s\n    size: %d\n", exeURL, zcodeDigest(payload), len(payload))
 	downloader := &routeDownloader{routes: map[string][]byte{feedURL: feed, exeURL: payload}}
