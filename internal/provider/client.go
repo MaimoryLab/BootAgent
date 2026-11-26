@@ -23,6 +23,8 @@ const (
 	defaultTimeout    = 10 * time.Second
 	defaultMaxBody    = 1 << 20
 	unsupportedStatus = 0
+	// A reasoning model spends output tokens thinking before it writes; below that, some gateways answer 502 instead of an incomplete response.
+	responsesProbeBudget = 256
 )
 
 // HTTPDoer is deliberately smaller than *http.Client so tests and callers can
@@ -561,7 +563,7 @@ func protocolRequest(ctx context.Context, protocol, providerID, customBase, apiK
 		v1 := OpenAIBaseURL(base)
 		if protocol == ProtocolResponses {
 			endpoint = v1 + "/responses"
-			body = map[string]any{"model": model, "input": "ping", "max_output_tokens": 16}
+			body = map[string]any{"model": model, "input": "ping", "max_output_tokens": responsesProbeBudget}
 		} else {
 			endpoint = v1 + "/chat/completions"
 			body = map[string]any{
