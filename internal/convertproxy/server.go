@@ -105,15 +105,21 @@ func (s *Server) SetConfig(cfg Config) error {
 	defer s.lifecycleMu.Unlock()
 
 	s.mu.Lock()
+	// Settings that keep the address are swapped in place. Restarting the
+	// listener would wait on, and then cut, whatever an Agent is streaming, for
+	// a change that every request reads from the configuration anyway.
+	if cfg.Enabled && s.http != nil && s.cfg.Listen == cfg.Listen {
+		s.cfg = cfg
+		s.mu.Unlock()
+		return nil
+	}
 	old := s.http
 	oldListener := s.listener
 	s.http = nil
 	s.listener = nil
 	s.mu.Unlock()
 	if old != nil {
-		if err := shutdownHTTPServer(old); err != nil {
-			return err
-		}
+		stopHTTPServer(old)
 	}
 	if oldListener != nil {
 		_ = oldListener.Close()
@@ -158,17 +164,26 @@ func (s *Server) Close() error {
 		}
 		return nil
 	}
-	err := shutdownHTTPServer(server)
+	stopHTTPServer(server)
 	if listener != nil {
 		_ = listener.Close()
 	}
-	return err
+	return nil
 }
 
-func shutdownHTTPServer(server *http.Server) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+// shutdownGrace is how long open responses get to finish before they are closed.
+var shutdownGrace = 5 * time.Second
+
+// stopHTTPServer lets open responses finish for a moment and then closes them.
+// A stream an Agent is still reading must not keep the adapter from stopping
+// or from moving to another address: waiting on it used to fail the change and
+// leave the listener closed with the settings still saying it ran.
+func stopHTTPServer(server *http.Server) {
+	ctx, cancel := context.WithTimeout(context.Background(), shutdownGrace)
 	defer cancel()
-	return server.Shutdown(ctx)
+	if err := server.Shutdown(ctx); err != nil {
+		_ = server.Close()
+	}
 }
 func (s *Server) handle(w http.ResponseWriter, r *http.Request) {
 	s.mu.RLock()

@@ -8,7 +8,9 @@ import { DownloadProgress } from "../components/DownloadProgress";
 import { LogDisclosure } from "../components/LogDisclosure";
 import { PageScaffold } from "../components/PageScaffold";
 import { useI18n } from "../i18n";
+import { offerAutostart } from "../state/applyConversion";
 import { desktopProtocol, profileAgentIdForDesktop, selectedDesktopApp } from "../state/desktopSetup";
+import { useFeedback } from "../state/FeedbackContext";
 import { installTaskRoute, taskCanceller, taskKey, useTaskCenter, useTaskRoute, type TaskCanceller } from "../state/TaskCenterContext";
 import { useWizard } from "../state/WizardContext";
 import type { AgentInstallResult, InstallRequest, InstallResponse } from "../types/api";
@@ -118,6 +120,14 @@ export function ActivationPage() {
       next: next.join("\n"),
     };
   }, [refreshStatus, requestFor, state.model, state.profileId, state.profileLabel, state.provider, t]);
+
+  // An Agent set up through compatibility mode only works while BootAgent
+  // runs, which is worth one question once it has actually been configured.
+  const reportFailure = useFeedback().failure;
+  const offerAutostartFor = useCallback((results: AgentInstallResult[]) => {
+    if (!state.conversion || !results.some((result) => result.status === "configured")) return;
+    void offerAutostart(t, (error) => reportFailure(error, t("无法保存开机自启动设置"), { key: "autostart" }));
+  }, [reportFailure, state.conversion, t]);
 
   const startActivationTasks = useCallback((agentIds: string[]) => {
     const officialScriptAgents = new Set(
@@ -281,12 +291,13 @@ export function ActivationPage() {
       if (response.ok || response.results.some((result) => result.status !== "failed" && result.status !== "skipped")) {
         await refreshStatus();
       }
+      offerAutostartFor(response.results);
     } catch (error) {
       const message = isCancellationError(error) ? t("已取消") : describeFailure(error, t("激活失败"), t).message;
       finishActivationTasks(startedTasks, [], false, message);
       dispatch({ type: "ACTIVATION_FAILED", message });
     }
-  }, [dispatch, finishActivationTasks, installCliWithConversion, installDesktop, isDesktop, navigate, refreshStatus, registerActivationCanceller, requestFor, startActivationTasks, state.conversion, state.selectedAgentIds, t]);
+  }, [dispatch, finishActivationTasks, installCliWithConversion, installDesktop, isDesktop, navigate, offerAutostartFor, refreshStatus, registerActivationCanceller, requestFor, startActivationTasks, state.conversion, state.selectedAgentIds, t]);
 
   useEffect(
     () =>
@@ -384,6 +395,7 @@ export function ActivationPage() {
       if (response.ok) {
         await refreshStatus();
       }
+      offerAutostartFor(response.results);
     } catch (error) {
       const message = isCancellationError(error) ? t("已取消") : describeFailure(error, t("重试失败"), t).message;
       finishActivationTasks(startedTasks, [], false, message);

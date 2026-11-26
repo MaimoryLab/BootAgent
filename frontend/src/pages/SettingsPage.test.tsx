@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { api } from "../backend/api";
 import { BootAgentApiError } from "../backend/errors";
@@ -12,8 +12,32 @@ import { SettingsPage } from "./SettingsPage";
 const show = () =>
   render(<ThemeProvider><FeedbackProvider><MemoryRouter initialEntries={["/settings"]}><Routes><Route path="/settings" element={<SettingsPage />} /><Route path="/settings/transfer" element={<h1>transfer child</h1>} /></Routes></MemoryRouter></FeedbackProvider></ThemeProvider>);
 
+// The compatibility mode rows read the Agents using it from the shared status.
+vi.mock("../state/WizardContext", () => ({
+  useWizard: () => ({ state: { status: null }, refreshStatus: vi.fn() }),
+}));
+
 describe("SettingsPage", () => {
+  beforeEach(() => {
+    vi.spyOn(api, "getConversion").mockResolvedValue({
+      enabled: false,
+      listen: "127.0.0.1:8787",
+      has_api_key: false,
+      target_profile: "",
+      routes: {},
+      anthropic_model: "claude-sonnet-5",
+      responses_model: "gpt-5.6-sol",
+      chat_model: "gpt-5.6-sol",
+    });
+  });
   afterEach(() => vi.restoreAllMocks());
+
+  // Compatibility mode has no page of its own; what can be set by hand is here.
+  it("holds compatibility mode as a setting", async () => {
+    show();
+    expect(await screen.findByRole("switch", { name: "兼容模式" })).not.toBeChecked();
+    expect(await screen.findByText("高级设置")).toBeTruthy();
+  });
 
   it("contains appearance and download settings and opens the transfer child page", async () => {
     vi.spyOn(api, "getSettings").mockResolvedValue({

@@ -7,7 +7,6 @@ import { InstallTaskPage } from "./pages/InstallTaskPage";
 import { AgentProfilePage } from "./pages/AgentProfilePage";
 import { AgentSelectionPage } from "./pages/AgentSelectionPage";
 import { EnvironmentOverviewPage } from "./pages/EnvironmentOverviewPage";
-import { ConversionPage } from "./pages/ConversionPage";
 import { ModelSelectionPage } from "./pages/ModelSelectionPage";
 import { MCPPage } from "./pages/MCPPage";
 import { MultimodalPage } from "./pages/MultimodalPage";
@@ -107,7 +106,8 @@ function WorkspaceRoutes() {
         <Route path="/mcp" element={<MCPPage />} />
         <Route path="/skills" element={<SkillsPage />} />
         <Route path="/multimodal" element={<MultimodalPage />} />
-        <Route path="/conversion" element={<ConversionPage />} />
+        {/* Compatibility mode used to have a page; its settings are in 设置 now. */}
+        <Route path="/conversion" element={<Navigate to="/settings" replace />} />
         <Route path="/marketplace" element={<MarketplacePage />} />
         <Route path="/marketplace/recommendations/:historyId" element={<MarketplaceRecommendationDetailPage />} />
         <Route path="/marketplace/:itemId" element={<MarketplaceDetailPage />} />
