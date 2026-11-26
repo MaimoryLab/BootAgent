@@ -15,6 +15,10 @@
   </p>
 </div>
 
+<!-- yarkr:badges:start -->
+[![Indexed on Yarkr](https://api.yarkr.com/functions/v1/api/api/v1/badges/repos/MaimoryLab/BootAgent/version.svg)](https://yarkr.com/arks/maimorylab/bootagent)
+<!-- yarkr:badges:end -->
+
 <p align="center">
   <a href="https://www.producthunt.com/products/bootagent?embed=true&amp;utm_source=badge-featured&amp;utm_medium=badge&amp;utm_campaign=badge-bootagent" target="_blank" rel="noopener noreferrer"><img alt="BootAgent on Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1225464&amp;theme=light&amp;t=1787018185057"></a>
 </p>
@@ -198,3 +202,37 @@ cd frontend && pnpm run test && pnpm run build
 </p>
 
 BootAgent is released under the [Apache License 2.0](LICENSE). Third-party notices are listed in [NOTICE](NOTICE).
+
+<!-- yarkr:install:start -->
+## Install with Yarkr
+
+This repo is indexed on [Yarkr](https://yarkr.com/arks/maimorylab/bootagent) as the ark [maimorylab/bootagent](https://yarkr.com/arks/maimorylab/bootagent), so its skills install into Claude Code, Codex, Cursor and other agent harnesses with one command.
+
+### CLI
+
+Install the whole ark, which Yarkr keeps equal to this repo:
+
+```bash
+npx yarkr-cli sync maimorylab/bootagent
+```
+
+Or add individual skills:
+
+```bash
+npx yarkr-cli add skill:maimorylab/bootagent/bootagent-image-generation
+npx yarkr-cli add skill:maimorylab/bootagent/bootagent-speech-to-text
+npx yarkr-cli add skill:maimorylab/bootagent/bootagent-text-to-speech
+```
+
+No Node.js? `curl -fsSL https://yarkr.com/install.sh | sh` (macOS, Linux) or `irm https://yarkr.com/install.ps1 | iex` (Windows PowerShell) installs `yarkr` as a standalone binary; then type `yarkr` in place of `npx yarkr-cli`.
+
+### MCP
+
+Connect your agent to the ark over MCP:
+
+```bash
+npx yarkr-cli mcp add maimorylab/bootagent
+```
+
+Or point any MCP client at `https://api.yarkr.com/functions/v1/api/mcp/o/maimorylab/bootagent`.
+<!-- yarkr:install:end -->
