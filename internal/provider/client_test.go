@@ -95,6 +95,32 @@ func TestProbeBuildsProtocolSpecificRequests(t *testing.T) {
 	}
 }
 
+// A reasoning model thinks before it writes. A gateway seen in the field
+// answered 502 "empty response" when the budget ran out during the thinking,
+// 26 tokens for "ping", so a 16-token probe failed a model that works.
+func TestResponsesProbeLeavesRoomForReasoning(t *testing.T) {
+	const reasoningTokens = 26
+	client := NewClient(fakeDoer(func(request *http.Request) (*http.Response, error) {
+		var body struct {
+			MaxOutputTokens int `json:"max_output_tokens"`
+		}
+		if err := json.NewDecoder(request.Body).Decode(&body); err != nil {
+			return nil, err
+		}
+		if body.MaxOutputTokens <= reasoningTokens {
+			return fakeResponse(http.StatusBadGateway, `{"error":{"message":"upstream returned an empty response without usable output","code":"upstream_empty_response"}}`), nil
+		}
+		return fakeResponse(http.StatusOK, `{"status":"completed"}`), nil
+	}))
+	result, err := client.Probe(context.Background(), ProtocolResponses, "custom", "key", "reasoning-model", "https://proxy.test/v1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.OK {
+		t.Fatalf("a working reasoning model was reported as failed: %#v", result)
+	}
+}
+
 func TestProbeTreatsEverySuccessfulHTTPStatusAsPassed(t *testing.T) {
 	for _, status := range []int{http.StatusOK, http.StatusCreated, http.StatusAccepted, http.StatusNoContent, http.StatusPartialContent, 299} {
 		t.Run(http.StatusText(status), func(t *testing.T) {
